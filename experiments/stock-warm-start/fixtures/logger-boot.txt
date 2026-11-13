@@ -1,0 +1,2 @@
+cmu login: 00:00:08.000 kernel[] Note (: ) [    0.000000] Linux version 3.0.35 (synthetic bench fixture)
+cmu login: 

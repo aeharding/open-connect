@@ -1,0 +1,69 @@
+{
+  "prepared_at": "2026-11-13T12:27:39.568967+00:00",
+  "scope": "ONE STOCK warm software restart, sole operator t14, no feature/root-file changes",
+  "source_pins": {
+    "experiments/stock-warm-start/observe.py": "a262cc819e7dd7fab9094f5373981b68b0e0e7e5a0990c5f95d5e15b9c40565c",
+    "experiments/stock-warm-start/test_observer.py": "16f4e8a664d2ccdbddcbf0202762172779b7e7b84e3892cc26512d943a2bad38",
+    "experiments/stock-warm-start/check.py": "480dc172e31bf808cb27546f3a1cf8db0cf6229cd4902df5c7211208fbbfaa98",
+    "cmu_bench/session.py": "2d1835a3292726a9b06b14d4d18a7b6cea30e13d7160484a6eac043b618d2ff2"
+  },
+  "test_manifest": "experiments/stock-warm-start/checks/20261113T122412.396494Z/manifest.json",
+  "normal_reboot_route_verified": true,
+  "reboot_hex": "2f7362696e2f7265626f6f740d",
+  "command": "/sbin/reboot",
+  "arguments": [],
+  "request_limit": 1,
+  "observation_deadline_s": 180,
+  "bootloader_tx": 0,
+  "established_login_attempts": 1,
+  "firmware": "55.00.750B/cmu150_NA",
+  "normal_route": "installed BusyBox sync -> kill(1,SIGTERM15); actual vendor init caught handler selects RESTART/RB_AUTOBOOT, stock watchdog-disable/sync/SIGKILL/sync/reverse-unmount-or-RO/conditional resetGPIO/fallbackreboot. Intrinsic sequence in scope per coordinator; direct/bypass/force/no-sync excluded.",
+  "camera": {
+    "index": 0,
+    "name": "USB Camera VID:1133 PID:2085",
+    "container": "Matroska/MJPEG",
+    "requested_fps": 5,
+    "preflight_decoded_frames": 51,
+    "preflight_pts_span_s": 10.056,
+    "preflight_actual_interval_fps": 4.972155926809865,
+    "configured_cap_s": 185,
+    "limit": "container headerduration185 is configured cap; use decoded first/last PTS and actual_interval_fps, not frames/headerduration; actual stop INT thenTERM/reaped255 recorded"
+  },
+  "stop_criteria": [
+    "not fresh root55/O+physicalRO before request",
+    "camera firstframe not ready",
+    "uncertain TX/no retry",
+    "second kernel/bootloader generation",
+    "unexpected/duplicate/auth-failed/continuation prompts; no credential retry",
+    "180s no readiness",
+    "postboot identity/O+attributes/rootRO/newbootid/loweruptime mismatch",
+    "invalid decoded camera evidence"
+  ],
+  "postflight": "after observer closes port, t14 owns bounded retained journal/O/C read-only persistence check; no old staged warm/restore execution",
+  "evidence": {
+    "experiments/stock-warm-start/checks/20261113T122412.396494Z/manifest.json": {
+      "bytes": 740,
+      "sha256": "c1788907964b3afadaa587094c4ad904380e2f4f3aee102dc67f9c0f2a7956f9"
+    },
+    "runs/20261113T062540-0600-t14-stock-video-corrected/camera-result.json": {
+      "bytes": 5490,
+      "sha256": "a53bb4686fb16f9cdd1884dbc18a77ab4e64b0a52d200a8f1e7f70d56929c829"
+    },
+    "runs/20261113T062540-0600-t14-stock-video-corrected/manifest.json": {
+      "bytes": 2452,
+      "sha256": "903fdc1bf372e1baf0792803990e9aa2f2c8fb469fda93e3704c15f6177729a9"
+    },
+    "runs/20261113T060719-0600-t14-init-route/busybox-static/dispatch-finding.json": {
+      "bytes": 1257,
+      "sha256": "58bc6897a0b04971acf38afe03dfe480e81383da1ad01c4f2421a60fe28134c0"
+    },
+    "runs/20261113-t13-init-cmu-static/handler-finding.json": {
+      "bytes": 4405,
+      "sha256": "9caff1af3c990ac98e4619e02ed89b278b16cc3402b82f2e7dc1601c725afa12"
+    },
+    "runs/20261113T060719-0600-t14-init-route/batch2-result.json": {
+      "bytes": 521,
+      "sha256": "d74a1a42c6eaeea98ab331f0b77e00bec5340c07d9c240185e301ac6f9765dde"
+    }
+  }
+}

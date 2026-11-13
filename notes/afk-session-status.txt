@@ -64,29 +64,32 @@ notes/recovery-verify-readonly-observation.txt and
 experiments/disclaimer-recovery-inspection/result.txt.
 Only generated VERIFY payload staged/executed; restore template remains host-tested
 preparation only, no actual C restoration, remount or sync by this inspection.
-ACTIVE t12+t14 with t13 source support: ONE STOCK WARM SOFTWARE RESTART baseline
-from confirmed original O +rootRO, bounded UART/video observation, one deliberate
-new-prompt-gated established login and fresh identity/uptime/original/RO/persistence.
-Relevant checked observer + normal reboot route must be established first. No
-extra routine coordinator gate, but ambiguity/non-stock state stops before request.
-Current actual preflight: source O9457/physicalRO and uptime16080.94 verified.
-PID1 resolves /sbin/init_cmu135288B, distinct from BusyBox703709B; no inittab.
-Normal non-force dispatch/vendor handler remains unresolved, so NO reboot issued.
-t12 owns narrow read-only route resolution with t13 source support/t14 operator:
-up to2 text batches<=64KiB, exact private init_cmu binary and only-if-needed
-BusyBox capture<=1MiB aggregate. No broad source hunt, signals or alternate route.
-Normal-baseline authority is conditional on supported route; ambiguity stops.
-Observer latest7-check profile120932.023304Z includes real-Session constructor
-cap regression; old8MiB front-door mismatch fixed to4MiB, no core changes.
-One normal no-flags reboot only; no force/no-sync/poweroff/halt/relay/firmware or
-feature-file changes. RX-only through bootloader, no login guesses/retries, no
-automatic repeated reboot. Observe up to180s and preserve unknown/loop/no-readiness.
-Read-only reboothelp/PID1 identity+shutdown evidence preflight authorized; do not
-execute init/telinit for discovery. Actual normal stock restart is conditional
-within this complete task; patched startup/mutating recovery remain unqueued.
-Warm CMU backups/journal retained; tmpfs delivery files may normally vanish on boot,
-their exact Mac bytes/hash provenance already preserved. Persistence is measured.
-No visible disclaimer/cold ACC/CarPlay/crash-powerloss/USB recovery proof yet.
+ONE STOCK WARM SOFTWARE RESTART BASELINE RECONCILED PASS: exactly1 reboot+1
+known login. Original executed observer8 ended UNKNOWN after missing a logger-
+prefixed/interleaved kernel banner; zero credential TX during that capture.
+Saved MKV918 frames shows WARNING then home; separate new-live-prompt login +
+readonly postflight confirms root55/NA, changedbootID, uptime17902.22->585.89s,
+originalO94058B/MD5CRC/checkedmetadata/inode9457, physicalrootRO, retained O/C/
+journal hashes+metadata+IDs50/51/53 dir49 persisted. Freshafterhome and handlesclosed.
+Original UNKNOWN/eight-profile immutable; corrected parser8 offline-only/replay,
+no repeat reboot or automated-ready success fabricated.
+Actual warning visible in22 consecutive source frames: onset after31.844/by32.045,
+last visible36.268/absentby36.469 VIDEO PTS; duration4.223–4.625s including fade,
+boundary gaps0.201s. No exact reboot-latency/no-flash/source3500ms inference.
+Sources: notes/stock-warm-restart-observation.txt,
+notes/stock-warning-visual-baseline.txt, experiments/stock-warm-start/result.txt.
+Normal actual route established: BusyBox noflags sync->kill(1,15), live caught
+vendor init_cmu handler RESTART; stock sync/SIGKILL/sync/unmount-orRO/internalreset,
+not upstream gracefulTERM. Full binaries/slices private; no directGPIO/signal used.
+ACTIVE t12: prepare first modified-disclaimer startup trial with independently
+invocable retained recovery code BEFORE any feature boot. Reuse frozen feature,
+strict journal, proven rootRW/RO and corrected observer; no new public schema.
+t14 may run ONE checked full-size ISOLATEDdata_persist known-C->O fresh-process
+copy recovery rehearsal in a freshownednonce dir, with strict evidence/cleanup.
+NO new actual/jciwrite/remount/sync/reboot or live-rootRESTORE authority yet;
+root reviews concrete combined apply/boot/undo boundary after copy evidence.
+t13 completed concise normalroute/baseline/visual index/context update.
+No cold ACC/CarPlay, crash-powerloss/USB recovery or modified-feature startup proof.
 t14 remains sole UART/camera owner; reconcile existing trial state before repeats.
 t13: resource interpretation + retrospective comparison COMPLETE; external research
 started after freeze. Miatafy ScreenTune public behavior compared; disclaimer

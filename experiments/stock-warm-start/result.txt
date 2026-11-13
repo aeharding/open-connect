@@ -1,0 +1,46 @@
+ONE STOCK SOFTWARE RESTART BASELINE — RECONCILED PASS
+November13 2026; sole operator t14. ExactlyONEreboot andONEknownrootlogin.
+
+Fresh root55.00.750B/cmu150_NA, changedboot_id and uptime17902.22->585.89s
+established the intervening restart. Active AS-FOUND systemApp.js remains94058B,
+MD5584c67f7186ada6bae9aae1be59b5cd0/POSIXCRC376717896,0755/UID1018/GID3015/
+mtime1433953097/nlink1. Actualinode9457 was measured, not enforced postboot.
+Physical /dev/ffx01p1 / relfs ro,noatime. Retained original/candidate/journal
+sizeMD5CRC and metadata passed; measured fileIDs50/51/53 and directory49 intact.
+
+Primary actual result:
+  runs/20261113T062829-0600-t14-stock-warm-baseline/reconciled-result.json
+  access/ and postboot-verification/ in same run record ONEunused-login completion.
+Visible restart: home before, Mazda logoPTS10-25s, stockWARNING/IAgree at35.263s,
+home by40.291s and at180s. Sampled frames do not measure exactwarningduration.
+Video918decodedframes, PTS0..184.894, intervalFPS4.9596, ffprobe0; actualffmpeg255/
+SIGINT/reaped retained. Header185s is configuredcap, not actualPTSspan/FPS basis.
+
+Original automated observer remains UNKNOWN
+Executed checked8/profile never changed during capture. Its strictkernelregex
+missed a logger-prefixed/interleavedlogin kernelrecord; it sentNOcredentials,
+preserved unknown_after_request at180s and closedUART. Prebootidentity was not
+misrepresented as current. Independent one-login reconciliation completed above;
+no second reboot, force, signal, alternatecommand, parser edit during run or retry.
+  observer/manifest.json and tooling-observer-result.json preserve that failure.
+
+Executed source authority (original8):
+  checks/20261113T122412.396494Z/manifest.json and its exact source copies.
+  ready.json; byte-identical profiles/executed-8-ready.json.
+Current boot-only correction is SEPARATE REVIEW-ONLY, no live/reboot authority:
+  corrected-review.json; checks/20261113T123817.721133Z/manifest.json.
+Eight relevant selected checks pass, including fragmented numeric/logger prefixes,
+never reusing pre-kernel interleavedlogin and refusingecho/lookalike/loops/authretry.
+Private originalRX replay recognizesONEkernel withzeroTX/hardware; it laterrefuses
+repeatedlogin in the receive-only record. Replay is not automatedlive/access proof.
+  tooling-corrected-parser-replay.json in the originalrun parent; originalsunchanged.
+
+Normal route derives from EXACT installed binaries/livePID1mask: compiledBusyBox
+noflags sync->kill1SIGTERM15; vendor handler selectsRESTART then watchdog-disable,
+sync/SIGKILL/sync, reverse-unmount-or-RO, ffxblkremoval, conditionalResetGPIO and
+fallbackreboot. Intrinsicstock behavior was included by coordinator. No upstream
+SHUTDOWN/TERM-grace attribution. Fullbinary/source/disassembly stay privateignored.
+
+This single WARM software-initiated stock baseline proves neither coldACC/powerloss,
+crashdurability/restore, patchedstartup/no-flash, upgrade, USB recovery nor product
+installer policy. Frozen disclaimer and coretransport remain unchanged.

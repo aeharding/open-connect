@@ -1,0 +1,22 @@
+{
+  "scope": "offline synthetic transitions only; no camera/UART/reboot",
+  "returncode": 0,
+  "sources": {
+    "experiments/stock-warm-start/observe.py": {
+      "bytes": 17831,
+      "sha256": "a262cc819e7dd7fab9094f5373981b68b0e0e7e5a0990c5f95d5e15b9c40565c"
+    },
+    "experiments/stock-warm-start/test_observer.py": {
+      "bytes": 8681,
+      "sha256": "16f4e8a664d2ccdbddcbf0202762172779b7e7b84e3892cc26512d943a2bad38"
+    },
+    "experiments/stock-warm-start/check.py": {
+      "bytes": 1279,
+      "sha256": "480dc172e31bf808cb27546f3a1cf8db0cf6229cd4902df5c7211208fbbfaa98"
+    },
+    "cmu_bench/session.py": {
+      "bytes": 21713,
+      "sha256": "2d1835a3292726a9b06b14d4d18a7b6cea30e13d7160484a6eac043b618d2ff2"
+    }
+  }
+}

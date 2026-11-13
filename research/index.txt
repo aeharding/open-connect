@@ -4,8 +4,9 @@ Derived catalog; raw originals stay local/unchanged. Mutable context is qualifie
 67 facts/claims; 13 hypotheses (8 open, 5 resolved in observed scope); 17 decisions; 7 saved sources (one new primary-project collection).
 Search index.tsv by ID/topic/firmware/path; records retain scope and limits.
 Read context/SUMMARY.txt for handoff, constraints and physical-reference conflicts.
-Latest: actual warm O->C->O PASS; AS-FOUND original active, sourceinode9457, physicalRelFSRO.
-Bothsync0, afterhome/freshroot55; startup/powerloss/USB recovery remain untested.
+Latest: ONE stock warm restart reconciled PASS; root55/home/newbootid/loweruptime.
+AS-FOUND O9457/physicalRelFSRO and retained O/C/journal persisted; original observerUNKNOWN retained.
+WARNING sampled visibility4.223-4.625s including fade; modified startup/powerloss/USB recovery untested.
 Browser timed return FAILED; later recovery separate. No more browser navigation.
 Shipping-window readiness: ../notes/firmware-readiness.txt; planned v73 exact package/path OPEN.
 Schema and update rules: SCHEMA.txt. Final preservation report: ../notes/research-preservation-result.txt.
@@ -265,3 +266,17 @@ Retained original/candidate/journal+tmpfspayload; historical one-shot package un
 V1 prebodygrep refusal/data staging/qualified8-review are supporting context only.
 No startup/no-flash, fullmetadata, crash/powerloss or USB/productrecovery guarantee.
 Private compact proof: runs/20261113T051316-0600-t14-warm-real-roundtrip-v2/compact-result.json.
+
+NORMAL ROUTE / ONE STOCK WARM RESTART / VISUAL BASELINE (67 facts/claims unchanged)
+../notes/vendor-init-reboot-route.txt and normal-software-restart-semantics.txt:
+actual compiled BusyBox sync->PID1SIGTERM; caught vendor handler selects restart.
+Internal watchdog/reset belongs to stock route; upstream BusyBox-init grace not assumed.
+../notes/stock-warm-restart-observation.txt: exactlyONE reboot/ONE later login,
+newbootid/loweruptime/freshroot55/home; O9457+checkedmetadata/physicalRO, retainedO/C/journal persisted.
+Original automated observerUNKNOWN stays unchanged: logger/interleaved prefix
+defeated anchored boot parser; later access/checks establish separate reconciliation.
+../notes/stock-warning-visual-baseline.txt: all22 samples159..180 WARNING inclfade,
+onset31.844..32.045s/end36.268..36.469s VIDEO PTS; duration4.223..4.625s.
+Actual boundarygaps0.201s; no source-timeout/headerFPS or exact reboot-latency inference.
+No candidate-active startup, cold ACC, crash/powerloss, no-flash or USB recovery proof.
+Private reconciled proof and original-video/frame pointers are in the concise notes.

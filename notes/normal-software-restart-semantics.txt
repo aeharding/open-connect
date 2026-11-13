@@ -1,0 +1,57 @@
+NORMAL STOCK SOFTWARE RESTART — SOURCE GUIDANCE, November13 2026; t13
+Status: joint compiled-dispatch/vendor-handler route now QUALIFIED; no reboot
+performed/proved by research. See notes/vendor-init-reboot-route.txt.
+Scope remains ONE conditional normal warm restart, not force/cold ACC/power loss.
+No device access or restart by research; no restart has been established.
+
+COMMAND / FLAGS
+Use the verified stock BusyBox reboot applet with NO flags; proposed explicit form
+is /bin/busybox reboot if actual PID1/path/help evidence agrees.
+halt.c130-167: without-n the applet calls sync(), then without-f follows init:
+BusyBox-init build normally signals PID1 SIGTERM; configured INITRD may try linuxrc
+first, while non-BusyBox-init builds can call configured telinit6.
+-f directly calls reboot(RB_AUTOBOOT), bypassing init's normal path.
+-n skips the applet's INITIAL sync; normal init may still sync later.
+Neither flag, halt/poweroff, direct PID/service signals or fallback retries is in scope.
+
+NOMINAL BUSYBOX PID1 ROUTE
+init.c1065-1073 installs SIGTERM as reboot handling. Lines718-736,775-803 run
+SHUTDOWN actions first, then system TERM/sync, a1s interval, KILL/sync and the
+kernel reboot request. Internal shutdown termination is part of this normal route,
+not proof that every vendor service shuts down cleanly. Shutdown hooks can wait.
+Use the stock applet rather than manually reproducing signals or telinit calls.
+
+READINESS / OBSERVATION BOUNDARY
+Actual PID1 implementation/link identity and reboot help are the concrete check
+against an incompatible route. A process name alone is not binary identity.
+Exact vendor build/source authenticity is not required for ordinary bench observation;
+vendor patches/config/hooks remain unknown. No concrete incompatibility found from
+nominal source alone. Path/help disagreement would need a concrete disposition.
+Command return0 can mean request accepted; missing END during teardown is not a
+reason to retry/force. Receive-only shutdown/boot, new uptime/UI and ONE established
+prompt-gated login must establish the actual result. Source cannot establish reboot.
+No claim covers cold hardware reset, wirelessCarPlay readiness or recovery/durability.
+
+SAVED OFFICIAL SOURCE
+BusyBox1.19.2 archive SHAea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9.
+init/halt.c SHAc8523e4e1e23ad14410a7f28652ec475cf7cfded89ab87ca91a3bb5619a3d88f;
+init/init.c SHAd904c6c870b1199226aed04b780c16004676395fc3026c2b92b9b96f99c27082.
+Original archive remains ignored at research/sources/snapshots/20261113T044437Z/
+busybox-1.19.2/ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9/.
+Only saved archive/source read; no source hunt, tests, catalog or historical-plan edit.
+EARLIER PREFLIGHT / GAP THEN RESOLVED
+runs/20261113T055807-0600-t14-stock-reboot-preflight/route-output.txt
+SHA256: 68abf2ec5172580bcdb774a7b1a4be88600301ae99f307ef13c67bd09ec4c88a
+Actual /sbin/reboot -> /bin/busybox; help advertises the expected no-flags route.
+But PID1 /proc/1/exe -> /sbin/init_cmu,135288B, distinct from BusyBox703709B;
+ /sbin/init -> init_target -> init_cmu. PID1 comm/argv 'init' hid that distinction.
+/etc/inittab was absent. Absence alone is not incompatibility proof.
+Existing notes/context/index contain no saved vendor-init implementation/usage
+evidence resolving this. BusyBox init.c SHUTDOWN/SIGTERM handling must NOT be
+assumed for init_cmu. Build-selected non-force dispatch and vendor handler were initially unestablished,
+not a proved failure; subsequent exact-binary analysis resolved that concrete gap.
+No-flags stock utility is intended to go through init per actual help, but that
+does not identify this vendor route. Exact compiled BusyBox sync->PID1 SIGTERM and vendor restart-handler selection,
+plus current caught/not-ignored/not-blocked SIGTERM, now support the normal route.
+t6 classified stock internal watchdog/reset as within scope. No direct substitutes;
+actual one-reboot observation/readiness belongs to t6/t12/t14, not source inference.

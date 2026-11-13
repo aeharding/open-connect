@@ -3,7 +3,34 @@ Updated November13 2026; coordinator t6, sole hardware owner t14, researcher t13
 Entry: research/index.txt/index.tsv. Originals stay local; facts retain paths/hashes.
 
 LATEST KNOWN STATE / OUTCOME
-ACTUAL WARM REAL-FILE MILESTONE: explicit V2 entry ran the frozen body ONCE,
+ONE STOCK WARM RESTART RECONCILED PASS, 2026-11-13: exactlyONE ordinary
+/sbin/reboot request without flags andONE established prompt-gated root login.
+Fresh root55.00.750B/cmu150_NA, changed bootID, uptime17902.22->585.89s;
+Communication home freshly observed. Uptime measured later, not reboot latency.
+AS-FOUND original current identity remains64785:9457:1433953097:94058:755:1018:3015:1,
+size/MD5/POSIXCRC+checkedmetadata verified; physical /dev/ffx01p1 / relfs ro,noatime.
+Retained data_persist original50/candidate51/journal53 and dir49 persisted with
+verified bytes/metadata. Tmpfs delivery survival was NOT queried; old one-shot
+payloads must not be replayed. All operator UART/camera helpers closed, soleowner idle.
+Original automated observer remains UNKNOWN at180s: logger/interleaved prefix
+defeated anchored boot parsing. Later fresh access/postboot checks reconcile the
+baseline independently; pre-reboot identity was not reused as postboot identity.
+Source: notes/stock-warm-restart-observation.txt and
+runs/20261113T062829-0600-t14-stock-warm-baseline/reconciled-result.json.
+Route: actual compiled BusyBox sync->PID1SIGTERM; caught vendor init_cmu handler
+selects restart and performs internal watchdog/reset, sync/KILL/sync and reverse
+unmount-orRO attempts. Source alone did not prove completion/each flush; upstream
+BusyBox-init graceful SHUTDOWN/TERM semantics do not apply to this vendor handler.
+See notes/vendor-init-reboot-route.txt and normal-software-restart-semantics.txt.
+Visual stock WARNING:22 consecutive samples159..180 inclfade, onset after31.844/
+by32.045s, disappearance after36.268/by36.469s VIDEO PTS; conservative visibility
+duration4.223-4.625s, boundarygaps0.201s. See notes/stock-warning-visual-baseline.txt.
+Approx5FPS/crop/exposure/clockalignment limit precision; no sub-frame/no-flash claim.
+This is stock WARM restart/persistence, not candidate-active startup, cold ACC,
+crash/powerloss durability or USB/product recovery. Next PREP for modified startup
+is separate; no new live candidate/reboot or mutating restore authority follows.
+
+EARLIER ACTUAL WARM REAL-FILE MILESTONE: explicit V2 entry ran the frozen body ONCE,
 12.155s, ORIGINAL -> CANDIDATE -> ORIGINAL. Original94058B restored by cmp/MD5/
 POSIXCRC/count;0755/UID1018/GID3015/mtime1433953097/nlink1 checked.
 CURRENT main source identity:
@@ -15,18 +42,19 @@ Paired RO request0 AND exact physical /dev/ffx01p1 / relfs ro,noatime check0;
 the separate rootfs/rw pseudoentry is baseline, not an RW result.
 CoreEND0/PS1/0BEL and separate fresh root55.00.750B/cmu150_NA END0; operator
 reported after Communication home/no dialog, capture requested0.360s after coreend.
-Task Mac helpers/ports/camera closed. Original/candidate/journal and staged tmpfs
-payload retained for review, not cleaned. Immutable one-shot warm package remains
+At warm-trial finish Mac helpers/ports/camera closed; original/candidate/journal
+and staged tmpfs payload were retained for review, not cleaned. Immutable one-shot warm package remains
 historical: no replay or old1606 guard reuse implied.
 This is normal warm file mechanics/checked-metadata proof, NOT authenticated
 factory source, startup/no-flash/ACL/xattr/fullmetadata, crash/power-loss durability,
-or USB/product recovery. No reload/reboot/feature behavior was tested.
+or USB/product recovery. That file trial tested no reload/reboot/feature behavior;
+the separate later STOCK restart is recorded above.
 Source: notes/warm-real-file-roundtrip-observation.txt and
 runs/20261113T051316-0600-t14-warm-real-roundtrip-v2/compact-result.json.
 Supporting context only: data-stage proof, immutable prebody grep-x refusal,
 qualified8-check boundary review. V1 did not execute the body; V2 had new authority.
-Next t12 prototype is default-readonly journal inspection; this milestone confers
-no real restore/reboot/new install authority.
+This historical file milestone itself confers no real restore/reboot/new install
+authority; later separately authorized stock restart is recorded above.
 
 EARLIER UI/BROWSER CONTEXT
 Earlier UI result: ONE native BENCH STATUS overlay passed readable title/shortID, owned
@@ -70,7 +98,8 @@ No user bench interaction. Agents own bounded software operation and cleanup;
 only t14 touches UART/camera. All operations through Herdr hc; no subagents.
 Keep firmware55.00.750B, accounts, power, persistent CMU settings, networking,
 USB/SD unchanged. SM wrote report/log files during failed browser event; do not
-claim all target logs unchanged. No operator reset/service/watchdog/power action.
+claim all target logs unchanged. One later normal stock software restart was
+separately authorized/observed; no direct service/watchdog/GPIO/power bypass.
 Hub/Ethernet + USB ACC relay expected in a few days per user via t6: external
 dependency, no exact ETA or user task. "v73" is a deferred planned label; exact
 package/version/region/applicability unverified. Offline readiness checklist is saved in notes/firmware-readiness.txt (F064-F065/H013):
@@ -120,6 +149,7 @@ Private login/TX/identities/photos/config content stay out of versioned fixtures
 Dashboard publication is separate owner t6/t12; current private Page is in README.
 No more live action is implied by this handoff; preserve failed originals unchanged.
 
+HISTORICAL TASK HANDOFFS (latest state above supersedes planning language)
 NOVEMBER13 WARM-IDLE / FIRST-FEATURE HANDOFF UPDATE
 One resource collector is PARTIAL/UNKNOWN (RXcap/self-observer defect); three
 global/two complete process samples retain actual Aha/Pandora residence6.52/5.81MiB

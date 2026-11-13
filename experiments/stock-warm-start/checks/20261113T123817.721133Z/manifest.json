@@ -1,0 +1,30 @@
+{
+  "scope": "offline synthetic transitions only; no camera/UART/reboot",
+  "returncode": 0,
+  "sources": {
+    "experiments/stock-warm-start/observe.py": {
+      "bytes": 18238,
+      "sha256": "18d68f3addc60ec5deb3a22f779f83fddf44cec8b1494e44b7a659628816b1a6"
+    },
+    "experiments/stock-warm-start/test_observer.py": {
+      "bytes": 9942,
+      "sha256": "267afffeaddf42b770a5ce1b7e73176b2d1a2214a5773a730cb943b265980e16"
+    },
+    "experiments/stock-warm-start/check.py": {
+      "bytes": 1497,
+      "sha256": "53305f6abfe1e920998f98a15cc1f29beb4b99ac1ae409e1e386fd265e6d5141"
+    },
+    "cmu_bench/session.py": {
+      "bytes": 21713,
+      "sha256": "2d1835a3292726a9b06b14d4d18a7b6cea30e13d7160484a6eac043b618d2ff2"
+    },
+    "experiments/stock-warm-start/replay.py": {
+      "bytes": 2391,
+      "sha256": "5cd0f6bf0e9cdd827ef49f53db1e5248ab80212bd8aa1e037b37ad55ce1da304"
+    },
+    "experiments/stock-warm-start/fixtures/logger-boot.txt": {
+      "bytes": 117,
+      "sha256": "37a71914753930feb7d0ae8081d82da14af2f1bc1c2b89ac154b3aba01a7aafc"
+    }
+  }
+}

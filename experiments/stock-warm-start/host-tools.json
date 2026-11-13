@@ -1,0 +1,12 @@
+{
+  "checked_at": "2026-11-13",
+  "execution": "hc exec .venv/bin/python; shutil.which/importlib.find_spec/xcrun --find only",
+  "no_installs": true,
+  "strings": "/usr/bin/strings",
+  "objdump": "/usr/bin/objdump",
+  "llvm_objdump": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/llvm-objdump",
+  "lldb": "/Applications/Xcode.app/Contents/Developer/usr/bin/lldb",
+  "capstone_present": false,
+  "elftools_present": false,
+  "purpose": "bounded static analysis of exact private binary if text evidence is insufficient; never execute target binary"
+}

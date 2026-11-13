@@ -1,12 +1,12 @@
 {
   "page_id": "page_72594960d3f08191911f2944d96c7eee",
   "page_url": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
-  "visualization_reference": "![Mazda CMU Bench Dashboard](visualize:fde1_bGliZmlsZV9IMlVFTWp5WFk2LVFhb01SUktTRHNR_FileDrive_147de6d1e140819180a22e56e12476bf)",
+  "visualization_reference": "![Mazda CMU Bench Dashboard](visualize:fde1_bGliZmlsZV9qazYyX1dIWjc1RS1kYnk5SDdZWlRR_FileDrive_147de6d1e140819180a22e56e12476bf)",
   "visualization_block_id": "7d59a3d7-6ffb-486e-8366-7634ade4db68",
-  "download_reference": "library-file:fde1_bGliZmlsZV9GdG9qZ2hNSUF0YmJBSnZRcjNobzhB_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "download_reference": "library-file:fde1_bGliZmlsZV91R3prVkNWSXBFN0o5MWhyN1dPN3hn_FileDrive_147de6d1e140819180a22e56e12476bf",
   "download_block_id": "a2e95491-5ac3-421b-9473-1f02c3f040c6",
-  "html_sha256": "0a2391deec29ec7c19edb7ed022dcd2e9d3fd0f31c65d83e8db02338e53c1d4a",
-  "status_updated_at": "2026-11-13T06:07:02-06:00",
+  "html_sha256": "15507f37dda6fbbfcf8c5019360cb91e30bd4717715cfd0aebabed9bbd253e93",
+  "status_updated_at": "2026-11-13T06:58:01-06:00",
   "source": "dashboard/index.html",
   "data_source": "dashboard/status.json",
   "privacy": "private personal Page; sanitized summary",
@@ -22,5 +22,9 @@
   "host_completion_reference": "library-file:fde1_bGliZmlsZV9paEIwSmpFLU5lMVhmV0JmTjlGQnVR_FileDrive_147de6d1e140819180a22e56e12476bf",
   "copy_recovery_reference": "library-file:fde1_bGliZmlsZV9lVG9KMEw1TXJNQ2lHWXFqczRkUlhB_FileDrive_147de6d1e140819180a22e56e12476bf",
   "warm_result_reference": "library-file:fde1_bGliZmlsZV9aNk9yS0VvV25GR190YldXa1VCeWZn_FileDrive_147de6d1e140819180a22e56e12476bf",
-  "verify_result_reference": "library-file:fde1_bGliZmlsZV9VWmUtaGFfa1QzTV8zWFhwbHhwRzVn_FileDrive_147de6d1e140819180a22e56e12476bf"
+  "verify_result_reference": "library-file:fde1_bGliZmlsZV9VWmUtaGFfa1QzTV8zWFhwbHhwRzVn_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "stock_restart_reference": "library-file:fde1_bGliZmlsZV9IdVlwQm1FNGdIazVwYXdpTkljSVdR_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "stock_warning_reference": "library-file:fde1_bGliZmlsZV9GMldqajA5a1diNDNKUVRSOEF6bmdn_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "earlier_evidence_block_id": "2135a84f-cea6-47b5-80d3-6e8d5bb12683",
+  "last_page_sequence": 24
 }

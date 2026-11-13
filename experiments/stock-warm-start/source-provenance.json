@@ -1,0 +1,33 @@
+{
+  "source": "https://busybox.net/downloads/busybox-1.19.2.tar.bz2",
+  "saved_archive": "research/sources/snapshots/20261113T044437Z/busybox-1.19.2/ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9/busybox-1.19.2.tar.bz2",
+  "sha256": "ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9",
+  "reviewed_at": "2026-11-13",
+  "scope": "upstream semantics only; vendor PID1 init_cmu is distinct",
+  "members": {
+    "busybox-1.19.2/init/halt.c": {
+      "sha256": "c8523e4e1e23ad14410a7f28652ec475cf7cfded89ab87ca91a3bb5619a3d88f",
+      "sections": "130-167 initial sync and init/telinit versus force route"
+    },
+    "busybox-1.19.2/init/init.c": {
+      "sha256": "d904c6c870b1199226aed04b780c16004676395fc3026c2b92b9b96f99c27082",
+      "sections": "718-736,775-803,1065-1073 BusyBox PID1 shutdown/signal route"
+    }
+  },
+  "installed_route_evidence": {
+    "path": "runs/20261113T055807-0600-t14-stock-reboot-preflight/route-output.txt",
+    "sha256": "68abf2ec5172580bcdb774a7b1a4be88600301ae99f307ef13c67bd09ec4c88a",
+    "outcome": "concrete distinct vendor PID1; hold before reboot"
+  },
+  "resolution": {
+    "interpretation": "Actual compiled BusyBox noflags sync->kill(1,SIGTERM15); actualcaught vendorinit choosesRESTART and owns watchdog-disable/sync/SIGKILL/sync/reverse-unmount-or-RO/reset/fallback. Upstream SHUTDOWN/TERM-grace is NOT attributed to vendorPID1.",
+    "scope_classification": "coordinator includes intrinsicstock sequence in ONE ordinaryrestart, excludes direct/bypass/force/no-sync actions",
+    "evidence": {
+      "runs/20261113T060719-0600-t14-init-route/busybox-exact-result.json": "937bc2f8a299228f29f9828b2b1ec43032fc56719fe4ee090c57d1e18e1fe783",
+      "runs/20261113T060719-0600-t14-init-route/busybox-static/dispatch-finding.json": "58bc6897a0b04971acf38afe03dfe480e81383da1ad01c4f2421a60fe28134c0",
+      "runs/20261113-t13-init-cmu-static/handler-finding.json": "9caff1af3c990ac98e4619e02ed89b278b16cc3402b82f2e7dc1601c725afa12",
+      "runs/20261113T060719-0600-t14-init-route/batch2-result.json": "d74a1a42c6eaeea98ab331f0b77e00bec5340c07d9c240185e301ac6f9765dde",
+      "runs/20261113T062829-0600-t14-stock-warm-baseline/reconciled-result.json": "fc27630c1b590d28addcaf0f712cfe5cc4784994f7dbc2669f6fb02c713cd8d2"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+INSTALLED STOCK NO-FLAGS REBOOT DISPATCH — STATIC FINDING
+2026-11-13, tooling t12; no binary execution/reboot/signals by this analysis.
+
+Exact private BusyBox:703709B, MD541b96f03a7934fc927b7d523eaf4b17e,
+SHA2560bc162297dfdd6a5f70127992e95f2f82c3d317dc44e526a4562b2cb679293b2.
+Source/provenance: runs/20261113T060719-0600-t14-init-route/busybox-exact-result.json.
+ARM static analysis via already-installed Xcode llvm-objdump, no packages installed.
+Private derivatives and command/output provenance:
+  runs/20261113T060719-0600-t14-init-route/busybox-static/manifest.json
+  normal-dispatch-slice.txt, dispatch-literals.json, dispatch-finding.json (same dir).
+
+Function matching upstream halt_main starts0x89b3c. Applet's first character
+indexes hpr (literal at0xb1df1); reboot selects index2. Options at0xb1df5 are
+d:nfwi. Zero flags bypass only-record and no-sync skips, so0x89ba8 calls sync.
+The no-force path0x89bb4..0x89bc0 sets r0=1, loads signal table[index2]=15 and
+calls kill@plt. Table0x99d68 is10,12,15. Thus installed normal dispatch is
+kill(1,SIGTERM). No telinit/linuxrc dispatch appears in this compiled function.
+Separate force branch0x89bc8..0x89bd0 invokes libc reboot using magic[index2];
+it is excluded. Missing END during teardown must never trigger a retry/force.
+
+This establishes request mechanics, not runtime signal disposition, shutdown or
+restart success. t13 owns exact init_cmu SIGTERM registration/handler ordering.
+The coordinator explicitly classified intrinsic stock-handler watchdog/resetGPIO
+operations as within the ordinary reboot task; direct writes/signals/bypasses
+remain excluded. Reserved read-only batch2 checks actual SIGTERM masks/exe and
+boot_id. No additional approval gate is inferred if the joint route is supported.

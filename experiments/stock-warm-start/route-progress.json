@@ -1,0 +1,40 @@
+{
+  "updated_at": "2026-11-13",
+  "state": "baseline_reconciled_pass_offline_correction_review_only",
+  "batch1": {
+    "path": "runs/20261113T060719-0600-t14-init-route/batch1-output.txt",
+    "bytes": 3246,
+    "truncated": false,
+    "applet_init": false,
+    "applet_linuxrc": false,
+    "applet_bbconfig": false,
+    "interpretation": "Actual compiled non-force dispatch still requires binary control-flow evidence. Handler names from strings do not establish registered signals or active behavior."
+  },
+  "requested_private_exports": {
+    "init_cmu_bytes": 135288,
+    "busybox_bytes": 703709,
+    "total_bytes": 838997,
+    "rationale": "init_cmu registered handler/control flow; BusyBox compiled CALL_TELINIT choice absent embedded config"
+  },
+  "observer_frozen_pending_route": false,
+  "observer_pre_handoff_fix_required": null,
+  "observer_interface_fix": "ObserverRX4MiB matches existing Session max; actual constructor plus6 transitions pass; core unchanged.",
+  "observer_test_manifest": "experiments/stock-warm-start/checks/20261113T122412.396494Z/manifest.json",
+  "normal_dispatch": "installed BusyBox noflags sync ->kill(1,SIGTERM15), actual no compiled telinit/linuxrc branch",
+  "busybox_finding": "runs/20261113T060719-0600-t14-init-route/busybox-static/dispatch-finding.json",
+  "vendor_handler": "t13 exact init_cmu normalSIGTERM selectsRB_AUTOBOOT, stocksync/kill/unmount/reset/fallbackkernelreboot; intrinsic hardware/watchdog mechanics explicitly classified in scope by t6",
+  "live_mask": "runs/20261113T060719-0600-t14-init-route/batch2-result.json: SIGTERM caught, not ignored/blocked, same exe",
+  "one_request_command": "/sbin/reboot (no flags) plus CR",
+  "no_reboot_requested": false,
+  "observer_frozen_pending_camera": false,
+  "vendor_handler_finding": "runs/20261113-t13-init-cmu-static/handler-finding.json",
+  "vendor_handler_finding_sha256": "9caff1af3c990ac98e4619e02ed89b278b16cc3402b82f2e7dc1601c725afa12",
+  "camera_failed_attempt": "runs/20261113T061800-0600-t14-stock-video-preflight/preflight-failure.json",
+  "camera_correction": "streamable Matroska/MJPEG; explicit child signal defaults, actual stop status, decoded frames/increasing timestamps/FPS, failure finalization tested",
+  "reconciled_result": "runs/20261113T062829-0600-t14-stock-warm-baseline/reconciled-result.json",
+  "one_reboot_used": true,
+  "one_login_used": true,
+  "new_reboot_authority": false,
+  "original_automated_outcome": "unknown_after_request preserved",
+  "corrected_review_profile": "experiments/stock-warm-start/corrected-review.json"
+}

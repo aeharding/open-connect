@@ -1,3 +1,10 @@
+CURRENT LIVE DEMO — 2026-11-13T12:47:54.202913-06:00
+
+User watched native v2 bypass. Candidate is intentionally INSTALLED AND RUNNING, exact C 64785:1606:621:454142:755:1018:3015:2, fresh root55/NA, mapped C and physical root RO verified by fresh prompt login/read-only reconciliation. Independent original backup/recovery and hardlink holds retained. Run: runs/open-connect-live-demo. Initial observer UNKNOWN after Mac ENOSPC during capture; one reboot, no retry; separate demo-reconcile PASS. User reports normal demo with brief black transition. Do not claim current original. Undo is trial.py UNDO then boot.py O using OC_RUN=runs/open-connect-live-demo and the v2 profile; boot.py O expects boot-C/final.json, so bind actual demo-reconcile/final.json explicitly for that future operation without overwriting original UNKNOWN.
+
+Disk cleanup COMPLETE: 383.2 GB free. Removed discarded VMs/Android emulators, simulator runtimes/devices, rebuildable caches, Downloads contents, old wingover-pr153 checkout and quickemu. Open Connect/recovery and active Voyager workspace preserved. Detailed deletion records in runs/open-connect-live-demo/.
+
+PREVIOUS HANDOFF BELOW:
 CURRENT — Open Connect native bypass v2 complete — 2026-11-13T12:38:09-06:00
 
 Native bypass demonstrated: no Disclaimer context/visible warning in candidate warm startup. Original independently restored and rebooted; stock warning returned. Current native O64785:9457:1433953535:454142:755:1018:3015:1, loaded original, root55/NA/physicalRO. Both v2 boot observers PASS; final holds removed. JS remains original9456. Persistent recovery/backups retained; no live trial queued. Primary agent owns work; no standing subagents.

@@ -1,27 +1,27 @@
 {
   "schema_version": 1,
   "title": "Mazda Open Connect",
-  "updated_at": "2026-11-13T12:38:09-06:00",
+  "updated_at": "2026-11-13T12:48:11-06:00",
   "timezone": "America/Chicago",
   "snapshot_note": "Saved progress, not live telemetry. Candidate publication verified; root remount to read-only failed. Original-only recovery is underway.",
   "links": {
     "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
     "html_download": null
   },
-  "headline": "Native disclaimer bypass works on the bench",
-  "summary": "The native startup now goes directly to stock home without the Disclaimer context. No warning was visible in the reviewed startup video. Independent undo and a fresh original boot both passed; the stock warning returned. The bench is back on the original library with root read-only.",
+  "headline": "Native bypass running for the live demo",
+  "summary": "The user watched the native bypass boot to home. The patch remains installed and loaded, with physical root read-only; independent original recovery is retained. The earlier complete undo and stock confirmation passed. A brief black transition remains to investigate.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
-    "console": "Fresh root55 / NA; both v2 boot observers passed",
+    "console": "Fresh root55 / NA and exact loaded candidate verified after demo",
     "uart": "115200 · 8N1 · no flow control",
     "tx": "64-byte chunks · 20 ms RX gaps",
     "camera": "Last read: manual1 · exposure87 · brightness128",
     "scope": "USB + SD preserved · AUX not required",
-    "changes": "Original native library restored, loaded and verified after reboot; physical root read-only. Temporary inode holds removed; independent recovery/backups retained. GUI source stays stock.",
-    "display": "Restored-stock warning followed by Communication home",
+    "changes": "Native v2 candidate intentionally installed and loaded for the live demo. Physical root read-only; original backup, independent recovery and inode holds retained.",
+    "display": "User observed normal startup/home with a brief black transition",
     "device_state": "done",
-    "state_label": "Original restored · native bypass proven",
+    "state_label": "Native demo running · root read-only",
     "firmware_qualifier": "One exact55 warm Intro startup; other startup paths remain open"
   },
   "metrics": [
@@ -66,8 +66,8 @@
         "kind": "done",
         "title": "Mazda CMU",
         "lines": [
-          "55.00.750B · warm cycle verified",
-          "Original running / root read-only"
+          "55.00.750B · native demo running",
+          "Candidate loaded / root read-only"
         ]
       },
       {
@@ -79,8 +79,8 @@
         "kind": "done",
         "title": "Display / native UI",
         "lines": [
-          "Native bypass demonstrated",
-          "Original warning returned after undo"
+          "User watched disclaimer bypass",
+          "Brief black transition to investigate"
         ]
       },
       {
@@ -753,6 +753,10 @@
     }
   ],
   "recent": [
+    {
+      "title": "Live demo confirmed; patch left running",
+      "text": "Fresh read-only reconciliation verifies loaded candidate/rootRO. Mac ENOSPC interrupted original recorder; its UNKNOWN result is preserved. User authorized storage cleanup to300GB free."
+    },
     {
       "title": "Native warning bypass demonstrated",
       "text": "No warning in reviewed candidate startup; native log skips Disclaimer and reaches HomeScreen."

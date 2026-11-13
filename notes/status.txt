@@ -44,18 +44,20 @@ The new runner caps physical lines600 bytes; live exports max159 bytes per line.
 The old13334-byte extracted version reference remains unchanged as metadata.
 New exact copies are separate artifacts. No raw failure evidence was rewritten.
 
-CURRENT STOPPING POINT
-The paced sender passed37 offline tests and ONE live inert7093-byte calibration:
-CRC158748838/count6699, root55, actual END0+prompt,3.198s,0BEL.
-See notes/uart-calibration-acceptance.txt. Initial whole-output rejection was a
-known extra wrapper LF omitted by the fixture; original reports are preserved.
-The cause of earlier unpaced input corruption remains unproven.
-t14 retains sole UART/camera ownership IDLE; all helper/serial/camera handles
-closed. No further bench actions after the user requested a retrospective.
-t12 source/profile and t13 scoped review/catalog are saved. No background schedule.
-UI001's old driver pins intentionally remain fail-closed; integrate the accepted
-paced profile before any new child/UI test. No live UI001 cleanup/visibility pass.
-See notes/retrospective-2026-11-13.txt for the coordination changes.
+CURRENT ACTIVE WORK
+Paced UART:37 offline tests and one7KiB live calibration passed. UI driver now
+uses that profile and17 integration tests pass. One live sleep4 proof and one
+owned native dialog lifecycle passed; modal appearance/removal visible. Full
+run-ID legibility remains limited by camera glare/crop; after image+101s did not
+establish the90s camera target, while process cleanup was verified at+42s.
+No OEM browser method was invoked. Standard introspection found Navigate(URL:s)
+and browser history/reload methods. Actual running startup target is
+/jci/gui/index.html; the XML example /jci/index.html is absent.
+t14 is sole UART/camera owner. t12 owns practical reversible software-camera
+controls; t13 owns one installed browser caller/return-route trace. Teammates
+hand off directly; routine authorized steps require no coordinator approval.
+The user requested continued work. A retrospective did not cancel the objective.
+Current concise task state: notes/afk-session-status.txt.
 
 REMAINING DEPENDENCIES
 No full storage backup, atomic snapshot, restore test or independent second copy.

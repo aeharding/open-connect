@@ -7,6 +7,10 @@ unavailable physical operation as a dependency; do not assign it to the user.
 
 ## Coordination
 
+A retrospective, status question or workflow discussion does not cancel active
+authorized work. Address it, then resume unless the user explicitly pauses, stops
+or replaces the task.
+
 Working style: a hackathon with trusted teammates. Give agents complete outcome
 ownership and room to choose routine implementation details. Coordinate dependencies,
 resolve blockers and integrate results; do not act as a per-command approval gate.

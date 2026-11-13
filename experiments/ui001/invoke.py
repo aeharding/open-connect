@@ -120,11 +120,11 @@ def main(argv=None):
         print(json.dumps(dict(mode='review_only',opens_port=False,phase=a.phase,command=command,plan=plan,live_ui_authorized=False),indent=2))
         return 0
     if not a.bundle: p.error('--live requires new --bundle')
-    frozen=json.loads((ROOT/'examples/operator-ready-exception-fix.json').read_text())['source_sha256']
+    frozen=json.loads((ROOT/'examples/operator-ready-paced-tx.json').read_text())['source_sha256']
     for name,expected in frozen.items():
         if sha((ROOT/name).read_bytes())!=expected: p.error('reviewed harness changed: '+name)
     if a.phase=='ui':
-        if not a.capability_bundle: p.error('live UI requires reviewed capability bundle and separate t6 authorization')
+        if not a.capability_bundle: p.error('live UI requires the reviewed sleep4 capability bundle')
         print(json.dumps({'capability_proof':verify_capability_bundle(a.capability_bundle)}),flush=True)
     runner=runpy.run_path(str(ROOT/'scripts/cmu-session.py'))
     rc=runner['main'](['--live','--action','command','--command',command,'--deadline',str(plan['host_deadline']),

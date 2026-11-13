@@ -198,22 +198,28 @@ class WatchdogTests(unittest.TestCase):
                 def __init__(self): self.child=None; self.sent=bytearray(); self.closed=False; self.seen=bytearray()
                 def write(self,data):
                     self.sent.extend(data)
-                    wire=data.decode().removesuffix('\r')
+                    if not self.sent.endswith(b'\r'):
+                        return len(data)
+                    wire=self.sent.decode().removesuffix('\r')
                     wire=wire.replace(shlex.quote(production),shlex.quote(local),1)
                     self.child=subprocess.Popen(['/bin/sh','-c',wire],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)
                     return len(data)
                 def read(self,n):
                     if self.closed:return b''
+                    if self.child is None:
+                        time.sleep(0.001)
+                        return b''
                     if select.select([self.child.stdout],[],[],0.01)[0]:
                         data=os.read(self.child.stdout.fileno(),n); self.seen.extend(data); return data
                     return b''
                 def close(self):self.closed=True
             transport=Transport(); bundle=Bundle(root/'host-bundle','UI001 host-timeout local model','test')
-            session=Session(transport,bundle,timeout=0.08); session.state='shell';session.identity={'uid':0}
+            session=Session(transport,bundle,timeout=3.0); session.state='shell';session.identity={'uid':0}
             try:
                 with self.assertRaises(UnknownOutcome):session.execute(production)
                 transport.close(); host_closed=time.monotonic()
                 self.assertEqual(session.state,'uncertain')
+                self.assertTrue(transport.sent.endswith(b'\r'))
                 tail=transport.child.communicate(timeout=5)[0]
                 output=bytes(transport.seen)+tail
                 timer=json.loads((root/'remote-timer.json').read_text())
@@ -273,6 +279,17 @@ class WatchdogTests(unittest.TestCase):
             missing=('\n'.join(prefix+line for line in lines[1:])+'\n').encode()
             self.synthetic_bundle(folder,missing,command)
             with self.assertRaises(ValueError):invoke.verify_ui_lifecycle(folder,RUN)
+
+    def test_live_capability_accepts_current_reviewed_paced_profile(self):
+        from unittest.mock import Mock
+        runner = Mock(return_value=1)  # Delegate boundary only: no UART/bundle opened.
+        with tempfile.TemporaryDirectory() as temp:
+            with patch.object(invoke.runpy,"run_path",return_value={"main":runner}):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    rc=invoke.main(["--phase","capability","--live","--bundle",str(Path(temp)/"run")])
+        self.assertEqual(rc,1)
+        runner.assert_called_once()
+        self.assertEqual(runner.call_args.args[0][runner.call_args.args[0].index("--deadline")+1],"15")
 
     def test_review_default_does_not_load_live_runner(self):
         with patch.object(invoke.runpy,'run_path',side_effect=AssertionError('live runner loaded')):

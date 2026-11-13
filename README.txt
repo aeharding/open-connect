@@ -8,6 +8,12 @@ This bench is operated by the coordinator and its agents through Herdr hc.
 The user performs no manual bench or UI steps. Read AGENTS.md before working.
 Current status: notes/status.txt and notes/afk-session-status.txt.
 Research: research/index.txt (human entry) and research/index.tsv (catalog).
+Latest frontend result: notes/browser-navigation-finding.txt (failed browser return,
+separate recovery and stock heartbeat source; native extension lead).
+Firmware shipping-window checklist: notes/firmware-readiness.txt (exact planned
+v73 package/region/path open; stock55 unchanged).
+Native status overlay: notes/native-status-overlay-observation.txt (visible/owned
+cleanup/home+root55 PASS; crowded body retained as limitation).
 Plan: notes/interim-plan.txt; source evidence remains in ignored local storage.
 
 VERIFIED BASELINE

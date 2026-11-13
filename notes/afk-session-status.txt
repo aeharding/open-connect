@@ -18,10 +18,22 @@ every1000ms; keep stock page/framework running, don't spoof/disable the monitor.
 See notes/browser-demo-observation.txt and notes/post-browser-state-observation.txt.
 
 ACTIVE TEAM OUTCOMES
-t12: reusable short native bench-status overlay using proven owned cleanup.
-t14: one live overlay/camera/identity outcome after t12's focused handoff.
-t13: concise saved-result index, then primary-source firmware-readiness checklist.
-No per-command approval gates; stop on unexpected device state. No new Navigate.
+User-selected FIRST REAL FEATURE: startup disclaimer bypass, independent OEM-first.
+t12: trace exact captured OEM55 systemApp.js, minimal host-only patch/checks/rollback;
+freeze source/design/patch/test evidence before any third-party comparison.
+t14: sole UART/camera owner, bounded read-only OEM source acquisition only.
+t13: interpret partial warm-idle resources and preserve product direction; external
+Miatify/Miatafy comparison is PARKED until independent freeze.
+No target modification/install/remount, no online bypass code, no new Navigate.
+Native status overlay passed; it is a dev tool, not the product destination.
+The host-only installer experiment is paused while the first feature is defined.
+
+WARM-IDLE PARTIAL DATA
+Original collector hit RX cap after accidentally including its own argv; UNKNOWN
+is retained. Later finite-tail/idle reconciliation + fresh root55 were separate.
+Complete parts show Aha/Pandora resident6.52/5.81MiB RSS and0CPUticks over22.48s;
+~303MiB free of754MiB usable at~45min uptime. No cold-start/RAM-cause or reclaimable
+savings conclusion. Source notes/cold-start-resource-plan.txt.
 
 DEPENDENCIES
 USB hub/Ethernet and USB ACC relay are still shipping for a few days.

@@ -75,6 +75,23 @@
   ],
   "advertised_not_queried": [
     {
+      "bus": "service",
+      "service": "com.jci.cpp.devices.Service",
+      "path": "/com",
+      "depth": 1,
+      "advertised_by": "q10"
+    }
+  ],
+  "owner_binding": "Operator bound requests/replies to freshly resolved unique owners; private unique IDs omitted.",
+  "limits": [
+    "Original12-call batch and later2-call leaf follow-up are distinct.",
+    "Device service /com remains advertised/unqueried; empty roots imply no broader absence.",
+    "Binding does not prove safe behavior: later data Navigate rendered but timed return failed; see F061.",
+    "Raw owner/client identifiers and XML replies remain ignored/private."
+  ],
+  "initial_batch_scope": "Historical12-call namespace batch unchanged; later leaf follow-up is separate.",
+  "initial_advertised_not_queried": [
+    {
       "bus": "HMI",
       "service": "com.jci.OPERA_IHU_PRIMARY",
       "path": "/com/jci/OPERA_IHU_PRIMARY",
@@ -89,11 +106,45 @@
       "advertised_by": "q10"
     }
   ],
-  "owner_binding": "Operator bound requests/replies to freshly resolved unique owners; private unique IDs omitted.",
-  "limits": [
-    "No application interface/signature/method/input action established",
-    "An empty queried root does not prove objects/methods absent elsewhere",
-    "Advertised paths are NOT queried objects",
-    "Raw name lists, XML and client/owner identifiers remain in ignored runs."
-  ]
+  "followup": {
+    "recorded_at": "2026-11-13T07:54:16.064966+00:00",
+    "standard_calls": 2,
+    "source": {
+      "id": "ev-3b0d167c1bc6",
+      "path": "runs/20261113T004208-0600-t14-ui001-demo-record/opera-leaf.xml",
+      "sha256": "22c79cb322126c3d105ca5a48a94891c38c86c84af6b22a38b66a03c6ebb9dc7",
+      "locator": "Exported interface/signatures; XML example URI differs from actual bootstrap",
+      "availability": "Local saved artifact; read only this summary/source record, no repeated run audit"
+    },
+    "queried": [
+      {
+        "bus": "HMI",
+        "service": "com.jci.OPERA_IHU_PRIMARY",
+        "path": "/com/jci/OPERA_IHU_PRIMARY",
+        "interface": "com.jci.opera_IHU_PRIMARY",
+        "methods": {
+          "Navigate": [
+            {
+              "name": "URL",
+              "type": "s",
+              "direction": "in (spec default)"
+            }
+          ],
+          "GoBack": [],
+          "GoForward": [],
+          "Refresh": [],
+          "TerminateOpera": []
+        },
+        "signals": {
+          "ReportError": [
+            {
+              "name": "errorData",
+              "type": "s",
+              "direction": "out (spec default)"
+            }
+          ]
+        }
+      }
+    ]
+  }
 }

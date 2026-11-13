@@ -1,0 +1,76 @@
+FIRMWARE READINESS — DERIVED OFFLINE CHECKLIST, November13 2026; t13
+Scope: shipping window only. Stock55.00.750B NA/cmu150_NA remains unchanged.
+"v73" is the USER'S planned/deferred label, not a verified official package.
+No binary downloaded; no flashing, bootflag, setting, power or device action.
+
+KNOWN / PRIMARY REFERENCE
+[K1 observed] Installed55.00.750B/cmu150_NA, Linux3.0.35. NEXT_VER is separate.
+[K2 primary] Mazda2018 retrofit PDFp9/20 (Common-2) requires v70.00.21 or later
+BEFORE compatible hub installation; older software may not recognize that hub.
+[K3 primary] MazdaSA-001/19p3/9,p7-9/9 describes restoring old hub/cables when the
+new hub blocks USB updating; p9/9 explicitly says70.00.021B or later.
+These are retrofit prerequisites/recovery of USB access, not brick recovery or
+proof that every USB/SD function on stock55 fails. Keep literal version forms.
+[K4 primary scope] 2018 CSP02p4/20 covers2018Mazda6 Touring and above, excludes
+Sport. 2019SAp1/9 lists2014-19Mazda3,2016-18Mazda6,2016-19CX-3/CX-5/CX-9/MX-5,
+with2019Mazda3 base-sedan exclusions. Software flavor alone does not identify the
+bench unit's vehicle/model/part/revision or establish upgrade applicability.
+[K5 observed] relfs root/dev/ffx01p1 ro; data/dev/ffx01p4 and mmcblk0p2 rw;
+resources/mmcblk0p1 ro; config-mfg/mtdblock5 squashfs ro; FlashFX/reliance loaded.
+[K6 preservation] Only /etc/version31B and /jci/version.ini13304B are verified exact
+small transfers. No full storage acquisition, demonstrated restore or second copy.
+
+OPEN — DO NOT FILL WITH ASSUMPTIONS
+[O1] Exact intended package name/full version/region, legitimate source/hash and
+model/CMU hardware applicability. No official "v73" package established here;
+this is not evidence that none exists and does not change the user's target.
+[O2] Required intermediate versions/order from55.00.750B to that EXACT package.
+The saved retrofit PDFs do not provide that path; do not infer direct55->70/73
+or invent a31/59/70 hop from community recollection.
+[O3] Exact update procedure: supported media/hub, power-state/voltage/current,
+charger requirements, timeout/keepalive, shutdown and interruption handling.
+No procedure-specific numeric power/timing requirement was verified here.
+[O4] Which existing hub/cable supports updating on stock55. Arrival of a retrofit
+hub alone may not solve old-firmware USB recognition. Actual USB/SD remain open.
+[O5] FlashFX logical vs filesystem vs physical NAND/ECC/OOB representation,
+device-unique stores, acquisition consistency, compatible recovery tool/path.
+A generic dd image/hash is not proof of recoverability; no restore command supplied.
+
+PREPARE NOW — OFFLINE, NO DEVICE CHANGES
+- Preserve stock55 facts, exact small files, source manifests and failures.
+- Resolve O1/O2/O3 from an applicable Mazda release/procedure when available;
+retain package label unchanged until evidence identifies it. No binary retrieval.
+- Use saved map to prioritize file/device-unique preservation and estimate size/
+destination needs; keep secrets private. Existing UART small-transfer tooling is
+useful, but its theoretical1152008N1 ceiling is11520B/s before framing/overhead.
+- Prepare host-side transport/relay/capture checks and rollback questions. One7KiB
+UART calibration and known login after autonomous restart are not firmware rescue.
+- Continue useful stock-page-preserving native overlays with owned cleanup under
+the separately assigned team task. No more browser navigation/heartbeat manipulation.
+
+AFTER HUB/ETHERNET + USB ACC RELAY ARRIVE — EXTERNAL DEPENDENCIES
+- Exact adapter/hub/relay identities, compatible physical connections and usable
+USB/SD need verification. No manual wiring or bench steps assigned to the user.
+- Ethernet: actual driver/link/address/reachable authenticated SSH and measured
+goodput must be shown; loadedasix/usbnet and existing listener22 are insufficient.
+- Relay: actual channels/wiring/B+/ACC behavior, stable supply, commanded shutdown/
+rundown and observation must be established before considering any firmware task.
+Arrival is not proof of power control. Current power/settings remain unchanged.
+- Bulk preservation: choose verified destination plus independent second copy,
+sufficient space, acquisition layer/consistency and recovery validation. These
+are separate outcomes, not claims fulfilled by local Git/manifests.
+- Only after exact procedure/applicability and preservation/recovery questions
+are resolved can a separate future firmware task be made concrete; none queued.
+
+PROVENANCE / BOUNDS
+Primary PDFs: https://static.nhtsa.gov/odi/tsbs/2018/MC-10144323-9999.pdf
+SHA2560e8d022212049408e49453718806dfeb7c608faa2271e2b71e3e98f75b0b3494.
+https://static.nhtsa.gov/odi/tsbs/2019/MC-10159198-0001.pdf
+SHA2560c8996c9df0f24c117534aebfe3cbc1017c1d522f5fccae9b46be9729883a57d.
+Saved source paths/dates/sizes: research/sources/manifest.jsonl.
+Observed map: notes/afk-baseline-observation.txt (F040); preservation F017/F036-38;
+FlashFX caveats: notes/interim-baseline-plan.txt329-343, a plan not restore proof.
+Bounded discovery: research/context/firmware-readiness-provenance.json. Three Google
+responses required JS; two Bing RSS responses unrelated/no relevant primary hit.
+Original responses remain ignored; no search snippet treated as authority.
+Lookup did not establish O1/O2/O3; stop here rather than expand research.

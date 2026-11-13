@@ -1,10 +1,12 @@
 MAZDA CMU RESEARCH INDEX — canonical entry point
-Derived catalog; raw original evidence stays local and unchanged. Mutable context is qualified.
+Derived catalog; raw originals stay local/unchanged. Mutable context is qualified.
 
-54 facts/claims; 11 hypotheses (9 open, 2 resolved in observed scope); 12 decisions; 5 saved sources.
+66 facts/claims; 13 hypotheses (8 open, 5 resolved in observed scope); 17 decisions; 6 saved sources.
 Search index.tsv by ID/topic/firmware/path; records retain scope and limits.
 Read context/SUMMARY.txt for handoff, constraints and physical-reference conflicts.
-Latest: sleep4 lifecycle UNKNOWN; later root55 restored; child/UI HOLD and paced calibration unaccepted.
+Latest: native BENCH STATUS visible/cleanup/home+root55 PASS, crowded body qualified.
+Browser timed return FAILED; later recovery separate. No more browser navigation.
+Shipping-window readiness: ../notes/firmware-readiness.txt; planned v73 exact package/path OPEN.
 Schema and update rules: SCHEMA.txt. Final preservation report: ../notes/research-preservation-result.txt.
 
 CURRENT AUTHORITY AND SAFETY CONSTRAINTS
@@ -39,6 +41,11 @@ busybox-1.19.2: BusyBox1.19.2 official release source
   2168055 bytes; SHA-256 ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9
   research/sources/snapshots/20261113T044437Z/busybox-1.19.2/ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9/busybox-1.19.2.tar.bz2
   shell/ash.c interactive input, parser, top-level exception handling; libbb/lineedit.c Ctrl-C/Ctrl-D handling; miscutils/timeout.c lines63-117: detached stock watcher and exec
+dbus-introspection-specification: D-Bus primary specification: introspection argument defaults
+  https://dbus.freedesktop.org/doc/dbus-specification.html
+  339490 bytes; SHA-256 20b87d34ecfa83beb6ff8f601aae3bbcc98096cee93ee26d666f00768bd692fe
+  research/sources/snapshots/20261113T065127Z/dbus-specification/20b87d34ecfa83beb6ff8f601aae3bbcc98096cee93ee26d666f00768bd692fe.html
+  Introspection Data Format: method argument direction defaults to in; signal argument direction defaults to out
 
 FACTS AND LIMITS
 F001 [observed-in-saved-evidence] Saved inventory identifies the FTDI FT232R as VID:PID 0403:6001, serial A9048JM0; observed cu path /dev/cu.usbserial-A9048JM0.
@@ -149,8 +156,32 @@ F053 [observed-by-operator-with-host-evidence-audit] After the unknown sleep4 at
   Limit: Restored console state is separate from earlier UNKNOWN lifecycle. Post-event diagnostics are not a retry or measured before/after error-counter delta; no probe success, UI or paced-calibration acceptance. Damaged fragments executed; ephemeral parent-shell variables/traps were not fully audited. Fresh identity is not a complete environment/process inventory or child absence proof.
 F054 [observed-saved-transport-failure-evidence] The unpaced7108B task had510 BEL bytes in saved RX; the dated transport-hold note reports one host write acknowledgement in0.475ms and missing short-line echo suffixes.
   Limit: Host acknowledgement is queue acceptance, not target receipt. Exact accepted target input and cause (editor/typeahead/TTY/FIFO/vendor) remain unproven. A paced64B/20ms candidate is planned separately, not accepted.
+F055 [observed-by-operator-and-coordinator] One paced7093B inert calibration completed CRC158748838/count6699, TXCALEND0/coreEND0+prompt,0BEL in3.198s; coordinator accepted it after identifying one wrapper-separator LF as the original comparison-fixture defect.
+  Limit: Bounded transport acceptance only; original rejected comparison remains unchanged. No general UART reliability or old failure root-cause proof.
+F056 [observed-by-operator] A later paced sleep4 capability run matched owned identity and completed TERM0/wait143/cleanup0.
+  Limit: This new completed attempt does not resolve what executed in the earlier unpaced UNKNOWN attempt; different dated profile/transport.
+F057 [observed-by-operator-and-coordinator] One native modal demo matched complete owned child identity before TERM0, wait143, verified cleanup0, wrapper0 and coreEND0+prompt; separate postflight proved root55. Camera showed home, modal, then home.
+  Limit: Full title/nonce unreadable in original exposure/crop; after-photo ~101s after spawn, so strict90s visual-return target unverified. Actual owned reap ~42s. No commander/input proof.
+F058 [observed-by-operator] A reversible webcam software adjustment improved fresh home text/icon legibility; original mode8/exposure330/brightness128 retained, request1/82 read back1/87 after capture with brightness128.
+  Limit: Exposure drift cause unassigned; crop/angle remain. This does not retroactively fix the earlier native-demo nonce/timing qualification or change CMU settings.
+F059 [observed-binding-plus-primary-reference] The queried OPERA leaf exports interface com.jci.opera_IHU_PRIMARY with Navigate(URL:s), no-argument GoBack/GoForward/Refresh/TerminateOpera and ReportError(errorData:s) signal. Omitted Navigate arg direction defaults to in under the primary D-Bus specification.
+  Limit: Two standard read-only follow-up calls established the leaf, distinct from the original12-call namespace batch. No current-URL property declared; async_client is vendor annotation. Later Navigate behavior is recorded separately.
+F060 [observed-running-context-and-installed-source] Actual Opera argv is /jci/opera/opera -u /jci/gui/index.html; installed run-Opera lines15/17/19 confirms that bootstrap. /jci/index.html is absent despite being an XML example; seven referenced JS files had no exact Navigate/interface literals.
+  Limit: Bootstrap URI file:///jci/gui/index.html is source-backed, not previous-app/history/focus restoration. No actual JS Navigate caller found; bounded no-hit is not global absence.
+F061 [observed-failed-reversible-experiment] One transient data: page visibly rendered and data RPC returned0, but at~10s GUI_MANAGER reported missing heartbeat and closed Opera; SM logged reset intent/watchdog ping stopped. The16s same-owner return failed ServiceUnknown/RPC1; child was reaped1, coreEND1+PS1,0BEL; after-image showed Mazda startup logo.
+  Limit: Rendering passed; safe timed return FAILED. No retry or later browser events. SM-generated report/log-save writes occurred; no claim of unchanged target logs. No full boot trace or then-current root proof.
+F062 [observed-separate-recovery] Separate post-event observation showed stock Communication home; a15s passive window reached normal login. One established root login and fresh core check proved uid0/root, Linux3.0.35,55.00.750B/cmu150_NA, uptime454.06s and END0+PS1; helpers/handles closed.
+  Limit: Low uptime versus prior~14600s plus startup/reset evidence supports intervening restart, not a complete boot trace or indefinite stability. This later recovery does not turn the failed planned return into success; credentials remain private.
+F063 [observed-installed-source] Installed GuiFramework.js59-64 creates native Opera-plugin guiManager and schedules _heartbeat every1000ms;199-205 invokes javascriptHeartbeat(). All10 bounded heartbeat hits were in GuiFramework; Websockets had none. Remote pre/post MD5 matched for both source files.
+  Limit: 84 console snippet lines are not exact whole-file backups. Source+failure logs support loss of the normal stock-page producer as an explanation; no separate causal instrumentation, heartbeat spoof/disable or restart-helper action was performed.
+F064 [primary-reference-model-scope] Mazda2018 CSP02 covers2018Mazda6 Touring and above, excludes Sport;2019SA-001/19 lists2014-19Mazda3,2016-18Mazda6 and2016-19CX-3/CX-5/CX-9/MX-5 with base2019Mazda3 sedan exclusions.
+  Limit: These retrofit bulletins do not identify the bench CMU's exact vehicle/model/part/revision or prove applicability of an unspecified planned firmware package.
+F065 [dated-evidence-gap] The scoped readiness review did not establish an exact official package/full version/region for the user-planned v73 label, required55.00.750B intermediate hops, or procedure-specific update power/shutdown requirements.
+  Limit: Not proof that v73 does not exist and no silent retargeting. Saved primary PDFs establish retrofit minimum/order only; JS-required/unrelated discovery results are not authority. No firmware binary/device action.
+F066 [observed-by-operator] One native BENCH STATUS overlay visibly showed readable title/8-character ID while stock frontend remained loaded; exact owned initial/TERM argv matched, TERM0/wait143/cleanup0/wrapper0/coreEND0+PS1,0BEL. Immediate after-camera showed Communication home and separate postflight root55 succeeded.
+  Limit: Body newline bytes were present in NUL argv but rendered as one crowded line; no line-layout fix/repeat. Host RX SPAWN-to-WAIT ~13.40s is receive timing; image metadata marks request with capture warmup. No direct heartbeat telemetry or general stability proof; no Navigate/heartbeat/watchdog/service/settings/power action.
 
-QUESTIONS AND DISPOSITIONS (tests, results and dependencies in hypotheses.jsonl)
+HYPOTHESES / DISPOSITIONS (tests/dependencies in hypotheses.jsonl)
 H001 [open] Does this exact retrofit hub retain required legacy USB/SD functionality on firmware55?
 H002 [open] What connector view and hub1A supply assignment apply to the actual harness?
 H003 [resolved-in-observed-scope] Can a framed read-only UART transfer produce one exact checksum-verified small file?
@@ -160,8 +191,10 @@ H006 [open] Will the eventual Ethernet adapter have a compatible CMU driver/link
 H007 [open] What are actual B+/ACC shutdown timing and safe relay channel behavior?
 H008 [open] Where can a verified independent second raw-evidence copy be stored?
 H009 [resolved-in-observed-scope] Can one coordinator-approved clear-current-line plus EOF transaction abandon this saved incomplete quote without executing the pending request?
-H010 [open] Can the exact reviewed sleep4 profile demonstrate owned-child TERM0, wait143 and completed END+prompt?
-H011 [open] Can a separately reviewed paced sender complete an authorized inert7KiB calibration without drops/BEL or unknown framing?
+H010 [resolved-in-observed-scope] Can the exact reviewed sleep4 profile demonstrate owned-child TERM0, wait143 and completed END+prompt?
+H011 [resolved-in-observed-scope] Can a separately reviewed paced sender complete an authorized inert7KiB calibration without drops/BEL or unknown framing?
+H012 [resolved-in-observed-scope] Can a useful native bench-status overlay retain stock frontend heartbeat and clean up visibly?
+H013 [open] What exact package, region, hardware applicability and intermediate-version/power procedure match the user's deferred v73 label?
 
 DECISIONS (dated rationale in decisions/)
 D001 Preserve firmware55 and current bench state
@@ -176,20 +209,25 @@ D009 Accept two exact small-file captures and scoped parser recovery
 D010 Narrowly allow finite stock timeout watcher
 D011 Keep namespace/listener evidence and unknown probe within exact scope
 D012 Hold child/UI while a new paced transport profile is reviewed
+D013 Accept bounded paced transport and later native lifecycle
+D014 Stop browser navigation after failed return; separate recovery
+D015 Keep stock frontend heartbeat through native status extension
+D016 Treat shipping as dependency and v73 as unverified planned label
+D017 Accept bounded native status overlay with layout limitation
 
 PROVENANCE AND LIMITS
 Initial original evidence: manifests/20261113T043356Z-original-evidence.json (119 files).
-F036-F038 record two exact verified content transfers. F052-F054 separate UNKNOWN sleep4, later recovery and unproven transport cause.
-Latest context: ../notes/ui001-live-hold.txt and ../notes/ui001-sleep4-observation.txt; curator made no live sends.
-18 initial raw/event pairs and five prior hashes match; baseline/DBus256 hashes and40 streams verified, sealed sleep4 aggregate75 hashes match.
+Two verified exact small-file transfers are F036-F038; no full backup/restore/second copy.
+New November13 batch cites saved summaries/snippets; no repeated raw-run audit.
+Recovery note: ../notes/console-recovery-research.txt; no live recovery action by research worker.
+18 historical raw/event pairs reconstructed exactly; five prior hashes matched.
 Raw credentials/login TX/private identities stay out of Git. Fixtures are allowlisted derivatives.
 A local hash/commit is not a second copy, full backup, boot observation or verified recovery.
 Both Mazda PDFs match prior hashes. Literal requirements: 2018 v70.00.21; 2019 70.00.021B.
 Those prerequisites do not prove actual bench hub identity or legacy USB/SD failure.
 
-CURRENT CURATION
-Existing sshd/listener is not SSH reachability/authentication.
-OPERA /com/jci queried; NEXT /com/jci/OPERA_IHU_PRIMARY advertised, not queried.
-No child/UI or new pacing/calibration acceptance is inferred.
-Owned commit allowlist: manifests/2026-11-12-catalog-update-allowlist.txt.
-Paced code review: ../notes/uart-pacing-review.txt (37 saved tests, no live calibration acceptance).
+LATEST WARM-IDLE / PRODUCT HANDOFF
+../notes/cold-start-resource-plan.txt — partial warm residence metrics, UNKNOWN collector,
+separate fresh root55 and competing future cold-start hypotheses; no removal benefit inferred.
+../notes/product-direction.txt — disclaimer is user-selected first real feature;
+clean-room OEM freeze precedes retrospective third-party comparison (parked).

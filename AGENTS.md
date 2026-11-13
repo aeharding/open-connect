@@ -108,3 +108,14 @@ Current experiments keep the stock document/framework loaded and use owned nativ
 overlays. Do not repeat that navigation branch or spoof/disable its heartbeat.
 USBhub/Ethernet+USBACCrelay remain in shipping; the user-planned v73 upgrade is
 deferred. Preserve55 while doing useful software/tooling/preservation work.
+
+## First product feature
+
+The user selected startup disclaimer bypass as the first real feature. Derive
+the first implementation from actual OEM55 sources only; freeze independent
+source/design/patch/tests before consulting Miatify/Miatafy or other bypass code.
+Comparison afterward must not rewrite the independent record. Keep full OEM
+originals private/ignored; track our logic, synthetic tests, hashes and findings.
+No CMU modification is implied by a host-only prototype. Preserve firmware/base
+hash guard, exact original rollback and the stock frontend heartbeat lifecycle.
+Product goals and open choices are in notes/product-direction.txt.

@@ -1,0 +1,52 @@
+RESOURCE BASELINE / COLD-START PLAN — DERIVED, November13 2026; t13
+Question: are Aha/Pandora resident, and what could explain the user's working-but-
+unstable wireless CarPlay? RAM overload remains a hypothesis, not a finding.
+
+WARM-IDLE RESULT (stock55.00.750B/cmu150_NA, uptime2687-2731s, ~45min)
+Aha native launcher RSS6672KiB (6.52MiB); Pandora5948KiB (5.81MiB); both resident
+with identical full argv/start identities across2 complete samples,22.48s apart.
+Neither accumulated observed CPU ticks. Shared Opera RSS55212KiB (53.92MiB).
+Three global snapshots:754.1MiB total,303.2-303.5MiB free,158.6MiB cached,
+1.4MiB buffers; MemAvailable absent, swap0. Aggregate CPUbusy9.90/9.76%
+(excluding idle/iowait,2cores), including observer/background service activity.
+This establishes residence, not uniquely reclaimable savings or cold-start cause.
+No warm exhaustion is demonstrated; cache/free is not measured MemAvailable.
+No CPUticks in22.48s does not establish zero startup or active-use cost.
+
+DATA LIMITS
+Collector UNKNOWN: RXcap65536 at45.36s;3 global/two complete process samples only.
+Own-PID authoring defect included sampler argv; derived rows exclude it, but its
+resource/serial observer effect cannot be subtracted away. No retry. Original END
+not reconstructed. Later finite passive observation + authorized CR/fresh root55
+END0+PS1 verification is SEPARATE; it does not complete the original baseline.
+RSS shares pages; no named PID cannot prove no code inside shared Opera.
+
+FUTURE EXPERIMENT MATRIX — NO LIVE TASK OR REMOVAL PRESCRIPTION
+Hypothesis           Measure against uptime/event timestamps       Supporting pattern
+RAM pressure         Memory/cache, RSS, reclaim/fault deltas,       Pressure/allocation
+                     allocation/OOM errors if available.           failures before fail.
+CPU/startup order    CPU deltas, service/frontend-ready times,      Busy/stalled or late
+                     connect request and first usable session.     dependency before fail.
+Wi-Fi/BT/services    BT discovery/auth, Wi-Fi link/address,          Failure/reconnect at a
+                     owner/restart/errors, CarPlay stage times.     particular link stage.
+Missing vehicle      Bench/vehicle context, actual missing-message Wait/error follows
+messages             logs and ignition/readiness timeouts.          absent readiness.
+
+PRACTICAL RUN DESIGN — WAITS CONTROLLED POWER + CARPLAY/PHONE READINESS
+Compare cold/immediate, cold/delayed, warm/immediate and warm/delayed connection
+under the same unit/firmware, phone/OS, adapter/version, pairing/media/SD and power
+conditions. The user's car need not match this stock55 bench. Shipping hardware
+alone establishes neither controllable cold cycles nor a usable CarPlay path.
+Choose bounded windows/repeats only after capability is established. Record argv/
+PID/start once, then compact counter deltas to control observer output/load.
+Align target uptime with host RX and camera request/warmup. Preserve success AND
+failure stage/times: UI-ready -> BT -> Wi-Fi -> CarPlay -> usable session, plus
+disconnect/retry count. Delayed success alone is not proof of RAM as root cause.
+Keep stock GuiFramework heartbeat; do not disable apps/services, alter pairing,
+spoof heartbeat, create a daemon/schedule, change firmware or request user actions.
+
+PROVENANCE
+runs/20261113T021453-0600-t14-warm-idle/resource-summary.json
+SHA256: 1314453458e4bf14c70a4f14056b0bb9cb6c182ddb2e3e29c33e4d29ba736137
+Original session/manifest.json and parsed-partial.json remain private/ignored.
+Context: notes/product-direction.txt; notes/post-browser-state-observation.txt.

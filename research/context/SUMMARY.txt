@@ -1,127 +1,109 @@
-DERIVED HANDOFF SUMMARY — not an original user or hardware document
-Prepared 2026-11-12 (America/Chicago); catalog uses UTC timestamps.
-Coordinator: Herdr t6. Current sole hardware owner: t14. Research worker: t13.
-Start: research/index.txt; searchable catalog: research/index.tsv.
-Original records remain in their original paths. References carry host SHA-256.
+DERIVED HANDOFF SUMMARY — not an original hardware/user document
+Updated November13 2026; coordinator t6, sole hardware owner t14, researcher t13.
+Entry: research/index.txt/index.tsv. Originals stay local; facts retain paths/hashes.
 
-LATEST CONTROL STATE — UNKNOWN attempt, THEN separately restored root55
-One23:37 sleep4 task remains UNKNOWN: BEGIN seen, no completed END/status+prompt.
-One later approved051504 returned a real quote error+PS1; a separate335B identity
-completed root55/cmu150_NA/exit0/END+fresh prompt. A separately approved short
-post-event diagnostic also completed. These do NOT validate the prior lifecycle.
-Target child presence/absence and ephemeral shell variables/traps remain unaudited;
-fresh identity is not a complete process/environment inventory.
-See F052-F054/H010 and notes/ui001-live-hold.txt. No retry/child/UI; a separate
-paced profile is being prepared, and inert7KiB calibration is not yet accepted.
-Fresh acquisition/state/identity proof remain mandatory; no physical work by user.
+LATEST KNOWN STATE / OUTCOME
+Latest completed UI result: ONE native BENCH STATUS overlay passed readable title/shortID, owned
+TERM0/wait143/cleanup0, immediate after-camera home and separate root55 postflight
+(F066). Body crowded on one line despite newline bytes in exact argv; no repeat.
+Native UI task UART/camera helpers closed; t14 retains sole hardware ownership
+for separately assigned bounded read-only work. Earlier post-browser
+login/core root55/Linux3.0.35 with uptime454.06s is separate recovery evidence.
+One data: HTML navigation rendered, but GUI_MANAGER heartbeat miss/Opera exit and
+SM reset intent preceded FAILED16s timed return. Startup logo then separate
+home/login/low-uptime recovery support intervening restart. No full boot trace or
+indefinite-stability proof. Recovery does not convert failed return into success.
+Browser actions stopped. See F061-F063 and notes/browser-navigation-finding.txt.
 
-CONSTRAINTS AND SCOPE
-No human bench interaction is available. Agents own software operation/cleanup.
-No firmware change (keep55.00.750B/cmu150_NA), power change, account/permission
-change, persistent-setting change, USB/SD change or networking change.
-No UART/camera/CMU access by this research worker. All operations use Herdr hc.
-No subagents. Physical actions unavailable through automation are dependencies.
-Existing scripts are historical tools, not proof that a new command completed.
-No recurring schedule, publishing, remote Git repository or firmware action.
+USEFUL COMPLETED MILESTONES
+One paced7093B calibration accepted CRC158748838/6699, END0+prompt,0BEL; original
+comparison failed only one wrapper LF, preserved unchanged (F055). No general UART
+reliability/cause claim. Later paced sleep4 TERM0/wait143/cleanup0 completed (F056).
+Native modal visible then gone with owned cleanup/wrapper0 and root55 (F057);
+fullnonce unreadable and after-photo late~101s, strict90s visual target unverified.
+Webcam software improved legibility; original8/330/128 retained, current1/87/128
+after request1/82. Drift/crop/angle remain, prior visual qualifications unchanged.
+Earlier unpaced7108B UNKNOWN/510BEL remains historical; later recovery and new
+completed paced runs do not prove old child lifecycle (F052-F056).
 
-OBSERVED AND REPORTED STATE
-Stored evidence establishes 1152008N1 two-way UART, user uid1000, direct root uid0,
-Linux3.0.35 ARMv7l, and installed55.00.750B. NEXT_VER55.00.800 is separate metadata.
-FTDI identity0403:6001 A9048JM0; future acquisition must re-enumerate.
-A root-launched native test dialog was visible, then its exact cmdline was checked
-twice, only its owned process was terminated, absence was confirmed and a fresh
-operator-inspected frame showed home without it. PID18090 is historical only.
-The old left_for_user_to_dismiss_with_ok flag is superseded. No manual OK is due.
-Input nodes were listed, not injected. Synthetic input cannot validate commander.
-Camera framing is angled/cropped; no assumption of complete control visibility.
-Later t14 observed one approved051504 produce an actual unterminated-quote
-error and primary prompt, then freshly verified root55/cmu150_NA and exit0.
-See notes/console-recovery-observation.txt and F035; H009 is resolved for that
-specific retained-quote state. The earlier ETX failure remains historical.
-This research worker performed no live recovery. Future acquisition must still
-verify actual foreground state and identity; do not generalize the sequence.
+FRONTEND SOURCE / CURRENT DEVELOPMENT LEAD
+Actual argv and launcher use /jci/gui/index.html; /jci/index.html XML example is
+absent. OPERA leaf now queried separately by2 standard calls: actual interface
+com.jci.opera_IHU_PRIMARY, Navigate(URL:s default-in); no current-URL property.
+No JS caller found in seven directly referenced files; no global absence claim.
+GuiFramework59-64 creates native guiManager with1000ms timer;199-205 calls
+javascriptHeartbeat(). Source+logs support loss of normal producer on navigation.
+Keep stock document/framework running; the assigned self-closing native status
+overlay completed one qualified PASS (H012/F066). No Navigate/Refresh/Terminate
+or heartbeat spoof/disable; no browser branch reopened.
+Existing12-call map remains historical; advertised devices /com is still unqueried.
+Raw unique owners/client IDs/replies stay ignored. See dbus-namespace-map.json.
 
-NEW OPERATOR CAPABILITIES (t14,22:33–22:34CST; F028–F030)
-BusyBox1.19.2; sha256sum not found in PATH/rc127; MD5+cksum and encoding tools
-available. timeout requires -t SECS. Remote version.ini13304B; /etc/version31B.
-Exact hashes/counts and raw support paths are in the supplemental manifest.
-This earlier metadata/probe evidence preceded the new exact captures below.
+CONSTRAINTS / SHIPPING WINDOW
+No user bench interaction. Agents own bounded software operation and cleanup;
+only t14 touches UART/camera. All operations through Herdr hc; no subagents.
+Keep firmware55.00.750B, accounts, power, persistent CMU settings, networking,
+USB/SD unchanged. SM wrote report/log files during failed browser event; do not
+claim all target logs unchanged. No operator reset/service/watchdog/power action.
+Hub/Ethernet + USB ACC relay expected in a few days per user via t6: external
+dependency, no exact ETA or user task. "v73" is a deferred planned label; exact
+package/version/region/applicability unverified. Offline readiness checklist is saved in notes/firmware-readiness.txt (F064-F065/H013):
+exact target, intermediate versions and power procedure remain OPEN. No binary
+download/flash/bootflag/settings action. No recurring schedule.
 
-SOURCE AND HARDWARE LIMITS
-Saved Mazda2018 PDFp9/20 says v70.00.21; Mazda2019p9/9 says70.00.021B.
-Both PDF byte counts/hashes match prior reviews. Current55 is below those
-retrofit prerequisites; actual hub identity and legacy USB/SD function stay unknown.
-The version strings remain literal; no silent patch-equivalence or flash advice.
-Community hardware notes are reference context, not manufacturer wiring proof.
+BASELINE / CAPABILITIES / PRESERVATION LIMITS
+Fresh/historical identity: user uid1000 and direct root0;55.00.750B NA/cmu150_NA,
+Linux3.0.35ARMv7l. NEXT_VER55.00.800 is separate metadata. Future acquisition must
+verify actual foreground/identity; historical PID18090 is never a cleanup target.
+UART1152008N1/no flow, FTDI0403:6001/A9048JM0 must be re-enumerated by operator.
+BusyBox1.19.2, MD5/POSIX cksum available, sha256sum absent; timeout needs -t SECS.
+Two verified exact small transfers only: /etc/version31B and version.ini13304B,
+pre/post source size+MD5+CRC match host (F036-F038). Original inventory version.ini
+13334B has trailing console text: preserve unchanged as metadata, not exact copy.
+No full backup, atomic snapshot/authenticity, demonstrated restore or second copy.
+Initial119 original/context files hashed; historical18 RX/event pairs reconstructed;
+initial five published hashes matched. Supplemental evidence manifests stay separate.
+Git/manifests are local provenance, not another raw copy or recovery set.
+Storage/MTD/module observations are bounded historical snapshots. Available KO
+candidates differ from loaded modules. lo/wlan0/no external address and empty IPv4
+route observed; route -n failed rc1/fscanf. Existing sshd listener22/config is not
+tested adapter/link/reachable SSH/authentication. Input nodes listed, no injection
+or physical commander proof. Preserve USB/SD; AUX unnecessary.
 
-UNRESOLVED PHYSICAL REFERENCE CONFLICTS AND DEPENDENCIES
-- Rev3 versus spoken2S/2T connector viewing direction remains conflicted.
-  Working UART proves the used path, not every harness mapping/contact.
-- Rev3 hub1A-ground conflicts with reported factory-empty cavity1A.
-- Hub1E/1G AUX donor extraction/contact fit remains unknown.
-- Sumitomo6098-5611 is explicitly unverified, not a purchase specification.
-- Actual hub/cables, physical commander, usable USB media and SD navigation are
-  unverified. Preserve USB/SD; AUX is not required.
-- Relay model, channels, B+/ACC wiring and shutdown timing are unverified.
-- Ethernet adapter/link and SSH authentication remain dependencies. Existing
-  module candidates and sshd listening on22 are observations, not reachable SSH.
-- Camera missing edges cannot be recovered by physical movement in this task.
-- Rev3 Library identifier is retained in notes/status.txt; no Rev3 PDF was
-  retrieved or independently validated here. No generic Linux restore assumed.
+PRIMARY REFERENCES / UNRESOLVED PHYSICAL CONFLICTS
+Mazda2018 PDFp9/20 says v70.00.21;2019p9/9 says70.00.021B, both exact prior hashes
+matched. Literal strings retained; below-prerequisite stock55 does not prove all
+legacy USB/SD fail or establish actual hub identity. No automatic flash advice.
+Rev3/spoken2S/2T connector viewing-direction conflict unresolved; working UART proves
+used path only. Hub1A ground vs factory-empty cavity1A conflict remains. Hub1E/1G
+AUX donor extraction/contact fit unknown; Sumitomo6098-5611 unverified. Actual hub,
+cables, commander/media/SD, relay model/channels/B+/ACC/shutdown and Ethernet path
+await physical capability; do not assign manual operations to user. Rev3 PDF not
+retrieved/validated here. No generic Linux restore assumed.
 
-PRESERVATION AND HANDOFF
-119 initial original/context files are hashed;18 historical RX streams reconstruct
-exactly from JSONL, and five previously published evidence hashes match.
-Four small allowlisted sanitized summaries contain no login/TX credentials,
-Bluetooth identities or FGSN. They are derived assertions, not complete transcripts.
-Original evidence and source snapshots are ignored and remain local.
-inventory/20261112T2135-cmu-version.ini is13334B with unrelated trailing output:
-preserve unchanged as metadata, never call it a byte-exact backup.
-Local Git/manifests are not an independent second copy, full backup or recovery.
-No verified second destination or demonstrated restore is known.
-H003 is resolved for two allowlisted exact captures: /etc/version31B and
-/jci/version.ini13304B. Fresh source pre/post length+MD5+POSIX CRC match host;
-all three identify/pilot/version bundles' artifact hashes and RX/TX agree.
-See F036-F038, notes/exact-file-capture-observation.txt and the new milestone
-manifest. Bytes stay private in ignored runs; host SHA256 is provenance only.
-This supersedes the no-exact-file gap only for those two files. Full storage/
-service baseline, restore/atomicity, second copy and physical acceptance remain
-separate gaps. Preserve old13334B metadata unchanged. No next live action is
-assigned here; coordinator t6 reviews scope and remaining work.
-Tooling review R1 (F039) was fixed in the later pinned30-test profile (F051).
-Normal live exports alone did not test cancellation; the separate regression did.
+HISTORICAL TOOLING / CONTEXT QUALIFICATIONS
+Initial UI review unchanged; v2 final16/18 source copies plus later harness37 tests
+preserved. Stock timeout finite daemon numeric-PID watcher exception is dated D010;
+vendor/starttime/host-close limits remain. No custom persistent helper. Original
+rendered draft permits exact old template recovery by one substitution/hash match;
+other old Python/probe/test/fake bytes not verified. Later v2 is preserved in Git.
+Mutable status/plan refs retain historical hashes: plan old bytes in initial Git;
+old status bytes not located at current path. Hash alone is not an archive.
+Private login/TX/identities/photos/config content stay out of versioned fixtures.
+Dashboard publication is separate owner t6/t12; current private Page is in README.
+No more live action is implied by this handoff; preserve failed originals unchanged.
 
-COMPLETED BASELINE / NAMESPACE MAP
-Storage/mount/MTD and loaded-module observations are historical bounded snapshots.
-Follow-up8 commands completed with fresh root55; module candidate files, lo/wlan0,
-empty IPv4 routes and an existing sshd listener were observed. route -n failed
-with rc1/fscanf and is not a successful alternate dump. No network state changed.
-Existing SSH listener/config is not external link, SSH reachability or login.
-D-Bus map used12 TOTAL calls (2 ListNames+4 GetNameOwner+6 Introspect), yielding
-6 complete XML replies, no interfaces at QUERIED nodes, actual maximum depth2.
-OPERA / -> /com -> /com/jci was queried; advertised NEXT leaf
-/com/jci/OPERA_IHU_PRIMARY at depth3 was NOT queried. Devices /com also remains
-advertised/unqueried; empty Wayland/system roots prove no broader absence.
-research/context/dbus-namespace-map.json omits private unique-owner/client IDs.
-Raw replies/name lists stay ignored. This establishes no application/input API.
-
-UI001 REVIEW / DECISION / PROVENANCE
-notes/ui001-review.txt is unchanged historical review. Revision2 verifies
-final16/16 plus18 pre-test source copies; frozen30 source unchanged. R1/R2/R4
-resolved in source/model, R3 qualified by t6 decision permitting ONLY finite
-stock6s/47s daemonized timeout watchers. Numeric-PID/vendor/model/host-close
-limits remain; no custom persistent worker/schedule. Review authorized no UI.
-The subsequent ONE sleep4 attempt is UNKNOWN; later root restoration is separate.
-Old v2 source is preserved in Git444dd53; new pacing is a separate unaccepted
-profile. Hold child/UI until actual inert7KiB calibration acceptance (H011).
-Original4108B rendered draft/plan persist; exact old template can be recovered
-in memory by reversing one run-ID assignment/hash-match. Other original probe/
-Python/test/fake bytes are not verified available; no full old-source claim.
-
-MUTABLE CONTEXT PROVENANCE
-Working notes/status.txt and notes/interim-plan.txt were edited by ongoing
-coordination after the initial snapshot. Historical plan bytes are verified in
-Git dcdaf032...; old status SHA is retained but exact old status bytes were not
-located at that working path. Facts qualify these references; raw proof files
-remain unchanged. A context hash alone is not an archived original copy.
-Review notes/research-preservation-result.txt for commit and final exclusions.
+NOVEMBER13 WARM-IDLE / FIRST-FEATURE HANDOFF UPDATE
+One resource collector is PARTIAL/UNKNOWN (RXcap/self-observer defect); three
+global/two complete process samples retain actual Aha/Pandora residence6.52/5.81MiB
+RSS and0 observed CPUticks over22.48s. Warm free303.2-303.5MiB of754.1MiB plus
+cache does not establish cold-start pressure or removal benefit. Later known
+prompt/fresh root55 END0 is separate from the missing original collector END.
+See notes/cold-start-resource-plan.txt for one-page metrics/provenance/matrix;
+no baseline retry, daemon/schedule or extra device request by research.
+User selected disclaimer bypass as first real feature, independently OEM-derived;
+t12 owns clean-room prototype and t14 bounded reads. Third-party comparison is
+parked until t12 freezes independent source/design/patch/test artifacts. No
+Miatify/Miatafy identity/docs/implementation looked up by research yet. Full OEM
+snapshots stay ignored/private. Native overlay is a dev tool, not the product goal.
+See notes/product-direction.txt for user goals versus proposals/open UX choices.

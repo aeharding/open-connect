@@ -1,1 +1,484 @@
-{"schema_version":1,"title":"Mazda CMU bench","updated_at":"2026-11-13T01:43:53-06:00","timezone":"America/Chicago","snapshot_note":"Saved progress, not live telemetry. Reopen the private Page for a newer snapshot.","links":{"latest_page":"https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee","html_download":null},"headline":"Root55 and home restored. Browser return failed.","summary":"The custom page rendered, then a missed GUI heartbeat ended Opera and the timed return failed. Fresh stock home and root55 were separately reverified after an intervening restart. Navigation tests are stopped; work stays on firmware55.","current":{"firmware":"55.00.750B","region":"North America · cmu150_NA","console":"Root55 reverified · Linux 3.0.35","uart":"115200 · 8N1 · no flow control","tx":"64-byte chunks · 20 ms RX gaps","camera":"Manual mode 1 · exposure 87 · brightness 128","scope":"USB + SD preserved · AUX not required","changes":"No intentional firmware, account, network or persistent-settings changes. Intervening restart observed separately.","display":"Fresh stock Communication home","device_state":"done","state_label":"Restored","firmware_qualifier":"Fresh post-event identity"},"metrics":[{"value":"37","label":"core tests passing"},{"value":"17","label":"UI tests passing"},{"value":"2","label":"exact metadata files"},{"value":"1","label":"native dialog demo"}],"diagram":{"nodes":[{"id":"host","x":24,"y":126,"w":212,"h":96,"kind":"done","title":"Mac control bench","lines":["Paced UART + saved evidence","Agent-operated, one owner"]},{"id":"cmu","x":406,"y":126,"w":238,"h":96,"kind":"done","title":"Mazda CMU","lines":["55.00.750B · root restored","NA baseline · uptime454s"]},{"id":"screen","x":812,"y":37,"w":204,"h":76,"kind":"done","title":"Display / native UI","lines":["Fresh stock Communication home","Browser return failed earlier"]},{"id":"cam","x":24,"y":14,"w":212,"h":76,"kind":"done","title":"USB webcam","lines":["Fresh captures improved","Crop / angle still limited"]},{"id":"net","x":406,"y":14,"w":238,"h":76,"kind":"waiting","title":"USB hub / Ethernet","lines":["Shipping · a few days","Then driver / link / SSH"]},{"id":"media","x":406,"y":279,"w":238,"h":76,"kind":"waiting","title":"USB media + SD nav","lines":["Actual use unverified","Preserve both functions"]},{"id":"power","x":24,"y":279,"w":212,"h":76,"kind":"waiting","title":"USB ACC relay","lines":["Shipping · a few days","Shutdown timing unverified"]},{"id":"commander","x":812,"y":234,"w":204,"h":76,"kind":"waiting","title":"Physical commander","lines":["Physical operation unverified"]}],"edges":[{"d":"M236 174 H406","state":"done","label":"UART · two-way","lx":268,"ly":160},{"d":"M130 90 V126","state":"done","label":"USB / UVC","lx":142,"ly":112},{"d":"M644 155 H720 V75 H812","state":"done","label":"Visible UI","lx":666,"ly":143},{"d":"M525 90 V126","state":"waiting","label":"Planned transport","lx":538,"ly":113},{"d":"M525 222 V279","state":"waiting","label":"Not exercised","lx":538,"ly":252},{"d":"M236 318 H327 V202 H406","state":"waiting","label":"Pending hardware","lx":245,"ly":338},{"d":"M812 272 H726 V202 H644","state":"waiting","label":"Not exercised","lx":739,"ly":258}]},"milestones":[{"id":"console","title":"Root access restored","state":"done","detail":"Fresh root55 identity and stock home observed after the incident.","proof":"One known root login; uid0, Linux3.0.35, 55.00.750B/cmu150_NA, uptime454.06s, END0 + prompt and closed port.","limits":"Separate recovery does not make the failed browser return successful. No complete boot trace or long-term stability claim.","refs":["notes/afk-session-status.txt"]},{"id":"files","title":"Exact small-file exports","state":"done","detail":"31 B /etc/version + 13,304 B /jci/version.ini.","proof":"Target pre/post MD5 + POSIX CRC + byte counts matched host; host SHA-256 retained.","limits":"Two content copies, not a full-device backup, atomic snapshot or tested restore. No verified second copy.","refs":["notes/exact-file-capture-observation.txt"]},{"id":"paced","title":"Larger UART submission","state":"done","detail":"7,093 B live submission passed with zero BEL.","proof":"6,699 B payload · CRC 158748838 · 3.198 s · 111 chunks / 110 gaps · END0 + prompt.","limits":"One accepted profile. Earlier unpaced UNKNOWN is preserved; no universal flow-control claim.","refs":["notes/uart-calibration-acceptance.txt","examples/operator-ready-paced-tx.json"]},{"id":"ui","title":"Native dialog + owned cleanup","state":"done","detail":"One modal appeared and the display returned home.","proof":"Live sleep4 first; exact owned TERM, wait143, cleanup0 and fresh root55. Process cleanup at +42 s.","limits":"Full nonce was unreadable from glare/crop. After frame at +101 s missed the 90 s camera target; lifecycle success is separate from full visual/timing acceptance.","refs":["experiments/ui001/integration-result.txt","experiments/ui001/operator-ready-paced.json"]},{"id":"camera","title":"Clearer fresh camera frame","state":"done","detail":"Userspace UVC exposure control improved legibility.","proof":"Requested manual mode1/exposure82; post-capture observed mode1/exposure87/brightness128 and retained it.","limits":"Original mode8/exposure330/brightness128 preserved. Cause of 82→87 change unassigned; crop and angle remain. No raster processing.","refs":["notes/webcam-legibility-observation.txt","experiments/webcam-control/README.txt"]},{"id":"browser","title":"Browser source mapped","state":"done","detail":"Running entry and exported Navigate binding verified.","proof":"Installed run-Opera sets /jci/gui/index.html and launches with -u, matching live argv. Verified stock bootstrap is the timed-return target.","limits":"Source mapping did not prove a safe reversible navigation experiment. Exact prior focus/history restoration is not claimed.","refs":["/jci/opera/run-Opera","/jci/gui/index.html"]},{"id":"browser-demo","title":"Browser demo: failed return","state":"failed","detail":"Custom data page rendered; planned stock return failed.","proof":"At about10s GUI_MANAGER missed heartbeat and Opera exited. Planned16s return got ServiceUnknown/rc1; SM logged reset intent. Initial after photo showed startup logo.","limits":"Later fresh home/root recovery is separate. Navigation experiments stopped; only bounded stock heartbeat-source research continues.","refs":["notes/afk-session-status.txt"]}],"tasks":[{"id":"heartbeat","lane":"now","state":"done","title":"Stock heartbeat producer found","owner":"Research + Bench operator","detail":"GuiFramework calls native guiManager.javascriptHeartbeat() every1s. Leaving the stock document removes its normal producer.","pass":"Source and the observed~10s timeout align; no spoofing, disabling, service kill or further browser action."},{"id":"preserve","lane":"now","state":"active","title":"Preserve evidence and firmware55 tooling","owner":"Tooling + Research","detail":"Keep UART, preservation and clearer-image workflows useful while hardware ships.","pass":"Retain incident/recovery evidence and keep tested tooling and the progress snapshot current without changing the CMU baseline."},{"id":"native-overlay","lane":"next","state":"waiting","title":"Prepare a heartbeat-preserving overlay","owner":"Tooling + Research","detail":"Suggested extension: self-closing native bench-status dialog using the proven owned lifecycle, while stock frontend stays loaded. No live experiment is queued.","pass":"Keep the stock heartbeat untouched and demonstrate bounded owned cleanup without cross-document navigation."},{"id":"navigation-hold","lane":"next","state":"hold","title":"Navigation experiments stopped","owner":"Research + Bench operator","detail":"Data rendering passed; standalone navigation lost the heartbeat and return failed. Do not repeat that route.","pass":"A heartbeat-safe design preserves stock supervision and has a verified return before another experiment."},{"id":"media","lane":"next","state":"waiting","title":"Validate USB media and SD navigation","owner":"Bench operator","detail":"Device enumeration does not prove usable media or navigation.","pass":"Actual feature behavior demonstrated; preserve existing USB / SD content and settings."},{"id":"transport","lane":"next","state":"waiting","title":"Establish faster verified transport","owner":"Coordinator + Bench operator","detail":"USB hub / Ethernet hardware is in shipping for a few days; driver, link and SSH checks follow arrival.","pass":"Known device + UID, working link/login and a small checksum-matched transfer without persistent reconfiguration."},{"id":"backup","lane":"later","state":"waiting","title":"Preservation and recovery study","owner":"Research + Bench operator","detail":"Map storage and device-unique state before broader acquisition.","pass":"Consistency limits and restore method identified; independent second copy and representative restore tested."},{"id":"commander","lane":"later","state":"waiting","title":"Physical commander acceptance","owner":"Hardware dependency + Bench operator","detail":"Software input is not proof of physical commander operation.","pass":"Agent-operable actuation and observed end-to-end response; no human bench interaction assumed."},{"id":"power","lane":"later","state":"waiting","title":"Controlled shutdown / power capture","owner":"Hardware dependency + Bench operator","detail":"USB ACC relay is in shipping for a few days; wiring, B+ / ACC behavior and shutdown timing remain unverified.","pass":"Owned power control and safe shutdown observation before any automatic cycle."},{"id":"v73","lane":"later","state":"waiting","title":"Evaluate v73 later","owner":"Coordinator + Research","detail":"No upgrade now. Retain firmware55 while hardware ships and preservation/access work continues.","pass":"Separate upgrade plan establishes exact hardware/region/package path and recovery limits while preserving USB + SD."}],"blockers":[{"title":"Hardware is in shipping","text":"USB hub / Ethernet and USB ACC relay are expected in a few days. Arrival and agent-operable attachment gate those checks; no manual bench task is assigned to the user."},{"title":"Browser heartbeat coupling","text":"The custom page rendered but the timed return failed after heartbeat loss and Opera exit. Current root/home recovery is verified separately; navigation experiments remain stopped."},{"title":"Firmware / retrofit compatibility","text":"Firmware55 is below Mazda’s stated v70 retrofit-hub prerequisite. Exact hub identity and actual USB / SD behavior remain pending; this does not authorize a firmware upgrade.","url":"https://static.nhtsa.gov/odi/tsbs/2018/MC-10144323-9999.pdf","link_label":"Mazda retrofit packet · NHTSA"},{"title":"Evidence coverage","text":"Camera crop/angle, complete backup, restore behavior and second-copy protection remain open. A working dialog or file hash does not close these gaps."}],"recent":[{"title":"Stock heartbeat producer identified","text":"GuiFramework invokes native javascriptHeartbeat() every1s; source/logs explain the earlier missed heartbeat after leaving the stock page. No spoofing or disablement."},{"title":"Root55 / home restored separately","text":"Fresh Communication home and completed root55 identity at uptime454s. No full boot-trace or long-term stability claim."},{"title":"Browser return failed","text":"Data page was visible. Heartbeat loss / Opera exit prevented the planned16s stock return; later recovery is a separate outcome."},{"title":"Portable dashboard delivered","text":"Standalone offline V1 and private Page link are ready for cross-computer progress sync."},{"title":"Exposure improved","text":"Fresh original frame is less washed out; Communication and clock clearer. Current observed exposure value87."},{"title":"Dialog returned home","text":"Owned TERM / wait143 cleanup worked. Full run-ID readability and camera timing retain explicit limits."},{"title":"Paced transfer accepted","text":"7 KiB submission passed the target CRC / count check. A separate comparison failed on one known framing LF; original report retained."},{"title":"Exact metadata preserved","text":"Both small source files verified independently; full backup and restore remain separate work."}],"guardrails":["Keep firmware55 baseline","Preserve USB + SD","One UART / camera owner","Own software cleanup","Stop on unexpected state","No automatic retry of unknown actions"],"privacy_note":"Sanitized summary only. Credentials, raw logs and device/client identifiers stay on the bench. Local paths below are references, not remote download links."}
+{
+  "schema_version": 1,
+  "title": "Mazda CMU bench",
+  "updated_at": "2026-11-13T02:23:37-06:00",
+  "timezone": "America/Chicago",
+  "snapshot_note": "Saved progress, not live telemetry. Reopen the private Page for a newer snapshot.",
+  "links": {
+    "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
+    "html_download": null
+  },
+  "headline": "First real feature: startup disclaimer bypass",
+  "summary": "Build an open-source toolkit of optional Mazda Connect improvements that preserve the OEM feel, with reversible USB maintenance and published research. Current work is an independent OEM-code first pass on firmware55, frozen before comparison with other projects.",
+  "current": {
+    "firmware": "55.00.750B",
+    "region": "North America · cmu150_NA",
+    "console": "Root55 reverified · Linux 3.0.35",
+    "uart": "115200 · 8N1 · no flow control",
+    "tx": "64-byte chunks · 20 ms RX gaps",
+    "camera": "Manual mode 1 · exposure 87 · brightness 128",
+    "scope": "USB + SD preserved · AUX not required",
+    "changes": "No intentional firmware, account, network or persistent-settings changes. Intervening restart observed separately.",
+    "display": "Fresh stock Communication home",
+    "device_state": "done",
+    "state_label": "Restored",
+    "firmware_qualifier": "Fresh post-event identity"
+  },
+  "metrics": [
+    {
+      "value": "37",
+      "label": "core tests passing"
+    },
+    {
+      "value": "17",
+      "label": "UI tests passing"
+    },
+    {
+      "value": "2",
+      "label": "exact metadata files"
+    },
+    {
+      "value": "1",
+      "label": "native dialog demo"
+    }
+  ],
+  "diagram": {
+    "nodes": [
+      {
+        "id": "host",
+        "x": 24,
+        "y": 126,
+        "w": 212,
+        "h": 96,
+        "kind": "done",
+        "title": "Mac control bench",
+        "lines": [
+          "Paced UART + saved evidence",
+          "Agent-operated, one owner"
+        ]
+      },
+      {
+        "id": "cmu",
+        "x": 406,
+        "y": 126,
+        "w": 238,
+        "h": 96,
+        "kind": "done",
+        "title": "Mazda CMU",
+        "lines": [
+          "55.00.750B · root restored",
+          "NA baseline · uptime454s"
+        ]
+      },
+      {
+        "id": "screen",
+        "x": 812,
+        "y": 37,
+        "w": 204,
+        "h": 76,
+        "kind": "done",
+        "title": "Display / native UI",
+        "lines": [
+          "Fresh stock Communication home",
+          "Browser return failed earlier"
+        ]
+      },
+      {
+        "id": "cam",
+        "x": 24,
+        "y": 14,
+        "w": 212,
+        "h": 76,
+        "kind": "done",
+        "title": "USB webcam",
+        "lines": [
+          "Fresh captures improved",
+          "Crop / angle still limited"
+        ]
+      },
+      {
+        "id": "net",
+        "x": 406,
+        "y": 14,
+        "w": 238,
+        "h": 76,
+        "kind": "waiting",
+        "title": "USB hub / Ethernet",
+        "lines": [
+          "Shipping · a few days",
+          "Then driver / link / SSH"
+        ]
+      },
+      {
+        "id": "media",
+        "x": 406,
+        "y": 279,
+        "w": 238,
+        "h": 76,
+        "kind": "waiting",
+        "title": "USB media + SD nav",
+        "lines": [
+          "Actual use unverified",
+          "Preserve both functions"
+        ]
+      },
+      {
+        "id": "power",
+        "x": 24,
+        "y": 279,
+        "w": 212,
+        "h": 76,
+        "kind": "waiting",
+        "title": "USB ACC relay",
+        "lines": [
+          "Shipping · a few days",
+          "Shutdown timing unverified"
+        ]
+      },
+      {
+        "id": "commander",
+        "x": 812,
+        "y": 234,
+        "w": 204,
+        "h": 76,
+        "kind": "waiting",
+        "title": "Physical commander",
+        "lines": [
+          "Physical operation unverified"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "d": "M236 174 H406",
+        "state": "done",
+        "label": "UART · two-way",
+        "lx": 268,
+        "ly": 160
+      },
+      {
+        "d": "M130 90 V126",
+        "state": "done",
+        "label": "USB / UVC",
+        "lx": 142,
+        "ly": 112
+      },
+      {
+        "d": "M644 155 H720 V75 H812",
+        "state": "done",
+        "label": "Visible UI",
+        "lx": 666,
+        "ly": 143
+      },
+      {
+        "d": "M525 90 V126",
+        "state": "waiting",
+        "label": "Planned transport",
+        "lx": 538,
+        "ly": 113
+      },
+      {
+        "d": "M525 222 V279",
+        "state": "waiting",
+        "label": "Not exercised",
+        "lx": 538,
+        "ly": 252
+      },
+      {
+        "d": "M236 318 H327 V202 H406",
+        "state": "waiting",
+        "label": "Pending hardware",
+        "lx": 245,
+        "ly": 338
+      },
+      {
+        "d": "M812 272 H726 V202 H644",
+        "state": "waiting",
+        "label": "Not exercised",
+        "lx": 739,
+        "ly": 258
+      }
+    ]
+  },
+  "milestones": [
+    {
+      "id": "console",
+      "title": "Root access restored",
+      "state": "done",
+      "detail": "Fresh root55 identity and stock home observed after the incident.",
+      "proof": "One known root login; uid0, Linux3.0.35, 55.00.750B/cmu150_NA, uptime454.06s, END0 + prompt and closed port.",
+      "limits": "Separate recovery does not make the failed browser return successful. No complete boot trace or long-term stability claim.",
+      "refs": [
+        "notes/afk-session-status.txt"
+      ]
+    },
+    {
+      "id": "files",
+      "title": "Exact small-file exports",
+      "state": "done",
+      "detail": "31 B /etc/version + 13,304 B /jci/version.ini.",
+      "proof": "Target pre/post MD5 + POSIX CRC + byte counts matched host; host SHA-256 retained.",
+      "limits": "Two content copies, not a full-device backup, atomic snapshot or tested restore. No verified second copy.",
+      "refs": [
+        "notes/exact-file-capture-observation.txt"
+      ]
+    },
+    {
+      "id": "paced",
+      "title": "Larger UART submission",
+      "state": "done",
+      "detail": "7,093 B live submission passed with zero BEL.",
+      "proof": "6,699 B payload · CRC 158748838 · 3.198 s · 111 chunks / 110 gaps · END0 + prompt.",
+      "limits": "One accepted profile. Earlier unpaced UNKNOWN is preserved; no universal flow-control claim.",
+      "refs": [
+        "notes/uart-calibration-acceptance.txt",
+        "examples/operator-ready-paced-tx.json"
+      ]
+    },
+    {
+      "id": "ui",
+      "title": "Native dialog + owned cleanup",
+      "state": "done",
+      "detail": "One modal appeared and the display returned home.",
+      "proof": "Live sleep4 first; exact owned TERM, wait143, cleanup0 and fresh root55. Process cleanup at +42 s.",
+      "limits": "Full nonce was unreadable from glare/crop. After frame at +101 s missed the 90 s camera target; lifecycle success is separate from full visual/timing acceptance.",
+      "refs": [
+        "experiments/ui001/integration-result.txt",
+        "experiments/ui001/operator-ready-paced.json"
+      ]
+    },
+    {
+      "id": "camera",
+      "title": "Clearer fresh camera frame",
+      "state": "done",
+      "detail": "Userspace UVC exposure control improved legibility.",
+      "proof": "Requested manual mode1/exposure82; post-capture observed mode1/exposure87/brightness128 and retained it.",
+      "limits": "Original mode8/exposure330/brightness128 preserved. Cause of 82→87 change unassigned; crop and angle remain. No raster processing.",
+      "refs": [
+        "notes/webcam-legibility-observation.txt",
+        "experiments/webcam-control/README.txt"
+      ]
+    },
+    {
+      "id": "browser",
+      "title": "Browser source mapped",
+      "state": "done",
+      "detail": "Running entry and exported Navigate binding verified.",
+      "proof": "Installed run-Opera sets /jci/gui/index.html and launches with -u, matching live argv. Verified stock bootstrap is the timed-return target.",
+      "limits": "Source mapping did not prove a safe reversible navigation experiment. Exact prior focus/history restoration is not claimed.",
+      "refs": [
+        "/jci/opera/run-Opera",
+        "/jci/gui/index.html"
+      ]
+    },
+    {
+      "id": "browser-demo",
+      "title": "Browser demo: failed return",
+      "state": "failed",
+      "detail": "Custom data page rendered; planned stock return failed.",
+      "proof": "At about10s GUI_MANAGER missed heartbeat and Opera exited. Planned16s return got ServiceUnknown/rc1; SM logged reset intent. Initial after photo showed startup logo.",
+      "limits": "Later fresh home/root recovery is separate. Navigation experiments stopped; only bounded stock heartbeat-source research continues.",
+      "refs": [
+        "notes/afk-session-status.txt"
+      ]
+    },
+    {
+      "id": "disclaimer",
+      "title": "Startup disclaimer bypass",
+      "state": "active",
+      "detail": "User-selected first real feature; OEM-only investigation on55.",
+      "proof": "Independent source/design/patch/test freeze comes before third-party comparison.",
+      "limits": "No target modification yet. Supported base hash, rollback and startup install/uninstall validation remain required; v73 is later.",
+      "refs": [
+        "notes/product-direction.txt"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "disclaimer-first",
+      "lane": "now",
+      "state": "active",
+      "title": "Derive the disclaimer feature independently",
+      "owner": "Tooling + Bench operator",
+      "detail": "Trace actual OEM startup/render/dismiss behavior. Use private source copies; no target write yet.",
+      "pass": "Minimal firmware/base-hash-bound patch, focused checks, original rollback and independent artifact freeze."
+    },
+    {
+      "id": "warm-resources",
+      "lane": "now",
+      "state": "done",
+      "title": "Interpret partial warm-idle measurements",
+      "owner": "Research",
+      "detail": "Aha/Pandora RSS6.52/5.81MiB with0CPUticks over22.48s;~303MiB free of754MiB. Collector hit output cap; complete portions only.",
+      "pass": "RSS is not reclaimable savings; warm idle does not establish cold-start CarPlay causes."
+    },
+    {
+      "id": "disclaimer-compare",
+      "lane": "next",
+      "state": "waiting",
+      "title": "Compare approaches after the independent freeze",
+      "owner": "Research",
+      "detail": "Miatify/Miatafy is a later comparison input, not an implementation source for the first pass.",
+      "pass": "Compare public behavior, available mechanisms, compatibility and rollback without rewriting the independent result."
+    },
+    {
+      "id": "shared-installer",
+      "lane": "next",
+      "state": "waiting",
+      "title": "Prove one shared maintenance engine",
+      "owner": "Tooling + Coordinator",
+      "detail": "Host-only plan/apply/verify/uninstall/interruption experiment is paused while the real feature is defined.",
+      "pass": "Repeatable reversible fixture feature; USB entry point and device recovery are separate unproven gates."
+    },
+    {
+      "id": "heartbeat",
+      "lane": "later",
+      "state": "done",
+      "title": "Stock heartbeat producer found",
+      "owner": "Research + Bench operator",
+      "detail": "GuiFramework calls native guiManager.javascriptHeartbeat() every1s. Leaving the stock document removes its normal producer.",
+      "pass": "Source and the observed~10s timeout align; no spoofing, disabling, service kill or further browser action."
+    },
+    {
+      "id": "preserve",
+      "lane": "now",
+      "state": "active",
+      "title": "Preserve evidence and firmware55 tooling",
+      "owner": "Tooling + Research",
+      "detail": "Keep UART, preservation and clearer-image workflows useful while hardware ships.",
+      "pass": "Retain incident/recovery evidence and keep tested tooling and the progress snapshot current without changing the CMU baseline."
+    },
+    {
+      "id": "native-overlay",
+      "lane": "later",
+      "state": "done",
+      "title": "Prepare a heartbeat-preserving overlay",
+      "owner": "Tooling + Research",
+      "detail": "One native BENCH STATUS trial passed owned cleanup and fresh root55; title readable, original body crowded. Future default shortened offline.",
+      "pass": "Development tool, separate from the first installable feature."
+    },
+    {
+      "id": "navigation-hold",
+      "lane": "next",
+      "state": "hold",
+      "title": "Navigation experiments stopped",
+      "owner": "Research + Bench operator",
+      "detail": "Data rendering passed; standalone navigation lost the heartbeat and return failed. Do not repeat that route.",
+      "pass": "A heartbeat-safe design preserves stock supervision and has a verified return before another experiment."
+    },
+    {
+      "id": "media",
+      "lane": "next",
+      "state": "waiting",
+      "title": "Validate USB media and SD navigation",
+      "owner": "Bench operator",
+      "detail": "Device enumeration does not prove usable media or navigation.",
+      "pass": "Actual feature behavior demonstrated; preserve existing USB / SD content and settings."
+    },
+    {
+      "id": "transport",
+      "lane": "next",
+      "state": "waiting",
+      "title": "Establish faster verified transport",
+      "owner": "Coordinator + Bench operator",
+      "detail": "USB hub / Ethernet hardware is in shipping for a few days; driver, link and SSH checks follow arrival.",
+      "pass": "Known device + UID, working link/login and a small checksum-matched transfer without persistent reconfiguration."
+    },
+    {
+      "id": "backup",
+      "lane": "later",
+      "state": "waiting",
+      "title": "Preservation and recovery study",
+      "owner": "Research + Bench operator",
+      "detail": "Map storage and device-unique state before broader acquisition.",
+      "pass": "Consistency limits and restore method identified; independent second copy and representative restore tested."
+    },
+    {
+      "id": "commander",
+      "lane": "later",
+      "state": "waiting",
+      "title": "Physical commander acceptance",
+      "owner": "Hardware dependency + Bench operator",
+      "detail": "Software input is not proof of physical commander operation.",
+      "pass": "Agent-operable actuation and observed end-to-end response; no human bench interaction assumed."
+    },
+    {
+      "id": "power",
+      "lane": "later",
+      "state": "waiting",
+      "title": "Controlled shutdown / power capture",
+      "owner": "Hardware dependency + Bench operator",
+      "detail": "USB ACC relay is in shipping for a few days; wiring, B+ / ACC behavior and shutdown timing remain unverified.",
+      "pass": "Owned power control and safe shutdown observation before any automatic cycle."
+    },
+    {
+      "id": "v73",
+      "lane": "later",
+      "state": "waiting",
+      "title": "Evaluate v73 later",
+      "owner": "Coordinator + Research",
+      "detail": "No upgrade now. Retain firmware55 while hardware ships and preservation/access work continues.",
+      "pass": "Separate upgrade plan establishes exact hardware/region/package path and recovery limits while preserving USB + SD."
+    }
+  ],
+  "blockers": [
+    {
+      "title": "Hardware is in shipping",
+      "text": "USB hub / Ethernet and USB ACC relay are expected in a few days. Arrival and agent-operable attachment gate those checks; no manual bench task is assigned to the user."
+    },
+    {
+      "title": "Browser heartbeat coupling",
+      "text": "The custom page rendered but the timed return failed after heartbeat loss and Opera exit. Current root/home recovery is verified separately; navigation experiments remain stopped."
+    },
+    {
+      "title": "Firmware / retrofit compatibility",
+      "text": "Firmware55 is below Mazda’s stated v70 retrofit-hub prerequisite. Exact hub identity and actual USB / SD behavior remain pending; this does not authorize a firmware upgrade.",
+      "url": "https://static.nhtsa.gov/odi/tsbs/2018/MC-10144323-9999.pdf",
+      "link_label": "Mazda retrofit packet · NHTSA"
+    },
+    {
+      "title": "Evidence coverage",
+      "text": "Camera crop/angle, complete backup, restore behavior and second-copy protection remain open. A working dialog or file hash does not close these gaps."
+    }
+  ],
+  "recent": [
+    {
+      "title": "First product feature selected",
+      "text": "Startup disclaimer bypass starts from OEM code, then freezes before retrospective comparison."
+    },
+    {
+      "title": "Partial warm-idle resource evidence",
+      "text": "Aha/Pandora are resident but idle in the observed interval. No cold-start RAM-pressure or removal-benefit conclusion."
+    },
+    {
+      "title": "Stock heartbeat producer identified",
+      "text": "GuiFramework invokes native javascriptHeartbeat() every1s; source/logs explain the earlier missed heartbeat after leaving the stock page. No spoofing or disablement."
+    },
+    {
+      "title": "Root55 / home restored separately",
+      "text": "Fresh Communication home and completed root55 identity at uptime454s. No full boot-trace or long-term stability claim."
+    },
+    {
+      "title": "Browser return failed",
+      "text": "Data page was visible. Heartbeat loss / Opera exit prevented the planned16s stock return; later recovery is a separate outcome."
+    },
+    {
+      "title": "Portable dashboard delivered",
+      "text": "Standalone offline V1 and private Page link are ready for cross-computer progress sync."
+    },
+    {
+      "title": "Exposure improved",
+      "text": "Fresh original frame is less washed out; Communication and clock clearer. Current observed exposure value87."
+    }
+  ],
+  "guardrails": [
+    "Keep firmware55 baseline",
+    "Preserve USB + SD",
+    "One UART / camera owner",
+    "Own software cleanup",
+    "Stop on unexpected state",
+    "No automatic retry of unknown actions"
+  ],
+  "privacy_note": "Sanitized summary only. Credentials, raw logs and device/client identifiers stay on the bench. Local paths below are references, not remote download links."
+}

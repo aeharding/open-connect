@@ -44,6 +44,13 @@ or remove repeated effort. A 24/7 autonomous bench is an aspiration, not a
 prerequisite for the first usable release or an active background schedule.
 The user supplies physical resources; the primary owns software execution.
 
+Bench helpers are managed as one development profile: setup, status and teardown.
+No per-helper manual activation, new CMU menu or graphical UI is needed. A thin
+semantic CLI reuses working tools; Python on the host and POSIX sh on the CMU are
+the initial implementation. Extend it only for concrete tasks. See bench/README.md
+and docs/cli.md. Command-only ephemeral agents can test usability, while the primary
+retains ownership of live state and the complete outcome.
+
 ## One required firmware baseline
 
 User decision: support **one exact firmware baseline at a time**. Current required

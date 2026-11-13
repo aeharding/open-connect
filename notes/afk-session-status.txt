@@ -1,3 +1,17 @@
+CURRENT BENCH PROFILE UPDATE — 2026-11-13
+One CLI bench profile now implemented: scripts/oc bench setup/status/teardown.
+Live setup -> repeat setup -> teardown -> status -> setup PASS.
+Final silent-ui-v1 profile ON/active/owned, audio enabled; fresh root55/NA and
+physical RO guards passed; each invocation closed UART. No startup hook,
+vendor file mutation, reboot or camera action. Existing Snap/product state unchanged.
+Receipt: .bench-state/profile.json (private). Evidence: runs/bench-profile/lifecycle-result.json,
+final bundle runs/bench-profile/live-ready. Guide: bench/README.md.
+Do not treat the older audio-disabled note below as current. Teardown is needed
+before tests whose interpretation depends on genuine TAU/audio readiness.
+After a reboot or service replacement, check status; runtime ownership expires.
+Normal product mods remain separate from bench profile setup/teardown.
+
+Previous detailed device handoff follows (source identities not rehashed by this API test):
 CURRENT — Snap handoff JS installed — 2026-11-13T14:29:45.259670
 
 User requested piotrmocko/mzd-v74-tweaks adapted to firmware55 for observation.

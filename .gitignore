@@ -52,3 +52,4 @@ private/
 
 /experiments/**/adapter-checks/
 /experiments/installer-proof/before-disclaimer-adapter/
+/experiments/installer-proof/before-complete-recovery/

@@ -1,0 +1,31 @@
+ONE data_persist rwRelFS SYNTHETIC PRIMITIVE PROBE — t14 November13 2026
+PASS3.776s, one live trial. Prior checked tmpfs script reused; only nonce/path,
+parent/mount/device/free-space guards and marker prefix changed. One hostsh-n
+plus literalnonce/path check; no new package/source audit/capability search.
+Fresh root55.00.750B/cmu150_NA. Beforemkdir checked /tmp,/tmp/mnt and
+/tmp/mnt/data_persist canonical unchanged/nonlinks/directories/rootUID0:GID0.
+Immediate parent0755,device45826; actual selected mount /dev/mmcblk0p2
+/tmp/mnt/data_persist relfs rw,noatime. df available570590KiB, minimum1024KiB.
+Owned scratch /tmp/mnt/data_persist/cmu-bench-probe-4ed1c7a3a93fb11f2ce6fa61194897c0,
+root-owned0700, stable device/inode45826:49 and same device as verifiedparent.
+Original22B MD5828a650ba6211b4905431c5a9351e811 CRC3787421835;
+candidate23B MD5ffdc92602e4b3e2c8c91da73fd77e83d CRC2679554219.
+Same-parent cp-p stage/mv-f candidate/restore and3cmp checks passed. chmod755,
+chown1018:3015 affected ONLY syntheticfiles;9readback states matched hashes,size,
+regular/nonlink/canonical/nlink1/mode0755/UID1018/GID3015.16explicit statusmarkers0.
+Cleanup checked exact3-file whitelist, rm0+rmdir0; actual END0 CLEANUPabsent UID0.
+CoreEND0+normalPS1,0BEL,portclosed. Command4865B,maxscriptline129B; deadline15s,
+outputcap32768B. All exact code/guard/status evidence private under
+runs/20261113T033614-0600-t14-relfs-primitives/{command.sh,plan.json,session/}.
+compact-result.json,actual-markers.txt and cleanup.json give result/provenance.
+One owned helper saved/exited0/removed; both serialaliases lsof1empty.
+No camera run, no owned target child/scratch remains. Soleowner idle.
+
+This proves ONLY normal-runtime tiny synthetic primitives on THIS data_persist
+rwRelFS volume. It does not establish rootRelFS behavior, atomicity under interruption,
+durability/power-loss recovery, real installer/backup/candidate/rollback or GUI startup.
+No sync/fsync/powerloss experiment. No GUI/OEM target writes/rootremount,
+feature install, browser/OEM methods, heartbeat/watchdog/service/reboot/power action.
+Scope allowed tiny persistent syntheticfixture activity; no CMU settings changed.
+Reported compactresult first to t6/t13/t12; t13 can index the bounded milestone.
+No further trial queued.

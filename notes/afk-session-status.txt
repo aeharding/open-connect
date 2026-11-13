@@ -24,10 +24,20 @@ only initial3500->0 timer changed. Host maintenance adapter10checks+demo passed
 on private copies. No CMU write; no-flash/startup/live rollback remain unknown.
 First install/rollback proposal is drafted, with RelFS write/durability and
 intent-aware disable recovery still open. Two readonly facts transactions completed.
-t12/t14 ACTIVE NEXT: prepare/check then ONE synthetic file-primitive probe under
-a fresh owned /tmp/cmu-bench-probe-* directory only. Creation/copy/stage/rename/
-metadata/readback/restore/cleanup of synthetic fixtures is authorized. No real GUI
-file, root remount, data_persist write, firmware, service, navigation or power action.
+One synthetic TMPFS trial PASSED3.023s: bytes/mode/UID/GID/link guards, stage/
+replace/restore and exact whitelist cleanup, root55/core completion. See
+notes/tmpfs-file-primitives-observation.txt; no actual GUI/source changed.
+One synthetic data_persist rwRelFS runtime trial PASSED3.776s:22/23B fixtures,
+9 verified states,16 toolstatus0 and complete cleanup. This writable-volume result
+does not prove root-RelFS atomicity, durability, power-loss or recovery.
+Host-only explicit complete_uninstall PASSED16 checks (6 completion+10 regressions):
+verify/commit original already present without rewrite, or restore stored original
+from candidate; default recover ABORT unchanged. Target recovery policy remains OPEN.
+ACTIVE t14 with t12: ONE full94KB COPY-ONLY source/candidate/original roundtrip in
+a fresh owned data_persist directory. Actual /jci file is read-only input and stays
+unchanged. No root remount, sync, startup, firmware/service/browser/power action.
+Stop on conflict, preserve scratch on failure; no automatic retry.
+t13: recovery intent table completed; six install-proposal paths stay historical.
 t14 remains sole UART/camera owner; reconcile existing trial state before repeats.
 t13: resource interpretation + retrospective comparison COMPLETE; external research
 started after freeze. Miatafy ScreenTune public behavior compared; disclaimer

@@ -1,0 +1,55 @@
+RECOVERY INTENT TABLE — PROPOSED HOST CAPABILITY, November13 2026; t13
+Requested by t6; source: experiments/installer-proof/target-copy-limitations.txt.
+This is not product policy, device authority or a change to the frozen proposal.
+All images below mean exact bytes/hash/length AND the model's expected mode.
+
+Valid journal          Observed image    Default ABORT             Opt-in COMPLETE-disable
+pending ENABLE         original          keep original, abort      REFUSE: wrong intent
+pending ENABLE         candidate         restore original, abort   REFUSE: wrong intent
+pending DISABLE        candidate         keep candidate, abort     restore stored original;
+                                                                  verify, commit disabled
+pending DISABLE        original          restore candidate, abort  verify original in place;
+                                                                  commit disabled; NO rewrite
+either pending intent  OTHER/missing/     REFUSE; preserve evidence REFUSE; preserve evidence
+                       wrong metadata
+
+Preconditions for COMPLETE-disable:
+- Valid internally consistent pending DISABLE intent: prior stable candidate,
+  desired original; validated stored original/candidate/journal/profile.
+- Explicit opt-in; default recover remains ABORT. Never silently adopt candidate
+  without journal or complete an ENABLE through this capability.
+- Recheck actual image before any transition; unknown edit/metadata/link, corrupt
+  or missing evidence is a conflict. No guessed restore or fallback to external master.
+- Success means exact original plus a recorded model commit to disabled/no pending;
+  original bytes alone are insufficient. An interruption BEFORE final commit keeps
+  pending intent; the next caller explicitly chooses ABORT or COMPLETE-disable.
+  A verified committed-disabled state is complete and may be a read-only no-op.
+- Already committed disabled with no pending work may be a read-only verified no-op;
+  no-pending enabled is not an implicit uninstall. Exact API behavior belongs to t12.
+
+Tests worth distinguishing: original-already-on-disk must not be rewritten by
+COMPLETE-disable; candidate case writes/verifies original; wrong intent/other/mode/
+bad journal refuse; default ABORT still restores candidate after interrupted disable.
+Single-writer/bytes+mode/host-fsync scope remains; UID/GID, RelFS/power-loss and
+CMU startup/recovery are separate. No source/device query or target action here.
+
+SEPARATE OBSERVED RUNTIME RESULT — not policy or target-install proof
+t14's ONE3.776s trial on /dev/mmcblk0p2 data_persist rwRelFS/dev45826 passed
+tiny22/23B copy/move/cmp/chmod/chown,9file states/16toolRC0 and complete cleanup.
+Parent/device/mount/free-space guards passed before scratch creation; helpers closed.
+Read source: notes/relfs-file-primitives-observation.txt
+SHA256: 747b9a7502c9512a1f3b9217a50c5d397e699bd3d40e676cafa41b3ceea60041
+This does not test root/devffx01p1 RelFS, sync/fsync, interruption atomicity,
+durability, boot/access recovery or real-file install. Six proposal paths unchanged.
+Host complete_uninstall() is selected by t12; subsequent saved host result follows.
+
+SEPARATE HOST COMPLETION RESULT — target policy still OPEN
+Saved manifest records PASS/exit0:6 existing engine +4 adapter +6 explicit-completion
+checks (16 total). t12 reports both private-copy windows: candidate restores stored
+original; original-already-present verifies/commits disabled without rewriting it.
+Default recover() still ABORTS; bad/missing evidence refuses; precommit interruption
+remains pending; verified committed-disabled is a read-only no-op.
+experiments/installer-proof/adapter-checks/20261113T093846.327626Z/manifest.json
+SHA256: b3bafd0bc8a4622e7e786da69eb3e5a728c1b25b20d8b568a52890691b449c75
+Manifest read once; no source audit or tests rerun by research. This demonstrates
+an explicit HOST disposition, not CMU recovery/write policy or power-loss safety.

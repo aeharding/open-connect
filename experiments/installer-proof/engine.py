@@ -221,6 +221,33 @@ class Engine:
         return {'status': 'uninstalled' if current['label'] is None else 'installed',
                 'verified': True, 'label': current['label']}
 
+    def complete_uninstall(self):
+        """Opt in to COMPLETE a recorded uninstall; recover() remains ABORT."""
+        journal = self._journal()  # validate original/current/pending images first
+        if journal is None:
+            raise Conflict('completion requires a recorded uninstall or disabled state')
+        pending = journal['pending']
+        if pending is None:
+            current = self._current(journal)
+            if current['label'] is not None:
+                raise Conflict('no interrupted uninstall; refusing implicit disable')
+            return {'status': 'already_uninstalled', 'verified': True, 'label': None}
+        before, after = pending['before'], pending['after']
+        if (pending.get('operation') != 'uninstall' or before['label'] is None
+                or after != journal['original']):
+            raise Conflict('completion requires a valid pending uninstall direction')
+        observed = self._read()
+        original = self._image(after)
+        if observed == original:
+            pass  # already original: commit only, never rewrite the target
+        elif observed == self._image(before):
+            self._replace(before, after)  # restore verified stored original and mode
+        else:
+            raise Conflict('completion conflict; unknown/later bytes or mode preserved')
+        journal.update(current=after, pending=None)
+        self._save(journal)  # record disabled only after verified original readback
+        return {'status': 'completed_uninstall', 'verified': True, 'label': None}
+
     def recover(self):
         """Explicit abort to previous stable image, never auto-retry or guess."""
         journal = self._journal()

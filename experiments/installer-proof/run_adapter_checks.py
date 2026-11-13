@@ -1,4 +1,4 @@
-"""Focused adapter integration +6 existing engine tests after small profile seam."""
+"""Focused explicit COMPLETE recovery, adapter and default-ABORT regressions."""
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -55,13 +55,15 @@ def main():
               else report['result'])
     result = {'status': status, 'passed': status == 'PASS',
               'recorded_at': datetime.now(timezone.utc).isoformat(),
-              'tests': {'existing_engine': 6, 'new_adapter': 4, 'exit_code': completed.returncode},
+              'tests': {'existing_engine': 6, 'existing_adapter': 4, 'explicit_completion': 6,
+                        'exit_code': completed.returncode},
               'source_sha256': sources, 'source_copies': 'source/', 'source_unchanged': same,
               'frozen_disclaimer_sha256': adapter.FREEZE_SHA, 'frozen_disclaimer_pins': pins,
               'frozen_disclaimer_unchanged': unchanged,
               'tests_sha256': digest(evidence / 'tests.txt'),
               'demo_sha256': digest(evidence / 'demo.json') if report is not None else None,
               'scope': 'temporary private host COPIES only; OEM bytes never stored in feature/evidence source copies',
+              'recovery_api': 'complete_uninstall() opt-in; recover() retains ABORT',
               'device_actions': False, 'python': sys.version,
               'limitations': 'As-found55 exact-byte support; host process exit and bytes+mode, not device/startup/power-loss proof'}
     (evidence / 'manifest.json').write_text(json.dumps(result, indent=2) + '\n')

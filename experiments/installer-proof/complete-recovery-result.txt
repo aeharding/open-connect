@@ -1,0 +1,35 @@
+PASS — explicit HOST-only completion of an interrupted uninstall,2026-11-13.
+Engine.complete_uninstall() is an opt-in capability. Existing recover() still
+ABORTS to the prior stable state, including re-enabling a pending-disable candidate.
+No implicit product/target recovery policy was selected.
+
+Valid pending uninstall + exact original bytes/mode already present:
+  verify in place, do NOT rewrite target, commit current=original and pending=null.
+Valid pending uninstall + exact candidate bytes/mode present:
+  restore verified stored original, verify readback, then commit the same disabled state.
+Unknown bytes/mode/type/link, wrong/missing intent, bad/missing journal or stored
+images: refuse without overwriting. No pending enabled state is implicitly disabled.
+A valid already-committed disabled state returns already_uninstalled read-only.
+Re-interruption before final commit leaves recorded state pending; disposition is
+chosen explicitly again. This is recorded model commit, not a durability guarantee.
+
+Checks:16 PASS (6 completion +6 existing engine +4 existing adapter), one run.
+Identity authority and exact pre-test source copies:
+  adapter-checks/20261113T093846.327626Z/manifest.json
+  same folder/source/, tests.txt and demo.json
+The transcript contains both synthetic COMPLETE cases and both private-copy windows,
+with original SHA/mode and committed-disabled records. Existing ABORT regressions pass.
+Original-in-place test checks unchanged target inode/no replacement; candidate case
+uses stored original. Tests include precommit failure, conflicting bytes/mode,
+unsupported intent and damaged/missing backup/journal. Master source unchanged.
+
+Frozen independent disclaimer and all7 pinned files remain unchanged. No OEM source
+redistribution; temporary private copy bytes removed. Prior host code preserved in
+before-complete-recovery/ and earlier passing manifests remain immutable.
+Changed program paths: engine.py, run_adapter_checks.py, test_complete_recovery.py.
+Docs: README.txt + this result. Coordinator can retain the new manifest separately;
+prior final-handoff.json remains the historical10-test review list.
+
+Limits unchanged: host single-writer/bytes+mode and process-exit model; no UID/GID,
+ACL/xattr, concurrent CAS, power-loss/RelFS/device-recovery proof. No CMU writer,
+USB schema, startup/no-flash/health claim or device action. Helper t5d removed.

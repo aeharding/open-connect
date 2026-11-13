@@ -1,3 +1,19 @@
+Latest host capability: explicit COMPLETE-uninstall (16 checks passed).
+Current identity authority: adapter-checks/20261113T093846.327626Z/manifest.json.
+Result: complete-recovery-result.txt. Previous10-test and6-test records below
+remain historical; final-handoff.json is the prior10-test review list.
+
+Named API on an already owned HOST fixture Engine:
+  engine.recover()             # unchanged ABORT to previous stable state
+  engine.complete_uninstall()  # explicit COMPLETE of a recorded pending uninstall
+COMPLETE accepts only valid uninstall intent and stored images. Already-original
+is verified/committed disabled without a target rewrite; known candidate is
+restored to stored original then committed disabled. Unknown bytes/mode or bad
+journal/backup refuse. An already committed disabled state is a read-only no-op;
+no pending enabled state is implicitly uninstalled. Before final commit, another
+interruption remains pending and requires a new explicit disposition. Model commit
+is not a durability guarantee or selected target/product policy.
+
 Frozen HOST installer model — exploratory, no device installer
 
 Synthetic demo (temporary fixtures only):

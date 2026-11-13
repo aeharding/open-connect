@@ -1,0 +1,32 @@
+ONE TMPFS SYNTHETIC FILE PRIMITIVE PROBE — t14, November13 2026
+Result PASS in3.023s, one live trial through unchanged paced runner.
+Prepared directly per t6 simplified scope; t12's untested draft was not used.
+One host sh-n and literal32hex nonce/path check before live, no new CLI/framework.
+Exact command3611B, maximumphysical line129B; live deadline15s/outputcap32768B.
+Fresh root55.00.750B/cmu150_NA. Parent/tmp canonical and tmpfs guard passed.
+Owned scratch /tmp/cmu-bench-probe-bc49b66ab7005c1b72edf10a9ebef913,
+directory0700/root0:0, stabledevice14/inode4914, nonlink/canonical checks passed.
+Only named synthetic files original,candidate,active,stage,restore were written.
+Original22B MD5828a650ba6211b4905431c5a9351e811 CRC3787421835;
+candidate23B MD5ffdc92602e4b3e2c8c91da73fd77e83d CRC2679554219.
+Actual cp-p/same-parent mv-f/three cmp/chmod755/chown1018:3015 returned0.
+Nine readback states passed size/MD5/POSIXCRC, regular/nonlink/canonical/singlelink,
+mode0755,UID1018/GID3015. Original->stagecandidate->activecandidate->restoredoriginal
+completed and exact bytes/attributes matched expected at each relevant step.
+Cleanup first checked exactdirectory entries; removed only active,candidate,original
+with plain rm, then rmdir. Actual rm0/rmdir0 and END0 CLEANUPabsent UID0.
+Core actual END0+PS1,0BEL and portclosed; no uncertainoutcome/retry/controlsequence.
+One owned host helper saved/exited0/removed; both serialaliases lsof1empty.
+Camera neveropened. No owned target child/scratch remains; soleowner idle.
+
+This is tmpfs/runtime positive-path evidence only. No RelFS durability/atomicity,
+interruption recovery, real installer, GUI startup/feature/rollback validation or
+cold-start/power-loss claim. No fsync/sync durability trial.
+No real GUI/OEM file, persistent data mount, rootremount, browser/OEM app method,
+heartbeat/watchdog/service/power/firmware/account/network setting was changed.
+Exact code/payload/expectedbytes/host check: runs/20261113T032819-0600-t14-tmpfs-primitives/
+command.sh,plan.json. Runner session/manifest.json,rawRX/TX/events preserve source
+hashes,exactwire,freshidentity and actualcompletion. actual-markers.txt,
+compact-result.json and cleanup.json preserve result and cleanup/provenance.
+Reported compact result before this note to t6/t12/t13; t13 can index concise milestone.
+No further trial queued.

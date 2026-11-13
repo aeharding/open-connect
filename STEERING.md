@@ -131,6 +131,17 @@ scoping is active now, alongside the next small bench helper. Native install/und
 must account for loaded-module lifetime: restoring disk bytes does not unload it.
 Reuse the working hardlink-hold recovery instead of rebuilding tooling.
 
+## Extension architecture direction
+
+Investigate small firmware-specific integration points loading our own optional
+feature code. The desired disable operation skips that code on a subsequent
+verified startup without rewriting OEM files; it does not promise hot-unload or
+recovery from a broken bootstrap. Preserve full uninstall and independent recovery.
+The research/implementation boundary is in [the architecture plan](docs/extension-architecture.md).
+User-preferred layout direction: tooling/ for host code, cmu/ for bootstrap,
+adapters and features. Move complete components with their tests; avoid empty
+scaffolding or another history folder. Current paths remain until that migration.
+
 ## Development home and license
 
 The public repository is https://github.com/aeharding/open-connect.
@@ -161,5 +172,5 @@ in GitHub issues. Git preserves superseded plans.
 Maintain this document when goals or working agreements change, not after every
 command. Keep it short enough to read at the start of a session.
 
-Repository layout: src/open_connect is host code; tests covers it; experiments
+Current repository layout (before the planned tooling/cmu split): src/open_connect is host code; tests covers it; experiments
 contains prototype mods; docs contains setup, usage and findings. Retired records belong in Git history. Keep one starting README and one current lab-state file.

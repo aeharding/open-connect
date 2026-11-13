@@ -59,3 +59,13 @@ post-shimmer spinner or whether it is limited to a particular boot mode.
 Replacing the entire frontend document stopped the stock framework heartbeat
 and caused Opera to exit. Preserve the document, normal transitions, callbacks
 and native initialization rather than suppressing or spoofing the heartbeat.
+
+## Optional extension loading
+
+Saved firmware55 code has both native UIA dynamic loading and GUI script loading.
+Those mechanisms are not yet a verified optional-mod contract. The current native
+feature library lacks dlopen/dlsym imports, and its paired renderer dependency
+requires coordinated readiness before activation. See the
+[source-backed architecture and disable plan](extension-architecture.md), which
+separates an installed bootstrap, optional code, disabled startup and full recovery.
+No new loader or disable mechanism has been tested on the CMU.

@@ -1,0 +1,129 @@
+{
+  "code_or_wire_semantics_changed": false,
+  "coordinator_decision": "stock finite6s/47s daemonized watcher exception only; no custom persistent helper/schedule",
+  "core_commit_reference": "2b65423 (reported by coordinator; no worker Git operations)",
+  "created_at": "2026-11-13T05:39:07.847211+00:00",
+  "documentation_changes": {
+    "experiments/ui001/README.txt": {
+      "after_sha256": "f6ef5579796f741e70d08e530d9197bfaa4abf0c4267e8d68941279bb23c8c84",
+      "after_snapshot": "experiments/ui001/documentation-delta-stock-timeout/after/experiments/ui001/README.txt",
+      "before_sha256": "d7f75bc8ea2166e5d772a098c4ed54b289c8fff4b31842b565637e0c79ea9e84",
+      "before_snapshot": "experiments/ui001/documentation-delta-stock-timeout/before/experiments/ui001/README.txt"
+    },
+    "experiments/ui001/index.tsv": {
+      "after_sha256": "c8377f13bb139ba7bf269e0b85832119ffd068d9592958c1a92bde28db6f2fd5",
+      "after_snapshot": "experiments/ui001/documentation-delta-stock-timeout/after/experiments/ui001/index.tsv",
+      "before_sha256": "55822d8b2aa3247955bf8a2a8967b0fe88cde280fac0b6d57838b025fe6c39e3",
+      "before_snapshot": "experiments/ui001/documentation-delta-stock-timeout/before/experiments/ui001/index.tsv"
+    },
+    "notes/ui001-development.txt": {
+      "after_sha256": "cf0c8c927dd9fb8127b8f8d11fec808d2c0310708cb66efc86f0189cded467c5",
+      "after_snapshot": "experiments/ui001/documentation-delta-stock-timeout/after/notes/ui001-development.txt",
+      "before_sha256": "b44b56dfb96a1fdff6d0964a38907d60c09e64efd519aadf493dfd0f09299247",
+      "before_snapshot": "experiments/ui001/documentation-delta-stock-timeout/before/notes/ui001-development.txt"
+    }
+  },
+  "executable_source_profile": "frozen-v2-final16",
+  "executable_sources": {
+    "experiments/ui001/capability-probe.sh": {
+      "byte_equal_to_final16": true,
+      "bytes": 6633,
+      "pretest_snapshot": "experiments/ui001/test-evidence/20261113T052952.388551Z/source/experiments/ui001/capability-probe.sh",
+      "sha256": "1ba4dd060a824d4b8b21962ef5db945994f093bbdd6f3797820db6efe7c511d3"
+    },
+    "experiments/ui001/fake_dialog.py": {
+      "byte_equal_to_final16": true,
+      "bytes": 1865,
+      "pretest_snapshot": "experiments/ui001/test-evidence/20261113T052952.388551Z/source/experiments/ui001/fake_dialog.py",
+      "sha256": "ccb2e1b8d0a909d115983ee97b27bbe2a85bb5869d620dab18e733d55c4095f6"
+    },
+    "experiments/ui001/invoke.py": {
+      "byte_equal_to_final16": true,
+      "bytes": 7561,
+      "pretest_snapshot": "experiments/ui001/test-evidence/20261113T052952.388551Z/source/experiments/ui001/invoke.py",
+      "sha256": "9f5e4feec3e6695175530e1910c465c4de6c9e5a237844e50ba1ae3c1fc144ba"
+    },
+    "experiments/ui001/prepare.py": {
+      "byte_equal_to_final16": true,
+      "bytes": 4003,
+      "pretest_snapshot": "experiments/ui001/test-evidence/20261113T052952.388551Z/source/experiments/ui001/prepare.py",
+      "sha256": "d5dff8115145ced2434647dd0f407532c6c43d08e04552b2622515391c8d4b45"
+    },
+    "experiments/ui001/run_tests.py": {
+      "byte_equal_to_final16": true,
+      "bytes": 3418,
+      "pretest_snapshot": "experiments/ui001/test-evidence/20261113T052952.388551Z/source/experiments/ui001/run_tests.py",
+      "sha256": "d9e12fe68c2d5a3a8f520f5f73ef950ab8e314e39874f2a5f97d32d9b376bd08"
+    },
+    "experiments/ui001/test_watchdog.py": {
+      "byte_equal_to_final16": true,
+      "bytes": 15076,
+      "pretest_snapshot": "experiments/ui001/test-evidence/20261113T052952.388551Z/source/experiments/ui001/test_watchdog.py",
+      "sha256": "ca383c4d0615186e59f634240edf0f648d57d16d02fea24b15fdc38a3de0fdaa"
+    },
+    "experiments/ui001/watchdog.sh.in": {
+      "byte_equal_to_final16": true,
+      "bytes": 6389,
+      "pretest_snapshot": "experiments/ui001/test-evidence/20261113T052952.388551Z/source/experiments/ui001/watchdog.sh.in",
+      "sha256": "c62ec9709af9897943b81450e72b9eecf7d4efde37360e74ef68472c6a66d0ea"
+    }
+  },
+  "final16_test_manifest": {
+    "modified": false,
+    "path": "experiments/ui001/test-evidence/20261113T052952.388551Z/manifest.json",
+    "sha256": "fb8603f327aa662ec8cbb62bfe7f1582399e61672ed58a74a6b7650bae820db7"
+  },
+  "frozen30_dependencies": {
+    "cmu_bench/__init__.py": "0299c10b95ad7d2632bbfd9f18a1c855ec059dfd1eb39481c33855bd120f0e34",
+    "cmu_bench/files.py": "44314102367e7f43f63e32656a23af6ea1f0cf48e2c1290aa43081239a1e9255",
+    "cmu_bench/session.py": "2075c505778e09f932da6576bafe906743b42dcd84c2beeacd12d690cab9ae85",
+    "scripts/cmu-session.py": "56371f4c1c8d7cafba29f6cab483707bf9341451df8f748086e645a188a3eff4",
+    "tests/run_offline.py": "bff34e3d145354632745bddbf82b61d92975630084d24657513ce4f36ad8ad2d",
+    "tests/test_cli.py": "92efb9c324aab0bb6f0da041e5b8530f9ab3eb19e4a20440684a9b83dbc2a9dc",
+    "tests/test_files.py": "c1d39230a91b6cba04cb5ee03cbb7fc5e5495e3c501104cbe0142755fa763fb8",
+    "tests/test_session.py": "f270f22dd19e9f28fd20e6e1371d94ec281a693e84c81e589a01e7139bed2e76"
+  },
+  "kind": "documentation_only_delta",
+  "live_work_performed": false,
+  "original_body_audit": {
+    "auditor": "t13",
+    "in_memory_transformation": "replace exactly one _run=<saved plan.run_id> assignment with _run=@RUN_ID@",
+    "other_original_source_reproducibility": "unproven",
+    "reconstruction_by_this_update": false,
+    "recovered_body_bytes": 4084,
+    "recovered_body_sha256": "4461ef8c809ff22494f80b24f753e62f15b97ddb5834cb00effb67e49b6ec133",
+    "retained_rendered_bytes": 4108,
+    "retained_rendered_sha256": "8f93cabc251d7fed90105d396898b7d0914e5936b4ed0629ce8b227da9da569a",
+    "source_reference": "notes/ui001-review-revision2.txt",
+    "watchdog_body_exactly_recoverable": true
+  },
+  "original_freeze": {
+    "modified": false,
+    "path": "experiments/ui001/freeze.json",
+    "sha256": "8599996c8d246d6f3397c99bea30101122966cc5a81af8181bee8c0cfadc6667"
+  },
+  "qualified_disposition": "R1/R2/R4 resolved; R3 qualified; no practical code blocker to ONE exact sleep4 pending separate t6 handoff; no UI authorization",
+  "readme_sha256": "919879dca137af0cbd46d8ab5091138bbbb7a1d11893d1ae48154a9cc93cabf6",
+  "references": {
+    "notes/ui001-review-revision2.txt": "dc42daffaaede2c770cb332e3e0fa741c6c25ca07fbc4c65a1c7a20ae56d05c9",
+    "notes/ui001-timeout-decision.txt": "d34717beb6d1503c3d1c3f4b361850734c15ca699652483af650e59bab4cc346"
+  },
+  "stock_semantics_limits": [
+    "Watcher polls/signals numeric parent PID without starttime/full argv binding",
+    "PID reuse can invalidate intended target despite one-second existence polling",
+    "Nominal6s/47s watcher scheduling/signal/deadline limits remain",
+    "Local shim is contract model, not BusyBox equivalence",
+    "Host timeout/serial close does not itself terminate target; unknown host outcome stays unknown"
+  ],
+  "stock_source": {
+    "archive_sha256": "ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9",
+    "local_archive": "research/sources/snapshots/20261113T044437Z/busybox-1.19.2/ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9/busybox-1.19.2.tar.bz2",
+    "member": "busybox-1.19.2/miscutils/timeout.c",
+    "member_sha256": "4bce605f718c8dac6f65dddbb246eb8ad662d6674ce36271caed7391b04486d7",
+    "original_retrieved_at": "2026-11-13T04:44:37Z",
+    "relevant_lines": "63-103 daemonized grandchild + parent existence polling/numeric signal;117 parent exec",
+    "url": "https://busybox.net/downloads/busybox-1.19.2.tar.bz2",
+    "vendor_revision": "CMU vendor patches/build configuration not acquired"
+  },
+  "tests_rerun": false
+}

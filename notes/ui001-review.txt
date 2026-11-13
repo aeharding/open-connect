@@ -1,0 +1,85 @@
+UI001 REVIEW — offline/read-only, 2026-11-12, reviewer t13 / coordinator t6
+Disposition: current pinned package has cleanup blockers; no live approval here.
+No UART/camera/CMU access, source edits, subagents or duplicate child probes.
+Reviewed watchdog, capability probe, prepare/invoke, fake/driver tests and evidence.
+Paths below are relative to experiments/ui001 unless otherwise stated.
+
+R1 [P1] Startup interruption can orphan the dialog (REPRODUCED).
+watchdog.sh.in:104-116 spawns the child then sleeps1 before storing _start.
+A HUP/INT/TERM during that interval enters _finish; _inspect_owned:38 requires
+nonempty _start, so _cleanup:60 refuses TERM and _finish exits immediately.
+There is also a smaller spawn-to-_pid assignment interval at :104-105.
+One justified targeted check reused existing run_fake, changing its interrupt
+timer IN MEMORY from0.5s to0.10s, inside the initial accelerated0.15s sleep.
+Observed wrapper143; reason=terminate; cleanup=identity_unreadable_no_signal;
+cleanup_rc76; dialog_rcunknown; ticks0; ZERO signal requests.
+Fake events:ready,self_expired,exited; elapsed2.562s. The real jci-dialog has
+no demonstrated2.5s expiry. Existing interrupt test:109 only covers post-READY.
+Fix/retest startup signal handling and initial-identity failure cleanup without
+weakening PID/starttime/PPID/full-NUL-cmdline ownership checks.
+
+R2 [P1] Capability probe has unbounded wait / missing error cleanup.
+capability-probe.sh:27-29 sends TERM then wait immediately, with no observed
+exit/zombie gate or bounded grace. A stopped/unresponsive child can hang it.
+Its :10-26 error exits have no cleanup/reap trap, leaving a child until any
+natural expiry. _start is recorded/printed but not rechecked before signaling.
+Use the same reviewed bounded owned-child lifecycle, not a separate weak path.
+Current profile is4s (:8,:22); invoke.py:53 correctly requires exact NUL argv4.
+A3s record cannot satisfy that exact gate and must not be silently substituted.
+Latest notes/ui001-prerequisites-observation.txt says t6 HOLD arrived BEFORE
+any child/TERM: neither proposed lifecycle is live-validated yet. No new probe
+was run by this reviewer; coordinator must select one compatible profile.
+
+R3 [P1 acceptance gap] Host timeout does not trigger remote cleanup.
+invoke.py:99-101 passes only a host60s deadline to the frozen serial runner.
+Target :120-132 counts40 sleeps plus inspection overhead, not elapsed wall time;
+no independent target deadline wraps blocking inspection/sleep/cleanup.
+The frozen Session.execute timeout marks unknown and closes the Mac handle;
+bench evidence establishes that this need not HUP/terminate the remote shell.
+The existing fake interrupt sends SIGTERM DIRECTLY to the target wrapper,
+which is not a foreground host timeout/disconnect. Do not claim that path tested.
+Require bounded target-side lifetime plus an integrated host-timeout acceptance
+case; no direct TERM assumption from closing the UART.
+
+R4 [P2] Early failed launch is reported as wrapper success.
+watchdog.sh.in:113 uses _finish0 for an already-exited child. _collect:46-48
+records dialog_rc but _cleanup:58 returns0 regardless, so exec failure/child
+nonzero can yield wrapper0 with no READY. invoke.py does not parse UI RESULT.
+Preserve genuine early child failure and require READY/RESULT+visible evidence
+before any experiment-success interpretation.
+
+POSITIVE CHECKS / LIMITS
+- _snapshot:16-30 parses after FINAL ') ', needs >=20 tail tokens and selects
+  state, PPID, starttime field22 correctly for observed44-field CMU stat.
+- _inspect_owned checks recorded start, direct PPID and complete NUL cmdline;
+  mismatch/unreadable paths issue no signal. Only TERM is requested; no KILL.
+- Normal _collect is guarded by absent/zombie state, nominal grace is3 ticks.
+  Residual check/signal race remains (old kernel, no pidfd); prepare documents it.
+- No explicit target files, uploads, schedules or detached watchdog are created.
+  Failure paths can still leave the BACKGROUNDED dialog alive: R1 and TERM refusal.
+- Fake ignore-TERM/mismatch children expire at2.5s (fake_dialog.py:48-57);
+  passing test cleanup does not prove equivalent target child absence.
+- invoke verifies exact completed live capability command/output hash/identity,
+  owned PPID/start/full-NUL argv and wait143; frozen runner hashes are checked.
+  Frozen runner itself is unchanged by UI package at the saved evidence run.
+- Prepared command/hash is compared with freshly rendered template; final nested
+  wrap is checked against600B/line and32KiB. No quoting blocker found.
+- Saved test-evidence/20261113T050732.849215Z manifest passes6 tests but pins
+  older test source39fddf08...; current test source below adds driver tests.
+  That manifest omits invoke.py, so it does not attest current driver tests.
+
+PROVENANCE / SINGLE TARGETED CHECK
+Herdr helper t2k:hc run --bg --name ui001-startup-review --parent t13
+--cwd /Users/aeharding/mazda-cmu-bench; exact executed program argv(JSON):
+[".venv/bin/python","-B","-c","from pathlib import Path\nimport json,time\npath=Path(\"experiments/ui001/test_watchdog.py\").resolve()\ntext=path.read_text()\nneedle=\"threading.Timer(0.5,\"\nassert text.count(needle)==1\nscope={\"__file__\":str(path),\"__name__\":\"ui001_early_interrupt_review\"}\nexec(compile(text.replace(needle,\"threading.Timer(0.10,\"),str(path),\"exec\"),scope)\ncase=scope[\"WatchdogTests\"]()\nstarted=time.monotonic()\nrc,output,calls,events=case.run_fake(\"normal\",interrupt=True)\nprint(json.dumps({\"scope\":\"synthetic existing fake only; timer0.10s instead of0.5s\",\n\"elapsed_s\":round(time.monotonic()-started,3),\"wrapper_rc\":rc,\"signal_requests\":calls,\n\"result_lines\":[x.decode() for x in output.splitlines() if b\" RESULT \" in x],\n\"fake_event_kinds\":[x[\"kind\"] for x in events],\"hardware_access\":False}))\n"]
+hc wait t2k returned exit0; full result collected with hc read t2k --lines30.
+Synthetic temp files/child removed by existing fixture after its2.5s expiry.
+No full-suite rerun. No live UI, target sleep, signals or camera by this reviewer.
+Reviewed SHA256 (findings apply to these revisions; re-review changed code):
+watchdog.sh.in 4461ef8c809ff22494f80b24f753e62f15b97ddb5834cb00effb67e49b6ec133
+capability-probe.sh 039e476d93af2174c771ce096a6011b47baf499c7ee41982a8c51010566ddb7a
+prepare.py 552c5ad6a4e2d20d3b986315fa054663e31c9fac4cb9f088b2ae5bfae593c0c4
+invoke.py e9181e3f38f6d94cbb6890c1e2940bd2bc4c7899626c627ceeeae902c268ef43
+test_watchdog.py fed7ac9e75a81e9092866fdd9ec5c96023ca7b92d26d466e99914b339c6c76e5
+fake_dialog.py 98c2a64e4f1574b64d44b364ac2c5ac7eda0e5620faa58bc4950e07a61e0ff8d
+run_tests.py 6b67f4328a12904767d6a0807f46c14981d4c90525878f4a1d755860c285a0b8

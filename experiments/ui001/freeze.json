@@ -1,0 +1,152 @@
+{
+  "all_passed": true,
+  "created_at": "2026-11-13T05:32:04.241573+00:00",
+  "current_review_render": "experiments/ui001/prepared/review-v2-20261112/plan.json",
+  "exact_pretest_source_bytes_preserved": true,
+  "files": {
+    "experiments/ui001/README.txt": {
+      "bytes": 8973,
+      "sha256": "d7f75bc8ea2166e5d772a098c4ed54b289c8fff4b31842b565637e0c79ea9e84"
+    },
+    "experiments/ui001/capability-plan.json": {
+      "bytes": 1208,
+      "sha256": "106271c71eab3214b598bb16715fb4c1ae6aff75cea21b46ab49fb064e3ba653"
+    },
+    "experiments/ui001/capability-probe.sh": {
+      "bytes": 6633,
+      "sha256": "1ba4dd060a824d4b8b21962ef5db945994f093bbdd6f3797820db6efe7c511d3"
+    },
+    "experiments/ui001/fake_dialog.py": {
+      "bytes": 1865,
+      "sha256": "ccb2e1b8d0a909d115983ee97b27bbe2a85bb5869d620dab18e733d55c4095f6"
+    },
+    "experiments/ui001/index.tsv": {
+      "bytes": 989,
+      "sha256": "55822d8b2aa3247955bf8a2a8967b0fe88cde280fac0b6d57838b025fe6c39e3"
+    },
+    "experiments/ui001/invoke.py": {
+      "bytes": 7561,
+      "sha256": "9f5e4feec3e6695175530e1910c465c4de6c9e5a237844e50ba1ae3c1fc144ba"
+    },
+    "experiments/ui001/prepare.py": {
+      "bytes": 4003,
+      "sha256": "d5dff8115145ced2434647dd0f407532c6c43d08e04552b2622515391c8d4b45"
+    },
+    "experiments/ui001/run_tests.py": {
+      "bytes": 3418,
+      "sha256": "d9e12fe68c2d5a3a8f520f5f73ef950ab8e314e39874f2a5f97d32d9b376bd08"
+    },
+    "experiments/ui001/test_watchdog.py": {
+      "bytes": 15076,
+      "sha256": "ca383c4d0615186e59f634240edf0f648d57d16d02fea24b15fdc38a3de0fdaa"
+    },
+    "experiments/ui001/watchdog.sh.in": {
+      "bytes": 6389,
+      "sha256": "c62ec9709af9897943b81450e72b9eecf7d4efde37360e74ef68472c6a66d0ea"
+    }
+  },
+  "final_test_manifest": "experiments/ui001/test-evidence/20261113T052952.388551Z/manifest.json",
+  "final_test_manifest_sha256": "fb8603f327aa662ec8cbb62bfe7f1582399e61672ed58a74a6b7650bae820db7",
+  "final_tests": 16,
+  "frozen_harness_sha256": {
+    "cmu_bench/__init__.py": "0299c10b95ad7d2632bbfd9f18a1c855ec059dfd1eb39481c33855bd120f0e34",
+    "cmu_bench/files.py": "44314102367e7f43f63e32656a23af6ea1f0cf48e2c1290aa43081239a1e9255",
+    "cmu_bench/session.py": "2075c505778e09f932da6576bafe906743b42dcd84c2beeacd12d690cab9ae85",
+    "scripts/cmu-session.py": "56371f4c1c8d7cafba29f6cab483707bf9341451df8f748086e645a188a3eff4",
+    "tests/run_offline.py": "bff34e3d145354632745bddbf82b61d92975630084d24657513ce4f36ad8ad2d",
+    "tests/test_cli.py": "92efb9c324aab0bb6f0da041e5b8530f9ab3eb19e4a20440684a9b83dbc2a9dc",
+    "tests/test_files.py": "c1d39230a91b6cba04cb5ee03cbb7fc5e5495e3c501104cbe0142755fa763fb8",
+    "tests/test_session.py": "f270f22dd19e9f28fd20e6e1371d94ec281a693e84c81e589a01e7139bed2e76"
+  },
+  "handoff": {
+    "path": "notes/ui001-development.txt",
+    "sha256": "b44b56dfb96a1fdff6d0964a38907d60c09e64efd519aadf493dfd0f09299247",
+    "snapshot": "experiments/ui001/test-evidence/20261113T052952.388551Z/handoff/notes/ui001-development.txt"
+  },
+  "initial_draft": {
+    "exact_original_plan_retained": "experiments/ui001/prepared/review-20261112/plan.json",
+    "exact_original_rendered_bytes_retained": "experiments/ui001/prepared/review-20261112/command.sh",
+    "full_original_source_byte_retention": "NOT VERIFIED; developer did not snapshot before overwriting",
+    "original_source_hashes_and_logs": [
+      "experiments/ui001/test-evidence/20261113T050732.849215Z/manifest.json",
+      "experiments/ui001/test-evidence/20261113T051102.455798Z/manifest.json",
+      "notes/ui001-review.txt"
+    ],
+    "originals_reconstructed": false
+  },
+  "limitations": [
+    "TERM-only cannot universally force ignored/uninterruptible child",
+    "Old-kernel check/signal race",
+    "Fake clock/proc/timeout are model evidence only",
+    "No live child/probe/UI run; no camera evidence",
+    "No second-copy claim"
+  ],
+  "source_bytes_equal_current": true,
+  "source_copies_root": "experiments/ui001/test-evidence/20261113T052952.388551Z/source",
+  "sources": [
+    {
+      "reference": "notes/ui001-review.txt",
+      "retrieved_at": "2026-11-13T05:32:04.241573+00:00",
+      "scope": "55.00.750B cmu150_NA; local preserved evidence/reference; raw sources referenced without copying private bytes",
+      "sha256": "7dc8b883bc968bb7443cfefd2dd6af605e5182806a5ec523b53392be21d3d3d8",
+      "superseded": "initial-draft review findings addressed; revised review pending"
+    },
+    {
+      "reference": "notes/ui001-prerequisites-observation.txt",
+      "retrieved_at": "2026-11-13T05:32:04.241573+00:00",
+      "scope": "55.00.750B cmu150_NA; local preserved evidence/reference; raw sources referenced without copying private bytes",
+      "sha256": "e862c716166ddf24b3fc8e6f975b8ff71c0ca649ee2dfe9b8190b27cea74edd3",
+      "superseded": false
+    },
+    {
+      "reference": "notes/interim-development-research-plan.txt",
+      "retrieved_at": "2026-11-13T05:32:04.241573+00:00",
+      "scope": "55.00.750B cmu150_NA; local preserved evidence/reference; raw sources referenced without copying private bytes",
+      "sha256": "18e6e7223929bac4de51001c3ff4b422c8195fe001432be70fd6530d12e3bdc6",
+      "superseded": false
+    },
+    {
+      "reference": "notes/interim-operator-plan.txt",
+      "retrieved_at": "2026-11-13T05:32:04.241573+00:00",
+      "scope": "55.00.750B cmu150_NA; local preserved evidence/reference; raw sources referenced without copying private bytes",
+      "sha256": "d72bbaa4bf35443e3c30c00ce178005773de0de80b217247436f8bffe8fd51f5",
+      "superseded": false
+    },
+    {
+      "reference": "notes/tooling-review.txt",
+      "retrieved_at": "2026-11-13T05:32:04.241573+00:00",
+      "scope": "55.00.750B cmu150_NA; local preserved evidence/reference; raw sources referenced without copying private bytes",
+      "sha256": "2269095e9e9125efbb51aa8ad582e9a98ef9d5e3fac1799b431a873c2a774d3c",
+      "superseded": false
+    },
+    {
+      "reference": "notes/exact-file-capture-observation.txt",
+      "retrieved_at": "2026-11-13T05:32:04.241573+00:00",
+      "scope": "55.00.750B cmu150_NA; local preserved evidence/reference; raw sources referenced without copying private bytes",
+      "sha256": "3876b72164402154d7187cb27ec0afcba585c1f5fd371469a9715b8f3cc475e9",
+      "superseded": false
+    },
+    {
+      "reference": "runs/20261112T230433-0600-t14-baseline-followup/capabilities/manifest.json",
+      "retrieved_at": "2026-11-13T05:32:04.241573+00:00",
+      "scope": "55.00.750B cmu150_NA; local preserved evidence/reference; raw sources referenced without copying private bytes",
+      "sha256": "433ae13456bb34573083727ba07dad7e7d96ee1b9dab1161ba453f6c395b10a7",
+      "superseded": false
+    },
+    {
+      "reference": "runs/20261112T230433-0600-t14-baseline-followup/process-capabilities/manifest.json",
+      "retrieved_at": "2026-11-13T05:32:04.241573+00:00",
+      "scope": "55.00.750B cmu150_NA; local preserved evidence/reference; raw sources referenced without copying private bytes",
+      "sha256": "31445eb6f03d116cf02d314ac7f71ab175664dd2665037e8a4be3d6de947fcaf",
+      "superseded": false
+    },
+    {
+      "reference": "logs/20261112T213836.165677-0600-open-root-bench-dialog.txt",
+      "retrieved_at": "2026-11-13T05:32:04.241573+00:00",
+      "scope": "55.00.750B cmu150_NA; local preserved evidence/reference; raw sources referenced without copying private bytes",
+      "sha256": "34284439e61ed0c0d94bcd305c4f981f7ae2f2928cb3200bc8470d44f9bdda56",
+      "superseded": false
+    }
+  ],
+  "status": "frozen offline package for coordinator/reviewer; live probe/UI ON HOLD"
+}

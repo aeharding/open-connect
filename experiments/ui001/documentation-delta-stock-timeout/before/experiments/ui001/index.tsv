@@ -1,0 +1,8 @@
+id	kind	scope	status	evidence
+UI001-DESIGN	implementation	55.00.750B native transient dialog	pending coordinator review; no live UI	watchdog.sh.in
+UI001-REVIEW-R1-R4	review	initial draft startup/probe/timeout/readiness	addressed in revised16-test source; re-review pending	../../notes/ui001-review.txt
+UI001-PREREQUISITES	source	actual BusyBox/proc read-only profile	measured by t14; no sleep child yet	../../notes/ui001-prerequisites-observation.txt
+UI001-FINAL-OFFLINE	run	local fake/proc/clock + frozen host timeout	final source snapshots and test result linked in freeze.json	freeze.json
+UI001-SLEEP4	experiment-plan	4s disposable child	HOLD; separate reviewed capability step	capability-probe.sh
+UI001-LIVE-UI	experiment-plan	40s owned native dialog	HOLD; requires capability proof and separate t6 approval	README.txt
+UI001-PROVENANCE-GAP	preservation	initial rejected revision	original rendered bytes partial; full source byte copies not verified	prepared/review-20261112/command.sh

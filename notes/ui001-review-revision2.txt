@@ -1,0 +1,99 @@
+UI001 REVIEW REVISION2 — t13 for t6, 2026-11-12; offline/read-only
+Disposition: no remaining practical CODE blocker to ONE exact sleep4 probe,
+subject to t6's separate handoff and narrow stock-timeout exception below.
+This review authorizes no probe/UI. Original notes/ui001-review.txt unchanged.
+No hardware/source edits, new test run, Git staging/commit or helper launch.
+
+EVIDENCE VERIFIED
+Initial reviewed16-test run:experiments/ui001/test-evidence/20261113T052349.660935Z.
+Final16/16 run:experiments/ui001/test-evidence/20261113T052952.388551Z.
+Final manifest SHA256fb8603f327aa662ec8cbb62bfe7f1582399e61672ed58a74a6b7650bae820db7.
+Final log SHA256b65e314d9cfa8bc8c4a97308366264fa156e4cd7d72e2b0a6df9d6ef4d9bb4e1.
+Independently verified18 PRE-TEST source copies byte-for-byte vs current source
+at audit,10 freeze entries, both16-test log/manifests and frozen30's8 source pins.
+No broad or targeted tests rerun: existing exact regression resolves R1 concern.
+Freeze SHA2568599996c8d246d6f3397c99bea30101122966cc5a81af8181bee8c0cfadc6667.
+Later documentation addenda do not revise the preserved executable profile.
+
+R1 RESOLVED IN SOURCE+MODEL
+watchdog.sh.in:156-158 defers startup traps using assignments only; :167-190
+spans launch/$! assignment, then safely adopts identity before handling pending
+termination. Cleanup:84-113 can adopt/reinspect after early sleep/inspection error.
+Tests:105-128 cover BOTH pre-PID and post-PID windows, original0.10s interruption
+inside0.15s startup sleep, initial sleep failure, initial od failure and probe
+failure. Actual owned TERM+wait143 are asserted; fake self-expiry alone cannot pass.
+
+R2 RESOLVED IN SOURCE+MODEL
+Probe is generated from SAME lifecycle (prepare.py:27-39), explicit /bin/sleep4.
+No old unconditional live-child wait remains: _collect:78 is called after
+gone/zombie; cleanup has3 finite grace checks, no escalation and no mismatch kill.
+Start/PPID/full-NUL argv are adopted then reread immediately before one TERM.
+Transient initial failure now gets owned cleanup; persistent unreadable/mismatch
+still refuses signals and reports failure. General TERM refusal cannot be forced.
+
+R3 QUALIFIED RESOLUTION WITH COORDINATOR DECISION
+prepare.py:39 adds target timeout -t47 -s15 (UI), -t6 -s15 (sleep4),
+independent of host60/15. Test:177 models frozen Session timeout first, closes a
+modeled host handle WITHOUT any signal, then a separate target-timer shim TERMs
+its own wrapper and cleanup follows; host outcome correctly remains unknown.
+This is a contract model, NOT an execution of the CMU BusyBox timeout applet.
+Stock1.19.2 miscutils/timeout.c:63-103 daemonizes a GRANDCHILD watcher, polls
+kill(parent,0) and later signals only numeric parent PID; parent execs at:117.
+Watcher lacks starttime/full-cmdline binding; PID reuse/vendor changes remain.
+The package's broad no-detached-watchdog wording needs the explicit exception;
+t6's durable decision permits ONLY this finite stock6s/47s watcher, not custom
+persistent workers/schedules. Read notes/ui001-timeout-decision.txt:
+SHA256d34717beb6d1503c3d1c3f4b361850734c15ca699652483af650e59bab4cc346.
+Host close still does NOT kill target; no universal hard wall-time guarantee.
+Primary source is preserved official busybox-1.19.2.tar.bz2, archive SHA256
+ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9,
+under research/sources/snapshots/20261113T044437Z/busybox-1.19.2/<archive-sha>/.
+Member busybox-1.19.2/miscutils/timeout.c SHA256
+4bce605f718c8dac6f65dddbb246eb8ad662d6674ce36271caed7391b04486d7.
+
+R4 RESOLVED IN SOURCE+DRIVER TESTS
+watchdog.sh.in:145-150 preserves early child nonzero and returns79 for noREADY.
+Tests:130-145 distinguish early0 from early7; neither can claim readiness.
+invoke.py:20-35 requires actual completed0 request, root55, closed port and
+output hash; :60-85 checks EXACT sleep4 command/profile, identity/TERM_ID,
+TERM0, wait143, READY and cleanup result. UI :88-100 requires READY/RESULT/WAIT,
+and visible_pass remains false pending separately inspected camera evidence.
+Frozen runner source remains30; no transport/parser changes for UI001.
+
+ONE sleep4 PROBE: PRECISE EXPECTED CLEANUP / GATES
+t14 alone, after t6 handoff: verify frozen executable/profile hashes and idle root55.
+Use invoke --phase capability, ONE new private bundle; no3s substitution/retry.
+Child is /bin/sleep NUL4 NUL, direct parent, recorded positive starttime.
+Need one PREP sleep4; IDENTITY/full-NUL argv; READY watchdog_seconds1;
+matching TERM_ID immediately before one TERM pid=owned rc0; WAIT samePID rc143;
+RESULT profile=sleep4 reason=watchdog_expired cleanup=term_exit_verified
+cleanup_rc0 dialog_rc143 wrapper_rc0 ready1. Core operation must complete exit0
+with actual nonce END+fresh prompt; driver validates saved output size/hash.
+No target file; child nominal auto-expires4s if TERM fails. Inner cleanup grace3s,
+independent stockTERM6, host15. Watcher's later finite self-exit is the explicit
+exception, not proof of absent helpers. Port closes under lease before final flush.
+Any wrong status/missing evidence/mismatch/host deadline is failure/unknown:
+stop sends, preserve raw streams, no UI, automatic retry or generic cleanup kill.
+After actual completion preserve result, hc wait/read and remove only the owned
+finished Mac helper. No separate live UI is authorized by successful sleep4.
+
+ORIGINAL DRAFT BYTE RETENTION — PARTIAL, NOT FULL SOURCE REPRODUCIBILITY
+prepared/review-20261112/command.sh retains4108B exact rendered draft:
+SHA2568f93cabc251d7fed90105d396898b7d0914e5936b4ed0629ce8b227da9da569a.
+Saved plan/run ID match. Replacing ONLY its one _run=<saved-id> assignment IN
+MEMORY with _run=@RUN_ID@ yields4084B and original template SHA256
+4461ef8c809ff22494f80b24f753e62f15b97ddb5834cb00effb67e49b6ec133.
+Thus template-equivalent bytes are recoverable; no reconstructed file was saved
+or relabeled original. No exact old probe/prepare/invoke/fake/6-or8-test source
+copy found among579 available workspace files; no UI Git history;2 unreachable
+Git blobs also do not match. External/host backups not examined. Old hashes/logs
+alone cannot reproduce the COMPLETE initial failed source package.
+Final18 source copies now provide exact-byte provenance for THIS revision.
+
+EXECUTABLE SOURCE PINS (full remaining hashes/copies in freeze/final manifest)
+watchdog.sh.in c62ec9709af9897943b81450e72b9eecf7d4efde37360e74ef68472c6a66d0ea
+capability-probe.sh 1ba4dd060a824d4b8b21962ef5db945994f093bbdd6f3797820db6efe7c511d3
+prepare.py d5dff8115145ced2434647dd0f407532c6c43d08e04552b2622515391c8d4b45
+invoke.py 9f5e4feec3e6695175530e1910c465c4de6c9e5a237844e50ba1ae3c1fc144ba
+test_watchdog.py ca383c4d0615186e59f634240edf0f648d57d16d02fea24b15fdc38a3de0fdaa
+Original review SHA2567dc8b883bc968bb7443cfefd2dd6af605e5182806a5ec523b53392be21d3d3d8.

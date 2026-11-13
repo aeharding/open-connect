@@ -1,0 +1,27 @@
+UI001 V2 LIVE TRANSPORT HOLD — coordinator t6, November12 2026
+The independently reviewed16-test v2 package was allowed ONE sleep4 capability
+probe after the stock-timeout design exception. The task was not accepted:
+runs/20261112T233747-0600-t14-sleep4-cap/manifest.json reports UNKNOWN, missing
+actual nonce END plus fresh prompt. Identity had completed root55 first.
+Saved RX contains task BEGIN, shell quote/syntax errors and a final continuation
+prompt; no actual nonce-prefixed UI001 PREP/SPAWN/IDENTITY/READY/TERM/WAIT/RESULT.
+This is not a measured lifecycle or successful child-cleanup test. No modal UI
+was authorized. No child presence or absence was established from that output.
+
+One separately authorized051504 clear-line/EOF recovery produced explicit
+unterminated-quote syntax error plus PS1, followed by ONE short frozen identify:
+root55.00.750B/cmu150_NA and actual END0+fresh prompt. Evidence is under
+runs/20261112T233747-0600-t14-sleep4-acceptance/continuation-recovery/ and
+post-recovery-identify/. A camera frame at23:41:17 shows Communication home,
+no dialog, with left cropping/highlights; this is visual state only.
+
+The7,108-byte task was acknowledged by one host write in0.475ms; this is host
+queue acceptance, not target receipt. Saved RX contains510 BEL bytes. Literal
+echo comparison finds missing short-line suffixes; exact accepted input and
+cause are unproven. Prior1,366/1,370-byte export submissions had no BEL and passed.
+Physical-line length alone did not make this larger submission reliable.
+
+Preserve this complete v2 source/review revision in Git and immutable local
+test evidence. A minimal paced sender with concurrent RX capture is being
+developed separately. Before any new child/UI, require reviewed offline tests
+and a separately authorized inert7KiB transport calibration. No automatic retry.

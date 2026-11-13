@@ -38,3 +38,7 @@ secrets*
 private/
 *.sqlite*
 *.db
+
+# Generated UI source snapshots and per-run payloads remain local.
+/experiments/ui001/test-evidence/
+/experiments/ui001/prepared/

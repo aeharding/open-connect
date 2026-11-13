@@ -1,0 +1,33 @@
+UI001 STOCK TIMEOUT DESIGN DECISION
+Coordinator t6, 2026-11-12 America/Chicago.
+
+The v2 experiment may use the installed BusyBox timeout command as a narrow
+exception to the coordinator's earlier implementation preference against
+detached helpers. This preference was not a user-imposed requirement. The
+exception covers only the stock finite 6-second capability timer and 47-second
+UI timer; it does not authorize custom persistent workers or a schedule.
+
+Official BusyBox1.19.2 miscutils/timeout.c (preserved archive) forks/daemonizes a
+grandchild watcher, polls parent existence and signals the numeric parent PID.
+The parent execs the requested shell. This is nominally independent of the
+Mac's serial read deadline. It has no start-time/full-command-line check for
+the watched parent, and vendor patches are unknown. PID reuse and signal/
+scheduling/kernel limits remain. The local subprocess timeout shim is a
+contract model, not a reproduction of that implementation.
+
+The inner foreground lifecycle owns the dialog/sleep child and must still
+verify PID, direct PPID, starttime and complete NUL argv immediately before its
+single TERM. Host timeout/port closure does not itself signal the CMU shell.
+Success requires actual command completion, verified child exit/reaping and
+fresh prompt; a host timeout remains unknown even if cleanup happens later.
+
+Final16-test executable source and frozen30 harness remain unchanged. Preserve
+the original freeze and pre-test source bytes. Documentation-only corrections
+are recorded separately. Initial UI sources have partial retention: the exact
+rendered command/plan survive, and t13 matched the original watchdog template
+by reversing only the run-ID assignment in memory. Other old source bytes
+remain unproven. No reconstructed file is treated as an original.
+
+This decision alone authorizes no live action. After source/review acceptance,
+the coordinator will separately assign ONE exact sleep4 capability probe.
+Any live UI still requires that proof plus a separate operator handoff.

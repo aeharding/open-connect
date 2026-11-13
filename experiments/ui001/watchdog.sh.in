@@ -1,0 +1,206 @@
+# UI001 foreground lifecycle; no target files. Startup signals are deferred.
+set -f
+_run=@RUN_ID@
+_profile=@PROFILE@
+_tool=@TOOL@
+_proc=/proc
+_parent=$$
+_duration=@DURATION@
+_sleep_seconds=@SLEEP_SECONDS@
+_pid=
+_start=
+_candidate_start=
+_launch_requested=0
+_done=0
+_ticks=0
+_pending=0
+_pending_reason=none
+_dialog_rc=unknown
+_term_sent=0
+_ready=0
+_cleanup_state=not_started
+_emit() { printf 'UI001 %s %s\n' "$_run" "$*"; }
+_snapshot() {
+    [ -d "$_proc/$_pid" ] || return 1
+    IFS= read -r _line < "$_proc/$_pid/stat" || return 2
+    case $_line in "$_pid ("*) ;; *) return 2;; esac
+    _rest=${_line##*) }
+    set -- $_rest
+    [ "$#" -ge 20 ] || return 2
+    _state=$1
+    _ppid=$2
+    shift 19
+    _current_start=$1
+    case $_current_start in ''|*[!0-9]*) return 2;; esac
+    [ "$_state" = Z ] && return 3
+    _raw=$(od -An -tx1 -v "$_proc/$_pid/cmdline") || return 2
+    set -- $_raw
+    _current_hex=$(printf '%s' "$@")
+    [ -n "$_current_hex" ] || return 2
+    return 0
+}
+_adopt_owned() {
+    # Only this spawned PID, its direct parent, stable start, and unique full argv.
+    for _attempt in 1 2 3; do
+        _snapshot
+        _adopt_rc=$?
+        case $_adopt_rc in
+            1|3) return "$_adopt_rc";;
+            0)
+                [ "$_ppid" = "$_parent" ] || return 4
+                if [ -z "$_candidate_start" ]; then
+                    _candidate_start=$_current_start
+                fi
+                [ "$_candidate_start" = "$_current_start" ] || return 4
+                if [ "$_current_hex" = "$_expected" ]; then
+                    _start=$_current_start
+                    _emit "IDENTITY pid=$_pid ppid=$_ppid start=$_start cmdline_hex=$_current_hex expected_hex=$_expected"
+                    return 0
+                fi;;
+        esac
+        [ "$_attempt" -lt 3 ] || break
+        sleep 1 || return 78
+        _ticks=$((_ticks + 1))
+    done
+    [ "$_adopt_rc" -ne 0 ] || return 4
+    return 2
+}
+_inspect_owned() {
+    _snapshot
+    _probe_rc=$?
+    [ "$_probe_rc" -eq 0 ] || return "$_probe_rc"
+    [ -n "$_start" ] || return 2
+    [ "$_current_start" = "$_start" ] || return 4
+    [ "$_ppid" = "$_parent" ] || return 4
+    [ "$_current_hex" = "$_expected" ] || return 4
+    return 0
+}
+_collect() {
+    # Only after gone/zombie; no unbounded wait on a live PID.
+    wait "$_pid"
+    _dialog_rc=$?
+    _emit "WAIT pid=$_pid rc=$_dialog_rc"
+}
+_cleanup() {
+    if [ -z "$_pid" ] && [ "$_launch_requested" -eq 1 ]; then
+        _pid=$!
+    fi
+    if [ -z "$_pid" ]; then
+        _cleanup_state=no_child
+        return 0
+    fi
+    if [ -z "$_start" ]; then
+        _adopt_owned
+        _check=$?
+    else
+        _inspect_owned
+        _check=$?
+    fi
+    case $_check in
+        1|3) _cleanup_state=already_exited; _collect; return 0;;
+        4) _cleanup_state=identity_mismatch_no_signal; return 77;;
+        2|78) _cleanup_state=identity_unreadable_no_signal; return 76;;
+    esac
+    # Re-read immediately before the only signal, including after adoption.
+    _inspect_owned
+    _check=$?
+    case $_check in
+        1|3) _cleanup_state=already_exited; _collect; return 0;;
+        4) _cleanup_state=identity_mismatch_no_signal; return 77;;
+        2) _cleanup_state=identity_unreadable_no_signal; return 76;;
+    esac
+    _emit "TERM_ID pid=$_pid ppid=$_ppid start=$_current_start cmdline_hex=$_current_hex"
+    kill -TERM "$_pid"
+    _term_rc=$?
+    [ "$_term_rc" -ne 0 ] || _term_sent=1
+    _emit "TERM pid=$_pid rc=$_term_rc"
+    for _grace in 1 2 3; do
+        sleep 1 || { _cleanup_state=grace_sleep_failed; return 78; }
+        _ticks=$((_ticks + 1))
+        _inspect_owned
+        _check=$?
+        case $_check in
+            1|3) _cleanup_state=term_exit_verified; _collect; return 0;;
+            4) _cleanup_state=identity_changed_no_more_signal; return 77;;
+            2) _cleanup_state=identity_unreadable_no_more_signal; return 76;;
+        esac
+    done
+    _cleanup_state=still_alive_after_term_no_escalation
+    return 75
+}
+_finish() {
+    [ "$_done" -eq 0 ] || return
+    _done=1
+    _exit=$1
+    _reason=$2
+    if [ "$_pending" -ne 0 ]; then
+        _exit=$_pending
+        _reason=$_pending_reason
+    fi
+    trap - 0
+    trap '' HUP INT TERM
+    _cleanup
+    _cleanup_rc=$?
+    [ "$_exit" -ne 0 ] || _exit=$_cleanup_rc
+    if [ "$_exit" -eq 0 ] && [ "$_term_sent" -eq 0 ]; then
+        case $_dialog_rc in unknown|0) ;; *) _exit=$_dialog_rc;; esac
+    fi
+    if [ "$_profile" = ui001 ] && [ "$_ready" -eq 0 ] && [ "$_exit" -eq 0 ]; then
+        _exit=79
+    fi
+    _emit "RESULT profile=$_profile reason=$_reason cleanup=$_cleanup_state cleanup_rc=$_cleanup_rc dialog_rc=$_dialog_rc wrapper_rc=$_exit pid=$_pid ticks=$_ticks ready=$_ready"
+    exit "$_exit"
+}
+trap '_finish $? shell_exit' 0
+# Assignment-only traps preserve $! and cannot exit the spawn/assignment window.
+trap '_pending=129; _pending_reason=hup' HUP
+trap '_pending=130; _pending_reason=interrupt' INT
+trap '_pending=143; _pending_reason=terminate' TERM
+[ "$(id -u)" = 0 ] || exit 70
+[ -x "$_tool" ] || exit 71
+@SETUP@
+@EXPECTED@
+set -- $_raw
+_expected=$(printf '%s' "$@")
+_emit "PREP profile=$_profile parent=$_parent tool=$_tool sleep_seconds=$_sleep_seconds"
+[ "$_pending" -eq 0 ] || _finish "$_pending" "$_pending_reason"
+_launch_requested=1
+@LAUNCH@
+# TEST_POINT_AFTER_SPAWN
+_pid=$!
+# TEST_POINT_AFTER_PID
+_emit "SPAWN pid=$_pid parent=$_parent"
+sleep 1 || _finish 78 initial_sleep_failed
+_ticks=$((_ticks + 1))
+# An initial inspection failure also enters cleanup, which can attest afresh.
+_snapshot
+_initial=$?
+case $_initial in
+    1|3) _finish 0 early_exit;;
+    2) _finish 76 initial_identity_unreadable;;
+esac
+_adopt_owned
+_adopted=$?
+case $_adopted in
+    1|3) _finish 0 early_exit;;
+    2|78) _finish 76 initial_identity_unreadable;;
+    4) _finish 77 initial_identity_mismatch;;
+esac
+[ "$_pending" -eq 0 ] || _finish "$_pending" "$_pending_reason"
+trap '_finish 129 hup' HUP
+trap '_finish 130 interrupt' INT
+trap '_finish 143 terminate' TERM
+_ready=1
+_emit "READY pid=$_pid watchdog_seconds=$_duration"
+while [ "$_ticks" -lt "$_duration" ]; do
+    _inspect_owned
+    _check=$?
+    case $_check in
+        1|3) _finish 0 exited_before_watchdog;;
+        4) _finish 77 identity_changed;;
+        2) _finish 76 identity_unreadable;;
+    esac
+    sleep 1 || _finish 78 watchdog_sleep_failed
+    _ticks=$((_ticks + 1))
+done
+_finish 0 watchdog_expired

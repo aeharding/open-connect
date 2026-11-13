@@ -86,4 +86,4 @@ Networking is not implemented in this initial CLI. Do not add a transport framew
 install a daemon or expose another API on the CMU. Add a small OpenSSH-backed executor
 when the hardware/SSH endpoint is available and test the same semantic operations.
 
-Guide: [bench setup](../bench/README.md). Tracking: https://github.com/aeharding/open-connect/issues/14; SSH: https://github.com/aeharding/open-connect/issues/15.
+Guides: [hardware setup](../bench/README.md) · [CLI operations](../bench/OPERATIONS.md). Tracking: https://github.com/aeharding/open-connect/issues/14; SSH: https://github.com/aeharding/open-connect/issues/15.

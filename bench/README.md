@@ -1,130 +1,128 @@
-# Bench setup and operation
+# Build a Mazda Connect test bench
 
-Current reference: **55.00.750B North America / cmu150_NA**.
-One bench profile, operated by an agent or developer through the CLI.
-There is no new CMU menu, graphical UI or per-helper public activation workflow.
+Start here to connect **power, a display and UART** to a first-generation CMU.
+Our development firmware is **55.00.750B North America**.
+Once the hardware works, use [CLI operations](OPERATIONS.md).
 
-[CLI contract](../docs/cli.md) · [Profile issue #1](https://github.com/aeharding/open-connect/issues/1)
-· [Current device handoff](../notes/afk-session-status.txt)
+## Parts
 
-## What the profile does today
+- First-generation CMU, matching display, display data cable and power harnesses.
+  Buy mating pigtails with the unit if possible; bare modules need connector terminals.
+- Regulated 12 V DC supply, fused power wiring and an ACC switch.
+- USB-to-TTL UART adapter, with documented 3.3 V signal levels, and three signal wires.
+  The [MazdaTweaks serial guide](https://mazdatweaks.com/serial/) uses a CP2102 adapter.
+- Computer with USB and Python 3; a multimeter for checking power and ground.
 
-`setup` enables silent Entertainment through Mazda's existing Audio Manager API
-when needed. `teardown` disables it only if setup owned that change on the same
-boot/bus/service instance. If audio was enabled beforehand, teardown leaves it on.
-`status` reports desired profile state, actual audio state and whether ownership
-still applies. Setup/teardown always operate the whole current profile.
+A commander, webcam and network adapter can come later. No TAU or speakers are
+needed for our silent Entertainment UI tests.
 
-This enables UI testing without a TAU or speakers. It is not tuner emulation,
-working sound output or proof that USB/Bluetooth/CarPlay playback works.
-Normal source navigation can change ordinary last-source state; teardown does not
-restore every user setting.
+## 1. Wire power and the display
 
-Current setup is **runtime-only**. No vendor file, service script or startup hook
-is installed. After reboot/service replacement, run status and then setup when
-bench overrides are wanted. An expired receipt does not authorize disabling the
-new service. Persistent startup remains a separate task with a real OEM readiness
-boundary; do not add repeated force-enable calls.
+Disconnect power while wiring. Use the pin labels in the
+[connector drawing](https://mzdonline.wordpress.com/2018/07/13/power-up-junkyard-cmu/#:~:text=Wiring%20diagram);
+the mating harness view is mirrored relative to the CMU socket. Do not identify
+pins by wire color alone.
 
-Product mods are separate. Teardown of this profile alone does not make a modified
-CMU stock. Disable this override when measuring actual missing-TAU/audio readiness.
+| CMU power connector | Connect to |
+| --- | --- |
+| **2R — B+** | Fused +12 V |
+| **2Q — ACC** | +12 V through the ACC switch |
+| **2C / 2D / 2L — ground** | Supply negative, following the matching harness |
 
-## Host and hardware prerequisites
+Keep B+ powered when switching ACC off. Give the display its matching power
+connection **as well as** the CMU-to-display data cable; the data connection alone
+is not the complete display wiring.
 
-- Existing powered CMU bench harness and display. The operator controls software;
-  this guide does not ask the user to operate dialogs or change wiring.
-- The reference FTDI adapter is pinned by VID/PID/serial (0403:6001/A9048JM0).
-  UART is 115200 8N1, no flow control. The runner enumerates identity, not a remembered
-  device pathname. Other adapters require deliberate configuration/qualification.
-- An established idle root shell on the exact firmware. The CLI does not guess
-  login state, send credentials or reset the CMU.
-- Python 3 and the repo dependency, pySerial 3.5. Current checks ran on Python 3.13.
-  A webcam/FFmpeg is useful for visual experiments but is not required for this API
-  profile. No network or SSH is needed yet.
+~~~text
+12 V supply + ── fuse ──┬────────── CMU 2R (B+)
+                       ├── switch ─ CMU 2Q (ACC)
+                       └────────── matching display power harness
 
-From the checkout, run host setup through Herdr:
+Supply negative ────────────────── CMU / display ground
+                                         │
+Computer ── USB UART adapter ── GND ──────┘
+                     RX ◀───────── CMU 2S (TX)
+                     TX ─────────▶ CMU 2T (RX)
 
-```sh
-hc exec --cwd "$PWD" python3 -m venv .venv
-hc exec --cwd "$PWD" "$PWD/.venv/bin/python" -m pip install -r requirements.txt
-hc exec --cwd "$PWD" "$PWD/.venv/bin/python" scripts/oc --help
-```
+CMU ───────── matching display data cable ───────── Display
+~~~
 
-Do not recreate the environment when it already works.
+This is a logical wiring diagram, not a connector-face drawing. The published
+[bench build](https://mzdonline.wordpress.com/2018/07/13/power-up-junkyard-cmu/)
+includes connector photographs and display-power details; it used a 12 V, 10 A
+supply. That is a supply rating, not a claim that the CMU draws 10 A.
+Use the wiring diagram for your actual CMU/display variant before applying power.
+The [hardware reference](https://github.com/silverchris/mazda-cmu-documentation/blob/gh-pages/hardware.md#connectors)
+also lists the connector signals.
 
-## Commands
+## 2. Connect UART: three wires
 
-A convenient shell function, using the existing Herdr execution convention:
+| USB UART adapter | CMU |
+| --- | --- |
+| **RX / RXD** | **2S — CMU TX** |
+| **TX / TXD** | **2T — CMU RX** |
+| **GND** | Common CMU/supply ground |
 
-```sh
-oc() { hc exec --cwd "$PWD" "$PWD/.venv/bin/python" "$PWD/scripts/oc" "$@"; }
-```
+TX and RX cross: each transmitter connects to the other device's receiver.
+Leave the adapter's **VCC/5V/3V3 power lead disconnected**, along with RTS, CTS and
+DTR. The 12 V supply powers the CMU; USB powers the adapter. Keep 12 V away from
+the UART pins.
 
-Preview without opening a device:
+Use the [UART connector photos](https://mazdatweaks.com/serial/) to locate 2S/2T.
+Use a TTL UART adapter, not a conventional RS-232 cable. Check the adapter's
+signal-voltage specification; a power-output label alone does not establish it.
 
-```sh
-oc bench setup
-```
+Our bench uses an FTDI FT232R adapter. CP2102 is another documented wiring option;
+Open Connect's current automated runner is pinned to our particular FTDI device.
+A different adapter can be used with a serial terminal, but needs runner
+configuration before using the automated CLI.
 
-This reports `dry_run_not_executed`. It does **not** set up the bench or write a
-receipt. Exit 0 means the preview worked, not that the profile is active.
+## 3. Read the first boot
 
-For an established idle shell, use a fresh private bundle for each live operation:
+From the repository on the host computer:
 
-```sh
-oc bench status --live --solicit-prompt --bundle "runs/bench-profile/$(date -u +%Y%m%dT%H%M%SZ)-status"
-oc bench setup --live --solicit-prompt --bundle "runs/bench-profile/$(date -u +%Y%m%dT%H%M%SZ)-setup"
-oc bench teardown --live --solicit-prompt --bundle "runs/bench-profile/$(date -u +%Y%m%dT%H%M%SZ)-teardown"
-```
+~~~sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m serial.tools.list_ports -v
+~~~
 
-Choose the operation you need; do not run all three to leave the bench enabled.
-Existing bundle paths are refused, preserving prior evidence. `--owner` is optional:
-Herdr identity is used when available, otherwise a host-process label is generated.
-`--solicit-prompt` sends one CR and must not be used after an uncertain operation
-or while another foreground command may be running. Keep one UART operator.
+Find the adapter's port. On our Mac it is /dev/cu.usbserial-A9048JM0; yours
+will differ. Open it with **115200 baud, 8 data bits, no parity, 1 stop bit,
+no flow control**:
 
-## Results and state
+~~~sh
+.venv/bin/python -m serial.tools.miniterm --rts 0 --dtr 0 --eol CR /dev/cu.usbserial-A9048JM0 115200
+~~~
 
-The live result is JSON with `outcome`, `error`, `bundle`, and `bench_profile`.
-For active setup, require `outcome=verified` and `bench_profile.active=true`.
-A verified status can truthfully report off, expired or pending state.
-No empty method return, launched process or agent summary establishes success.
+Turn on power and ACC. You should see readable boot logs and the display boot.
+Let startup finish without typing into the bootloader. Exit miniterm with
+**Ctrl+]** before running another tool; only one program should own UART.
 
-Exit 0: verified operation (or explicitly labeled offline preview).
-Exit 1: failed/refused; inspect error and saved evidence.
-Exit 2: uncertain UART delivery/execution; do not automatically retry.
+Receiving logs proves the receive connection. Interactive shell access is a
+separate firmware-dependent step: wiring UART does not automatically unlock every
+firmware. The automated CLI currently expects an established idle root shell on
+our exact supported firmware; it does not perform login or unlock the CMU.
 
-The private host receipt is `.bench-state/profile.json`. Keep it to preserve setup
-ownership across separate CLI invocations. Raw UART and result evidence live under
-the chosen ignored `runs/` bundle. Test reports should carry the emitted
-`bench_profile` object so stock and overridden conditions remain distinguishable.
+## If it does not work
 
-A pending setup/teardown survives uncertain completion. Use read-only status after
-access is deliberately reconciled; teardown can finish the owned runtime disable.
-Do not delete the receipt to silence a conflict or repeatedly rerun setup.
-Owner/boot changes invalidate old ownership. The receipt cannot detect another
-client legitimately changing the same boolean within the same service instance;
-teardown remains an explicit bench action, not a full session rollback.
+| Symptom | First checks |
+| --- | --- |
+| No display or boot logs | B+, ACC, ground and supply output |
+| Boot logs but black display | Display power and matching data cable |
+| No serial output but display boots | Correct port, adapter RX to 2S, common ground |
+| Garbled serial output | 115200/8N1, signal levels and ground |
+| Logs work but typing does not | Adapter TX to 2T; firmware/login state |
+| Port busy | Close the other serial terminal or Open Connect operation |
 
-## SSH/networking
+## Next
 
-SSH is planned, not implemented in this entry point. The intended design reuses
-the same operations/results with the Mac's OpenSSH client, verified host identity
-and a lock shared with UART. DHCP/IP is routing information, not device identity.
-Keep keys/config outside the repository. Check actual remote transfer support.
-A dropped write must be reconciled before any retry or transport switch.
+- [Operate the bench with the CLI](OPERATIONS.md): status, setup and teardown of
+  the silent-audio development profile.
+- Networking is optional. UART works without it. SSH transport is
+  [planned in #15](https://github.com/aeharding/open-connect/issues/15);
+  connecting Ethernet alone does not provide a configured SSH service.
 
-See [the CLI issue](https://github.com/aeharding/open-connect/issues/14) and [SSH follow-up](https://github.com/aeharding/open-connect/issues/15) for the implementation boundary. Do not infer an available
-`--transport ssh` option or install a CMU network daemon from this plan.
-
-## Host checks
-
-```sh
-hc exec --cwd "$PWD" "$PWD/.venv/bin/python" -B bench/test_profile.py -v
-```
-
-These use a local shell and synthetic D-Bus executable, the actual renderer,
-receipt logic, CLI and Bundle boundary. They open no CMU port. They cover repeated
-setup, pre-enabled state, delayed/ambiguous replies, identity changes, malformed
-data, uncertain completion, receipt conflicts, deadlines and resource closure.
-Live validation and limitations are in [RESULT.md](RESULT.md).
+The pinout above comes from the linked first-generation CMU references; it is not
+a newly measured pinout of every model. Our recorded bench evidence verifies
+115200/8N1 communication and software operation.

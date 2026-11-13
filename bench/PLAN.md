@@ -7,7 +7,7 @@ Issue: https://github.com/aeharding/open-connect/issues/1
 `scripts/oc bench setup|status|teardown` manages the whole current profile.
 Its first helper uses Mazda's existing audio-manager API for silent Entertainment
 without a TAU. No per-helper public activation commands or graphical UI.
-See [setup guide](README.md), [actual result](RESULT.md) and [CLI contract](../docs/cli.md).
+See [CLI operations](OPERATIONS.md), [actual result](RESULT.md) and [CLI contract](../docs/cli.md).
 
 Setup records original status, boot/bus/service owner and intent before changing
 anything. Already-enabled audio grants no disable ownership. One mutation is

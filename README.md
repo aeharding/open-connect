@@ -35,7 +35,8 @@ Use issues for concrete work and pull requests for coherent changes. The primary
 developer owns implementation and bench operation; focused reviewers investigate
 specific design questions against actual Mazda code.
 
-[Bench setup and CLI guide](bench/README.md) explains the current commands.
+Start with [hardware bench setup](bench/README.md) for power, display and UART wiring.
+Then use [CLI operations](bench/OPERATIONS.md) to work with the connected CMU.
 [Detailed host instructions](README.txt) cover the lower-level tools.
 [Current handoff](notes/afk-session-status.txt) records changing device state.
 Historical experiment profiles are evidence, not reusable live authorization.

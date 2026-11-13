@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T06:58:01-06:00",
+  "updated_at": "2026-11-13T07:16:03-06:00",
   "timezone": "America/Chicago",
   "snapshot_note": "Saved progress, not live telemetry. Reopen the private Page for a newer snapshot.",
   "links": {
@@ -9,7 +9,7 @@
     "html_download": null
   },
   "headline": "Stock restart and recovery-data persistence verified",
-  "summary": "One stock software restart and one login confirmed a new boot, the exact original file, read-only root and surviving recovery data. The stock warning was visible for about4.2–4.6s including fade. The observer missed a logger-prefixed banner; a separate agent postflight completed verification and preserved its original UNKNOWN record.",
+  "summary": "One stock restart verified a new boot, original file, read-only root and surviving recovery data. A persistent tool then restored an isolated full-size candidate copy in fresh processes after temporary delivery was removed. The first modified-disclaimer boot is being prepared; the installed original remains active.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
@@ -377,6 +377,17 @@
         "notes/stock-warm-restart-observation.txt",
         "notes/stock-warning-visual-baseline.txt"
       ]
+    },
+    {
+      "id": "persistent-copy-recovery",
+      "title": "Persistent copy recovery in fresh processes",
+      "state": "done",
+      "detail": "Full-size isolated COPY recovery passed7.624s after temporary delivery was removed.",
+      "proof": "Independent VERIFY(C,writes0) → one RESTORE_ORIGINAL → VERIFY(O,writes0); exact original/checked metadata and disabled/no-pending journal verified. Physical root stayed read-only; owned code and data retained.",
+      "limits": "Isolated copy only. First guard73 refused before body and is preserved separately; actual restore ran once. No installed-GUI restoration after feature boot or crash/power-loss/USB recovery proof.",
+      "refs": [
+        "notes/isolated-persistent-copy-recovery-observation.txt"
+      ]
     }
   ],
   "tasks": [
@@ -386,8 +397,8 @@
       "state": "active",
       "title": "Prepare disclaimer startup trial and independent undo",
       "owner": "Tooling + Bench operator + Coordinator",
-      "detail": "Rehearse fresh-process known-candidate → original recovery on one isolated full-size copy. Prepare persistent restore code and exact apply/boot/undo plan; no new real-file change or reboot is authorized yet.",
-      "pass": "Copy recovery and relevant checks pass, then the combined real-file/startup boundary is reviewed. The stock original remains active."
+      "detail": "Persistent full-size COPY recovery passed: fresh VERIFY(C) → restore original → VERIFY(O), after temporary delivery removal. Now prepare the real-file apply/boot/undo boundary with independent persistent recovery.",
+      "pass": "One combined boundary review plus relevant checks, then a separately authorized modified startup trial. No new real-file change or reboot authorized yet."
     },
     {
       "id": "stock-warm-start",
@@ -405,7 +416,7 @@
       "title": "Fresh-process recovery inspection passed",
       "owner": "Tooling + Bench operator",
       "detail": "Strict journal/data parse, stored O/C hashes and metadata, current original9457 and disabled/no-pending state verified; noop1/writes0, physical root read-only.",
-      "pass": "One 2.049 s read-only CMU inspection. Actual restoration from C and crash/power-loss recovery remain untested."
+      "pass": "One2.049s real-file readonly inspection. Later C→O restoration passed on an isolated full-size copy; real-file postboot recovery and power-loss remain untested."
     },
     {
       "id": "startup-comparison",
@@ -423,7 +434,7 @@
       "title": "First real-file warm roundtrip passed",
       "owner": "Coordinator + Research + Bench operator",
       "detail": "12.155 s: exact candidate published, verified and restored to original; checked metadata, new inode, disabled journal, both flushes and physical read-only root verified.",
-      "pass": "Stock home after trial and fresh root55. No startup/reboot test yet; retained recovery evidence stays on the CMU."
+      "pass": "Stock home and fresh root55 after the warm trial; a later stock reboot also verified original/recovery persistence. Modified-feature startup remains untested."
     },
     {
       "id": "target-transaction",
@@ -445,12 +456,12 @@
     },
     {
       "id": "live-validation-plan",
-      "lane": "now",
-      "state": "active",
-      "title": "Prepare the first on-device validation plan",
+      "lane": "later",
+      "state": "done",
+      "title": "First on-device validation plan exercised",
       "owner": "Research + Bench operator",
-      "detail": "Reuse saved evidence and fill only missing read-only facts: exact target metadata, mount/tool constraints, durable original/staging and recovery access. No target writes.",
-      "pass": "Concrete known-vs-open install/uninstall/interruption plan. Controlled startup/power-loss and USB commissioning remain later gates."
+      "detail": "Exact target metadata, root mount guards, warm candidate/original roundtrip and read-only recovery inspection completed.",
+      "pass": "Existing guard and runtime proof reused for startup preparation; crash/power-loss and USB recovery remain separate."
     },
     {
       "id": "disclaimer-first",
@@ -458,12 +469,12 @@
       "state": "done",
       "title": "Independent disclaimer first pass frozen",
       "owner": "Tooling + Bench operator",
-      "detail": "One initial timer assignment changed;6 host checks passed with exact original/candidate hashes. No CMU write.",
+      "detail": "At the independent freeze, one initial timer assignment changed and6 host checks passed. The exact frozen bytes were later exercised in the warm real-file roundtrip.",
       "pass": "Frozen record preserved independently; later revisions must be separate."
     },
     {
       "id": "warm-resources",
-      "lane": "now",
+      "lane": "later",
       "state": "done",
       "title": "Interpret partial warm-idle measurements",
       "owner": "Research",
@@ -600,10 +611,14 @@
     },
     {
       "title": "Evidence coverage",
-      "text": "Warm file restoration is verified. Full-device backup/restore, independent second-copy protection, startup behavior and crash/power-loss recovery remain open."
+      "text": "Warm real-file restoration, stock reboot/persistence and isolated persistent copy recovery are verified. Modified-feature startup, full-device restore, independent second copy, crash/power-loss and USB recovery remain open."
     }
   ],
   "recent": [
+    {
+      "title": "Persistent copy recovery passed",
+      "text": "Temporary delivery removed; three fresh processes verified candidate, restored the original once, then verified it. Installed GUI untouched; persistent copy evidence retained."
+    },
     {
       "title": "Stock restart reconciled successfully",
       "text": "One reboot/one login. New boot, original file, read-only root and retained recovery data verified without a second restart."
@@ -615,14 +630,6 @@
     {
       "title": "Observer result preserved honestly",
       "text": "Logger-prefixed banner escaped the original detector. Its UNKNOWN remains; a separate agent postflight completed verification and an offline-only parser correction is recorded."
-    },
-    {
-      "title": "Stock restart stopped at preflight",
-      "text": "Custom vendor init was identified before any reboot request. A bounded read-only route investigation is active; this is not evidence that the stock reboot command is incompatible."
-    },
-    {
-      "title": "Fresh recovery-state inspection passed",
-      "text": "An independent process verified the retained journal, backups and current original without writing anything. Next is a stock warm restart baseline."
     },
     {
       "title": "First actual file roundtrip passed",

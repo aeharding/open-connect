@@ -5,6 +5,11 @@ from unittest.mock import patch
 spec=importlib.util.spec_from_file_location("intro_boot",Path(__file__).with_name("boot.py"))
 b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 class PairCheck(unittest.TestCase):
+ def test_pair_verifier_is_passed_explicitly_without_mutating_native_module(self):
+  self.assertIs(b.native.verify,b.original_verify)
+  with patch.object(b.native,"main",return_value=0) as main:
+   self.assertEqual(b.main(),0)
+  main.assert_called_once_with(verify_images=b.verify)
  def test_pair_verification_uses_actual_session_bundle_and_refuses_wrong_image(self):
   sid="64785:123:4:94717:755:1018:3015:2"
   rows=["APPLIED|"+sid,"FINAL|operation=0|sync=0|ro_request=0|row=ro,noatime"]

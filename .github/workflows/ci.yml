@@ -33,6 +33,11 @@ jobs:
         run: ruff format --check src tests
       - name: Offline host tests
         run: python tests/run_offline.py
+      - name: Public publication and observer regressions
+        run: |
+          python -m unittest discover -s experiments/mapped-publication -v
+          python -m unittest discover -s experiments/intro-handoff -p test_boot.py -v
+          python -m unittest discover -s experiments/intro-handoff -p test_publication.py -v
       - name: Installed CLI outside checkout
         shell: bash
         run: |

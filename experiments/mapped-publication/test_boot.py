@@ -12,8 +12,26 @@ class BootIntegration(unittest.TestCase):
    if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=="event":
     sig.bind(None,"event",**{k.arg:None for k in n.keywords})
  def test_complete_observer_frontdoor_with_real_bundle(self):
-  plan=boot.load("plan/plan.json")
-  original=(ROOT/"runs/open-connect-native-linked/baseline/result.bin").read_bytes()
+  plan=dict(original=rt.O,candidate=rt.fp(b"C"*454142),target=rt.TARGET,
+            stage="/jci/mmui/uia/.library-stage",hold_o="/jci/mmui/uia/.library-O",
+            hold_c="/jci/mmui/uia/.library-C",
+            parents={path:"64785:100:755:1018:3015" for path in rt.PARENTS})
+  original=("\n".join([
+   "SWST|META|64785:9457:1433953535:454142:755:1018:3015:1",
+   "SWST|HASH|"+rt.O["md5"]+"  -",
+   "SWST|CRC|"+str(rt.O["crc"])+" 454142",
+   "SWST|ROOT|/dev/ffx01p1 / relfs ro,noatime 0 0",
+   "SWST|UPTIME|2203.28 4051.27",
+   "SWST|BOOT_ID|c06478b8-eaab-4f74-875d-071783afd300",
+   *["NATIVE_PARENT|"+path+"|"+sid for path,sid in plan["parents"].items()],
+   "NATIVE_MODULE|757|213:1582|a43fc1bb895b0e6c13480c8f4b875a58  -",
+   "NATIVE_MAP|1000-2000 r-xp 00000000 fd:11 9457 "+rt.TARGET,
+   "NATIVE_MANAGER|64785:999:1:1234:755:1018:3015:1|"+"a"*32+"  -|123 1234",
+  ])+"\n").encode()
+  load_patch=patch.object(boot,"load",return_value=plan)
+  load_patch.start();self.addCleanup(load_patch.stop)
+  entry_patch=patch.object(boot,"entry",return_value="VERIFY")
+  entry_patch.start();self.addCleanup(entry_patch.stop)
   sid="64785:777:9000:454142:755:1018:3015:2"
   before=original.replace(b"64785:9457:1433953535:454142:755:1018:3015:1",sid.encode())
   before=before.replace(plan["original"]["md5"].encode(),plan["candidate"]["md5"].encode())
@@ -53,7 +71,7 @@ class BootIntegration(unittest.TestCase):
   tick=iter(range(0,10000,3))
   with tempfile.TemporaryDirectory() as d:
    args=SimpleNamespace(bundle=Path(d)/"bundle",credentials=None,camera_index=0,owner="t6",solicit_prompt=True)
-   with patch.object(stock,"Session",Session),patch.object(stock,"AdapterLock",Lock),patch.object(stock,"Video",Video),patch.object(stock,"BootGate",Gate),patch.object(stock,"open_adapter",return_value=SimpleNamespace(close=lambda:None)),patch.object(stock,"private_credentials",return_value=(b"test-user",b"test-password")),patch.object(boot,"time",SimpleNamespace(monotonic=lambda:next(tick))):
+   with patch.object(boot,"validate_live_dependencies"),patch.object(stock,"Session",Session),patch.object(stock,"AdapterLock",Lock),patch.object(stock,"Video",Video),patch.object(stock,"BootGate",Gate),patch.object(stock,"open_adapter",return_value=SimpleNamespace(close=lambda:None)),patch.object(stock,"private_credentials",return_value=(b"test-user",b"test-password")),patch.object(boot,"time",SimpleNamespace(monotonic=lambda:next(tick))):
     self.assertEqual(boot.observe(args,v,plan),0)
    self.assertEqual(sent,[stock.REBOOT,b"test-user",b"test-password"])
    m=json.loads((args.bundle/"manifest.json").read_text())

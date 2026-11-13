@@ -1,20 +1,29 @@
 #!/usr/bin/env python3
 """One bench setup/status/teardown. Dry-run by default; current profile: silent UI."""
+
 from __future__ import annotations
+
 import argparse
 import base64
 import json
 import os
-from pathlib import Path
 import re
 import secrets
 import shlex
 import stat
-import sys
 import tempfile
 import time
+from pathlib import Path
 
-from open_connect.session import AdapterLock, BenchError, Bundle, Session, UnknownOutcome, open_adapter, digest
+from open_connect.session import (
+    AdapterLock,
+    BenchError,
+    Bundle,
+    Session,
+    UnknownOutcome,
+    digest,
+    open_adapter,
+)
 
 PROFILE = "silent-ui-v1"
 STATE = Path.cwd() / ".bench-state" / "profile.json"
@@ -41,6 +50,7 @@ def strict_json(text):
                 raise Conflict("duplicate JSON key")
             result[key] = value
         return result
+
     try:
         return json.loads(text, object_pairs_hook=pairs)
     except (ValueError, TypeError) as exc:
@@ -50,8 +60,10 @@ def strict_json(text):
 def binding(value):
     if not isinstance(value, dict) or set(value) != set(IDENTIFIERS):
         raise Conflict("invalid service binding")
-    if any(not isinstance(value[k], str) or not re.fullmatch(p, value[k])
-           for k, p in IDENTIFIERS.items()):
+    if any(
+        not isinstance(value[k], str) or not re.fullmatch(p, value[k])
+        for k, p in IDENTIFIERS.items()
+    ):
         raise Conflict("invalid service identity")
     return value
 
@@ -63,8 +75,9 @@ def dbus_string(raw, sender=None):
     except UnicodeError as exc:
         raise Conflict("non-ASCII DBus response") from exc
     if len(lines) != 2 or not re.fullmatch(
-            r"method return sender=(?:org\.freedesktop\.DBus|:[0-9]+\.[0-9]+) -> dest=:[0-9]+\.[0-9]+ reply_serial=[0-9]+",
-            lines[0]):
+        r"method return sender=(?:org\.freedesktop\.DBus|:[0-9]+\.[0-9]+) -> dest=:[0-9]+\.[0-9]+ reply_serial=[0-9]+",
+        lines[0],
+    ):
         raise Conflict("malformed DBus return")
     actual_sender = lines[0].split("sender=", 1)[1].split(" ", 1)[0]
     if sender is not None and actual_sender != sender:
@@ -75,14 +88,26 @@ def dbus_string(raw, sender=None):
 
 
 def request(dest, obj, method, *args):
-    return " ".join(shlex.quote(v) for v in [
-        "dbus-send", "--address=" + BUS, "--dest=" + dest, "--type=method_call",
-        "--print-reply", "--reply-timeout=2000", obj, method, *args])
+    return " ".join(
+        shlex.quote(v)
+        for v in [
+            "dbus-send",
+            "--address=" + BUS,
+            "--dest=" + dest,
+            "--type=method_call",
+            "--print-reply",
+            "--reply-timeout=2000",
+            obj,
+            method,
+            *args,
+        ]
+    )
 
 
 def bus_call(method, *args):
-    return request("org.freedesktop.DBus", "/org/freedesktop/DBus",
-                   "org.freedesktop.DBus." + method, *args)
+    return request(
+        "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus." + method, *args
+    )
 
 
 def audio_call(owner, method, arguments):
@@ -113,27 +138,53 @@ def records(raw, token, expected):
 
 
 def envelope(token):
-    return """set -fu
-""" + RO + """
+    return (
+        """set -fu
+"""
+        + RO
+        + """
 emit() {
  v=$(printf '%s' "$2" | base64 | tr -d '\n') || exit 71
- printf '\nBP1 %s %s %s\n' """ + shlex.quote(token) + """ "$1" "$v"
+ printf '\nBP1 %s %s %s\n' """
+        + shlex.quote(token)
+        + """ "$1" "$v"
 }
 scalar() { sed -n 's/^   string "\\(.*\\)"$/\\1/p'; }
 """
+    )
 
 
 def observe_command(token):
-    return envelope(token) + """
-boot=$(cat """ + BOOT + """) || exit 72
-bus=$(""" + bus_call("GetId") + """) || exit 73
-owner=$(""" + bus_call("GetNameOwner", "string:" + SERVICE) + """) || exit 74
+    return (
+        envelope(token)
+        + """
+boot=$(cat """
+        + BOOT
+        + """) || exit 72
+bus=$("""
+        + bus_call("GetId")
+        + """) || exit 73
+owner=$("""
+        + bus_call("GetNameOwner", "string:" + SERVICE)
+        + """) || exit 74
 o=$(printf '%s\n' "$owner" | scalar)
 case "$o" in :[0-9]*.[0-9]*) ;; *) exit 75;; esac
-status=$(dbus-send --address=""" + BUS + """ --dest="$o" --type=method_call --print-reply --reply-timeout=2000 """ + OBJECT + " " + METHOD + """ string:enableStatus 'string:{}') || exit 76
-bus_after=$(""" + bus_call("GetId") + """) || exit 77
-owner_after=$(""" + bus_call("GetNameOwner", "string:" + SERVICE) + """) || exit 78
-test "$(cat """ + BOOT + """)" = "$boot" || exit 79
+status=$(dbus-send --address="""
+        + BUS
+        + """ --dest="$o" --type=method_call --print-reply --reply-timeout=2000 """
+        + OBJECT
+        + " "
+        + METHOD
+        + """ string:enableStatus 'string:{}') || exit 76
+bus_after=$("""
+        + bus_call("GetId")
+        + """) || exit 77
+owner_after=$("""
+        + bus_call("GetNameOwner", "string:" + SERVICE)
+        + """) || exit 78
+test "$(cat """
+        + BOOT
+        + """)" = "$boot" || exit 79
 emit boot "$boot"
 emit bus "$bus"
 emit owner "$owner"
@@ -141,21 +192,41 @@ emit status "$status"
 emit bus_after "$bus_after"
 emit owner_after "$owner_after"
 """
+    )
 
 
 def set_command(token, instance, enabled):
     binding(instance)
-    return envelope(token) + """
-test "$(cat """ + BOOT + """)" = """ + shlex.quote(instance["boot"]) + """ || exit 80
-bus=$(""" + bus_call("GetId") + """) || exit 81
-owner=$(""" + bus_call("GetNameOwner", "string:" + SERVICE) + """) || exit 82
-test "$(printf '%s\n' "$bus" | scalar)" = """ + shlex.quote(instance["bus"]) + """ || exit 83
-test "$(printf '%s\n' "$owner" | scalar)" = """ + shlex.quote(instance["owner"]) + """ || exit 84
-reply=$(""" + audio_call(instance["owner"], "enable", json.dumps({"enable": enabled}, separators=(",", ":"))) + """)
+    return (
+        envelope(token)
+        + """
+test "$(cat """
+        + BOOT
+        + """)" = """
+        + shlex.quote(instance["boot"])
+        + """ || exit 80
+bus=$("""
+        + bus_call("GetId")
+        + """) || exit 81
+owner=$("""
+        + bus_call("GetNameOwner", "string:" + SERVICE)
+        + """) || exit 82
+test "$(printf '%s\n' "$bus" | scalar)" = """
+        + shlex.quote(instance["bus"])
+        + """ || exit 83
+test "$(printf '%s\n' "$owner" | scalar)" = """
+        + shlex.quote(instance["owner"])
+        + """ || exit 84
+reply=$("""
+        + audio_call(
+            instance["owner"], "enable", json.dumps({"enable": enabled}, separators=(",", ":"))
+        )
+        + """)
 rc=$?
 test "$rc" -eq 0 || exit "$rc"
 emit reply "$reply"
 """
+    )
 
 
 class Audio:
@@ -174,16 +245,29 @@ class Audio:
 
     def observe(self):
         token = secrets.token_hex(16)
-        fields = records(self.execute(observe_command(token)), token,
-                         {"boot", "bus", "owner", "status", "bus_after", "owner_after"})
-        instance = binding(dict(boot=fields["boot"].decode("ascii"),
-                                bus=dbus_string(fields["bus"]),
-                                owner=dbus_string(fields["owner"])))
-        if (dbus_string(fields["bus_after"]) != instance["bus"] or
-                dbus_string(fields["owner_after"]) != instance["owner"]):
+        fields = records(
+            self.execute(observe_command(token)),
+            token,
+            {"boot", "bus", "owner", "status", "bus_after", "owner_after"},
+        )
+        instance = binding(
+            dict(
+                boot=fields["boot"].decode("ascii"),
+                bus=dbus_string(fields["bus"]),
+                owner=dbus_string(fields["owner"]),
+            )
+        )
+        if (
+            dbus_string(fields["bus_after"]) != instance["bus"]
+            or dbus_string(fields["owner_after"]) != instance["owner"]
+        ):
             raise Conflict("service changed during observation")
         value = strict_json(dbus_string(fields["status"], instance["owner"]))
-        if not isinstance(value, dict) or set(value) != {"enable"} or type(value["enable"]) is not bool:
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"enable"}
+            or type(value["enable"]) is not bool
+        ):
             raise Conflict("expected strict enable boolean")
         return dict(binding=instance, enabled=value["enable"])
 
@@ -208,6 +292,7 @@ class Audio:
 
 class Store:
     """Small private host receipt. Serialized by the same FTDI AdapterLock."""
+
     def __init__(self, path):
         self.path = Path(path)
 
@@ -216,30 +301,48 @@ class Store:
             return None
         info = self.path.lstat()
         parent = self.path.parent.lstat()
-        if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid() or parent.st_mode & 0o077
-                or not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
-                or info.st_nlink != 1 or info.st_mode & 0o077 or info.st_size > 8192):
+        if (
+            not stat.S_ISDIR(parent.st_mode)
+            or parent.st_uid != os.getuid()
+            or parent.st_mode & 0o077
+            or not stat.S_ISREG(info.st_mode)
+            or info.st_uid != os.getuid()
+            or info.st_nlink != 1
+            or info.st_mode & 0o077
+            or info.st_size > 8192
+        ):
             raise Conflict("unsafe bench receipt")
         record = strict_json(self.path.read_text())
         keys = {"schema", "profile", "desired", "phase", "binding", "before", "owned", "bundle"}
-        if (not isinstance(record, dict) or set(record) != keys or record["schema"] != 1
-                or record["profile"] != PROFILE or record["desired"] not in ("on", "off")
-                or record["phase"] not in ("setup_pending", "on", "teardown_pending", "off")
-                or type(record["before"]) is not bool or type(record["owned"]) is not bool
-                or not isinstance(record["bundle"], str)):
+        if (
+            not isinstance(record, dict)
+            or set(record) != keys
+            or record["schema"] != 1
+            or record["profile"] != PROFILE
+            or record["desired"] not in ("on", "off")
+            or record["phase"] not in ("setup_pending", "on", "teardown_pending", "off")
+            or type(record["before"]) is not bool
+            or type(record["owned"]) is not bool
+            or not isinstance(record["bundle"], str)
+        ):
             raise Conflict("invalid bench receipt")
         binding(record["binding"])
         if record["owned"] and record["before"]:
             raise Conflict("cannot own a pre-enabled helper")
-        if ((record["phase"] in ("setup_pending", "on")) != (record["desired"] == "on")
-                or (record["phase"] == "off" and record["owned"])):
+        if (record["phase"] in ("setup_pending", "on")) != (record["desired"] == "on") or (
+            record["phase"] == "off" and record["owned"]
+        ):
             raise Conflict("inconsistent bench receipt")
         return record
 
     def save(self, record):
         self.path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
         parent = self.path.parent.lstat()
-        if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid() or parent.st_mode & 0o077:
+        if (
+            not stat.S_ISDIR(parent.st_mode)
+            or parent.st_uid != os.getuid()
+            or parent.st_mode & 0o077
+        ):
             raise Conflict("unsafe receipt directory")
         self.load()  # refuse an unsafe existing path before replacing it
         fd, name = tempfile.mkstemp(prefix=".profile-", dir=self.path.parent)
@@ -257,13 +360,18 @@ class Store:
 
 def summary(record, observed, action):
     same = record is not None and record["binding"] == observed["binding"]
-    return dict(profile=PROFILE, action=action,
-                desired=record["desired"] if record else "off",
-                active=bool(same and record["phase"] == "on" and observed["enabled"]),
-                phase=record["phase"] if record else "off",
-                audio_enabled=observed["enabled"], same_instance=same,
-                owned=bool(same and record["owned"]), binding=observed["binding"],
-                startup_hook_installed=False)
+    return dict(
+        profile=PROFILE,
+        action=action,
+        desired=record["desired"] if record else "off",
+        active=bool(same and record["phase"] == "on" and observed["enabled"]),
+        phase=record["phase"] if record else "off",
+        audio_enabled=observed["enabled"],
+        same_instance=same,
+        owned=bool(same and record["owned"]),
+        binding=observed["binding"],
+        startup_hook_installed=False,
+    )
 
 
 def transition(action, audio, store, bundle):
@@ -274,14 +382,23 @@ def transition(action, audio, store, bundle):
     same = previous is not None and previous["binding"] == observed["binding"]
     if action == "setup":
         if same and previous["phase"].endswith("_pending"):
-            raise Conflict("pending operation: inspect status or use teardown; no repeated setup mutation")
+            raise Conflict(
+                "pending operation: inspect status or use teardown; no repeated setup mutation"
+            )
         if same and previous["phase"] == "on":
             if not observed["enabled"]:
                 raise Conflict("active bench override was lost; teardown before a new setup")
             return summary(previous, observed, action)
-        record = dict(schema=1, profile=PROFILE, desired="on", phase="setup_pending",
-                      binding=observed["binding"], before=observed["enabled"],
-                      owned=not observed["enabled"], bundle=str(bundle))
+        record = dict(
+            schema=1,
+            profile=PROFILE,
+            desired="on",
+            phase="setup_pending",
+            binding=observed["binding"],
+            before=observed["enabled"],
+            owned=not observed["enabled"],
+            bundle=str(bundle),
+        )
         store.save(record)  # receipt before mutation, including ambiguous outcomes
         if record["owned"]:
             try:
@@ -324,18 +441,32 @@ def main(argv=None):
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--bundle", type=Path)
     parser.add_argument("--state", type=Path, default=STATE)
-    parser.add_argument("--owner", default=os.environ.get("HC_TERMINAL_ID") or "oc-" + str(os.getpid()))
+    parser.add_argument(
+        "--owner", default=os.environ.get("HC_TERMINAL_ID") or "oc-" + str(os.getpid())
+    )
     parser.add_argument("--solicit-prompt", action="store_true")
     parser.add_argument("--deadline", type=float, default=40)
     args = parser.parse_args(argv)
     if not 0 < args.deadline <= 60:
         parser.error("deadline must be >0 and <=60 seconds")
     if not args.live:
-        print(json.dumps(dict(outcome="dry_run_not_executed", action=args.action,
-                              profile=PROFILE, live=False, executed=False,
-                              opens_port=False, modifies_device=False, state_written=False,
-                              planned_state_path=str(args.state), startup_hook_installed=False,
-                              message="Preview only. No bench operation ran; no state file was written. Use --live with a fresh --bundle and known connection state to execute.")))
+        print(
+            json.dumps(
+                dict(
+                    outcome="dry_run_not_executed",
+                    action=args.action,
+                    profile=PROFILE,
+                    live=False,
+                    executed=False,
+                    opens_port=False,
+                    modifies_device=False,
+                    state_written=False,
+                    planned_state_path=str(args.state),
+                    startup_hook_installed=False,
+                    message="Preview only. No bench operation ran; no state file was written. Use --live with a fresh --bundle and known connection state to execute.",
+                )
+            )
+        )
         return 0
     if args.bundle is None or not args.owner:
         parser.error("live requires a fresh --bundle and a nonempty owner label")
@@ -366,12 +497,22 @@ def main(argv=None):
                 bundle.meta["port_closed"] = True
     except (Exception, KeyboardInterrupt, SystemExit) as exc:
         error = type(exc).__name__ + ": " + str(exc)
-        if isinstance(exc, UnknownOutcome) or (session is not None and session.state == "uncertain"):
+        if isinstance(exc, UnknownOutcome) or (
+            session is not None and session.state == "uncertain"
+        ):
             outcome, code = "unknown", 2
     finally:
         bundle.finish(outcome, error)
-    print(json.dumps(dict(outcome=outcome, error=error, bundle=str(bundle.path),
-                          bench_profile=bundle.meta.get("bench_profile"))))
+    print(
+        json.dumps(
+            dict(
+                outcome=outcome,
+                error=error,
+                bundle=str(bundle.path),
+                bench_profile=bundle.meta.get("bench_profile"),
+            )
+        )
+    )
     return code
 
 

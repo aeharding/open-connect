@@ -1,4 +1,5 @@
 """One owner, lossless evidence, nonce-framed commands; no login or action retries."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -6,19 +7,28 @@ import fcntl
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import secrets
 import shlex
 import stat
 import time
+from pathlib import Path
 
 IDENTITY = (0x0403, 0x6001, "A9048JM0")
 TX_CHUNK_BYTES = 64
 TX_GAP_SECONDS = 0.020
-SETTINGS = dict(baudrate=115200, bytesize=8, parity="N", stopbits=1,
-                timeout=0.05, write_timeout=1, xonxoff=False,
-                rtscts=False, dsrdtr=False, exclusive=True)
+SETTINGS = dict(
+    baudrate=115200,
+    bytesize=8,
+    parity="N",
+    stopbits=1,
+    timeout=0.05,
+    write_timeout=1,
+    xonxoff=False,
+    rtscts=False,
+    dsrdtr=False,
+    exclusive=True,
+)
 ANSI = re.compile(rb"\x1b\[[0-?]*[ -/]*[@-~]")
 PROMPT = re.compile(rb"(?:^|[\r\n])(?:/[^\r\n]{0,160}|~|(?:root|user)@cmu:[^\r\n]{0,160}) [#$] ")
 LOGIN = re.compile(rb"(?:^|[\r\n])(?:cmu )?login:\s*", re.I)
@@ -58,6 +68,7 @@ def check_nonce(value):
 
 class AdapterLock:
     """Persistent inode, flock held until close; never unlink a lock file."""
+
     def __init__(self, directory=None, owner="unspecified", purpose="capture"):
         self.directory = Path(directory or (Path("/tmp") / f"cmu-bench-locks-{os.getuid()}"))
         self.owner, self.purpose, self.fd = owner, purpose, None
@@ -75,8 +86,14 @@ class AdapterLock:
                 raise BenchError("unsafe lock inode")
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             self.fd = fd
-            metadata = dict(pid=os.getpid(), process_instance=nonce(), owner=self.owner,
-                            acquired_at=utcnow(), identity=IDENTITY, purpose=self.purpose)
+            metadata = dict(
+                pid=os.getpid(),
+                process_instance=nonce(),
+                owner=self.owner,
+                acquired_at=utcnow(),
+                identity=IDENTITY,
+                purpose=self.purpose,
+            )
             os.ftruncate(fd, 0)
             os.write(fd, (json.dumps(metadata) + "\n").encode())
             os.fsync(fd)
@@ -95,22 +112,28 @@ class AdapterLock:
 def resolve_adapter(enumerator=None):
     if enumerator is None:
         from serial.tools import list_ports
+
         enumerator = list_ports.comports
-    found = [p for p in enumerator()
-             if (p.vid, p.pid, p.serial_number) == IDENTITY]
+    found = [p for p in enumerator() if (p.vid, p.pid, p.serial_number) == IDENTITY]
     if len(found) != 1:
         raise BenchError("FTDI 0403:6001/A9048JM0 must enumerate uniquely")
     port = found[0]
     # This production entry point has no PTY/device override.
     if not port.device.startswith("/dev/cu.usbserial-"):
         raise BenchError("expected macOS USB callout device, refusing arbitrary path")
-    return dict(device=port.device, vid=port.vid, pid=port.pid,
-                serial_number=port.serial_number, location=port.location)
+    return dict(
+        device=port.device,
+        vid=port.vid,
+        pid=port.pid,
+        serial_number=port.serial_number,
+        location=port.location,
+    )
 
 
 def open_adapter(bundle):
     """Caller must hold AdapterLock through serial.close AND bundle.finish."""
     import serial
+
     before = resolve_adapter()
     bundle.meta.update(adapter_observed=True, adapter_before_open=before)
     after = resolve_adapter()
@@ -148,15 +171,32 @@ class Bundle:
         cli = Path(__file__).with_name("uart.py")
         if cli.exists():
             code[str(cli)] = digest(cli.read_bytes())
-        self.meta = dict(schema=1, run_id=nonce(), intent=intent, owner=owner, mode=mode,
-                         started_at=utcnow(), python=os.sys.version, code_sha256=code,
-                         settings=SETTINGS, operations=[], outcome="in_progress",
-                         live_requested=(mode == "live"), adapter_observed=False,
-                         serial_port_opened=False, port_closed=False)
+        self.meta = dict(
+            schema=1,
+            run_id=nonce(),
+            intent=intent,
+            owner=owner,
+            mode=mode,
+            started_at=utcnow(),
+            python=os.sys.version,
+            code_sha256=code,
+            settings=SETTINGS,
+            operations=[],
+            outcome="in_progress",
+            live_requested=(mode == "live"),
+            adapter_observed=False,
+            serial_port_opened=False,
+            port_closed=False,
+        )
 
     def event(self, kind, **data):
-        row = dict(at=utcnow(), monotonic_ns=time.monotonic_ns(),
-                   elapsed_ns=time.monotonic_ns() - self.started, kind=kind, **data)
+        row = dict(
+            at=utcnow(),
+            monotonic_ns=time.monotonic_ns(),
+            elapsed_ns=time.monotonic_ns() - self.started,
+            kind=kind,
+            **data,
+        )
         f = self.streams["events.jsonl"]
         f.write((json.dumps(row, sort_keys=True) + "\n").encode())
         f.flush()
@@ -179,8 +219,12 @@ class Bundle:
     def finish(self, outcome, error=None):
         if self.closed:
             return
-        self.meta.update(outcome=outcome, error=error, ended_at=utcnow(),
-                         elapsed_ns=time.monotonic_ns() - self.started)
+        self.meta.update(
+            outcome=outcome,
+            error=error,
+            ended_at=utcnow(),
+            elapsed_ns=time.monotonic_ns() - self.started,
+        )
         self.event("finish", outcome=outcome, error=error)
         for f in self.streams.values():
             f.flush()
@@ -192,14 +236,21 @@ class Bundle:
                 data = p.read_bytes()
                 files[p.name] = dict(bytes=len(data), sha256=digest(data))
         self.meta["artifacts"] = files
-        self.save("manifest.json", (json.dumps(self.meta, indent=2, sort_keys=True) + "\n").encode())
+        self.save(
+            "manifest.json", (json.dumps(self.meta, indent=2, sort_keys=True) + "\n").encode()
+        )
         self.closed = True
 
 
 def prompt_state(data):
     clean = ANSI.sub(b"", data)
     matches = []
-    for state, pattern in (("shell", PROMPT), ("login", LOGIN), ("password", PASSWORD), ("continuation", CONTINUATION)):
+    for state, pattern in (
+        ("shell", PROMPT),
+        ("login", LOGIN),
+        ("password", PASSWORD),
+        ("continuation", CONTINUATION),
+    ):
         matches.extend((m.start(), state) for m in pattern.finditer(clean))
     return max(matches)[1] if matches else "unknown"
 
@@ -209,13 +260,20 @@ def wrap_command(command, token):
     if "\x00" in command or not command.strip():
         raise ValueError("empty/NUL command")
     # Format and nonce are separate arguments: echoed TX contains no complete frame.
-    text = ("printf '\\nCMU1 %s BEGIN\\n' " + shlex.quote(token)
-            + "; sh -c " + shlex.quote(command)
-            + "; _cmu_rc=$?; printf '\\nCMU1 %s END %s\\n' "
-            + shlex.quote(token) + ' "$_cmu_rc"\r')
+    text = (
+        "printf '\\nCMU1 %s BEGIN\\n' "
+        + shlex.quote(token)
+        + "; sh -c "
+        + shlex.quote(command)
+        + "; _cmu_rc=$?; printf '\\nCMU1 %s END %s\\n' "
+        + shlex.quote(token)
+        + ' "$_cmu_rc"\r'
+    )
     wire = text.encode("utf-8")
     if any(len(line) > 600 for line in wire.splitlines()) or len(wire) > 32768:
-        raise ValueError("TX exceeds 600 bytes/physical line or 32 KiB total; split the command explicitly")
+        raise ValueError(
+            "TX exceeds 600 bytes/physical line or 32 KiB total; split the command explicitly"
+        )
     return wire
 
 
@@ -241,10 +299,14 @@ class CommandDecoder:
             self.buffer[:] = rest
             line = bytes(raw).removesuffix(b"\r")
             if line.startswith(self.prefix):
-                suffix = line[len(self.prefix):]
+                suffix = line[len(self.prefix) :]
                 if suffix == b"BEGIN" and not self.started and self.exit_status is None:
                     self.started = True
-                elif re.fullmatch(rb"END (?:0|[1-9][0-9]{0,2})", suffix) and self.started and self.exit_status is None:
+                elif (
+                    re.fullmatch(rb"END (?:0|[1-9][0-9]{0,2})", suffix)
+                    and self.started
+                    and self.exit_status is None
+                ):
                     value = int(suffix.split()[1])
                     if value > 255:
                         raise ProtocolError("invalid shell exit status")
@@ -274,11 +336,17 @@ def verify_identity(output):
     ids = [line for line in lines if re.match(rb"uid=[0-9]+\(", line)]
     if len(ids) != 1 or not re.match(rb"uid=0\(root\)(?: |$)", ids[0]):
         raise ProtocolError("fresh unambiguous root id response required")
-    expected = {b"JCI_SW_VER": b"MAZ_CMU-150_55.00.750", b"JCI_SW_VER_PATCH": b"B",
-                b"JCI_SW_FLAVOR": b"cmu150_NA"}
+    expected = {
+        b"JCI_SW_VER": b"MAZ_CMU-150_55.00.750",
+        b"JCI_SW_VER_PATCH": b"B",
+        b"JCI_SW_FLAVOR": b"cmu150_NA",
+    }
     for key, value in expected.items():
-        observed = [line.split(b"=", 1)[1].strip().strip(b'\"')
-                    for line in lines if line.startswith(key + b"=")]
+        observed = [
+            line.split(b"=", 1)[1].strip().strip(b'"')
+            for line in lines
+            if line.startswith(key + b"=")
+        ]
         if observed != [value]:
             raise ProtocolError("firmware baseline missing, ambiguous, or changed: " + key.decode())
     return dict(uid=0, user="root", firmware="55.00.750B", flavor="cmu150_NA")
@@ -300,7 +368,9 @@ class Session:
             if remaining <= 0:
                 return b""
             if adjustable:
-                self.transport.timeout = min(previous if previous is not None else remaining, remaining)
+                self.transport.timeout = min(
+                    previous if previous is not None else remaining, remaining
+                )
         try:
             chunk = self.transport.read(4096)
         finally:
@@ -314,17 +384,34 @@ class Session:
         return chunk
 
     def _send(self, data, *, deadline, received, on_rx=None, operation=None):
-        profile = dict(chunk_bytes=TX_CHUNK_BYTES, gap_seconds=TX_GAP_SECONDS,
-                       acknowledgment="host write count, not target acknowledgment")
+        profile = dict(
+            chunk_bytes=TX_CHUNK_BYTES,
+            gap_seconds=TX_GAP_SECONDS,
+            acknowledgment="host write count, not target acknowledgment",
+        )
         self.bundle.meta["tx_profile"] = profile
-        request = dict(id=nonce(), requested_bytes=len(data), acknowledged_bytes=0,
-                       completed_chunks=0, write_calls=0, gaps=0, outcome="unknown",
-                       started_at=utcnow(), **profile)
+        request = dict(
+            id=nonce(),
+            requested_bytes=len(data),
+            acknowledged_bytes=0,
+            completed_chunks=0,
+            write_calls=0,
+            gaps=0,
+            outcome="unknown",
+            started_at=utcnow(),
+            **profile,
+        )
         self.bundle.meta.setdefault("transmissions", []).append(request)
         if operation is not None:
             operation["tx_request_id"] = request["id"]
-        self.bundle.event("tx_requested", request_id=request["id"], length=len(data),
-                          sha256=digest(data), hex=data.hex(), profile=profile)
+        self.bundle.event(
+            "tx_requested",
+            request_id=request["id"],
+            length=len(data),
+            sha256=digest(data),
+            hex=data.hex(),
+            profile=profile,
+        )
         sent = 0
         original_write_timeout = getattr(self.transport, "write_timeout", None)
         adjustable_write = hasattr(self.transport, "write_timeout")
@@ -339,19 +426,29 @@ class Session:
                     if remaining <= 0:
                         raise TimeoutError("operation deadline during TX")
                     if adjustable_write:
-                        self.transport.write_timeout = min(original_write_timeout if original_write_timeout is not None else remaining, remaining)
+                        self.transport.write_timeout = min(
+                            original_write_timeout
+                            if original_write_timeout is not None
+                            else remaining,
+                            remaining,
+                        )
                     request["write_calls"] += 1
                     calls += 1
                     n = self.transport.write(data[sent:chunk_end])
                     if n is None or not 0 < n <= chunk_end - sent:
                         raise OSError("invalid/zero write count")
-                    self.bundle.record("tx", data[sent:sent+n])
+                    self.bundle.record("tx", data[sent : sent + n])
                     sent += n
                     request["acknowledged_bytes"] = sent
                 request["completed_chunks"] += 1
-                self.bundle.event("tx_chunk", request_id=request["id"],
-                                  offset=chunk_start, length=sent-chunk_start,
-                                  write_calls=calls, acknowledged_total=sent)
+                self.bundle.event(
+                    "tx_chunk",
+                    request_id=request["id"],
+                    offset=chunk_start,
+                    length=sent - chunk_start,
+                    write_calls=calls,
+                    acknowledged_total=sent,
+                )
                 if time.monotonic() >= deadline:
                     raise TimeoutError("operation deadline during TX")
                 if sent < len(data):
@@ -369,16 +466,24 @@ class Session:
                         completed = True
                     finally:
                         request["gaps"] += 1
-                        self.bundle.event("tx_gap", request_id=request["id"],
-                                          after_acknowledged_bytes=sent,
-                                          requested_seconds=TX_GAP_SECONDS,
-                                          actual_seconds=time.monotonic()-started,
-                                          rx_bytes=len(received)-rx_before, completed=completed)
+                        self.bundle.event(
+                            "tx_gap",
+                            request_id=request["id"],
+                            after_acknowledged_bytes=sent,
+                            requested_seconds=TX_GAP_SECONDS,
+                            actual_seconds=time.monotonic() - started,
+                            rx_bytes=len(received) - rx_before,
+                            completed=completed,
+                        )
             request["outcome"] = "acknowledged_by_host"
         except BaseException:
             self.state, self.identity = "uncertain", None
-            self.bundle.event("tx_uncertain", request_id=request["id"], acknowledged_bytes=sent,
-                              note="transport may have sent additional bytes before failure")
+            self.bundle.event(
+                "tx_uncertain",
+                request_id=request["id"],
+                acknowledged_bytes=sent,
+                note="transport may have sent additional bytes before failure",
+            )
             raise
         finally:
             request["ended_at"] = utcnow()
@@ -435,9 +540,15 @@ class Session:
         if not identity_probe and self.identity is None:
             raise BenchError("fresh root/firmware identity required before task command")
         token = nonce()
-        operation = dict(nonce=token, command=command, started_at=utcnow(),
-                         deadline_s=self.timeout, output_cap=self.output_cap,
-                         outcome="unknown", identity_probe=identity_probe)
+        operation = dict(
+            nonce=token,
+            command=command,
+            started_at=utcnow(),
+            deadline_s=self.timeout,
+            output_cap=self.output_cap,
+            outcome="unknown",
+            identity_probe=identity_probe,
+        )
         self.bundle.meta["operations"].append(operation)
         self.bundle.save(token + ".command.txt", command.encode())
         wire = wrap_command(command, token)
@@ -447,25 +558,35 @@ class Session:
         self.state = "in_flight"
         try:
             deadline = time.monotonic() + self.timeout
-            self._send(wire, deadline=deadline, received=received,
-                       on_rx=decoder.feed, operation=operation)
+            self._send(
+                wire, deadline=deadline, received=received, on_rx=decoder.feed, operation=operation
+            )
             while time.monotonic() < deadline:
                 if not decoder.complete:
                     chunk = self._read(received, until=deadline)
                     decoder.feed(chunk)
                 if decoder.complete:
-                    operation.update(outcome="completed", exit_status=decoder.exit_status,
-                                     ended_at=utcnow(), rx_bytes=len(received),
-                                     output_sha256=digest(decoder.output))
+                    operation.update(
+                        outcome="completed",
+                        exit_status=decoder.exit_status,
+                        ended_at=utcnow(),
+                        rx_bytes=len(received),
+                        output_sha256=digest(decoder.output),
+                    )
                     self.bundle.save(token + ".output.bin", bytes(decoder.output))
                     self.state = "shell"
                     return decoder.exit_status, bytes(decoder.output)
             raise TimeoutError("missing complete nonce END plus fresh shell prompt")
         except BaseException as exc:
             self.state, self.identity = "uncertain", None
-            operation.update(outcome="unknown", error=str(exc), ended_at=utcnow(),
-                             rx_bytes=len(received), begin_seen=decoder.started,
-                             end_status_seen=decoder.exit_status)
+            operation.update(
+                outcome="unknown",
+                error=str(exc),
+                ended_at=utcnow(),
+                rx_bytes=len(received),
+                begin_seen=decoder.started,
+                end_status_seen=decoder.exit_status,
+            )
             self.bundle.save(token + ".partial-output.bin", bytes(decoder.output))
             if isinstance(exc, (KeyboardInterrupt, SystemExit)):
                 raise

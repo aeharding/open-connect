@@ -1,4 +1,5 @@
 """Strict small-file transfer: allowlisted regular paths, no remote staging writes."""
+
 from __future__ import annotations
 
 import base64
@@ -33,14 +34,18 @@ def posix_cksum(data):
 
 
 def export_command(path, token, encoder="base64", checksum="md5"):
-    if path not in ALLOWLIST or encoder not in ("base64", "hex") or checksum not in ("md5", "sha256"):
+    if (
+        path not in ALLOWLIST
+        or encoder not in ("base64", "hex")
+        or checksum not in ("md5", "sha256")
+    ):
         raise ValueError("unsupported path, encoder or checksum")
     check_nonce(token)
     tool = {"md5": "md5sum", "sha256": "sha256sum"}[checksum]
     encode = {"base64": "base64", "hex": "od -An -tx1 -v"}[encoder]
     # Real newlines keep EACH physical input line short, including shell quoting.
     # All variables and positional arguments belong to an isolated sh -c process.
-    script = f'''set -f
+    script = f"""set -f
 _p={shlex.quote(path)}
 _t={token}
 [ -f "$_p" ] && [ ! -L "$_p" ] || exit 70
@@ -76,7 +81,7 @@ set -- $_c2
 _crc2=$1
 [ "$2" -eq "$_n2" ] || exit 74
 printf 'CMUF1 %s END %s %s %s %s\\n' "$_t" "$_n2" "$_h2" "$_crc2" "$_i"
-[ "$_n" -eq "$_n2" ] && [ "$_h" = "$_h2" ] && [ "$_crc" = "$_crc2" ]'''
+[ "$_n" -eq "$_n2" ] && [ "$_h" = "$_h2" ] && [ "$_crc" = "$_crc2" ]"""
     # BusyBox 1.19.2 syntax VERIFIED by operator t14; never GNU timeout syntax.
     command = "timeout -t 20 -s 9 /bin/sh -c " + shlex.quote(script)
     wrap_command(command, "0" * 32)  # Validate the final nested wire quoting overhead.
@@ -93,7 +98,11 @@ def _number(value, maximum=MAX_BYTES):
 
 
 def decode_file(output, token, path, encoder="base64", checksum="md5"):
-    if path not in ALLOWLIST or encoder not in ("base64", "hex") or checksum not in ("md5", "sha256"):
+    if (
+        path not in ALLOWLIST
+        or encoder not in ("base64", "hex")
+        or checksum not in ("md5", "sha256")
+    ):
         raise ValueError("unsupported capture profile")
     prefix = b"CMUF1 " + check_nonce(token).encode() + b" "
     pre, post = None, None
@@ -104,19 +113,29 @@ def decode_file(output, token, path, encoder="base64", checksum="md5"):
         line = raw.removesuffix(b"\r")
         if not line.startswith(prefix):
             continue  # Raw noise remains intact in the command/bundle evidence.
-        fields = line[len(prefix):].split(b" ")
+        fields = line[len(prefix) :].split(b" ")
         kind = fields[0]
         if kind == b"BEGIN" and len(fields) == 7 and pre is None and post is None:
             _, source, length, encoding, algorithm, value, crc = fields
-            if (source != path.encode() or encoding != encoder.encode() or algorithm != checksum.encode()
-                    or not re.fullmatch(hash_pattern, value)):
+            if (
+                source != path.encode()
+                or encoding != encoder.encode()
+                or algorithm != checksum.encode()
+                or not re.fullmatch(hash_pattern, value)
+            ):
                 raise ProtocolError("unexpected source/encoding/checksum metadata")
-            pre = dict(bytes=_number(length), checksum=value.decode(), cksum=_number(crc, 0xFFFFFFFF))
+            pre = dict(
+                bytes=_number(length), checksum=value.decode(), cksum=_number(crc, 0xFFFFFFFF)
+            )
         elif kind == b"DATA" and len(fields) == 5 and pre is not None and post is None:
             _, seq, offset, length, payload = fields
             count = _number(length, CHUNK_BYTES)
-            if (_number(seq) != sequence or _number(offset) != len(decoded) or count == 0
-                    or count != min(CHUNK_BYTES, pre["bytes"] - len(decoded))):
+            if (
+                _number(seq) != sequence
+                or _number(offset) != len(decoded)
+                or count == 0
+                or count != min(CHUNK_BYTES, pre["bytes"] - len(decoded))
+            ):
                 raise ProtocolError("missing/reordered/duplicate frame or incorrect chunk length")
             try:
                 if encoder == "base64":
@@ -139,7 +158,9 @@ def decode_file(output, token, path, encoder="base64", checksum="md5"):
                 raise ProtocolError("invalid end checksum")
             if _number(count) != sequence:
                 raise ProtocolError("wrong final chunk count")
-            post = dict(bytes=_number(length), checksum=value.decode(), cksum=_number(crc, 0xFFFFFFFF))
+            post = dict(
+                bytes=_number(length), checksum=value.decode(), cksum=_number(crc, 0xFFFFFFFF)
+            )
         else:
             raise ProtocolError("duplicate/malformed/out-of-order file record")
     if pre is None or post is None:
@@ -151,20 +172,35 @@ def decode_file(output, token, path, encoder="base64", checksum="md5"):
     crc = posix_cksum(data)
     if actual_hash != pre["checksum"] or crc != pre["cksum"]:
         raise ProtocolError("host/target checksum mismatch")
-    metadata = dict(source_path=path, encoding=encoder, target_algorithm=checksum,
-                    target_pre=pre, target_post=post, host_bytes=len(data),
-                    host_checksum=actual_hash, host_cksum=crc, host_sha256=digest(data),
-                    exact_bytes_verified=True, target_sha256=(checksum == "sha256"),
-                    consistency="matching pre/post size and checksums; no atomic snapshot claim",
-                    chunk_checksums=False, resumable=False)
+    metadata = dict(
+        source_path=path,
+        encoding=encoder,
+        target_algorithm=checksum,
+        target_pre=pre,
+        target_post=post,
+        host_bytes=len(data),
+        host_checksum=actual_hash,
+        host_cksum=crc,
+        host_sha256=digest(data),
+        exact_bytes_verified=True,
+        target_sha256=(checksum == "sha256"),
+        consistency="matching pre/post size and checksums; no atomic snapshot claim",
+        chunk_checksums=False,
+        resumable=False,
+    )
     return data, metadata
 
 
 def capture_file(session, path, encoder="base64", checksum="md5"):
     token = nonce()
     command = export_command(path, token, encoder, checksum)
-    attempt = dict(source_path=path, file_nonce=token, encoder=encoder, checksum=checksum,
-                   outcome="in_progress")
+    attempt = dict(
+        source_path=path,
+        file_nonce=token,
+        encoder=encoder,
+        checksum=checksum,
+        outcome="in_progress",
+    )
     session.bundle.meta.setdefault("file_captures", []).append(attempt)
     try:
         status, output = session.execute(command)
@@ -173,8 +209,12 @@ def capture_file(session, path, encoder="base64", checksum="md5"):
         data, metadata = decode_file(output, token, path, encoder, checksum)
         name = path.strip("/").replace("/", "-") + ".exact.bin"
         session.bundle.save(name, data)
-        attempt.update(metadata, outcome="verified", artifact=name,
-                       command_nonce=session.bundle.meta["operations"][-1]["nonce"])
+        attempt.update(
+            metadata,
+            outcome="verified",
+            artifact=name,
+            command_nonce=session.bundle.meta["operations"][-1]["nonce"],
+        )
         session.bundle.event("file_verified", **attempt)
         return data, metadata
     except BaseException as exc:

@@ -1,18 +1,18 @@
 """Front-door tests patch only hardware acquisition; no production PTY option."""
+
 import contextlib
 import io
 import json
-from pathlib import Path
 import tempfile
-from types import SimpleNamespace
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from open_connect.session import BenchError
 from test_session import FakeTransport
 
-ROOT = Path(__file__).resolve().parents[1]
 from open_connect import uart as cli
+from open_connect.session import BenchError
 
 
 class LockStub:
@@ -55,14 +55,29 @@ class CliTests(unittest.TestCase):
             else:
                 opener.return_value = port
             with contextlib.redirect_stdout(io.StringIO()):
-                rc = cli.main(["--live", "--action", "command", "--command", "id",
-                               "--bundle", str(path), "--owner", "synthetic CLI test",
-                               "--deadline", "0.04", *extra])
+                rc = cli.main(
+                    [
+                        "--live",
+                        "--action",
+                        "command",
+                        "--command",
+                        "id",
+                        "--bundle",
+                        str(path),
+                        "--owner",
+                        "synthetic CLI test",
+                        "--deadline",
+                        "0.04",
+                        *extra,
+                    ]
+                )
             return rc, json.loads((path / "manifest.json").read_text()), opener.call_count
 
     def test_failed_open_is_requested_not_observed_hardware(self):
         with tempfile.TemporaryDirectory() as temp:
-            rc, manifest, _ = self.invoke(Path(temp) / "run", open_error=BenchError("synthetic open refused"))
+            rc, manifest, _ = self.invoke(
+                Path(temp) / "run", open_error=BenchError("synthetic open refused")
+            )
             self.assertEqual(rc, 1)
             self.assertEqual(manifest["outcome"], "failed")
             self.assertTrue(manifest["live_requested"])
@@ -71,7 +86,9 @@ class CliTests(unittest.TestCase):
 
     def test_failed_lock_never_opens_and_never_claims_hardware(self):
         with tempfile.TemporaryDirectory() as temp:
-            rc, manifest, calls = self.invoke(Path(temp) / "run", lock_error=BlockingIOError("busy test lock"))
+            rc, manifest, calls = self.invoke(
+                Path(temp) / "run", lock_error=BlockingIOError("busy test lock")
+            )
             self.assertEqual(rc, 1)
             self.assertEqual(calls, 0)
             self.assertFalse(manifest["adapter_observed"])

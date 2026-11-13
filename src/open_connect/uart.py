@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
 """Dry-run by default. Explicit live receive, identify, command or exact file export."""
+
 import argparse
 import json
 import os
-from pathlib import Path
-import sys
 
-from open_connect.session import (AdapterLock, BenchError, Bundle, Session, UnknownOutcome,
-                               IDENTIFY, open_adapter, utcnow, nonce, wrap_command)
+from open_connect.session import (
+    IDENTIFY,
+    AdapterLock,
+    Bundle,
+    Session,
+    UnknownOutcome,
+    open_adapter,
+)
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--live", action="store_true", help="open only the uniquely enumerated known FTDI")
-    p.add_argument("--action", choices=("receive", "identify", "command", "export"), default="receive")
+    p.add_argument(
+        "--live", action="store_true", help="open only the uniquely enumerated known FTDI"
+    )
+    p.add_argument(
+        "--action", choices=("receive", "identify", "command", "export"), default="receive"
+    )
     p.add_argument("--command")
     p.add_argument("--path", choices=("/jci/version.ini", "/etc/version"))
     p.add_argument("--encoder", choices=("base64", "hex"), default="base64")
@@ -23,8 +32,11 @@ def main(argv=None):
     p.add_argument("--output-cap", type=int, default=1048576)
     p.add_argument("--bundle", help="new private bundle path; required for live")
     p.add_argument("--owner", default=os.environ.get("HC_TERMINAL_ID", "unspecified"))
-    p.add_argument("--solicit-prompt", action="store_true",
-                   help="explicitly assert idle shell and transmit ONE CR; never use with uncertain foreground work")
+    p.add_argument(
+        "--solicit-prompt",
+        action="store_true",
+        help="explicitly assert idle shell and transmit ONE CR; never use with uncertain foreground work",
+    )
     args = p.parse_args(argv)
     if not 0 < args.seconds <= 60 or not 0 < args.deadline <= 60:
         p.error("seconds/deadline must be >0 and <=60")
@@ -42,15 +54,26 @@ def main(argv=None):
         p.error("receive is strictly RX-only")
     if args.action == "export":
         from open_connect.files import export_command
+
         planned_command = export_command(args.path, "0" * 32, args.encoder, args.checksum)
     else:
         planned_command = args.command or (IDENTIFY if args.action == "identify" else None)
     if not args.live:
-        print(json.dumps(dict(mode="dry_run", opens_port=False, sends_bytes=False,
-                              action=args.action, requires_idle_shell=args.solicit_prompt,
-                              preflight_identity=(args.action != "receive"),
-                              planned_command=planned_command,
-                              note="Sample nonce is replaced at execution. No adapter enumeration or files written."), indent=2))
+        print(
+            json.dumps(
+                dict(
+                    mode="dry_run",
+                    opens_port=False,
+                    sends_bytes=False,
+                    action=args.action,
+                    requires_idle_shell=args.solicit_prompt,
+                    preflight_identity=(args.action != "receive"),
+                    planned_command=planned_command,
+                    note="Sample nonce is replaced at execution. No adapter enumeration or files written.",
+                ),
+                indent=2,
+            )
+        )
         return 0
     if not args.bundle:
         p.error("--live requires --bundle pointing to a new directory")
@@ -61,7 +84,9 @@ def main(argv=None):
     # Keep lock held through port close and evidence flush, including failed open.
     try:
         with AdapterLock(owner=args.owner, purpose=args.action) as lock:
-            bundle.meta["lock"] = dict(path=str(lock.path), held_until="port close and bundle finalization")
+            bundle.meta["lock"] = dict(
+                path=str(lock.path), held_until="port close and bundle finalization"
+            )
             try:
                 port = open_adapter(bundle)
                 session = Session(port, bundle, args.deadline, args.output_cap)
@@ -73,9 +98,13 @@ def main(argv=None):
                     session.identify()
                     if args.action == "command":
                         status, _ = session.execute(args.command)
-                        outcome, result = ("completed" if status == 0 else "remote_nonzero"), (0 if status == 0 else 3)
+                        outcome, result = (
+                            ("completed" if status == 0 else "remote_nonzero"),
+                            (0 if status == 0 else 3),
+                        )
                     elif args.action == "export":
                         from open_connect.files import capture_file
+
                         capture_file(session, args.path, args.encoder, args.checksum)
                         outcome, result = "verified_file", 0
                     else:
@@ -100,7 +129,11 @@ def main(argv=None):
         uncertain = session is not None and session.state == "uncertain"
         bundle.finish("unknown" if uncertain else "failed", error)
         result = 2 if uncertain else 1
-    print(json.dumps(dict(bundle=str(bundle.path), outcome=bundle.meta["outcome"], error=error), indent=2))
+    print(
+        json.dumps(
+            dict(bundle=str(bundle.path), outcome=bundle.meta["outcome"], error=error), indent=2
+        )
+    )
     return result
 
 

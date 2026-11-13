@@ -23,17 +23,18 @@ operator-inspected frame showed home without it. PID18090 is historical only.
 The old left_for_user_to_dismiss_with_ok flag is superseded. No manual OK is due.
 Input nodes were listed, not injected. Synthetic input cannot validate commander.
 Camera framing is angled/cropped; no assumption of complete control visibility.
-Root was verified historically; current shell state must be checked afresh.
-Later coordinator report: a truncated1363-byte request entered a continuation
-prompt. One authorized ETX did not recover a root prompt; sends are stopped.
-Recovery remains unresolved. See the separate console recovery research requested
-by t6; no new input or live recovery action is authorized for this worker.
+Later t14 observed one approved051504 produce an actual unterminated-quote
+error and primary prompt, then freshly verified root55/cmu150_NA and exit0.
+See notes/console-recovery-observation.txt and F035; H009 is resolved for that
+specific retained-quote state. The earlier ETX failure remains historical.
+This research worker performed no live recovery. Future acquisition must still
+verify actual foreground state and identity; do not generalize the sequence.
 
 NEW OPERATOR CAPABILITIES (t14,22:33–22:34CST; F028–F030)
 BusyBox1.19.2; sha256sum not found in PATH/rc127; MD5+cksum and encoding tools
 available. timeout requires -t SECS. Remote version.ini13304B; /etc/version31B.
 Exact hashes/counts and raw support paths are in the supplemental manifest.
-This is metadata/probe evidence, not a copied or verified backup.
+This earlier metadata/probe evidence preceded the new exact captures below.
 
 SOURCE AND HARDWARE LIMITS
 Saved Mazda2018 PDFp9/20 says v70.00.21; Mazda2019p9/9 says70.00.021B.
@@ -66,7 +67,15 @@ inventory/20261112T2135-cmu-version.ini is13334B with unrelated trailing output:
 preserve unchanged as metadata, never call it a byte-exact backup.
 Local Git/manifests are not an independent second copy, full backup or recovery.
 No verified second destination or demonstrated restore is known.
-Next work is H003: accept offline framed tooling, then operator-capture one exact
-small file using remote/host count+checksum and source stability. Index future
-run results without rewriting originals, old claims or source editions.
+H003 is resolved for two allowlisted exact captures: /etc/version31B and
+/jci/version.ini13304B. Fresh source pre/post length+MD5+POSIX CRC match host;
+all three identify/pilot/version bundles' artifact hashes and RX/TX agree.
+See F036-F038, notes/exact-file-capture-observation.txt and the new milestone
+manifest. Bytes stay private in ignored runs; host SHA256 is provenance only.
+This supersedes the no-exact-file gap only for those two files. Full storage/
+service baseline, restore/atomicity, second copy and physical acceptance remain
+separate gaps. Preserve old13334B metadata unchanged. No next live action is
+assigned here; coordinator t6 reviews scope and remaining work.
+Tooling review R1 (F039) records a source-pinned SystemExit cancellation metadata
+edge; normal live exports do not test that path or establish a later fix.
 Review notes/research-preservation-result.txt for commit and final exclusions.

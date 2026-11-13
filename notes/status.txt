@@ -1,0 +1,70 @@
+MAZDA CMU BENCH — CURRENT STATUS
+Updated 2026-11-12T23:22:20.833551-06:00 by coordinator Herdr t6.
+Read AGENTS.md and research/index.txt before continuing. Local Git main; no remote.
+
+WORKING REFERENCE
+Mac mini M2 Pro/macOS26.5.2 arm64; Python3.13.7, pySerial3.5, FFmpeg7.1.1.
+CMU55.00.750B/cmu150_NA; Linux3.0.35 ARMv7l; BusyBox1.19.2.
+FTDI0403:6001 serialA9048JM0; last path /dev/cu.usbserial-A9048JM0.
+UART115200 8N1, no flow, RTS/DTR requested inactive. Re-enumerate before use.
+User and root logins and fresh root/firmware preflights were demonstrated.
+USB webcam046d:0825 serial1AD54210 works through Herdr; angled/cropped/glare limits.
+Preserve USB and SD; AUX unnecessary. No manual bench/UI work assigned to user.
+
+IMPLEMENTED AND VERIFIED
+- Research catalog with immutable local source snapshots, evidence hashes,
+  facts/hypotheses/decisions and searchable index; initial Git commit dcdaf03.
+- Reviewed session/file runner: cmu_bench and scripts/cmu-session.py. Default
+  dry-run, sole owner lock, fresh identity, bounded input lines, framed completion,
+  RX/TX evidence and exact-file checks.30 offline tests pass; coordinator CLI6 pass.
+- Two exact transferred metadata files: /etc/version31 bytes and /jci/version.ini
+  13304 bytes. Fresh target PRE/POST lengths+MD5+POSIXCRC equal decoded host data;
+  host SHA256 recorded. See notes/exact-file-capture-observation.txt and private
+  runs/20261112T225632-0600-t14-harness-acceptance/manifest.json.
+- Read-only storage/process/module baseline and network/service inventory complete
+  within recorded bounds. root filesystem relfs read-only; data/data_persist
+  writable relfs; resources read-only relfs; /config-mfg squashfs read-only.
+- asix+usbnet loaded; matching module files plus cdc_ether/cdc_ncm observed.
+  Current interface snapshot showed lo+wlan0 only, no carrier/nonloopback address
+  or IPv4 routes. Existing sshd listens0.0.0.0:22; no SSH connection test yet.
+- Both known D-Bus sockets ListNames succeeded; actual object/interface discovery
+  is ongoing read-only. Names alone do not establish callable UI controls.
+- Our original native dialog was launched, observed, and later terminated by
+  exact ownership guard with a fresh camera-confirmed return to home.
+
+RECOVERED CONSOLE FAILURE
+An old-helper1363-byte input was truncated to its first1022 bytes inside a quote.
+One ETX did not unwind BusyBox's parser. Primary-source analysis identified that
+behavior, then ONE051504 clear-line/EOF sequence produced the expected syntax
+error and fresh PS1. A separate short check reverified root55.00.750B. No reboot,
+power or service change. This is a narrow observed recovery, not a generic recipe.
+The new runner caps physical lines600 bytes; live exports max159 bytes per line.
+The old13334-byte extracted version reference remains unchanged as metadata.
+New exact copies are separate artifacts. No raw failure evidence was rewritten.
+
+ACTIVE WORK / OWNERS
+Coordinator t6 owns integration and Herdr-only task control. t14 is sole UART/
+camera owner for current scoped read-only service/interface discovery. Last
+completed batches closed both cu/tty handles; new acquisitions recheck ownership.
+t12 prepares UI001 offline. Draft lifecycle bugs were caught in fake tests;
+startup/error cleanup and independent timeout are being fixed before any live UI.
+The disposable sleep probe has NOT run. No UI watchdog/timer is currently deployed.
+t13 performs scoped offline review/research curation. No other worker touches UART.
+
+REMAINING DEPENDENCIES
+No full storage backup, atomic snapshot, restore test or independent second copy.
+Physical commander, actual USB media/SD navigation and exact retrofit-hub identity
+remain unverified. Ethernet attachment, adapter compatibility/link/SSH login and
+relay/B+/ACC/shutdown behavior remain hardware or future commissioning dependencies.
+Keep firmware55 as development baseline. Mazda retrofit prerequisites are saved
+in primary sources, and differ from this installed software; no upgrade attempted.
+
+DURABLE CONTEXT
+Current investigation: notes/afk-session-status.txt
+Read-only baseline: notes/afk-baseline-observation.txt; notes/afk-baseline-followup.txt
+Recovery: notes/console-recovery-research.txt; notes/console-recovery-observation.txt
+Files: notes/exact-file-capture-observation.txt
+Tooling: notes/tooling-development-result.txt; notes/tooling-review-resolution.txt
+Plan: notes/interim-plan.txt; research index: research/index.txt
+Earlier status preserved at research/context/originals/status-before-afk-update.txt
+Original wiring-reference conflicts remain in research/context/SUMMARY.txt.

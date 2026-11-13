@@ -1,0 +1,143 @@
+MAZDA CMU AFK BASELINE OBSERVATION — t14
+Observed 2026-11-12, America/Chicago. Host preflight22:32:53; UART work stopped22:38:57.
+Coordinator t6. Sole UART/camera operator t14; no subagents.
+Run: /Users/aeharding/mazda-cmu-bench/runs/20261112T223253-0600-t14-afk-baseline
+STATUS: PARTIAL BASELINE; UART INPUT RECOVERY REQUIRED BEFORE ANY FURTHER COMMAND.
+Capability report was sent to t6+t12 before baseline storage/services work.
+
+QUESTION AND SCOPE
+Establish current firmware/root/tool capabilities and a bounded read-only baseline
+without changing firmware55, power, accounts, persistent settings, networking or
+USB/SD. No human bench operations available. No installed network/startup/reset/reflash script was executed.
+The Mac used existing scripts/bench.py and scripts/console-command.py; a narrowly
+scoped one-ETX raw cancellation source was written only after explicit t6 approval.
+
+FRESH IDENTITY AND TOOLS (OBSERVED, NOT BACKUPS)
+FTDI re-enumerated0403:6001 serialA9048JM0, /dev/cu.usbserial-A9048JM0.
+Before acquisition lsof cu+tty aliases returned1 with empty stdout/stderr.
+Initial receive-only2s captured0 bytes; inherited known root state was then checked
+by existing helper's initial CR and real prompt, followed by fresh framed commands.
+At22:33 id reported uid=0(root), gid=0(root), groups=0(root), rc0.
+uname rc0: Linux cmu 3.0.35 #1 SMP PREEMPT Sun Mar15 10:12:10 IST2015 armv7l.
+Installed fields rc0: JCI_SW_VER=MAZ_CMU-150_55.00.750, patchB, flavorcmu150_NA.
+BusyBox1.19.2; full paths/usage in run/tool-capabilities.txt.
+Important timeout syntax: /usr/bin/timeout [-t SECS] [-s SIG] PROG ARGS.
+sha256sum not found in PATH and execution rc127; md5sum and cksum supported.
+Remote wc/stat/md5sum/cksum each rc0:
+ /jci/version.ini13304 bytes, MD5 5488b62f403d5296f58566c8499f7d44,
+ cksum958101073 13304.
+ /etc/version31 bytes, MD5 10cac4792dbca7d886eb2d9ee80d0647,
+ cksum2910742528 31.
+Tiny /etc/version od and base64 read-only probes returned0 and are raw console
+observations only. No exact remote file was saved/verified on the host. The old
+inventory/20261112T2135-cmu-version.ini was preserved unchanged.
+
+BOUNDED BASELINE THAT COMPLETED
+Storage transaction had actual STORAGE_BEGIN/RC:0/END response lines.
+All four head reads returned0 (caps120lines): /proc/mounts, /proc/filesystems,
+/proc/partitions and /proc/mtd. df returned0.
+Observed mounts:
+ /dev/ffx01p1 -> / relfs ro,noatime
+ /dev/ffx01p4 -> /tmp/mnt/data relfs rw,noatime
+ /dev/mmcblk0p2 -> /tmp/mnt/data_persist relfs rw,noatime
+ /dev/mmcblk0p1 -> /tmp/mnt/resources relfs ro,noatime
+ /dev/mtdblock5 -> /config-mfg squashfs ro
+ /tmp tmpfs131072KiB, available126532KiB at observation.
+df root489408KiB with95588KiB available; data314496/291976KiB available;
+data_persist585976/570648KiB available; resources3256064/2464786KiB available.
+Partition names/geometry saved, including ffx00,ffx01,p1-p4,mmcblk0,p1-p2,
+boot0/boot1 and mtdblock0-8. MTD names:
+bootstrap,boot-select,ibc1,ibc2,nv-config,config,jci-boot-diag,fail-safe,update.
+Selected node metadata saved for ffx/mmc/mtd/input/uinput. Nodes ls returned1
+because /dev/ubi*, /dev/sd* and /dev/rel* did not match at that moment.
+This does not prove usable or unusable external USB/SD media/navigation.
+
+Services transaction had actual SERVICES_BEGIN/RC:0/END response lines.
+ps was capped120lines; separate service filter capped50lines. A pipeline rc0 only
+establishes its final command, not uncapped ps completeness.
+/proc/modules capped100lines returned0. Observed loaded asix,usbnet,wl12xx_sdio,
+wl12xx,mac80211,cfg80211, input/uinput and proprietary flashfx/reliance/relfs stack.
+Module presence does not establish future adapter compatibility or usable link.
+/lib/modules top listing returned0 and showed3.0.35. No bounded module-candidate
+search completed; its later containing request did not execute.
+Actual process evidence includes /usr/sbin/sshd PID1985 (not a listener/login test),
+dbus-daemon configs /etc/dbus-1/hmi.conf and service.conf, dbus-trackers on
+/tmp/dbus_hmi_socket and /tmp/dbus_service_socket; MMUI process arguments select
+filtered-mouse0,filtered-keyboard0,filtered-touchscreen0.
+Observed paths: ip=/bin/ip, ifconfig=/sbin/ifconfig, route=/sbin/route,
+netstat=/bin/netstat, ssh=/usr/bin/ssh, sshd=/usr/sbin/sshd,
+dbus-send=/usr/bin/dbus-send, dbus-monitor=/usr/bin/dbus-monitor.
+No interface/route/listener result was collected. No D-Bus request was sent.
+No input/UI action was performed.
+
+FAILURE AND ONE AUTHORIZED RECOVERY ATTEMPT
+At22:36 a1363-byte ASCII command (+CR) was passed to the old helper. The echoed
+input ended mid quoted printf; actual '> ' continuation prompt appeared.
+No actual NETWORK_BEGIN, NETWORK_RC or NETWORK_END response line exists.
+The helper nevertheless returned host0/status 'command capture finished', which
+only means its fixed window ended. Network/module-candidate/SSH-listener/DBus-help
+results are UNKNOWN, not successful. Suspected input-line truncation is a
+hypothesis, not a measured kernel/ash capacity.
+Port closed; t6+t12 notified immediately. No long request was resent.
+t6 reviewed raw+JSONL and authorized one ETX0x03 (no CR and no serial BREAK) after
+fresh passive evidence, requiring normal shell prompt and fresh identity before
+any continuation. t6 prescribed <=768-byte physical lines, preferably<=600.
+Fresh passive2s captured0bytes; raw cancellation session passive1s also0bytes.
+At22:38:54 sent exactly03 once, write_count1;3s RX was hex0d0a3e2030 (CRLF '> 0').
+No normal root shell prompt was restored. Cancellation helper exited1 and closed
+port. Per t6's explicit instruction, all UART work stopped; no retries/control
+characters/commands followed. Current shell state is incomplete/unknown.
+LAST FRESH uid/root/firmware verification was22:33, before failed request.
+Exact cancellation source and RX/TX/metadata are in run/continuation-cancel.*.
+Do not start an exact-file capture until coordinator-reviewed shell recovery.
+
+CAMERA / BEFORE-AFTER
+Both stills used existing bench.py via Herdr, exact currently listed USB camera,
+1280x720 UYVY, video only,2s warmup; FFmpeg rc0. Requested5fps, reported24.75fps.
+Before: captures/20261112T223308.618619-0600-webcam.jpg119960bytes.
+After: captures/20261112T223732.213413-0600-webcam.jpg119284bytes.
+Both decoded through hc and were visually inspected: Mazda home menu,
+Communication selected, no test dialog. Angled/cropped left edge and glare remain;
+CMU clock is not host time. After image predates ETX; no UI action was attempted.
+Fresh host inventory confirms webcam046d:0825 serial1AD54210 and exact camera name.
+No additional camera capture was needed for shell-only cancellation failure.
+
+EVIDENCE / LIMITS / CLEANUP
+All original logs remain unedited. JSONL RX reconstructs each console .bin exactly;
+each console .txt also equals its .bin. These checks prove stored-representation
+consistency, not UART losslessness or a byte-exact source-file copy.
+Unique response markers were split across printf arguments in payloads so command
+echo alone cannot equal an actual marker line. Raw TX contains exact commands.
+Target read-only wrappers used timeout -t10 -s9; host receive windows<=12s.
+Every actual command session lasted<15s. Initial live work interval about6minutes.
+Pipeline status limitations and absent-glob failures are preserved.
+Raw captures/private manifests stay in ignored logs/captures/inventory/runs;
+run directory0700. Raw runtime output can include private device identities.
+At22:39 cleanup saved Herdr get/read+exit records before removing only12 finished
+plain helper terminals created under parentt14. All were exited;11 host0,
+cancellation helper host1. Both serial aliases lsof rc1/empty; no ffmpeg process.
+No Mac port/camera helper remains. No CMU foreground action is proven running;
+incomplete shell input remains an explicit handoff dependency. No logout/power
+change/network operation/module load/remount/install/dialog was performed.
+No newly written t12 developer tooling was used.
+
+PRIMARY RAW PREFIXES (.bin/.jsonl/.json/.txt)
+ logs/20261112T223327.247687-0600-afk-t14-identity
+ logs/20261112T223344.922252-0600-afk-t14-toolpaths
+ logs/20261112T223408.808470-0600-afk-t14-capdetail
+ logs/20261112T223505.882604-0600-afk-t14-storage
+ logs/20261112T223533.976146-0600-afk-t14-services
+ logs/20261112T223613.143917-0600-afk-t14-network [FAILED/INCOMPLETE]
+Receive-only prefixes223259.917734 and223824.244357 (-0600-uart).
+Run manifest includes payloads, source/tool SHA256 hashes, artifact hashes,
+actual marker checks, cleanup, scope, unresolved work and raw-vs-exact status.
+Research/handoff entry: this note -> private run/index.txt -> manifest.json.
+Coordinator/research owner can integrate this bounded result in shared index.
+
+OUTSTANDING
+Coordinator-reviewed recovery of incomplete shell input, then fresh root/version;
+short module candidate search, interfaces/routes, SSH listener/binary state and
+optional finite read-only D-Bus ListNames/introspection. Exact-file capture awaits
+t6's tested-tooling handoff and known shell. Physical commander/USB/SD operation,
+adapter attachment and power/recovery tests remain unverified dependencies.
+t14 remains available; sole hardware ownership is retained until t6 releases it.

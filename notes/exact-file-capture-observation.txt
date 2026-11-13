@@ -1,0 +1,116 @@
+CMU VERIFIED SMALL-FILE CAPTURE — t14 / coordinator t6
+2026-11-12, America/Chicago. Live acquisitions 22:56:41–22:57:50.
+RESULT: new harness identify and both authorized exports PASSED, without retries.
+Acceptance run: /Users/aeharding/mazda-cmu-bench/runs/20261112T225632-0600-t14-harness-acceptance
+
+This supersedes only the prior "no exact remote-file copies" gap for /etc/version
+and /jci/version.ini. It does not complete the entire read-only hardware/service
+baseline, bulk backup, second-copy protection or recovery/restore validation.
+
+AUTHORIZATION / TESTED SOURCE
+t6 explicitly handed off the reviewed final tooling and authorized identify,
+then one /etc/version pilot, then one /jci/version.ini export if each prior gate
+passed. Exact authorization plus deadline spelling correction are in the private
+acceptance run. Commands used documented '--deadline 10' and '--deadline 30'.
+Read notes/tooling-development-result.txt, examples/operator-ready-after-recovery.json,
+cmu_bench/session.py, cmu_bench/files.py and scripts/cmu-session.py.
+All eight current code/test SHA256 hashes matched BOTH 29/29 passing manifests:
+ examples/tooling-runs/20261113T045143.194054Z/manifest.json
+ examples/tooling-runs/20261113T045441.505621Z/manifest.json
+Both saved test-log hashes also matched. No repeat test run was needed.
+Preflight repository HEAD: dcdaf03235dffa72d1c47b95fa2cf9ae158b210c.
+Every live bundle records the same actual source-code hashes and exact commands.
+
+IDENTITY / OPERATING BOUNDS
+t14 remained the sole UART/camera owner; no subagents.
+FTDI 0403:6001 serial A9048JM0 uniquely re-enumerated on cu.usbserial-A9048JM0.
+Before acquisition lsof both cu+tty aliases returned1 with empty stdout/stderr.
+Each live invocation used the new FTDI-keyed private advisory flock and
+115200 8N1, no flow control, RTS/DTR requested inactive, pySerial exclusive=True.
+--solicit-prompt was authorized from the known recovered idle root shell.
+The new harness checks passive input state before considering its one CR.
+No old fixed-window helper, control-key recovery, credentials, or retry was used.
+
+EXACT LIVE INVOCATIONS
+Each ran via hc run --bg, explicit --parent t14, cwd /Users/aeharding/mazda-cmu-bench,
+and /Users/aeharding/mazda-cmu-bench/.venv/bin/python -B:
+ scripts/cmu-session.py --live --action identify --solicit-prompt --deadline 10 --bundle /Users/aeharding/mazda-cmu-bench/runs/20261112T225632-0600-t14-harness-identify --owner t14
+ scripts/cmu-session.py --live --action export --path /etc/version --encoder base64 --checksum md5 --solicit-prompt --deadline 30 --bundle /Users/aeharding/mazda-cmu-bench/runs/20261112T225632-0600-t14-harness-pilot --owner t14
+ scripts/cmu-session.py --live --action export --path /jci/version.ini --encoder base64 --checksum md5 --solicit-prompt --deadline 30 --bundle /Users/aeharding/mazda-cmu-bench/runs/20261112T225632-0600-t14-harness-version --owner t14
+No additional live task command was sent after these three invocations.
+Exports have a separate target timeout -t20 -s9 for their own bounded sh process.
+Target scripts read the two allowlisted regular nonsymlink files; no target
+staging files or target file writes are used.
+
+OBSERVED RESULTS / FRESH COMPLETION
+Identify outcome=identity_verified, error=null, identity uid0/root,
+firmware55.00.750B, flavorcmu150_NA; one identity operation completed exit0.
+Identify bundle: /Users/aeharding/mazda-cmu-bench/runs/20261112T225632-0600-t14-harness-identify
+Manifest SHA256: 052427906d16e98087e695bbf85c77631ad80e6cbef4b017e6dc20a14a82ca8a
+Each export separately reverified fresh root/firmware; each has TWO completed
+operations (identity + file command), actual nonce END exit0 and fresh prompt.
+All three bundle manifests report port_closed=true.
+
+VERIFIED /etc/version PILOT
+File: /Users/aeharding/mazda-cmu-bench/runs/20261112T225632-0600-t14-harness-pilot/etc-version.exact.bin
+Exactly31 bytes. Fresh target PRE == POST == HOST:
+ MD5 10cac4792dbca7d886eb2d9ee80d0647
+ POSIX cksum 2910742528, length31
+Host SHA256: 0d3b45583edd8c1b98afc06614dcfa6582a747549911eb4707152550abd66f2e
+Manifest outcome=verified_file, exact_bytes_verified=true, no error.
+Pilot manifest SHA256: dbb8c13158fcd6ea47ffb5a125e0176be3339fa9743b0b5c85670eeb0266e46b
+Independent host hashlib MD5/SHA256 and /usr/bin/cksum matched saved metadata.
+Only after this gate passed was the next export launched.
+
+VERIFIED /jci/version.ini
+File: /Users/aeharding/mazda-cmu-bench/runs/20261112T225632-0600-t14-harness-version/jci-version.ini.exact.bin
+Exactly13304 bytes. Fresh target PRE == POST == HOST:
+ MD5 5488b62f403d5296f58566c8499f7d44
+ POSIX cksum 958101073, length13304
+Host SHA256: ba5c2d267e8abf76cf1cc47272b66dde338c04d45c6f153387218bf9dab2e3a2
+Manifest outcome=verified_file, exact_bytes_verified=true, no error.
+Version manifest SHA256: 91b9f39b9a5e36c61ede7a77e0c32878bbbf40d9343d76deebe576d1cca90892
+Independent host hashlib MD5/SHA256 and /usr/bin/cksum matched saved metadata.
+Fresh per-capture comparisons established acceptance; earlier observations only
+provided a separate expected-value comparison.
+File operation lasted2.050474s for13304 bytes (~6488 B/s including command echo,
+encoding, transfer, pre/post checks and completion); this is not raw UART/bulk rate.
+
+EVIDENCE / PRESERVATION
+Each private live bundle preserves raw rx.bin/tx.bin, UTC+monotonic events.jsonl,
+exact nonce command/wire files, output bytes, source hashes, artifact hashes,
+actual completion outcomes and source/host metadata.
+RX and TX event bytes independently reconstruct both corresponding raw streams
+in all three bundles. All bundle artifact hashes were independently rechecked.
+Verified file bytes are decoded framed payloads with contiguous sequence/offset/
+length checks and fresh target pre/post metadata, not stripped console copies.
+Raw runtime noise remains in the original streams and generic command output.
+All originals stay unchanged. In particular, the historical13334-byte
+inventory/20261112T2135-cmu-version.ini remains a metadata reference, not this backup.
+Its prior SHA25664cd98721f7ef65023ad894e0acf36ce80929720343f2ce27b785548c8956acd
+is preserved. Exported content and raw captures remain in ignored private runs,
+not versioned fixtures. Bundle directories are0700 and artifacts0600.
+
+LIMITS
+The matching source pre/post length, MD5 and POSIX CRC and matching host values
+establish transfer consistency under those checks. This is not an atomic source
+snapshot, cryptographic authenticity proof, full-device backup or restore test.
+Target SHA256 was not available/used; the reported SHA256 is computed on host
+bytes for durable provenance. Original target mode/owner/timestamps were not
+preserved by this content-export protocol. No second host copy is configured.
+No physical commander, USB/SD navigation, Ethernet adapter/link, SSH login,
+power sequence or complete storage recovery has been verified by these captures.
+
+CLEANUP / HANDOFF
+Three task-owned plain helpers t21/t22/t23 all exited0. Exact Herdr get/read
+records were saved, then only these finished children of t14 were removed.
+At22:58:51 cu+tty lsof returned1 with empty output; no ffmpeg process.
+No Mac port/camera helper remains. The stable advisory lock inode remains by
+design; its process descriptor closed with the successful harness invocation.
+No UI/camera action, CMU write, firmware/account/persistent-setting change,
+network change, service operation or power change occurred.
+Acceptance run/index.txt links the source verification, gates, raw bundles,
+cleanup and manifest. t6 receives exact paths/hashes; t12/t13 receive evidence
+references for their tooling/research records. No additional live work is pending
+from this assignment. t14 stays available; hardware ownership remains until t6
+explicitly releases/reassigns it. Every new acquisition must reverify identity.

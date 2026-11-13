@@ -61,7 +61,11 @@ unavailable physical operation as a dependency; do not assign it to the user.
 
 ## Context and durable records
 
-Start with README.txt, notes/status.txt, and notes/interim-plan.txt. The specialized
+Start with README.txt, notes/afk-session-status.txt (current), notes/status.txt,
+and notes/interim-plan.txt. Prefer scripts/cmu-session.py for new live commands;
+the legacy fixed-window helper remains historical. The current runner limits
+physical input lines to600 bytes and has validated exact-file exports. BusyBox
+requires timeout -t SECONDS and provides MD5/cksum but no sha256sum. The specialized
 operator, baseline, and development/research plans in notes/ provide supporting detail.
 As implementation proceeds, keep a searchable research index linking sources,
 findings, hypotheses, decisions and immutable run evidence. Source records include

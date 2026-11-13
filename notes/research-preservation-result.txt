@@ -1,7 +1,7 @@
 RESEARCH / WORKSPACE PRESERVATION RESULT — derived, host-only
 2026-11-12 America/Chicago. Coordinator t6; worker t13; hardware owner t14.
-Initial commit: identify this report with git log -1 --format=%H -- notes/research-preservation-result.txt.
-The exact commit hash is reported to t6 after committing (a file cannot contain its own commit hash).
+Initial preservation commit:dcdaf03235dffa72d1c47b95fa2cf9ae158b210c (main, no remote).
+This report now includes an unstaged post-commit recovery-research handoff.
 
 Created local Git main, no remote; used existing configured identity unchanged.
 Tracked source/instructions/plans plus owned research files only, by exact reviewed allowlist.
@@ -40,7 +40,12 @@ Ethernet/SSH link or power/relay behavior. Preserve connector-view and hub1A
 conflicts. Keep firmware55,power,accounts,persistent settings,USB/SD and networking.
 AFK user performs no physical actions. t14 later reported unresolved continuation
 input after a truncated request and failed one-ETX recovery; sends are stopped.
-Separate bounded recovery research is pending after this preservation commit.
+Separate bounded recovery research is complete, with no live action:
+notes/console-recovery-research.txt. The official BusyBox1.19.2 source was saved
+and hashed after the initial commit. Current index:34 claims,9 hypotheses,
+8 decisions,5 saved sources,203 entries. Source-compatible051504 is a conditional
+clear-current-line+EOF candidate for t6 review, not verified CMU recovery.
+Follow-up changes remain unstaged; initial tracked set remains exactly33 paths.
 
 Exact initial-commit paths:
   .gitignore
@@ -76,3 +81,46 @@ Exact initial-commit paths:
   research/tools/seed_catalog.py
   scripts/bench.py
   scripts/console-command.py
+
+Exact unstaged recovery-follow-up paths (coordinator review):
+  notes/research-preservation-result.txt
+  notes/console-recovery-research.txt
+  research/context/SUMMARY.txt
+  research/decisions/2026-11-12-preservation.jsonl
+  research/facts.jsonl
+  research/hypotheses.jsonl
+  research/index.tsv
+  research/index.txt
+  research/sources/manifest.jsonl
+  research/tools/rebuild_index.py
+  research/manifests/2026-11-12-console-recovery-evidence.json
+  research/recovery/2026-11-12-incomplete-input-analysis.json
+  research/tools/analyze_incomplete_input.py
+  research/tools/fetch_busybox.py
+
+LATEST OBSERVED MILESTONE RECONCILIATION — 2026-11-13T05:05:30.735540+00:00
+Current catalog:39 claims,9 hypotheses (7 open/2 resolved in observed scope),9 decisions,5 sources,250 entries.
+H003 resolved for /etc/version31B and /jci/version.ini13304B only. H009 resolved for the one observed retained quote.
+Independent host SHA256/MD5/POSIX CRC+length match fresh saved target pre/post values;3 bundle artifact sets and6 raw/event streams match.
+Manifest:research/manifests/2026-11-12-recovery-and-exact-capture-milestones.json hashes40 evidence paths.
+Original105 raw files remain unchanged; both new exact byte files stay ignored/private in runs/.
+No full storage baseline, atomic snapshot, authenticity, restore, second copy or physical commander/USB-SD acceptance is claimed.
+Tooling review R1 remains a source-pinned synthetic cancellation finding; normal live exports do not test that path.
+This curation read saved host evidence only; no new code tests, source edits or hardware access. Initial commit remains dcdaf03235dffa72d1c47b95fa2cf9ae158b210c.
+All16 owned post-commit follow-up paths remain for coordinator review (other workspace changes are outside this curation):
+  notes/research-preservation-result.txt
+  notes/console-recovery-research.txt
+  notes/tooling-review.txt
+  research/context/SUMMARY.txt
+  research/decisions/2026-11-12-preservation.jsonl
+  research/facts.jsonl
+  research/hypotheses.jsonl
+  research/index.tsv
+  research/index.txt
+  research/sources/manifest.jsonl
+  research/tools/rebuild_index.py
+  research/manifests/2026-11-12-console-recovery-evidence.json
+  research/manifests/2026-11-12-recovery-and-exact-capture-milestones.json
+  research/recovery/2026-11-12-incomplete-input-analysis.json
+  research/tools/analyze_incomplete_input.py
+  research/tools/fetch_busybox.py

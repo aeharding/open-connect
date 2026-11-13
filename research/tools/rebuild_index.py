@@ -67,7 +67,8 @@ def main():
             add(id=e["id"],kind="derived-artifact",status="sanitized-or-manifest",
                 summary=e["path"],path=e["path"],locator=e["locator"],sha256=e["sha256"],
                 recorded_at=f["recorded_at"])
-    for path in [R/"context/SUMMARY.txt",R/"SCHEMA.txt",R/"sources/manifest.jsonl",*manifest_files]:
+    extra = [ROOT/"notes/console-recovery-research.txt"]
+    for path in [R/"context/SUMMARY.txt",R/"SCHEMA.txt",R/"sources/manifest.jsonl",*manifest_files,*[p for p in extra if p.is_file()]]:
         rel=str(path.relative_to(ROOT))
         eid=evidence_id(rel)
         if eid in seen: continue
@@ -113,7 +114,8 @@ def main():
     text.extend(d["id"]+" "+d["title"] for d in decisions)
     text += ["","PROVENANCE AND LIMITS",
              "Initial original evidence: manifests/20261113T043356Z-original-evidence.json (119 files).",
-             "New t14 capability report is supplemental; no exact copied backup is claimed.",
+             "New t14 capability and recovery records are supplemental; no exact copied backup is claimed.",
+             "Recovery note: ../notes/console-recovery-research.txt; no live recovery action by research worker.",
              "18 historical raw/event pairs reconstructed exactly; five prior hashes matched.",
              "Raw credentials/login TX/private identities stay out of Git. Fixtures are allowlisted derivatives.",
              "A local hash/commit is not a second copy, full backup, boot observation or verified recovery.",

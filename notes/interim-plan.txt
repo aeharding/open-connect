@@ -1,6 +1,10 @@
 MAZDA CMU BENCH — DEVELOPMENT AND RESEARCH PLAN BEFORE ETHERNET
 Prepared November 12, 2026, America/Chicago.
-Status: proposed work plan; implementation and new hardware validations are not implied.
+Status: execution underway. Preservation/Git, reviewed UART tooling, bounded baseline
+and two checksum-verified metadata copies are implemented; UI001 remains offline
+pending lifecycle fixes/review and a single capability probe. Detailed current
+results: notes/status.txt, research/index.txt and linked immutable run manifests.
+The sequence below remains the roadmap; unmarked future milestones are not implied.
 
 PURPOSE
 Use the next few days to turn the working UART/webcam bench into a reproducible
@@ -197,9 +201,10 @@ and a prepared SSH transition — all with concrete evidence and no manual UI st
 
 This consolidated file controls priorities and canonical paths; the supporting
 reviews below supply evidence and detailed designs, including alternatives.
-All three Herdr reviews were read and incorporated. The owned dialog was cleared
-and project instructions were saved; the remaining development work is planned,
-not yet implemented. Initial hands-on-agent engineering budget is roughly 2-4
+All three initial Herdr reviews were incorporated. The first implementation
+session has since delivered Git/research preservation, reviewed UART tooling,
+a bounded read-only baseline, and two verified exact-file transfers. Current
+results and outstanding UI lifecycle work are in notes/status.txt and research/index.txt. Initial hands-on-agent engineering budget is roughly 2-4
 hours for the minimal protocol/runner plus 1.5-3 hours for baseline capture and
 interpretation, spread across the first sessions; adjust after measured results.
 

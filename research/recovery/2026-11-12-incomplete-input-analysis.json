@@ -1,0 +1,144 @@
+{
+  "created_at": "2026-11-13T04:49:10.817828+00:00",
+  "method": "hc exec python3 research/tools/analyze_incomplete_input.py",
+  "scope": "Offline saved-evidence analysis only; no live bench access",
+  "network_rx_reconstructs_raw": true,
+  "sent_command_bytes_excluding_CR": 1363,
+  "tx_event_lengths": [
+    1,
+    1364
+  ],
+  "echo_before_continuation_bytes": 1022,
+  "echo_is_exact_sent_command_prefix": true,
+  "echo_sha256": "f78637347bba1854df88a0069dad5349a327e245d1cc1bfb785a5d8f62f74aa7",
+  "sanitization": "Remove ANSI CSI for locating echo, then only observed CRCRLF soft-wraps; export counts/hashes/quote state, not command or runtime identities.",
+  "limited_ascii_quote_scan": {
+    "end_state": "single",
+    "last_open_quote_zero_based": 1017,
+    "has_here_doc_operator": false,
+    "contains_literal_newline": false,
+    "limit": "Static lexical scan only, not a BusyBox execution/reproduction or complete shell grammar proof."
+  },
+  "stock_source_limit_comparison": {
+    "FEATURE_EDITING_MAX_LEN_default": 1024,
+    "lineedit_input_cap_expression": "maxsize - 2",
+    "default_maximum_printable_input_chars": 1022,
+    "matches_observed_echo_length": true,
+    "limit": "CMU vendor config/patches not acquired; matching cap is strong supporting inference, not proof of exact build configuration."
+  },
+  "cancel_tx_hex": [
+    "03"
+  ],
+  "cancel_rx_hex": "0d0a3e2030",
+  "cancel_rx_exactly_CRLF_PS2_0": true,
+  "empty_current_edit_line_confirmed": false,
+  "current_edit_line_limit": "Trailing received0 is not proof of a typed0 or an empty buffer; its source is unknown.",
+  "primary_source": {
+    "id": "busybox-1.19.2",
+    "requested_url": "https://busybox.net/downloads/busybox-1.19.2.tar.bz2",
+    "final_url": "https://busybox.net/downloads/busybox-1.19.2.tar.bz2",
+    "bytes": 2168055,
+    "sha256": "ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9",
+    "snapshot_path": "research/sources/snapshots/20261113T044437Z/busybox-1.19.2/ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9/busybox-1.19.2.tar.bz2",
+    "retrieved_at": "2026-11-13T04:44:37.536343+00:00"
+  },
+  "ranked_source_supported_options": [
+    {
+      "rank": 1,
+      "name": "Clear current edit line then one EOF",
+      "bytes_hex": "051504",
+      "controls": "Ctrl-E, Ctrl-U, Ctrl-D",
+      "preconditions": "Same incomplete quoted interactive parse, stock-compatible editor, VEOF=04, single owner, no intervening sends, coordinator approval.",
+      "expected": "Current line cleared without CR/LF; EOF causes syntax error and interactive parser reset before pending evaltree.",
+      "live_verified": false
+    },
+    {
+      "rank": 2,
+      "name": "One EOF alone if current edit line certified empty",
+      "bytes_hex": "04",
+      "preconditions": "Same unmatched quote AND certified empty edit line AND VEOF=04; current saved evidence does not certify emptiness.",
+      "expected": "Same EOF syntax-error path; EOF on nonempty line may merely delete a character.",
+      "live_verified": false
+    },
+    {
+      "rank": 3,
+      "name": "Retain stop state and obtain independent diagnostic context",
+      "preconditions": "Use only an already verified independent channel if available; none demonstrated here.",
+      "expected": "Read actual shell identity/tty control settings/build evidence before deciding another recovery action.",
+      "live_verified": false
+    }
+  ],
+  "not_recommended": [
+    "Repeat ETX",
+    "Repeated EOF after prompt could exit shell",
+    "CR/LF or guessed quote closures",
+    "exit/login/id text in continuation",
+    "BREAK/tty reset/reboot/power/network/service changes"
+  ],
+  "verification_gate": "No text commands until actual syntax error plus expected primary prompt; then separate coordinator-reviewed short identity transaction with explicit completion. Otherwise stop and preserve unknown.",
+  "evidence": [
+    {
+      "id": "ev-e322ef081123",
+      "path": "logs/20261112T223613.143917-0600-afk-t14-network.bin",
+      "sha256": "c1ccc67cf780523373973a33450228563428a5990de0d9aff809b876697a5805",
+      "bytes": 6864,
+      "locator": "saved original recovery evidence; potentially private contents"
+    },
+    {
+      "id": "ev-ca2241502850",
+      "path": "logs/20261112T223613.143917-0600-afk-t14-network.jsonl",
+      "sha256": "f045b839c1895957a8aea9359c5fce7fb2ca2f36ce403c1bbf4b183aae55bcd8",
+      "bytes": 31277,
+      "locator": "saved original recovery evidence; potentially private contents"
+    },
+    {
+      "id": "ev-7d8b4cd8123b",
+      "path": "logs/20261112T223613.143917-0600-afk-t14-network.json",
+      "sha256": "96571515fe7cd9ea86797a557ea4e5536d10fc1f5bc9cf0a63e1a7b3054f1d1e",
+      "bytes": 1809,
+      "locator": "saved original recovery evidence; potentially private contents"
+    },
+    {
+      "id": "ev-b5bcb3bf2c52",
+      "path": "logs/20261112T223613.143917-0600-afk-t14-network.txt",
+      "sha256": "c1ccc67cf780523373973a33450228563428a5990de0d9aff809b876697a5805",
+      "bytes": 6864,
+      "locator": "saved original recovery evidence; potentially private contents"
+    },
+    {
+      "id": "ev-81bfab918510",
+      "path": "runs/20261112T223253-0600-t14-afk-baseline/network-input-failure.json",
+      "sha256": "f102890905258c6d3886d102fdb11944333ddb59ab61bef992a9a669bdccba04",
+      "bytes": 3252,
+      "locator": "saved original recovery evidence; potentially private contents"
+    },
+    {
+      "id": "ev-e7ff9980ef2d",
+      "path": "runs/20261112T223253-0600-t14-afk-baseline/continuation-cancel.py",
+      "sha256": "7c57bbe286d4be2209b7ec34626b1666b4e9aaed8fe3f02c859fd65e59d07d52",
+      "bytes": 2429,
+      "locator": "saved original recovery evidence; potentially private contents"
+    },
+    {
+      "id": "ev-584fa1fff06f",
+      "path": "runs/20261112T223253-0600-t14-afk-baseline/continuation-cancel.bin",
+      "sha256": "62518bbe3486bc247946c94692758aaec0f4c2d7b72fad964e9acc514b661948",
+      "bytes": 5,
+      "locator": "saved original recovery evidence; potentially private contents"
+    },
+    {
+      "id": "ev-766f8aaf0760",
+      "path": "runs/20261112T223253-0600-t14-afk-baseline/continuation-cancel.jsonl",
+      "sha256": "e4a986c1f21830571ea32a3c8d11aeb11f75c2d3ef7f005d74f6f8d916e38fd8",
+      "bytes": 304,
+      "locator": "saved original recovery evidence; potentially private contents"
+    },
+    {
+      "id": "ev-3f9a511b4050",
+      "path": "runs/20261112T223253-0600-t14-afk-baseline/continuation-cancel.json",
+      "sha256": "509b071cc29f5d2adf691162441b3590a40e845eba2d204ee2265a4bbda353d6",
+      "bytes": 386,
+      "locator": "saved original recovery evidence; potentially private contents"
+    }
+  ]
+}

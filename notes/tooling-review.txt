@@ -1,0 +1,68 @@
+TOOLING REVIEW — scoped offline/read-only, 2026-11-12 America/Chicago
+Coordinator t6; reviewer t13. No UART/camera/CMU access or source changes.
+Reviewed current session.py, files.py, CLI and all three test modules.
+Coordinator's independent29-test pass accepted; full suite was not repeated.
+
+FINDING R1 [P2] SystemExit after TX is mislabeled failed at bundle level.
+cmu_bench/session.py:393-403 marks the operation unknown/session uncertain,
+then deliberately re-raises SystemExit. scripts/cmu-session.py:87 and :100
+catch Exception/KeyboardInterrupt, excluding SystemExit. Its finally at :91-99
+therefore writes the initial outcome=failed rather than unknown before exit.
+Concrete synthetic reproduction used existing tests.test_cli.FailingTransport
+with SystemExit(7), partial=True and patched hardware acquisition/lock only.
+Observed:acknowledgedTX=3B; operation=unknown; bundle=failed; exit7 propagated;
+port closed=True; no real device opened. This can mislead a bundle-level retry
+decision even though operation metadata correctly retains uncertainty.
+Suggested fix:derive final outcome from session.state in every finalization path,
+or handle SystemExit while preserving its exit behavior. Extend the existing
+cancellation test at tests/test_cli.py:95 to cover this BaseException path.
+One targeted synthetic check was justified by this concrete handler mismatch;
+no new persistent tests were added.
+
+CHECKS WITH NO ADDITIONAL BLOCKER FOUND
+- session.py:205-218 counts final nested wire bytes per physical line (<=600)
+  including quote expansion; files.py:81-82 validates the full export wrapper.
+  Generated export uses real newlines and verified BusyBox timeout -t syntax.
+- session.py:224-258 matches complete nonce-framed lines, rejects duplicate/
+  malformed/order errors and requires post-END prompt evidence. Echo contains
+  split format/nonce, not an actual marker. tests/test_session.py:114-141 cover
+  echo, lookalikes, fragmentation, duplicate and missing frames.
+- files.py:95-159 checks canonical encoding, exact sequence/offset/chunk size,
+  path/profile, total length, stable pre/post MD5(orSHA256)+POSIXCRC, and host
+  equality before exact_bytes_verified. tests/test_files.py:35-107 include an
+  independently observed31B vector, host /usr/bin/cksum and corruption cases.
+- files.py:62 pipeline lacks pipefail, but dd/encoder loss must still pass exact
+  lengths+both host checksums; no path to falsely verified bytes found.
+- session.py:302-319 records requested TX separately from acknowledged writes,
+  marks exceptions uncertain and disallows automatic session reuse.
+  CLI's tested OSError/KeyboardInterrupt paths preserve unknown and close.
+- session.py:57-90 keeps a persistent flock inode; CLI:65-99 holds ownership
+  through nominal port.close and Bundle.finish. No early normal release found.
+
+MATERIAL UNTESTED LIMITS
+- Tests execute generated INNER script with host /bin/sh (:150 in test_files.py).
+  The PTY shell test (:218 in test_session.py) disables echo and runs a simple
+  command. Neither proves this exact nested multiline wrapper under the CMU's
+  BusyBox1.19.2 interactive editor/config. Accept the31B live pilot before13KB.
+- Stock source/default1022-char observed cap supports600B; vendor build and
+  serial buffering/line pacing remain live acceptance limits, not test proof.
+- CLI default deadline10s is shorter than export's remote20s watchdog
+  (CLI:24, files.py:81). Slow/noisy export can correctly become unknown while
+  the read-only child continues; choose a bounded justified deadline, no retry.
+- SIGTERM/SIGKILL/process loss cannot guarantee a finalized bundle; current
+  tests do not cover close/fsync failure ordering. Review parent exit evidence
+  and unfinished bundles as incomplete/unknown. No extra fault tests run.
+- MD5/CRC establish transfer integrity, not adversarial authenticity, atomic
+  snapshots, full backup, second-copy coverage or tested recovery.
+
+PROVENANCE
+Exact executed hc exec cwd:/Users/aeharding/mazda-cmu-bench; program argv(JSON):
+[".venv/bin/python","-B","-c","import sys,json,tempfile,contextlib,io\nfrom pathlib import Path\nsys.path.insert(0,str(Path(\"tests\").resolve()))\nfrom test_cli import cli,LockStub,FailingTransport\nfrom unittest.mock import patch\nwith tempfile.TemporaryDirectory() as temp:\n path=Path(temp)/\"run\"\n port=FailingTransport(SystemExit(7),partial=True)\n with patch.object(cli,\"AdapterLock\") as lock,patch.object(cli,\"open_adapter\",return_value=port):\n  lock.return_value=LockStub()\n  escaped=None\n  try:\n   with contextlib.redirect_stdout(io.StringIO()):\n    cli.main([\"--live\",\"--action\",\"command\",\"--command\",\"id\",\"--bundle\",str(path),\n       \"--owner\",\"synthetic review only\",\"--deadline\",\"0.04\"])\n  except SystemExit as exc:escaped=exc.code\n m=json.loads((path/\"manifest.json\").read_text())\n print(json.dumps({\"synthetic_only\":True,\"system_exit_escaped\":escaped,\"top_level_outcome\":m[\"outcome\"],\n \"operation_outcome\":m[\"operations\"][0][\"outcome\"],\"tx_bytes_acknowledged\":len(port.tx),\n \"port_closed\":port.closed,\"actual_hardware_opened\":False}))\n"]
+Synthetic temp bundle removed only after recording the above result here.
+SHA256 of reviewed bytes:
+cmu_bench/session.py 2075c505778e09f932da6576bafe906743b42dcd84c2beeacd12d690cab9ae85
+cmu_bench/files.py 44314102367e7f43f63e32656a23af6ea1f0cf48e2c1290aa43081239a1e9255
+scripts/cmu-session.py 4d62c56d0b3c0bfa4250ca4536b2ca79a13a77d9e0119cf5bc161e5ab57de9ea
+tests/test_session.py f270f22dd19e9f28fd20e6e1371d94ec281a693e84c81e589a01e7139bed2e76
+tests/test_files.py c1d39230a91b6cba04cb5ee03cbb7fc5e5495e3c501104cbe0142755fa763fb8
+tests/test_cli.py dc620c5b767d1a006e95c35cfc4179c2acbe2d82f056293a1ee549758c074791

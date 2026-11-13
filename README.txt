@@ -1,103 +1,87 @@
-Mazda CMU bench: Mac preparation
+Mazda CMU bench: current development entry point
 
-Working directory: /Users/aeharding/mazda-cmu-bench
-Python environment: .venv (Python 3.13.7, pySerial 3.5)
-Camera tool: existing Homebrew FFmpeg 7.1.1 via AVFoundation
+This bench is operated by the coordinator and its agents through Herdr hc.
+The user performs no manual bench or UI steps. Read AGENTS.md before working.
+Current status: notes/status.txt and notes/afk-session-status.txt.
+Research: research/index.txt (human entry) and research/index.tsv (catalog).
+Plan: notes/interim-plan.txt; source evidence remains in ignored local storage.
 
-Scope: retain USB and SD navigation; AUX is not needed. The user handles wiring.
-The user reported UART wiring complete; two-way UART and both ordinary and root
-shell access were verified on November 12. Installed firmware: 55.00.750B, NA.
-No relay control or firmware changes are implemented.
+VERIFIED BASELINE
+Mac mini M2 Pro, macOS26.5.2/arm64; Python3.13.7, pySerial3.5, FFmpeg7.1.1.
+CMU55.00.750B, North America/cmu150_NA, Linux3.0.35 ARMv7l, BusyBox1.19.2.
+UART0403:6001/A9048JM0,115200 8N1, all flow control off, RTS/DTR inactive.
+Re-enumerate the actual adapter/path before opening; last path is
+/dev/cu.usbserial-A9048JM0. User/root logins and native UI control were observed.
+Preserve USB and SD. AUX is not required.
 
-Run these commands from this directory; activation is optional:
+ACTIVE HOST TOOLS
+cmu_bench/session.py + files.py and scripts/cmu-session.py are the reviewed runner.
+They provide a descriptor-held lock, fresh root/firmware checks, lossless RX/TX,
+nonce-framed completion with actual exit status, finite deadlines, and verified
+small-file capture. Default invocation is a dry run and does not enumerate/open
+a port, transmit, or create files.
 
-  .venv/bin/python scripts/bench.py inventory
-  .venv/bin/python -m serial.tools.list_ports -v
-  .venv/bin/python scripts/bench.py serial
-  .venv/bin/python scripts/bench.py camera
+Examples below run through Herdr from this folder:
+  hc exec --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B scripts/cmu-session.py --action command --command id
+  hc exec --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B scripts/cmu-session.py --action export --path /etc/version --checksum md5 --encoder base64
+  hc run --bg --name cmu-tests --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B tests/run_offline.py
+  hc wait cmu-tests
+  hc read cmu-tests --lines 80
 
-Inventory and serial configuration commands do not open a serial port.
-The serial command without --open records a plan with a null port by default.
+Live tasks belong ONLY to the assigned hardware operator. The operator selects
+a new private runs/ bundle, explicit --live, actual --owner, an appropriate
+--deadline (SPACE before the value), and --solicit-prompt only after establishing
+a known idle shell. Read notes/tooling-development-result.txt and
+examples/operator-ready-exception-fix.json for the tested profile and templates.
+No automatic login, recovery control keys, reset/BREAK, or uncertain-action retry.
+Exit0 is success,1 failed/preflight/file rejection,2 unknown delivery/execution,
+3 a completed remote command with nonzero status. Inspect the manifest.
 
-Capture a still from the currently detected USB webcam, with no microphone:
+EXACT SMALL-FILE TRANSFER
+Allowlist: /etc/version and /jci/version.ini, regular nonsymlink files <=16KiB.
+Fresh source pre/post byte count, MD5 and POSIX cksum must match the decoded host
+bytes; the host also records SHA256 for provenance. CMU sha256sum is absent.
+MD5/CRC transfer checks do not establish authenticity, atomic snapshots or restore.
+BusyBox timeout syntax is '-t SECONDS', not GNU positional seconds.
+Every physical command line is capped at600 bytes including wrapping/quoting.
+The old console editing cap was observed at1022 input characters. A documented
+source-backed recovery cleared one specific unfinished quoted input; it is not
+an automatic recovery recipe for arbitrary prompts.
 
-  .venv/bin/python scripts/bench.py camera --device 'USB Camera VID:1133 PID:2085'
+Accepted live captures (fresh root, actual command exit0+prompt, no retries):
+  runs/20261112T225632-0600-t14-harness-pilot/etc-version.exact.bin
+  runs/20261112T225632-0600-t14-harness-version/jci-version.ini.exact.bin
+Sizes31 and13304 bytes; verified metadata and hashes are in each manifest and
+notes/exact-file-capture-observation.txt. The old inventory version.ini extraction
+remains unchanged as a historical metadata reference with unrelated trailing text.
 
-The camera command re-enumerates devices and resolves the exact name on each run.
-It uses 1280x720, 5 fps, UYVY input, and a two-second exposure warmup.
-These mode settings follow the webcam formats observed on this Mac.
-macOS camera permission was confirmed authorized at 21:09 CST on November 12.
-The USB webcam returned and 1280x720 JPEGs have been captured and inspected.
-At 21:38 it confirmed the Mac-launched "Mac Mini connected" information dialog.
-Framing changed during the session; inspect each frame before reading fine text.
-A timeout or device listing is not a frame.
-Inspect a successful JPEG before marking display framing usable.
-Camera subprocesses time out after 25 seconds and capture no audio.
+CAMERA AND LEGACY HELPERS
+scripts/bench.py retains device inventory, receive-only logging and webcam still
+capture. Camera uses exact currently enumerated USB name, video only, no audio:
+  hc exec --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python scripts/bench.py camera --device 'USB Camera VID:1133 PID:2085'
+Capture success needs actual image inspection; framing/glare limit some readings.
+scripts/console-command.py is preserved for historical evidence. Its fixed read
+window and initial CR do not provide robust command completion or general recovery.
+Use the new runner for new live command/file work. Never run it concurrently with
+a logger, screen/cu, or another UART owner. The advisory lock does not govern
+older tools that do not honor it.
 
-AFTER the user verifies the physical UART wiring and the USB adapter is listed:
+STORAGE AND RESEARCH
+Git contains code, instructions, decisions, source/evidence manifests and small
+sanitized fixtures. Original logs/,captures/,inventory/,runs/,source snapshots,
+backups, credentials and environments remain local/ignored. No remote is configured.
+Original evidence stays immutable; new findings cite exact paths and hashes.
+A Git commit/local working directory is not a second raw-evidence copy or a
+complete device backup/recovery set.
 
-  .venv/bin/python scripts/bench.py serial --port "$CMU_SERIAL_PORT" --open --seconds 60
-
-Set CMU_SERIAL_PORT to the actual USB serial path from a fresh inventory.
-The FTDI is /dev/cu.usbserial-A9048JM0, VID:PID 0403:6001, serial A9048JM0.
-At 21:31 a 60-second passive session received 24233 bytes of readable CMU logs.
-At 21:32 one Enter produced "cmu login:"; user and root logins then succeeded.
-No example port is preconfigured. The script rejects an absent/non-USB port.
-This command opens the selected port; all preceding serial examples do not.
-It receives only, at 115200/8/N/1, timeout 0.5 seconds, all flow control disabled,
-and requests RTS/DTR inactive. Handshake/reset pins remain unconnected.
-It does not send a newline, login, break, command, or any other UART data.
-Logs are a dated raw .bin, timestamped hex .jsonl, and session metadata .json.
-Stop with Ctrl-C or let the requested duration finish.
-Receiving bytes does not establish readable output or an interactive console.
-
-Directories:
-  inventory/  Device snapshots, camera lists, and unopened serial plans
-  logs/       Installation, diagnostics, future UART sessions
-  captures/   Successful camera JPEGs, including a visible UART-controlled dialog
-  notes/      Observed status and unresolved hardware requirements
-  scripts/    Reusable device inventory, logging, and still-capture helper
-
-Software verification used only a temporary pseudo-terminal. It confirmed the
-configuration command does not open a port, raw binary input survives logging,
-timestamped hex reconstructs the same bytes, and no data is transmitted.
-Simulation files were removed with the temporary directory; this is not a CMU test.
-
-An explicit command can now be sent to the existing authenticated UART shell:
-
-  .venv/bin/python scripts/console-command.py --command 'id' --label identity-check
-
-This helper selects the observed FTDI by VID/PID and serial number, requires a
-shell prompt, sends the specified command, records RX/TX, and closes the Mac port.
-It does not perform login automatically. The CMU shell session can persist across
-Mac port closures. The last verified shell is root; confirm with id when resuming.
-The Herdr operator cleared the owned information dialog and verified the home
-menu through a fresh webcam image. No user dismissal is pending.
-The proposed development/research work is in notes/interim-plan.txt; all agent
-coordination and control use Herdr, with one assigned UART owner.
-No firmware files, account permissions, power wiring, or relay state were changed.
-USB Ethernet through the hub is planned for later; SSH and transfers are untested.
-
-Sources checked for software behavior:
-  https://pyserial.readthedocs.io/en/latest/tools.html
-  https://pyserial.readthedocs.io/en/latest/pyserial_api.html
-  https://ffmpeg.org/ffmpeg-devices.html#avfoundation
-  https://developer.apple.com/documentation/avfoundation/avcapturedevice/authorizationstatus(for:)
-
-Current observations and next steps: notes/status.txt
-
-Research entry point (derived; updated November 12, 2026):
-  research/index.txt          Human entry point: facts, limits, sources and gaps
-  research/index.tsv          Canonical searchable catalog with evidence IDs/hashes
-  research/context/SUMMARY.txt  Derived handoff and unresolved physical conflicts
-  research/SCHEMA.txt         Record formats and safe update rules
-  notes/research-preservation-result.txt  Preservation checks and local commit
-
-The current bench is agent-operated; no human button press, dismissal, wiring,
-media insertion or camera movement is available. Earlier manual-operation wording
-above is historical. The owned test dialog was cleared and visually confirmed
-by the prior operator (research F012/D002); no manual OK is pending.
-Keep firmware55.00.750B and existing power/accounts/settings/USB/SD/networking.
-Raw logs, inventory, captures, runs, copied backups and source snapshots stay local
-and outside Git; tracked manifests retain original paths, hashes and provenance.
-Local Git is not an independent second copy, complete CMU backup or recovery set.
+Recent observations:
+  notes/afk-baseline-observation.txt — storage/process inventory and input failure
+  notes/console-recovery-research.txt — primary-source diagnosis and narrow recovery
+  notes/console-recovery-observation.txt — actual recovery and fresh identity
+  notes/afk-baseline-followup.txt — modules/interfaces/SSH listener/D-Bus names
+  notes/ui001-prerequisites-observation.txt — process/signal capability observations
+  notes/tooling-review.txt + notes/tooling-review-resolution.txt — review and fix
+Experimental UI001 is under experiments/ui001/. It remains unapproved for live
+execution until its lifecycle fixes, exact capability probe, review and evidence
+requirements are satisfied. The operator owns software cleanup; no manual dialog
+dismissal is assigned to the user.

@@ -1,0 +1,100 @@
+CMU STANDARD D-BUS INTROSPECTION — t14 / coordinator t6
+2026-11-12 America/Chicago. Private run: /Users/aeharding/mazda-cmu-bench/runs/20261112T231925-0600-t14-dbus-introspection
+RESULT: all12 bounded D-Bus calls completed with actual query rc0, fresh root55
+preflight, nonce END/exit0 and post-END shell prompt. No unknown console outcome.
+This is a bounded namespace map with explicit budget gaps, not a UI/input API.
+
+AUTHORIZATION / SOURCE / BOUNDS
+t6 authorized only fresh ListNames/GetNameOwner and standard
+org.freedesktop.DBus.Introspectable.Introspect on existing selected services.
+No UI actions, application methods, injection, debug/mode/service enabling,
+payload writes, credentials/private keys, child probe or UI001 wrapper.
+The frozen source matched examples/operator-ready-exception-fix.json and the
+passing30-test manifest examples/tooling-runs/20261113T050204.706998Z/manifest.json.
+Exact code/test hashes, test-log verification and fresh FTDI identity/handle check
+are in run/preflight.json. Each bundle independently records actual source hashes.
+UART115200/8N1/no flow, inactive RTS/DTR; exclusive hardware owner t14 retained.
+
+Adopted conservative cap:12 TOTAL D-Bus calls INCLUDING discovery/owner checks,
+not12 introspection calls plus discovery. Actual:2 ListNames +4 GetNameOwner
++6 Introspect. Maximum allowed traversal depth3; actual queried maximum depth2.
+Each query was its own new-harness command/acquisition, fresh root/firmware,
+--deadline10, --output-cap131072, --solicit-prompt from the known idle shell.
+The actual CLI used spaces between flag/value. Every target query used:
+ timeout -t4 -s9 /usr/bin/dbus-send --address=unix:path=OBSERVED_SOCKET
+ --dest=BOUND_DEST --type=method_call --print-reply --reply-timeout=2000
+ OBJECT_PATH STANDARD_METHOD [typed standard argument]
+Actual timeout flags likewise have spaces in saved payloads. No automatic retry.
+
+FRESH DISCOVERY / NAME OWNERS
+q01-listnames-hmi:334 returned names, all3 selected HMI names present.
+q02-listnames-service:256 returned names, selected devices name present.
+Both ListNames method returns rc0, whole replies retained.
+GetNameOwner queries used org.freedesktop.DBus and its standard object path.
+Observed owners (point-in-time, not reusable identities):
+ q03 HMI com.jci.OPERA_IHU_PRIMARY -> :1.45
+ q04 HMI com.jci.WaylandManager -> :1.60
+ q05 HMI com.jci.system -> :1.39
+ q06 service com.jci.cpp.devices.Service -> :1.6
+Each returned exactly one unique owner and rc0. All subsequent introspection
+requests were addressed to that exact observed UNIQUE owner, avoiding silently
+following a replacement process behind a well-known name. Reply senders matched
+the bound destination in every call. Future work must freshly resolve ownership.
+
+ROOT AND RETURNED-CHILD MAP
+All6 introspection replies contained valid complete XML, with no interfaces at
+the queried node. No denied/UnknownObject/NoReply case occurred.
+ q07 OPERA owner:1.45, / -> child "com"
+ q08 Wayland owner:1.60, / -> no children, no interfaces
+ q09 system owner:1.39, / -> no children, no interfaces
+ q10 devices owner:1.6, / -> child "com"
+ q11 OPERA owner:1.45, /com -> child "jci" (from q07 only)
+ q12 OPERA owner:1.45, /com/jci -> child "OPERA_IHU_PRIMARY" (from q11 only)
+Child object paths were constructed only from returned node names, validated as
+D-Bus paths, depth-limited, and never guessed. No unadvertised path was tried.
+Root name="/", "/com", "/com/jci" was observed in the respective returned XML.
+
+BUDGET GAPS / INTERPRETATION
+Source-backed NEXT OPERA node /com/jci/OPERA_IHU_PRIMARY is advertised by q12,
+at depth3, but was NOT queried because12 TOTAL calls were already used.
+Devices /com is advertised by q10 but was NOT followed for the same budget.
+Wayland and system returned empty root metadata; this does not prove they have
+no objects/methods elsewhere. The assignment forbids broader guessing.
+No application method, signal, property, input event or Navigate/key call was
+mapped or invoked. A successful root namespace reply does not establish a safe
+UI action, actual input service behavior, commander equivalence or UI001 readiness.
+
+FULL REPLIES / CAP / PROVENANCE
+Each qNN bundle preserves rx.bin,tx.bin,events.jsonl, identity/query command
+payloads and wire bytes, full command output, completion status, source hashes,
+bounds and artifact hashes. Generic output retains interleaved runtime noise.
+*.reply-summary.json records actual query rc, output bytes, source output artifact,
+owner/sender/path, cap state and parsed XML provenance. No host cap was reached.
+All target query replies returned before their finite deadlines. No truncation
+was observed; every complete command END plus fresh prompt was received.
+The6 q07..q12 .xml files are exact extracted returned STRING bytes linked by
+SHA256 to original output artifacts; originals remain untouched. They are
+derived introspection metadata, not remote-file backups.
+No external DTD was fetched by host XML parsing. Failed/ambiguous parsing would
+have stopped that branch; no XML was repaired or guessed.
+All bundle artifact hashes and RX/TX event reconstructions were independently
+verified. Raw/private replies and identifiers remain ignored under runs/.
+
+A host-only inspection race on q02 is explicitly preserved in
+host-inspection-timing.txt: hc wait returned reason=message before actual exit;
+a premature manifest read failed. The SAME existing terminal was then waited to
+actual exit0 and inspected. No UART query was resent and raw logs were unaffected.
+This is an orchestration limitation, not an unknown console delivery.
+
+CLEANUP / HANDOFF
+All12 owned plain helper terminals exited0; Herdr get/read records were saved
+before removing only finished children of t14. cu+tty alias lsof returned1 with
+empty stdout/stderr; no ffmpeg process. All live manifests have port_closed=true.
+No UI/camera action, experimental child, target payload/file write, service start,
+private-key read, network/firmware/power/account/persistent-setting/USB-SD change.
+No further queries remain in this bounded assignment. UI001 wrapper/child probe
+remains unapproved and unstarted; this independent read-only task did not use it.
+Run/index.txt and manifest.json link source verification, exact query lineage,
+full replies/XML, statuses, budgets/gaps, host failure and cleanup. Coordinator
+t6 and research/tooling owners receive paths. Sole ownership remains with t14
+until t6 releases/reassigns it; any later acquisition requires fresh state/owner.

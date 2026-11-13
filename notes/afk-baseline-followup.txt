@@ -1,0 +1,106 @@
+CMU REMAINING READ-ONLY BASELINE — t14 / coordinator t6
+Observed 2026-11-12 America/Chicago, about23:05–23:10.
+Run: /Users/aeharding/mazda-cmu-bench/runs/20261112T230433-0600-t14-baseline-followup
+RESULT: eight short new-harness transactions completed with fresh root/firmware,
+actual END/exit0 and post-END shell prompt. No unknown outcome occurred.
+The disposable sleep-child experiment was NOT started: t6 held it for package
+review before any launch. No TERM or other service/process signal was sent.
+
+SOURCE / BOUNDS / PROVENANCE
+All8 code/test hashes matched examples/operator-ready-exception-fix.json and the
+passing30/30 manifest examples/tooling-runs/20261113T050204.706998Z/manifest.json.
+Test-log hash verified. Only previously authorized CLI exception handling changed
+relative to the earlier live export source; no repeat file exports were needed.
+Fresh FTDI0403:6001/A9048JM0, cu.usbserial-A9048JM0; no competing cu/tty handles.
+Every action used scripts/cmu-session.py --live --action command --solicit-prompt,
+owner t14, new private bundle, deadline10 or15, normal UART115200/8N1/no flow,
+RTS/DTR inactive. Each independently reverified uid0/root,55.00.750B,cmu150_NA.
+Exact command payloads/wire bytes, status/output, RX/TX events, code hashes,
+bounds and artifact hashes are preserved in each bundle. Original logs untouched.
+Each target script explicitly prints individual subcommand statuses; its final
+exit0 does not erase nested help/query failures. No retry was performed.
+
+MODULE FILE CANDIDATES
+modules-list/ listed /lib/modules/3.0.35 (rc0) and observed find help:
+-maxdepth,-type,-name supported; help exits1.
+module-candidates/ then listed and searched ONLY
+/lib/modules/3.0.35/kernel/drivers/net/usb, maxdepth1, ordinary *.ko files.
+Both listing and search rc0. Observed:
+ asix.ko21600 bytes
+ cdc_ether.ko8472 bytes
+ cdc_ncm.ko12483 bytes
+ usbnet.ko23922 bytes
+This is a bounded file listing, not adapter support/link acceptance or module loading.
+Earlier /proc/modules evidence already recorded loaded asix+usbnet; this follow-up
+does not independently remeasure current module reference counts.
+
+INTERFACE / ROUTE STATE
+network-state/: ip addr show rc0 returned lo and wlan0 only.
+lo has127.0.0.1/8 and::1/128; wlan0 is administratively UP but NO-CARRIER/state DOWN,
+with no shown non-loopback IP. Raw MAC addresses remain in private output.
+ip route show returned0 with no route entries (IPv4 default view).
+route -n printed table header then "route: fscanf", rc1. This failure is preserved;
+it is not a successful alternate route dump. No network state was changed.
+An absent external interface in this snapshot does not prove future adapter behavior.
+
+LISTENERS / SSH METADATA
+listeners-ssh/: timeout-bounded netstat -lntp rc0.
+Existing /usr/sbin/sshd PID1985 listens on0.0.0.0:22.
+Other observed listeners include local service endpoints and existing dbus-daemon
+ports3000 (IPv4) and3001 (IPv6); complete finite table preserved privately.
+Metadata ls/stat both rc0:
+ /usr/bin/ssh348146 bytes,0755,uid1018:gid3015
+ /usr/sbin/sshd389522 bytes,0755,uid1018:gid3015
+ /etc/ssh/sshd_config3285 bytes,0644,uid1018:gid3015
+Selected active file directives (grep rc0):
+ Protocol2
+ PermitRootLogin yes
+ PasswordAuthentication yes
+ Subsystem sftp /usr/libexec/sftp-server
+These are observed config-file directives plus a live listener, not an SSH
+authentication/link test or proof of every effective runtime setting.
+No SSH service start, authentication attempt, config change or private-key read.
+
+STANDARD READ-ONLY D-BUS QUERIES
+Observed /tmp/dbus.env (head rc0) declares:
+ JCI_HMI_BUS=unix:path=/tmp/dbus_hmi_socket
+ JCI_SERVICE_BUS=unix:path=/tmp/dbus_service_socket
+Socket metadata ls rc0. No env file was sourced/executed.
+dbus-send --help advertised --address,--dest,--type,--print-reply,
+--reply-timeout=MSEC. Each ListNames query was a separate fresh-preflight action:
+ timeout -t4 -s9 /usr/bin/dbus-send --address=unix:path=OBSERVED_SOCKET
+ --dest=org.freedesktop.DBus --type=method_call --print-reply --reply-timeout=2000
+ /org/freedesktop/DBus org.freedesktop.DBus.ListNames
+Actual syntax uses spaces after timeout flags, preserved in command artifacts.
+dbus-hmi/: method return, HMI_LISTNAMES_RC:0,334 names including167 well-known names.
+dbus-service/: method return, SERVICE_LISTNAMES_RC:0,256 names including127 well-known.
+Counts are point-in-time observations and include this temporary client.
+HMI names include com.jci.OPERA_IHU_PRIMARY,com.jci.WaylandManager,
+com.jci.nativeguictrl,com.jci.natgui,com.jci.system,com.jci.lvds,com.jci.settings.
+Service names include com.jci.cpp.devices.Service,com.jci.blm.system,com.jci.idm,
+com.jci.bds,com.jci.audioPlayer,com.jci.vbs.radio.
+Ownership names do not establish object paths, method signatures or safe UI/input
+actions. No introspection, nonstandard call, UI change or input injection was run.
+Full name lists and parsed counts remain in private parsed-observations.json.
+
+PROCESS PREREQUISITES
+See notes/ui001-prerequisites-observation.txt. capabilities/ and
+process-capabilities/ are the other2 of8 transactions. They observed sleep/kill
+paths/help/signal names, actual /proc stat field parsing and exact NUL cmdline.
+They did not create an experimental child or send any process/service signal.
+
+CLEANUP / LIMITS / HANDOFF
+All8 task-owned plain helpers exited0; get/read records saved then only those
+finished children of t14 removed. At23:11:36 cu+tty lsof returned1 with empty
+stdout/stderr; no ffmpeg process. Every live manifest has port_closed=true.
+No owned child was launched, so no child cleanup is pending.
+All raw/private bundles stay ignored; no new remote exact-file backup was made.
+This extends the earlier storage/process and verified-file evidence; it does not
+prove physical commander/USB-SD operation, adapter compatibility, SSH connectivity
+or complete device recovery. No firmware/power/account/setting/USB-SD/network
+change, private-key read, UI action, install/remount/module load or service start.
+Task-specific index/manifest link command payloads, raw outputs, individual
+failure statuses, source verification and cleanup. t6/t12 receive the actual
+capability profile; t13 receives research evidence references.
+t14 retains sole hardware ownership. Child experiment is held, awaiting t6's
+reviewed package/invocation; no custom or second probe will be started.

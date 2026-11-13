@@ -1,0 +1,350 @@
+{
+  "created_at": "2026-11-13T05:03:00.649971+00:00",
+  "method": "Herdr host-only read/hash audit of immutable saved bundles; /usr/bin/cksum stdin on decoded host bytes. No live action, source edit or code-test rerun.",
+  "operator": "t14",
+  "coordinator": "t6",
+  "curator": "t13",
+  "capture_acceptance": [
+    {
+      "action": "identify",
+      "bundle": "runs/20261112T225632-0600-t14-harness-identify",
+      "manifest_sha256": "052427906d16e98087e695bbf85c77631ad80e6cbef4b017e6dc20a14a82ca8a",
+      "all_artifacts_hash_match": true,
+      "rx_tx_reconstruction": true,
+      "completed_operations": 1,
+      "exit_statuses": [
+        0
+      ],
+      "port_closed": true,
+      "files": []
+    },
+    {
+      "action": "pilot",
+      "bundle": "runs/20261112T225632-0600-t14-harness-pilot",
+      "manifest_sha256": "dbb8c13158fcd6ea47ffb5a125e0176be3339fa9743b0b5c85670eeb0266e46b",
+      "all_artifacts_hash_match": true,
+      "rx_tx_reconstruction": true,
+      "completed_operations": 2,
+      "exit_statuses": [
+        0,
+        0
+      ],
+      "port_closed": true,
+      "files": [
+        {
+          "path": "runs/20261112T225632-0600-t14-harness-pilot/etc-version.exact.bin",
+          "source_path": "/etc/version",
+          "bytes": 31,
+          "host_sha256": "0d3b45583edd8c1b98afc06614dcfa6582a747549911eb4707152550abd66f2e",
+          "md5": "10cac4792dbca7d886eb2d9ee80d0647",
+          "posix_cksum": 2910742528,
+          "target_pre": {
+            "bytes": 31,
+            "checksum": "10cac4792dbca7d886eb2d9ee80d0647",
+            "cksum": 2910742528
+          },
+          "target_post": {
+            "bytes": 31,
+            "checksum": "10cac4792dbca7d886eb2d9ee80d0647",
+            "cksum": 2910742528
+          },
+          "host_independent_cksum_argv": [
+            "/usr/bin/cksum"
+          ],
+          "host_independent_cksum_exit": 0
+        }
+      ]
+    },
+    {
+      "action": "version",
+      "bundle": "runs/20261112T225632-0600-t14-harness-version",
+      "manifest_sha256": "91b9f39b9a5e36c61ede7a77e0c32878bbbf40d9343d76deebe576d1cca90892",
+      "all_artifacts_hash_match": true,
+      "rx_tx_reconstruction": true,
+      "completed_operations": 2,
+      "exit_statuses": [
+        0,
+        0
+      ],
+      "port_closed": true,
+      "files": [
+        {
+          "path": "runs/20261112T225632-0600-t14-harness-version/jci-version.ini.exact.bin",
+          "source_path": "/jci/version.ini",
+          "bytes": 13304,
+          "host_sha256": "ba5c2d267e8abf76cf1cc47272b66dde338c04d45c6f153387218bf9dab2e3a2",
+          "md5": "5488b62f403d5296f58566c8499f7d44",
+          "posix_cksum": 958101073,
+          "target_pre": {
+            "bytes": 13304,
+            "checksum": "5488b62f403d5296f58566c8499f7d44",
+            "cksum": 958101073
+          },
+          "target_post": {
+            "bytes": 13304,
+            "checksum": "5488b62f403d5296f58566c8499f7d44",
+            "cksum": 958101073
+          },
+          "host_independent_cksum_argv": [
+            "/usr/bin/cksum"
+          ],
+          "host_independent_cksum_exit": 0
+        }
+      ]
+    }
+  ],
+  "observed_recovery": {
+    "only_tx_hex": "051504",
+    "rx_raw_event_match": true,
+    "syntax_error_and_primary_prompt": true,
+    "fresh_identity": "Operator saved observation and identity-and-integrity.json report fresh root55/explicit rc0; no new live check by curator"
+  },
+  "old_metadata_reference_unchanged": true,
+  "files": [
+    {
+      "path": "notes/console-recovery-observation.txt",
+      "bytes": 5248,
+      "sha256": "4e58769658dff3ae7e93a1295d30d24164bf02b428b2df2a1bbd074bb17dd3fd",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "notes/exact-file-capture-observation.txt",
+      "bytes": 7855,
+      "sha256": "3876b72164402154d7187cb27ec0afcba585c1f5fd371469a9715b8f3cc475e9",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "notes/tooling-review.txt",
+      "bytes": 5752,
+      "sha256": "2269095e9e9125efbb51aa8ad582e9a98ef9d5e3fac1799b431a873c2a774d3c",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225101-0600-t14-console-eof-recovery/identity-and-integrity.json",
+      "bytes": 1042,
+      "sha256": "dd288e109bf3fda52f50d5620b6e0b66e769293ef0a240602847981dd5bec491",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225101-0600-t14-console-eof-recovery/index.txt",
+      "bytes": 648,
+      "sha256": "0e291f904398babd21c42e585c38e5182040996cbf68ade2790c62db7e115548",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225101-0600-t14-console-eof-recovery/manifest.json",
+      "bytes": 15119,
+      "sha256": "a9b7c27361383201da611f09139a1adfe7571c29fa1dcde1c62ad1b1a7a7ff17",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225101-0600-t14-console-eof-recovery/recovery.bin",
+      "bytes": 2072,
+      "sha256": "bc8f14ac021703a186319b853753d69e0a27f4d1cb517fb94e53205b1c91bab1",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225101-0600-t14-console-eof-recovery/recovery.json",
+      "bytes": 5459,
+      "sha256": "3cf9a9d665c3d26c2f9cfffcc03dc3cca4b65501bfb496b1ec674ed4b26432e3",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225101-0600-t14-console-eof-recovery/recovery.jsonl",
+      "bytes": 9187,
+      "sha256": "25a48ddabe21e24c46a121dcc7607db436ecb4c4530dc70d79dd8c6a4230963b",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-acceptance/index.txt",
+      "bytes": 678,
+      "sha256": "b930edf56d18c11bd2132900c3bb12c2b6c0534ad5698911b98ed14abf11231c",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-acceptance/manifest.json",
+      "bytes": 22421,
+      "sha256": "ea3fae87a131a4750e9da8b871f0a3d57a105ce5973c15b23037be3bba44af34",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-identify/7717686a67c90c6dee736a81c065d76a.command.txt",
+      "bytes": 172,
+      "sha256": "0d8e2ef8d1001075c62c5e9b702e2692ca15c95299c142af748c768ac1721598",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-identify/7717686a67c90c6dee736a81c065d76a.output.bin",
+      "bytes": 206,
+      "sha256": "93301c9ef17ac2be1edf161f4ff3df39bc52025be536a7d47de4dc420ed8e30b",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-identify/7717686a67c90c6dee736a81c065d76a.wire.bin",
+      "bytes": 335,
+      "sha256": "1f0b8ac11d843c88207592b17674d9ca826ca728018fb224c53a88f335ba84e7",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-identify/events.jsonl",
+      "bytes": 4703,
+      "sha256": "4afa77d5c88a2d36062c4ed213af3c0015fd3aa6c4c8f30a3d4dee723d42e62e",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-identify/manifest.json",
+      "bytes": 3436,
+      "sha256": "052427906d16e98087e695bbf85c77631ad80e6cbef4b017e6dc20a14a82ca8a",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-identify/rx.bin",
+      "bytes": 696,
+      "sha256": "ed19dfff20dda91a81fda698e965b3a477a3f5d22ab1eb3f6370d25bd9a83d8f",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-identify/tx.bin",
+      "bytes": 336,
+      "sha256": "0e3f7490509e553342e847897250e620e12287b8e1967aab15d879b738254567",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-pilot/040e3c3247b8cc08b440dab8da26e0fc.command.txt",
+      "bytes": 1083,
+      "sha256": "3e79af0e7439b3aadc0106fbf777a5f5cc8a33e7df7f01f9179d635641bd9a1e",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-pilot/040e3c3247b8cc08b440dab8da26e0fc.output.bin",
+      "bytes": 309,
+      "sha256": "6b9a43acd916ba3518ccb3e20ae1c8b403def3c4fb65379944bcc4a88e3afa8a",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-pilot/040e3c3247b8cc08b440dab8da26e0fc.wire.bin",
+      "bytes": 1366,
+      "sha256": "6640383d669978d1a2f5011a75f90934523541d77670120aa2c2f7a63351f7ac",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-pilot/e648a8847115772792750f790082f2b5.command.txt",
+      "bytes": 172,
+      "sha256": "0d8e2ef8d1001075c62c5e9b702e2692ca15c95299c142af748c768ac1721598",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-pilot/e648a8847115772792750f790082f2b5.output.bin",
+      "bytes": 206,
+      "sha256": "93301c9ef17ac2be1edf161f4ff3df39bc52025be536a7d47de4dc420ed8e30b",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-pilot/e648a8847115772792750f790082f2b5.wire.bin",
+      "bytes": 335,
+      "sha256": "47c9553f583e52086d5f822345a9dfd8d999cd71f1a2b234042c5e5e9af77a23",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-pilot/etc-version.exact.bin",
+      "bytes": 31,
+      "sha256": "0d3b45583edd8c1b98afc06614dcfa6582a747549911eb4707152550abd66f2e",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-pilot/events.jsonl",
+      "bytes": 16560,
+      "sha256": "7757edfcb41272d4e69111c0309ce83e3f31d893221d67624d49bc916cfb9874",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-pilot/manifest.json",
+      "bytes": 6796,
+      "sha256": "dbb8c13158fcd6ea47ffb5a125e0176be3339fa9743b0b5c85670eeb0266e46b",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-pilot/rx.bin",
+      "bytes": 2639,
+      "sha256": "8776af02f2107c2eaef54d28f86e57f24142e614f414fe5a468a39367f7fedaf",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-pilot/tx.bin",
+      "bytes": 1702,
+      "sha256": "21340174acbe652e91b224fdaca4042ee6fc0dbd19678373ed52ab5572c02a89",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-version/358a546601ac14747919f54aa3f2b479.command.txt",
+      "bytes": 172,
+      "sha256": "0d8e2ef8d1001075c62c5e9b702e2692ca15c95299c142af748c768ac1721598",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-version/358a546601ac14747919f54aa3f2b479.output.bin",
+      "bytes": 206,
+      "sha256": "93301c9ef17ac2be1edf161f4ff3df39bc52025be536a7d47de4dc420ed8e30b",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-version/358a546601ac14747919f54aa3f2b479.wire.bin",
+      "bytes": 335,
+      "sha256": "cf907527c5d4724865c1677337af0756d08bd2cab18bc6507508f9eadaefe4f8",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-version/7f81fd3c855ce67f07665a4c8b152cb5.command.txt",
+      "bytes": 1087,
+      "sha256": "2a4c9fc37b48a3b7ae105d998cd153e57f842c70cfb149c55c98191c31d36520",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-version/7f81fd3c855ce67f07665a4c8b152cb5.output.bin",
+      "bytes": 20316,
+      "sha256": "1c195fa2d50a078dfdfdede1b84584680b3632e4354fce84179824a425286c63",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-version/7f81fd3c855ce67f07665a4c8b152cb5.wire.bin",
+      "bytes": 1370,
+      "sha256": "9170d5124e7d95a44f2710c7e9c56b7ba6eafba483083771487b28fcaf841701",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-version/events.jsonl",
+      "bytes": 62403,
+      "sha256": "2c003c67dd12413436b6da281cdab6a458a9cf4985e97b286399dc46a63cfa39",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-version/jci-version.ini.exact.bin",
+      "bytes": 13304,
+      "sha256": "ba5c2d267e8abf76cf1cc47272b66dde338c04d45c6f153387218bf9dab2e3a2",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-version/manifest.json",
+      "bytes": 6826,
+      "sha256": "91b9f39b9a5e36c61ede7a77e0c32878bbbf40d9343d76deebe576d1cca90892",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-version/rx.bin",
+      "bytes": 22823,
+      "sha256": "068ad039a743231d5bb22bf697c21d85f5c2ddb0761b984822a6d264ee6af1cc",
+      "access": "pointer/hash only; originals local and potentially private"
+    },
+    {
+      "path": "runs/20261112T225632-0600-t14-harness-version/tx.bin",
+      "bytes": 1706,
+      "sha256": "9fa3480c0ec7ee9dd2aa0839abd3a09dc8c084ed0b9c1cf7edc59a13082314ef",
+      "access": "pointer/hash only; originals local and potentially private"
+    }
+  ],
+  "limits": [
+    "Remote values are saved observed metadata; independently host-verified",
+    "No device SHA256, atomic snapshot, authenticity, restore, full backup or second-copy claim",
+    "Recovery applies only to the observed retained-quote state"
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "created_at": "2026-11-13T04:49:10.817828+00:00",
+  "origin": "t6 scoped recovery research request and t14 saved evidence",
+  "files": [
+    {
+      "path": "logs/20261112T223613.143917-0600-afk-t14-network.bin",
+      "sha256": "c1ccc67cf780523373973a33450228563428a5990de0d9aff809b876697a5805",
+      "bytes": 6864,
+      "access": "local-only; private contents not exported"
+    },
+    {
+      "path": "logs/20261112T223613.143917-0600-afk-t14-network.jsonl",
+      "sha256": "f045b839c1895957a8aea9359c5fce7fb2ca2f36ce403c1bbf4b183aae55bcd8",
+      "bytes": 31277,
+      "access": "local-only; private contents not exported"
+    },
+    {
+      "path": "logs/20261112T223613.143917-0600-afk-t14-network.json",
+      "sha256": "96571515fe7cd9ea86797a557ea4e5536d10fc1f5bc9cf0a63e1a7b3054f1d1e",
+      "bytes": 1809,
+      "access": "local-only; private contents not exported"
+    },
+    {
+      "path": "logs/20261112T223613.143917-0600-afk-t14-network.txt",
+      "sha256": "c1ccc67cf780523373973a33450228563428a5990de0d9aff809b876697a5805",
+      "bytes": 6864,
+      "access": "local-only; private contents not exported"
+    },
+    {
+      "path": "runs/20261112T223253-0600-t14-afk-baseline/network-input-failure.json",
+      "sha256": "f102890905258c6d3886d102fdb11944333ddb59ab61bef992a9a669bdccba04",
+      "bytes": 3252,
+      "access": "local-only; private contents not exported"
+    },
+    {
+      "path": "runs/20261112T223253-0600-t14-afk-baseline/continuation-cancel.py",
+      "sha256": "7c57bbe286d4be2209b7ec34626b1666b4e9aaed8fe3f02c859fd65e59d07d52",
+      "bytes": 2429,
+      "access": "local-only; private contents not exported"
+    },
+    {
+      "path": "runs/20261112T223253-0600-t14-afk-baseline/continuation-cancel.bin",
+      "sha256": "62518bbe3486bc247946c94692758aaec0f4c2d7b72fad964e9acc514b661948",
+      "bytes": 5,
+      "access": "local-only; private contents not exported"
+    },
+    {
+      "path": "runs/20261112T223253-0600-t14-afk-baseline/continuation-cancel.jsonl",
+      "sha256": "e4a986c1f21830571ea32a3c8d11aeb11f75c2d3ef7f005d74f6f8d916e38fd8",
+      "bytes": 304,
+      "access": "local-only; private contents not exported"
+    },
+    {
+      "path": "runs/20261112T223253-0600-t14-afk-baseline/continuation-cancel.json",
+      "sha256": "509b071cc29f5d2adf691162441b3590a40e845eba2d204ee2265a4bbda353d6",
+      "bytes": 386,
+      "access": "local-only; private contents not exported"
+    }
+  ],
+  "limit": "No live action, restored prompt, backup, or same-version executable reproduction is claimed."
+}

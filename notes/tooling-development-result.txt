@@ -1,0 +1,111 @@
+CMU HOST TOOLING IMPLEMENTATION / OPERATOR HANDOFF
+2026-11-12 America/Chicago; worker Herdr t12; coordinator t6.
+
+RESULT: working command/file-capture vertical slice.30/30 current unittest/PTY
+tests PASS after exception-only SystemExit fix (2026-11-12 23:02 CST), no installs.
+The prior29-test source passed live identify and both exact exports via t14.
+Current Python3.13.7/pySerial3.5; wire/protocol bytes unchanged by this fix. No real UART or
+camera was opened by this worker. Firmware55.00.750B, power/accounts/settings,
+USB/SD/networking unchanged. Existing helpers and original raw logs untouched.
+No Git commands/commits. All writes restricted to assigned paths and this note.
+
+CONSOLE UPDATE 22:52 CST: t14's separately approved recovery restored normal
+PS1 and a fresh completed check proved uid0 and firmware55.00.750B/cmu150_NA.
+See notes/console-recovery-observation.txt and immutable private run
+runs/20261112T225101-0600-t14-console-eof-recovery/manifest.json. This supersedes
+the earlier unrecovered-continuation dependency. This harness was not used for
+recovery. Subsequently t14 verified identify,31-byte /etc/version and13304-byte
+/jci/version.ini exports at22:56–22:57 with the unchanged29-test source; see
+notes/exact-file-capture-observation.txt. Current exception-only fix catches
+SystemExit after partial TX as top-level unknown, covered by a new CLI regression.
+No wire semantics changed or live repeat requested; t14 remains sole hardware owner.
+Every new acquisition still verifies fresh prompt/root/firmware. No recovery
+sequence was added to the harness; no human/physical operation is assigned.
+
+DELIVERED
+ cmu_bench/session.py: FTDI identity resolution/re-enumeration; private stable
+ /tmp/cmu-bench-locks-UID/ FTDI-keyed flock with descriptor lifetime through port
+ close + evidence flush; exclusive pyserial115200/8/N/1, no flow, RTS/DTR inactive.
+ Shell/login/password/continuation/unknown/uncertain states; fresh framed root
+ id and exact firmware preflight; unique128-bit printf-built BEGIN/END/actual rc
+ and fresh post-END prompt. Echo never contains a complete expected frame.
+ Max600 bytes per physical TX line INCLUDING quoting; max32KiB total. Finite
+ host operation deadlines/caps. No automatic login/retry/ETX/reset/break/kill.
+ cmu_bench/files.py: <=16KiB allowlisted regular nonsymlink /etc/version and
+ /jci/version.ini;1024-byte contiguous base64/hex frames; pre/post target
+ length+MD5+POSIX cksum, host all-three equality + SHA256. Target sha256sum is
+ absent; default md5 profile explicitly does NOT claim target SHA256. Generated
+ target script uses verified BusyBox timeout -t20 -s9 syntax and no target writes.
+ scripts/cmu-session.py: dry-run default, explicit live receive/identify/command/
+ export. Fresh identity before any task. Raw RX/TX and UTC+monotonic JSONL,
+ exact command/wire/status/output, source hashes, bounds, file provenance and
+ artifact hashes in private new bundles. Invalid/partial export creates no
+ *.exact.bin. Unknown delivery remains top-level unknown, including cancellation.
+ Live intent is separate from observed adapter/open metadata.
+ examples/README.txt explains protocol/trust limits; examples/tooling-index.tsv
+ links sources/results/decision/hypothesis. Global research index is outside
+ worker write scope; coordinator can import those index entries.
+
+EXACT HOST/OFFLINE COMMANDS (all through Herdr)
+ hc exec --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B scripts/cmu-session.py --action command --command id
+ hc exec --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B scripts/cmu-session.py --action export --path /etc/version --encoder base64 --checksum md5
+ hc run --bg --name cmu-tooling-tests --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B tests/run_offline.py
+ hc wait cmu-tooling-tests
+ hc read cmu-tooling-tests --lines 80
+ First two commands only print plans: no device enumeration/open/TX/file writes.
+
+FUTURE OPERATOR TEMPLATES — ONLY AFTER t6 CONFIRMS RECOVERY AND t14 SOLE OWNERSHIP
+ Use NEW_RECEIVE/NEW_ID/NEW_PILOT/NEW_VERSION as distinct nonexistent run names.
+ Keep older UART helpers fully closed; they do not honor the new advisory lock.
+ hc run --bg --name cmu-receive --parent t14 --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B scripts/cmu-session.py --live --action receive --seconds 5 --bundle runs/NEW_RECEIVE --owner t14
+ hc run --bg --name cmu-identify --parent t14 --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B scripts/cmu-session.py --live --action identify --solicit-prompt --deadline 10 --bundle runs/NEW_ID --owner t14
+ hc run --bg --name cmu-pilot --parent t14 --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B scripts/cmu-session.py --live --action export --path /etc/version --encoder base64 --checksum md5 --solicit-prompt --deadline 30 --bundle runs/NEW_PILOT --owner t14
+ hc wait cmu-pilot
+ hc read cmu-pilot --lines 30
+ After verified31-byte pilot ONLY, repeat export with --path /jci/version.ini,
+ --bundle runs/NEW_VERSION and a new terminal name. --action command --command id
+ has the same live prerequisites. --solicit-prompt explicitly asserts KNOWN IDLE
+ shell; silence cannot establish one. A passive continuation/login/password
+ detection prevents that CR. Default receive never sends even a newline.
+ Exit codes0 success,1 failed preflight/local/file validation,2 unknown delivery/
+ execution,3 completed command with nonzero remote rc. Treat the manifest as
+ authoritative. After2 no automatic retry/reopen/probe; reconcile through t6.
+
+VERIFICATION / IMMUTABLE EVIDENCE
+ Final29 tests: examples/tooling-runs/20261113T045143.194054Z/{manifest.json,tests.txt}.
+ Earlier passing runner15 tests:20261113T044405.079406Z; full codec22 tests:
+ 20261113T044632.641071Z;24 tests:20261113T044806.958985Z;29 tests before final
+ binary-PTY fixture correction:20261113T045024.522245Z. All in same tooling-runs/.
+ Initial15-test failure (overescaped continuation regex, fixed) retained at
+ examples/tooling-runs/initial-test-failure.txt. No failure evidence deleted.
+ Tests cover fragmented prompts/binary logs, echo/lookalike/duplicate/missing/
+ partial-END records, actual PTY shell exit17, identity/firmware rejection,
+ timeout afterTX, partial writes, lock contention across processes, production
+ USB restrictions, pySerial receive-only PTY, exact binary file roundtrips,
+ wrong CRC/MD5/length/sequence/interleaving/truncation, source pre/post mismatch,
+ symlink rejection, front-door failed-lock/open metadata and cancellation/partial
+ TX unknown outcomes. Generated remote script executes offline on14.6KiB binary
+ with real dd/base64/od/wc/cksum and an explicit TEST-ONLY MD5 helper. Production
+ path restrictions unchanged. POSIX CRC checked against /usr/bin/cksum vectors
+ and independently observed /etc/version31B CRC2910742528.
+ Observed nonsecret derivative: examples/etc-version-observed.json links t14
+ capability report path/SHA256 and original evidence; no raw login copied.
+ Final source/provenance hashes: examples/tooling-provenance.json.
+
+LIMITATIONS / CLEANUP
+ Prior29-test source passed the observed base64/MD5 live profile for both allowlisted
+ files. Current exception-only SystemExit fix passed30 tests; no new live repeat.
+ The UI lifecycle remains a separate unvalidated experiment.
+ Matching source pre/post checks are transfer integrity, not atomic snapshot,
+ cryptographic authenticity, full baseline or recovery validation. No per-chunk
+ checksums/resume/retries, original file mode/owner/timestamp preservation, bulk
+ capture, SSH, or camera integration. Generic command output includes untouched
+ log noise and is not an exact file. Remote arbitrary commands can continue
+ after host timeout/close; export's own bounded timeout is separately recorded.
+ TX acknowledged bytes are logged; a failing write may have delivered additional
+ unknowable bytes, which is explicitly unknown. New advisory lock does not
+ exclude older scripts or unrelated programs. No automatic ownership theft.
+ All PTY children were terminated/reaped and temporary test files/locks removed;
+ only this worker's finished test terminals are removed after durable save.
+ Second-copy backup is not configured/claimed. Coordinator t6 received both
+ early milestones and final result; source baseline remains55.00.750B.

@@ -1,7 +1,7 @@
 MAZDA CMU RESEARCH INDEX — canonical entry point
 Derived catalog; original evidence stays local and unchanged.
 
-30 facts/claims; 8 open hypotheses; 7 decisions; 4 saved sources.
+39 facts/claims; 9 hypotheses (7 open, 2 resolved in observed scope); 9 decisions; 5 saved sources.
 Search index.tsv by ID/topic/firmware/path; records retain scope and limits.
 Read context/SUMMARY.txt for handoff, constraints and physical-reference conflicts.
 Schema and update rules: SCHEMA.txt. Final preservation report: ../notes/research-preservation-result.txt.
@@ -33,6 +33,11 @@ pyserial-api: pySerial official API documentation
   170867 bytes; SHA-256 73464d5f5cd1991e4cbef2203ceeca6a51bba0b52a80572e519187f7fe7c8c9c
   research/sources/snapshots/20261113T043356Z/pyserial-api/73464d5f5cd1991e4cbef2203ceeca6a51bba0b52a80572e519187f7fe7c8c9c.html
   serial.Serial exclusive parameter; open() RTS/DTR note
+busybox-1.19.2: BusyBox1.19.2 official release source
+  https://busybox.net/downloads/busybox-1.19.2.tar.bz2
+  2168055 bytes; SHA-256 ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9
+  research/sources/snapshots/20261113T044437Z/busybox-1.19.2/ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9/busybox-1.19.2.tar.bz2
+  shell/ash.c interactive input, parser, top-level exception handling; libbb/lineedit.c Ctrl-C/Ctrl-D handling
 
 FACTS AND LIMITS
 F001 [observed-in-saved-evidence] Saved inventory identifies the FTDI FT232R as VID:PID 0403:6001, serial A9048JM0; observed cu path /dev/cu.usbserial-A9048JM0.
@@ -95,16 +100,35 @@ F029 [observed-by-current-operator-report] Operator t14 verified BusyBox timeout
   Limit: Usage output from BusyBox --help may return1; do not invent GNU options.
 F030 [observed-by-current-operator-report] Operator t14 reports /jci/version.ini=13304 bytes, MD5=5488b62f403d5296f58566c8499f7d44, POSIX cksum=958101073/13304; /etc/version=31 bytes, MD5=10cac4792dbca7d886eb2d9ee80d0647, cksum=2910742528/31.
   Limit: Metadata/probe output is not a verified copied backup. MD5/CRC are transfer checks, not device-side SHA-256 or recovery evidence.
+F031 [observed-saved-recovery-evidence] After exactly one saved ETX03 transmission, RX was0d0a3e2030 (CRLF > 0); no verified primary root prompt was restored.
+  Limit: The received0 has unknown origin; current edit-buffer emptiness and foreground state remain unverified.
+F032 [observed-host-recovery-analysis] The network request sent1363 command bytes, but its normalized echo before continuation is exactly its first1022 bytes and ends in single-quote state by a limited ASCII quote scan.
+  Limit: Removing only observed soft-wraps yields SHA256f78637347bba1854df88a0069dad5349a327e245d1cc1bfb785a5d8f62f74aa7. Matching default1024/maxsize-2 cap supports, but does not prove, stock editor truncation.
+F033 [reference-primary-source-code] Stock BusyBox1.19.2 ash with editing retries a Ctrl-C-returned zero-length input when no SIGINT trap is installed, preserving the accumulated parser state.
+  Limit: Nominal release source matches reported BusyBox version, but vendor patches, exact shell identity/build options and traps are unknown.
+F034 [reference-primary-source-code] Stock BusyBox1.19.2 turns empty-line configured EOF into parser EOF; an unterminated quote raises a syntax error before the pending command is evaluated, and an interactive top-level shell resets to its command loop.
+  Limit: Conditional source result, not CMU recovery validation. Nonempty Ctrl-D is deletion; EOF at a primary prompt may exit; other continuation contexts differ.
+F035 [observed-by-operator-with-host-evidence-audit] Operator t14 sent exactly one051504 to the retained unmatched-quote state, observed an actual unterminated-quote syntax error and primary prompt, then separately verified fresh uid0/55.00.750B/cmu150_NA with explicit exit0 and END.
+  Limit: This resolves only that observed retained-quote state. Vendor VEOF/build/general recovery remain unproven; future acquisition still needs fresh identity.
+F036 [observed-verified-file-transfer] A new framed /etc/version capture is exactly31 host bytes; target pre/post and independently audited host agree on MD5 10cac4792dbca7d886eb2d9ee80d0647 and POSIX cksum2910742528/31. Host SHA256 is0d3b45583edd8c1b98afc06614dcfa6582a747549911eb4707152550abd66f2e.
+  Limit: Verified transfer consistency of this file; no device SHA256, original mode/owner/time preservation, atomic snapshot, authenticity, restore or second-copy claim.
+F037 [observed-verified-file-transfer] A new framed /jci/version.ini capture is exactly13304 host bytes; target pre/post and independently audited host agree on MD5 5488b62f403d5296f58566c8499f7d44 and POSIX cksum958101073/13304. Host SHA256 isba5c2d267e8abf76cf1cc47272b66dde338c04d45c6f153387218bf9dab2e3a2.
+  Limit: Historical13334-byte inventory extraction remains unchanged and is not this capture. Two exact content files do not establish full backup, atomicity, restore or redundancy.
+F038 [observed-by-operator-with-host-evidence-audit] The reviewed harness passed one live identify and gated31B/13304B exports with fresh root55 identity, explicit completed exit0 operations, closed ports, matching artifact hashes and reconstructed RX/TX in all three saved bundles.
+  Limit: These exact nested multiline base64/MD5 captures are live accepted; no assertion about other commands, full storage, arbitrary cancellation paths or bulk-rate reliability.
+F039 [observed-host-code-review] At reviewed CLI SHA2564d62c56d0b3c0bfa4250ca4536b2ca79a13a77d9e0119cf5bc161e5ab57de9ea, one synthetic SystemExit-after-partial-TX check observed3 acknowledged bytes, operation unknown, top-level bundle failed, and port closed.
+  Limit: Historical reviewed-source finding; no hardware used and no claim about a later patched revision. Normal live export success does not test SystemExit cancellation.
 
-OPEN QUESTIONS (tests and dependencies in hypotheses.jsonl)
-H001 Does this exact retrofit hub retain required legacy USB/SD functionality on firmware55?
-H002 What connector view and hub1A supply assignment apply to the actual harness?
-H003 Can a framed read-only UART transfer produce one exact checksum-verified small file?
-H004 Which discovered service or input path can navigate and return without persistent state changes?
-H005 What FlashFX/relfs acquisition layer and recovery procedure are actually usable for this CMU?
-H006 Will the eventual Ethernet adapter have a compatible CMU driver/link and existing SSH capability?
-H007 What are actual B+/ACC shutdown timing and safe relay channel behavior?
-H008 Where can a verified independent second raw-evidence copy be stored?
+QUESTIONS AND DISPOSITIONS (tests, results and dependencies in hypotheses.jsonl)
+H001 [open] Does this exact retrofit hub retain required legacy USB/SD functionality on firmware55?
+H002 [open] What connector view and hub1A supply assignment apply to the actual harness?
+H003 [resolved-in-observed-scope] Can a framed read-only UART transfer produce one exact checksum-verified small file?
+H004 [open] Which discovered service or input path can navigate and return without persistent state changes?
+H005 [open] What FlashFX/relfs acquisition layer and recovery procedure are actually usable for this CMU?
+H006 [open] Will the eventual Ethernet adapter have a compatible CMU driver/link and existing SSH capability?
+H007 [open] What are actual B+/ACC shutdown timing and safe relay channel behavior?
+H008 [open] Where can a verified independent second raw-evidence copy be stored?
+H009 [resolved-in-observed-scope] Can one coordinator-approved clear-current-line plus EOF transaction abandon this saved incomplete quote without executing the pending request?
 
 DECISIONS (dated rationale in decisions/)
 D001 Preserve firmware55 and current bench state
@@ -114,10 +138,14 @@ D004 Local Git allowlist and private original retention
 D005 Keep byte-exact and recovery claims gated
 D006 Preserve literal Mazda version requirements and scope
 D007 Keep physical-reference conflicts unresolved
+D008 Stop uncertain continuation sends; recovery recommendations remain offline
+D009 Accept two exact small-file captures and scoped parser recovery
 
 PROVENANCE AND LIMITS
 Initial original evidence: manifests/20261113T043356Z-original-evidence.json (119 files).
-New t14 capability report is supplemental; no exact copied backup is claimed.
+Latest recovery/capture audit: manifests/2026-11-12-recovery-and-exact-capture-milestones.json (40 evidence paths).
+F035-F038 record scoped parser recovery and two checksum-verified file transfers; full backup/restore/second copy remain unproven.
+Recovery observation: ../notes/console-recovery-observation.txt; research worker used saved evidence only.
 18 historical raw/event pairs reconstructed exactly; five prior hashes matched.
 Raw credentials/login TX/private identities stay out of Git. Fixtures are allowlisted derivatives.
 A local hash/commit is not a second copy, full backup, boot observation or verified recovery.

@@ -53,6 +53,9 @@ Keep the stock frontend heartbeat and native initialization/cleanup intact.
 ## Publication
 
 Use aeharding/open-connect, branches and PRs. Original work is AGPL-3.0-or-later.
+Before merging any PR, obtain an independent adversarial review of the final
+revision and resolve blockers. This includes docs-only changes and deletions.
+Follow CONTRIBUTING.md; ephemeral review agents are explicitly authorized for this.
 Never publish ignored OEM files, credentials, raw captures or incompatible comparison
 adaptations. Stage an explicit reviewed file set; see THIRD_PARTY.md.
 Current state belongs only in docs/bench-state.txt; new knowledge belongs in

@@ -1,0 +1,119 @@
+MAZDA CMU: DEVELOPMENT AND RESEARCH-SAVING PLAN
+Prepared 2026-11-12 America/Chicago for coordinator Herdr t6.
+Scope: planning only. This pass opened neither UART nor camera and made no CMU changes.
+Only this assigned .txt artifact was written; no Git initialization, installs, remounts, or firmware operations occurred.
+
+1. BASELINE AND DECISIONS
+Keep 55.00.750B / cmu150_NA as the development baseline for the next 2-3 days.
+Existing evidence establishes two-way UART, user/root login, and a visible root-launched native dialog.
+It does not establish complete boot/recovery behavior, physical commander input, or retrofit-hub USB/SD operation.
+JCI_SW_NEXT_VER=55.00.800 is metadata, not the installed version.
+Mac: M2 Pro, macOS 26.5.2; existing .venv Python 3.13.7/pySerial 3.5 and FFmpeg 7.1.1 suffice initially.
+UART: FTDI 0403:6001, serial A9048JM0, /dev/cu.usbserial-A9048JM0, 115200 8N1, all flow control off.
+Preserve USB and SD. AUX is expendable, but that does not authorize any connector or supply changes.
+The user will perform no bench interventions. Wiring, power hardware, camera framing, media insertion, and Ethernet attachment are dependencies.
+No firmware upgrade belongs in this development window. Preserve baseline and establish a recovery/access strategy first.
+
+2. PRIORITIZED DEVELOPMENT BACKLOG AND PASS CRITERIA
+Day 1, P0 (first half): preserve evidence and version the Mac tooling in this existing project.
+Implementation follow-up should first review working files, record hashes/tool versions, and define exclusions before any Git add.
+Track scripts/bench.py, scripts/console-command.py, requirements.txt, concise procedures, schemas, and sanitized fixtures.
+Retain existing pinned pyserial==3.5; record interpreter path, OS/build, FFmpeg path/version, and exact invocation.
+Create a baseline manifest referring to original inventory, version.ini, successful RX/TX evidence, and original JPEGs.
+Pass: another agent can identify the exact baseline and reproduce offline checks from a recorded commit without touching hardware.
+A manifest/file snapshot is not a full CMU recovery image. Full storage backup, restoration, boot access, and power behavior remain unproven.
+
+Day 1, P0 (second half): implement and document one UART owner and a bounded command runner.
+t6 grants one named owner/run; all other agents consume saved logs and request actions through hc send t6.
+Use one broker/port-opening process. Never run screen, cu, a logger, and the command helper against the port concurrently.
+Acquire a shared Mac advisory lock before any port open; keep its descriptor held until serial.close() and evidence flush finish.
+Record owner terminal, PID/start identity, adapter identity, run ID, acquisition time, purpose, and maximum duration.
+Use exclusive=True as an additional guard; a coordination record or timeout alone does not prove that a previous owner released the port.
+A busy/ambiguous owner must cause refusal; do not steal ownership or kill another process automatically.
+Resolve the FTDI by VID/PID/serial, then validate its current path. Request RTS/DTR inactive and retain current line settings.
+Default to receive-only. A newline is transmitted input and needs an explicit interactive action; do not send it into an unknown foreground command.
+Treat the persisted root shell as untrusted session state: recognize login/password/shell/unknown states, then confirm id and firmware.
+Use unique command start/end markers and capture actual exit status despite echoed commands and interleaved runtime logs.
+Record exact TX bytes and lossless RX; enforce read/write deadlines, bounded output, and deterministic close on cancellation/error.
+After uncertain delivery or timeout, record outcome=unknown and reconcile state; never blindly retry a potentially executed command.
+The current console helper checks for a prompt and captures for a fixed time; it does not verify command completion or exit status.
+Pass: offline tests reject a second owner, reject unexpected prompts, retain all bytes, report exit status, and close on every failure path.
+
+Day 2, P0: restore durable offline captured-log and pseudo-terminal fixtures.
+Use the existing 20261112T213105.531697-0600 UART capture; the earlier temporary PTY fixtures were removed.
+Keep raw evidence immutable; create sanitized derivatives with a transformation record and source hash.
+Support both existing JSONL schemas: passive records use received_at/hex/length; command records use at/direction/hex.
+Replay chunk boundaries, CR/LF, ANSI escapes, binary/invalid UTF-8, and background logs that resemble prompts or completion markers.
+Use Python's standard pty.openpty() for a fake CMU, explicitly selected in test mode; production device identity rules remain strict.
+Exercise partial writes, delayed/split prompts, login/password states, disconnects, timeout after TX, cancellation, and lock contention.
+Pass: reconstructed RX equals original .bin byte-for-byte; receive-only sends zero bytes; unknown completion never becomes success.
+Pass: all fixture/PTY work can run with the real FTDI and camera unavailable; no additional packages are needed initially.
+
+Day 2, P1: package one reversible UI experiment as described below; implement Mac tooling before considering a future live run.
+Each package contains a manifest, command payload, preflight, expected observations, bounded cleanup, and a verification checklist.
+Dry-run prints the exact payload and planned writes; default transport is replay, with live execution explicitly selected.
+Pass: the package can be reviewed from files alone and its failure/cleanup paths pass PTY simulation.
+Two-day deliverable: versioned Mac tools, retained fixtures, ownership protocol, searchable evidence records, and this packaged experiment.
+Day 3, P1: refine parser/cleanup behavior from fixtures and prepare an SSH transport behind the same command/result interface.
+If Ethernet has not arrived, use a local SSH-command stub; arrival is not required for completing the offline development work.
+After attachment is independently available, identify the actual adapter/chipset and CMU driver, interface, addressing, and SSH daemon support.
+Do not infer CMU network support from the Mac seeing an adapter. Do not preemptively enable services or change network configuration.
+Verify the SSH host key through the trusted console; keep credentials/private keys outside Git and scope any legacy negotiation exceptions to this host.
+First transport comparison should be read-only id, uname, and version.ini with matching identity/firmware evidence and recorded exit status.
+Keep UART as fallback; retain one CMU experiment lease across UART and SSH. Never retry an uncertain UART operation over SSH automatically.
+Pass: identical replay contracts and read-only identity checks work through both transports; drops/timeouts retain honest outcome=unknown.
+
+3. CONCRETE LOW-IMPACT UI EXPERIMENT: UI001
+Goal: develop agent-controlled temporary information UI with automatic cleanup, using the installed jci-dialog on baseline 55.00.750B.
+Future payload uses /jci/tools/jci-dialog --info --no-cancel --title="CMU bench UI001 RUN_ID" --text="Temporary development probe".
+Use a fresh run ID, record exact argv/TX bytes, and capture only this launched PID plus its unique full cmdline identity.
+Preflight requires sole UART ownership, confirmed root/version, usable existing camera framing, and no unexplained dialog.
+The observed --help lists no timeout option. Do not invent one or rely on a person pressing OK.
+The future runner must wrap the dialog in a bounded CMU shell lifecycle that sends identity-checked TERM after 40 seconds and traps interruption.
+Validate sh/sleep/process-inspection availability first; simulate the watchdog and cleanup offline before any live execution.
+Keep the UART session open, capture a before JPEG, a during JPEG within 30 seconds, and an after JPEG after cleanup; no audio.
+Pass: unique title/text are legible, dialog disappears by 50 seconds, its recorded process is absent, and the prior UI is visible by 90 seconds.
+Pass also requires unchanged version evidence, no experiment-created persistent files/settings, and a complete command/result/cleanup record.
+If framing is inadequate or cleanup cannot be demonstrated, mark blocked/failed and retain evidence; do not assign intervention to the user.
+Existing evidence: 213836 open-root-bench-dialog.txt and 213842.996395 webcam.jpg establish launch and visibility.
+Later saved 214618.244266 interim-dialog-cleanup.txt records exact-cmdline-guarded TERM to PID 18090.
+214645.784072 interim-dialog-postcheck.txt records uid=0 and PID18090_ABSENT_CONFIRMED; this pass did not inspect the later JPEG.
+This supports a cleanup design, not a claim that the new timed lifecycle or future UI001 experiment has already passed.
+
+4. DURABLE RESEARCH-SAVING PLAN
+Continue /Users/aeharding/mazda-cmu-bench; keep existing inventory/, logs/, captures/, notes/, and scripts/ paths stable.
+Proposed additions: research/sources/<source-id>/ for immutable PDF/HTML snapshots plus metadata; do not overwrite changed editions.
+research/facts.jsonl holds atomic claims with exact source/page or run evidence, firmware applicability, confidence, and verification date.
+research/hypotheses.jsonl holds testable guesses, proposed falsification, dependencies, and status; guesses never silently become facts.
+research/decisions.txt holds dated decision IDs, rationale, alternatives, scope, supporting fact/run IDs, and superseding decisions.
+experiments/<experiment-id>/ holds versioned manifests, command payloads, preflight/cleanup definitions, and offline fixtures.
+runs/<run-id>/ holds a small manifest/result linking existing logs/, captures/, inventory/, command files, and checksums without moving originals.
+notes/index.tsv is the searchable catalog: id, date, kind, topic/tags, firmware, question/goal, outcome, cleanup, evidence path, related IDs.
+Before research or experiments, search that index and facts for the topic/firmware; record why a repeat is needed if evidence already exists.
+Every run records goal/hypothesis; owner; time/timezone; baseline ID; tool commit; transport/device identity; exact commands/TX; deadlines.
+Also record before/during/after image paths and SHA-256, stdout/stderr/RX, actual exit status, observed result, unexpected effects, and cleanup verification.
+For offline-only work, use saved fixture images or mark image=N/A with the reason; never imply fresh bench observation.
+For future file-changing experiments, record original bytes/hash, path/mode/owner, proposed diff, inverse/restore command, and verified post-restore hash.
+No such CMU file-changing experiment is proposed for this window; firmware rollback must not be represented as a simple Git revert.
+Source metadata: ID, author/title, document number/revision/date, requested/final URL, retrieved_at, content type/size, SHA-256, page map, local path, rights/access notes.
+Git: Mac source, pinned dependencies, schemas, experiment definitions, sanitized small fixtures, factual summaries, decisions, indexes, and checksum manifests.
+Outside Git: .venv, caches, raw UART/login logs, original photos/video, firmware/storage dumps, credentials, device identifiers, and large or restricted source snapshots.
+Keep private/raw artifacts under ignored local storage with sanitized pointers in Git; .gitignore does not remove already tracked sensitive content.
+After each run/source collection: finalize manifest, hash immutable artifacts, append index/result, and copy private/raw evidence to a configured backup destination.
+At day end verify a sample restoration by hash; record backup location/time. A local working folder or Git history alone is not the raw-evidence backup.
+
+5. VERIFIED MAZDA-AUTHORED RETROFIT PREREQUISITE AND LIMITS
+Primary source: Mazda CSP02 / retrofit installation packet, NHTSA mirror https://static.nhtsa.gov/odi/tsbs/2018/MC-10144323-9999.pdf
+PDF page 9/20, printed Common-2, specifies v70.00.21 or later before hub installation and warns older software may not recognize the hub.
+The requirement repeats on PDF page 13/20, printed MAZDA6-1; the packet identifies TK78 66 9U0** hubs and C922-V6-605 cabling.
+Corroboration: Mazda SA-001/19, issued 2019-04-05, https://static.nhtsa.gov/odi/tsbs/2019/MC-10159198-0001.pdf
+Printed/PDF page 3/9 describes failed new-hub recognition blocking USB software updates; pages 7-9 describe original-hub/cable recovery.
+Page 9/9 names 70.00.021B or later. Preserve the documents' literal version forms rather than silently equating patch requirements.
+Inference: installed 55.00.750B is below this retrofit prerequisite; a CarPlay hub is not a supported CarPlay baseline on the present firmware.
+This does not prove all USB/SD functions fail, identify this bench's exact hub revision, or justify a flash. Those remain separate evidence gaps.
+Recovery described in the bulletin entails hardware changes and is a dependency, not an instruction to the user or an action authorized here.
+Before any later upgrade proposal: preserve baseline, establish independent access/recovery, identify hub/region, verify exact update path and packages, and document rollback limits.
+Research backlog: actual hub identity and legacy USB/SD behavior; complete recovery image/restore feasibility; boot/power sequencing; Ethernet chipset/driver/SSH support.
+Source integrity checked by in-memory download through hc; PDFs were not saved separately in this pass: 2018 PDF 4217760 bytes, SHA-256 0e8d022212049408e49453718806dfeb7c608faa2271e2b71e3e98f75b0b3494.
+2019 PDF 851674 bytes, SHA-256 0c8996c9df0f24c117534aebfe3cbc1017c1d522f5fccae9b46be9729883a57d.
+Technical primary references checked: https://pyserial.readthedocs.io/en/latest/pyserial_api.html ; https://docs.python.org/3.13/library/pty.html ; https://man.openbsd.org/ssh_config ; https://git-scm.com/docs/gitignore .

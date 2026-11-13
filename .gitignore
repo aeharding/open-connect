@@ -1,0 +1,39 @@
+# Raw bench evidence: immutable originals remain local.
+/logs/
+/captures/
+/inventory/
+/runs/
+/exports/backups/
+/backups/
+/.state/
+/.bench-state/
+/locks/
+/sessions/
+# Original reference snapshots, private context and copied device data.
+/research/sources/snapshots/
+/research/context/private/
+/research/context/originals/
+# Host environments, transient state and caches.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.cache-*/
+.DS_Store
+# Credentials and private key material. Stage by explicit allowlist regardless.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+credentials*
+secrets*
+private/
+*.sqlite*
+*.db

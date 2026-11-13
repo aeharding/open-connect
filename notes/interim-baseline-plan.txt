@@ -1,0 +1,444 @@
+MAZDA CMU: INTERIM BASELINE AND BACKUP PLAN
+Prepared 2026-11-12, America/Chicago
+Workspace: /Users/aeharding/mazda-cmu-bench
+Role: baseline/backup planner; coordinator: Herdr t6
+
+STATUS AND SCOPE
+
+This is a plan, not a completed CMU baseline or backup. This assignment only
+read existing local files and performed host-side, read-only integrity checks
+through hc. It did not open serial or camera, transmit to the CMU, dismiss a
+dialog, modify firmware/settings, or start another agent. The only file written
+by this assignment is notes/interim-baseline-plan.txt.
+
+PROMINENT BACKUP GAP: inventory/20261112T2135-cmu-version.ini is a metadata/
+reference artifact, NOT a verified byte-exact backup. It is 13,334 host bytes;
+the source console directory listing reports /jci/version.ini as 13,304 bytes.
+The artifact ends with 201506101650 and jci-cmu_01.00.110, which followed the
+separate cat /etc/version command in the combined discovery capture. Preserve
+this artifact and all original evidence without editing or renaming them.
+The first backup milestone is a new, separately framed capture of the exact
+remote /jci/version.ini bytes, with remote byte count and checksum verified on
+the host; capture /etc/version separately using the same protocol.
+
+The value to preserve is a working firmware-55 CMU with demonstrated direct root
+access and working visible application control. No firmware upgrade, tweak
+installer, recovery experiment, credential change, or permission change is
+needed for the proposed baseline work. Preserve USB and SD. AUX is unnecessary.
+The user will not press controls, dismiss dialogs, move a camera, wire anything,
+or otherwise touch the bench. Hardware interventions remain dependencies.
+
+VERIFIED FACTS AND THEIR LIMITS
+
+- notes/status.txt and README.txt describe Mac mini M2 Pro, macOS 26.5.2, FTDI
+  /dev/cu.usbserial-A9048JM0, VID:PID 0403:6001, serial A9048JM0. UART settings
+  are 115200 8N1, no software/hardware flow control, RTS/DTR requested inactive.
+  The USB webcam is 046d:0825. This assignment did not re-enumerate devices.
+- The 21:31 passive capture contains 24,233 RX bytes over about 60 seconds.
+  Existing observation notes report 184 readable lines and no UTF-8 replacement.
+  My offline reconstruction of all 808 JSONL chunks exactly matched its raw
+  binary; there were zero TX events. This verifies the stored log relationship,
+  not absence of UART loss before logging and not file-transfer performance.
+- User uid=1000 and direct root uid=0 were demonstrated in stored login logs.
+  The 21:45 interim-dialog-identity log again records uid=0 and the exact argv
+  of the known dialog PID 18090. These are historical facts, not a fresh live
+  assertion about shell identity or PID existence.
+- Installed firmware fields are JCI_SW_VER=MAZ_CMU-150_55.00.750,
+  JCI_SW_VER_PATCH=B, JCI_SW_FLAVOR=cmu150_NA: installed 55.00.750B, NA.
+  JCI_SW_NEXT_VER=MAZ_CMU-150_55.00.800 is metadata, not an installed upgrade.
+  JCI_SW_PRIOR_VER is likewise metadata, not a proven available fallback.
+- Stored uname output reports Linux cmu 3.0.35, ARMv7l, SMP PREEMPT, built
+  March 15, 2015. It does not establish kernel config, storage geometry,
+  Ethernet support, or the presence of every expected Linux/BusyBox command.
+- Discovery listed /jci, /jci/tools, /jci/scripts and /tmp/dbus objects.
+  Examples actually listed: usb_drivers.sh, bt_drivers.sh, start_network.sh,
+  start_eth1_dhcp.sh, systemHooks.sh, jci-failsafe-version.sh, nor-write.sh,
+  /jci/keys, /jci/certificates, /jci/settings and /jci/reflash.
+  Directory/script names indicate candidates to inspect, not verified behavior.
+  In particular, do not execute a script merely because its name sounds useful.
+- The 21:38 camera evidence and notes establish a root-launched native dialog.
+  This planner did not inspect image pixels or perform cleanup. Any actual
+  cleanup and its visual evidence belong to the separately assigned owner.
+  Do not carry forward old instructions requiring the user to dismiss it.
+- No complete process/mount/storage/kernel-module baseline, boot capture,
+  validated USB/SD operation, Ethernet/SSH transfer, bulk image, or recovery
+  demonstration was found in the inspected evidence.
+- Proprietary NAND FlashFX/relfs is a supplied documentation constraint.
+  No supplied external documents were fetched in this local-only assignment,
+  and no FlashFX device map or recoverability claim was independently verified.
+
+EXISTING TOOL REVIEW
+
+scripts/bench.py provides receive-only serial capture and dated raw .bin,
+timestamped-hex .jsonl and metadata .json output. Its inventory and unopened
+serial-plan modes do not open the port; running them would create new files,
+so they were not run in this assignment.
+
+scripts/console-command.py identifies the known FTDI, requests exclusive access,
+opens the port, sends an initial CR, requires a shell-shaped prompt, then sends
+the explicit command. It saves RX bytes and RX/TX hex events and closes the
+port. A prompt-shaped response is not proof of root; resume with a framed id
+check before root-dependent work. No automatic login is implemented.
+
+The helper waits a fixed 0 < wait <= 30 seconds. Its status "command capture
+finished" means the receive window ended; it does not verify remote exit status,
+completion, payload size, source checksum, or file validity. The displayed
+response filters some runtime lines and truncates at 18,000 characters. Neither
+display filtering nor .txt output is a backup decoder. Preserve raw data and
+parse a separate framed protocol. Long transfers can outlast the helper even
+though its host exit is successful. No helper changes are made by this plan.
+
+OFFLINE DEVELOPMENT AND DURABLE PRESERVATION: FIRST-CLASS WORKSTREAMS
+
+Owners: cmu-dev-research-plan's development/research owner, assigned by the
+coordinator; no terminal address is assumed. Baseline owner supplies the
+following evidence and acceptance requirements. Work can proceed before any
+bench access.
+
+Development can use these existing local artifacts as OFFLINE fixtures:
+1. logs/20261112T213105.531697-0600-uart.{bin,jsonl,json}:
+   authentic idle console noise, chunk boundaries, timestamps, zero-TX behavior.
+2. logs/20261112T213524.771496-0600-system-discovery.{bin,jsonl,json,txt}:
+   multiline command echo, ANSI color, CR/LF wrapping, a long response, mixed
+   /jci and /tmp/dbus listings, version fields and asynchronous runtime output.
+   This is a useful parser fixture, not an exact remote-file export.
+3. logs/20261112T213816.865970-0600-console-root-login.{bin,jsonl,txt} and
+   logs/20261112T213428.427657-0600-console-login.txt:
+   login/prompt transitions, root versus ordinary identity, and the framed
+   CMU_BENCH_ID_BEGIN/END identity response. Raw login TX can contain credentials.
+4. logs/20261112T213647.184470-0600-privilege-discovery.txt:
+   runtime text interleaved inside an echoed command, plus literal script text.
+   This is important evidence that line filtering alone cannot assure integrity.
+5. inventory/20261112T2135-cmu-version.ini:
+   extracted version/reference metadata; fixture for a tolerant metadata reader
+   and for rejecting concatenated source outputs as an exact file.
+6. logs/20261112T214554.100346-0600-interim-dialog-identity.{txt,jsonl,json}:
+   NUL-delimited argv rendered as hex and text, root identity, concurrent noise.
+7. scripts/bench.py, scripts/console-command.py and
+   logs/20261112T202411-0600-software-verification.json:
+   current host behavior and prior PTY-only test assertions. A PTY simulation
+   is not a CMU transfer test.
+8. captures/20261112T213842.996395-0600-webcam.jpg and corresponding camera
+   metadata can support later offline image/report work. Treat notes' visual
+   findings as inherited until the development owner actually inspects pixels.
+
+Develop the host parser/manifest/session runner against sanitized fixture
+derivatives and an isolated PTY, with no real serial or camera device. Preserve
+the originals; keep derivative-to-source provenance. Meaningful tests must
+detect missing/duplicate/reordered chunks, command echo mistaken for a marker,
+interleaved byte noise, CRLF conversion, bad checksums, truncation, timeouts,
+lost prompt, changing source file and unexpected nonzero command status.
+All corrupt or incomplete cases must be rejected, never silently repaired and
+marked verified. Add no CMU resident agent, init hook or persistent service.
+Estimate: 2-4 focused engineering hours for a small reviewed parser/runner.
+
+The research-preservation owner should maintain a durable evidence index:
+claim, source path/URL, exact observed field, observation/retrieval date,
+firmware/hardware applicability, confidence, unresolved question, and next
+validation. Distinguish user-supplied constraints, downloaded documentation,
+inferences, proposed work and measured results. Preserve source documents when
+later research is authorized; retain retrieval provenance and hashes, not only
+link summaries. No external-source retrieval was performed by this planner.
+Record FlashFX/relfs format/recovery questions and transport support as open
+research rather than translating them into generic Linux assumptions.
+Estimate: 45-90 minutes for initial local index, then 10-20 minutes per session.
+
+Durability should include an immutable original-evidence manifest, checksummed
+derived fixtures, and a separately verified second host-side copy on an already
+available destination. Archive permissions and sanitized development copies
+must account for credentials in TX, FGSN/device IDs and Bluetooth identities in
+raw logs. Do not publish original login/event logs as fixtures. If no second
+destination is available, record "single host copy" explicitly; do not claim
+redundancy. This plan does not create the index, fixtures or second copy.
+
+PROPOSED SEQUENCE BEFORE ETHERNET
+
+All steps below are proposals for coordinator assignment. They were not run.
+Only one bench execution owner may hold the UART at a time. Route execution
+and communication through hc; Codex instances must use --no-daemon. Do not run
+a separate passive logger alongside a command session.
+
+0. Preserve and prepare on host.
+   Owner: development/research owner with baseline owner review.
+   Dependencies: existing files only; no hardware.
+   Work: retain originals, index claims, prepare framed protocol and bounded
+   command list; test decoder and session manifests with offline fixtures.
+   Pass: source hashes recorded, fixture provenance retained, corrupt/truncated
+   transfers fail closed, no real device opened.
+   Effort: archive/index 45-90 min; parser/runner 2-4 h, parallelizable by existing
+   assigned owners. No additional agents are requested by this plan.
+
+1. Establish a bounded monitoring session and capability inventory.
+   Owner: designated bench execution agent; coordinator owns UART scheduling.
+   Dependencies: working existing FTDI and running CMU, no human interaction.
+   Work: fresh host adapter identity, one exclusive port owner, 60 s passive
+   capture, framed id/uname/uptime check, then bounded read-only capability
+   discovery. Locate shell, BusyBox and optional base64, od, wc, stat, cksum,
+   sha256sum, dd, timeout, ps and dmesg capabilities before relying on syntax.
+   Pass: correct FTDI serial, raw/event reconstruction exact, uid=0 response,
+   command end/exit recorded, port closed at session end. Failure is recorded;
+   no blind login, privilege repair or service restart.
+   Effort: 10-20 min after host tooling is ready.
+
+2. First backup milestone: exact small firmware metadata.
+   Owner: bench execution agent; host verifier operated by development owner.
+   Dependencies: step 1 plus validated framed decoder and target checksum tool.
+   Work: capture /jci/version.ini as its own file, then /etc/version separately.
+   Use stable-source byte counts and remote checksums before/after transfer;
+   preserve both exact bytes and a parsed metadata view with its source hash.
+   Pass: exact host length, strict decode, target/host checksum equality,
+   unchanged pre/post source checksum, no missing frame and confirmed command
+   completion. Installed 55.00.750B/cmu150_NA parsed from the exact artifact.
+   If only cksum is present, record its CRC and byte count plus host SHA-256;
+   this is transfer-integrity evidence with a weaker target checksum, not a
+   device-side SHA-256 claim. A host-only hash never verifies remote equality.
+   Effort: 15-30 min including first transfer calibration and verification.
+
+3. Capture the runtime and storage baseline as small independent records.
+   Owner: bench execution agent; baseline owner interprets captured results.
+   Dependencies: step 1; framed capture and bounded output/time handling.
+   Work groups, using only commands supported by the discovered tool set:
+   - Identity/time: id, uname -a, /proc/version, /proc/cmdline, /proc/uptime,
+     /proc/loadavg, /proc/meminfo, boot ID if exposed. Host UTC/offset times are
+     authoritative for session ordering; CMU logs show epoch-era dates.
+   - Processes: supported ps format; executable/cmdline/status for selected
+     init, compositor, JCI, logging, power and network processes. Record PID
+     together with executable and start-time identity, never PID alone.
+   - Mounts/storage: /proc/mounts, /proc/filesystems, /proc/partitions,
+     /proc/devices, /proc/mtd if present, df output and top-level device-node
+     metadata. Record mount source, filesystem, flags, size and free space.
+     Inspect available sysfs block/MTD geometry and readonly attributes only
+     after confirming paths; do not infer that absent /proc/mtd means no NAND.
+   - Kernel/modules: /proc/modules, available module filenames and USB modalias/
+     driver links for enumerated devices; readable kernel config if supplied.
+     Distinguish loaded modules, installed candidates and builtin support.
+     Capture dmesg without clearing it, with explicit bounds/truncation state.
+   - Firmware/config: exact version metadata; metadata for /etc/fstab,
+     /etc/inittab and discovered startup scripts, boot/failsafe/update configs,
+     hardware/region settings and relevant symlink targets. Copy only selected
+     small regular files after reviewing path, size and persistence mapping.
+   - USB/SD/network observation: enumerated USB IDs, block devices, mounted
+     media, current interfaces/routes and existing SSH-process/listener state
+     where readable. Do not insert media, change USB roles, mount/unmount,
+     start DHCP/SSH, change routes or load modules for this inventory.
+   Avoid recursive reads of /, /proc or /dev, blocking /proc/kmsg, raw device
+   reads, full memory dumps and unbounded log/DB output. Use per-command limits
+   and a 10-15 min session budget; record omissions instead of escalating.
+   Pass: each work group has a completed capture or explicit unsupported/
+   unavailable reason. Produce a source-to-mount-to-persistence map with every
+   unresolved mapping marked unknown. Two low-cost snapshots 5-10 min apart
+   explain normal process/load/log drift without claiming crash-free uptime.
+   Effort: 30-60 min first pass including interpretation; 10-15 min repeat.
+
+4. Preserve a small, reviewed configuration set and summarize session health.
+   Owner: bench execution agent captures; baseline/research owner inventories.
+   Dependencies: steps 2-3 establish exact file protocol and persistence map.
+   Work: selected startup scripts, mount/config metadata and small firmware
+   descriptors, normally <=64 KiB per file and <=256 KiB total per session.
+   Begin with a 4-16 KiB pilot. Capture intended purpose, owner/mode, symlink
+   relationship and consistency limits. Do not scrape private-key trees or
+   live databases merely because they were listed; first inventory metadata.
+   Pass: verified files listed individually; unsupported, mutable or deferred
+   files marked accurately. Reconfirm shell identity and expected firmware,
+   compare low-cost mount/process health, close port, save complete bundle.
+   No new crash/restart or storage-error pattern attributable to capture is
+   seen in the observation window. Unknown watchdog/health status stays unknown.
+   Effort: 30-60 min initially; 10-20 min for a routine small bundle.
+
+5. Gate completion of the pre-Ethernet baseline.
+   Owner: coordinator reviews baseline and development/research outputs.
+   Dependencies: exact metadata capture, bounded inventory, provenance manifest.
+   Pass: at least one byte-exact remotely checked file; runtime/storage map with
+   known gaps; fixtures usable offline; repeatable bundle; second-copy status
+   explicit; USB/SD preserved; no firmware/settings modifications; no invented
+   recovery claim. Before this gate, status is "partial evidence collected".
+   Effort: 15-30 min review. Estimated combined bench/interpretation work after
+   tooling exists: about 1.5-3 h, not a promise of elapsed turnaround.
+
+UART FILE TRANSFER DESIGN AND RATE BUDGET
+
+115200 8N1 uses 1 start + 8 data + 1 stop bit per character: 115200/10 =
+11,520 serial payload bytes/s, about 11.25 KiB/s per direction, before console
+noise, framing, retries, command overhead or host handling. It is not 115,200
+bytes/s. Base64's 4/3 expansion reduces the ideal original-file rate to about
+8,640 bytes/s (8.44 KiB/s), lower again with line breaks/frame headers.
+Hex is at most 5,760 original bytes/s before framing. The 24,233-byte idle
+capture (~404 B/s average) measures unsolicited output, not transfer capacity.
+
+For rough planning only, use 2-6 KiB/s original-file throughput after encoding
+and overhead until measured with a verified small transfer. A 64 KiB file would
+take roughly 11-33 s of payload time at that assumed rate, plus setup/checks.
+A 1 GiB base64 transfer has a theoretical minimum of about 34.5 hours even with
+zero noise or retries; at the provisional 2-6 KiB/s it would take about 49-146
+hours. Bulk UART imaging is therefore excluded.
+
+Use a strict, unique nonce per transfer and unambiguous line-framed records:
+BEGIN with logical source path/length/encoding/checksum algorithm; numbered
+DATA records with offset, decoded length, encoded payload and source-computed
+chunk checksum where supported; END with total bytes, whole-file checksum and
+individual command status. Validate complete marker lines, not substrings in
+the echoed shell command. Preserve raw RX/TX so transport corruption is auditable.
+
+Choose 1-4 KiB decoded chunks and an ASCII-safe encoding supported by existing
+tools. The device need not write a staging file: read an allowlisted regular
+file by bounded ranges and stream encoded output. Compute source size and
+checksum before and after; the host decodes strictly, verifies exact contiguous
+offsets/sequence/length, then matches the whole-file checksum. With a static
+source and whole-file checksum only, a mismatch requires retry of the complete
+small file; do not advertise chunk verification/resume without chunk checksums.
+Never treat stripped log lines or guessed missing bytes as verified content.
+
+Console logs can interleave at byte boundaries, including inside payloads or
+echoed commands. Reject damaged frames; retry at most two times with a smaller
+chunk or stop and defer. Do not disable logging or kill services to quiet it.
+If existing tools cannot safely encode/checksum within the budget, record the
+limitation and defer. Do not upload binaries or install packages as a workaround.
+Dynamic /proc records are observations, not stable file backups; timestamp each
+capture and do not require equal pre/post hashes of changing live state.
+
+The host runner should wait for an authenticated, nonce-matched end record and
+prompt, not a fixed sleep. Give every operation an output cap and deadline. On
+timeout save partial evidence and mark command state unknown; do not issue a
+new command until the owner safely reestablishes a shell prompt. A serial close
+does not necessarily stop the remote command. Do not use blind Ctrl-C or kill
+broad process classes. Existing 30 s capture-window behavior needs to be
+accounted for before choosing even a 64 KiB UART file.
+
+BOOT-CRITICAL AND DEVICE-UNIQUE BACKUP CANDIDATES
+
+These are discovery categories, not claims about this CMU's exact layout.
+For each, record actual source path/device, physical versus logical layer,
+size/geometry, filesystem, read/write state, firmware binding and capture method.
+
+- Boot chain: bootloader(s), environment, boot configuration, partition/layout
+  descriptors, kernel and any device tree/initramfs, root filesystem, startup/
+  mount scripts, failsafe/recovery partitions and update metadata. Include
+  NOR/SPI or auxiliary-controller firmware only if actually identified.
+- Device identity/configuration: FGSN (present in login banner), factory serial/
+  part numbers, region/hardware variant, calibration and manufacturing records,
+  persistent NVRAM/config stores, VIN/pairing/coding if present, cryptographic
+  identities/certificates/keys and licenses if present. Do not infer exact paths
+  or export secret contents before the relevant store is mapped and reviewed.
+- User/feature state: persistent settings, paired-device/config databases,
+  navigation/SD entitlements and USB/media configuration. Observe existing
+  USB/SD device and mount state; do not write to, reformat or repurpose SD/USB.
+- External state: navigation SD and other controllers may contain data outside
+  the CMU filesystem. A CMU file archive cannot claim to cover these. No
+  auxiliary controller EEPROM or OTP probing is proposed before Ethernet.
+
+NAND uses proprietary FlashFX/relfs per the supplied constraint, so distinguish
+filesystem-level files, the FlashFX logical export, and physical NAND pages
+including bad-block/ECC/OOB metadata. A device-node dd read may capture only a
+translated logical view, omit necessary metadata, or give inconsistent live
+filesystem content. A hash proves byte stability of an acquired artifact; it
+does not prove a valid restore procedure or suitability for another unit.
+Do not provide a generic dd restore command, remount filesystems, stop the
+application stack, freeze storage, use NAND utilities, or invoke vendor
+reflash/reset scripts in this interim scope.
+
+A later recovery study must identify boot media/layout, exact FlashFX/relfs
+representation and tooling, factory/device-unique dependencies, consistency
+method and a recovery path compatible with that representation. Until a
+separately authorized representative restore succeeds, label any future bulk
+artifact "unvalidated acquisition", specifying layer and consistency limits.
+Never label a raw dd dump "tested recovery" or imply this plan created one.
+
+REPEATABLE MONITOR-SESSION BUNDLE
+
+Future logical bundle name: host timestamp with UTC offset plus session nonce.
+This is a proposed schema, not an existing saved bundle:
+- manifest: operator/owner, intent, phase, host timestamps plus monotonic timing,
+  host/tool/script versions and hashes, FTDI identity/settings, root check,
+  CMU version and observed uptime/boot identity, UART ownership, start/end state.
+- untouched raw RX .bin plus timestamped RX/TX .jsonl, with reconstruction check;
+  redact only derived copies and keep a provenance link to restricted originals.
+- exact command text, per-command markers/status, begin/end/duration/byte counts,
+  bounds, unsupported features, timeouts/retries and output completeness.
+- read-only runtime/mount/storage/module snapshots, exact small captured files
+  and their source path/stat/encoding/remote checksum/host SHA-256 provenance.
+- optional existing camera evidence by path/hash, or a separately authorized
+  bounded still owned by the camera agent; no new image is required by this plan.
+  Preserve available framing and visibility limits; no camera repositioning.
+- concise observation summary, expected log chatter versus newly observed
+  errors, before/after comparison, explicit failed/deferred milestones,
+  port-closed result and verified second-copy status.
+
+Each file needs a manifest entry and host SHA-256; distinguish immutable files
+from dynamic observations. Preserve original timestamps and permissions as
+metadata even when transport cannot preserve them. Evidence attribution must
+say whether bytes are exact, parsed, sanitized, truncated or merely referenced.
+Do not call a folder a complete baseline merely because it contains logs.
+
+DEFERRED WORK AND DEPENDENCIES
+
+- Ethernet/SSH: owner is the coordinator's transport agent. Hardware arrival,
+  physical connectivity and chipset/CMU driver compatibility are external
+  dependencies. The user will not perform installation/wiring during agent
+  work. Software cannot close a physical connection gap; leave it pending.
+  Read existing network/startup scripts and driver metadata as files first.
+  Do not persistently enable SSH/networking in this interim plan.
+  Once hardware is available, budget 1-3 h provisionally for link/driver/SSH
+  validation; incompatible hardware can block this estimate.
+- High-bandwidth validation: after an authorized reversible transport setup,
+  verify exact host-key/device identity and UID, transfer a small known file
+  with both-end checksums, then measure a bounded 1-10 MiB nonpersistent test
+  only if sufficient RAM and existing facilities are confirmed. Demonstrate
+  stable repeat transfer and compare USB/SD/mount state. Do not create large
+  test files on NAND. Estimate 30-60 min after link establishment.
+- USB mass storage is an alternative only if already attached, agent-accessible,
+  suitable host-readable destination and path/capacity/write policy are actually
+  validated. Current Mac USB enumeration does not prove a CMU export path or
+  a shuttle drive. No mode switching or user media shuttling is assumed.
+- Bulk backup: deferred until validated faster transport/destination, actual
+  storage map, free-space/rate budget, FlashFX/relfs acquisition method and live
+  consistency limitations are understood. Estimate bytes divided by measured
+  goodput plus verification and retries; geometry and method are not known, so
+  do not promise a complete-image duration now. Preservation research may take
+  several hours to days independently of transfer time.
+- Controlled boot/shutdown capture: deferred until agent-controlled power
+  hardware exists and B+/ACC behavior/shutdown timing are understood. Relay
+  arrival/model/wiring and commissioning are dependencies, not tasks for the
+  user. Never reboot or power-cycle just to obtain a nicer baseline.
+- Physical commander and actual USB/SD navigation remain unverified. A dialog
+  launch is not proof of those features. Any future automation must use an
+  already demonstrated software input path; otherwise retain the dependency.
+
+LOCAL EVIDENCE INTEGRITY CHECKS COMPLETED BY THIS PLANNER
+
+All below were host-only reads through hc, with Python bytecode writes disabled.
+- Passive UART JSONL reconstructed raw binary: PASS, 24,233 RX bytes,
+  808 events, zero TX events.
+- System-discovery JSONL RX reconstructed raw binary: PASS, 51,945 RX bytes,
+  1,677 events, two TX events.
+- Root-login JSONL RX reconstructed raw binary: PASS, 2,653 RX bytes,
+  104 events, five TX events.
+These checks show consistency of stored representations, not completeness on
+the physical wire and not transfer/recovery validation.
+
+Selected host SHA-256 provenance (computed now; no remote checksum implied):
+scripts/bench.py
+  bytes=9340
+  sha256=d660698f22863142aa0adf45c5c4eaba68085423362738c499b0fba53194f948
+scripts/console-command.py
+  bytes=4377
+  sha256=f3c44eb94b0d7d71ef5d371602894fdf71f5730330728e5b7f650a9b37504065
+inventory/20261112T2135-cmu-version.ini
+  bytes=13334; status=extracted metadata/reference, not exact source backup
+  sha256=64cd98721f7ef65023ad894e0acf36ce80929720343f2ce27b785548c8956acd
+logs/20261112T213105.531697-0600-uart.bin
+  bytes=24233
+  sha256=4d7f59192a0a83ad199f139297df5ae1f3c91e3330ff1f7bca814285830a0c47
+logs/20261112T213105.531697-0600-uart.jsonl
+  bytes=110274
+  sha256=63040f321832b62964fe3b0413b75eed2914e6207ea687786817805174eea84c
+logs/20261112T213524.771496-0600-system-discovery.bin
+  bytes=51945
+  sha256=a20fafb1bf820fcc02b4b4d32976c939dd9c8507fba4d9991d8594e87347f2c1
+logs/20261112T213816.865970-0600-console-root-login.bin
+  bytes=2653
+  sha256=839a514cdd1e430d823c0692c9cbd5a482f02e0a67fdea4b9a8ced2ae4528282
+
+No baseline backup exists on the strength of this assignment. The delivered
+result is this evidence-based plan, with the exact-file capture, offline
+development fixtures, durable research preservation and transport/recovery
+gates clearly identified for subsequent assignment.

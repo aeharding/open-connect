@@ -1,0 +1,26 @@
+Canonical research records
+index.tsv is the searchable catalog; index.txt is its human entry point.
+facts.jsonl stores atomic claims with classification, scope, limits and evidence.
+Classification keeps observed local bytes, prior/current operator observations,
+manufacturer references, community references, interpretation/inference,
+inherited unresolved references, and evidence gaps distinct.
+Every evidence ref has original path and host SHA-256 plus a relevant locator.
+A host hash proves local byte identity only. It is not a remote comparison.
+Sources/manifest.jsonl records exact requested/final URL, retrieval UTC, hash,
+size, content metadata, relevant page/section, applicability, support, conflicts,
+prior-review match and superseded status. Original snapshots/text stay ignored.
+Hypotheses retain open questions, test, dependencies and disposition; no result
+means unknown. Decisions are dated append-only records with rationale and
+alternatives. Supersede by new IDs rather than silently rewriting history.
+The initial original manifest is a point-in-time inventory, not an archive.
+New operator evidence has a separate supplemental manifest; do not merge an
+ongoing run into an old snapshot or claim original immutability from a path alone.
+Fixtures are small explicitly sanitized derivatives. Their kind/transformation
+and original hashes are recorded; they are not raw login or replay transcripts.
+Do not place credentials, TX login data, FGSN, BT identities, private keys,
+copied CMU configuration or original photos inside tracked fixtures.
+Use explicit staging allowlists. Never assume .gitignore removes tracked data.
+Run index rebuild after appending records:
+  hc exec --cwd /Users/aeharding/mazda-cmu-bench python3 research/tools/rebuild_index.py
+New source editions get new immutable paths and new records. Do not rerun the
+one-shot seed/download scripts over existing catalog files.

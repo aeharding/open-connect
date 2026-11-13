@@ -1,0 +1,78 @@
+RESEARCH / WORKSPACE PRESERVATION RESULT — derived, host-only
+2026-11-12 America/Chicago. Coordinator t6; worker t13; hardware owner t14.
+Initial commit: identify this report with git log -1 --format=%H -- notes/research-preservation-result.txt.
+The exact commit hash is reported to t6 after committing (a file cannot contain its own commit hash).
+
+Created local Git main, no remote; used existing configured identity unchanged.
+Tracked source/instructions/plans plus owned research files only, by exact reviewed allowlist.
+Other-worker code, operator notes/output and raw/private evidence were not staged.
+README received only the research entry and current constraint/precedence clarification.
+
+Saved sources (ignored originals; requested/final URLs and full hashes in research/sources/manifest.jsonl):
+- Mazda2018 MC-10144323-9999.pdf:4217760B, SHA2560e8d022212049408e49453718806dfeb7c608faa2271e2b71e3e98f75b0b3494.
+  PDFp9/20 Common-2 (also13/20) literal v70.00.21. Prior-review hash/size match.
+- Mazda2019 MC-10159198-0001.pdf:851674B, SHA2560c8996c9df0f24c117534aebfe3cbc1017c1d522f5fccae9b46be9729883a57d.
+  PDFp9/9 literal70.00.021B; p3 failure mode, p7-9 recovery context. Prior-review match.
+- Named silverchris hardware.md:9233B; primary community author notes, bench applicability unverified.
+- Official pySerial API HTML:170867B. All4 source files reread/hash verified.
+Snapshot root:research/sources/snapshots/20261113T043356Z/ (ignored).
+
+Catalog:30 scoped claims,8 open hypotheses,7 dated decisions,184 searchable entries.
+119 initial evidence/context files hashed. 105 raw originals unchanged;
+only README intentionally differs from the initial context snapshot.
+18 historical JSONL RX streams reconstruct raw .bin exactly, companion .txt match,
+and5 prior-review original-evidence hashes match. Four allowlisted sanitized
+summary fixtures export no login/TX credentials, FGSN or Bluetooth identities.
+New t14 capability evidence has a separate13-file hash manifest; not a backup.
+All fact/source hash links validated; all18 exclusion probes pass.
+Tooling worker's lock defaults outside repo in OS tempdir/cmu-bench-locks-<uid>/;
+explicit production bundles belong in ignored runs/. New tooling remains unstaged.
+
+Exclusions checked:logs/,captures/,inventory/,runs/,exports/backups/,backups/,
+.state/,.bench-state/,locks/,sessions/,.venv/,caches,private/credential paths,
+and research/sources/snapshots/. No raw snapshots, device file copies or private
+login captures are in the Git index. Exact tracked-path allowlist follows.
+
+Remaining gaps:the13334B extracted version.ini stays unchanged as metadata,
+not exact backup; remote source metadata says13304B. No verified complete
+backup/recovery, second copy, physical commander, usable USB/SD, exact hub,
+Ethernet/SSH link or power/relay behavior. Preserve connector-view and hub1A
+conflicts. Keep firmware55,power,accounts,persistent settings,USB/SD and networking.
+AFK user performs no physical actions. t14 later reported unresolved continuation
+input after a truncated request and failed one-ETX recovery; sends are stopped.
+Separate bounded recovery research is pending after this preservation commit.
+
+Exact initial-commit paths:
+  .gitignore
+  AGENTS.md
+  README.txt
+  notes/interim-baseline-plan.txt
+  notes/interim-development-research-plan.txt
+  notes/interim-operator-plan.txt
+  notes/interim-plan.txt
+  notes/research-preservation-result.txt
+  requirements.txt
+  research/SCHEMA.txt
+  research/context/SUMMARY.txt
+  research/decisions/2026-11-12-preservation.jsonl
+  research/facts.jsonl
+  research/fixtures/dialog-lifecycle.json
+  research/fixtures/firmware-fields.json
+  research/fixtures/identity-results.json
+  research/fixtures/input-listing.json
+  research/hypotheses.jsonl
+  research/index.tsv
+  research/index.txt
+  research/manifests/2026-11-12-current-capability-evidence.json
+  research/manifests/2026-11-12-preservation-review.json
+  research/manifests/2026-11-12-saved-evidence-audit.json
+  research/manifests/20261113T043356Z-original-evidence.json
+  research/manifests/initial-commit-allowlist.txt
+  research/sources/manifest.jsonl
+  research/tools/audit_saved_evidence.py
+  research/tools/extract-pdf-text.swift
+  research/tools/preserve.py
+  research/tools/rebuild_index.py
+  research/tools/seed_catalog.py
+  scripts/bench.py
+  scripts/console-command.py

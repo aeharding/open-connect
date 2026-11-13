@@ -1,0 +1,44 @@
+{
+  "kind": "derived-sanitized-lifecycle-summary; not a new experiment",
+  "transformation": "Export allowlisted process identity, marker assertions, and operator visual attestation; omit unrelated runtime logs.",
+  "sources": [
+    {
+      "path": "logs/20261112T214554.100346-0600-interim-dialog-identity.bin",
+      "sha256": "4aed56808e173964ab1475ae2c02cebe1ee15ef2626b237bd3b182c78425c58c",
+      "bytes": 2594,
+      "locator": "identity historical console capture"
+    },
+    {
+      "path": "logs/20261112T214618.244266-0600-interim-dialog-cleanup.bin",
+      "sha256": "22cd358b880b83a7c6ae454e61d6fd11ad962eb44d6231639d1ae5a11409c175",
+      "bytes": 2702,
+      "locator": "cleanup historical console capture"
+    },
+    {
+      "path": "logs/20261112T214645.784072-0600-interim-dialog-postcheck.bin",
+      "sha256": "ea4d0357a2b864de9cafd4388ef9c23f0231d0a0ce8c30009ac61175465b8008",
+      "bytes": 1972,
+      "locator": "postcheck historical console capture"
+    },
+    {
+      "path": "notes/interim-operator-plan.txt",
+      "sha256": "d72bbaa4bf35443e3c30c00ce178005773de0de80b217247436f8bffe8fd51f5",
+      "bytes": 19174,
+      "locator": "What was actually checked, sections 1-2"
+    },
+    {
+      "path": "captures/20261112T214650.188879-0600-webcam.jpg",
+      "sha256": "2a25e382c5fe1089e1793e3e193ec6893255c9134013421913fc5ef9f6095c8f",
+      "bytes": 126507,
+      "locator": "historical post-cleanup frame; operator inspected"
+    }
+  ],
+  "historical_owned_pid": 18090,
+  "pid_reuse_forbidden": true,
+  "expected_executable": "/jci/tools/jci-dialog",
+  "expected_title": "Mac Mini connected",
+  "termination_marker_returned": true,
+  "absence_marker_returned": true,
+  "visual_result": "Prior operator reports home menu with Communication selected and no test dialog.",
+  "visibility_limits": "Angled, left edge cropped, highlights bright; no new image inspection in preservation task."
+}

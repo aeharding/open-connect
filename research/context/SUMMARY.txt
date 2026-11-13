@@ -1,0 +1,72 @@
+DERIVED HANDOFF SUMMARY — not an original user or hardware document
+Prepared 2026-11-12 (America/Chicago); catalog uses UTC timestamps.
+Coordinator: Herdr t6. Current sole hardware owner: t14. Research worker: t13.
+Start: research/index.txt; searchable catalog: research/index.tsv.
+Original records remain in their original paths. References carry host SHA-256.
+
+CONSTRAINTS AND SCOPE
+No human bench interaction is available. Agents own software operation/cleanup.
+No firmware change (keep55.00.750B/cmu150_NA), power change, account/permission
+change, persistent-setting change, USB/SD change or networking change.
+No UART/camera/CMU access by this research worker. All operations use Herdr hc.
+No subagents. Physical actions unavailable through automation are dependencies.
+Existing scripts are historical tools, not proof that a new command completed.
+No recurring schedule, publishing, remote Git repository or firmware action.
+
+OBSERVED AND REPORTED STATE
+Stored evidence establishes 1152008N1 two-way UART, user uid1000, direct root uid0,
+Linux3.0.35 ARMv7l, and installed55.00.750B. NEXT_VER55.00.800 is separate metadata.
+FTDI identity0403:6001 A9048JM0; future acquisition must re-enumerate.
+A root-launched native test dialog was visible, then its exact cmdline was checked
+twice, only its owned process was terminated, absence was confirmed and a fresh
+operator-inspected frame showed home without it. PID18090 is historical only.
+The old left_for_user_to_dismiss_with_ok flag is superseded. No manual OK is due.
+Input nodes were listed, not injected. Synthetic input cannot validate commander.
+Camera framing is angled/cropped; no assumption of complete control visibility.
+Root was verified historically; current shell state must be checked afresh.
+Later coordinator report: a truncated1363-byte request entered a continuation
+prompt. One authorized ETX did not recover a root prompt; sends are stopped.
+Recovery remains unresolved. See the separate console recovery research requested
+by t6; no new input or live recovery action is authorized for this worker.
+
+NEW OPERATOR CAPABILITIES (t14,22:33–22:34CST; F028–F030)
+BusyBox1.19.2; sha256sum not found in PATH/rc127; MD5+cksum and encoding tools
+available. timeout requires -t SECS. Remote version.ini13304B; /etc/version31B.
+Exact hashes/counts and raw support paths are in the supplemental manifest.
+This is metadata/probe evidence, not a copied or verified backup.
+
+SOURCE AND HARDWARE LIMITS
+Saved Mazda2018 PDFp9/20 says v70.00.21; Mazda2019p9/9 says70.00.021B.
+Both PDF byte counts/hashes match prior reviews. Current55 is below those
+retrofit prerequisites; actual hub identity and legacy USB/SD function stay unknown.
+The version strings remain literal; no silent patch-equivalence or flash advice.
+Community hardware notes are reference context, not manufacturer wiring proof.
+
+UNRESOLVED PHYSICAL REFERENCE CONFLICTS AND DEPENDENCIES
+- Rev3 versus spoken2S/2T connector viewing direction remains conflicted.
+  Working UART proves the used path, not every harness mapping/contact.
+- Rev3 hub1A-ground conflicts with reported factory-empty cavity1A.
+- Hub1E/1G AUX donor extraction/contact fit remains unknown.
+- Sumitomo6098-5611 is explicitly unverified, not a purchase specification.
+- Actual hub/cables, physical commander, usable USB media and SD navigation are
+  unverified. Preserve USB/SD; AUX is not required.
+- Relay model, channels, B+/ACC wiring and shutdown timing are unverified.
+- Ethernet arrival/attachment/chipset/driver/link/SSH remain dependencies.
+- Camera missing edges cannot be recovered by physical movement in this task.
+- Rev3 Library identifier is retained in notes/status.txt; no Rev3 PDF was
+  retrieved or independently validated here. No generic Linux restore assumed.
+
+PRESERVATION AND HANDOFF
+119 initial original/context files are hashed;18 historical RX streams reconstruct
+exactly from JSONL, and five previously published evidence hashes match.
+Four small allowlisted sanitized summaries contain no login/TX credentials,
+Bluetooth identities or FGSN. They are derived assertions, not complete transcripts.
+Original evidence and source snapshots are ignored and remain local.
+inventory/20261112T2135-cmu-version.ini is13334B with unrelated trailing output:
+preserve unchanged as metadata, never call it a byte-exact backup.
+Local Git/manifests are not an independent second copy, full backup or recovery.
+No verified second destination or demonstrated restore is known.
+Next work is H003: accept offline framed tooling, then operator-capture one exact
+small file using remote/host count+checksum and source stability. Index future
+run results without rewriting originals, old claims or source editions.
+Review notes/research-preservation-result.txt for commit and final exclusions.

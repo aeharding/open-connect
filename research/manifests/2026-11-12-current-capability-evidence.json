@@ -1,0 +1,86 @@
+{
+  "created_at": "2026-11-13T04:40:12.680389+00:00",
+  "origin": "t6 Herdr message refers t14 tool-capabilities.txt; source report names raw prefixes",
+  "scope": "Current operator report plus locally hashed supporting original files; no hardware access by preservation worker",
+  "files": [
+    {
+      "path": "runs/20261112T223253-0600-t14-afk-baseline/tool-capabilities.txt",
+      "sha256": "73dea4e948d2ee3ecf7a4446591e9e81a77e7de2d97ef60fee9f71bbee2b8ac2",
+      "bytes": 2336,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223327.247687-0600-afk-t14-identity.bin",
+      "sha256": "5d3f1ef57ddebeb1d41a958c6c01b90633b9222fcb601f332819d4255086681a",
+      "bytes": 2168,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223327.247687-0600-afk-t14-identity.jsonl",
+      "sha256": "bc7ae826a3cf78013b0a0b04b4513f52e1ff56e4f0e695817a1bd688ef2dc866",
+      "bytes": 10077,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223327.247687-0600-afk-t14-identity.json",
+      "sha256": "d50bda9b0076f3aad1e9698ac30db86c311d716077b2d4d3e6b40e367c1cc5d1",
+      "bytes": 648,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223327.247687-0600-afk-t14-identity.txt",
+      "sha256": "5d3f1ef57ddebeb1d41a958c6c01b90633b9222fcb601f332819d4255086681a",
+      "bytes": 2168,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223344.922252-0600-afk-t14-toolpaths.bin",
+      "sha256": "41219027f7b1268088ada9f4740931d915f5369ed3876e347aa5669e2fd96923",
+      "bytes": 4737,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223344.922252-0600-afk-t14-toolpaths.jsonl",
+      "sha256": "1da565b5b22224c216fa56b34395ff5aa8da1e2a6b2c0811c9918b90bae38a4c",
+      "bytes": 21403,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223344.922252-0600-afk-t14-toolpaths.json",
+      "sha256": "2d2e955c41fcb99f85d9d62ec69e17a81d49e07238f9290f9fbec3dcb876dbf8",
+      "bytes": 830,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223344.922252-0600-afk-t14-toolpaths.txt",
+      "sha256": "41219027f7b1268088ada9f4740931d915f5369ed3876e347aa5669e2fd96923",
+      "bytes": 4737,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223408.808470-0600-afk-t14-capdetail.bin",
+      "sha256": "fb433172b47ba9ab4819d4cbc103e85c0e757327cc5588033c8ca7935257ba2a",
+      "bytes": 8045,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223408.808470-0600-afk-t14-capdetail.jsonl",
+      "sha256": "e55a887332439650555fe7104e899bdb9c2695ba8bae5589f58bc0953d056d12",
+      "bytes": 36283,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223408.808470-0600-afk-t14-capdetail.json",
+      "sha256": "ca67bf213a1ec918baf1f2848d9c7d7e2d937f2795f211fce9015c19c0d35973",
+      "bytes": 1372,
+      "access": "local-only; potentially private raw output"
+    },
+    {
+      "path": "logs/20261112T223408.808470-0600-afk-t14-capdetail.txt",
+      "sha256": "fb433172b47ba9ab4819d4cbc103e85c0e757327cc5588033c8ca7935257ba2a",
+      "bytes": 8045,
+      "access": "local-only; potentially private raw output"
+    }
+  ],
+  "limits": "No exact copied backup yet. Remote MD5/cksum metadata is reported, not device-side SHA-256. Raw source contents never committed."
+}

@@ -1,0 +1,27 @@
+{
+  "kind": "derived-sanitized-assertions; no replayable login/TX data",
+  "transformation": "Check exact uid response bytes in raw RX; export only UID and boolean.",
+  "checks": [
+    {
+      "source": {
+        "path": "logs/20261112T213428.427657-0600-console-login.bin",
+        "sha256": "55676e55b515a56dceef690271b1ed49fc359ef12290c8d4fad8d3f82595e558",
+        "bytes": 3872,
+        "locator": "fresh id response after historical login"
+      },
+      "uid": 1000,
+      "response_present": true
+    },
+    {
+      "source": {
+        "path": "logs/20261112T213816.865970-0600-console-root-login.bin",
+        "sha256": "839a514cdd1e430d823c0692c9cbd5a482f02e0a67fdea4b9a8ced2ae4528282",
+        "bytes": 2653,
+        "locator": "fresh id response after historical login"
+      },
+      "uid": 0,
+      "response_present": true
+    }
+  ],
+  "limit": "Historical evidence only; no claim about current shell state."
+}

@@ -1,0 +1,297 @@
+Mazda CMU interim hands-off operator plan
+Prepared November 12, 2026, America/Chicago, from checks at 21:45-21:48 CST.
+Coordinator: Herdr t6. Assigned UART/camera owner for this turn: t8.
+Working directory: /Users/aeharding/mazda-cmu-bench
+
+RESULT AND AUTHORIZATION BOUNDARY
+
+The coordinator's exact test dialog was cleared without physical interaction.
+PID 18090 no longer exists, and a fresh webcam frame shows the Mazda home menu
+with Communication selected and no test information dialog. UART remains in the
+root shell; the Mac serial port was closed after every command.
+
+This turn performed only the explicitly authorized existing-dialog termination,
+read-only console/host checks, and a normal webcam capture. No app-navigation or
+input-injection experiment was performed. No new dialog was launched. No CMU
+file, firmware, account permission, persistent setting, network configuration,
+power state, or wiring was modified. No tools were installed. USB and SD remain
+in scope; AUX is unnecessary. No subagents were started. Herdr t11 was a plain
+camera program, exited successfully, and was removed after collecting output.
+
+All commands and file access used hc. The only authored deliverable is this .txt
+file. Existing helpers also produced their required timestamped evidence files;
+those logs and the camera JPEG were preserved. README.txt and notes/status.txt
+were read, not edited. Inherited wording assigning wiring or dismissal to the
+user is superseded by this turn's explicit hands-off constraint.
+
+WHAT WAS ACTUALLY CHECKED
+
+1. Dialog identity and targeted cleanup.
+   scripts/console-command.py uniquely selected FTDI VID:PID 0403:6001, serial
+   A9048JM0, at /dev/cu.usbserial-A9048JM0. It used 115200 8N1, all flow control
+   disabled, RTS/DTR requested inactive, and exclusive=True.
+   At 21:45:54 id returned uid=0(root), gid=0(root). Reading
+   /proc/18090/cmdline as raw hex and NUL-separated arguments established:
+     /jci/tools/jci-dialog
+     --info
+     --no-cancel
+     --title=Mac Mini connected
+     --text=Hello from your test bench agent! UART control is working.
+   At 21:46:18 a second check compared the COMPLETE raw cmdline, including NUL
+   separators, to those exact arguments, and required id -u = 0 immediately
+   before kill -TERM 18090. The returned marker was TERM_SENT_ONLY_PID18090.
+   No process-name-wide kill or escalation to SIGKILL was used.
+   At 21:46:45 the shell reported that exact background command Terminated,
+   id again returned root, and the check returned PID18090_ABSENT_CONFIRMED.
+
+2. Camera evidence through normal Herdr execution.
+   Existing scripts/bench.py camera ran in an hc terminal using the existing
+   /opt/homebrew/bin/ffmpeg and the exact current device name
+   USB Camera VID:1133 PID:2085. It re-enumerated devices, selected index 0,
+   used video only (0:none), 1280x720 UYVY, requested 5 fps, warmed up for two
+   seconds, and saved one JPEG. No privacy workaround or permission change
+   was attempted or needed. FFmpeg returned 0; capture_ok=true; 126507 bytes.
+   The JPEG was read through hc and visually inspected, not merely listed.
+   Observed: home menu, Communication selected, no test dialog, clock 9:21.
+   The left edge of the active display is cropped, the view is angled, and
+   highlights are bright. This frame supports dialog removal/home-menu state;
+   it does not support complete edge-control coverage or precise coordinates.
+   The CMU clock differs from the Mac time; use host capture timestamps.
+   Other enumerated cameras included iPhone/Desk View; neither was used.
+
+3. Read-only input/navigation discovery at 21:47:42.
+   /proc/bus/input/devices and /dev/input show:
+     event0: LVDS TouchScreen
+     event1: Virtual Keyboard; keyboard0 and keyboard1 symlink here
+     event2: Virtual Mouse; mouse0 symlink here
+     event3: filtered-keyboard; filtered-keyboard0 symlink here
+     event4: filtered-mouse; filtered-mouse0 and mice symlink here
+     event5: filtered-touchscreen; filtered-touchscreen0 symlink here
+   /dev/uinput exists as character device 10:223, root-only (0600).
+   event0 through event5 are also root-only. These nodes establish available
+   interfaces, not working software navigation or commander equivalence.
+   No device was opened for event injection, grabbed, or written.
+   command -v found /usr/bin/dbus-send, /usr/bin/dbus-monitor,
+   /usr/bin/timeout, /usr/bin/strings, /bin/grep, and /usr/bin/find.
+   evtest, getevent, sendevent, and xdotool were not found in the shell PATH;
+   this does not prove they are absent everywhere on the filesystem.
+   /tmp/dbus.env and the HMI/service sockets exist. Their protocols and
+   actionable methods were not inspected or exercised this turn.
+   /jci/gui contains apps, common, framework, index.html, and resources.
+   No specifically named physical commander appeared in the input listing;
+   that does not exclude a commander routed through another service.
+
+4. Evidence integrity and ownership release.
+   All four console sessions recorded RX/TX and closed their serial connection.
+   Their JSONL RX bytes exactly reconstruct each corresponding raw .bin;
+   each companion .txt also matches the raw bytes. No console logs were deleted.
+   After the last UART command, /usr/sbin/lsof -n on the cu device returned no
+   entries (exit 1). This supports no current open handle on that checked path;
+   a future owner must still recheck ownership and both cu/tty aliases.
+   No applicable AGENTS.md was found in the workspace or its ancestors.
+
+PROPOSED WORK FOR THE NEXT FEW DAYS; NOT STARTED BY THIS PLAN
+
+Day 1: Make the Mac-side operating contract concrete, without CMU modification.
+
+A. Single owner for UART and camera.
+   Keep one named operator terminal as the only process allowed to open the
+   physical UART. The coordinator queues requests with hc send; research agents
+   use saved logs, source extracts, and frames. No separate screen/cu session,
+   passive logger, or second command helper may open the UART simultaneously.
+   Use an application lease keyed by adapter serial A9048JM0, recording owner
+   terminal, host PID, request ID, and acquisition time. Reclaim a stale lease
+   only after checking the owning process and actual serial handles, including
+   /dev/tty.usbserial-A9048JM0. pySerial exclusive=True is a useful additional
+   advisory guard; do not treat it as a universal lock against other tools.
+   Camera ownership should likewise prevent concurrent captures/exposure races.
+   Handoff includes pending commands, prompt/identity evidence, owned PIDs, and
+   evidence paths, followed by confirmed port release. Do not log out the CMU.
+
+B. Console state and identity protocol.
+   Re-enumerate by VID/PID AND serial for every acquisition; fail if absent or
+   ambiguous rather than selecting a different serial adapter. Apply the known
+   UART settings before open, with RTS/DTR inactive and no break/reset action.
+   Begin with a short receive-only window. Classify login prompt, password
+   prompt, shell prompt, foreground application, boot output, or unknown state.
+   The existing helper sends CR before its prompt check and accepts a broad
+   #/$ prompt regex. This is adequate for the currently known shell checks but
+   needs a guarded state layer before general unattended use. Silence alone
+   does not justify Enter, credentials, Ctrl-C, or arbitrary shell commands.
+   When the known shell is established, send a short uniquely marked id check;
+   require the fresh response, expected uid, command completion, and prompt.
+   Match version fields from /jci/version.ini when establishing a session:
+   known installed firmware is 55.00.750B, cmu150_NA; NEXT_VER is not installed.
+   Do not infer root merely from #. If login becomes necessary, stop that
+   transaction and use only the already authorized credential procedure after
+   distinguishing login from password state; never send credentials blindly.
+   Preserve credential secrecy in future logs. No account changes are needed.
+
+C. Completion and evidence, rather than fixed sleeps.
+   The current helper's status 'command capture finished' means its read window
+   ended, not that the CMU command succeeded. Plan a wrapper with unique begin
+   and end markers, captured shell exit status, expected output, and a returned
+   prompt. Account for asynchronous CMU log lines and terminal line wrapping;
+   neither an echoed command nor a marker embedded in that echo is completion.
+   Keep raw RX bytes and timestamped RX/TX events as the source of truth.
+   A future continuous broker could avoid gaps between one-shot command logs;
+   do not claim this turn captured a continuous boot/runtime trace.
+   Validate any new host parsing/lease code against saved transcripts and
+   pseudo-terminals before proposing a new live bench action.
+
+Day 1-2: Discover software navigation without changing UI state.
+
+D. Read the installed interface definitions first.
+   Use small bounded read-only extracts of /jci/gui/framework, common, and the
+   relevant app code to trace keyboard/rotary/touch handlers, event constants,
+   and the HMI/commander routing. Inspect existing configuration and service
+   definitions for the actual D-Bus address, destination, object path, method,
+   argument types, and available read-only state queries. Do not guess methods
+   from socket filenames or generic Linux desktop conventions.
+   If documented introspection or passive monitoring is appropriate, bound its
+   lifetime and output; a command named introspect is not automatically safe
+   unless the target and behavior are known. Do not launch test/factory apps,
+   developer modes, remote-debug modes, or a browser console for discovery.
+   Record a navigation table: action, source-backed interface, parameters,
+   privilege, expected state/evidence, release/undo, timeout, confidence.
+   Root-only input access and the earlier ordinary-user compositor denial mean
+   privilege must be explicit. Do not change node modes or account permissions.
+
+E. Evaluate candidate input paths in this order, still as planning.
+   First consider an installed, documented semantic HMI input API with bounded
+   requests and readable state. Next investigate the existing virtual-input
+   path and filtering, using the actual CMU ARM/kernel event ABI and key map.
+   /dev/uinput existence alone does not supply a ready-made sender. Do not
+   assume writing text to /dev/input/eventX navigates the UI, or that Mac input
+   events reach the CMU. No injector compilation/upload/installation is
+   authorized by the current scope. A physical USB keyboard/controller would
+   also require hardware attachment and would not prove commander behavior.
+   Deliver the mapping and unresolved questions even if no usable API exists.
+   Ethernet is not required for this source discovery; UART is sufficient for
+   short extracts. Large transfers and convenient shell access can wait.
+
+F. Dialog policy for future work.
+   The proven capability is launching the native test dialog in the prior
+   session and now terminating that exact owned dialog process. This is not
+   proof of pressing OK, navigating applications, or dismissing arbitrary OEM
+   warnings. Never kill all dialog processes or dismiss unknown dialogs.
+   If future reversible UI tests are separately authorized, use a known state,
+   one action, fresh camera evidence, and a verified return path. For an
+   agent-created dialog, record PID, start time, full cmdline, title, and prior
+   UI; attach targeted cleanup to every success/failure path. Prefer a verified
+   timeout option if the installed tool actually supports one. Avoid creating
+   another no-cancel/no-timeout modal until automated cleanup is established.
+   Recheck process identity immediately before targeted termination. If gone,
+   do nothing; if reused or mismatched, stop. Recheck both process and camera
+   after cleanup. Treat unknown warning/update/security dialogs as stop states.
+   Do not use the current PID 18090 as a reusable identifier.
+
+Day 2-3: Prepare the future reversible experiment sequence and evidence format.
+
+G. Camera consistency.
+   Re-enumerate the exact USB webcam each time; indices can change. Associate
+   name with known USB identity 046d:0825, serial 1AD54210, when ambiguity occurs.
+   Fail on ambiguity rather than falling back to iPhone, microphone, or screen.
+   Retain existing 1280x720, UYVY, requested 5 fps, warmup, and no-audio settings
+   as a repeatable baseline. Save full originals, host timestamp/timezone,
+   command/request ID, device, actual FFmpeg format/rate, return code, stderr,
+   file size, and the operator's visible-state/quality assessment. The observed
+   input was reported as 24.75 fps despite the 5 fps request; do not claim a
+   measured 5 fps stream. Link before/after images to UART logs.
+   Only successful, decoded, visually inspected fresh images count as evidence.
+   A listing, nonzero JPEG alone, timeout, OCR guess, or old frame is inadequate.
+   Use host time and a fresh capture for ordering, not the CMU clock. For a
+   future UI test, capture before, then after a bounded settle interval; allow
+   a second verification capture if the state is ambiguous. Store observed
+   state separately from inferred success. Do not reposition the camera.
+   Digital cropping/perspective correction may improve visible content, but
+   cannot recover missing display edges or blown-out detail. Mark those tests
+   as unable to verify if current framing cannot show the required control.
+   Herdr capture succeeded now. If a later run is denied/pending or times out
+   because of macOS privacy, save the real error and stop camera-dependent
+   tests. Do not bypass TCC, change permissions, or request user interaction.
+
+H. Explicit timeout and cleanup contract.
+   Use short read-only requests whose output fits the UART budget. Default
+   prompt/identity budget: about 3 seconds; completion budget: 5 seconds,
+   extended to at most 30 only for a justified bounded command. These are
+   proposed defaults, not measured reliability limits. A missing completion
+   marker means unknown outcome; never blindly retry a state-changing command.
+   Keep read-only monitor commands self-bounded on the CMU using the observed
+   timeout tool after checking its syntax. Closing the Mac port does not
+   necessarily stop a foreground CMU process. No blind Ctrl-C, exit, reset,
+   reboot, or power cut is part of recovery. On an uncertain state, stop sends,
+   close the Mac handle, preserve the transcript, and report to t6.
+   Existing camera enumeration has a 20-second subprocess limit and capture a
+   25-second limit; allow roughly 50 seconds overall before reporting failure.
+   Run potentially slow operations in an hc program terminal so messages remain
+   available. Wait with hc wait, collect output, and remove only owned helper
+   terminals after exit. Do not restart/stop the shared Herdr core.
+   A failed read-only capture can receive one bounded retry after re-enumeration
+   if no privacy decision is pending. Preserve both attempts. Repeated failure
+   becomes a dependency, not a retry loop. Leave no logger/camera monitor running
+   after handoff. Do not introduce scheduled autonomous bench work from this
+   plan alone.
+
+I. Readiness gate for later active UI work, outside current authorization.
+   Require single owner, known shell/uid/firmware, complete logs, usable fresh
+   camera evidence, source-backed input mapping, one bounded reversible action,
+   and an automatic cleanup path before starting any navigation experiment.
+   Start with a harmless focus movement/return only after authorization exists;
+   pair press/release if the eventual API requires them, and stop if focus or
+   release cannot be verified. Do not jump directly to settings, pairing,
+   factory tools, updates, or media operations with unknown side effects.
+   A future known test modal may test software OK separately; targeted process
+   termination remains a separate capability. Preserve USB/SD functionality
+   throughout; do not format, unplug, repurpose supply pins, or alter mounts to
+   force a test result. No actual active UI experiment was done this turn.
+
+DEPENDENCIES THAT SOFTWARE CANNOT CURRENTLY COMPLETE
+
+- Physical commander rotation, tilt, buttons, force/feel, and end-to-end wiring
+  response cannot be validated by generating virtual input. There is no
+  verified motorized actuator or electrical commander simulator. Software API
+  discovery can proceed; physical acceptance remains an external dependency.
+- Inserting/removing USB media or SD cards, changing cables/hub ports, repairing
+  contacts, and proving retrofit-hub power/data wiring need existing physical
+  hardware or a separately supplied automation fixture. A Mac-visible USB hub
+  is not proof of CMU USB/SD function, nor proof of per-port power switching.
+- Ethernet/SSH equipment is expected in a few days. Physical arrival and
+  attachment, adapter identification, CMU driver/link support, addressing, and
+  SSH service readiness are dependencies. Do not modify networking, start
+  services, or repurpose the required USB/SD paths under this planning scope.
+- No identifiable USB relay was recorded in the inherited inventory. B+/ACC
+  wiring, relay channel behavior, current capacity, and real shutdown timing
+  are unverified. No automated power cycle, USB-hub power trick, or B+/ACC
+  sequencing can be promised. UART DTR/RTS must not be used as a substitute.
+- Current camera angle/cropping cannot be physically corrected by software.
+  Missing views remain a verification dependency. No user camera move, button
+  press, dialog dismissal, wiring action, or bench touch is assigned here.
+
+The productive interim outcome is a checked operating contract, source-backed
+input map, transcript-tested host design, and a ready-to-review reversible test
+sequence. Full hands-off commander/hub/power acceptance remains unproven and
+must not be reported as achieved while waiting for hardware.
+
+EVIDENCE INDEX (paths relative to the working directory)
+
+Read: README.txt; notes/status.txt; scripts/console-command.py; scripts/bench.py.
+Prior discovery context: logs/20261112T213524.771496-0600-system-discovery.txt
+(the displayed read was truncated; no unshown detail was treated as new proof).
+
+For each console prefix below, .bin, .jsonl, .json, and .txt are preserved:
+  logs/20261112T214554.100346-0600-interim-dialog-identity
+  logs/20261112T214618.244266-0600-interim-dialog-cleanup
+  logs/20261112T214645.784072-0600-interim-dialog-postcheck
+  logs/20261112T214742.749982-0600-interim-input-readonly
+Camera enumeration:
+  inventory/20261112T214650.188524-0600-camera-devices.json
+Camera command/result:
+  logs/20261112T214650.188879-0600-camera-capture.json
+Visually inspected post-cleanup frame:
+  captures/20261112T214650.188879-0600-webcam.jpg
+
+No bench recovery action remains running or pending from this turn. The existing
+root shell persists on the CMU, with the Mac port closed. Future owners must
+verify prompt and identity afresh. The coordinator should use this full artifact
+as the durable report because hc messages can arrive asynchronously.

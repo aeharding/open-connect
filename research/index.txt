@@ -1,0 +1,125 @@
+MAZDA CMU RESEARCH INDEX — canonical entry point
+Derived catalog; original evidence stays local and unchanged.
+
+30 facts/claims; 8 open hypotheses; 7 decisions; 4 saved sources.
+Search index.tsv by ID/topic/firmware/path; records retain scope and limits.
+Read context/SUMMARY.txt for handoff, constraints and physical-reference conflicts.
+Schema and update rules: SCHEMA.txt. Final preservation report: ../notes/research-preservation-result.txt.
+
+CURRENT AUTHORITY AND SAFETY CONSTRAINTS
+Coordinator t6; current hardware owner t14; research worker t13 has no hardware access.
+Keep firmware55.00.750B, power/accounts/persistent settings/USB/SD/networking unchanged.
+AFK user performs no physical operations. No subdelegation; all operations use Herdr hc.
+Historical manual dialog dismissal instructions are superseded by F012/D002.
+
+SAVED SOURCES (ignored originals; tracked manifest with hash, URL, page and applicability)
+mazda-retrofit-2018: Mazda CSP02 retrofit installation packet
+  https://static.nhtsa.gov/odi/tsbs/2018/MC-10144323-9999.pdf
+  4217760 bytes; SHA-256 0e8d022212049408e49453718806dfeb7c608faa2271e2b71e3e98f75b0b3494
+  research/sources/snapshots/20261113T043356Z/mazda-retrofit-2018/0e8d022212049408e49453718806dfeb7c608faa2271e2b71e3e98f75b0b3494.pdf
+  PDF p9/20 Common-2; PDF p13/20 MAZDA6-1
+mazda-sa00119-2019: Mazda SA-001/19, 2019-04-05
+  https://static.nhtsa.gov/odi/tsbs/2019/MC-10159198-0001.pdf
+  851674 bytes; SHA-256 0c8996c9df0f24c117534aebfe3cbc1017c1d522f5fccae9b46be9729883a57d
+  research/sources/snapshots/20261113T043356Z/mazda-sa00119-2019/0c8996c9df0f24c117534aebfe3cbc1017c1d522f5fccae9b46be9729883a57d.pdf
+  p3/9 failure mode; p7-9/9 original-hub/cable recovery context; p9/9 step3
+hardware-silverchris: silverchris Mazda CMU hardware notes (author's community research)
+  https://raw.githubusercontent.com/silverchris/mazda-cmu-documentation/gh-pages/hardware.md
+  9233 bytes; SHA-256 b49eac62eb515924637dfc2429574e57a47f00e12c46c2b16a6fb82be731de2c
+  research/sources/snapshots/20261113T043356Z/hardware-silverchris/b49eac62eb515924637dfc2429574e57a47f00e12c46c2b16a6fb82be731de2c.md
+  Storage; Connectors/Power-Communication
+pyserial-api: pySerial official API documentation
+  https://pyserial.readthedocs.io/en/latest/pyserial_api.html
+  170867 bytes; SHA-256 73464d5f5cd1991e4cbef2203ceeca6a51bba0b52a80572e519187f7fe7c8c9c
+  research/sources/snapshots/20261113T043356Z/pyserial-api/73464d5f5cd1991e4cbef2203ceeca6a51bba0b52a80572e519187f7fe7c8c9c.html
+  serial.Serial exclusive parameter; open() RTS/DTR note
+
+FACTS AND LIMITS
+F001 [observed-in-saved-evidence] Saved inventory identifies the FTDI FT232R as VID:PID 0403:6001, serial A9048JM0; observed cu path /dev/cu.usbserial-A9048JM0.
+  Limit: A future owner must re-enumerate; this preservation task did not enumerate or open hardware.
+F002 [observed-in-saved-evidence] Historical UART sessions used 115200 8N1, all flow control off, and requested RTS/DTR inactive.
+  Limit: Requested line levels do not independently prove absence of open-time electrical transients.
+F003 [observed-host-integrity] The passive capture has 24,233 raw RX bytes, 808 JSONL events and zero TX events; local JSONL reconstructs the raw bytes exactly.
+  Limit: About 60 seconds of a running CMU; not full boot, full-wire completeness or transfer throughput.
+F004 [observed-in-saved-evidence] A carriage return at 21:32 produced the cmu login prompt, establishing two-way UART in that run.
+  Limit: Does not establish the current foreground state.
+F005 [observed-in-saved-evidence] The historical ordinary-user login returned uid=1000(user).
+  Limit: No credentials or TX contents are exported into the fixture or catalog.
+F006 [observed-in-saved-evidence] Direct root login returned uid=0(root); later identity and cleanup checks again reported root.
+  Limit: A shell may persist across Mac port closure; no current UID is inferred from a prompt.
+F007 [observed-in-saved-evidence] The prior privilege-discovery attempt reported that su must be setuid; direct root login was the working route.
+  Limit: No permission repair or account change is justified by this result.
+F008 [observed-in-saved-evidence] Installed metadata is JCI_SW_VER=MAZ_CMU-150_55.00.750, JCI_SW_VER_PATCH=B, JCI_SW_FLAVOR=cmu150_NA: 55.00.750B North America.
+  Limit: Metadata is observed; the existing extracted artifact is not byte-exact backup evidence.
+F009 [interpretation-of-observed-fields] JCI_SW_NEXT_VER=MAZ_CMU-150_55.00.800 is a separate metadata field and does not identify the installed firmware.
+  Limit: No installed upgrade or available rollback is established by NEXT_VER or PRIOR_VER.
+F010 [observed-in-saved-evidence] Saved uname reports Linux cmu 3.0.35 ARMv7l, built March 15, 2015.
+  Limit: Does not establish full kernel configuration, drivers or storage geometry.
+F011 [observed-by-prior-operator] The root-launched /jci/tools/jci-dialog titled Mac Mini connected was visibly verified in the prior camera observation.
+  Limit: Preservation worker did not inspect new pixels. This proves historical visible dialog control, not commander input, OK activation or boot/recovery.
+F012 [observed-by-prior-operator] The operator checked the exact dialog argv twice, sent TERM only to its owned historical PID18090, confirmed the PID absent, and inspected a fresh frame showing home without that dialog.
+  Limit: PID18090 is historical and must never be reused as a cleanup target. This was targeted termination, not a test of software OK.
+F013 [observed-by-prior-operator] The prior Herdr camera capture completed with FFmpeg exit0, one 1280x720 JPEG of 126507 bytes, and an operator visual assessment of home/Communication without the test dialog.
+  Limit: Angled with left edge cropped and bright highlights; requested 5fps differs from reported 24.75fps input. No current camera access or framing change.
+F014 [observed-in-saved-evidence] Input inventory lists event0 touch, event1 virtual keyboard, event2 virtual mouse, and event3-5 filtered keyboard/mouse/touch; these and /dev/uinput are root-only 0600.
+  Limit: No event injection, grabbing or physical commander test occurred. No named commander does not imply commander absence.
+F015 [observed-in-saved-evidence] The read-only PATH query found dbus-send, dbus-monitor, timeout, strings, grep and find; evtest/getevent/sendevent/xdotool were not found in that PATH.
+  Limit: PATH absence does not prove filesystem absence; sockets and directory names do not prove service methods.
+F016 [observed-host-plus-prior-operator] The preserved inventory version.ini artifact is 13334 host bytes and contains trailing output from a separate /etc/version read; the remote source was listed as 13304 bytes.
+  Limit: Preserve unchanged. This artifact is a reference, not a byte-exact backup, regardless of any later capture.
+F017 [evidence-gap] The reviewed baseline evidence does not demonstrate a full storage backup, verified restore, complete boot/recovery, or second host copy.
+  Limit: This catalog and local Git add provenance only; they do not create a second raw-evidence copy or recovery set.
+F018 [inherited-unresolved-hardware-reference] The inherited handoff assigns CMU2S TX to FTDI RXI and CMU2T RX to FTDI TXO with common ground; connector viewing direction remains conflicted between Rev3 and spoken instructions.
+  Limit: Working UART validates the electrical path used, not every connector view/contact association. Rev3 PDF was not retrieved in this task.
+F019 [inherited-unresolved-hardware-reference] Rev3 proposes hub1A ground while the inherited report says factory cavity1A is empty; hub1E/1G AUX donor extraction/fit was never established.
+  Limit: No supply/contact changes are authorized; conflicting physical references remain unresolved.
+F020 [evidence-gap] The existing inventory identified no USB relay; B+/ACC arrangement, relay model/channels and actual shutdown delay remain unverified.
+  Limit: No switching, reboot or power-cycle evidence; no user physical intervention is available.
+F021 [evidence-gap] Physical commander response, actual USB-media and SD navigation, and the retrofit hub's exact identity are unverified in the reviewed records.
+  Limit: Mac USB enumeration and synthetic input cannot validate these end-to-end functions.
+F022 [reference-primary-manufacturer] Mazda's 2018 retrofit packet specifies v70.00.21 or later before fitting the compatible hub and warns older firmware may not recognize it.
+  Limit: Literal document form is v70.00.21; not silently normalized to the 2019 patch suffix.
+F023 [reference-primary-manufacturer] Mazda SA-001/19 p9/9 names 70.00.021B or later; p3/9 explains cases where an unrecognized new hub prevents USB software updating.
+  Limit: Literal form is 70.00.021B. Hardware recovery procedure is reference context; no recovery was attempted.
+F024 [inference-from-bench-and-primary-references] The observed 55.00.750B is below both documented retrofit prerequisites, so this firmware/hub combination cannot be assumed a supported CarPlay retrofit baseline.
+  Limit: Inference does not identify this hub, prove failure of every USB/SD function, prove bad wiring, or authorize flashing.
+F025 [reference-primary-project] The saved official pySerial API documents POSIX exclusive mode and cautions that drivers/OS may activate RTS/DTR on open, including possible glitches when requested levels differ.
+  Limit: exclusive=True supplements coordination; it is not proof every external tool honors ownership or that line levels never glitch.
+F026 [reference-community-author] The community hardware author's notes explicitly label Sumitomo6098-5611 unverified and describe FlashFX/relfs storage layers.
+  Limit: Not Mazda manufacturer wiring authority, a buying specification, a verified bench partition map or a generic dd-restore recipe.
+F027 [observed-host-integrity] Offline auditing reconstructed all18 historical JSONL RX streams exactly against their raw .bin files; companion .txt files matched, and five prior-review hashes matched.
+  Limit: No raw file rewrite, no completeness/recovery/remote-checksum claim.
+F028 [observed-by-current-operator-report] Operator t14 reports BusyBox1.19.2, sha256sum absent from PATH with rc127, and available MD5/cksum/base64/od/wc/stat tools.
+  Limit: Preservation worker reads saved report only; no device-side SHA-256. PATH absence is scoped.
+F029 [observed-by-current-operator-report] Operator t14 verified BusyBox timeout syntax requires -t SECS, unlike GNU positional seconds, and exercised timeout -t10 -s9 with outer rc0/end marker.
+  Limit: Usage output from BusyBox --help may return1; do not invent GNU options.
+F030 [observed-by-current-operator-report] Operator t14 reports /jci/version.ini=13304 bytes, MD5=5488b62f403d5296f58566c8499f7d44, POSIX cksum=958101073/13304; /etc/version=31 bytes, MD5=10cac4792dbca7d886eb2d9ee80d0647, cksum=2910742528/31.
+  Limit: Metadata/probe output is not a verified copied backup. MD5/CRC are transfer checks, not device-side SHA-256 or recovery evidence.
+
+OPEN QUESTIONS (tests and dependencies in hypotheses.jsonl)
+H001 Does this exact retrofit hub retain required legacy USB/SD functionality on firmware55?
+H002 What connector view and hub1A supply assignment apply to the actual harness?
+H003 Can a framed read-only UART transfer produce one exact checksum-verified small file?
+H004 Which discovered service or input path can navigate and return without persistent state changes?
+H005 What FlashFX/relfs acquisition layer and recovery procedure are actually usable for this CMU?
+H006 Will the eventual Ethernet adapter have a compatible CMU driver/link and existing SSH capability?
+H007 What are actual B+/ACC shutdown timing and safe relay channel behavior?
+H008 Where can a verified independent second raw-evidence copy be stored?
+
+DECISIONS (dated rationale in decisions/)
+D001 Preserve firmware55 and current bench state
+D002 Resolve historical manual-dismiss instructions through evidence precedence
+D003 Single hardware operator; preservation worker stays offline
+D004 Local Git allowlist and private original retention
+D005 Keep byte-exact and recovery claims gated
+D006 Preserve literal Mazda version requirements and scope
+D007 Keep physical-reference conflicts unresolved
+
+PROVENANCE AND LIMITS
+Initial original evidence: manifests/20261113T043356Z-original-evidence.json (119 files).
+New t14 capability report is supplemental; no exact copied backup is claimed.
+18 historical raw/event pairs reconstructed exactly; five prior hashes matched.
+Raw credentials/login TX/private identities stay out of Git. Fixtures are allowlisted derivatives.
+A local hash/commit is not a second copy, full backup, boot observation or verified recovery.
+Both Mazda PDFs match prior hashes. Literal requirements: 2018 v70.00.21; 2019 70.00.021B.
+Those prerequisites do not prove actual bench hub identity or legacy USB/SD failure.

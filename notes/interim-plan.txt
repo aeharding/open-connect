@@ -1,0 +1,209 @@
+MAZDA CMU BENCH — DEVELOPMENT AND RESEARCH PLAN BEFORE ETHERNET
+Prepared November 12, 2026, America/Chicago.
+Status: proposed work plan; implementation and new hardware validations are not implied.
+
+PURPOSE
+Use the next few days to turn the working UART/webcam bench into a reproducible
+development environment with research that survives agent changes. Ethernet/SSH
+will improve transport later; it is not required for small experiments now.
+Execution dependency order: preserve current evidence -> develop/test the minimal
+framed-transfer decoder offline -> verify one exact remote file -> expand the
+baseline and operating harness -> run repeatable UI experiments. Research and
+source preservation run in parallel. Priority labels below do not bypass these
+dependencies; the first baseline copy waits for the minimal decoder.
+
+VERIFIED STARTING POINT
+- Firmware 55.00.750B, North America (cmu150_NA); Linux 3.0.35, ARMv7l.
+- FTDI A9048JM0 at /dev/cu.usbserial-A9048JM0, 115200/8/N/1, no flow control.
+- Readable UART reception and authenticated user and root shells work.
+- A native "Mac Mini connected" dialog was visibly launched through UART.
+- A 1280x720 USB webcam capture is now confirmed through Herdr as well.
+- The operator verified and terminated only our own test dialog, then inspected
+  a fresh frame showing the home menu. No manual dismissal is pending.
+- Physical commander response, USB/SD operation, relay control, Ethernet and SSH
+  remain separate unverified milestones.
+- Current files contain captured evidence. They are not a tested recovery set.
+  The extracted inventory/20261112T2135-cmu-version.ini includes console-derived
+  content and unrelated trailing output; regenerate an exact copy before calling
+  it a backup. Preserve the original artifact and raw logs.
+
+COORDINATION AND OWNERSHIP
+Coordinator: maintain priorities, dependency/decision log, agent scopes, source
+index and acceptance evidence. Use Herdr's hc API/CLI for all agent control,
+communication, file operations and program execution.
+Bench operator: the sole UART owner; performs all live shell, UI and camera work.
+Development agent: versioned host tools and offline tests; live tests are handed
+to the operator. Research agent: sources, applicability, verified findings and
+open questions; no live port access.
+Roles may be assigned in successive tasks rather than kept running permanently.
+Each task states allowed paths, allowed bench actions, expected artifact and how
+to report completion. Agents do not spawn further agents without a scoped task.
+The user will not press buttons, dismiss dialogs, reposition hardware or rewire.
+Agents own software cleanup. Physical operations outside software capability are
+recorded as hardware dependencies, never assigned back to the user.
+
+PRIORITY 0 — PRESERVE TODAY'S WORK (FIRST SESSION)
+Owner: coordinator and development/research roles. Operator handles dialog cleanup.
+1. Establish local Git versioning for code, tests, research summaries, decisions,
+   manifests and experiment definitions in the existing bench folder. Preserve
+   current inventory/, logs/, captures/ and notes/ paths.
+2. Save the supplied handoff and this session's findings as durable local context.
+   COMPLETED DURING PLANNING: AGENTS.md now records Herdr-only coordination,
+   single UART ownership, hands-off operation, firmware identity, USB/SD scope
+   and evidence requirements. Include it in the initial development commit.
+3. Build a compact research index. Every finding links to a source or a run.
+   Separate: observed on this bench, supported by reference, hypothesis, rejected
+   or superseded. Record applicability to firmware, CMU/hub model and connector view.
+4. Index existing runs and captures with timestamps and hashes. Keep original
+   evidence immutable; produce sanitized summaries/fixtures separately.
+5. COMPLETED DURING PLANNING: operator t8 checked the exact NUL-separated
+   command line twice and terminated only our dialog PID18090. A subsequent
+   process check and fresh Herdr webcam image confirmed cleanup. Preserve
+   these records as the first lifecycle-test fixture; do not reuse that PID.
+
+Done when: a fresh agent can read one entry point, find all verified facts and
+open questions, locate the proof for UART/UI/firmware, and identify who owns UART.
+
+PRIORITY 1 — BASELINE AND SMALL VERIFIED BACKUPS (DAY 1)
+Owner: operator, with baseline/development support.
+1. Capture bounded read-only inventory: identity, firmware, mounts/filesystems,
+   storage layout and available space, running services, kernel configuration if
+   exposed, available tools, USB devices, input devices, network driver modules,
+   SSH binaries/configuration and listening state.
+2. Copy the exact /jci/version.ini and selected small configuration/manifest files.
+   Implement framed, numbered UART transfer and verify host/device size and
+   checksum. No console-stripped extraction qualifies as an exact backup.
+3. Record device-specific state worth preserving before future changes. Distinguish
+   file backups, raw captures and a demonstrated restore procedure. Do not label
+   a raw FlashFX/relfs device dump as a usable recovery image without validation.
+4. Measure actual transfer speed before expanding scope. At 115200 8N1 the
+   theoretical wire payload ceiling is 11,520 bytes/second before framing,
+   encoding and concurrent logs; prioritize small files and manifests.
+5. Gather metadata for later bulk copies. Large firmware/storage copies wait for
+   a verified USB storage or Ethernet transport.
+
+Done when: a baseline manifest and at least one byte-exact, checksum-verified
+remote file are stored on the Mac, with exact capture commands and provenance.
+
+PRIORITY 2 — BUILD THE DEVELOPMENT HARNESS (DAYS 1–2)
+Owner: development agent; operator accepts live changes.
+1. Add an exclusive host-side UART ownership mechanism plus clear session state:
+   disconnected, login, ordinary shell, root shell, command in progress and timeout.
+   Re-enumerate the adapter by observed USB identity; do not rely on a stale path.
+2. Require explicit command boundaries and completion/exit-status evidence.
+   Runtime logging is interleaved with prompts and responses; a visible prompt
+   or process launch alone is not proof that an action succeeded.
+3. Define one run bundle: goal, firmware/identity, exact sent commands, raw RX,
+   timestamped RX/TX, structured result, before/after capture and cleanup outcome.
+4. Add bounded timeouts, partial-failure records, secret redaction in derivative
+   artifacts, and cleanup only for processes created by that experiment.
+5. Test offline using captured-console fixtures and pseudo-terminals: fragmented
+   prompts, interleaved logs, wrong identity, command failure, timeout, disconnect
+   and ownership conflict. Keep raw captures separate from sanitized fixtures.
+6. Design transport-neutral experiment requests. Implement UART first; add SSH
+   later behind the same result/run-bundle interface.
+7. Make camera collection available under the Herdr execution context and record
+   actual permission/capture outcomes. A previous grant to another app is not proof
+   that Herdr's camera access works.
+
+Done when: meaningful offline cases pass and one live read-only command returns
+a correctly identified, timestamped, self-contained run bundle with cleanup.
+
+PRIORITY 3 — DEVELOP SMALL, REVERSIBLE UI EXPERIMENTS (DAY 2)
+Owner: development/research define experiments; operator runs them.
+1. Inspect the installed D-Bus/service interfaces and permissions read-only.
+   Index actual signatures, object paths and observed behavior for this build.
+2. First experiment: show a small native bench-status dialog containing firmware
+   identity and a unique run identifier, capture it, close it through software,
+   and verify the prior screen returns. Use installed tools before adding code.
+3. Next: discover a supported way to open a harmless stock screen and return home.
+   Accept only a documented/inspected interface plus visible before/after proof.
+4. Inventory input devices and distinguish simulated input from real commander
+   validation. A synthetic key event cannot prove the physical knob/buttons work.
+5. Keep any experimental target-side payload in disposable RAM storage where
+   practical, with recorded paths, process ownership and cleanup.
+6. After the control harness is reliable, prototype a small bench-status utility
+   or information screen using the verified interfaces. Inspect the target ABI,
+   libraries and toolchain needs before committing to native cross-compilation.
+
+Done when: an experiment can run and clean itself up twice without human input,
+leave the original UI usable, and produce comparable evidence for both runs.
+
+PRIORITY 4 — RESEARCH HARDWARE/FIRMWARE COMPATIBILITY (IN PARALLEL)
+Owner: research agent; operator performs only bounded read-only observations.
+- Establish how the actual retrofit hub behaves with firmware 55.00.750B.
+  Record hub identification, USB enumeration and SD/media observations separately.
+  Do not diagnose unsupported software behavior as a wiring defect.
+- VERIFIED REFERENCE: Mazda's 2018 retrofit packet, PDF p9/20 (Common-2), calls
+  for v70.00.21 or later before installing the new hub; the 2019 SA-001/19
+  bulletin p9/9 names 70.00.021B or later. Current 55.00.750B is below these
+  prerequisites. This does not establish failure of every USB/SD function.
+  Sources: https://static.nhtsa.gov/odi/tsbs/2018/MC-10144323-9999.pdf
+  and https://static.nhtsa.gov/odi/tsbs/2019/MC-10159198-0001.pdf
+  Maintain 55.00.750B as the development baseline while backup, access preservation
+  and a recovery strategy are being established. Exact hub identity and its
+  observed legacy USB/SD behavior still need verification.
+- Inspect Ethernet driver/module support and SSH availability now; compare with
+  the actual adapter's USB identifiers when it becomes available.
+- Preserve the unresolved connector-view/hub-supply discrepancies from the handoff
+  as historical open questions; working UART does not verify every harness circuit.
+- Plan relay work after the actual model, wiring and channel behavior are known.
+  Shutdown timing and separate B+/ACC behavior require observations before cycles.
+
+RESEARCH STORAGE DESIGN
+Keep the existing evidence folders. Add these only as implementation proceeds:
+  research/index.tsv             authoritative searchable catalog with topic tags
+  research/index.txt             human entry point generated from catalog/status
+  research/sources/              permitted source snapshots and source manifest
+  research/facts.jsonl           claims with evidence IDs, scope and verification
+  research/hypotheses.jsonl      open ideas, proposed tests and disposition
+  research/decisions/             decision, alternatives, reason, applicable build
+  experiments/<id>/              versioned definition/code and cleanup procedure
+  tests/fixtures/                sanitized, small captured-output fixtures
+  runs/<id>/manifest.json        links to logs/captures, code revision and checksums
+
+Source record: source ID, title/author, exact URL or local reference, retrieval
+date, revision/content hash, relevant section/page, hardware/firmware scope,
+what it supports, conflicts and whether it is superseded.
+Experiment record: question, prerequisites, firmware and tool revision, command
+list, expected result, raw evidence paths/hashes, actual outcome, interpretation,
+cleanup/rollback result and next question.
+End each session by updating the index, findings, decisions, experiment status
+and handoff. An untested idea stays a hypothesis; missing output stays unknown.
+Git holds code, instructions, summaries, source manifests, decisions and small
+sanitized fixtures. Large/raw/private captures, credentials, copied device
+configuration and binary dumps stay in local evidence storage with Git-tracked
+manifests/hashes. Never publish device dumps or push a remote repository by default.
+
+WHEN ETHERNET HARDWARE IS PRESENT AND CONNECTED
+Identify adapter and CMU driver support, establish the local link, verify SSH
+availability/host identity/authentication, add the SSH transport to the harness,
+then run the same smoke experiments and hash-verify transfers. Keep one CMU
+experiment lease across UART and SSH; do not repeat an uncertain command over
+the other transport. Use the faster transport for bulk preservation and
+development iteration. Physical connection
+is a hardware dependency if it cannot be performed through existing automation.
+
+RELEASE/CHANGE CHECKPOINT
+Proceed to persistent CMU modifications or a firmware migration only after the
+working baseline is preserved, software access/recovery consequences are
+understood, and the specific change has a test and rollback/recovery procedure.
+No relay-driven power cycles are part of the interim development baseline.
+
+EXPECTED STATE WHEN THE ADAPTER ARRIVES
+A searchable research library, versioned development tools, verified baseline
+files, reliable single-owner UART/camera operation, repeatable UI experiments,
+and a prepared SSH transition — all with concrete evidence and no manual UI steps.
+
+This consolidated file controls priorities and canonical paths; the supporting
+reviews below supply evidence and detailed designs, including alternatives.
+All three Herdr reviews were read and incorporated. The owned dialog was cleared
+and project instructions were saved; the remaining development work is planned,
+not yet implemented. Initial hands-on-agent engineering budget is roughly 2-4
+hours for the minimal protocol/runner plus 1.5-3 hours for baseline capture and
+interpretation, spread across the first sessions; adjust after measured results.
+
+Delegated review artifacts:
+  notes/interim-operator-plan.txt
+  notes/interim-baseline-plan.txt
+  notes/interim-development-research-plan.txt

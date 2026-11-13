@@ -20,9 +20,11 @@ on its actual consumer; do not copy another experiment to make a new framework.
 
 ## Running checks
 
-Read the directory's instructions first. Unlike tests/run_offline.py, some checks
-require private exact OEM files, Node.js or an ARM toolchain. A public checkout
-does not contain the captured firmware or run records.
+Read the directory's instructions first. The mapped-publication suite and
+intro-handoff boot/publication checks run from a public checkout and are in CI;
+their READMEs give exact commands. Other checks require private exact OEM files,
+Node.js or an ARM toolchain. A public checkout contains no captured firmware or
+run records.
 
 Saved ready/freeze/check manifests describe the source at the time of that trial.
 Repository reorganization changes source paths and hashes; these old live profiles

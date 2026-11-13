@@ -6,9 +6,20 @@ sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(ROOT/"experiments/native-disclaimer-runtime"))
 import runtime as rt
 from open_connect.session import AdapterLock, Bundle, Session, open_adapter
-stock=rt.fields().stock
+stock=rt.module("_mapped_stock_helpers",ROOT/"experiments/stock-warm-start/observe.py")
+
+def validate_live_dependencies():
+    # Importing/parsing is offline. Historical execution pins still gate hardware.
+    try:
+        rt.verify_dependencies()
+    except (ValueError, OSError) as exc:
+        raise ValueError(
+            "Runtime profile is not qualified for this checkout; "
+            "preserve historical manifests and qualify current code before live execution"
+        ) from exc
 
 def command(text, path, timeout=60):
+    validate_live_dependencies()
     b=Bundle(path,"Open Connect mapped-library experiment","t6",mode="live")
     port=None
     with AdapterLock(owner="t6",purpose="Open Connect mapped-library experiment"):

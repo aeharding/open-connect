@@ -2,7 +2,8 @@
 import json,sys,time,math,re
 from pathlib import Path
 from types import SimpleNamespace
-from bench import rt,ROOT,stock
+from bench import rt,ROOT,stock,validate_live_dependencies
+from open_connect.startup import persistence_fields
 from trial import load,entry,R
 def mapping_command():
  cmd=rt.native_check().replace('$6==p&&(NF==6||(NF==7&&$7=="(deleted)"))','index($6,"libjciuiasystem.so")>0')
@@ -25,7 +26,7 @@ def verify(session,kind,sid):
  return raw
 def check_output(status,raw,v,before=None,pre=False):
  if status:raise ValueError("native check failed")
- f=rt.fields().candidate_fields(raw);p=load("plan/plan.json")
+ f=persistence_fields(raw);p=load("plan/plan.json")
  expect=p["candidate"] if v["kind"]=="C" else p["original"]
  if f["META"]!=v["identity"]:raise rt.IdentityConflict(f)
  if f["HASH"].split()!=[expect["md5"],"-"] or f["CRC"].split()!=[str(expect["crc"]),str(expect["bytes"])]:raise ValueError("bytes changed")
@@ -49,7 +50,9 @@ def check_output(status,raw,v,before=None,pre=False):
  mgr=rt.typed_records(raw,b"NATIVE_MANAGER|")
  if mgr!=[v["manager"]]:raise ValueError("native manager changed")
  return dict(f,uptime_seconds=u,module=module[0],maps=maps,manager=mgr[0],kind=v["kind"])
-def observe(args,v,p):
+def observe(args,v,p,*,verify_images=None):
+ validate_live_dependencies()
+ verify_images=verify if verify_images is None else verify_images
  user,password=stock.private_credentials(args.credentials)
  bundle=stock.Bundle(args.bundle,"ONE native "+v["kind"]+" startup",args.owner,mode="live")
  bundle.meta.update(profile=v,expected_native_kind=v["kind"],visual_feature_verified=False)
@@ -59,7 +62,7 @@ def observe(args,v,p):
   nonlocal bundle
   result=session.execute(mapping_command())
   f=check_output(*result,v,before,pre)
-  raw=verify(session,v["kind"],v["identity"])
+  raw=verify_images(session,v["kind"],v["identity"])
   bundle.event("native_persistent_verified",source_kind=v["kind"],writes=0,phase="pre" if pre else "post",identity=f["META"])
   return f
  with stock.AdapterLock(owner=args.owner,purpose="ONE native "+v["kind"]+" startup"):
@@ -115,7 +118,7 @@ def observe(args,v,p):
  print(json.dumps(dict(outcome=outcome,error=error,bundle=str(args.bundle),visual_feature_verified=False)))
  return 0 if outcome=="native_"+v["kind"]+"_startup_access_mapping_RO_verified" else 2
 
-def main():
+def main(*,verify_images=None):
  kind=sys.argv[1]
  if kind not in ("C","O"):raise ValueError("explicit C or O boot")
  p=load("plan/plan.json")
@@ -132,5 +135,5 @@ def main():
  v=dict(kind=kind,identity=ids[0],previously_loaded=dict(identity=loaded["META"],process=loaded["module"]),manager=loaded["manager"])
  args=SimpleNamespace(credentials=ROOT/"runs/20261113T055807-0600-t14-stock-reboot-preflight/credentials.private.json",bundle=R/("boot-"+kind),owner="t6",camera_index=0,solicit_prompt=True)
  (R/("boot-"+kind+"-plan.json")).write_text(json.dumps(v,indent=2)+"\n")
- return observe(args,v,p)
+ return observe(args,v,p,verify_images=verify_images)
 if __name__=="__main__":raise SystemExit(main())

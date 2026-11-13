@@ -3,6 +3,7 @@ import json,sys,os
 from pathlib import Path
 from bench import command,stage,rt,ROOT
 import linked
+from open_connect.startup import persistence_fields
 R=ROOT/os.environ.get("OC_RUN","runs/open-connect-native-linked")
 def save(name,x): (R/name).write_text(json.dumps(x,indent=2)+"\n")
 def load(name):return json.loads((R/name).read_text())
@@ -23,11 +24,11 @@ def prepare():
  R.mkdir(exist_ok=True)
  delta=None
  if os.environ.get("OC_NATIVE_PROFILE"):
-  delta=stage(linked.relocated(linked.P["delta"]["path"]).read_bytes(),R/"delta-stage")
+  delta=stage(linked.relocated(linked.feature()["delta"]["path"]).read_bytes(),R/"delta-stage")
  p=linked.plan(R/"plan",delta)
  import boot
  raw=command(boot.mapping_command(),R/"baseline")
- fields=rt.fields().candidate_fields(raw)
+ fields=persistence_fields(raw)
  assert fields["META"]==p["oid"]+":1"
  assert fields["HASH"].split()==[p["original"]["md5"],"-"]
  assert fields["ROOT"]=="/dev/ffx01p1 / relfs ro,noatime 0 0"

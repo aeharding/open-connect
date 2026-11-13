@@ -40,12 +40,19 @@ then checks the installed CLI from outside the checkout. Require the Host checks
 job to pass alongside adversarial review before merging. To apply formatting
 locally, run .venv/bin/ruff format src tests.
 
-Scope: src/ and tests/ only. CI uses fake transports, local PTYs and a fake D-Bus
-service; no hardware, OEM files or credentials. It does not validate firmware,
-visual behavior, recovery on the CMU, or the prototype suites in experiments/.
-The known prototype import regression is tracked in issue #21; green host CI does
-not mean that regression is fixed. Add a public prototype check when that path
-has explicit inputs and runs independently of private captures.
+Ruff covers src/ and tests/. CI also runs the public mapped-publication suite
+and intro-handoff boot/publication checks. These use synthetic records, fake
+transports, local PTYs and temporary files, not hardware, OEM files or credentials:
+
+~~~sh
+.venv/bin/python -m unittest discover -s experiments/mapped-publication -v
+.venv/bin/python -m unittest discover -s experiments/intro-handoff -p test_boot.py -v
+.venv/bin/python -m unittest discover -s experiments/intro-handoff -p test_publication.py -v
+~~~
+
+This covers the import regression from #21 and keeps historical execution-profile
+validation at the live boundary. Other prototype checks may still require private
+firmware inputs. CI does not prove firmware behavior, visual results or CMU recovery.
 
 Actions are pinned to commit hashes, workflow permissions are read-only, and
 Dependabot proposes monthly grouped updates. Dependency PRs require the same

@@ -4,17 +4,17 @@ from pathlib import Path
 from bench import rt,ROOT
 HERE=Path(__file__).resolve().parent
 SOURCE=Path(os.environ.get("OC_NATIVE_PROFILE",str(ROOT/"runs/t12-native-host-20261113T170401.731894Z/candidate/profile.json")))
-P=rt.json_data(SOURCE)
 def relocated(s):
     return Path(s.replace("/Users/aeharding/mazda-cmu-bench",str(ROOT),1))
 def feature():
-    for key,path in [("original",rt.ORIGINAL),("candidate",relocated(P["candidate_path"]))]:
-        if rt.fp(path.read_bytes())!=P[key]:raise ValueError(key+" changed")
-    for path,h in P["source_pins"].items():
+    p=rt.json_data(SOURCE)
+    for key,path in [("original",rt.ORIGINAL),("candidate",relocated(p["candidate_path"]))]:
+        if rt.fp(path.read_bytes())!=p[key]:raise ValueError(key+" changed")
+    for path,h in p["source_pins"].items():
         if rt.sha((ROOT/path).read_bytes())!=h:raise ValueError("native code changed")
-    return P
-def render(target,d,hold_o,hold_c,stage,oid,parents,original=None,candidate=None):
-    o=original or P["original"];c=candidate or P["candidate"]
+    return p
+def render(target,d,hold_o,hold_c,stage,oid,parents,original,candidate):
+    o=original;c=candidate
     vals={"TARGET":target,"DIRECTORY":d,"HOLD_O":hold_o,"HOLD_C":hold_c,"STAGE":stage,
           "ORIGINAL_ID":oid,"ORIGINAL_HASH":o["md5"],"CANDIDATE_HASH":c["md5"],
           "ORIGINAL_CRC":str(o["crc"]),"CANDIDATE_CRC":str(c["crc"]),
@@ -30,14 +30,14 @@ def render(target,d,hold_o,hold_c,stage,oid,parents,original=None,candidate=None
     if len(s.encode())>16384:raise ValueError("staging bound")
     return s
 def plan(out,delta=None):
-    feature();out=Path(out);out.mkdir(exist_ok=False)
+    p=feature();out=Path(out);out.mkdir(exist_ok=False)
     baseline=rt.json_data(ROOT/"runs/20261113T111353-0600-t14-native-intro/recovery/original-boot-v2/after.json")
     n=secrets.token_hex(16);d="/tmp/mnt/data_persist/oc-native-"+n
     prefix="/jci/mmui/uia/.libjciuiasystem.so.oc-"+n
     v=dict(nonce=n,target=rt.TARGET,directory=d,hold_o=prefix+"-O",hold_c=prefix+"-C",
            stage=prefix+"-stage",oid=baseline["META"].rsplit(":",1)[0],parents=baseline["parents"],
-           original=P["original"],candidate=P["candidate"],candidate_profile_sha256=rt.sha(SOURCE.read_bytes()))
-    body=render(v["target"],d,v["hold_o"],v["hold_c"],v["stage"],v["oid"],v["parents"])
+           original=p["original"],candidate=p["candidate"],candidate_profile_sha256=rt.sha(SOURCE.read_bytes()))
+    body=render(v["target"],d,v["hold_o"],v["hold_c"],v["stage"],v["oid"],v["parents"],p["original"],p["candidate"])
     (out/"recovery.sh").write_text(body)
     old="/tmp/mnt/data_persist/cmu-bench-native-7c748f8ac79ca2a8ae45170150798589"
     # Only uses old immutable image backups; never rewrites old control or code.
@@ -54,7 +54,7 @@ test "$(stat -c '%d:%i:%Y:%s:%a:%u:%g:%h' {rt.TARGET})" = '{baseline["META"]}' |
 mkdir -m 700 "$d" || exit 74
 '''
     for name,k in [("original","original"),("candidate","candidate")]:
-        f=P[k]
+        f=p[k]
         if name=="candidate" and delta:
             prep+=rt.stage_guard(delta,"delta")
             prep+='''{

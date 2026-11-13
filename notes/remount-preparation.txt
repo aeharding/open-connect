@@ -1,0 +1,70 @@
+ROOT REMOUNT / WARM TRIAL PREPARATION — REVIEW ONLY, November13 2026; t13
+No mount/remount/write/startup command was executed or queued by this note.
+YES to unambiguous USERSPACE argv; NO claim of vendor/kernel remount support.
+
+Source-derived future argv (explicit DEVICE plus NODE; retain current noatime):
+/bin/busybox mount -i -n -t relfs -o remount,rw,noatime /dev/ffx01p1 /
+/bin/busybox mount -i -n -t relfs -o remount,ro,noatime /dev/ffx01p1 /
+Saved actual help advertises DEVICE NODE,-t,-o,remount,ro/rw,noatime; /bin/mount
+exists. It omits-i/-n. Upstream1.19.2 parses both unconditionally: inhibit helpers
+and mtab updates if those features exist, otherwise no-ops. These two switches
+are SOURCE-backed compatibility assumptions, not live argv validation. The
+smallest advertised core is the same command without-i/-n. No trial to decide here.
+
+WHY / WHAT MUST BE VERIFIED
+mount.c1993-2005 uses two operands directly, bypassing fstab/mtab selection;
+single-operand remount uses mount-table lookup (2028-2070). Explicit source/type
+states our intent; source proves what BusyBox passes, not how vendor kernel uses it.
+mount.c561-598 can retry failed RW as RO and return0. Therefore mountRC0 PLUS
+fresh /proc/mounts predicateRC0 is required before file staging/publish.
+Match the UNIQUE /dev/ffx01p1 / relfs record, not the separate rootfs/rw pseudoentry.
+Before RW and after restore expect ro,noatime; after RW expect rw,noatime. Preserve
+all prior flags; unknown options/layout/dev/canonical-path change stops the trial.
+
+Proposed read-only checker (NOT executed/tested here; change want=rw to want=ro):
+awk -v want=rw '
+$2=="/" {
+  print
+  if ($1=="rootfs" && $3=="rootfs") {
+    p++; if ($4!="rw" || $5!="0" || $6!="0") bad=1
+    next
+  }
+  n++
+  if ($1!="/dev/ffx01p1" || $3!="relfs" ||
+      !($4==want ",noatime" || $4=="noatime," want) ||
+      $5!="0" || $6!="0") bad=1
+}
+END {exit (p==1 && n==1 && !bad ? 0 : 1)}
+' /proc/mounts
+Also retain canonical/nonlink/type/0755/1018:3015/nlink1 and device64785 guards;
+the checker validates kernel-reported rows, not actual writeability/durability.
+
+MINIMUM FUTURE ORIGINAL -> CANDIDATE -> ORIGINAL ORDER
+1. Known root55/idle owner; exact AS-FOUND original+metadata and stored backup/
+intent verified BEFORE root RW. Backups are not pristine-factory authentication.
+2. Request RW once; require actual completion AND exact backing-row RW. On failure,
+do not publish; reconcile outcome/handles and restore RO if this trial changed it.
+3. Stage candidate AND original rollback image in same parent; verify bytes/metadata.
+Recheck original unchanged; publish candidate; verify exact candidate/readback.
+4. Only a known candidate plus valid intent/backup permits planned original restore.
+Verify exact original; explicitly COMPLETE disable and commit disabled/no pending.
+Default ABORT can re-enable candidate: original bytes alone are not uninstall.
+5. Clean only owned staging while RW; request RO, verify exact backing-row RO;
+fresh identity/END+PS1/home evidence, release handles. Keep backup/journal.
+At unknown delivery/OTHER image/bad metadata: stop feature writes, reconcile actual
+command/handles first; no blind retry/overwrite/reboot. Failed RO restore remains
+an unresolved state, never report the reference restored. No GUI reload/heartbeat
+action or cold start in this warm byte trial. Target protocol still needs review.
+
+REMAINING UNKNOWN / PROVENANCE
+Vendor BusyBox patches/build options, kernel/root-RelFS remount/RO-return behavior,
+open-writer effects and crash durability remain unproved. RW data_persist copy/
+journal results do not prove root FlashFX/RelFS, power-loss or startup recovery.
+Actual help (helpRC1, coreEND0/root55, no mount action):
+runs/20261113T040546-0600-t14-copy-transaction-record/mount-help-output.txt
+SHA256: 4346a63af4a77f88a28f1af5ed4d87420deadc2a093ecfe09a585f0287ebc54e
+Saved official BusyBox1.19.2 archive SHAea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9;
+member util-linux/mount.c SHA5d3394b81c3d86e56eec13ebe7e3a739c11062c2f6a51f275aa97b35dc627d99:
+160-190 options;561-608 fallback/mtab;1993-2070 operand selection.
+Historical notes/disclaimer-first-install-plan.txt and all six paths unchanged.
+No catalog expansion, extra test, live query or external source lookup.

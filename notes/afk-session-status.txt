@@ -37,12 +37,22 @@ ONE full94KB COPY-ONLY trial PASSED6.506s: exact installed source94058B was
 copied, frozen candidate94055B constructed, owned copy replaced/restored and
 scratch removed.10 file states/17 toolstatus0; installed source bytes+metadata
 unchanged BEFORE/AFTER. notes/full-file-copy-only-observation.txt.
-ACTIVE t12+t14: smallest experimental two-phase interrupted DISABLE on another
-isolated full-size data_persist copy, then explicit COMPLETE verifies/commits an
-already-restored original WITHOUT rewrite. Expected finite phase1 exit is planned;
-unknown state/conflict must preserve and stop. Real /jci stays read-only input.
-No root remount, sync, startup, firmware/service/browser/power or actual install.
-t13 intent note complete; six install-proposal paths remain historical.
+ONE isolated full-size two-phase DISABLE/COMPLETE trial PASSED:
+phase1 intended73/coreEND73+PS1/host3,6.859s; phase2 COMPLETE0/coreEND0+PS1,4.819s.
+Restored original had identical dev/inode/mtime/size/mode/UID/GID/nlink across
+RESTORED/BEFORE_COMPLETE/COMMIT. Journal disabled/no-pending, scratch removed.
+Four focused host checks passed. notes/copy-disable-complete-observation.txt and
+experiments/target-copy-transaction/result.txt; no actual GUI/root write or crash/
+power-loss/recovery-policy claim.
+ONE read-only actual mount-help query completed: BusyBox1.19.2 helpRC1, coreEND0,
+root55/PS1/closed port. No actual mount invocation. Source/argv caveats and exact
+physical mount-row gating are in notes/remount-preparation.txt; rc0 can be RO fallback.
+ACTIVE t12: review-only first real-file WARM roundtrip package under
+experiments/disclaimer-warm-roundtrip/, with verified original/candidate/intent,
+same-parent stages, explicit restoration and actual root RO verification.
+NO live remount, /jci write, startup/reboot/browser/service/power handoff yet.
+Coordinator reviews this new real-file boundary after the concrete package exists.
+t14 idle with handles closed; t13 mount preparation complete.
 t14 remains sole UART/camera owner; reconcile existing trial state before repeats.
 t13: resource interpretation + retrospective comparison COMPLETE; external research
 started after freeze. Miatafy ScreenTune public behavior compared; disclaimer

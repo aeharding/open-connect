@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "tests": 4,
+  "exit_code": 0,
+  "source_sha256": {
+    "check.py": "b6523fe606666c66652002f2a08abb4aafa6678820049b3c0a64c9142bf9ffd4",
+    "prepare.py": "027db92c3ccf981e8046f565bf0d8037dd6bd184178ebc2cfa2bd1c5290adb2b",
+    "test_transaction.py": "8fe6714ac87d21e4aeab17efa883f8e5f2d282734f8a67b9f6bd888f8c179d55"
+  },
+  "source_copies": "source/",
+  "source_unchanged": true,
+  "ready_stop": "/Users/aeharding/mazda-cmu-bench/experiments/target-copy-transaction/checks/20261113T100248.158737Z/ready-stop",
+  "tests_sha256": "9287998358e434110547dfc341cca791fa4e09253963d507a64d39d2c3a1ee9b",
+  "scope": "HOST syntax/owned-file/control-data checks with logical UID/GID/device shim; no BusyBox equivalence or device execution",
+  "reference": "/Users/aeharding/mazda-cmu-bench/runs/20261113T034954-0600-t14-full-file-copy/command.sh",
+  "device_actions": false
+}

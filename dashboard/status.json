@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
   "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T03:51:19-06:00",
+  "updated_at": "2026-11-13T04:12:21-06:00",
   "timezone": "America/Chicago",
   "snapshot_note": "Saved progress, not live telemetry. Reopen the private Page for a newer snapshot.",
   "links": {
     "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
     "html_download": null
   },
-  "headline": "Full disclaimer copy roundtrip passed on CMU",
-  "summary": "The CMU constructed the frozen disclaimer candidate from its exact installed original, replaced an isolated copy and restored it in 6.5 seconds. The installed GUI stayed unchanged. Six feature checks and 16 shared host maintenance checks passed; actual installation, startup behavior and crash recovery remain ahead.",
+  "headline": "Interrupted uninstall completed on a CMU copy",
+  "summary": "The CMU deliberately stopped after restoring an isolated original copy but before committing its uninstall. Explicit completion then verified that file without rewriting it, recorded disabled/no-pending and cleaned up. The installed GUI is unchanged; real-file installation and startup behavior remain next.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
@@ -18,8 +18,8 @@
     "tx": "64-byte chunks · 20 ms RX gaps",
     "camera": "Manual mode 1 · exposure 87 · brightness 128",
     "scope": "USB + SD preserved · AUX not required",
-    "changes": "Installed GUI and root read-only filesystem unchanged. Only nonce-owned synthetic scratch files were created and removed in the latest device trials.",
-    "display": "Fresh stock Communication home",
+    "changes": "Installed GUI and root read-only filesystem unchanged. Isolated full-size copies and a transaction journal were created, verified and removed.",
+    "display": "Last observed stock Communication home",
     "device_state": "done",
     "state_label": "Stock baseline",
     "firmware_qualifier": "Fresh identity after each completed device trial"
@@ -79,7 +79,7 @@
         "kind": "done",
         "title": "Display / native UI",
         "lines": [
-          "Fresh stock Communication home",
+          "Last observed stock home",
           "Browser return failed earlier"
         ]
       },
@@ -329,17 +329,37 @@
       "refs": [
         "notes/full-file-copy-only-observation.txt"
       ]
+    },
+    {
+      "id": "copy-journal",
+      "title": "Interrupted copy uninstall completed",
+      "state": "done",
+      "detail": "One two-phase CMU experiment: intended stop73 in 6.859 s, then explicit COMPLETE0 in 4.819 s.",
+      "proof": "Four focused host checks passed. Live completion verified the same original inode/timestamp/bytes/mode/UID/GID, committed disabled/no-pending and removed the owned directory. Both phases had fresh root55 and normal core completion.",
+      "limits": "Intentional process exit on isolated writable-volume copies only. No real GUI install, root remount, sync/crash/power-loss recovery or product policy adoption.",
+      "refs": [
+        "experiments/target-copy-transaction/result.txt"
+      ]
     }
   ],
   "tasks": [
     {
-      "id": "target-transaction",
+      "id": "warm-real-file-preparation",
       "lane": "now",
       "state": "active",
-      "title": "Interrupted uninstall on an isolated CMU copy",
+      "title": "Prepare the first real-file warm trial",
+      "owner": "Coordinator + Research + Bench operator",
+      "detail": "Resolve actual mount syntax and exact backing-volume verification, then prepare backup/stage/restore ordering. No installed-file write or remount is queued.",
+      "pass": "A bounded original → candidate → original trial can preserve the loaded stock frontend and restore the actual root mount to read-only. Startup testing is separate."
+    },
+    {
+      "id": "target-transaction",
+      "lane": "later",
+      "state": "done",
+      "title": "Interrupted uninstall on a CMU copy passed",
       "owner": "Coordinator + Tooling + Bench operator",
-      "detail": "Tooling and the bench operator are preparing one bounded journal experiment: deliberately stop after restoring an original copy, then explicitly complete without rewriting it. Real GUI stays untouched.",
-      "pass": "Known original can be restored and verified after a deliberately interrupted copy transaction. Actual GUI installation is a separate bounded step."
+      "detail": "One deliberate stop73 followed by explicit COMPLETE0. The already-restored original kept the same inode, timestamp, bytes and attributes; journal disabled/no-pending and scratch removed.",
+      "pass": "Known process-exit window completed. Installed GUI unchanged; crash/power-loss and product recovery policy remain separate."
     },
     {
       "id": "full-file-copy",
@@ -508,6 +528,10 @@
   ],
   "recent": [
     {
+      "title": "Interrupted copy uninstall completed",
+      "text": "Deliberate stop left the original restored and uninstall pending. Explicit completion committed disabled without rewriting that file; scratch removed."
+    },
+    {
       "title": "Full-size copy works on the CMU",
       "text": "The exact frozen candidate was constructed, checked, replaced and restored on an isolated copy. Actual installed source unchanged; scratch removed."
     },
@@ -534,10 +558,6 @@
     {
       "title": "Comparison separated from implementation",
       "text": "Miatafy already documents replacement USB and first-install backups. Its version/recovery conditions are not an any-version or no-brick guarantee."
-    },
-    {
-      "title": "Host maintenance model working",
-      "text": "Plan/apply/verify/reapply/reconfigure/uninstall and forced process-exit recovery passed on temporary fixtures."
     }
   ],
   "guardrails": [

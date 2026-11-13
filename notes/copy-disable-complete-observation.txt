@@ -1,0 +1,33 @@
+ISOLATED COPY DISABLE STOP -> EXPLICIT COMPLETE — t14 November13 2026
+ONE bounded2-phase experiment passed; no automatic retry.
+Checked t12 handoff4host tests (logical UID/GID/device shim), pinned sources.
+Phase1 freshroot55.00.750B/cmu150_NA: installed AS-FOUND source verified unchanged,
+owned full-size original94058B/candidate94055B built/verified as previously frozen.
+Scratch /tmp/mnt/data_persist/cmu-bench-probe-faa999e4ab40341ae2be6a5d81120f7e
+on guardedrwRelFS; created owned copy controls with enabled registry/pendingDISABLE.
+Restored original image, deliberately stopped before control commit: actual target73,
+coreEND73+normalPS1,hostCLI3(remote_nonzero),6.859s,portclosed. This was intended.
+Saved RESTORED:dir45826:49, active45826:52:1433953097:94058:755:1018:3015:1.
+COMPLETE prepared offline from that exactsaved proof; phase2 freshroot55 passed0
+in4.819s,coreEND0+PS1/0BEL/portclosed. Strict control DATA and all3image hashes/
+counts/attributes verified; control journal.new->journal commit changed only control.
+COMMIT registrydisabled/pendingnone/no_rewrite1. RESTORED,BEFORE_COMPLETE and COMMIT
+all have identical active dev/inode/mtime/size/mode/UID/GID/nlink tuple above.
+No active-image rewrite in the checked COMPLETE path; original remained present.
+All copies mode0755/UID1018/GID3015/nonlink/nlink1, original/candidateMD5CRC match.
+Exact4file whitelist rm0+rmdir0; actual ENDrc0 registrydisabled pendingnone cleanupabsent.
+Conflict guards included; device trial did not inject journal/image/metadata conflicts.
+One posthoc host assertion expected adjacent ENDcleanup fields; corrected on saved
+bytes for actual rc/registry/pending fields, without target retry/evidence alteration.
+Private proof runs/20261113T040546-0600-t14-copy-transaction-record/
+compact-result.json,phase1-actual-proof.json,phase2-actual-markers.txt,cleanup.json.
+Raw/command/codehash provenance: runs/copy-tx-faa999e4-phase1/ and phase2/.
+Two owned helpers saved/exited3(expected)/0 and removed; bothaliases lsof1empty.
+Camera unused. Process-exit/journal proof on copies ONLY; no actualGUI install,
+rootremount,sync,reboot/browser/service/heartbeat/power action; no crash/powerloss,
+durability,startup or real target-installer recovery-policy validation.
+Root separately authorized ONE read-only mounthelp query only after this cleanup.
+Authorized follow-up: command-vmount=/bin/mount rc0; /bin/busybox mount--help
+helpRC1 retained; coreEND0/root55,0.878s. Full help and cleanup/provenance at
+same private record/mount-help-output.txt,mount-help-result.json,mount-help/.
+No actual mount/remount. t5k saved/exited0/removed; final bothaliases lsof1empty.

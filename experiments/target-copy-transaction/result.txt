@@ -1,0 +1,32 @@
+PASS — TWO-PHASE CMU COPY TRANSACTION, November13 2026
+Scope: isolated full-size data_persist copies; installed GUI unchanged.
+
+Four focused host checks passed once. No program changes after that profile.
+Manifest: checks/20261113T100248.158737Z/manifest.json
+
+ONE live two-phase experiment:
+1. Intentional stop after restoring the original copy: remote73, coreEND73 plus
+   normal prompt, host3/remote_nonzero;6.859s. Journal still enabled/pending DISABLE.
+2. Explicit completion: remote0, coreEND0 plus normal prompt, host0;4.819s.
+   Journal committed disabled/no pending. Active original was verified in place.
+
+Active identity matched at restored, BEFORE_COMPLETE and COMMIT:
+  device45826 / inode52 / mtime1433953097 / size94058 /
+  mode0755 / UID1018 / GID3015 / nlink1.
+Original and candidate full length/MD5/POSIX CRC matched frozen expectations.
+The second phase replaced only the control file before exact four-file cleanup.
+Scratch absence, fresh root55, zero BEL and closed port were recorded.
+
+Evidence authority:
+  runs/20261113T040546-0600-t14-copy-transaction-record/compact-result.json
+  same directory/phase1-actual-proof.json and phase2-actual-markers.txt
+Runner bundles:
+  runs/copy-tx-faa999e4-phase1/
+  runs/copy-tx-faa999e4-phase2/
+The initial host-only result predicate assumed adjacent END/cleanup fields; it
+was corrected against saved bytes. No target command was retried.
+
+This demonstrates one intentional process-exit journal window on isolated copies.
+No real GUI/source write, root remount, sync, reboot, browser/service/heartbeat or
+power action occurred. It is not crash/power-loss recovery, real-install startup
+evidence or adoption of a product/target recovery policy.

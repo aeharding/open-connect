@@ -1,0 +1,38 @@
+{
+  "status": "PASS",
+  "passed": true,
+  "recorded_at": "2026-11-13T08:55:15.324905+00:00",
+  "tests": {
+    "existing_engine": 6,
+    "new_adapter": 4,
+    "exit_code": 0
+  },
+  "source_sha256": {
+    "demo.py": "8e0b4c09624849c696c32d584e36614ac97bde30001cd90fe5157dca5a10d2ea",
+    "disclaimer_adapter.py": "e64387784592b610526807228b4dd75b2ed1843b39745f54d825d6f54034024f",
+    "engine.py": "1a2721ace91901645cda11ca6c97d90f04fae169b6cfa3c7610535121a8763db",
+    "run_adapter_checks.py": "db0057a275a1b2b43346d8db71ebc600b15749900cd571642dd2677d1800f2f5",
+    "run_checks.py": "16bbcd0109826a0df688b0fa847713f8aacee13bc4559c6206c15a7869271be4",
+    "test_disclaimer_adapter.py": "eacf0e726777079200261fae690bdc0ed4b4a6ff4198ea088dc10205fec0dbcc",
+    "test_engine.py": "f47d0d347682565382dd946414ceb40291e076df7cfa113c871fb8afb1fc3447"
+  },
+  "source_copies": "source/",
+  "source_unchanged": true,
+  "frozen_disclaimer_sha256": "42eb3420551c9d647f58f624cfa53e86e5c379c286443bf5ddf53c0b05a37d6d",
+  "frozen_disclaimer_pins": {
+    "experiments/disclaimer/README.txt": "cb68f3ac0dca6cb80fc3499944d3669e1b7a8eda1175fbe29623c0859a382396",
+    "experiments/disclaimer/patch.py": "487eca90e648d6aaca5058efe7c883b1cc272a52403ef10b4ee956d1230cbeb1",
+    "experiments/disclaimer/run_checks.py": "11dea631df8bdcc634988810de219be562dd3861d9fd897f654ec0cd69781f25",
+    "experiments/disclaimer/source-boundary.txt": "404edd5cd25bc81459eea0a8b7fd5b1bc13fca0d762748a68b5d637531acc717",
+    "experiments/disclaimer/sources.json": "4e0d5d26b3361251c1dbacca80aefe5657056915b4fb0e925d734cf5560e2bf2",
+    "experiments/disclaimer/test_behavior.js": "e7f3c6daf3f85e2b2f6a61014f214c4c4086ca96e34eed0d2e31b209b62caf77",
+    "experiments/disclaimer/test_patch.py": "5d3844377846a8b13a0a483673a33077a6ce4506ad02fb6b4fbb767853591184"
+  },
+  "frozen_disclaimer_unchanged": true,
+  "tests_sha256": "430cc5416a4a218cc72520ba500bb0c51f860cf364fdcda6719a2932396a9faa",
+  "demo_sha256": "7e869940153da065f2c62bacc010a519e160b0560c1b20afabcb048d5fc2cdc4",
+  "scope": "temporary private host COPIES only; OEM bytes never stored in feature/evidence source copies",
+  "device_actions": false,
+  "python": "3.13.7 (main, Aug 14 2025, 11:12:11) [Clang 17.0.0 (clang-1700.3.19.1)]",
+  "limitations": "As-found55 exact-byte support; host process exit and bytes+mode, not device/startup/power-loss proof"
+}

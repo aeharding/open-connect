@@ -1,0 +1,26 @@
+{
+  "status": "ILLUSTRATIVE_PROPOSAL_NOT_A_PRODUCT_DECISION",
+  "implemented_demo_decisions": {
+    "feature": "demo-bench-badge",
+    "target": "fixture.conf in a disposable host fixture only",
+    "supported_base_sha256": "a9a1f0e31d8eb34e0d849b49008dc3eff8755328598f97d420e17ee376d9fb5a",
+    "mode": "0640",
+    "config_labels": ["DEMO", "READY"],
+    "recovery": "explicit abort to previous stable image",
+    "conflict": "refuse and preserve unknown bytes/mode; no merging"
+  },
+  "possible_manifest_shape": {
+    "feature_id": "example-id",
+    "supported_base_hashes": ["EXACT_PREIMAGE_SHA256"],
+    "transform_revision": "INDEPENDENT_LOGIC_HASH",
+    "config_schema_revision": "TO_BE_CHOSEN"
+  },
+  "possible_config_shape": {"feature_id": "example-id", "enabled": true, "parameters": {}},
+  "not_decided": [
+    "USB entrypoint or device installer architecture",
+    "CMU write/atomicity/durability/recovery procedures",
+    "manifest/config standard, signing, distribution or public release",
+    "multi-feature composition, schema migration or conflict merging"
+  ],
+  "runtime_consumes_this_proposal": false
+}

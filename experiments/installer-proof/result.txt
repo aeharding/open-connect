@@ -1,0 +1,29 @@
+PASS — tiny HOST-ONLY reversible installer model,2026-11-13, t12.
+6 focused tests + short demo passed. No device/OEM/USB/network/cloud actions.
+
+Demonstrated plan(read-only), apply, verify, reapply(no-op), reconfigure DEMO->READY,
+uninstall(exact originalbytes+0640mode), and real process-exit interruption recovery.
+Original bytes were captured/stored; immutable hash-addressed images and journal
+intent precede target mutation. A fresh Engine reads disk state and restores the
+previous stable image. Pending work blocks reapply until explicit recovery.
+Tests interrupt beforewrite and afterwrite for apply/reconfigure/uninstall.
+
+Unsupported baseline/config, later file/mode edits, corrupt original and symlink
+refused. Same-file unrelated edits are preserved as conflicts, not merged/removed;
+unrelated other-file edits survive successful uninstall. Fixtures removed.
+
+Evidence: experiments/installer-proof/checks/20261113T084529.289170Z/manifest.json
+SHA256ab10e96c02213ee447ce4f4b76b7b79e29409ef059dd9e876f42d9fd3821bc0b
+Demo: same folder/demo.json SHA256a56821bd010577668ca46807a4855ed58311e90b25339aa223be16102997b36f
+Exact pre-test copies: same folder/source/ (4 program files); all unchanged afterward.
+Engine SHA2560bdccf9812703df33242d8f12cfad612c630c226e0b9123acaa9bb8dcf646cb2
+Demo SHA2568e0b4c09624849c696c32d584e36614ac97bde30001cd90fe5157dca5a10d2ea
+Original fixture SHA256a9a1f0e31d8eb34e0d849b49008dc3eff8755328598f97d420e17ee376d9fb5a
+
+Learned: one small transaction path can demonstrate reversible configuration in
+this bounded model. It does not establish a USB architecture or CMU recovery.
+Single writer, no atomic compare-and-swap; metadata scope is bytes+mode only.
+Process exit/fsync is not power-loss or CMU filesystem proof. No product manifest
+or config schema chosen; illustrative proposal is separate in schema-proposal.json.
+Frozen disclaimer files unchanged; no third-party feature implementation read.
+Prior untested draft+pause result retained in before-resume/. Helper t56 saved/removed.

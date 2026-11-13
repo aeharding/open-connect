@@ -1,0 +1,20 @@
+{
+  "recorded_at": "2026-11-13T08:45:29.542165+00:00",
+  "passed": true,
+  "tests": 6,
+  "test_exit": 0,
+  "demo_passed": true,
+  "source_sha256": {
+    "demo.py": "8e0b4c09624849c696c32d584e36614ac97bde30001cd90fe5157dca5a10d2ea",
+    "engine.py": "0bdccf9812703df33242d8f12cfad612c630c226e0b9123acaa9bb8dcf646cb2",
+    "run_checks.py": "16bbcd0109826a0df688b0fa847713f8aacee13bc4559c6206c15a7869271be4",
+    "test_engine.py": "f47d0d347682565382dd946414ceb40291e076df7cfa113c871fb8afb1fc3447"
+  },
+  "source_copies": "source/",
+  "source_unchanged_after_checks": true,
+  "tests_sha256": "10ba73bbba0c36c055ba5ae157240dc8406decdc0bdc96b8f101542adcc2e643",
+  "demo_sha256": "a56821bd010577668ca46807a4855ed58311e90b25339aa223be16102997b36f",
+  "python": "3.13.7 (main, Aug 14 2025, 11:12:11) [Clang 17.0.0 (clang-1700.3.19.1)]",
+  "scope": "synthetic host temporary fixtures only; no device operations",
+  "limitation": "Process exit on host filesystem, not power loss/CMU/USB architecture or recovery proof"
+}

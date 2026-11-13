@@ -136,3 +136,11 @@ No CMU/OEM adapter, USB architecture, actual power-loss proof or policy selected
 Terminology: our source captures are exact AS-FOUND installed bytes, not proved
 pristine factory OEM. Both our inverse and vendor first-install restore can retain
 earlier modifications. No new factory-authenticity/recovery claim.
+
+HOST-COPY ADAPTER RESULT (later t12 result; no target action)
+experiments/installer-proof/adapter-result.txt records4 adapter+6 engine tests/demo
+passing: frozen pure patch enable/verify/no-op/disable, stored AS-FOUND original
+recovery after real process exit and conflict preservation. All7 disclaimer pins/
+freeze unchanged. This is host-copy bytes+created-mode proof, not device metadata
+restoration, actual power loss/CMU recovery, startup/no-flash or USB architecture.
+No new independent patch after retrospective; no installer approval implied.

@@ -243,3 +243,8 @@ POST-FREEZE RETROSPECTIVE / HOST MODEL
 independent OEM55 candidate; code/license/USB compatibility limits explicitly qualified.
 context/miatafy-retrospective-provenance.json — exact primaryURLs/date/hash/chronology.
 ../experiments/installer-proof/result.txt —6 host-synthetic tests+demo; no device/USB policy.
+
+HOST-COPY DISCLAIMER ADAPTER
+../experiments/installer-proof/adapter-result.txt —4 adapter+6 engine tests/demo,
+frozen patch unchanged; AS-FOUND original recovery/conflicts on host only.
+No actual startup, power-loss, device metadata or USB installer proof.

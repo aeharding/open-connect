@@ -49,3 +49,6 @@ private/
 /experiments/webcam-control/build-evidence/
 /experiments/webcam-control/vendor/
 /experiments/webcam-control/uvc-util
+
+/experiments/**/adapter-checks/
+/experiments/installer-proof/before-disclaimer-adapter/

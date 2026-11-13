@@ -1,0 +1,27 @@
+FROZEN HOST-COPY PASS —2026-11-13, t12. No further feature/device work queued.
+4 adapter tests +6 existing engine tests and complete private-copy demo passed.
+
+Authoritative identity/evidence (relative to this folder):
+  adapter-checks/20261113T085514.871946Z/manifest.json
+  same folder/source/, tests.txt and demo.json
+All7 program sources match the saved pre-test copies. Independent disclaimer
+freeze.json and all its7 pinned files remain unchanged. No patch was rederived.
+
+Imported frozen patch_original; shared transition model enabled/verified the exact
+candidate, treated reapply as a no-op, and disabled back to stored original bytes
+and copy mode0755. Real process exit after target write was recovered from stored
+original+journal, including without the external master source path. Interrupted
+disable recovered the previous enabled state. Later edits/conflicts were refused
+and preserved; unsupported/missing sources were not adopted.
+
+Original private AS-FOUND installed55 source bytes/mode unchanged. Complete OEM
+copies/snapshots stayed in ignored temporary runs/ directories, then were removed.
+Tracked reports contain hashes/counts/mode/journal, no OEM source bytes. The CLI
+clearly skips if private source is absent. Prior passing engine bytes are retained
+in before-disclaimer-adapter/; prior synthetic result is result.txt.
+
+Limits: one host writer; bytes+mode, not ownership/ACLs/concurrent CAS. Mode0755
+models the observed listing. Host process exit/fsync is not power-loss/CMU recovery,
+startup/no-flash or device-install validation. No product/USB schema decision.
+No target install/remount/reboot/UART/camera/network/publication. Helper t57 removed.
+Commands: README.txt. Final review file list: final-handoff.json.

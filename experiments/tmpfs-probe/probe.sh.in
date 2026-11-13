@@ -1,0 +1,138 @@
+_run=@RUN@
+_base=/tmp
+_d="$_base/cmu-bench-probe-$_run"
+_dd=
+_di=
+umask 077
+set -f
+rec() { printf 'TMPPRIM %s %s\n' "$_run" "$*"; }
+fail() { rec "RESULT outcome=preserved step=$1 rc=$2"; exit "$2"; }
+status() { rec "STEP op=$1 rc=$2"; [ "$2" = 0 ] || fail "$1" "$2"; }
+run() { _op=$1; shift; "$@"; _rc=$?; status "$_op" "$_rc"; }
+trap 'fail interrupted 125' 1 2 15
+canon() {
+ _can=$(readlink -f "$1"); status readlink "$?"
+ [ "$_can" = "$1" ] || fail canonical 91
+}
+guard_dir() {
+ [ "$_d" = "$_base/cmu-bench-probe-$_run" ] || fail path 90
+ [ -d "$_base" ] && [ ! -L "$_base" ] || fail base 91
+ canon "$_base"
+ [ -d "$_d" ] && [ ! -L "$_d" ] || fail directory 91
+ canon "$_d"
+ _dm=$(stat -c '%a %u %g %d %i' "$_d"); status dir_stat "$?"
+ [ "$_dm" = "700 0 0 $_dd $_di" ] || fail directory_identity 92
+}
+allowed() {
+ case "$1" in
+ "$_d/owner"|"$_d/original"|"$_d/candidate"|"$_d/active"|"$_d/stage"|"$_d/restore"|"$_d/journal") ;;
+ *) fail filename 90;;
+ esac
+}
+guard_file() {
+ allowed "$1"; guard_dir
+ [ -f "$1" ] && [ ! -L "$1" ] || fail file_type 93
+ _ln=$(stat -c '%h %d' "$1"); status link_stat "$?"
+ [ "$_ln" = "1 $_dd" ] || fail file_link_device 94
+}
+absent() {
+ allowed "$1"; guard_dir
+ [ ! -e "$1" ] && [ ! -L "$1" ] || fail existing_file 95
+}
+verify() {
+ _role=$1; _f=$2; _em=$3; _eu=$4; _eg=$5; _eh=$6; _ec=$7; _en=$8
+ guard_file "$_f"
+ _s=$(stat -c '%a %u %g %h %d %s' "$_f"); status "stat_$_role" "$?"
+ [ "$_s" = "$_em $_eu $_eg 1 $_dd $_en" ] || fail metadata 96
+ rec "META role=$_role mode=$_em uid=$_eu gid=$_eg nlink=1 dev=$_dd bytes=$_en"
+ _h=$(md5sum "$_f"); status "md5_$_role" "$?"; set -- $_h
+ [ "$1" = "$_eh" ] || fail md5 97
+ _c=$(cksum "$_f"); status "cksum_$_role" "$?"; set -- $_c
+ [ "$1 $2" = "$_ec $_en" ] || fail cksum 97
+ _w=$(wc -c <"$_f"); status "size_$_role" "$?"; set -- $_w
+ [ "$1" = "$_en" ] || fail size 97
+ rec "VERIFIED role=$_role md5=$_eh crc=$_ec bytes=$_en"
+}
+journal() {
+ if [ -e "$_d/journal" ] || [ -L "$_d/journal" ]; then
+  guard_file "$_d/journal"
+  _jm=$(stat -c '%a %u %g' "$_d/journal"); status journal_stat "$?"
+  [ "$_jm" = '600 0 0' ] || fail journal_metadata 96
+ else
+  absent "$_d/journal"
+ fi
+ printf '%s %s\n' "$_run" "$1" >>"$_d/journal"; status journal_write "$?"
+ rec "JOURNAL state=$1"
+}
+# EXECUTE: only the following bounded sequence mutates the fresh owned directory.
+_uid=$(id -u); status uid "$?"; [ "$_uid" = 0 ] || fail root 98
+for _tool in mkdir cp chown chmod stat mv cmp md5sum cksum wc readlink rm rmdir awk; do
+ command -v "$_tool" >/dev/null 2>&1; status "tool_$_tool" "$?"
+done
+[ -d "$_base" ] && [ ! -L "$_base" ] || fail base 91
+canon "$_base"
+_mount=$(awk '$2=="/tmp" {n++; if ($3=="tmpfs" && $4 ~ /(^|,)rw(,|$)/) ok++} END {if(n==1&&ok==1) print "tmpfs-rw"; else exit 1}' /proc/mounts)
+status mount "$?"; [ "$_mount" = tmpfs-rw ] || fail mount 98
+[ ! -e "$_d" ] && [ ! -L "$_d" ] || fail existing_directory 95
+run mkdir mkdir "$_d"
+_dm=$(stat -c '%a %u %g %d %i' "$_d"); status created_stat "$?"; set -- $_dm
+[ "$#" = 5 ] && [ "$1 $2 $3" = '700 0 0' ] || fail created_metadata 96
+_dd=$4; _di=$5
+_bd=$(stat -c '%d' "$_base"); status base_device "$?"
+[ "$_bd" = "$_dd" ] || fail directory_device 94
+guard_dir
+rec "CREATED path=$_d dev=$_dd inode=$_di filesystem=tmpfs"
+absent "$_d/owner"
+printf '%s\n' "$_run" >"$_d/owner"; status owner_write "$?"
+absent "$_d/original"
+printf 'CMU_BENCH_ORIGINAL_v1\n' >"$_d/original"; status original_write "$?"
+run chown_original chown 1018:3015 "$_d/original"
+run chmod_original chmod 0755 "$_d/original"
+absent "$_d/candidate"
+printf 'CMU_BENCH_CANDIDATE_v1\n' >"$_d/candidate"; status candidate_write "$?"
+run chown_candidate chown 1018:3015 "$_d/candidate"
+run chmod_candidate chmod 0755 "$_d/candidate"
+verify original "$_d/original" 755 1018 3015 @ORIGINAL@
+verify candidate "$_d/candidate" 755 1018 3015 @CANDIDATE@
+absent "$_d/active"
+run cp_original cp -p "$_d/original" "$_d/active"
+verify initial "$_d/active" 755 1018 3015 @ORIGINAL@
+run cmp_initial cmp "$_d/original" "$_d/active"
+absent "$_d/stage"
+run cp_stage cp -p "$_d/candidate" "$_d/stage"
+verify staged "$_d/stage" 755 1018 3015 @CANDIDATE@
+journal candidate_prepared
+verify before_publish "$_d/active" 755 1018 3015 @ORIGINAL@
+run mv_candidate mv -f "$_d/stage" "$_d/active"
+verify published "$_d/active" 755 1018 3015 @CANDIDATE@
+run cmp_candidate cmp "$_d/candidate" "$_d/active"
+journal candidate_published
+absent "$_d/restore"
+run cp_restore cp -p "$_d/original" "$_d/restore"
+verify restore_stage "$_d/restore" 755 1018 3015 @ORIGINAL@
+journal restore_prepared
+verify before_restore "$_d/active" 755 1018 3015 @CANDIDATE@
+run mv_original mv -f "$_d/restore" "$_d/active"
+verify restored "$_d/active" 755 1018 3015 @ORIGINAL@
+run cmp_restored cmp "$_d/original" "$_d/active"
+journal original_restored
+verify owner "$_d/owner" 600 0 0 @OWNER@
+verify journal "$_d/journal" 600 0 0 @JOURNAL@
+# Refuse unknown visible/hidden entries before deleting any owned file.
+guard_dir
+for _p in "$_d"/* "$_d"/.[!.]* "$_d"/..?*; do
+ [ -e "$_p" ] || [ -L "$_p" ] || continue
+ case "$_p" in
+ "$_d/owner"|"$_d/original"|"$_d/candidate"|"$_d/active"|"$_d/journal") guard_file "$_p";;
+ *) fail cleanup_unknown_entry 99;;
+ esac
+done
+[ ! -e "$_d/stage" ] && [ ! -L "$_d/stage" ] || fail stage_remaining 99
+[ ! -e "$_d/restore" ] && [ ! -L "$_d/restore" ] || fail restore_remaining 99
+run cleanup_payload rm "$_d/original" "$_d/candidate" "$_d/active"
+run cleanup_journal rm "$_d/journal"
+run cleanup_owner rm "$_d/owner"
+guard_dir
+run cleanup_directory rmdir "$_d"
+[ ! -e "$_d" ] && [ ! -L "$_d" ] || fail cleanup_directory_remaining 99
+rec 'RESULT outcome=restored cleanup=removed rc=0'

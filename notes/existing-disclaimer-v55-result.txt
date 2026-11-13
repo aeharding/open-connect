@@ -1,0 +1,26 @@
+EXISTING DISCLAIMER MOD — v55 ADAPTATION, 2026-11-13
+
+Installed and booted piotrmocko/mzd-v74-tweaks disclaimer approach, with stock
+native library. Automated startup/root55/RO and pre/post/final independent JS
+verification PASS. It remains installed for the user's live observation.
+The former Open Connect native+renderer pair was independently undone, stock
+boot verified and both holds cleaned before this comparison.
+
+Upstream5a17963a: replace Disclaimer Dialog3 with transparent NoCtrlTmplt and
+Mazda intro surfaces; ready sends DisposeIntroVideo, Global.Yes, NotifyDisclaimerEnd.
+v55 adaptation omits only the last event: absent from original55 lifecycle and
+the captured126-entry native event-name map; v74 uses it in contextOutFunction.
+Only the exact original55 Disclaimer context changed. No v74 app wholesale copy.
+Host2patch/dispatcher checks +1observer integration check PASS. Initial test-only
+comment-boundary syntax failure preserved, corrected before passing/execution.
+Reuse linked transaction; backup and independent undo verified before publication.
+
+Sampled video shows Mazda logo-to-menu animation, no warning in inspected frames,
+but a brief dark transition still occurs before stable Communication home.
+This does not establish no-flash, all resume paths, or unmodified v74 behavior.
+
+Evidence: runs/mzd-v74-tweaks-comparison/result.json, boot-comparison/,
+trial/, checked-source-pins.json, visual/, host-evidence/, host-cleanup.json.
+Upstream source/diff retained privately; derivative adaptation CC BY-NC-SA4.0
+attribution in experiments/comparison-disclaimer55/README.md +LICENSE.upstream.
+Current device state and next demo binding: notes/afk-session-status.txt.

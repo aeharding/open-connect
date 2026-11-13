@@ -9,6 +9,14 @@ the bench, press buttons, dismiss dialogs, reposition the camera, or perform wir
 for agent work. Software operation and cleanup belong to the agents. Record an
 unavailable physical operation as a dependency; do not assign it to the user.
 
+## GitHub workflow
+
+Use https://github.com/aeharding/open-connect as the public development home.
+Follow CONTRIBUTING.md: concrete issues, short-lived branches and reviewable PRs.
+Original contributions are AGPL-3.0-or-later. Never stage ignored OEM captures,
+credentials or the noncommercial comparison adaptations; see THIRD_PARTY.md.
+Keep GitHub changes coherent and sanitized without making bookkeeping a bench gate.
+
 ## Coordination
 
 The primary agent owns implementation, bench operation, testing, recovery and
@@ -121,7 +129,7 @@ and worker assignments are historical, not replay instructions.
 ## Context and durable records
 
 Start with README.txt, notes/afk-session-status.txt (current), notes/status.txt,
-and notes/interim-plan.txt. Prefer scripts/cmu-session.py for new live commands;
+and PLAN.md. Prefer scripts/cmu-session.py for new live commands;
 the legacy fixed-window helper remains historical. The current runner limits
 physical input lines to600 bytes and has validated exact-file exports. Default TX
 is paced64-byte chunks with20ms RX gaps; one7KiB calibration passed. The old
@@ -150,8 +158,9 @@ Whole-page data navigation rendered but lost that producer, triggered a heartbea
 fault/Opera exit and failed its timed return; root55/home were separately restored.
 Preserve the stock document/framework lifecycle during feature work; the proven
 native overlays are development tools, not the current product goal. Do not repeat that navigation branch or spoof/disable its heartbeat.
-USBhub/Ethernet+USBACCrelay remain in shipping; the user-planned v73 upgrade is
-deferred. Preserve55 while doing useful software/tooling/preservation work.
+USB hub/Ethernet and ACC relay were last reported in shipping. Scope the latest
+applicable NA firmware upgrade now per PLAN.md; the old v73 target is superseded.
+Resolve actual hardware dependencies rather than deferring all preparation.
 
 ## First product feature
 

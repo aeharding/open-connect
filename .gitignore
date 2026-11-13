@@ -61,3 +61,9 @@ private/
 /experiments/disclaimer-startup-trial/review-ready-final/
 /experiments/disclaimer-startup-trial/root-checks/
 /experiments/disclaimer-startup-trial/entry-checks/
+
+# Local comparison adaptations retain incompatible upstream noncommercial terms.
+# Keep them for bench research; do not publish under the project's AGPL license.
+/experiments/comparison-disclaimer55/
+/experiments/disclaimer-snap55/
+/experiments/**/recovery-checks/

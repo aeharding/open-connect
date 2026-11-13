@@ -1,3 +1,6 @@
+HISTORICAL — superseded by ../PLAN.md on 2026-11-13.
+The role assignments, priorities and v73 placeholder below are not current instructions.
+
 MAZDA CMU BENCH — DEVELOPMENT AND RESEARCH PLAN BEFORE ETHERNET
 Current update November13 2026, America/Chicago.
 Paced UART, exact metadata copies, native dialog cleanup and camera exposure are

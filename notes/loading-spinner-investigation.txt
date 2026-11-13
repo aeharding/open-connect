@@ -1,0 +1,29 @@
+Spinner investigation — 2026-11-13
+
+User explicitly reports a circular spinner sometimes AFTER the shimmering Mazda
+logo in the real car. Treat that as a separate observed stage, not a mistaken
+description of LoopLogo.
+
+Actual firmware55 now confirms circular spinner implementations:
+- List2Ctrl.css loadingImage uses IcnStatBgFunctions_Refreshing_01.png,
+  infinite_rotation, linear 2s, infinite iterations.
+- List2Ctrl._setLoading shows its loading overlay; default show delay200ms.
+- NowPlaying4Ctrl.setLoadingIcon toggles loading; matching CSS uses the same
+  named rotating image, linear2s infinite.
+- Read-only app caller search for loadingIcon found dabApp.js; this does not
+  establish startup activation. List loading is separate and other paths may
+  exist.
+- Exact1101B List2 PNG exported with pre/post identity/MD5/CRC and strict base64
+  decode, viewed locally: white incomplete circular ring on transparency.
+
+Evidence runs/open-connect-spinner/{find,code-find,hits,style-hits,asset}/result.bin.
+Original log interleaving retained. Filename-only derivatives are search leads,
+not exact whole-source captures. List CSS excerpt cap160 reached; relevant
+complete spinner declaration appears before cap. Full asset proof asset-result.json.
+
+No evidence yet links this exact control/asset to the user-observed post-shimmer
+stage, or limits it to a cold boot. Resumed app/source loading is a plausible
+lead given stock LastDRI/audio continuation, not an established explanation.
+LoopLogo is a separate emblem animation and does not disprove a later spinner.
+No UI events, services, reboot or patches were triggered by this investigation.
+Five owned helpers removed, UART aliases empty; installed Snap variant unchanged.

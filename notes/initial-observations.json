@@ -1,0 +1,8 @@
+{
+  "observed_at": "2026-11-12T20:21:04.869190-06:00",
+  "initial_pyserial": "not installed in /opt/homebrew/bin/python3",
+  "physical_uart": "unfinished per supplied handoff; not tested",
+  "relay": "model and attachment unconfirmed; no switching attempted",
+  "scope": "preserve USB and SD; AUX not required",
+  "serial_port_opened": false
+}

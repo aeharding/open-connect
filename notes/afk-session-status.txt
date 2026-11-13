@@ -1,29 +1,59 @@
-CURRENT — smoother native bypass live demo — 2026-11-13T13:28:16-06:00
+CURRENT — Snap handoff JS installed — 2026-11-13T14:29:45.259670
 
-Improved native + renderer pair intentionally INSTALLED AND RUNNING after the
-user-requested demo. Automated startup PASS, fresh root55/NA, exact loaded native
-candidate and JS persistent VERIFY before/after/final; physical root read-only.
-Native C: 64785:5484:313:454142:755:1018:3015:2
-JS C: 64785:1606:344:94658:755:1018:3015:2
-Current run: runs/open-connect-smooth-demo. Plans, original backups, independent
-recovery and inode holds retained. Do not clean holds while C is mapped.
-Earlier complete apply/boot/undo/original-boot/CLEAN passed for BOTH files under
-runs/open-connect-smooth. Current demo is a separate run.
+User requested piotrmocko/mzd-v74-tweaks adapted to firmware55 for observation.
+Primary t6 owns work directly; no subagents. Bench idle with UART/camera closed.
 
-Old sampled0.604–1.006s black interval absent in revised trial; brief dim fade
-remains. Native intro survives until renderer completion, then exactly one stock
-DisposeIntroVideo event cleans it up. No disclaimer context. Camera~5FPS,
-exact55 warm Intro->Home only. Result: notes/native-intro-handoff-result.txt.
-No live operation queued. Primary t6 owns work; no standing subagents.
+Current native: ORIGINAL installed AND loaded
+64785:9457:1433953535:454142:755:1018:3015:1
+Current systemApp.js: Snap C, 64785:1606:1293:93955:755:1018:3015:2
+Root55.00.750B/NA; physical /dev/ffx01p1 root RO.
+Latest loaded process/boot binding:
+runs/open-connect-snap55/boot-C/final.json
+Do not reuse earlier demo PID/process identities.
 
-Future undo environment:
+Comparison: transparent Mazda NoCtrl Disclaimer screen, visible intro surfaces,
+ready selects OEM Snap for Disclaimer-to-Home and sends Global.Yes; noLongerDisplayed disposes intro afterward. v74-only NotifyDisclaimerEnd omitted.
+Original Open Connect native+JS pair removed, stock booted and holds cleaned first.
+Independent persistent JS undo verified before install; automated C startup PASS.
+Retained JS originals/candidate/control/code/holds: /tmp/mnt/data_persist/oc-intro-hook-2c89d86213ff5f278a639696d1759380
+Host plan: runs/open-connect-snap55/trial/plan/plan.json
+
+User observed a repeat demo: black transition remains; remembered loading
+indicator absent. Repeat startup/access/mapping/RO and JS checks passed.
+Leave Snap variant installed. Native stock. New startup passed; user still sees a flash.
+Frames show clock/background then live icons arriving at the handoff. Next: identify
+actual loading/spinner asset and MainMenu initialization; no new mutation queued.
+For a NEW demo boot, use a FRESH bundle and latest final.json:
 OC_RUN=runs/open-connect-smooth-demo
-OC_JS_RUN=runs/open-connect-smooth-demo/js
-OC_NATIVE_PROFILE=/Users/aeharding/open-connect/runs/t12-native-host-20261113T191107.434648Z/candidate/profile.json
-Using hc/.venv: mapped-publication/trial.py UNDO; intro-handoff/runtime.py UNDO;
-intro-handoff/boot.py O; then each respective CLEAN. Paths under experiments/.
-Do not replay completed one-shot bundle paths.
+OC_SNAP_RUN=runs/open-connect-snap55/trial
+.venv/bin/python experiments/disclaimer-snap55/boot.py C <latest-final.json> <fresh-bundle>
+Native O observer labels refer to stock native; comparison-result.json and
+comparison_js_verified events distinguish installed JS C.
 
-Next: remaining brief stock fade and alternate resume destinations.
-Ethernet/SSH/ACC hardware still shipping. Mac cleanup exceeded300GB free;
-Open Connect and active Voyager preserved.
+Undo when requested/needed:
+disclaimer-snap55/runtime.py UNDO with same environment;
+disclaimer-snap55/boot.py O <latest-final.json> <fresh-stock-bundle>;
+then disclaimer-snap55/runtime.py CLEAN.
+Native stays O/clean throughout; no native undo needed. Source hold lifetime
+and full identities remain enforced. Do not replay used bundle paths.
+
+Visual: Mazda logo animates into menu; no warning in inspected sampled frames;
+brief dark transition still visible. Do not promise seamless/no-flash.
+Result: notes/existing-disclaimer-v55-result.txt and private result.json.
+
+Roadmap: PLAN.md. Latest-applicable NA firmware upgrade scoping remains active;
+old v73 placeholder superseded. Ethernet/ACC hardware last reported shipping.
+
+Latest source/visual finding: notes/disclaimer-snap-result.md. LoopLogo is the
+shimmering Mazda emblem, not a spinner. User confirms spinner AFTER shimmer; exact active context still unknown. Circular List2/NowPlaying spinner code and asset now found; startup link unproved. See notes/loading-spinner-investigation.txt. MainMenu
+JS/CSS now captured privately; first-icon paint remains unresolved. All read
+helpers closed; last UART work read-only.
+
+TAU-free silent UI test PASS: stock audio-manager Request enable(true) changes
+native readiness; FM NowPlaying and Entertainment source list visibly work.
+Request enable(false) restores prior boolean; final readbackfalse/Home/root55/RO.
+No installed-file changes, reboot or persistent startup override. Snap unchanged.
+No speaker wiring intended. Hardware TAU is not needed just to open these menus;
+real playback and startup/resume remain untested. Exact recipe and evidence:
+experiments/tau-bypass/README.md; runs/open-connect-tau-bypass/result.json.
+All owned helpers/serial/camera closed after the trial.

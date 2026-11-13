@@ -4,12 +4,18 @@ Open Connect is an open-source project to improve Mazda Connect reliability and
 responsiveness while preserving the OEM feel. This repository includes feature
 experiments, reverse-engineering findings and the development bench tools.
 
-Latest feature: native disclaimer bypass with renderer-completed intro cleanup.
-The recorded black startup gap is gone; a brief dim fade remains. Both-file undo
-and restored-stock boot passed. See notes/native-intro-handoff-result.txt; current
-installed state is in notes/afk-session-status.txt. Exact firmware55 bench work.
+Current work: simplest OEM-feeling disclaimer bypass on firmware55. Native bypass
+and independent undo were demonstrated. A local upstream-derived Snap comparison
+still shows a brief handoff; it is not included in this AGPL distribution.
+Silent Entertainment testing now works without a TAU through Mazda's existing
+audio API. Persistent bench activation is planned, not installed.
+See PLAN.md, bench/PLAN.md and notes/afk-session-status.txt.
 
-Progress dashboard: https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee
+Development: https://github.com/aeharding/open-connect
+License: AGPL-3.0-or-later (LICENSE); exceptions/provenance: THIRD_PARTY.md
+Contributing: CONTRIBUTING.md. Issues and pull requests are the development workflow.
+
+Private progress dashboard is recorded in dashboard/publication.json.
 Portable source: dashboard/index.html (snapshot data: dashboard/status.json).
 
 
@@ -19,11 +25,12 @@ Current status: notes/status.txt and notes/afk-session-status.txt.
 Research: research/index.txt (human entry) and research/index.tsv (catalog).
 Latest frontend result: notes/browser-navigation-finding.txt (failed browser return,
 separate recovery and stock heartbeat source; native extension lead).
-Firmware shipping-window checklist: notes/firmware-readiness.txt (exact planned
-v73 package/region/path open; stock55 unchanged).
+Firmware: active latest-applicable upgrade scoping in PLAN.md; exact target and
+upgrade sequence remain to be established. Earlier checklist is historical.
 Native status overlay: notes/native-status-overlay-observation.txt (visible/owned
 cleanup/home+root55 PASS; crowded body retained as limitation).
-Plan: notes/interim-plan.txt; source evidence remains in ignored local storage.
+Current roadmap: PLAN.md. Earlier interim plan is historical; source evidence
+remains in ignored local storage.
 
 VERIFIED BASELINE
 Mac mini M2 Pro, macOS26.5.2/arm64; Python3.13.7, pySerial3.5, FFmpeg7.1.1.
@@ -88,7 +95,7 @@ older tools that do not honor it.
 STORAGE AND RESEARCH
 Git contains code, instructions, decisions, source/evidence manifests and small
 sanitized fixtures. Original logs/,captures/,inventory/,runs/,source snapshots,
-backups, credentials and environments remain local/ignored. No remote is configured.
+backups, credentials and environments remain local/ignored. GitHub: https://github.com/aeharding/open-connect.
 Original evidence stays immutable; new findings cite exact paths and hashes.
 A Git commit/local working directory is not a second raw-evidence copy or a
 complete device backup/recovery set.

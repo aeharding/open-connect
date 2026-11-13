@@ -1,0 +1,36 @@
+Online bench-audio research — retrieved 2026-11-13
+
+Strongest directly relevant firsthand report:
+https://mazdas247.com/forum/threads/audio-completely-died.123883962/
+MzdCX_5, Oct31 2025, post4 reports powering a CMU on a bench and observing
+unavailable audio source selection and CarPlay playback from the phone.
+Attributes dependency to the separate non-Bose Tuner and Amp Unit (TAU) and
+CMU-TAU CAN connection. This is an owner's bench report, not a verified wiring
+recipe or diagnosis of our unit.
+
+Manufacturer corroboration, limited model scope:
+https://static.nhtsa.gov/odi/tsbs/2014/SB-10060505-0335.pdf
+Mazda bulletin09-021/14, Apr29 2014, specific early Mazda3 VINs. TAU faults can
+make AM/FM/XM unavailable and TAU version unavailable. Supports the distinction
+between missing audio hardware/control and a mere silent speaker output.
+Does not prescribe our bench wiring or establish our cause.
+
+Actual community bench method:
+https://github.com/majbthrd/MazdaCANbus/issues/1
+Author's Feb20 2019 account: capture car CAN traffic, use inexpensive real Mazda
+modules on bench, publish confirmed message behavior. Not a specific TAU emulator
+nor proof that their setup tests this exact audio screen.
+
+Other examined bench docs:
+https://raw.githubusercontent.com/mkaoudis/mazda-os/main/docs/BENCH_SETUP.md
+Minimal CMU/display/power/UART bringup; not demonstrated full audio recipe.
+
+Conclusion: missing TAU communication is a strong hypothesis for our unavailable
+Entertainment screen, based on similar firsthand symptom and Mazda documentation.
+We have not proved it locally. Check actual TAU detection/readiness and failed
+selection before deciding hardware requirements. A compatible real TAU with proper
+power/audio-CAN wiring is a plausible full-stack bench route; exact parts/wiring
+must follow our hardware. Emulation is possible research, not an available
+verified solution found in this search. No ready-made first-generation Mazda
+TAU emulator or reproducible CMU-only unlock procedure established.
+No purchase, target query, diagnostic reset or device action performed.

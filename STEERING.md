@@ -69,14 +69,30 @@ The first real feature is startup disclaimer bypass. Understand and modify the
 native startup decision while preserving OEM initialization, cleanup, focus,
 last-app/audio/display-off behavior and normal frontend lifecycle.
 
-The timer experiment shortened the warning but did not meet the goal. More timer
-tuning and visual masking are parked. The native candidate must be evaluated by
-actual startup behavior and demonstrated undo, not host tests alone.
+The native bypass and paired renderer cleanup now work on firmware55, with
+independent undo and restored-stock startup demonstrated. The user still sees
+a fade; smooth OEM-feeling startup remains unfinished. Compare the actual
+piotrmocko/mzd-v74-tweaks disclaimer mod the user identified before another
+visual change; do not assume it is paid ScreenTune.
 
-Mapped native libraries require installation and recovery behavior that accounts
-for loaded inode lifetime. Restoring a disk file does not unload a running module.
-Resolve that concrete integration issue without expanding it into a speculative
-installer platform.
+Scope the bench upgrade to the latest officially applicable North American CMU
+firmware now. The earlier “v73 later” label is superseded. Resolve the actual
+package, upgrade sequence, development access and bench power/media needs;
+shipping hardware does not prevent source research or preparation.
+
+[PLAN.md](PLAN.md) is the short current roadmap. Keep loaded-module lifetime in
+native install/undo: restoring disk bytes does not unload the running module.
+Reuse the working hardlink-hold recovery instead of rebuilding tooling.
+
+## Development home and license
+
+The public repository is https://github.com/aeharding/open-connect.
+Original project code uses AGPL-3.0-or-later; incompatible comparison adaptations
+and proprietary OEM captures stay out of the public repository. See THIRD_PARTY.md.
+Use issues for concrete work and pull requests for coherent changes. A short plan
+and one focused OEM-code review should improve the approach, not become repeated
+approval gates. The primary still owns implementation and bench results.
+See CONTRIBUTING.md and bench/PLAN.md for the development-profile plan.
 
 ## Knowledge, progress and maintenance
 

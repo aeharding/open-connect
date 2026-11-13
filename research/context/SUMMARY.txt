@@ -15,9 +15,20 @@ questions. See experiments/disclaimer-native/freeze.json and
 notes/disclaimer-native-prototype-review.txt. T14 owns checked native runtime
 preparation plus complete C apply/one C boot/independent undo/one original-confirm
 startup under notes/native-disclaimer-complete-handoff.txt, without another
-per-step approval gate. No actual native publication/runtime result yet.
-The DATA-only delivery CLI finished6 HOST checks; not live-tested.
-Latest actual bench remains the booted original below.
+per-step approval gate. ACTUAL NATIVE APPLY then published exact C but pairedRO
+failed255/EBUSY: physical root is now rw,noatime. No requested candidate boot/login.
+Native targetSID64785:1606:8839:454142:755:1018:3015:1 and enabled/none control
+are known; retained native D64/O65/C66/code68/rootOstage9457 are intact.
+T14 owns current complete original recovery under
+notes/native-apply-recovery-handoff.txt: guarded explicit RW-entry undo, exactO/
+disablednone/sync/pairedRO; one truthful original-only recovery reboot is allowed
+if O is known but RO remainsEBUSY. No Cboot/republish. Current maps pending;
+unlinked old mappedO is a hypothesis, not established cause yet.
+See notes/native-intro-apply-stopped.txt and
+runs/20261113T111353-0600-t14-native-intro/apply-actual-output.bin.
+The DATA-only delivery CLI finished6 HOST checks; not live-tested separately.
+The restored-stock confirmation below is the PRIOR reference, superseded for the
+live native module/mount by this exception. GUI systemApp O9456 remains unchanged.
 
 NEW RESTORED-STOCK STARTUP CONFIRMATION PASS, 2026-11-13: ONE separately
 authorized normal stock reboot and ONE login; automated observer succeeded.

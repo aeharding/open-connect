@@ -59,6 +59,18 @@ profile freeze, candidate apply/startup, independent undo and original-confirmat
 startup proceed without another per-step permission gate. Preserve actual request
 counts and current loaded-vs-disk state; historical JS profiles are not reusable.
 
+## Active native recovery exception
+
+The first native publication wrote exact C but its pairedRO remount returned
+EBUSY255; physical root remains RW. No candidate reboot was requested.
+This supersedes the historical stockRO baseline below. Follow the complete known
+original recovery in notes/native-apply-recovery-handoff.txt: t14 owns explicit
+RW-entry known-state undo and one truthful original-only recovery boot if needed,
+with exact original/mapping/physicalRO/VERIFY/home closure. Do not boot candidate,
+repeat the failed install, assume defaultRO recovery accepts RW, or treat disk
+restore as unloading the existing mapped module. Current evidence and retained
+identities are at the TOP of notes/afk-session-status.txt.
+
 ## Verified reference state
 
 - CMU firmware: 55.00.750B, North America (`cmu150_NA`), Linux 3.0.35 ARMv7l.

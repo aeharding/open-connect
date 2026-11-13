@@ -3,7 +3,30 @@ Sync: https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee
 Herdr exclusively. Coordinator t6; t14 solely owns UART/camera.
 Trusted outcome ownership, concise results; status questions do not pause work.
 
-CURRENT REAL BENCH — ORIGINAL ACTUALLY BOOTED / CLOSED
+ACTIVE NATIVE RECOVERY — SUPERSEDES THE STOCK MOUNT STATE BELOW
+Native C was published and verified, but paired remountRO failed255/EBUSY.
+Actual physical /dev/ffx01p1 / relfs is rw,noatime. No candidate reboot/login.
+Native target /jci/mmui/uia/libjciuiasystem.so current known C:
+64785:1606:8839:454142:755:1018:3015:1,
+MD585e9f407a28901e29e176e2471d02059, CRC2919851988.
+Control enabled/none/candidate_verified; exact backup/recovery retained under
+/tmp/mnt/data_persist/cmu-bench-native-7c748f8ac79ca2a8ae45170150798589
+D64/O65/C66/code68, root original-stage9457. Original process mappedO5484 before
+publication; fresh deleted/mapping evidence is pending. EBUSY is observed; causal
+mapped-orphan diagnosis is a hypothesis until checked.
+T14 owns COMPLETE ORIGINAL RECOVERY under notes/native-apply-recovery-handoff.txt:
+fresh knownC/control/code/backup/physicalRW/maps, separate explicit RW-entry undo
+(defaultRO tool unchanged), exactO/disablednone/sync/pairedRO, then ONE normal
+original recovery-confirmation reboot even if knownO+sync0 stillRW/EBUSY.
+Truthful RW preflight exception; postboot must prove exactO/mappedO/root55/physicalRO/
+independentVERIFY/home/cleanup. No Cboot/republish, force/directsignals/proc-relink.
+Routine fixes with relevant checks/preserved failures need no extra permission.
+Current failed-apply authority/data:
+runs/20261113T111353-0600-t14-native-intro/{apply-actual-output.bin,apply/manifest.json,
+apply-markers.txt,stopped-current-known.json}; notes/native-intro-apply-stopped.txt.
+Original feature source remains frozen, no candidate startup/visible result.
+
+STABLE STOCK REFERENCE BEFORE NATIVE APPLY
 Freshroot55.00.750B/cmu150_NA, Communication home, physicalrootRO.
 AS-FOUND ORIGINAL /jci/gui/apps/system/js/systemApp.js:
 64785:9456:1433953097:94058:755:1018:3015:1
@@ -93,8 +116,10 @@ Routine integration fixes with relevant checks/preserved failures are included.
 Unknown image/control/mapping or new boot loop stops/preserves with concrete report.
 Actual IDs stay unbound until completed evidence; do not reuse JS or sample records.
 T13 owns closed-video visual interpretation after C/O clips arrive; no re-review.
-Native runtime package is being prepared; no actual native publication yet at this
-handoff timestamp. Preserve spent request counts once operator execution begins.
+Runtime9focused checks passed; actual native apply then hit the EBUSY/RW failure
+recorded at the TOP. The feature trial is stopped with ZERO requested Cboots.
+notes/native-apply-recovery-handoff.txt is now the active recovery disposition;
+preserve actual request counts and disk-vs-loaded state.
 No CSS mask/timer, bare table alias, event substitution or forced Home.
 
 LATEST POINTERS

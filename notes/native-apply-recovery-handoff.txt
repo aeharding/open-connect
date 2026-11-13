@@ -1,0 +1,52 @@
+NATIVE APPLY FAILURE — KNOWN-STATE ORIGINAL RECOVERY DISPOSITION
+November13 2026, coordinator t6 to sole operator t14.
+
+Actual saved failure reviewed
+runs/20261113T111353-0600-t14-native-intro/apply-actual-output.bin:
+known C published and checked, fullSID64785:1606:8839:454142:755:1018:3015:1;
+control enabled/none/candidate_verified; retained O65/C66/code68 and Ostage9457.
+Postflush0; normal pairedRO mount returned255, "Device or resource busy";
+physical /dev/ffx01p1 / relfs remains rw,noatime. Core rc1+PS1/closed.
+No BIND, requested reboot, login or ARM candidate execution.
+Mapped-oldO-last-link removal is a hypothesis until fresh maps, not the diagnosis.
+
+Concrete authority: RECOVER ORIGINAL, no candidate startup
+T14 owns the complete recovery immediately, with t12 support if useful.
+1. One bounded read-only fresh root55/native-state/physicalRW/mapping/control/
+   retained image and code check is authorized. Bind exact known C fullID/hashes,
+   original backup/stage and strict intent. Read-only mapping evidence may settle
+   whether the old original is still mapped/deleted; no proc/map_files relink.
+2. Prepare a separate explicit RW-entry variant of the independent native undo,
+   leaving the frozen/default-RO tool and failed apply evidence unchanged.
+   It accepts ONLY the actual physicalRW row + known C/valid retained data/code.
+   Preserve unrelated/unknown images and refuse conflicts. Relevant focused host
+   checks must cover this changed entry and unresolvedRO reporting; no broad rerun,
+   new framework or further review/permission chain.
+3. DATA-stage/verify the changed recovery body with existing exact guards, then
+   restore exact O/checked metadata and disabled/none intent on the already-RW root.
+   Preserve normal known-state writer, status checks, checked sync and ALWAYS paired
+   normal RO request/physicalrow verification. No forced remount or in-place native
+   patch, no servicekill/directsignal and no candidate code change.
+4. If O is independently verified and sync succeeded but RO remains EBUSY/RW,
+   ONE normal no-flags stock-O RECOVERY REBOOT is explicitly authorized from that
+   recorded state. This is the concrete exception to the ordinary prebootRO gate.
+   Use a separate recovery-specific observer/preflight: exact restoredO+control,
+   live original mapping/process and actualRW must be recorded truthfully.
+   Do not fake physicalRO or edit a historical profile to claim it.
+   Video first; zero bootloader input; ONE prompt-gated established login.
+   Postboot MUST establish new bootID/lower uptime, root55, exact original/native
+   metadata and current nondeleted original mapping, physicalRO and independent
+   native VERIFY/disablednone, stock home and owned helper cleanup.
+   If RO succeeds before reboot, still use this ONE original-confirmation reboot
+   to close restored disk vs actual loaded-module state.
+5. If exact O/valid data or checked sync cannot be established, or a new unexpected
+   state appears, preserve/stop with the concrete failure. No blind extra reboot,
+   force/no-sync/reset/hotpatch/guessing. Routine host entry/parser fixes with relevant
+   checks and preserved failures remain within this recovery task.
+
+The previous C trial is stopped and records ZERO candidate boots/ARM execution.
+The one recovery reboot is an original-only closure, not a native feature test.
+Keep native O/C/control/recovery and root-owned artifacts intentionally until the
+recovery result. Compact actual original state/access/RO/home result comes first.
+Future native publication must handle mapped-inode lifetime as a new design;
+do not republish C or expand this recovery into that experiment.

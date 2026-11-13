@@ -1,27 +1,27 @@
 {
   "schema_version": 1,
   "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T11:13:04-06:00",
+  "updated_at": "2026-11-13T11:25:09-06:00",
   "timezone": "America/Chicago",
-  "snapshot_note": "Saved progress, not live telemetry. Native HOST candidate passed; complete bench trial is preparing. Original CMU still running.",
+  "snapshot_note": "Saved progress, not live telemetry. Candidate publication verified; root remount to read-only failed. Original-only recovery is underway.",
   "links": {
     "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
     "html_download": null
   },
-  "headline": "Native prototype passed; bench trial preparing",
-  "summary": "The native Intro-only bypass is built and passed four focused host checks plus its semantic review. It reuses OEM startup choices and cleanup without entering the disclaimer context. The operator is preparing candidate startup, independent undo and a restored-original startup. No native patch has reached the CMU yet.",
+  "headline": "Native install stopped; restoring the original",
+  "summary": "The native candidate was written and verified, but returning the root filesystem to read-only failed with “Device or resource busy.” No candidate startup was attempted. The operator is restoring the exact original from verified retained backups, with a normal original-only recovery boot if needed.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
-    "console": "Fresh root55 / NA after restored-stock boot",
+    "console": "Fresh root55 / NA at failed apply; serial closed afterward",
     "uart": "115200 · 8N1 · no flow control",
     "tx": "64-byte chunks · 20 ms RX gaps",
     "camera": "Last read: manual1 · exposure87 · brightness128",
     "scope": "USB + SD preserved · AUX not required",
-    "changes": "Original AS-FOUND O9456 booted and verified unchanged; physical root read-only. Retained code/images/control passed independent VERIFY before and after the stock reboot; disabled/no pending change. All owned handles closed.",
-    "display": "Communication home after original startup",
-    "device_state": "done",
-    "state_label": "Warm cycle verified; original running",
+    "changes": "Exact native candidate on disk; physical root is writable after failed remount. Verified original/candidate/recovery retained, enabled/no pending control. Original-only recovery assigned; GUI source remains stock.",
+    "display": "Last verified Communication home before native install; fresh recovery frame pending",
+    "device_state": "hold",
+    "state_label": "Native recovery underway",
     "firmware_qualifier": "One exact55 base; warm software restarts only"
   },
   "metrics": [
@@ -462,6 +462,18 @@
         "experiments/disclaimer-native/freeze.json",
         "notes/disclaimer-native-prototype-review.txt"
       ]
+    },
+    {
+      "id": "native-apply-stop",
+      "title": "Native publication stopped at read-only remount",
+      "state": "failed",
+      "detail": "Exact native candidate published and verified; paired read-only remount returned255/Device or resource busy.",
+      "proof": "Core completed remote1 with prompt and closed port; postflush0, physical root stillrw,noatime; retained original/candidate/code/control verified.",
+      "limits": "No requested C reboot/login or feature startup result. Current mapping check and original recovery are pending.",
+      "refs": [
+        "notes/native-intro-apply-stopped.txt",
+        "notes/native-apply-recovery-handoff.txt"
+      ]
     }
   ],
   "tasks": [
@@ -473,6 +485,15 @@
       "owner": "Tooling; host-only",
       "detail": "Default-dry-run DATA-only CLI and guarded cleanup completed;6 focused host checks passed, including an actual local-shell16KiB binary stage/readback/cleanup.",
       "pass": "HOST-only result. Never executes the payload; no live CMU use or installed-file target."
+    },
+    {
+      "id": "native-install-lifetime",
+      "lane": "next",
+      "state": "waiting",
+      "title": "Correct loaded-library publication lifetime",
+      "owner": "Tooling + Bench operator",
+      "detail": "After original recovery, diagnose the busy remount and design native publication/undo that retains needed mapped inode links. Feature candidate remains unchanged.",
+      "pass": "Concrete retained-inode lifecycle, focused checks and a new complete experiment; no in-place patch or proc relink."
     },
     {
       "id": "restored-stock-confirm",
@@ -487,10 +508,10 @@
       "id": "disclaimer-next-design",
       "lane": "now",
       "state": "active",
-      "title": "Run the native startup and undo trial",
+      "title": "Restore the original native library",
       "owner": "Bench operator; Tooling support; Research visuals",
-      "detail": "Native candidate built/frozen; four host checks and focused semantic review complete. Finish native runtime checks, then candidate apply/startup, independent undo and original-confirmation startup.",
-      "pass": "Actual native context/cleanup and visible outcome, fresh access/full module identity/mapping/read-only root, independent undo and original loaded after confirmation boot. Real ARM execution is still pending."
+      "detail": "Fresh known-state checks, separate explicit writable-root undo, exact original/control/sync and paired read-only remount; one original-only recovery boot if needed.",
+      "pass": "Exact original and fresh nondeleted mapping, read-only root, independent VERIFY/disabled-none, stock home and owned cleanup. No candidate startup or retry in this recovery."
     },
     {
       "id": "modified-startup-prep",
@@ -713,20 +734,16 @@
   ],
   "recent": [
     {
-      "title": "Native HOST candidate is built and frozen",
-      "text": "Four focused checks and one semantic review complete. It bypasses the native Intro detour while retaining OEM continuation rules and cleanup."
+      "title": "Original-only recovery underway",
+      "text": "Known candidate is on disk and root is writable. Explicit guarded undo and a normal original recovery boot are assigned."
     },
     {
-      "title": "Complete native experiment assigned",
-      "text": "Operator prepares one candidate boot, independent native undo and one original-confirmation boot. No new approval chain after the checked runtime freeze."
+      "title": "Native apply stopped before startup",
+      "text": "Publication checks passed; returning root to read-only failed with Device or resource busy. No candidate reboot was requested."
     },
     {
-      "title": "Original CMU still running",
-      "text": "The last actual bench state remains original55, root read-only, Communication home and retained recovery disabled/no-pending."
-    },
-    {
-      "title": "Timer experiment stays historical",
-      "text": "It shortened the warning but did not bypass it. Masking and further timer tuning are parked."
+      "title": "HOST feature remains frozen and reviewed",
+      "text": "Four focused checks and semantic review passed. The current failure is an installation/lifecycle boundary, not an observed feature result."
     }
   ],
   "guardrails": [

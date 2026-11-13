@@ -32,7 +32,7 @@ between installed files and loaded code. Avoid repeated review gates.
 ## Keep it small
 
 Keep host code in the package, target-specific prototypes in experiments and
-human documentation in docs. Do not create another top-level notes, research,
+human documentation in docs. Delete superseded documents; Git preserves them. Do not create another top-level notes, research,
 examples or dashboard system. Prefer consolidating already-shared code over
 inventing a general framework. Git history preserves retired implementations.
 

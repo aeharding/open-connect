@@ -7,4 +7,4 @@
 - [Current lab state](bench-state.txt): the project's particular device, not a setup recipe.
 
 The [roadmap](../PLAN.md) holds priorities. GitHub issues hold implementation tasks.
-[history/](history/) contains dated research and old plans; do not start there.
+Git history preserves old plans and observations. Keep this tree focused on current documentation.

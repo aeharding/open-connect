@@ -39,9 +39,6 @@ private/
 *.sqlite*
 *.db
 
-# Generated UI source snapshots and per-run payloads remain local.
-/experiments/ui001/test-evidence/
-/experiments/ui001/prepared/
 
 # Generated experimental checks/builds remain local.
 /experiments/**/checks/
@@ -76,3 +73,7 @@ private/
 *.egg-info/
 /build/
 /dist/
+
+# Retired demo working files remain private if present on the original bench.
+/experiments/ui001/
+/experiments/status-overlay/

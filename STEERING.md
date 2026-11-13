@@ -140,7 +140,7 @@ and proprietary OEM captures stay out of the public repository. See THIRD_PARTY.
 Use issues for concrete work and pull requests for coherent changes. A short plan
 and one focused OEM-code review should improve the approach, not become repeated
 approval gates. The primary still owns implementation and bench results.
-See CONTRIBUTING.md and docs/history/bench-profile-plan.md for the development-profile plan.
+See CONTRIBUTING.md for development workflow and issue #1 for bench-profile work.
 
 ## Knowledge, progress and maintenance
 
@@ -154,13 +154,11 @@ parallel dashboard or duplicate current-state indexes.
 
 Keep changing device state and the next concrete task in
 [the current handoff](docs/bench-state.txt), and operational instructions
-in [AGENTS.md](AGENTS.md). Product background and open UX questions are in
-[the product brief](docs/history/product-direction.txt); historical assignments there
-are not current authority.
+in [AGENTS.md](AGENTS.md). Product intent belongs in this agreement; open implementation questions belong
+in GitHub issues. Git preserves superseded plans.
 
 Maintain this document when goals or working agreements change, not after every
 command. Keep it short enough to read at the start of a session.
 
 Repository layout: src/open_connect is host code; tests covers it; experiments
-contains prototype mods; docs contains setup, usage and findings. Retired records
-live under docs/history. Keep one starting README and one current lab-state file.
+contains prototype mods; docs contains setup, usage and findings. Retired records belong in Git history. Keep one starting README and one current lab-state file.

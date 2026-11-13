@@ -1,73 +1,35 @@
-CURRENT BENCH PROFILE UPDATE — 2026-11-13
-One CLI bench profile now implemented: src/open_connect/cli.py bench setup/status/teardown.
-Live setup -> repeat setup -> teardown -> status -> setup PASS.
-Final silent-ui-v1 profile ON/active/owned, audio enabled; fresh root55/NA and
-physical RO guards passed; each invocation closed UART. No startup hook,
-vendor file mutation, reboot or camera action. Existing Snap/product state unchanged.
-Receipt: .bench-state/profile.json (private). Evidence: runs/bench-profile/lifecycle-result.json,
-final bundle runs/bench-profile/live-ready. Guide: docs/bench-setup.md.
-Do not treat the older audio-disabled note below as current. Teardown is needed
-before tests whose interpretation depends on genuine TAU/audio readiness.
-After a reboot or service replacement, check status; runtime ownership expires.
-Normal product mods remain separate from bench profile setup/teardown.
+CURRENT LAB STATE — last verified 2026-11-13
 
-Previous detailed device handoff follows (source identities not rehashed by this API test):
-CURRENT — Snap handoff JS installed — 2026-11-13T14:29:45.259670
+Firmware: 55.00.750B NA, cmu150_NA. Physical root /dev/ffx01p1 is RO.
+Primary owns software operation; UART/camera handles closed at last observation.
+Revalidate before live work; recorded identities are not future authorization.
 
-User requested piotrmocko/mzd-v74-tweaks adapted to firmware55 for observation.
-Primary t6 owns work directly; no subagents. Bench idle with UART/camera closed.
+Installed and loaded:
+- Native ORIGINAL: /jci/mmui/uia/libjciuiasystem.so
+  SID 64785:9457:1433953535:454142:755:1018:3015:1
+- Local noncommercial comparison Snap JS: /jci/gui/apps/system/js/systemApp.js
+  SID 64785:1606:1293:93955:755:1018:3015:2
+  No warning in inspected samples; a brief dark transition remains.
+- silent-ui-v1 bench profile ON/active/owned, audio enabled.
+  Runtime only; no startup hook. Disable for genuine missing-TAU measurements.
+  After reboot/service replacement, check status; ownership expires.
 
-Current native: ORIGINAL installed AND loaded
-64785:9457:1433953535:454142:755:1018:3015:1
-Current systemApp.js: Snap C, 64785:1606:1293:93955:755:1018:3015:2
-Root55.00.750B/NA; physical /dev/ffx01p1 root RO.
-Latest loaded process/boot binding:
-runs/open-connect-snap55/boot-C/final.json
-Do not reuse earlier demo PID/process identities.
+Bench receipt: .bench-state/profile.json (private).
+Profile lifecycle evidence: runs/bench-profile/lifecycle-result.json;
+last setup bundle: runs/bench-profile/live-ready.
+Run oc from the repository root or use the same explicit --state path.
+Guide: docs/cli.md. Wiring: docs/bench-setup.md.
 
-Comparison: transparent Mazda NoCtrl Disclaimer screen, visible intro surfaces,
-ready selects OEM Snap for Disclaimer-to-Home and sends Global.Yes; noLongerDisplayed disposes intro afterward. v74-only NotifyDisclaimerEnd omitted.
-Original Open Connect native+JS pair removed, stock booted and holds cleaned first.
-Independent persistent JS undo verified before install; automated C startup PASS.
-Retained JS originals/candidate/control/code/holds: /tmp/mnt/data_persist/oc-intro-hook-2c89d86213ff5f278a639696d1759380
+Private comparison recovery retained at:
+ /tmp/mnt/data_persist/oc-intro-hook-2c89d86213ff5f278a639696d1759380
 Host plan: runs/open-connect-snap55/trial/plan/plan.json
+Latest recorded boot binding: runs/open-connect-snap55/boot-C/final.json
 
-User observed a repeat demo: black transition remains; remembered loading
-indicator absent. Repeat startup/access/mapping/RO and JS checks passed.
-Leave Snap variant installed. Native stock. New startup passed; user still sees a flash.
-Frames show clock/background then live icons arriving at the handoff. Next: identify
-actual loading/spinner asset and MainMenu initialization; no new mutation queued.
-For a NEW demo boot, use a FRESH bundle and latest final.json:
-OC_RUN=runs/open-connect-smooth-demo
-OC_SNAP_RUN=runs/open-connect-snap55/trial
-.venv/bin/python experiments/disclaimer-snap55/boot.py C <latest-final.json> <fresh-bundle>
-Native O observer labels refer to stock native; comparison-result.json and
-comparison_js_verified events distinguish installed JS C.
+Local comparison scripts are excluded from the public repo under their license.
+They are not requalified by the host-package reorganization; update imports and
+check the relevant entry points before any future operation. Keep the retained
+independent device undo intact. Restoring the bench profile alone does not remove
+the installed comparison JS.
 
-Undo when requested/needed:
-disclaimer-snap55/runtime.py UNDO with same environment;
-disclaimer-snap55/boot.py O <latest-final.json> <fresh-stock-bundle>;
-then disclaimer-snap55/runtime.py CLEAN.
-Native stays O/clean throughout; no native undo needed. Source hold lifetime
-and full identities remain enforced. Do not replay used bundle paths.
-
-Visual: Mazda logo animates into menu; no warning in inspected sampled frames;
-brief dark transition still visible. Do not promise seamless/no-flash.
-Result: docs/history/existing-disclaimer-v55-result.txt and private result.json.
-
-Roadmap: PLAN.md. Latest-applicable NA firmware upgrade scoping remains active;
-old v73 placeholder superseded. Ethernet/ACC hardware last reported shipping.
-
-Latest source/visual finding: docs/history/disclaimer-snap-result.md. LoopLogo is the
-shimmering Mazda emblem, not a spinner. User confirms spinner AFTER shimmer; exact active context still unknown. Circular List2/NowPlaying spinner code and asset now found; startup link unproved. See docs/history/loading-spinner-investigation.txt. MainMenu
-JS/CSS now captured privately; first-icon paint remains unresolved. All read
-helpers closed; last UART work read-only.
-
-TAU-free silent UI test PASS: stock audio-manager Request enable(true) changes
-native readiness; FM NowPlaying and Entertainment source list visibly work.
-Request enable(false) restores prior boolean; final readbackfalse/Home/root55/RO.
-No installed-file changes, reboot or persistent startup override. Snap unchanged.
-No speaker wiring intended. Hardware TAU is not needed just to open these menus;
-real playback and startup/resume remain untested. Exact recipe and evidence:
-experiments/tau-bypass/README.md; runs/open-connect-tau-bypass/result.json.
-All owned helpers/serial/camera closed after the trial.
+Next work and dependencies: PLAN.md and GitHub issues. Ethernet/ACC hardware was
+last reported shipping. Mazda behavior and open questions: docs/reverse-engineering.md.

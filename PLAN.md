@@ -44,7 +44,7 @@ A developer preview is not a general end-user car release.
 1. **#1, first increment delivered:** one `oc bench setup/status/teardown`
    manages the whole current runtime profile. Host and command-only agent checks,
    live setup/repeat/teardown/setup passed; the bench is intentionally enabled.
-   [CLI operations](docs/cli.md), [result](docs/history/bench-profile-result.md), [plan](docs/history/bench-profile-plan.md).
+   [CLI operations](docs/cli.md) and [Audio Manager findings](docs/reverse-engineering.md#silent-entertainment-without-a-tau).
    Persistent startup still needs a verified hook/readiness boundary; it does not
    gate feature work. No per-helper public controls or force-enable daemon.
 2. **#2, active research:** resolve the exact supported latest-NA package and upgrade
@@ -107,7 +107,7 @@ before running. Findings can justify closing a proposed feature without shipping
 Firmware55 native bypass/paired renderer handoff and independent restoration have
 been demonstrated. The later local upstream-derived Snap JS comparison is installed
 with stock native; it still shows a brief handoff. See
-[handoff findings](docs/history/disclaimer-snap-result.md) and
+[handoff findings](docs/reverse-engineering.md#disclaimer-and-intro-handoff) and
 [current state](docs/bench-state.txt). This is not a release candidate.
 
 The existing audio-manager API opened FM Now Playing and the source list without

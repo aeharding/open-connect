@@ -33,7 +33,6 @@ Prototype-specific checks are separate and may need private OEM inputs.
 | [tests/](tests/) | Offline tests for that host package | Your computer; fake transport or local PTYs |
 | [experiments/](experiments/) | Prototype mods, builders and bench trials; see its index before running anything | Builders run on the host; generated payloads may change the CMU |
 | [docs/](docs/README.md) | Setup, usage and Mazda findings | Documentation |
-| docs/history/ | Dated observations, old plans and evidence indexes | Historical reference, not current instructions |
 
 There is no automatic deployment step. Installing the Python package installs
 **only host tools**. Product patches are still experiments, not bundled into the CLI.

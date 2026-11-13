@@ -98,3 +98,13 @@ after meaningful milestones, with an honest timestamp. Batch this after useful
 results; do not gate bench progress on publishing. No live telemetry or new schedule
 is implied. Keep raw logs and private identifiers local. Read the Pages write-page
 skill for cloud updates and preserve the Page URL.
+
+## Frontend lifecycle lesson
+
+The stock GuiFramework schedules native guiManager.javascriptHeartbeat every1s.
+Whole-page data navigation rendered but lost that producer, triggered a heartbeat
+fault/Opera exit and failed its timed return; root55/home were separately restored.
+Current experiments keep the stock document/framework loaded and use owned native
+overlays. Do not repeat that navigation branch or spoof/disable its heartbeat.
+USBhub/Ethernet+USBACCrelay remain in shipping; the user-planned v73 upgrade is
+deferred. Preserve55 while doing useful software/tooling/preservation work.

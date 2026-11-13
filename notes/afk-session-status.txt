@@ -1,32 +1,32 @@
-CMU BENCH — ACTIVE SESSION
-November13 2026. Coordinator t6. Work continues; a retrospective/status discussion
-does not cancel the task. Herdr exclusively; t14 owns all UART/camera hardware.
+CMU BENCH — ACTIVE SESSION, November13 2026
+User sync point: https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee
+Herdr exclusively. Coordinator t6; t14 solely owns UART/camera.
 
-WORKING
-- CMU55.00.750B/cmu150_NA root shell and paced UART.37 offline tests; one7KiB
-  live checksum calibration passed in3.198s with0BEL.
-- UI driver integration17/17 tests passed. One live sleep4 lifecycle proof passed.
-- One native UI001 dialog appeared, its exact owned process was TERM-ed/reaped,
-  and camera returned to Communication home. Fresh root55/coreEND0+prompt passed.
-  Full nonce legibility is limited by glare/crop; after capture was+101s, so the
-  tighter90s visible-return target was not established. Process cleanup was+42s.
-- Exact /etc/version and /jci/version.ini copies and research/source history saved.
-- OPERA leaf exposes Navigate(in URL:s), GoBack/Forward/Refresh/TerminateOpera.
-  No OEM method invoked. Running target is /jci/gui/index.html; XML example
-  /jci/index.html does not exist. No current-URL getter has been established.
+CURRENT KNOWN STATE
+Fresh stock Communication home and root55.00.750B/cmu150_NA/Linux3.0.35 verified
+after the browser incident. Uptime454s supports an intervening restart. Root
+credential source stays in ignored private login records, never public summaries.
+Paced UART37 tests +7KiB live transfer; UI17 tests + native owned modal lifecycle.
+Webcam software exposure improved; retained observed manual1/exposure87/brightness128,
+original8/330/128 and exact restoration saved. Crop/angle remain.
+
+LEARNED / STOPPED BRANCH
+Data browser page rendered, but stock heartbeat was lost, Opera exited and timed
+return failed. Do not call that a successful reversible demo. Navigation tests
+are stopped. Stock GuiFramework constructor schedules native javascriptHeartbeat
+every1000ms; keep stock page/framework running, don't spoof/disable the monitor.
+See notes/browser-demo-observation.txt and notes/post-browser-state-observation.txt.
 
 ACTIVE TEAM OUTCOMES
-t12: existing userspace UVC utility built; camera query/control handoff to t14.
-t13: establish one installed Navigate caller and known browser return semantics.
-t14: bounded source queries + reversible webcam controls, no new modal test.
-Coordinator: integrate useful results, remove blockers and batch accepted records.
-Teammates coordinate directly within these tasks; no per-command approval gates.
+t12: reusable short native bench-status overlay using proven owned cleanup.
+t14: one live overlay/camera/identity outcome after t12's focused handoff.
+t13: concise saved-result index, then primary-source firmware-readiness checklist.
+No per-command approval gates; stop on unexpected device state. No new Navigate.
 
-LIMITS / CONTEXT
-No firmware/power/account/network/CMU-setting changes. Preserve USB+SD; AUX unused.
-No verified physical commander, USB/SD media, Ethernet/SSH link, relay/shutdown,
-full backup/restore or independent second copy. No automatic schedule.
-Evidence: runs/20261113T064054Z-t14-ui001-{cap,dialog}/
-Camera: captures/20261113T004355.113055-0600-webcam.jpg (during),
-captures/20261113T004524.010735-0600-webcam.jpg (after).
-Start with AGENTS.md, research/index.txt and notes/status.txt.
+DEPENDENCIES
+USB hub/Ethernet and USB ACC relay are still shipping for a few days.
+User-planned v73 upgrade is later; exact package/version/region unverified.
+Keep55 baseline now. USB/SD actualmedia, commander, Ethernet/SSH, relay/shutdown,
+full backup/restore and independent second copy remain open.
+No firmware/account/network/intentional CMU persistent-setting/power commands.
+The browser incident restart is separately recorded. No automatic schedule.

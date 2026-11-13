@@ -1,14 +1,12 @@
 MAZDA CMU BENCH — DEVELOPMENT AND RESEARCH PLAN BEFORE ETHERNET
-Prepared November 12, 2026, America/Chicago.
-Status: execution underway. Preservation/Git, reviewed UART tooling, bounded baseline
-and two checksum-verified metadata copies are implemented. UI001 lifecycle passed
-offline review, but one sleep4 submission was UNKNOWN due input corruption. Root
-was restored. The paced sender passed37 tests and one inert7KiB calibration;
-UI integration and one native dialog lifecycle/visible removal are now demonstrated
-with camera legibility/timing limits. Browser return-path and webcam controls are
-active next outcomes. The retrospective changed workflow and did not cancel work. Detailed current
-results: notes/status.txt, research/index.txt and linked immutable run manifests.
-The sequence below remains the roadmap; unmarked future milestones are not implied.
+Current update November13 2026, America/Chicago.
+Paced UART, exact metadata copies, native dialog cleanup and camera exposure are
+working. Whole-page browser data rendering worked but failed timed return after
+heartbeat loss; root55/home were separately restored. Keep stock GuiFramework
+alive. Active work is a native status overlay, preservation and firmware-readiness
+research. Hub/Ethernet+ACCrelay ship in a few days; user-planned v73 remains later.
+User sync point: dashboard/publication.json. Roadmap items below retain their
+original dependency sequence; a future item is not a completed milestone.
 
 PURPOSE
 Use the next few days to turn the working UART/webcam bench into a reproducible

@@ -1,0 +1,17 @@
+{
+  "scope": "OFFLINE new O wrapper focused synthetic Session/Video only; no hardware/target",
+  "command": [
+    "/Users/aeharding/mazda-cmu-bench/.venv/bin/python",
+    "-B",
+    "-m",
+    "unittest",
+    "-v",
+    "test_observe"
+  ],
+  "returncode": 0,
+  "source_sha256": {
+    "experiments/restored-stock-startup/observe.py": "6b6eeba23e5a05d065f3affa094cfc770a344416d2eb3bfe3450f956c87db9d1",
+    "experiments/restored-stock-startup/test_observe.py": "ddf5af6a11095e8c6b8001e3b6614a02cc4f792db781a8b86c7f5a2d1ec53a48",
+    "experiments/restored-stock-startup/check.py": "52ccf6680841512887f79b79f3d621827fb01ff162612061eb2446e627b2797e"
+  }
+}

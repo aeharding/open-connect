@@ -38,6 +38,20 @@ state; retain one UART owner and responsibility for software cleanup.
 - Keep camera access serialized. Use `hc wait` for running Herdr programs/agents.
   Clean up only helper terminals created by the current task after results are saved.
 
+## Bench development priority
+
+The user explicitly wants the best OEM-feeling fix, including native changes when
+appropriate. This dedicated test bench exists for experimentation; do not apply
+production-car risk aversion as a reason to prefer a timer tweak or visual mask.
+Use backups, independent undo and repeatable experiments to support the correct
+design. Trusted owners choose routine details and deliver working outcomes.
+The current disclaimer goal is to bypass its native startup detour while retaining
+OEM initialization, cleanup, focus and resume choices. The measured timer change is
+historical learning, not the completed feature. CSS masking and timer tuning are
+parked. Current native prototype ownership is t12, focused semantics t13, sole
+hardware execution t14. No additional user approval is needed for routine work in
+an assigned experiment; bring a concrete new boundary to the coordinator.
+
 ## Verified reference state
 
 - CMU firmware: 55.00.750B, North America (`cmu150_NA`), Linux 3.0.35 ARMv7l.
@@ -95,6 +109,12 @@ state; retain one UART owner and responsibility for software cleanup.
   Independent undo restored disk O, but no new O startup was performed; the
   running frontend was loaded from C. Corrected future tooling must preserve
   strict field/identity checks and the executed source/profile history.
+- A separate restored-stock confirmation then booted ORIGINAL O9456 unchanged:
+  automated observer/all6coreops passed, freshroot55/physicalRO/newbootID/lower
+  uptime and retainedreadonlyVERIFY before/after O/disablednone/writes0. The
+  running frontend is now original, not cachedC. Stock-length warning returned
+  3.821-4.425s (overlaps earlier4.223-4.625s; no exact equality claim). See
+  notes/restored-stock-startup-observation.txt. That one-boot profile is spent.
 - Every experiment records its question, applicable hardware/firmware, exact
   commands/code revision, before/after evidence, result, interpretation and cleanup.
 - No recurring/background schedule is implied by the development plan.

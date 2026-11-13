@@ -3,19 +3,61 @@ Updated November13 2026; coordinator t6, sole hardware owner t14, researcher t13
 Entry: research/index.txt/index.tsv. Originals stay local; facts retain paths/hashes.
 
 LATEST KNOWN STATE / OUTCOME
-ONE MODIFIED WARM STARTUP + INDEPENDENT UNDO completed, 2026-11-13.
+ACTIVE DEVELOPMENT: the user wants the correct native disclaimer bypass and
+explicitly rejects workaround-led conservatism on this test bench. Timer shortening
+is historical, not feature completion; masking/timer tuning are parked. Native
+analysis is complete in notes/disclaimer-native-startup-flow.txt: one Intro-only
+ShowDisclaimer routing point, OEM nine-rule continuation and explicit cleanup.
+T12 now owns the working HOST native prototype; t13 focused semantics and t14
+runtime requirements. No native candidate/publication/runtime proof yet.
+The DATA-only delivery CLI finished6 HOST checks; not live-tested.
+Latest actual bench remains the booted original below.
+
+NEW RESTORED-STOCK STARTUP CONFIRMATION PASS, 2026-11-13: ONE separately
+authorized normal stock reboot and ONE login; automated observer succeeded.
+O9456 has NOW ACTUALLY BOOTED; current page is no longer only the cached C page.
+Current AS-FOUND /jci/gui/apps/system/js/systemApp.js:
+64785:9456:1433953097:94058:755:1018:3015:1, exact MD5/CRC/count/checkedmetadata,
+fresh root55.00.750B/cmu150_NA, changed bootID/lower uptime, physical
+/dev/ffx01p1 / relfs ro,noatime. All six core operations completed0.
+Guarded independent persistent VERIFY in the same serial descriptor before
+request AND after new login proved O/disablednone/original_restored/writes0.
+Current retained startup D57/O60/C61/code63/control is intact after this new boot:
+ /tmp/mnt/data_persist/cmu-bench-startup-388ae4f695d2b19f0945f2d8428fca7e.
+Source9457/old warm records/one-shot guards remain historical; never replay them.
+Fresh final home, operator UART/camera handles closed, sole owner idle.
+Sources: notes/restored-stock-startup-observation.txt and
+runs/20261113T084726-0600-t14-restored-stock-confirm/compact-result.json.
+Visible stock-length WARNING returned3.821-4.425s inclpossiblefade; overlaps old
+stock4.223-4.625s, without proving exact equivalence. Clearly longer than C
+0.402-1.005s by at least2.816s. Original >=3.218s/about76% C-vs-oldstock reduction
+is unchanged. See notes/restored-stock-warning-visual-result.txt; ~5FPS/crop/fade
+qualify timing, not no-flash/exact boot latency or video-derived identity.
+The corrected typed field parser passed14 offline checks, then this separate
+new O observation. Old executed candidate UNKNOWN is unchanged, not relabeled.
+See experiments/disclaimer-startup-trial/boot/field-marker-result.txt.
+Completed3file/172783B lifecycle trace confirms ready->body reparent/transition->
+completion/displayed. Ready return is ignored: earlier Timeout alone cannot
+cancel reveal. No source-complete invisible rev2 established; generated paint/CSS
+boundary remains outside that spent3file scope. See notes/disclaimer-rev2-lifecycle-finding.txt;
+initial proposal notes/disclaimer-rev2-proposal.txt remains dated and unimplemented.
+This closes the restored-O warm-start gap, NOT cold ACC/realcar/CarPlay/USB product
+install/recovery, factory authenticity/fullmetadata or crash/powerloss durability.
+No more device work, source acquisition, cache changes or recurring action implied.
+
+EARLIER MODIFIED WARM STARTUP + INDEPENDENT UNDO completed, 2026-11-13.
 Exactly one actual frozen C apply, one modified stock software reboot, one login.
 Original candidate observer UNKNOWN (postfield parser error) is preserved; saved
 postboot values plus fresh independent persistent VERIFY reconciled known fullC
 64785:1606:4347:94055:755:1018:3015:1 unchanged across this boot, without adoption.
 Explicit independently retained undo6.777s + final fresh VERIFY2.258s passed:
-CURRENT /jci/gui/apps/system/js/systemApp.js AS-FOUND ORIGINAL on disk is
+At that modified-trial finish /jci/gui/apps/system/js/systemApp.js AS-FOUND O was
 64785:9456:1433953097:94058:755:1018:3015:1.
 MD5584c67f7186ada6bae9aae1be59b5cd0 / POSIXCRC376717896,94058B;0755,
 UID1018/GID3015/mtime1433953097/nlink1 checked. Control disabled/none/
 original_restored; syncs+paired physicalRO checks0, fresh root55.00.750B/cmu150_NA,
 and fresh Communication home. Source9457 is now HISTORICAL, not a live guard.
-CURRENT retained startup record/code/O/C are under
+Retained startup record/code/O/C at that finish (later reverified above) are under
 /tmp/mnt/data_persist/cmu-bench-startup-388ae4f695d2b19f0945f2d8428fca7e:
 directory45826:57, retainedO60/C61/code63; old warm records remain historical.
 Never replay old one-shot payloads or apply their stored source9457/1606 guards.
@@ -26,6 +68,8 @@ no-flash or exact boot latency. Visual classification is separate from access/un
 Sources: runs/20261113T073945-0600-t14-modified-startup/compact-result.json and
 notes/disclaimer-candidate-visual-result.txt (original frame/measurement pointers).
 No second reboot/new O startup: restored fileO/home, but running page loaded fromC.
+That was the dated limit of the modified trial; the later separately authorized
+O confirmation above closes this gap without altering the earlier record.
 No authenticated factory/fullmetadata, cold ACC, realcar/CarPlay, USB recovery or
 crash/powerloss durability claim. No new live authority follows this milestone.
 

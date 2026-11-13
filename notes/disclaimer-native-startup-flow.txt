@@ -1,0 +1,117 @@
+DISCLAIMER UPSTREAM STARTUP FLOW — DERIVED SOURCE ANALYSIS COMPLETE
+2026-11-13, t13 with native static analysis t12 and sole operator t14.
+Result: native startup chooses Disclaimer before GUI rendering. No bypass option
+was found in the actual loader XML. An existing OEM automatic continuation has
+been identified, but simple event substitution or a cell alias is not justified.
+This is source analysis/design evidence, not an implemented or tested native fix.
+Current booted AS-FOUND O9456/root55/physicalRO remains unchanged.
+
+Observed saved stock sequence (one invalid-last-app case)
+- Native SETTINGS_GetLastDRIAppName_Callback reported invalid UIA -100.
+- Native InitGui, JS InitializeGuiComplete sender, native HMIReady, then system
+  state old1/current2 and ShowDisclaimer preceded native ctxtChg Disclaimer.
+- Native DisposeIntroVideo was logged (its source-backed JS sender is the displayed
+  callback); later system/Timeout reached
+  the native event manager, then GUI transitioned to HomeScreen.
+- This does not establish Home as the universal continuation. Agree was not
+  exercised. Preserve prior-app/display-off/audio-source semantics in any design.
+Exact selected lines/offsets are private:
+ runs/20261113-t13-disclaimer-upstream-native/continuation-evidence.json
+ runs/20261113-t13-disclaimer-upstream-native/continuation-lines.bin
+JS contract: notes/disclaimer-upstream-js-path.txt (t12).
+
+Actual config and compiled entry
+- Fresh mapped svcjcimmui.so is a small loader. Its actual mmui_config.xml
+  lines35-43 load /jci/mmui/uia/libjciuiasystem.so via UIA_SYSTEM_Open, UIA1,
+  blockingtrue, application priority20. Disclaimer22, IntroAnimation50 and
+  QuickStartLoop50 are focus priorities, not context IDs/durations/enable flags.
+- No explicit disclaimer-enable/bypass field occurs in that parsed loader file.
+  Removing its priority entry is not demonstrated to change startup selection.
+- FinishIntroAnimation1404 -> OnFinishIntroAnimation0x10a24 sets logo state2 ->
+  sendHMIReady0x16d3c. Preserve this readiness chain.
+- System UIA callback uiaSystem_NotifySystemStateChange_SignalCallback0x15f54,
+  predicate0x16030..0x16044: old!=2 AND current==2 sends event1470 at0x160a0.
+  These are numeric state values; do not invent enum names from the numbers.
+- ShowDisclaimer1470 + IntroAnimation1021 selects cell79/A80, then Disclaimer1010.
+  A80 has no action/predicate. Native DisposeIntroVideo1402 and FinishIntroAnimation
+  1404 have separate handlers; simply hiding/suppressing the GUI misses native work.
+Config derivative/line refs:
+ runs/20261113-t13-disclaimer-upstream-native/config-evidence.json
+
+Continuation and demonstrated shortcut limits (compiled t12 analysis)
+- Disclaimer Timeout1481 uses A194 with nine ordered rules: system-no-focus;
+  display-off; navigation; last DRI app; non-entertainment; prior source connected;
+  unavailable AUX; prior source connecting; default audio. This preserves choices
+  beyond Home. Global.Yes411 uses A195/eight rules, omitting display-off.
+- In BOTH IntroAnimation1021 and QuickStartLoop1017, Timeout/Yes/Resume415 map to
+  UIA_SYSTEM_UnhandledEvent. Changing event1470 to Timeout/Yes is therefore wrong.
+- FinishIntroAnimation stays in context, DisposeIntroVideo stays in context, and
+  StartIntroAnimation1478 targets Intro; none is a ready-made startup continuation.
+- Actual libjciuiamgr.so defines UIAHLP_ProcessContextEvent0xf44c,
+  GetContextMachineUniqueCellAndColumnIndex0x7fd4 and
+  RequestFocusAndExecuteActions0x9398. Predicates run before actions; actions run
+  before the OLD context exit hook. Reusing A194 from Intro changes that hook.
+- UIA_SYSTEM_ExitDisclaimer0x12790 stops stock quicktranlogo via service client.
+  UIA_SYSTEM_OnDisposeIntroVideo0x1029c separately checks tranLogoState, performs
+  stock tranlogoend termination, clears state on success and sets context.
+  Those are observed code semantics; agents did not call or signal these services.
+
+Final source-level design disposition (not implemented)
+Use a NEW compound continuation for ONLY ShowDisclaimer1470 + IntroAnimation1021:
+the existing lookup triple at VA0x58698/file0x50698 is [111,10,79(A80)]. This is the
+specific warm/Intro path observed on our bench. Do not modify globally shared A80.
+ShowDisclaimer in QuickStartLoop1017 also uses A80; leave it stock in this first
+prototype. QuickStart exit0x12780 checks pending system warnings, so its distinct
+lifecycle cannot inherit an untested Intro shortcut. Cold/QuickStart coverage OPEN.
+
+The new transition must reuse A194's nine-rule order and default/denied behavior,
+with explicit normal intro-video and quick-logo cleanup, preserving normal
+HMIReady/init/resume, focus arbitration, next-app selection and frontend heartbeat.
+No Disclaimer GUI request should be emitted. Do not force Home, fabricate framework
+callbacks, tune the timer or apply a paint mask. This is a feasible design direction
+from the native contract, not an existing stock skip option or a safe pointer alias.
+
+Critical verified ABI: predicate is called at manager0xf934; per-rule +4 is the
+FOCUS-GRANTED action(0x9d84), +8 is the FOCUS-DENIED action(0x9e8c). They are mutually
+exclusive, NOT two sequential action slots. Old-context exit(+0x1c) is called at
+0x9ff8; new-context enter(+0x18) at0xa120, after actions. Exact destination names from
+IdToStr: DisplayOff1000, Entertainment1001, SourceReconnect1012, HomeScreen1013.
+Action ABI uses four ARM registers plus a fifth stack argument: preserve real
+state/current/next/payload/transition objects, not dummy null structs. Intro's old
+exit CheckForSystemWarning0x13f6c calls CheckForPendingSystemWarning0x8780; retain
+that warning hook exactly once.
+OnDisposeIntroVideo ALSO calls SetAppContext at0x10484. Reusing the whole handler
+with future-target arguments could publish a context prematurely. Factor cleanup
+OR prove a same-current-context/no-publication adapter; preserve failure/status
+semantics and cleanup ordering. This is the concrete remaining host implementation
+qualification, not a missing-source boundary. No byte recipe/candidate/native
+runtime result is claimed.
+
+Minimum next validation / undo criteria
+A host prototype must demonstrate unchanged ordered choice/default/grant/deny for
+all nine branches and unchanged unrelated contexts, with correct cleanup/lifecycle
+arguments and zero Disclaimer publication on the supported Intro path. No shortcut
+to Timeout/Yes or use of the denied slot as a second cleanup action.
+Only a separately reviewed bounded bench trial can establish actual boot/init,
+heartbeat, intended next context, cleanup and visible effect. ~5FPS absence cannot
+prove no flash. Back up exact AS-FOUND native bytes/metadata with independent undo;
+restoring disk bytes is not proof the already-loaded native module reverted.
+A new original startup is needed to establish loaded-O restoration. Root owns
+future implementation/experiment disposition; this note authorizes no device work.
+
+Provenance (exact AS-FOUND installed bytes, not factory-authenticated)
+ runs/20261113T100437-0600-t14-mmui-upstream/originals/jci/mmui/
+  svcjcimmui.so22952B SHA2c2c0494817b13a38c36a8276a39899b4096efc217e82568fe3842f8b34bb025
+  mmui_config.xml15030B SHAc94446b8c6e5bde79607514d3eb41036a3f56914d2d3f418605110bc250be0d0
+  uia/libjciuiasystem.so454142B SHAacf24ffd3719a29d2b4eefe80855ef6f164852fe3464858d07ca2d956395d302
+ runs/20261113T102114-0600-t14-uiamgr/originals/jci/lib/libjciuiamgr.so
+  196469B SHA0c32ab6dc6833d287d363c3ff63998450cce97121ace994930276c4adb28474b
+ Final native authority: runs/20261113-t12-mmui-static/{result.txt,final-result.json,
+ manifest.json}; exact commands/slices/tables beside them (analysis owner t12).
+ No additional source capture is required for this completed analysis checkpoint.
+ libjcimmui_helpers.so was a corrected dependency-name lead: exact source retained,
+ but its symbols prove JSON/XML utilities, not the rule interpreter. UIAMGR initial
+ host parser refusal/log contamination was reconciled from saved bytes/checksums;
+ original raw/refusal retained, no target reread/retry. See operator source notes.
+Full binaries/raw remain ignored/private. No external code, target writes, methods,
+events, service signals, mount/sync/cache changes, reboot, tests or source audit by t13.

@@ -1,0 +1,118 @@
+NATIVE INTRO BYPASS — OPERATOR RUNTIME REQUIREMENTS (PLANNING ONLY)
+2026-11-13; t14 sole UART/camera owner; t12 candidate/packet; t13 scoped semantic
+review; t6 concrete complete-experiment disposition. No live publication/startup
+authority is created by this note. No device was opened for this preparation.
+Root accepted TWO-STARTUP packet design: one candidate boot, independent disk undo,
+then one restored-original confirmation boot. This is intended scope, not launch.
+
+BASE AND REUSE
+Target /jci/mmui/uia/libjciuiasystem.so, exact AS-FOUND454142B.
+MD5b9ff5edc632163f88cda04686c118591 CRC3625493025
+SHAacf24ffd3719a29d2b4eefe80855ef6f164852fe3464858d07ca2d956395d302.
+Last captured fullSID64785:5484:1433953535:454142:755:1018:3015:1.
+Source/provenance:
+ runs/20261113T100437-0600-t14-mmui-upstream/
+  originals/jci/mmui/uia/libjciuiasystem.so
+  libjciuiasystem-exact-result.json and system-metadata-output.bin.
+Last mapped PID754/PPID210/start1576, sourcebase2b6ad000 are historical.
+Fresh actual source/path/attrs/hash/root55/NA/physicalRO must gate future mutation;
+PID/base are not persistent identity guards. Firmware55, JS bootedO9456 and existing
+historical retained JS recovery artifacts stay separate/untouched.
+
+Existing apply/recovery code is JS path/profile/journal-specific, not a generic
+installer to repoint through CLI. Reuse its checked mechanisms with a genuinely
+new frozen native binding, new nonce/retention/control/backup/stage/code.
+Never invoke old JS one-shot payloads, guards, actual IDs or liveenabled profiles.
+
+DELIVERY / PUBLICATION / INDEPENDENT UNDO
+Reviewed paced Session: physical lines<=600B,64B/20ms with concurrentRX; operation
+max60s/outputcap<=4MiB. Existing binary READ262144B chunks are not safe TX sizing:
+base64 TX at about3200B/s requires smaller bounded data transactions if needed.
+Prefer a deterministic small frozen delta recipe over uploading full454KB C.
+No assumed dd random-write flags; known prefix/concat/base64 primitives suffice
+where the host candidate permits them. Payload-only redirected groups must not
+mix status printf into binary output. Exact final C count/MD5CRC/hostSHA required.
+Long mutating programs DATA-stage to new guarded root0700 tmpfs directory,
+script0600, verify canonical/nonlink/singlelink/fullID+countMD5CRC, then short
+typed entry with stdin /dev/null. No long executable shell paste.
+
+Before RW/publication persist verified native O/C/strict data control and an
+independently invocable native recovery.sh in new owned data_persist0700 directory.
+Remove temporary recovery delivery; its fresh-process defaultVERIFY must succeed
+against actual O and any existing recorded stages. Validate code/data/control
+again immediately before publishing; source O and stages match full actual IDs.
+Fixed source path and exact profiles only, no arbitrary path/force mode.
+Checked physical RW request/row; paired RO attempt/check survives normal flush
+failure; postflush0+physicalRO required before any reboot binding.
+Do not claim rename/sync/readback guarantee crash/powerloss durability.
+
+Explicit undo after known access: persistent code, not surviving Mac process/tmpfs.
+Known exactC+recorded fullCID restores O; knownO verifies/commits without rewriting.
+Unknown bytes, changed fullidentity, corrupt control/code/backups or unrecorded
+stage => refuse/preserve. No adoption/journal refresh to silence a conflict.
+Restore O bytes and755/1018:3015/mtime1433953535/nlink1, record actual replacement
+inode, disabled/none control and physicalRO. Existing saved Oinode5484 need not
+be restored: replacement creates a new actual O identity, bound before Oboot.
+
+DISK VERSUS LOADED MODULE — ESSENTIAL
+O remains mapped after disk C publication; that is not yet a runtime bypass.
+After Cboot, require new bootID/loweruptime/root55/RO, actual fresh jciMMUI argv/
+process identity and exact mapped path+device/inode agreeing with applied C.
+Require the SAME FULL applied C disk identity postboot for current recovery ABI;
+same hashes with changed inode/mtime still conflict/STOP, no automatic adoption.
+Record actual mapping ranges/base; don't enforce historical ASLR address/PID.
+A mapped inode/path supports association, not an exact checksum of relocated RAM.
+
+After disk undo, a running native process can still use C, with its old mapped
+inode possibly shown as deleted. DiskO/rootRO/home alone is not restored runtime.
+Second, separately budgeted O-confirm boot verifies NEW restored O fullidentity,
+fresh bootID/uptime/root55/RO, fresh process mapping to O and persistent VERIFY.
+Only this establishes a new loaded-original startup and closed stock baseline.
+One request/login per boot, no third reboot/retry. Current authority is not live.
+
+SMALLEST DISCRIMINATING LIVE EVIDENCE (AFTER HANDOFF)
+Use accepted restored-stock warning3.821-4.425s and oldstock4.223-4.625s;
+no extra baseline startup. Before each request video starts first; one ordinary
+/sbin/reboot CR/no flags, raw RX-only bootloader, bound180s, one established
+prompt-gated login at new actual login/password prompts. Private existing JSON;
+no secret in tracked notes/argv; no partial/failed auth retry. Corrected logger/
+fragment-aware field parser and truthful nativeO/C profiles, immutable run snapshots.
+Unused-login reconciliation may finish a spent observer only if explicitly in
+the full handoff; original UNKNOWN remains preserved.
+
+Candidate supported path must actually exercise ShowDisclaimer1470+Intro1021;
+if actual startup takes QuickStart1017, record unsupported/non-discriminating
+result, no synthetic event/forced context to make the test pass.
+Capture intended stock-selected next context/app from normal native/GUI logs
+and visible display, not a forced Home expectation. Current saved invalid-last-app
+case reached Home; navigation/last-app/display-off/audio branches are host-tested
+semantic requirements, not all proven by one bench warm startup.
+
+Expected normal evidence: InitGui/InitializeGuiComplete/HMIReady chain preserved;
+no Disclaimer GUI publication on supported Intro path; normal selected context
+and stable GUI stock heartbeat; intro-video/quick-logo cleanup through reviewed
+native lifecycle, pending-system-warning Intro exit hook exactly once.
+Host checks must prove ordered nine-rule/default/focus-grant/focus-deny behavior,
+real ABI arguments/status/failure order and unrelated QuickStart behavior.
+A quiet warm bench cannot exercise/prove every pending-warning/focus branch.
+Use existing logs plus bounded relevant process observations only if needed;
+no debug enable, direct heartbeat calls, OEM input/events, operator signals to
+tranlogo/services, Navigate, service restart or watchdog/power/cache alteration.
+Stock internal cleanup called by the candidate is distinct from operator cleanup.
+
+Prompt camera appearance/return, full closed original MKV/progress/decodedPTS
+intervalFPS; about5FPS/crop/exposure means sampled absence is not no-flash/0ms.
+t13 can own saved-video comparison; operator owns immediate state/access/undo.
+Bounded post-home health window (about20-30s within observer budget) should show
+stable native process/UI and no repeated asserts/service reinitialization,
+heartbeat fault or second reboot. Absence of a log is not complete health proof.
+
+STOP / CLEANUP
+No candidate reboot after failed/unknown apply, missing native binding, recovery
+readiness or physicalRO. New native crash/loop/auth uncertainty/control conflict:
+stop/preserve; no blind undo, force/no-sync/directsignal/alternate power route.
+Known-state undo only within the eventual complete reviewed handoff.
+Retain native O/C/code/control/raw; preserve all old JS retention. Close only owned
+Mac helpers/ports/camera, preserve original failures and link derived reconciliation.
+Compact apply/boot/undo/O-confirm result first; concise notes/index afterward.
+No new source capture or target query appears necessary for host preparation.

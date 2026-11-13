@@ -1,91 +1,111 @@
 CMU BENCH — CURRENT HANDOFF, November13 2026
 Sync: https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee
 Herdr exclusively. Coordinator t6; t14 solely owns UART/camera.
-Trusted outcome ownership; concise results. Status questions do not cancel work.
+Trusted outcome ownership, concise results; status questions do not pause work.
 
-CURRENT REAL BENCH — MODIFIED TRIAL COMPLETE, ORIGINAL RESTORED
-Firmware55.00.750B/cmu150_NA, freshroot and Communication home verified.
-Current disk source /jci/gui/apps/system/js/systemApp.js is AS-FOUND ORIGINAL:
+CURRENT REAL BENCH — ORIGINAL ACTUALLY BOOTED / CLOSED
+Freshroot55.00.750B/cmu150_NA, Communication home, physicalrootRO.
+AS-FOUND ORIGINAL /jci/gui/apps/system/js/systemApp.js:
 64785:9456:1433953097:94058:755:1018:3015:1
-MD5584c67f7186ada6bae9aae1be59b5cd0; POSIXCRC376717896/94058.
-Physical /dev/ffx01p1 / relfs ro,noatime; rootfs/rw pseudoentry is irrelevant.
-Journal disabled/none/original_restored; fresh independentVERIFY2.258s passed.
-Original bytes+mode/UID/GID/mtime/nlink restored; inode9456 is current, not9457.
-All13 owned trial terminals saved/removed, videoPID absent, serialaliases empty,
-camerahelpers closed. t14 idle/soleowner. No further live action/reboot queued.
+MD5584c67f7186ada6bae9aae1be59b5cd0, CRC376717896/94058.
+Physical /dev/ffx01p1 / relfs ro,noatime; rootfs/rw pseudoentry irrelevant.
+SourceO9456 is now loaded in the running frontend after a NEW stock reboot,
+not the cachedC page that remained immediately after undo.
+Current recovery disabled/none/original_restored, independently verified before
+and after stock boot; original/candidate/code/control retained. All owned UART/
+camera/video/helpers closed. No further bench action/reboot queued.
 
-FIRST FEATURE: NOTICE CLEARLY SHORTER, STILL VISIBLE
-User-selected disclaimer bypass, independent OEM-first3500->0 initial timer only.
-Frozen first pass unchanged: experiments/disclaimer/freeze.json
-SHA42eb3420551c9d647f58f624cfa53e86e5c379c286443bf5ddf53c0b05a37d6d.
-Original94058B SHA985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432.
-Candidate94055B SHA43b21aa54308eb22c32051db44585422a4804c2d5406b80d0cc47e828dc5de3c.
-Stock Timeout/Agree/3500retry/context guard/teardown/heartbeat retained.
+WARM APPLY -> BOOT -> INDEPENDENT UNDO -> ORIGINAL BOOT VERIFIED
+Historical first experiment was the independent initial3500->0 timer prototype.
+It is NOT the completed bypass; correct native startup flow is now the priority.
+It starts after displayed callback; OEM render/event/transition still runs.
+First modified trial:1Capply,1warmCboot,1login; C fullidentity1606:4347:94055...
+unchanged. Original observerUNKNOWN from logger-attachedSWST|META preserved;
+saved6fields plus freshpersistentVERIFY reconciled newboot/access/C/RO.
+IndependentUNDO6.777s restoredO9456; finalVERIFY2.258s/RO/home passed.
+Then separately authorized NEWstockconfirm:1normalreboot,1login, automatedPASS,
+all6coreops0+PS1, exactfullO9456/hash/attrs, freshroot55/RO/newbootID/loweruptime
+3474.69->72.96s; same-descriptor persistentreadonlyVERIFY before+after passed
+O/disablednone/writes0. Finalized537frame/~4.96FPS video/home and cleanup verified.
+No source/cache/remount/sync/restore command in newstockconfirm; installed
+noflagsreboot's intrinsic stock sync/shutdown/reset route was already supported.
+Both one-boot authorities are SPENT. Don't rerun historical liveenabledprofiles.
 
-ONE Capply8.372s, ONE modified software reboot, ONE prompt-gated login:
-candidate fullSID64785:1606:4347:94055:755:1018:3015:1 survived unchanged.
-NewbootID and uptime4848.12->72.97s, freshroot55 and physicalRO verified.
-Automated observer ended UNKNOWN because partial loggerprefix precededSWST|META.
-All6 saved values and completeCHECK0/PS1 plus fresh persistentVERIFY established
-the actual outcome; no identity adoption/authretry/secondreboot. Preserve UNKNOWN.
-Independent retained-code UNDO6.777s restored exactO9456; finalVERIFY/rootRO/home
-passed. Running stock page was loaded fromC: NO new unmodified startup after undo.
-Actual video425frames/~4.96FPS, original file preserved. Visible warning:
-candidate0.402-1.005s inclambiguousdarkfade vsstock4.223-4.625s;
-conservatively>=3.218s/~76%shorter. Warning IS visible; no no-flash/0ms claim.
-One exact55 AS-FOUND base/warm run, not allfirmware/coldACC/CarPlay/USB release.
+VISIBLE RESULT (sampling/fade bounds, ~5FPS)
+ Firststockbaseline4.223-4.625s.
+ Timerprototype0.402-1.005s, STILL visible.
+ Restoredstockafternewboot3.821-4.425s, stock-length warningRETURNED.
+Stock intervals overlap; no exact equivalence claim. Firstcomparison conservatively
+>=3.218s/~76%shorter; restoredstock is>=2.816slonger than candidate.
+No no-flash/source0ms/exactrebootlatency/allfirmware/coldACC/CarPlay/USB or
+crash-powerloss guarantee. One exact55 AS-FOUND base/normalwarmsoftwarecycle.
 
-Current independently invocable recovery:
+Current independently invocable recovery retained:
  /tmp/mnt/data_persist/cmu-bench-startup-388ae4f695d2b19f0945f2d8428fca7e
- directory45826:57, original60, candidate61, recoverycode63 (14428B/root0600).
-Control365B disabled/none/original_restored; original/candidate/code retained.
-Old warm source9457/one-shot payloads are HISTORICAL; don't rerun their stale guards.
-Isolated COPY recovery directory is intentionally retained separately.
-Authority spent: notes/disclaimer-modified-startup-live-handoff.txt;
-no second stock-confirm reboot or extra source mutation included.
+ directory45826:57, O60, C61, recoverycode63/root0600/14428B.
+Journal365B disabled/none/original_restored; latest defaultVERIFY afterstockboot0.
+Oldwarm O9457 and earlier one-shot profile identities are HISTORICAL; no reuse.
+Full identities matter: inode1606 also appeared in historicaldifferentfile states.
 
-Evidence:
+FROZEN FIRST FEATURE
+experiments/disclaimer/freeze.json
+SHA42eb3420551c9d647f58f624cfa53e86e5c379c286443bf5ddf53c0b05a37d6d.
+O94058B SHA985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432.
+C94055B SHA43b21aa54308eb22c32051db44585422a4804c2d5406b80d0cc47e828dc5de3c.
+Stock Timeout/Agree/3500retry/context guard/teardown/heartbeat retained.
+Full OEM originals/raw/credentials/binaries private and ignored.
+
+SOURCE / TOOL FOLLOWUPS COMPLETE
+Field marker fix14relevantofflinechecks passed once, commit259be57; historical
+executed source/profile/UNKNOWN preserved. The new O observer passed live.
+The standalone DATA-only staging CLI is complete:6 focused HOST checks passed,
+including a real local-shell16KiB stage/readback/cleanup. No live UART test.
+Lifecycle and paint tracing is preserved as historical research; mask work is
+parked, with NO mask implementation/candidate/test/device action.
+
+ACTIVE NEXT — CORRECT NATIVE PROTOTYPE
+User explicitly wants the best ideal fix, and the bench exists for experiments.
+Native MMUI selects Disclaimer before GUI rendering; JS settings are not the
+selector. Exact native libraries/config/manager captured; no further capture is
+currently needed. See notes/disclaimer-native-startup-flow.txt.
+Scoped path: ShowDisclaimer1470 + IntroAnimation1021, lookup VA0x58698/file0x50698
+[111,10,79]. Create a NEW compound continuation for this path only, not sharedA80.
+Reuse OEM nine-rule automatic selection and exclusive focus grant/deny outcomes;
+compose intro-video/quick-logo cleanup without premature SetAppContext, retain
+Intro's pending-warning hook, then normal exit/entry. Other paths remain stock.
+T12 owns working HOST prototype/candidate/guards/undo and executable evidence;
+t13 supports focused semantics; t14 sole hardware owner coordinates runtime
+requirements, currently closed/stock. No native patch built or published yet.
+Next concrete result: candidate + relevant checks + one focused review, then one
+complete native apply/startup/independent undo/restored-O startup bench experiment.
+No CSS mask, timer tuning, bare table alias, event substitution or forced Home.
+
+LATEST POINTERS
+ experiments/restored-stock-startup/{README.txt,result.txt,ready.json}
+ notes/restored-stock-startup-observation.txt
+ notes/restored-stock-warning-visual-result.txt
+ runs/20261113T084726-0600-t14-restored-stock-confirm/{compact-result.json,final-cleanup.json}
  notes/modified-disclaimer-startup-observation.txt
  notes/disclaimer-candidate-visual-result.txt
- experiments/disclaimer-startup-trial/{README.txt,result.txt,final-freeze.json}
- runs/20261113T073945-0600-t14-modified-startup/{compact-result.json,final-cleanup.json}
- runs/20261113-t13-candidate-warning-visual/{measurement.json,frame-index.json}
-Full raw/video/OEM originals/credentials remain private and ignored.
+ experiments/disclaimer-startup-trial/{result.txt,final-freeze.json}
+ notes/disclaimer-rev2-lifecycle-finding.txt
+ notes/rev2-lifecycle-source-acquisition.txt
+ notes/disclaimer-native-startup-flow.txt
+ experiments/staged-delivery/result.txt
+ research/context/SUMMARY.txt and research/index.tsv.
 
-ACTIVE NEXT (OFFLINE ONLY)
-t12 owns smallest observer field-marker robustness fix +relevant tests, preserving
-executed51a3 source/profile/UNKNOWN and first feature freeze. New correctedprofile
-must be review-only; no core/wire/feature/device changes or new boot authorized.
-t13 owns source-only ONE proposal for an earlier hook that could avoid rendering,
-using saved OEM sources; no implementation or live query. Keep first pass immutable.
-t14 retains sole UART/camera ownership idle/closed; no new bench task.
-
-FOUNDATION / REPEATABLE LESSONS
-Core37 tests, FTDI0403:6001/A9048JM0,115200/8N1/no flowcontrol. Paced64B/20msRXgaps.
+FOUNDATION / DEPENDENCIES
+Core37tests; FTDI0403:6001/A9048JM0,115200/8N1/no flowcontrol,64B/20msRXgaps.
 Stage long mutating programs as DATA; verify countMD5CRC/routes/identities before
-short guarded entry. BusyBox grep lacks-x; use existing Session root55/NA checks.
-First actual warm O->C->O and freshreadonly recovery inspection passed; stock
-normal restart separately reconciled oneboot/onelogin and retaineddata persistence.
-Compiled installed normal reboot route was established once: BusyBox noflags
-sync->PID1 SIGTERM; vendor init_cmu stock restart internally kills/unmounts/resets.
-No directGPIO/force/no-sync commands. Source/disassembly preserved, no new hunt.
-Native owned modal/status overlay passed. Camera lastread manual1/exposure87/
-brightness128 (original8/330/128 retained); crop/angle and~5FPS limits explicit.
-Whole-page browser navigation FAILED heartbeat/return; recovered separately.
-Keep stock GuiFramework/javascriptHeartbeat1s alive; no Navigate/Refresh/Terminate,
-heartbeat spoof/disable or servicekill branch.
-
-Warm-idle partial collectorUNKNOWN/RXcap/observer bug retained. Complete data
-~303MiB free/754MiB at~45min, Aha/PandoraRSS6.52/5.81MiB with0ticks/22.48s.
-No cold-start memory/CarPlay cause or reclaimable savings conclusion.
-Product/maintenance/knowledge goals: notes/product-direction.txt.
-Miatafy comparison followed independent freeze; commercial behavior description,
-not implementation equivalence. Shared host installer16checks is process-exit model,
-not device powerloss/USB recovery proof.
-
-SHIPPING / OPEN
-USBhub/Ethernet and USBACCrelay are shipping a few days. KeepUSB+SD, AUX expendable.
-User-plannedv73 later; exact package/region/model/intermediate/powerprocedure OPEN.
-Commander, actualUSB/SD, Ethernet/SSH, relay/shutdown/coldACC/CarPlay, fullbackup/
-restore, independent secondcopy, fullmetadata and crash/powerloss/USB lifecycle OPEN.
-No firmware/account/network change or recurring schedule implied.
+short guarded entry. BusyBox grep lacks-x; use Session UID/installedFW/NA guards.
+Camera lastread manual1/exposure87/brightness128 (original8/330/128 retained);
+crop/angle/~5FPS limits. MKV decodedPTS/intervalFPS, headercap is not actualrate.
+Native owned modal/status overlays passed. Browserwhole-page navigation FAILED
+heartbeat/return; restored separately. Keep stockdocument/native1s heartbeat alive.
+No Navigate/Refresh/Terminate, directGPIO/force/no-sync/servicekill branch.
+Warm-idle partialcollectorUNKNOWN/RXcap retained; ~303MiBfree/754MiB, Aha/Pandora
+RSS6.52/5.81MiB and0ticks/22.48s do not establish coldCarPlay/RAM cause.
+USBhub/Ethernet+USBACCrelay shippingfewdays; preserveUSB+SD,AUXnotneeded.
+Userplannedv73later; exact package/region/model/intermediate/powerprocedureOPEN.
+Commander, actualmedia/Ethernet/SSH/relay/coldACC/fullbackup/restore/secondcopy/
+fullmetadata/crashpowerloss/USB lifecycleOPEN. No automatic schedule.

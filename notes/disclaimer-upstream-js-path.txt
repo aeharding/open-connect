@@ -1,0 +1,100 @@
+DISCLAIMER UPSTREAM JS PATH — OFFLINE source/evidence result, t12, 2026-11-13
+RESULT: MMUI chooses the Disclaimer context before GUI render. The saved JS does
+not make that startup choice. Global.GetStartupSettings initializes regional/unit
+settings; the eight observed initial responses contain no disclaimer selector.
+The native state/config decision is the next boundary, owned by t13. No bypass
+option, patch, synthetic acknowledgement or native configuration change is claimed.
+
+MASK STOP: no experiments/disclaimer-mask files were authored, no candidate built,
+no tests run, nothing installed. Only source-contract discussion preceded the park.
+The v1 freeze/history, current booted O9456/rootRO and retained recovery are unchanged.
+
+REQUEST / RESPONSE CONTRACT (original installed source line numbers)
+1. GuiFramework.init230-253 constructs Websockets and loads Common. The actual
+   readiness predicates require all THREE WS flags (MMUI/APPSDK/DBAPI) plus loaded
+   Common, not merely the older 'both' comment at244. Call sites:
+   _commonFinishedLoading2260-2277 and mmuiConnected2630-2638,
+   appSdkConnected2646-2654, dbApiConnected2662-2670.
+2. _getStartupSettings270-322 calls sendEventToMmui('common',
+   'Global.GetStartupSettings')275. No disclaimer parameter is supplied.
+   The20s fallback checks/sets region, language, keyboard language, time format,
+   temperature/distance units and shared syssettings.VehicleType before initGui.
+   These are readiness defaults, not an established disclaimer-disable option.
+3. sendEventToMmui346-369 passes uiaId,eventId,params,fromVui,currentUiaId,
+   currentContextId to Websockets.sendEventMsg363; debug callbacks follow.
+   Its comments explicitly warn that current-app/context metadata can be stale
+   around asynchronous events/transitions. Websockets serialization is not part
+   of the captured full JS sources here; do not invent its wire field names.
+4. Saved normal-stock boot shows native GUIIFM_Process_Common_GetStartupSettings_Evt
+   (guiifm_common_gen.c1591), then UIA_SYSSETTINGS_GetCurrentSettings
+   (uia_syssettings.c580). It replies with separate native-to-GUI messages, NOT one
+   GetStartupSettings response. Each envelope is msgType='msg', uiaId='syssettings',
+   msgId below, params.payload with these exact field paths:
+     Region              RegionValue
+     LanguageSupported   languageName.{ttsSupport,vrSupport,languageID}
+     KeyboardLanguage    keyboardLanguage
+     DateFormat          dateFormat
+     TimeFormat          timeFormat
+     Temperature         temperatureUnits
+     Distance            distanceUnits
+     VehicleType         vtype
+   Actual message byte offsets308154..312707 in the new restored-stock rawRX.
+   No disclaimer-enable/disable field occurs in these eight initial messages;
+   this is not a claim about every settings message or every firmware version.
+5. Incoming msg routes at routeMmuiMsg444-554 (case msg at524) to
+   _handleMessage1212-1232. Common is special-cased; other apps receive
+   app.handleDataMessage. BaseApp._handleDataMessage169-187 dispatches by msg.msgId
+   through the app's _messageTable. The full syssettingsApp response handlers are
+   NOT captured, so their exact completion predicate/callback is unknown here.
+   Source-backed module path from actual framework loader and uiaId is
+   /jci/gui/apps/syssettings/js/syssettingsApp.js; no request/read made by t12.
+6. initGui329-337 sends common/Global.InitGui335 and websockets.initGui336.
+   Actual saved boot logs settings-received then Websockets.js269 flushing43
+   non-startup messages. The exact syssettings callback that invokes initGui is
+   outside these sources; observed order alone does not identify that callback.
+
+WHERE DISCLAIMER IS CHOSEN / RENDERED
+- Saved native GUIIFM_SendDataToGUI JSON explicitly sends:
+  {msgType:'ctxtChg',uiaId:'system',ctxtId:'IntroAnimation',contextSeq:3,params:{}}
+  then later
+  {msgType:'ctxtChg',uiaId:'system',ctxtId:'Disclaimer',contextSeq:42,params:{}}.
+  These are actual logged messages, not fabricated test events or GUI deductions.
+- routeMmuiMsg489-491 dispatches ctxtChg to _contextChange695-723. That takes
+  ctxtId/uiaId from the incoming object (only Idle is ignored), loading the app
+  if needed, then _callHandleContext1234-1266 passes the object to BaseApp.
+- BaseApp._handleContext107-148 assigns this._currentContext=contextObj137.
+  It does not decide a new startup context or test a disclaimer preference.
+- Framework _transitionChange754-1048 takes the focused app/current context,
+  finds its context-table entry803 and constructs that template810. systemApp
+  Disclaimer281-302 declares the full-screen Dialog3 template and normal callbacks;
+  it is a representation of the native choice, not the upstream startup selector.
+  IntroAnimation366-374 is NoCtrlTmplt with native transition-logo surfaces.
+- systemApp message table492-546 has no startup/disclaimer selection handler.
+  Its Disclaimer functions1968-2048 act AFTER display or user/timeout lifecycle.
+  Existing outbound events: DisposeIntroVideo1970; common/Global.Yes1999 on Agree;
+  system/Timeout2010 (and retry2023). BaseApp._templateDisplayed291-319 also owns
+  first browser-surface handover and delayed system/InitializeGuiComplete318.
+  These identify native protocol boundaries; no synthetic event is proposed/sent.
+
+NATIVE LEADS HANDED DIRECTLY TO t13 (no native decision duplication here)
+Saved logs name UIA_SYSTEM_InitGui in uia_system_uiahlpfuncs.c363 and
+SETTINGS_GetLastDRIAppName_Callback in uia_system_settings_dbus.c187 (invalid last
+app observed). That is a concrete source/handler lead, NOT a disclaimer setting.
+Native decision/state/config and existing process/argv correlation are t13's scope.
+Merely dropping/changing a GUI ctxtChg would not establish that native startup
+state has advanced (inference); do not call a JS routing suppression a true bypass.
+
+PROVENANCE / DELTA
+Private exact installed sources:
+runs/20261113T081530-0600-t14-rev2-lifecycle/originals/jci/gui/framework/js/
+  GuiFramework.js113664B SHA256ff733276cdbd39cfdf764aba23c2c427039b560db13c10d370f7351b1279cba4
+  BaseApp.js14977B SHA25654c1e498bd430a59dccd3e204661d48864d093e6aa51999a5c35bccaa0801690
+runs/20261113T022134-0600-t14-oem-disclaimer/originals/jci/gui/apps/system/js/systemApp.js
+  94058B SHA256985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432
+Actual restored-stock raw: runs/20261113T084726-0600-t14-restored-stock-confirm/observer/rx.bin
+Derivative/provenance: runs/20261113-t12-disclaimer-startup-js/{result.json,selected-lines.bin}
+Contains17 exact selected raw lines/3105B, byte offsets/lengths/hashes and complete
+native logged JSON; source raw SHA recorded. Original remains unchanged/private.
+No OEM source redistribution, code/tests/device queries/actions, external reads,
+new feature freeze or target modification. Only new owned note:
+notes/disclaimer-upstream-js-path.txt.

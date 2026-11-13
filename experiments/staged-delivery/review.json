@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "live_authority": false,
+  "hardware_validated": false,
+  "default": "dry_run",
+  "entry": "experiments/staged-delivery/deliver.py",
+  "checks": "experiments/staged-delivery/checks/20261113T150659.683636Z/manifest.json",
+  "source_sha256": {
+    "experiments/staged-delivery/deliver.py": "e41df3a395dc8e4b3b61152292087f497f670547a42d29405015f7729f3862c9",
+    "experiments/staged-delivery/test_deliver.py": "6b4862d2f69dcc9b642fc5d5418c70901ca1c23262f0a7b86d7da04771aaf75d",
+    "experiments/staged-delivery/check.py": "ae49635c85beee1587576db0e34b3d1b6ff306479c8392b23edc2172e033e285"
+  },
+  "dependency_sha256": {
+    "cmu_bench/session.py": "2d1835a3292726a9b06b14d4d18a7b6cea30e13d7160484a6eac043b618d2ff2",
+    "cmu_bench/files.py": "44314102367e7f43f63e32656a23af6ea1f0cf48e2c1290aa43081239a1e9255",
+    "scripts/cmu-session.py": "56371f4c1c8d7cafba29f6cab483707bf9341451df8f748086e645a188a3eff4"
+  },
+  "target": "/tmp/cmu-bench-payload-<fresh32hex>/p",
+  "max_bytes": 16384,
+  "payload_execution": false,
+  "cleanup": "explicit; exact observed identity/hash; preserve conflicts"
+}

@@ -1,0 +1,62 @@
+READ-ONLY MMUI NATIVE SOURCE ACQUISITION — 2026-11-13
+Operator Herdr t14; coordinator t6; compiled analysis t12; config/synthesis t13.
+Question: acquire actual startup/disclaimer native code and config for an OEM-derived
+upstream fix, including entry and normal Timeout/Agree continuation. This record is
+acquisition evidence; compiled behavior and candidate design belong to subsequent analysis.
+
+Scope: root t6 expanded necessary exact native/config READ acquisition beyond prior
+3-file/512KiB package limit. No broad firmware dump, target mutation, OEM method/event,
+UI action, mount/sync/cache/reboot or camera operation. Existing stock55.00.750B/NA
+booted original O9456 remains the baseline; systemApp was not reread/rehashed for audit.
+Six known-complete commands used unchanged reviewed paced Session/core (64B/20ms),
+fresh uid0/installed55/NA and physical /dev/ffx01p1 / RelFS RO checks. No retries.
+
+Private immutable evidence root:
+ runs/20261113T100437-0600-t14-mmui-upstream/
+Raw/timestamped RX/TX, exact commands/wire, actual exit/END+PS1 and source hashes remain
+in its six runner bundles. See compact-result.json for bounds/elapsed/per-operation facts.
+Every source count+MD5+POSIX CRC and full numeric identity matched fresh PRE/POST;
+host strict base64 decode required exact source byte count + newlineDD_RC:0newline
+footer (then separated clean payload). Joined system UIA matched whole remote checks.
+Host SHA256 recorded for provenance. These checks establish capture consistency,
+not vendor authenticity, relocated process-memory bytes, patch safety or startup result.
+
+Verified exact private originals (aggregate492124B):
+ /jci/mmui/svcjcimmui.so 22952B
+  SID64785:5502:1433953357:22952:755:1018:3015:1
+  MD5e3cb5b514e14b767d40bc0f78308049c CRC2846587455
+  SHA2c2c0494817b13a38c36a8276a39899b4096efc217e82568fe3842f8b34bb025
+ /jci/mmui/mmui_config.xml 15030B
+  SID64785:5503:1411590271:15030:775:1018:3015:1
+  MD550c6269aeeebee9047ed6a0d63378450 CRC603624073
+  SHAc94446b8c6e5bde79607514d3eb41036a3f56914d2d3f418605110bc250be0d0
+ /jci/mmui/uia/libjciuiasystem.so 454142B
+  SID64785:5484:1433953535:454142:755:1018:3015:1
+  MD5b9ff5edc632163f88cda04686c118591 CRC3625493025
+  SHAacf24ffd3719a29d2b4eefe80855ef6f164852fe3464858d07ca2d956395d302
+Local paths follow originals/jci/... under that private evidence root.
+System UIA used two bounded262144/191998B transfers, each deadline60/cap524288.
+Plugin and XML used deadline30/cap131072; metadata deadline15/cap65536.
+
+Raw observations and reference chain:
+ Fresh PID754 Name L_jciMMUI, PPID210/start1576; exact143B NUL-cmdline MD5
+ a43fc1bb895b0e6c13480c8f4b875a58/CRC2145105810 verified host and stable PRE/POST.
+ Actual executable /jci/sm/sm_svclauncher; cwd/. Literal module argument points to
+ svcjcimmui.so. Exact maps select only that plugin and then only the system UIA,
+ each3segments/nontruncated; mapped inodes5502 and5484 match source metadata.
+ Host /usr/bin/strings rc0 on VERIFIED plugin yielded zero groupA requested
+ startup/disclaimer literal hits and one groupB path /jci/mmui/mmui_config.xml;
+ strings-result.json retains patterns/counts/caps/sourceSHA and honest host origin.
+ XML explicitly names system UIA path, UIA_SYSTEM_Open, blockingtrue, priority20,
+ with Disclaimer22/IntroAnimation50/QuickStartLoop50 context priorities.
+ No claim that absence from plugin strings establishes global absence. t12 owns
+ compiled entry+Timeout/Agree/init/resume trace; t13 owns saved/config synthesis.
+
+Limits/failures/cleanup:
+ Initial host JavaScript template parse failed BEFORE hc/program/UART; no target
+ attempt or console uncertainty resulted. Successful commands/results are preserved
+ without reconstructing earlier failures as success. No target transfer failed.
+ All six commands root55/NA/core0/PS1/portclosed, aliases empty after final check.
+ Own finished helpers t84-t89 saved then removed; no target scratch, owned target
+ child or camera helper was created. t14 retains sole UART/camera ownership idle.
+ Exact sources/provenance sent directly to t12+t13+t6 as each became ready.

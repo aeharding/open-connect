@@ -1,45 +1,45 @@
 {
   "schema_version": 1,
   "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T08:02:00-06:00",
+  "updated_at": "2026-11-13T10:41:53-06:00",
   "timezone": "America/Chicago",
-  "snapshot_note": "Saved progress, not live telemetry. Reopen the private Page for a newer snapshot.",
+  "snapshot_note": "Saved progress, not live telemetry. Original CMU running; native disclaimer-bypass prototype is being built.",
   "links": {
     "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
     "html_download": null
   },
-  "headline": "Startup notice shortened; independent undo verified",
-  "summary": "The frozen first prototype reduced visible warning time to about0.4–1.0s, versus4.2–4.6s stock: conservatively at least3.2s (~76%) shorter. The warning still appears. One modified warm boot, root access and candidate integrity were reconciled; independent retained recovery restored the original. Root is read-only and Mazda home is visible.",
+  "headline": "Building the native disclaimer bypass",
+  "summary": "Native startup chooses the disclaimer before the GUI renders it. We found the exact decision and nine OEM continuation branches, and are building an Intro-only bypass that preserves cleanup, focus and app restoration. The earlier timer experiment shortened the warning but did not bypass it. The CMU is currently running its verified original.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
-    "console": "Fresh root55 / NA verified after undo",
+    "console": "Fresh root55 / NA after restored-stock boot",
     "uart": "115200 · 8N1 · no flow control",
     "tx": "64-byte chunks · 20 ms RX gaps",
     "camera": "Last read: manual1 · exposure87 · brightness128",
     "scope": "USB + SD preserved · AUX not required",
-    "changes": "Original AS-FOUND bytes and checked metadata restored and independently verified; recorded source inode9456. Physical root read-only, recovery journal disabled/no pending change; recovery code and images retained.",
-    "display": "Fresh Communication home after independent undo",
+    "changes": "Original AS-FOUND O9456 booted and verified unchanged; physical root read-only. Retained code/images/control passed independent VERIFY before and after the stock reboot; disabled/no pending change. All owned handles closed.",
+    "display": "Communication home after original startup",
     "device_state": "done",
-    "state_label": "Prototype tested; original restored",
-    "firmware_qualifier": "One exact firmware/base configuration tested"
+    "state_label": "Warm cycle verified; original running",
+    "firmware_qualifier": "One exact55 base; warm software restarts only"
   },
   "metrics": [
     {
-      "value": "≥76%",
-      "label": "shorter visible notice in this trial"
+      "value": "~1s",
+      "label": "earlier timer experiment; still visible"
+    },
+    {
+      "value": "~4s",
+      "label": "original warning returned"
     },
     {
       "value": "1",
-      "label": "modified warm startup tested"
+      "label": "complete warm apply / undo cycle"
     },
     {
       "value": "1",
-      "label": "independent undo verified"
-    },
-    {
-      "value": "37",
-      "label": "core tooling tests passing"
+      "label": "exact firmware/base configuration"
     }
   ],
   "diagram": {
@@ -66,8 +66,8 @@
         "kind": "done",
         "title": "Mazda CMU",
         "lines": [
-          "55.00.750B · prototype tested",
-          "Original restored / read-only root"
+          "55.00.750B · warm cycle verified",
+          "Original running / root read-only"
         ]
       },
       {
@@ -79,8 +79,8 @@
         "kind": "done",
         "title": "Display / native UI",
         "lines": [
-          "Shorter warning → home",
-          "Original frames retained"
+          "Stock warning restored → home",
+          "Original frames / timing verified"
         ]
       },
       {
@@ -358,7 +358,7 @@
       "state": "done",
       "detail": "One fresh-process read-only VERIFY passed in 2.049 s.",
       "proof": "Journal367 B parsed as data; stored original/candidate hashes and metadata matched. Current original9457 distinguished from historical1606; disabled/no-pending, noop1/writes0, actual physical RO and fresh root55 verified.",
-      "limits": "VERIFY contains no restore/mount/sync branch. Restore capability is host-tested preparation only; no live recovery, reboot, crash/power-loss or USB guarantee follows.",
+      "limits": "This earlier VERIFY milestone was readonly; later separate trials proved persistent real-file undo after C boot and original startup. This does not establish automatic crash/powerloss or USB recovery.",
       "refs": [
         "experiments/disclaimer-recovery-inspection/result.txt",
         "notes/recovery-verify-readonly-observation.txt"
@@ -370,7 +370,7 @@
       "state": "done",
       "detail": "Exactly one normal software reboot and one login; stock WARNING then Communication home observed.",
       "proof": "Changed boot ID, uptime17902→586s, fresh root55/NA, source original9457/checked metadata and physicalRO; O/C/journal contents and identities persisted. WARNING visibility bracket4.223–4.625s including fade from decoded frame PTS.",
-      "limits": "Original automated observer timed out on logger-prefixed banner and remains UNKNOWN; separate agent-led postflight reconciled the result. Parser fix is offline-tested only. One warm stock run, no cold ACC/CarPlay, no-flash, crash/power-loss or USB recovery claim.",
+      "limits": "Original observer UNKNOWN is preserved with separate reconciliation. The corrected parser later passed a separate restored-stock run. This was one warm baseline, not cold ACC/CarPlay, USB or crash recovery.",
       "refs": [
         "experiments/stock-warm-start/result.txt",
         "notes/stock-warm-restart-observation.txt",
@@ -394,23 +394,90 @@
       "state": "done",
       "detail": "One candidate apply, one software reboot, one login, then independently retained undo.",
       "proof": "Full candidate identity unchanged after boot; fresh root55/new bootID/read-only root verified via separate reconciliation. Persistent postboot VERIFY passed; undo6.777s and final VERIFY2.258s restored exact original/checked metadata, disabled/no-pending/rootRO and fresh home.",
-      "limits": "Automated observer UNKNOWN from logger prefix is preserved, not relabeled. Current restored source inode9456 replaces9457. Running page loaded fromC; a new unmodified startup after undo was not performed. No crash/power-loss/USB recovery proof.",
+      "limits": "Original C observer UNKNOWN from logger prefix preserved, not relabeled. That trial restored diskO but ended with page loaded fromC; a separate later stock-confirm boot closed the original-startup gap. No coldpower/crash/USB proof.",
       "refs": [
         "experiments/disclaimer-startup-trial/result.txt",
         "notes/disclaimer-candidate-visual-result.txt",
         "experiments/disclaimer-startup-trial/final-freeze.json"
       ]
+    },
+    {
+      "id": "render-lifecycle-source",
+      "title": "Render lifecycle traced; simple ready-cancel rejected",
+      "state": "done",
+      "detail": "Three exact private OEM sources,172783B, acquired read-only.",
+      "proof": "Ready callback precedes transition but its return is ignored; framework proceeds to reveal/body reparent/animation, then cleanup/IDLE/displayed. Early native Timeout is queued rather than synchronous cancellation.",
+      "limits": "Earlier cancellation and paint research is retained; masking is parked. Native startup selection and continuation are the current implementation direction.",
+      "refs": [
+        "notes/disclaimer-rev2-lifecycle-finding.txt",
+        "notes/rev2-lifecycle-source-acquisition.txt",
+        "notes/disclaimer-rev2-proposal.txt"
+      ]
+    },
+    {
+      "id": "restored-stock-boot",
+      "title": "Original startup restored and confirmed",
+      "state": "done",
+      "detail": "One separately authorized stock-confirmation reboot/login; automatic observer PASS.",
+      "proof": "All6 core ops completed0: pre/postroot55, exactfull O9456/hash/metadata/physicalRO, newbootID/loweruptime and retained readonly VERIFY disablednone. Stock warning3.821–4.425s returned, home observed, all owned handles closed.",
+      "limits": "One warm software restart; stock visibility brackets overlap but do not prove exact equality. No coldACC/CarPlay/USB install or crashdurability. Original C-trial UNKNOWN remains historical.",
+      "refs": [
+        "experiments/restored-stock-startup/result.txt",
+        "notes/restored-stock-startup-observation.txt",
+        "notes/restored-stock-warning-visual-result.txt"
+      ]
+    },
+    {
+      "id": "native-startup-analysis",
+      "title": "Native startup decision and continuation traced",
+      "state": "done",
+      "detail": "Exact loaded MMUI libraries and manager identify the Intro-only disclaimer route and nine existing OEM continuation rules.",
+      "proof": "Compiled event/context lookup, predicate and exclusive focus-action ABI, old/new context hook ordering, and separate intro/quick-logo cleanup were traced.",
+      "limits": "Source-supported prototype direction. No native candidate or CMU runtime validation yet; unsupported startup modes remain stock.",
+      "refs": [
+        "notes/disclaimer-native-startup-flow.txt",
+        "notes/disclaimer-upstream-js-path.txt"
+      ]
+    },
+    {
+      "id": "data-staging-host",
+      "title": "DATA staging helper passed host checks",
+      "state": "done",
+      "detail": "Six focused checks passed, including a real local-shell16KiB binary stage/readback/cleanup.",
+      "proof": "Default dry-run, DATA-only stage, strict ownership/checksums and conflict-preserving cleanup.",
+      "limits": "No CMU live trial; never executes payloads or targets installed files.",
+      "refs": [
+        "experiments/staged-delivery/result.txt"
+      ]
     }
   ],
   "tasks": [
     {
+      "id": "staged-delivery-tool",
+      "lane": "later",
+      "state": "done",
+      "title": "Reusable DATA staging helper finished",
+      "owner": "Tooling; host-only",
+      "detail": "Default-dry-run DATA-only CLI and guarded cleanup completed;6 focused host checks passed, including an actual local-shell16KiB binary stage/readback/cleanup.",
+      "pass": "HOST-only result. Never executes the payload; no live CMU use or installed-file target."
+    },
+    {
+      "id": "restored-stock-confirm",
+      "lane": "later",
+      "state": "done",
+      "title": "Original startup confirmed after undo",
+      "owner": "Tooling + Bench operator + Research",
+      "detail": "One new stock reboot/login completed automatically: unchanged full O9456, freshroot55/newbootID/loweruptime/rootRO; retained recovery VERIFY before+after O/disablednone/writes0. Stock-length warning returned and home/cleanup verified.",
+      "pass": "Restored3.821–4.425s overlaps earlierstock4.223–4.625s; no exact-duration equivalence claim. Distinct from candidate0.402–1.005s. No coldpower/CarPlay/USB recovery claim."
+    },
+    {
       "id": "disclaimer-next-design",
-      "lane": "next",
-      "state": "waiting",
-      "title": "Evaluate a full visual bypass separately",
-      "owner": "Tooling + Research",
-      "detail": "The first timer prototype is faster but still renders a short warning. A future revision must preserve the stock framework/heartbeat and the independent first-pass record.",
-      "pass": "Source-backed design +exact rollback +startup evidence; do not label the current prototype no-flash or ready for USB release."
+      "lane": "now",
+      "state": "active",
+      "title": "Build the correct native startup bypass",
+      "owner": "Tooling + Research; Bench operator for runtime",
+      "detail": "One Intro-only native routing point identified. Implement the OEM nine-rule continuation with intro/quick-logo cleanup and normal focus, pending-warning and context hooks.",
+      "pass": "A working guarded native candidate, focused decision/ABI/PIC tests and one semantic review; then complete bench apply/startup/independent undo/original-startup evidence. No native patch or runtime result yet."
     },
     {
       "id": "modified-startup-prep",
@@ -419,7 +486,7 @@
       "title": "First modified startup and independent undo completed",
       "owner": "Tooling + Bench operator + Coordinator",
       "detail": "Persistent recovery verified before candidate publication; one modified boot/login; actual candidate/RO/access reconciled, then independently restored original and verified disabled/no-pending +home.",
-      "pass": "One exact55 base/warm run. The observer UNKNOWN field-anchor error is preserved; separate saved evidence and fresh target checks establish the outcome."
+      "pass": "One exact55 base/warm modified run. Original C-observer UNKNOWN retained and independently reconciled; a later automated O confirmation now proves startup after undo."
     },
     {
       "id": "stock-warm-start",
@@ -428,7 +495,7 @@
       "title": "Stock warm restart baseline reconciled",
       "owner": "Tooling + Bench operator + Research",
       "detail": "One normal /sbin/reboot, one known login; changed boot ID/lower uptime, source original9457/rootRO and retained O/C/journal persistence verified.",
-      "pass": "Video shows warning then home. Original observer UNKNOWN is retained; parser correction is offline-tested, not yet validated by another live boot."
+      "pass": "Original observer UNKNOWN remains historical. A separate later restored-stock run passed automatically with the corrected parser."
     },
     {
       "id": "fresh-process-recovery",
@@ -437,7 +504,7 @@
       "title": "Fresh-process recovery inspection passed",
       "owner": "Tooling + Bench operator",
       "detail": "Strict journal/data parse, stored O/C hashes and metadata, current original9457 and disabled/no-pending state verified; noop1/writes0, physical root read-only.",
-      "pass": "One2.049s real-file readonly inspection. Later C→O restoration passed on an isolated full-size copy; real-file postboot recovery and power-loss remain untested."
+      "pass": "Earlier readonly inspection only. Later persistent code actually restored the real source after a modified boot; original startup then confirmed. No crash/powerloss proof."
     },
     {
       "id": "startup-comparison",
@@ -446,7 +513,7 @@
       "title": "Notice clearly shorter; still visible",
       "owner": "Coordinator + Bench operator",
       "detail": "Candidate0.402–1.005s including ambiguous fade vs stock4.223–4.625s. Conservative reduction≥3.218s (~76%).",
-      "pass": "Original decoded frames (~5FPS). Not a no-flash, source0ms or exact reboot-latency claim; unmodified startup after undo not yet rerun."
+      "pass": "Original decoded frames (~5FPS), sampling/fade bounds. Still visible; not no-flash/source0ms/exact reboot latency. Restored stock warning later returned after a new original boot."
     },
     {
       "id": "warm-real-file-preparation",
@@ -455,7 +522,7 @@
       "title": "First real-file warm roundtrip passed",
       "owner": "Coordinator + Research + Bench operator",
       "detail": "12.155 s: exact candidate published, verified and restored to original; checked metadata, new inode, disabled journal, both flushes and physical read-only root verified.",
-      "pass": "Stock home and fresh root55 after the warm trial; a later stock reboot also verified original/recovery persistence. Modified-feature startup remains untested."
+      "pass": "That first trial was warm-only. Later modified startup, independent undo and restored-original startup were verified separately; coldpower/USB/crash limits remain."
     },
     {
       "id": "target-transaction",
@@ -531,12 +598,12 @@
     },
     {
       "id": "preserve",
-      "lane": "now",
-      "state": "active",
-      "title": "Preserve result and harden repeatability",
+      "lane": "later",
+      "state": "done",
+      "title": "Field-marker robustness fixed offline",
       "owner": "Tooling + Research",
-      "detail": "Keep immutable executed profiles and both original UNKNOWN results; retain independently verified recovery data and publish the concise prototype result.",
-      "pass": "Next small follow-up is console-marker robustness and a simpler repeatable operator workflow; no new reboot or source mutation is queued."
+      "detail": "14 relevant observer checks passed once. The logger-attached META case is accepted; duplicate/malformed/interleaved/partial fields still refuse.",
+      "pass": "New C profile remains review-only; a separate O wrapper exercised the same corrected parser in one automated restored-stock boot. Historical source/profile/UNKNOWN retained."
     },
     {
       "id": "native-overlay",
@@ -613,10 +680,6 @@
   ],
   "blockers": [
     {
-      "title": "Observer field-marker robustness",
-      "text": "The corrected boot-banner gate ran through one login, but a logger prefix hid a postcheck field from its startswith parser. Original UNKNOWN retained; complete saved fields and fresh independent verification reconciled C/access/RO. No new automated-success claim."
-    },
-    {
       "title": "Hardware is in shipping",
       "text": "USB hub / Ethernet and USB ACC relay are expected in a few days. Arrival and agent-operable attachment gate those checks; no manual bench task is assigned to the user."
     },
@@ -632,33 +695,25 @@
     },
     {
       "title": "Evidence coverage",
-      "text": "One modified warm boot and independent exact-file undo are verified. A new stock startup after undo, complete visual bypass, full-device restore, independent second copy, cold ACC/CarPlay, crash/power-loss and USB maintenance remain open."
+      "text": "One exact55 warm apply/boot/undo/original-boot cycle is verified. Full visual bypass, repeat coldACC/CarPlay runs, full-device restore, independent second copy, fullmetadata/crash/powerloss and USB maintenance remain open."
     }
   ],
   "recent": [
     {
-      "title": "Notice shortened; still visible",
-      "text": "About0.4–1.0s visible vs4.2–4.6s stock, conservatively≥76% shorter. Original frames and PTS support the result."
+      "title": "Correct native fix is the priority",
+      "text": "The user wants the ideal OEM-feeling solution on the test bench. Timer tuning and visual masking are parked."
     },
     {
-      "title": "Original restored through independent code",
-      "text": "Recovery code survived reboot/delivery loss. Final original/checked metadata, disabled/no-pending control, physical read-only root and fresh home verified."
+      "title": "Native decision and nine-rule continuation found",
+      "text": "Intro-only routing and real predicate/focus/exit/entry behavior are understood. A working native prototype is now assigned."
     },
     {
-      "title": "Observer UNKNOWN preserved and reconciled",
-      "text": "A logger fragment attached to META. Actual six values, new boot, successful one login and unchanged candidate were independently reconciled; no identity adoption or reboot/auth retry."
+      "title": "Original startup and undo cycle verified",
+      "text": "Original currently running, root read-only and recovery disabled/no-pending. Earlier timer warning was shorter but still visible."
     },
     {
-      "title": "Persistent copy recovery passed",
-      "text": "Temporary delivery removed; three fresh processes verified candidate, restored the original once, then verified it. Installed GUI untouched; persistent copy evidence retained."
-    },
-    {
-      "title": "Stock restart reconciled successfully",
-      "text": "One reboot/one login. New boot, original file, read-only root and retained recovery data verified without a second restart."
-    },
-    {
-      "title": "Stock warning measured from real frames",
-      "text": "Visible-duration bracket4.223–4.625s including fade; about5FPS evidence. This is not an exact source timer or one-frame/no-flash measurement."
+      "title": "Reusable DATA delivery completed",
+      "text": "Six host checks passed. No live CMU trial or payload execution."
     }
   ],
   "guardrails": [

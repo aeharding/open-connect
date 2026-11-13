@@ -1,0 +1,70 @@
+DISCLAIMER REV2 PROPOSAL - saved OEM source only, 2026-11-13, t13
+Design lead, NOT a patch or live authority. Executed rev1/freeze/history unchanged.
+Rev1 measured warning0.402-1.005s vs stock4.223-4.625s: at least3.218s/about76%
+shorter, STILL VISIBLE. Current disk AS-FOUND O9456 remains unchanged.
+
+WHY ZERO STILL SHOWS
+In saved systemApp.js281-302, Disclaimer selects Dialog3Tmplt/Dialog3Ctrl and binds
+_displayedDisclaimer as displayedFunction (300), not a pre-render callback.
+_displayedDisclaimer1968-1989 sends DisposeIntroVideo, resets initial time, then
+uses setTimeout(_disclaimerTimedout,remaining). Rev1 changes only3500->0 at1975;
+zero takes the ELSE scheduling path at1983-1987, not the negative-time branch.
+_disclaimerTimedout2004-2010 sends system Timeout only while current context is
+Disclaimer. This is a native MMUI event, not a direct DOM-hide/render-cancel call.
+The event and normal context transition still have to complete; zero timer delay
+cannot undo a frame already rendered. Source structure explains why flash is
+possible; saved pixels do not isolate timer/paint/MMUI/transition latency shares.
+Retry3500 at2013-2029 is separate; no evidence it caused the observed first flash.
+Teardown2033-2045 cancels timers/subtracts elapsed; interrupted/quick-start
+bookkeeping549-567 must not be bypassed accidentally.
+
+ONE EARLIER HOOK TO INVESTIGATE
+A Disclaimer-specific _contextTable.readyFunction, analogous to the SAME
+Dialog3Tmplt NotifyDialog binding at172-177. Its
+_NotifyDialogCtxtTmpltReadyToDisplay1643-1649 already accesses _currentContext and
+_currentContextTemplate.dialog3Ctrl to prepare content; displayed work is separate
+at1651-1658. This establishes a real app-level readiness hook in the saved OEM API.
+Proposed rev2 direction: at verified pre-paint readiness, withhold ONLY Disclaimer
+template reveal while completing its ordinary context/MMUI Timeout transition.
+Keep stock document/framework/native context stack, DisposeIntroVideo semantics,
+timer/reset/teardown bookkeeping, ordinary Agree path1991-2002, and bounded retry.
+No global hiding, blank navigation, blocking loop or heartbeat spoof/disable.
+GuiFramework59-64/199-205 remains the existing one-second native heartbeat path.
+
+KNOWN VS OPEN / PRECISE MISSING BOUNDARY
+READY DOES NOT YET MEAN PROVED PRE-PAINT. Reviewed saved source does not show the
+BaseApp/GuiFramework dispatcher assigning _currentContext and ordering ready,
+template insertion/reveal, displayed, MMUI response and teardown. BaseApp.js is
+explicitly referenced at systemApp.js65-67; its relevant dispatcher/transition
+slice is not in this reviewed saved packet. Nor is a verified per-template
+synchronous reveal-cancel/hold API or early-Timeout acceptance/reentrancy contract.
+Therefore this is a plausible hook, NOT an implementation-ready invisible bypass.
+Moving Timeout earlier alone may still race painting or the MMUI state change.
+If no pre-paint hold/cancel boundary exists, this proposal cannot promise no render.
+No extra source acquisition or device query is requested/executed in this task.
+
+MINIMUM VALIDATION / UNDO FOR ANY LATER IMPLEMENTATION
+1. First establish the missing readiness/reveal/event ordering from actual source;
+   name the real per-template gate, not an invented hide API. Verify initial,
+   interruption/resume and quick-start reentry preserve bookkeeping/native events;
+   preserve every non-Disclaimer context and heartbeat event-loop progress.
+2. Separate host prototype/pins must show only intended context changes, no timer
+   storm/double Timeout/Agree/dispose, and restore exact AS-FOUND original. Existing
+   rev1 hashes/control/tool do NOT automatically cover a new candidate.
+3. Any future separately authorized target trial needs independently available
+   candidate-specific persistent restore BEFORE publication, fresh O/C/OTHER guards,
+   postboot identity/physicalRO/home/finite healthy operation and explicit undo.
+   Unknown state refuses/preserves. Reuse neither old one-shot payloads nor inode
+   guards blindly; no new O startup/cold ACC/USB/crash-durability claim follows.
+   Actual original-frame comparison is required; ~5FPS absence alone cannot prove
+   no-flash. A no-render claim needs verified pre-paint ordering/adequate observation.
+
+PROVENANCE / CHANGED PATH
+Exact saved installed systemApp.js94058B SHA256
+985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432;
+runs/20261113T022134-0600-t14-oem-disclaimer/originals/jci/gui/apps/system/js/systemApp.js.
+Line references use that AS-FOUND original, not authenticated factory bytes.
+experiments/disclaimer/sources.json records original capture/checksums and saved
+framework-startup/heartbeat snippets. Only targeted local excerpts were read;
+no full source audit, external lookup, device read, test, patch, or catalog update.
+Only owned changed path: notes/disclaimer-rev2-proposal.txt.

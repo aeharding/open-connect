@@ -1,0 +1,36 @@
+{
+  "mode": "ONE_RESTORED_STOCK_O_CONFIRMATION",
+  "live_authority": true,
+  "normal_reboot_route_verified": true,
+  "reboot_hex": "2f7362696e2f7265626f6f740d",
+  "source_kind": "O",
+  "source_identity": "64785:9456:1433953097:94058:755:1018:3015:1",
+  "md5": "584c67f7186ada6bae9aae1be59b5cd0",
+  "crc": "376717896 94058",
+  "request_limit": 1,
+  "credential_attempts": 1,
+  "deadline_s": 180,
+  "identity_policy": "exact_full_O9456_or_conflict_no_adoption",
+  "accepted_completed_evidence": [
+    "runs/20261113T073945-0600-t14-modified-startup/independent-undo/manifest.json",
+    "runs/20261113T073945-0600-t14-modified-startup/final-independent-verify/manifest.json"
+  ],
+  "authority": "notes/restored-stock-startup-handoff.txt",
+  "authority_sha256": "41e9e512bd6a1aaa74230ff397107cad4655c5e08dd25e78e6b5455b4d17604c",
+  "source_pins": {
+    "experiments/stock-warm-start/observe.py": "18d68f3addc60ec5deb3a22f779f83fddf44cec8b1494e44b7a659628816b1a6",
+    "experiments/stock-warm-start/test_observer.py": "267afffeaddf42b770a5ce1b7e73176b2d1a2214a5773a730cb943b265980e16",
+    "experiments/stock-warm-start/check.py": "53305f6abfe1e920998f98a15cc1f29beb4b99ac1ae409e1e386fd265e6d5141",
+    "cmu_bench/session.py": "2d1835a3292726a9b06b14d4d18a7b6cea30e13d7160484a6eac043b618d2ff2",
+    "experiments/stock-warm-start/replay.py": "5cd0f6bf0e9cdd827ef49f53db1e5248ab80212bd8aa1e037b37ad55ce1da304",
+    "experiments/stock-warm-start/fixtures/logger-boot.txt": "37a71914753930feb7d0ae8081d82da14af2f1bc1c2b89ac154b3aba01a7aafc",
+    "experiments/disclaimer-startup-trial/boot/observe.py": "3b786fcc979d7c55317c78f935d69c60aba11cb03541444ffc7d1e49251083a3",
+    "experiments/stock-warm-start/corrected-review.json": "9e3898f5baa5272ec4441d268dd1da3553a4ae2dcf6bd0a727a13303b4843ffc",
+    "experiments/disclaimer-startup-trial/boot/field-marker-review.json": "9c74e3f97d3f4a63f015fa974829ac050a2ff22e59dbcaf13d468014e0b7ef06",
+    "experiments/restored-stock-startup/observe.py": "6b6eeba23e5a05d065f3affa094cfc770a344416d2eb3bfe3450f956c87db9d1"
+  },
+  "persistent_verify_command_sha256": "2165f67aefea99ce58e23f19fe87d85999cae522d7c80c91ea29f0ddd03b7adf",
+  "scope": "one NEW stock confirmation only; no source writes/mount/sync/cache/restore mode",
+  "test_manifest": "experiments/restored-stock-startup/checks/20261113T144339.441259Z/manifest.json",
+  "test_manifest_sha256": "b48864293c5d04db86b8d6d5eccdd46fe3851f2492989401afdb355e2f32ab99"
+}

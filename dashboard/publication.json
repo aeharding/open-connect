@@ -1,12 +1,12 @@
 {
   "page_id": "page_72594960d3f08191911f2944d96c7eee",
   "page_url": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
-  "visualization_reference": "![Mazda CMU Bench Dashboard](visualize:fde1_bGliZmlsZV9vVXZjTXpFS1hpWXJLWURFb0tBdUlR_FileDrive_147de6d1e140819180a22e56e12476bf)",
+  "visualization_reference": "![Mazda CMU Bench Dashboard](visualize:fde1_bGliZmlsZV9QMUxacXNBTFlNZmozZV9TeWJIMXln_FileDrive_147de6d1e140819180a22e56e12476bf)",
   "visualization_block_id": "7d59a3d7-6ffb-486e-8366-7634ade4db68",
-  "download_reference": "library-file:fde1_bGliZmlsZV9obk9iT3VpaUZ6R2g3aHpJWnNtM0FB_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "download_reference": "library-file:fde1_bGliZmlsZV96MWhDbmRIOHkzdUVDY20tSmZ4d2lR_FileDrive_147de6d1e140819180a22e56e12476bf",
   "download_block_id": "a2e95491-5ac3-421b-9473-1f02c3f040c6",
-  "html_sha256": "719fcc7b19e2d514c729e8ede968e1307ee0b8e011d387a71aec9be9494976eb",
-  "status_updated_at": "2026-11-13T08:02:00-06:00",
+  "html_sha256": "8aac0ca12c9bb89a4084e13f1ec0f3e4c58697a59a80378fa9da240a3c3e3657",
+  "status_updated_at": "2026-11-13T10:41:53-06:00",
   "source": "dashboard/index.html",
   "data_source": "dashboard/status.json",
   "privacy": "private personal Page; sanitized summary",
@@ -26,7 +26,7 @@
   "stock_restart_reference": "library-file:fde1_bGliZmlsZV9IdVlwQm1FNGdIazVwYXdpTkljSVdR_FileDrive_147de6d1e140819180a22e56e12476bf",
   "stock_warning_reference": "library-file:fde1_bGliZmlsZV9GMldqajA5a1diNDNKUVRSOEF6bmdn_FileDrive_147de6d1e140819180a22e56e12476bf",
   "earlier_evidence_block_id": "2135a84f-cea6-47b5-80d3-6e8d5bb12683",
-  "last_page_sequence": 28,
+  "last_page_sequence": 34,
   "persistent_copy_recovery_reference": "library-file:fde1_bGliZmlsZV9NSW9nUXVDYVNUdGU5QkJUU0lObm93_FileDrive_147de6d1e140819180a22e56e12476bf",
   "modified_startup_result_reference": "library-file:fde1_bGliZmlsZV9ieVo3T3VGVlRCMEN1TkJqeFY2d1d3_FileDrive_147de6d1e140819180a22e56e12476bf",
   "candidate_visual_result_reference": "library-file:fde1_bGliZmlsZV8tTGkzb3ZSWHFvYTBLYVBYamM1YnJR_FileDrive_147de6d1e140819180a22e56e12476bf",
@@ -37,5 +37,8 @@
   "evidence_image_block_ids": [
     "95433484-b1c4-4cf8-a9ea-bfc9f46e8439",
     "a231bbd4-7248-472b-aacb-9558f90afdb5"
-  ]
+  ],
+  "native_startup_flow_reference": "library-file:fde1_bGliZmlsZV9hcXFjUmdKRVZsZ1ZXYkdfRE9aNUJR_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "restored_stock_result_reference": "library-file:fde1_bGliZmlsZV9aNFJoN2xZdjZzUnV0SzFpTGdUQU5B_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "restored_stock_visual_reference": "library-file:fde1_bGliZmlsZV9lZWFVZDlfQlJ5aGhEVlQwWFhSNjNR_FileDrive_147de6d1e140819180a22e56e12476bf"
 }

@@ -1,0 +1,80 @@
+REV2 DISCLAIMER PAINT CONTRACT - source-supported DESIGN, 2026-11-13, t13
+One concrete prototype direction: document-owned, instance-marked IMPORTANT
+OPACITY SHIELD; keep the OEM transition/event lifecycle running. Not implemented
+or runtime-proven invisible. Callback-only/early-Timeout rejection still stands.
+Current booted AS-FOUND O9456/RO and first-pass freeze/executed results unchanged.
+
+ACTUAL ROUTE AND GENERATED PAINT
+Saved restored-stock RX explicitly logs Crossfade system.IntroAnimation ->
+system.Disclaimer, then Crossfade Disclaimer -> HomeScreen. Exact two lines and
+source path: runs/20261113-t13-disclaimer-paint-contract/route-lines.txt/result.json.
+No route was inferred from home-looking pixels (the intro has native surfaces).
+systemApp366-374 uses NoCtrlTmplt for IntroAnimation; Transitions355-375 maps
+system NoCtrl to Startup/Ending. TransitionsGen23 maps Dialog3Tmplt to Dialog;
+339 maps Startup/Ending.Dialog to Crossfade, matching the saved runtime labels.
+Gen783-840 adds incoming Transitions_fadeIn_300_300 and listens for incoming-root
+animationend840. Generated CSS136-153 animates opacity0..1;285-290 is delay300ms,
+duration300ms,fillboth. Outgoing root fadeOut_0_300813; old snapshot fade811.
+Gen has no Disclaimer exception (388-391); Home.Dialog instead Fadeover231/
+1359-1416 with fadeIn_0_2001396. None.Dialog Snap321/1959-1977 explicitly writes
+currentroot.style.opacity=1 at1974 and completes by timer0. A simple inline0
+assignment is therefore insufficient across supported entries.
+Known generated changes: root classes, snapshot classes, that NORMAL inline Snap
+opacity assignment; CSS has normal opacity declarations/keyframes, no important.
+Manager877-900 strips Transitions_ classes; global-control visibility780 targets
+global controls, not proof of a Disclaimer-root overwrite.
+
+ONE DESIGN / OWNERSHIP / CLEANUP CONTRACT
+- At only system/Disclaimer ready, capture exact incoming template/contextseq/root
+  object. Create/reuse ONE style rule owned by this document; tag ONLY these roots
+  with an opaque document-token attribute. No ID lookup/global Dialog3 selector,
+  Transitions_-class marker, prototype wrapper or global retained-node array.
+- Rule imposes author-important opacity0 on the marked ROOT. Parent compositing
+  covers its children; no display:none, layout removal or animation-name override.
+  Standard CSS cascade predicts precedence over normal keyframe/inline opacity,
+  including Snap's later1. This is a CSS/engine assumption to validate, not a
+  measured CMU result. Constructor/restore inline-important root opacity must not
+  defeat it: clear only a conflicting declaration on the captured owned root.
+- Preserve original restoreContext by a wrapper on THAT instance only: exactthis/
+  args/return/error and one delegation. Reassert marker/resolve conflicting inline
+  important opacity after the delegate (also preserve delegate error); do not
+  skip cached restore. Unexpected root replacement is unsupported/conflict, not
+  adoption or a broad selector. Source ready996 precedes restore1008/1027.
+- Keep normal body reparent, transition classes/listeners/timer completion,
+  displayed/InitializeGuiComplete/DisposeIntroVideo, rev1 initialzero timer,
+  bounded retry/Agree/teardown, input/context and one-second heartbeat unchanged.
+  No earlier Timeout, forced callbacks, stalled transition or timer tuning.
+- Leave ownership marker on outgoing/retired/snapshot roots through actual removal;
+  never unhide in contextOut/noLongerDisplayed. One page rule covers them without
+  per-entry stylesheet accumulation or ID999-wrap aliasing. Release own JS refs,
+  not the mask on an old node. Rule lives with the owning document; future fresh
+  unmarked dialogs are unaffected. Source restore alone does not unload a running
+  feature: a separately validated fresh O startup is needed for full uninstall.
+
+LIFETIME EVIDENCE / MATERIAL VALIDATION STILL OPEN
+t12 notes/disclaimer-instance-lifetime.txt: Dialog3 constructor45 allocates fresh
+root,46 assignsID,66 appends,70 creates child; onlystyle09 changes isDialog61-64,
+not Disclaimerstyle02. restore103-108 delegates child only; cleanup121-124 child
+only; no root pool/transition hook. Framework removes oldDialog after callback;
+ready/restore and old snapshots require captured-root ownership, no early unhide.
+No lifetime contradiction identified. Dialog3Ctrl parent-side effects are not
+asserted absent; instance restore guard plus actual engine validation is required.
+A future focused prototype must show computed rootopacity0 through Crossfade/
+Fadeover/Snap and child restore, NORMAL animationend/completion exactlyonce with
+no transition/state-watchdog fallback, no unrelated-dialog effect or retired-root
+repaint, finite home/heartbeat/native events. Mask only covers Disclaimer subtree;
+OEM global background/status/native-logo transitions or context dwell may remain.
+No actual no-visible/no-flash result from source or ~5FPS absence alone. A later
+candidate needs its own hash/profile and independent persistent restore before
+publication, explicit guarded undo and fresh-stock confirmation. No live authority.
+
+PROVENANCE / DELTA
+Exact private3file package runs/20261113T091307-0600-t14-paint-source/originals/jci/gui/:
+TransitionsGen.js117696B SHAe2a026b938f241be592f9d576dbb3c1376f39c1807207c9ac189764ca947bfec;
+TransitionsGen.css11788B SHAeb5fcd9f654165344facd64d4399906820e646741f0acf8fd2e39fb15960664a;
+Dialog3Tmplt.js3626B SHA68b3e7385ddaea613134c670f53ce3ba9037ce50f4fc3ed249940382682ddec6.
+Full relative paths/perfile proofs in private result.json and acquisition note
+notes/disclaimer-paint-source-acquisition.txt; operator PRE/POST/host countMD5CRC
+match,133110B/524288B,3slots used and all helpers closed. AS-FOUND, not factoryauthentic.
+No fourth read/external lookup/patch/tests/device action/catalog change by research.
+Only owned new path: notes/disclaimer-rev2-paint-contract.txt.

@@ -4,11 +4,12 @@ Derived catalog; raw originals stay local/unchanged. Mutable context is qualifie
 67 facts/claims; 13 hypotheses (8 open, 5 resolved in observed scope); 17 decisions; 7 saved sources (one new primary-project collection).
 Search index.tsv by ID/topic/firmware/path; records retain scope and limits.
 Read context/SUMMARY.txt for handoff, constraints and physical-reference conflicts.
-Latest: ONE modified warmC startup independently reconciled+undone; current AS-FOUND O9456.
-Fresh root55/checkedO/disablednone/physicalRO/home; original observerUNKNOWN preserved.
-WARNING STILL VISIBLE but shorter:0.402-1.005s vs stock4.223-4.625s (fade qualified).
-Current startup retained record replaces old warm identities as context; no replay.
-No new O startup, no cold ACC/USB/crash-powerloss/no-flash proof.
+Latest: NEW automated restored-stock warm startup PASS; O9456 has actually booted.
+Fresh root55/fullO/physicalRO/home; retainedD57/O60/C61/code63/disablednone verified postboot.
+Stock-length WARNING3.821-4.425s returned, overlapping oldstock4.223-4.625s; C0.402-1.005s.
+Field fix14 offline checks later exercised by this separate O run; oldUNKNOWN preserved.
+Completed3file source-order trace rejects readycancel/earlyTimeout-alone; rev2 unimplemented.
+No cold ACC/USB/crash-powerloss/no-flash/fullmetadata/factory-authenticity proof.
 Browser timed return FAILED; later recovery separate. No more browser navigation.
 Shipping-window readiness: ../notes/firmware-readiness.txt; planned v73 exact package/path OPEN.
 Schema and update rules: SCHEMA.txt. Final preservation report: ../notes/research-preservation-result.txt.
@@ -295,3 +296,19 @@ vs stock4.223-4.625s, at least3.218s/about76% shorter using conservative sample 
 Original frame paths/PTS/captions included; approx5FPS/fade/crop limits, no no-flash.
 No second reboot/newOstartup (running page loadedfromC), cold ACC, USB recovery,
 factory authenticity/fullmetadata or crash/powerloss proof. No new live action implied.
+
+BOUNDED LIFECYCLE / FIELD FIX / NEW O CONFIRMATION (67 facts/claims unchanged)
+../notes/disclaimer-rev2-proposal.txt — dated initial lead, unchanged/unimplemented.
+../notes/disclaimer-rev2-lifecycle-finding.txt — completed3exactfiles172783B:
+ready return ignored, body reparent/transition unconditional, completion/displayed
+required; earlyTimeout-alone is no reveal-cancel. Generated paint/CSS remains open.
+../experiments/disclaimer-startup-trial/boot/field-marker-result.txt —14 offline
+typed/prefix-field checks PASS; unchanged wire/core/feature/strictidentity. Historical
+executed51a... source/profile/UNKNOWN remain immutable; later source is separately pinned.
+../notes/restored-stock-startup-observation.txt + private compact summary:
+ONE NEW boot/login automatedPASS, current fullO9456/root55/newboot/physicalRO;
+persistentVERIFY O/disablednone/writes0 before+after, currentD57/O60/C61/code63 intact.
+../notes/restored-stock-warning-visual-result.txt — stock-length3.821-4.425s returned,
+oldstock overlap4.223-4.425s; >=2.816s longer thanC, no exactstock-equivalence claim.
+This closes the earlier no-new-O-startup gap; dated earlier limitations stay as history.
+No cold ACC/CarPlay/USB/crash durability or new recurring/device authority implied.

@@ -1,0 +1,37 @@
+RESTORED-STOCK STARTUP CONFIRMATION — AUTOMATED/STATE/VISUAL PASS
+November13 2026; ONE new stock reboot and ONE knownrootlogin after earlier undo.
+
+Stock-length WARNING returned: conservative3.821–4.425s, overlapping earlier
+stock4.223–4.625s. No resolveddifference or exactequivalence claim betweenstockruns.
+Clearly longer than candidate0.402–1.005s by at least2.816s. The earlier>=76%
+candidate-versus-oldstock shortening result remains unchanged. ActualdecodedPTS,
+~4.96FPS/crop/exposure/possiblefade limit precision; no exactlatency/no-flash claim.
+  runs/20261113-t13-restored-stock-warning-visual/measurement.json +frame-index.json
+
+The O-specific wrapper passed automatically: all6 actualcoreoperations0+PS1,
+including freshUID55/CHECK/guardedpersistentreadonlyVERIFY before and after boot
+in the SAME descriptor. EXACTfullO9456/hash/attributes persisted, newbootid/lower
+uptime, physicalrootRO, disabled/none/writes0 and intact retained code/data/control.
+Truthful O intent/events. No source writes/restore/remount/sync/cacheclear/authretry.
+Normal reboot's intrinsic stock shutdown was the only restart mechanism.
+
+CURRENT: original64785:9456:1433953097:94058:755:1018:3015:1,
+MD5584c67f7186ada6bae9aae1be59b5cd0/CRC376717896, root55.00.750B/cmu150_NA,
+physicalRelFSRO, Communicationhome. RetainedD57/O60/C61/code63/control intact.
+Finalhome frame535 atPTS107.866 from CLOSED537frame/4.959886FPS video. Operator
+removed t7x/ownedvideo, bothUARTaliasesempty/cameraidle. No more devicework queued.
+
+Actual lifecycle/cleanup authority:
+  notes/restored-stock-startup-observation.txt
+  runs/20261113T084726-0600-t14-restored-stock-confirm/compact-result.json
+  observer/manifest.json, camera-result.json and final-cleanup.json in that run.
+Checked-source/profile authority:
+  experiments/restored-stock-startup/checks/20261113T144339.441259Z/manifest.json
+  observe.py/test_observe.py/check.py exactpretestcopies;6focusedPASS once.
+  ready.json binds accepted actualUNDO/finalVERIFY references plus freshtargetguard.
+
+Historical modified observerUNKNOWN, firstfeature freeze, all oldexecuted profiles
+and code remain unchanged. This is a NEWstockconfirmation authority, now spent.
+It confirms this one restoredstock warmstartup, not coldACC/powerloss/crashdurability,
+USB installation/recovery/allfirmware support or CarPlay readiness. No newfeature
+implementation or invisible-disclaimer claim is made.

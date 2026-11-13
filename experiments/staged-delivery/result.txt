@@ -1,0 +1,25 @@
+PASS — 6 focused offline checks, one run, 2.810s.
+
+Usable default-dry-run DATA-only CLI: deliver.py. Exact observed staging descriptor
+is emitted only after completed target verification; explicit cleanup preserves
+changed images/identities/unrelated entries. Uploaded bytes are never executed.
+No UART/camera opened; no live validation or live authority. Core, existing profiles,
+feature freezes and historical raw evidence remain unchanged.
+
+Authority for source/dependency identities and results:
+review.json
+checks/20261113T150659.683636Z/manifest.json
+checks/20261113T150659.683636Z/sources/ (exact pre-test bytes)
+checks/20261113T150659.683636Z/{stdout.txt,stderr.txt}
+
+Checks cover a full binary16KiB local shell stage/readback/cleanup and complete
+wrapped wire limits; default/front-door no hardware/no bundle; changed/nonregular/
+linked/oversize source refusal; existing target and changed/unrelated cleanup
+preservation; echo/duplicate/truncated/malformed record and typed descriptor
+refusal; mocked failed-open, partial/uncertain action and source-before-TX evidence.
+Shell fakes explicitly model tmpfs/root/stat/checksum contracts, not real BusyBox
+or serial behavior. No new device result is claimed. Usage and limits: README.txt.
+
+Changed paths, all new and confined to experiments/staged-delivery/:
+deliver.py, test_deliver.py, check.py, review.json, README.txt, result.txt, .gitignore.
+The one checks run is retained privately/local for source copies and verification.

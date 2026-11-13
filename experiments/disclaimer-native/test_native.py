@@ -65,7 +65,7 @@ class NativeTests(unittest.TestCase):
     def test_public_destination_refused_without_candidate_write(self):
         destination=b.HERE/'SHOULD_NOT_EXIST'
         self.assertFalse(destination.exists())
-        with self.assertRaises(b.Rejected):b.build(destination)
+        with self.assertRaises(b.Rejected):b.build(destination,OUT/'candidate/original.bin')
         self.assertFalse(destination.exists())
 
 if __name__=='__main__':unittest.main(verbosity=2)

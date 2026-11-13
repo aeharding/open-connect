@@ -18,7 +18,7 @@ def entry(mode):
  return trial.bound_entry(load("plan/plan.json"),load("code.json"),mode)
 def prepare():
  R.mkdir(parents=True,exist_ok=False)
- f=patch.build(R/"feature");o=f["original"];c=f["candidate"]
+ f=patch.build(R/"feature",patch.BASE);o=f["original"];c=f["candidate"]
  raw=command(f'''p={TARGET}
 for d in /jci /jci/gui /jci/gui/apps /jci/gui/apps/system /jci/gui/apps/system/js;do
  test -d "$d" && test ! -L "$d" && test "$(readlink -f "$d")" = "$d" || exit 70

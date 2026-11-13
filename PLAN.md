@@ -69,6 +69,12 @@ performs a reinstall; interrupted transactions are handled internally. No separa
 Repair or Change options UI. Add feature selection only when multiple useful
 features exist.
 
+Conflict uninstall saves the complete affected current state, then restores
+pre-install originals. It retains one **Undo this uninstall** checkpoint. Undo
+requires the relevant post-uninstall state to remain unchanged; later edits mean
+stop, preserve everything and no force/merge fallback.
+See [the scoped uninstall contract](docs/uninstall.md).
+
 Necessary infrastructure now: exact-base validation, verified original backups,
 repeatable execution and independent undo, plus the small audio helper that
 unblocks real UI testing. Reuse existing tools. Require a concrete current consumer

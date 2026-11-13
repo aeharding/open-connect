@@ -25,6 +25,10 @@ Start with one feature and two user-facing actions: **Install/update** and
 **Uninstall**. Running Install again reinstalls it using verified originals;
 interrupted-operation recovery is internal behavior, not a separate Repair option.
 No Change options screen is needed until multiple worthwhile features exist.
+For conflicting edits, Uninstall saves the current affected files/state before
+restoring pre-install originals. A single Undo this uninstall checkpoint restores
+that previous modified state. If relevant state changed after uninstall, undo
+stops without writes or force/merge fallback. See docs/uninstall.md.
 Maintenance uses a compatible replacement USB stick; the original stick is not
 required. Arbitrary old-package compatibility is not promised.
 Original-backup restoration is as-found restoration, not a factory reset.

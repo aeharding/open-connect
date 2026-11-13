@@ -89,3 +89,12 @@ As implementation proceeds, keep a searchable research index linking sources,
 findings, hypotheses, decisions and immutable run evidence. Source records include
 exact URL/reference, retrieval date, hash/revision, relevant page/section, scope,
 conflicts and superseded status. Update the index and handoff at the end of each task.
+
+## User progress dashboard
+
+The user's first sync point is the private Page recorded in dashboard/publication.json.
+Keep dashboard/status.json, its embedded HTML data and the remote snapshot aligned
+after meaningful milestones, with an honest timestamp. Batch this after useful
+results; do not gate bench progress on publishing. No live telemetry or new schedule
+is implied. Keep raw logs and private identifiers local. Read the Pages write-page
+skill for cloud updates and preserve the Page URL.

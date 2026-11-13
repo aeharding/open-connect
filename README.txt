@@ -1,5 +1,9 @@
 Mazda CMU bench: current development entry point
 
+Progress dashboard: https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee
+Portable source: dashboard/index.html (snapshot data: dashboard/status.json).
+
+
 This bench is operated by the coordinator and its agents through Herdr hc.
 The user performs no manual bench or UI steps. Read AGENTS.md before working.
 Current status: notes/status.txt and notes/afk-session-status.txt.

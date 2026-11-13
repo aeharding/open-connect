@@ -1,0 +1,14 @@
+{
+  "page_id": "page_72594960d3f08191911f2944d96c7eee",
+  "page_url": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
+  "visualization_reference": "![Mazda CMU Bench Dashboard](visualize:fde1_bGliZmlsZV9WVnZFLWdIQkgzV2pieEJGUGFXSHRR_FileDrive_147de6d1e140819180a22e56e12476bf)",
+  "visualization_block_id": "7d59a3d7-6ffb-486e-8366-7634ade4db68",
+  "download_reference": "library-file:fde1_bGliZmlsZV9ZX2w1SXQ4OEp1QUM5Vm5SSW55TUxR_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "download_block_id": "a2e95491-5ac3-421b-9473-1f02c3f040c6",
+  "html_sha256": "bb6752c9e17e6c870ebd0754a0faae9d35bd4e0c9e41062d15a85a513c71d842",
+  "status_updated_at": "2026-11-13T01:21:18-06:00",
+  "source": "dashboard/index.html",
+  "data_source": "dashboard/status.json",
+  "privacy": "private personal Page; sanitized summary",
+  "render_check": "Local Chrome wide and narrow layouts; narrow CLI viewport measured500px; hosted embed not independently previewed."
+}

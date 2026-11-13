@@ -69,6 +69,15 @@ from confirmed original O +rootRO, bounded UART/video observation, one deliberat
 new-prompt-gated established login and fresh identity/uptime/original/RO/persistence.
 Relevant checked observer + normal reboot route must be established first. No
 extra routine coordinator gate, but ambiguity/non-stock state stops before request.
+Current actual preflight: source O9457/physicalRO and uptime16080.94 verified.
+PID1 resolves /sbin/init_cmu135288B, distinct from BusyBox703709B; no inittab.
+Normal non-force dispatch/vendor handler remains unresolved, so NO reboot issued.
+t12 owns narrow read-only route resolution with t13 source support/t14 operator:
+up to2 text batches<=64KiB, exact private init_cmu binary and only-if-needed
+BusyBox capture<=1MiB aggregate. No broad source hunt, signals or alternate route.
+Normal-baseline authority is conditional on supported route; ambiguity stops.
+Observer latest7-check profile120932.023304Z includes real-Session constructor
+cap regression; old8MiB front-door mismatch fixed to4MiB, no core changes.
 One normal no-flags reboot only; no force/no-sync/poweroff/halt/relay/firmware or
 feature-file changes. RX-only through bootloader, no login guesses/retries, no
 automatic repeated reboot. Observe up to180s and preserve unknown/loop/no-readiness.

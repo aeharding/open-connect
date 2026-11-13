@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T05:58:05-06:00",
+  "updated_at": "2026-11-13T06:07:02-06:00",
   "timezone": "America/Chicago",
   "snapshot_note": "Saved progress, not live telemetry. Reopen the private Page for a newer snapshot.",
   "links": {
@@ -9,7 +9,7 @@
     "html_download": null
   },
   "headline": "Fresh recovery-state verification passed",
-  "summary": "A new CMU process parsed the retained journal, verified both stored images and recognized the restored original in 2.0 seconds, with no writes or mount changes. The actual file roundtrip is complete and root remains read-only. Next: one stock warm software restart with UART/video capture, before any modified startup test.",
+  "summary": "Fresh-process recovery-state verification passed in 2.0 seconds with no writes; the original remains restored and root read-only. Stock restart preflight found vendor init_cmu as PID1. The team is resolving the normal reboot dispatch using read-only build/configuration evidence; no restart has been requested.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
@@ -371,10 +371,10 @@
       "id": "stock-warm-start",
       "lane": "now",
       "state": "active",
-      "title": "Stock warm software restart baseline",
+      "title": "Resolve the stock normal-restart route",
       "owner": "Tooling + Bench operator + Research",
-      "detail": "Prepare and run one normal software restart from verified AS-FOUND original/read-only root. Capture UART and video, then one prompt-gated known login and postboot identity/original/RO and retained-data checks.",
-      "pass": "Actual reboot trace + lower uptime, stock startup/home and root access observed within a bounded window. No forced restart, feature-file changes or automatic reboot retry."
+      "detail": "PID1 is vendor init_cmu; /sbin/reboot is BusyBox. Read-only build/configuration and named shutdown evidence must establish the normal route before the one UART/video startup baseline.",
+      "pass": "Supported normal dispatch established, then one controlled stock warm restart. No force, direct-signal or guessed alternate route."
     },
     {
       "id": "fresh-process-recovery",
@@ -559,6 +559,10 @@
   ],
   "blockers": [
     {
+      "title": "Normal software restart route",
+      "text": "Vendor PID1 init_cmu differs from upstream BusyBox init. Build-selected non-force reboot dispatch and handler behavior remain to be established. No restart has been issued; the original file/read-only root are intact."
+    },
+    {
       "title": "Hardware is in shipping",
       "text": "USB hub / Ethernet and USB ACC relay are expected in a few days. Arrival and agent-operable attachment gate those checks; no manual bench task is assigned to the user."
     },
@@ -578,6 +582,10 @@
     }
   ],
   "recent": [
+    {
+      "title": "Stock restart stopped at preflight",
+      "text": "Custom vendor init was identified before any reboot request. A bounded read-only route investigation is active; this is not evidence that the stock reboot command is incompatible."
+    },
     {
       "title": "Fresh recovery-state inspection passed",
       "text": "An independent process verified the retained journal, backups and current original without writing anything. Next is a stock warm restart baseline."
@@ -605,10 +613,6 @@
     {
       "title": "Explicit uninstall completion passed",
       "text": "16 total host checks. COMPLETE is a deliberate option; default recovery still aborts to the previous state."
-    },
-    {
-      "title": "CMU writable RelFS primitives passed",
-      "text": "One 3.776 s trial on tiny isolated files, with metadata/checksum readback and complete cleanup. Root filesystem untouched."
     }
   ],
   "guardrails": [

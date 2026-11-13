@@ -5,7 +5,8 @@ the OEM feel. This repository contains original feature experiments, bench tools
 and reverse-engineering findings.
 
 **Research and development on a dedicated bench; no end-user USB release yet.**
-Current reference: first-generation CMU, North America, firmware 55.00.750B.
+Required development baseline: first-generation CMU, North America, **55.00.750B**.
+One supported firmware at a time; the planned modern replacement is not yet verified.
 
 - Native startup disclaimer bypass and independent undo have been demonstrated.
   Smoother startup handoff remains under investigation.
@@ -13,6 +14,16 @@ Current reference: first-generation CMU, North America, firmware 55.00.750B.
   audio-manager API. A persistent bench profile is being planned.
 - Upgrade scoping targets the latest applicable North American firmware; the
   exact package and supported upgrade sequence are not yet established.
+
+## North star and roadmap
+
+**Make Mazda Connect feel factory-original, work more reliably, and be easy to
+maintain—with optional improvements people can install and undo.**
+
+Reproducible first feature → supported firmware and repeatable starts → maintainable
+USB developer preview → measured everyday reliability.
+See the [roadmap](PLAN.md) and [GitHub milestones](https://github.com/aeharding/open-connect/milestones).
+The bench enables these outcomes; it is not the product.
 
 ## Development
 

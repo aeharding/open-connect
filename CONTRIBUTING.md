@@ -40,3 +40,16 @@ Use the focused check command documented beside the affected experiment. Existin
 checks may require exact private OEM inputs; report that dependency rather than
 fabricating a passing result. The general offline runner is `tests/run_offline.py`.
 No hardware access is implied by opening a PR or running a host check.
+
+## Triage and support
+
+Use one priority label: `priority: now`, `priority: next` or `priority: later`,
+plus the relevant area and outcome milestone. `now` is priority, not a claim that
+multiple implementations are running. Put the dependency and next concrete action
+in the issue. A blocker applies only to the dependent step; keep useful preparation
+moving. Triage after useful results rather than running recurring meetings.
+
+Support one exact firmware baseline at a time: currently 55.00.750B NA.
+Changing the baseline requires qualified stock/access evidence and feature
+requalification. Reject unsupported builds; do not add legacy compatibility
+without an explicit change to project direction.

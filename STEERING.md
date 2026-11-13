@@ -21,10 +21,12 @@ Mazda experience. Success is a better everyday startup, connection or interactio
 with the normal controls and behavior retained. The number of mods, experiments,
 tooling components or agent-hours is not a measure of product progress.
 
-Users choose features and can install, reconfigure, upgrade, repair and uninstall
-through deliberate USB maintenance without needing their original stick.
-The current compatible release should maintain supported installations; arbitrary
-old-package compatibility is not promised. Configuration UX remains open.
+Start with one feature and two user-facing actions: **Install/update** and
+**Uninstall**. Running Install again reinstalls it using verified originals;
+interrupted-operation recovery is internal behavior, not a separate Repair option.
+No Change options screen is needed until multiple worthwhile features exist.
+Maintenance uses a compatible replacement USB stick; the original stick is not
+required. Arbitrary old-package compatibility is not promised.
 Original-backup restoration is as-found restoration, not a factory reset.
 
 The first feature is a clean disclaimer bypass. The broader motivation includes
@@ -70,6 +72,13 @@ it is easier or less invasive. The dedicated bench exists for experimentation,
 including native changes; it is separate from the user's real car. Backups and
 recovery enable experiments, rather than becoming an endless prerequisite project.
 Bench success does not automatically establish end-user release safety.
+
+Keep scope small enough to pivot. Infrastructure must unblock the current
+experiment or remove demonstrated repetition. Get exact-base checks, preserved
+originals, repeatable execution and independent undo right now. Reuse those pieces.
+Defer generalized plugin/configuration systems, broad compatibility and speculative
+workflows until a real second use requires them. Prefer a small replaceable helper
+over committing the project to an architecture early.
 
 ## Ownership and execution
 

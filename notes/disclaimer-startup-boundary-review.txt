@@ -1,0 +1,61 @@
+COMBINED ROOT MODIFIED-STARTUP BOUNDARY - scoped review, 2026-11-13, t13
+Disposition: QUALIFIED NO UNRESOLVED PRACTICAL BLOCKER for ONE complete outcome
+under notes/disclaimer-modified-startup-live-handoff.txt. t12 final frozen packet
+must bind these tested sources and actual completed preparation/apply evidence.
+No further per-step review gate follows absent source change/new risk/conflict.
+This review executes no device operation and proves no modified startup/undo.
+
+REVIEWED SCOPE / SAVED AUTHORITY
+experiments/disclaimer-startup-trial/root_review.py current source SHA256:
+b08e0c01b7df7336cc1180270e84572ff15f3b6e024d58b672be505e379203a3.
+ROOT prior4 checks: root-checks/20261113T131950.189298Z/manifest.json.
+Only changed-stage delta inspected afterward: root-checks/
+20261113T132918.045688Z/manifest.json, one parameterized changed/missing-stage
+case PASS. Prior4 remain prior-source evidence; no claim all5 reran final body.
+Final example bodies/pins: review-ready-final/review-plan.json (same folder).
+Examples contain NON-TARGET IDs; actual parsed WARM1 context is mandatory.
+Boot adapter: experiments/disclaimer-startup-trial/boot/observe.py SHA256
+51a3adcbefffce4f5a00922494067b843c84482cfe069bf2de9bf40345c48570.
+boot/checks/20261113T133059.498727Z/manifest.json:12 focused offline checks PASS;
+manifest SHAeda325689830ad0f5d3032c4f3d7735ff77b31a177d230159650bc88d64a3b6a.
+boot/review.json remains unbound/review-only, never a fabricated live CID.
+Existing copy proof read ONLY via runs/20261113T065920-0600-t14-copy-knownC-recovery/
+compact-result.json; independent persistent-copy recovery is not real-root proof.
+
+CONCRETE DISPOSITION / LINES
+root_review.py:93 persistent_recovery checks existing root Ostage bytes/attributes/
+recorded identity BEFORE defaultVERIFY readiness. Missing stage remains a possible
+recreation from pinned persistent O after verified RW; changed stage refuses.
+root_review.py:168 apply_candidate verifies retained code length/MD5/CRC/metadata
+and invokes fresh defaultVERIFY BEFORE root RW/publication. Code/O/C/control are
+persistent, not tmpfs or a surviving Mac-process dependency; preflush is checked.
+Immediately before mvC it rechecks Ostage, code and unchanged journal identity/hash.
+New delta checks show changed/missing stage prevents source publication, retains
+changed bytes and still attempts paired RO. No missing-stage live-root undo claim.
+root_review.py:35 FINISH isolates final flush so failure cannot skip paired RO
+request+physical-row check; failed flush/RO stays failure, emits no successful BIND.
+Unknown bytes/attributes/stages/control refuse; OTHER is preserved, not overwritten.
+Strict WARM1 parser never sources/evals control; controlled stage IDs are data.
+Only fully verified C+flush+physicalRO yields the actual unique boot binding.
+boot/observe.py:95 binds actual completed apply/coreEND0+PS1/artifact integrity,
+not isolated-copy proof or a launch report. :143 requires exact applied fullCID
+both before/after boot; changed dev/inode/mtime/size/mode/uid/gid/nlink is conflict/
+OTHER even with C hashes. :277 saves actual conflict identity and stops without
+adoption/journal refresh/usable-undo claim; independent persistent VERIFY required.
+:215 observer sends one normal reboot, reuses corrected prompt-gated one-login
+BootGate and finite video/UART bounds; unknown/auth failure does not trigger retry.
+Only an UNUSED login may be reconciled at a NEW live prompt under root disposition.
+
+OUTCOME / LIMITS
+Perform reviewed explicit persistent undo after known access even if benefit absent:
+knownC restores AS-FOUND O; knownO verifies/commits without source rewrite;
+OTHER/bad evidence/no access stops/preserves. Final VERIFY/root55/O/disabled-none/
+physicalRO/fresh home and owned-host cleanup are actual required evidence.
+No second stock-confirm reboot. Restored bytes/home do not establish new O startup.
+Stock WARNING reference is4.223-4.625s inclfade, decoded videoPTS sample brackets.
+Compare actual frames; approx5FPS/crop/exposure cannot prove no-flash/subframe time
+or exact reboot latency. Access-C-RO observer success alone is not feature success.
+Single-writer/TOCTOU and nominal TERM timeouts remain; repeated parent signals or
+kernel I/O hangs can interrupt cleanup. No guaranteed RO/crash/powerloss durability,
+factory authenticity/fullmetadata, cold ACC, CarPlay or USB product-recovery claim.
+No tests rerun, source edits, new sources, raw re-audit, live query or catalog work.

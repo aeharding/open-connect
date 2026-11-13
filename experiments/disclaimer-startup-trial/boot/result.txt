@@ -1,0 +1,6 @@
+Candidate boot integration, OFFLINE only. Final strict policy12/12PASS.
+Code observe.py; review profile review.json, live_authorityfalse/rebootnull/bindingnull.
+Frozen checks/20261113T133059.498727Z/manifest.json +exactsource snapshots/stdout/stderr. Initial10test snapshot is superseded by the fullCID conflict policy and remains unchanged.
+Contract agreed with t12: threefield privateJSON pointer to actual successfulapply corebundle; one actualCANDIDATE_BOOT_BIND line, root55/known0+PS1 and sourceartifact integrity. No fabricated actualCID. README has exact input/marker/prepare interface.
+Requires exactappliedCID preflight and postboot. Hash-identicalC with anychangedSID => RecoveryIdentityConflict/OTHER; saveactual after-conflict.json, no adoption/control rewrite/readyundo claim. Independent persistentVERIFY remains necessary afteridentitymatch. Fakeend-to-end C success/O-refusal/changedCID conflict checked withfakes only. Savedlogger fixture exercises unchanged correctedstockBootGate; stockVideo/privatecredentials/Session reused.
+All edits confined to boot/. Stock observer/profiles/core unchanged. No deviceopen, credentialread, realcamera, reboot or targetfileoperation inthis task. t73/t75offlinehelpers removed aftersavedexit0. Frozenreview sentdirectt12/t13; root combinedtrial disposition read, actualhardware waitsfinalpacket+scopedreview.

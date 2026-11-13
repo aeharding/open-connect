@@ -1,0 +1,127 @@
+FIRST MODIFIED DISCLAIMER STARTUP — FROZEN COMBINED ONE-TRIAL BOUNDARY
+ONE complete outcome is conditionally authorized by the coordinator disposition
+notes/disclaimer-modified-startup-live-handoff.txt after finalfreeze/no-blocker review.
+The review examples alone never authorize execution with sample identities.
+Question: does the frozen initial3500->0 timer produce a shorter stock disclaimer,
+while startup/home/heartbeat remain healthy, and can independently retained code
+restore exact AS-FOUND O after reboot/delivery loss? Firmware55.00.750B/NA only.
+
+EXISTING EVIDENCE
+Frozen patch experiments/disclaimer/freeze.json unchanged; O94058B MD5
+584c67f7186ada6bae9aae1be59b5cd0/CRC376717896; C94055B MD5
+64db9d0df2277e1d95a037929aef30c4/CRC776631029. Exact fixed byte recipe only.
+Current installed O inode9457/0755/1018:3015/mtime1433953097/nlink1, physicalrootRO.
+Controlled stock restart separately reconciled root55/O/RO and retaineddata.
+Native1s GuiFramework heartbeat stays intact; no Navigate/Refresh/service action.
+Stock warning visual baseline is4.223–4.625s, measured from decodedPTS, not3500ms
+source/headerFPS. notes/stock-warning-visual-baseline.txt has limits.
+
+ROOT PAYLOADS AND LIFETIME
+root_review.py renders three exact shell payloads. review-ready/review-plan.json
+pins examples: prepare-retained.review.sh, recovery.review.sh, apply-C.review.sh.
+Examples deliberately contain NON-TARGET directory/image IDs; never hand them live.
+The renderer and passed guard/control helpers are the reviewed program; after an
+authorized preparation returns actual IDs, regenerate these same functions with
+that exact parsed WARM1 context. No patch algorithm or target pathname selection.
+
+1. RETAIN, ROOT STILL O+RO
+Fresh core UID0/55/NA + canonical/nonlink regular source/profile guards, actual
+physical /dev/ffx01p1 / relfs ro,noatime. New nonce-owned data_persist directory:
+  /tmp/mnt/data_persist/cmu-bench-startup-<fresh32hex>
+Root-owned0700, actual device/inode recorded, only this directory is written.
+prepare-retained verifies8192KiB freebudget, copies exact O with cp-p, constructs
+frozen C, verifies full bytes/countMD5CRC/modeUIDGID/mtime and records actual IDs.
+WARM1 disabled/ENABLE/prepared with goalO, currentinitialO identity; existing schema.
+Checked no-argument sync after backups+pendingintent; sync0 is not durability proof.
+Capture exact bounded JOURNAL record/countMD5CRC from completed actualcore output,
+validate old strict journal.parse(), requireinitial9457/phaseprepared/nonce match.
+No rootstage or RW yet. Any refusal preserves partialretention and stops.
+
+2. PERSIST INDEPENDENT RECOVERY BEFORE C PUBLICATION
+Render persistent_recovery(actual_context), defaultVERIFY; all shell guards/parser/
+O/C profiles are embedded. DATA-only upload to owned root0700/tmpfs, verify exact
+countMD5CRC/canonicalroutes/UIDGID/type/nlink/device/inode, then guarded cp-p to
+retainedD/recovery.sh0600/root0:0/nonlink/nlink1. Verify actualpersistent bytes and
+identity, remove tmpfs delivery. No symlink to/tmp, sourcedfile, Mac interpreter,
+bootservice, scheduler, recoverydaemon or automaticwatchdog dependency.
+Fresh /bin/sh retainedD/recovery.sh (defaultVERIFY) must verify preparedO/backups/
+WARM1 and physicalRO without mount/sync/file writes. Retain code+O/C/journal.
+
+3. APPLY FROZEN C AND RETURN ROOT RO
+Render apply_candidate(actual_context, EXACT_PERSISTENT_RECOVERY_BODY). It embeds
+that body's expectedcountMD5CRC. DATA-stage this long program; a short typed guard
+checks stagedidentity/content before /bin/sh payload </dev/null. No executablepaste.
+Before ANY rootRW/publication the applybody checks persistentcode metadata/content
+and INVOKES its defaultVERIFY as a separateprocess. Only then recovery_ready=1.
+Checked backup/code/intent sync precedes RW. Exact BusyBox mount -i -n -t relfs
+-o remount,rw,noatime /dev/ffx01p1 /, nominal TERM timeout8s, then strict unique
+physicalmountrow; rc0/RO fallback is refusal, no alternatecommand.
+Unique same-parent C and O stages copy storedimages, verify bytes+attributes and
+record their actual IDs in WARM1 staged. Recheck original9457 and stageCID, mv C
+into source, exactreadback/cmp and enabled/none/candidate_verified journalcommit.
+File/control are flushed, pairedRO requested and physicallyverified on exit.
+A final independent read verifies C matches the journal's actual stage identity.
+ONLY full success emits exactly ONE CANDIDATE_BOOT_BIND record after physicalRO.
+Failure emits no binding; source may remainknownC/O/OTHER; never boot from a failed
+apply. Retain all evidence, including original rootstage as an extra owned backup.
+New source inode is recorded, never called unchanged metadata.
+
+4. ONE MODIFIED STOCK SOFTWARE RESTART / OBSERVE
+boot/ adapter owns a separate candidate contract/profile; stock historical observer
+and core are untouched. It reads actual completed apply0/coreEND+PS1/root55 output
+and its one CANDIDATE_BOOT_BIND|nonce|C|actualID|94055|MD5|CRC|ro|1|candidate_verified.
+Preflight binds exact appliedC ID/mtime/hash/attributes+RO; postboot expects the
+EXACT FULL APPLIED CID including inode and mtime, freshroot55/newbootid/loweruptime.
+Actualpostidentity is recorded; ANY changedfield is conflict/OTHER even if C hashes
+match. No automatic adoption or journal refresh; no usable-undo claim on conflict. Labels are candidateC.
+One proven /sbin/reboot+CR, no flags, no fake nonceEND. One video begins BEFORE
+request; bounded~180s rawUART, monotonic events/decodedPTS/intervalFPS. RX-only
+bootloader, ONE established root login only at newlive login/password prompts;
+no guesses/authretry. Corrected numeric/logger/interleaved kernel parsing tested
+offline; a banner alone never establishes access or startupsuccess.
+Compare stockWARNING visibility to4.223–4.625s baseline. Pass requires healthy
+home/heartbeat and a clear reduction or absence at availableframes. A singleframe
+flash may occur;~5FPS/crop/exposure cannot prove no-flash or exact subframe duration.
+No app removal, browser navigation, heartbeat spoof/disable, firmware/settings change.
+
+5. EXPLICIT INDEPENDENT UNDO / RO / HOME
+After fresh authorized access, invoke PERSISTENT recovery.sh RESTORE_ORIGINAL via
+short identity/hash guard, not a tmpfs payload or surviving Mac transactionprocess.
+DefaultVERIFY and the explicitwriter use the strict WARM1 data parser; never eval/
+source journal. Retained IDs/backups/hash/attributes/initialprofile must match.
+KnownC must match recorded cstage ID and exactC bytes/metadata. Valid existing
+originalstage is rechecked; if absent, recreate from retained O after verifiedRW.
+Write DISABLE intent before mv O, verify exactO/cmp/bytes+0755/UID1018/GID3015/
+mtime1433953097/nlink1, record actual replacementinode and commit disabled/none.
+KnownO already present is verified/committed disabled with NO source rewrite.
+OTHER, wrongmetadata, changedcode/backups/control or unrecordedstage: refuse and
+preserve; no fuzzyadoption or blind overwrite. Stage conflicts are retained.
+Post-O/control sync is isolated so failure cannot skip the pairedRO attempt and
+physicalrow check. Finish code reports failure/unresolved even if O bytes restored
+but flush/RO verification fails. Explicitfinal defaultVERIFY/freshroot55 and fresh
+camera home establish completion. Keep persistent code/images/control until review.
+
+STOP / FALLBACK TABLE
+- Before publication badcode/control/O/space/RO: no modifiedboot; stop,preserve.
+- Apply fails/unknown: NO reboot/retry. Freshreadonly classification only; explicit
+  known-C undo if verifiedaccess+validjournal permits it within reviewedcleanup.
+- Observer or auth failure: NO reboot2/guesses/blindrestore at bootloader. Preserve
+  raw/video and determine actualshellstate. Only an UNUSED one-login attempt may
+  be completed at a NEW liveprompt under task scope; auth failure stops.
+- KnownC+validdata afterstartup: explicit retained undo; knownO: verify/commitnoop;
+  OTHER/bad data: preserve, stop, rootRO attempt if RW was requested, report gap.
+- Missingrootaccess/bootloop: tool is not automaticrecovery. No force,powercycle,
+  directwatchdog/GPIO, servicekill or assumedUSB recovery. Coordinator disposition.
+- FinalRO failure: unresolved; no normalcompletion/newboot claim; retain evidence.
+- A stock-confirm reboot after undo is NOT automatic in the one-modified-boot plan.
+  If needed to validate restored startup/reset cachedJS, request explicit additional
+  stock-confirm authority. FileO+RO/home alone do not prove a new O startup.
+
+LIMITS
+Single-writer/TOCTOU/runtime checks; no xattr/ACL/fullmetadata/atomic snapshot claim.
+No powerloss/crashdurability promise from sync0/rename/readback or one warmboot.
+Stock BusyBox TERM watcher is nominal; repeated targetsignals/uninterruptibleI/O/
+hostdisconnect can interrupt cleanup. No ignoredTERM workaround or guaranteedRO.
+The isolatedCOPY proof demonstrates independentprocess semantics on that writable
+volume, not real-root startup/recovery. Only the ONE frozen reviewed outcome has coordinator authority; examples remain
+non-target data, no second reboot or unrelated ROOT action is authorized.

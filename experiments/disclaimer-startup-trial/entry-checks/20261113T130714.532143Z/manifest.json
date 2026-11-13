@@ -1,0 +1,8 @@
+{
+  "returncode": 0,
+  "source_sha256": {
+    "experiments/disclaimer-startup-trial/entry.py": "1d594e76102c0580e2609862057b4a9e764d793e7fd24ff0a7b1c7e8a515bf21",
+    "experiments/disclaimer-startup-trial/test_entry.py": "fbc840c881bce291f7d4543ab0b55695163ca57045cf9a07418233629c10c1ef"
+  },
+  "scope": "ONEentry render assertion+shsyntax; no body/hardware"
+}

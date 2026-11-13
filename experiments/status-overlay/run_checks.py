@@ -6,7 +6,7 @@ HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[1]
 sys.path.insert(0,str(HERE));sys.path.insert(0,str(ROOT))
 folder=HERE/'checks'/datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
 folder.mkdir(parents=True)
-paths=list(HERE.glob('*.py'))+[ROOT/p for p in ['experiments/ui001/watchdog.sh.in','experiments/ui001/prepare.py','experiments/ui001/invoke.py','experiments/ui001/test_watchdog.py','experiments/ui001/fake_dialog.py','cmu_bench/session.py','scripts/cmu-session.py']]
+paths=list(HERE.glob('*.py'))+[ROOT/p for p in ['experiments/ui001/watchdog.sh.in','experiments/ui001/prepare.py','experiments/ui001/invoke.py','experiments/ui001/test_watchdog.py','experiments/ui001/fake_dialog.py','src/open_connect/session.py','src/open_connect/uart.py']]
 pins={}
 for p in paths:
  data=p.read_bytes();name=str(p.relative_to(ROOT));out=folder/'source'/name

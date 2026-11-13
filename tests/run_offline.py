@@ -1,4 +1,4 @@
-"""Run offline tests; preserve exact source bytes BEFORE execution in examples/."""
+"""Run offline tests; preserve exact source bytes BEFORE execution under runs/tests/."""
 import datetime
 import hashlib
 import io
@@ -13,10 +13,10 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT));os.chdir(ROOT)
 import serial
 stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
-path=ROOT/'examples/tooling-runs'/stamp
+path=ROOT/'runs/tests'/stamp
 path.mkdir(parents=True,mode=0o700)
 source={};copies={}
-for pattern in ('cmu_bench/*.py','scripts/cmu-session.py','tests/*.py'):
+for pattern in ('src/open_connect/*.py','tests/*.py'):
     for p in ROOT.glob(pattern):
         data=p.read_bytes();name=str(p.relative_to(ROOT));h=hashlib.sha256(data).hexdigest()
         target=path/'source'/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
@@ -25,9 +25,9 @@ log=io.StringIO();suite=unittest.defaultTestLoader.discover(str(ROOT/'tests'))
 result=unittest.TextTestRunner(stream=log,verbosity=2).run(suite)
 (path/'tests.txt').write_text(log.getvalue())
 stable=all(hashlib.sha256((ROOT/p).read_bytes()).hexdigest()==h for p,h in source.items())
-manifest=dict(question='Does the bounded command/file runner preserve evidence under paced TX and failures?',
+manifest=dict(question='Do the host CLI, bench profile and UART/file operations pass offline?',
               firmware_scope='55.00.750B cmu150_NA; no real device used',mode='offline_only',hardware_opened=False,camera_opened=False,
-              synthetic_pty_only=True,command='hc run --bg --name cmu-paced-tests --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B tests/run_offline.py',
+              synthetic_pty_only=True,command='python tests/run_offline.py',
               started_at=stamp,ended_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),tests=result.testsRun,
               failures=len(result.failures),errors=len(result.errors),passed=result.wasSuccessful(),
               python=sys.version,pyserial=serial.VERSION,platform=platform.platform(),source_sha256=source,

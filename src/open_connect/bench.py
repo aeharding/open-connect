@@ -14,12 +14,10 @@ import sys
 import tempfile
 import time
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-from cmu_bench.session import AdapterLock, BenchError, Bundle, Session, UnknownOutcome, open_adapter, digest
+from open_connect.session import AdapterLock, BenchError, Bundle, Session, UnknownOutcome, open_adapter, digest
 
 PROFILE = "silent-ui-v1"
-STATE = ROOT / ".bench-state" / "profile.json"
+STATE = Path.cwd() / ".bench-state" / "profile.json"
 BUS = "unix:path=/tmp/dbus_hmi_socket"
 SERVICE = "com.xsembedded.service.AudioManagement"
 OBJECT = "/com/xse/service/AudioManagement/HmiMode"

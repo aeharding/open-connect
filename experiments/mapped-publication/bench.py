@@ -5,7 +5,7 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(ROOT/"experiments/native-disclaimer-runtime"))
 import runtime as rt
-from cmu_bench.session import AdapterLock, Bundle, Session, open_adapter
+from open_connect.session import AdapterLock, Bundle, Session, open_adapter
 stock=rt.fields().stock
 
 def command(text, path, timeout=60):

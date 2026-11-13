@@ -145,7 +145,7 @@ class Bundle:
         code = {}
         for p in sorted(Path(__file__).parent.glob("*.py")):
             code[str(p)] = digest(p.read_bytes())
-        cli = Path(__file__).parents[1] / "scripts/cmu-session.py"
+        cli = Path(__file__).with_name("uart.py")
         if cli.exists():
             code[str(cli)] = digest(cli.read_bytes())
         self.meta = dict(schema=1, run_id=nonce(), intent=intent, owner=owner, mode=mode,

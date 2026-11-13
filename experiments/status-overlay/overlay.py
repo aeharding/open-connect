@@ -14,7 +14,7 @@ ROOT=Path(__file__).resolve().parents[2]
 UI=ROOT/'experiments/ui001'
 sys.path.insert(0,str(ROOT));sys.path.insert(0,str(UI))
 import invoke as lifecycle
-from cmu_bench.session import wrap_command
+from open_connect.session import wrap_command
 DEFAULT_TEXT='55.00.750B | UART root | 2 files'
 
 
@@ -71,11 +71,11 @@ def main(argv=None):
     if not a.live:
         print(json.dumps(dict(mode='dry_run',opens_port=False,plan=plan,command=command),indent=2));return 0
     if not a.bundle:p.error('--live needs a new --bundle')
-    pins=json.loads((ROOT/'examples/operator-ready-paced-tx.json').read_text())['source_sha256']
+    pins=json.loads((ROOT/'docs/history/uart/operator-ready-paced-tx.json').read_text())['source_sha256']
     for name,expected in pins.items():
         if hashlib.sha256((ROOT/name).read_bytes()).hexdigest()!=expected:p.error('paced source changed: '+name)
     print(json.dumps({'overlay_plan':plan}),flush=True)
-    runner=runpy.run_path(str(ROOT/'scripts/cmu-session.py'))
+    runner=runpy.run_path(str(ROOT/'src/open_connect/uart.py'))
     rc=runner['main'](['--live','--action','command','--command',command,'--solicit-prompt','--deadline','35','--bundle',a.bundle,'--owner',a.owner])
     if rc==0:
         try:proof=verify(a.bundle,command,plan['run_id'],a.seconds)

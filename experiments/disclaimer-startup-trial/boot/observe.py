@@ -234,7 +234,7 @@ def live_profile(path):
             profile.get("deadline_s") != 180 or profile.get("recovery_identity_policy") != IDENTITY_POLICY):
         raise ValueError("review-only candidate profile; separate combined trial disposition required")
     required = {str(Path(__file__).resolve().relative_to(ROOT)), str(STOCK_PATH.relative_to(ROOT)),
-                "cmu_bench/session.py", str(STOCK_REVIEW.relative_to(ROOT))}
+                "src/open_connect/session.py", str(STOCK_REVIEW.relative_to(ROOT))}
     if not required.issubset(profile.get("source_pins", {})):
         raise ValueError("missing candidate/corrected-stock/core source pins")
     for name, expected in profile["source_pins"].items():

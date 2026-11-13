@@ -91,7 +91,7 @@ class Tests(unittest.TestCase):
             profile=root/'profile.json';profile.write_text(json.dumps(dict(
                 normal_reboot_route_verified=True,reboot_hex=m.REBOOT.hex(),source_pins={
                     'experiments/stock-warm-start/observe.py':m.sha(HERE/'observe.py'),
-                    'cmu_bench/session.py':m.sha(m.ROOT/'cmu_bench/session.py')})))
+                    'src/open_connect/session.py':m.sha(m.ROOT/'src/open_connect/session.py')})))
             sent=[];closed=[]
             class Lock:
                 def __init__(self,**kw):pass

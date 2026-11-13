@@ -11,7 +11,7 @@ HERE=Path(__file__).resolve().parent
 ROOT=HERE.parents[1]
 run=HERE/'checks'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
 run.mkdir(parents=True,mode=0o700)
-files=[HERE/'observe.py',HERE/'test_observer.py',HERE/'check.py',ROOT/'cmu_bench/session.py']
+files=[HERE/'observe.py',HERE/'test_observer.py',HERE/'check.py',ROOT/'src/open_connect/session.py']
 files += [p for p in [HERE/'replay.py',HERE/'fixtures/logger-boot.txt'] if p.exists()]
 pins={}
 for p in files:

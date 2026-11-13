@@ -1,6 +1,5 @@
 """Front-door tests patch only hardware acquisition; no production PTY option."""
 import contextlib
-import importlib.util
 import io
 import json
 from pathlib import Path
@@ -9,13 +8,11 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from cmu_bench.session import BenchError
+from open_connect.session import BenchError
 from test_session import FakeTransport
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("cmu_session_cli", ROOT / "scripts/cmu-session.py")
-cli = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(cli)
+from open_connect import uart as cli
 
 
 class LockStub:

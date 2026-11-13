@@ -10,7 +10,7 @@ import unittest
 HERE=Path(__file__).resolve().parent
 ROOT=HERE.parents[1]
 sys.path.insert(0,str(HERE));sys.path.insert(0,str(ROOT))
-frozen=[ROOT/p for p in ('scripts/cmu-session.py','cmu_bench/session.py','cmu_bench/files.py','cmu_bench/__init__.py')]
+frozen=[ROOT/p for p in ('src/open_connect/uart.py','src/open_connect/session.py','src/open_connect/files.py','src/open_connect/__init__.py')]
 frozen+=list((ROOT/'tests').glob('*.py'))
 before={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in frozen}
 stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')

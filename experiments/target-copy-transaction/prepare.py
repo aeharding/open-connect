@@ -9,7 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from cmu_bench.session import wrap_command
+from open_connect.session import wrap_command
 REFERENCE = ROOT / 'runs/20261113T034954-0600-t14-full-file-copy'
 ORIGINAL = '94058 584c67f7186ada6bae9aae1be59b5cd0 376717896'
 CANDIDATE = '94055 64db9d0df2277e1d95a037929aef30c4 776631029'

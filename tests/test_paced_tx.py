@@ -10,7 +10,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from cmu_bench.session import Bundle,Session,UnknownOutcome,TX_CHUNK_BYTES,TX_GAP_SECONDS
+from open_connect.session import Bundle,Session,UnknownOutcome,TX_CHUNK_BYTES,TX_GAP_SECONDS
 from test_cli import cli,LockStub
 
 

@@ -4,8 +4,8 @@ import argparse,hashlib,importlib.util,json,math,re,subprocess,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2];HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(ROOT))
-from cmu_bench.files import posix_cksum
-from cmu_bench.session import wrap_command
+from open_connect.files import posix_cksum
+from open_connect.session import wrap_command
 TARGET="/jci/mmui/uia/libjciuiasystem.so"
 PARENTS=("/jci","/jci/mmui","/jci/mmui/uia")
 INITIAL="64785:5484:1433953535:454142:755:1018:3015:1"

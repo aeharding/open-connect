@@ -67,3 +67,12 @@ private/
 /experiments/comparison-disclaimer55/
 /experiments/disclaimer-snap55/
 /experiments/**/recovery-checks/
+
+# Local progress page and retired input captures are not public source.
+/.local/
+/research/
+/examples/
+/dashboard/
+*.egg-info/
+/build/
+/dist/

@@ -11,7 +11,7 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
-from cmu_bench.files import posix_cksum
+from open_connect.files import posix_cksum
 HERE=Path(__file__).resolve().parent
 ORIGINAL=ROOT/'runs/20261113T100437-0600-t14-mmui-upstream/originals/jci/mmui/uia/libjciuiasystem.so'
 BASE_SHA='acf24ffd3719a29d2b4eefe80855ef6f164852fe3464858d07ca2d956395d302'

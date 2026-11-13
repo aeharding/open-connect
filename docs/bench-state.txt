@@ -1,11 +1,11 @@
 CURRENT BENCH PROFILE UPDATE — 2026-11-13
-One CLI bench profile now implemented: scripts/oc bench setup/status/teardown.
+One CLI bench profile now implemented: src/open_connect/cli.py bench setup/status/teardown.
 Live setup -> repeat setup -> teardown -> status -> setup PASS.
 Final silent-ui-v1 profile ON/active/owned, audio enabled; fresh root55/NA and
 physical RO guards passed; each invocation closed UART. No startup hook,
 vendor file mutation, reboot or camera action. Existing Snap/product state unchanged.
 Receipt: .bench-state/profile.json (private). Evidence: runs/bench-profile/lifecycle-result.json,
-final bundle runs/bench-profile/live-ready. Guide: bench/README.md.
+final bundle runs/bench-profile/live-ready. Guide: docs/bench-setup.md.
 Do not treat the older audio-disabled note below as current. Teardown is needed
 before tests whose interpretation depends on genuine TAU/audio readiness.
 After a reboot or service replacement, check status; runtime ownership expires.
@@ -53,13 +53,13 @@ and full identities remain enforced. Do not replay used bundle paths.
 
 Visual: Mazda logo animates into menu; no warning in inspected sampled frames;
 brief dark transition still visible. Do not promise seamless/no-flash.
-Result: notes/existing-disclaimer-v55-result.txt and private result.json.
+Result: docs/history/existing-disclaimer-v55-result.txt and private result.json.
 
 Roadmap: PLAN.md. Latest-applicable NA firmware upgrade scoping remains active;
 old v73 placeholder superseded. Ethernet/ACC hardware last reported shipping.
 
-Latest source/visual finding: notes/disclaimer-snap-result.md. LoopLogo is the
-shimmering Mazda emblem, not a spinner. User confirms spinner AFTER shimmer; exact active context still unknown. Circular List2/NowPlaying spinner code and asset now found; startup link unproved. See notes/loading-spinner-investigation.txt. MainMenu
+Latest source/visual finding: docs/history/disclaimer-snap-result.md. LoopLogo is the
+shimmering Mazda emblem, not a spinner. User confirms spinner AFTER shimmer; exact active context still unknown. Circular List2/NowPlaying spinner code and asset now found; startup link unproved. See docs/history/loading-spinner-investigation.txt. MainMenu
 JS/CSS now captured privately; first-icon paint remains unresolved. All read
 helpers closed; last UART work read-only.
 

@@ -1,53 +1,50 @@
 # Mazda Open Connect
 
-Open Connect improves Mazda Connect reliability and responsiveness while preserving
-the OEM feel. This repository contains original feature experiments, bench tools
-and reverse-engineering findings.
+Make first-generation Mazda Connect feel factory-original, work more reliably,
+and be easy to maintain. First feature: a clean startup disclaimer bypass.
 
-**Research and development on a dedicated bench; no end-user USB release yet.**
-Required development baseline: first-generation CMU, North America, **55.00.750B**.
-One supported firmware at a time; the planned modern replacement is not yet verified.
+**Development project, not an end-user installer.**
+The supported bench firmware is **55.00.750B North America**.
 
-- Native startup disclaimer bypass and independent undo have been demonstrated.
-  Smoother startup handoff remains under investigation.
-- Silent Entertainment testing works without a TAU through Mazda's existing
-  audio-manager API. A single CLI manages runtime bench setup/teardown; startup
-  persistence remains planned.
-- Upgrade scoping targets the latest applicable North American firmware; the
-  exact package and supported upgrade sequence are not yet established.
+## Start here
 
-## North star and roadmap
+- **Build a bench:** [power, display and UART wiring](docs/bench-setup.md).
+- **Use a connected bench:** [CLI commands](docs/cli.md).
+- **Change the code:** install the host tools and run the offline tests below.
+- **Understand the Mazda behavior:** [findings](docs/reverse-engineering.md).
+- **Choose work:** [roadmap](PLAN.md) and [issues](https://github.com/aeharding/open-connect/issues).
 
-**Make Mazda Connect feel factory-original, work more reliably, and be easy to
-maintain—with optional improvements people can install and undo.**
+~~~sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+.venv/bin/oc --help
+.venv/bin/python tests/run_offline.py
+~~~
 
-Reproducible first feature → supported firmware and repeatable starts → maintainable
-USB developer preview → measured everyday reliability.
-See the [roadmap](PLAN.md) and [GitHub milestones](https://github.com/aeharding/open-connect/milestones).
-The bench enables these outcomes; it is not the product.
+Installation and offline tests do not connect to or change the CMU.
+The host tests include the CLI, bench profile, UART protocol and file transfers.
+Prototype-specific checks are separate and may need private OEM inputs.
 
-## Development
+## Where things live
 
-[Working plan](PLAN.md) · [Steering agreement](STEERING.md) ·
-[Contributing](CONTRIBUTING.md) · [Issues](https://github.com/aeharding/open-connect/issues)
+| Path | Purpose | Runs where? |
+| --- | --- | --- |
+| [src/open_connect/](src/open_connect/) | Python CLI, UART transport, file transfer and runtime bench profile | Your computer |
+| [tests/](tests/) | Offline tests for that host package | Your computer; fake transport or local PTYs |
+| [experiments/](experiments/) | Prototype mods, builders and bench trials; see its index before running anything | Builders run on the host; generated payloads may change the CMU |
+| [docs/](docs/README.md) | Setup, usage and Mazda findings | Documentation |
+| docs/history/ | Dated observations, old plans and evidence indexes | Historical reference, not current instructions |
 
-Use issues for concrete work and pull requests for coherent changes. The primary
-developer owns implementation and bench operation; focused reviewers investigate
-specific design questions against actual Mazda code.
+There is no automatic deployment step. Installing the Python package installs
+**only host tools**. Product patches are still experiments, not bundled into the CLI.
+The Python import name uses an underscore (open_connect); the project/command
+names are Open Connect and oc.
 
-Start with [hardware bench setup](bench/README.md) for power, display and UART wiring.
-Then use [CLI operations](bench/OPERATIONS.md) to work with the connected CMU.
-[Detailed host instructions](README.txt) cover the lower-level tools.
-[Current handoff](notes/afk-session-status.txt) records changing device state.
-Historical experiment profiles are evidence, not reusable live authorization.
+[Contributing](CONTRIBUTING.md) · [Roadmap](PLAN.md) · [Working agreement](STEERING.md)
 
-## License and source material
+## License
 
-Original Open Connect code is **AGPL-3.0-or-later**; see [LICENSE](LICENSE).
-See [THIRD_PARTY.md](THIRD_PARTY.md) for third-party provenance and exclusions.
-
-OEM firmware, full extracted sources, credentials and raw captures are excluded.
-Some integration tests depend on private exact firmware inputs. Paths under
-ignored `runs/` refer to local evidence and will not resolve in a public checkout.
-Upstream-derived noncommercial comparison adaptations are retained locally and
-are not part of this AGPL distribution.
+Original code is **AGPL-3.0-or-later** ([LICENSE](LICENSE)).
+[Third-party boundaries](THIRD_PARTY.md) explain excluded comparison code.
+OEM firmware, credentials and raw captures are private. Paths under ignored runs/
+refer to local evidence, not files available in a fresh checkout.

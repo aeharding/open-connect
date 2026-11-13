@@ -5,7 +5,7 @@ import journal as retained
 HERE=Path(__file__).resolve().parent
 ROOT=retained.ROOT
 sys.path.insert(0,str(ROOT))
-from cmu_bench.session import wrap_command
+from open_connect.session import wrap_command
 
 VERIFY=r'''
 case "$_kind:$_registry:$_pending:$_phase" in

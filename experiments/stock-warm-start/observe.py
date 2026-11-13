@@ -16,7 +16,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from cmu_bench.session import AdapterLock, Bundle, Session, open_adapter, PROMPT, ANSI
+from open_connect.session import AdapterLock, Bundle, Session, open_adapter, PROMPT, ANSI
 
 REBOOT = b'/sbin/reboot\r'
 MAX_RX = 4 * 1024 * 1024
@@ -254,7 +254,7 @@ def main(argv=None):
     if not all((args.bundle, args.credentials, args.profile)) or args.camera_index is None or args.camera_index < 0:
         p.error('live requires new bundle, private credentials, checked profile and camera-index')
     profile = json.loads(args.profile.read_text())
-    required = {"experiments/stock-warm-start/observe.py", "cmu_bench/session.py"}
+    required = {"experiments/stock-warm-start/observe.py", "src/open_connect/session.py"}
     if not required.issubset(profile.get("source_pins", {})):
         raise RuntimeError("missing checked observer/core pins")
     for name, expected in profile['source_pins'].items():

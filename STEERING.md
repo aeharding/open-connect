@@ -47,7 +47,7 @@ The user supplies physical resources; the primary owns software execution.
 Bench helpers are managed as one development profile: setup, status and teardown.
 No per-helper manual activation, new CMU menu or graphical UI is needed. A thin
 semantic CLI reuses working tools; Python on the host and POSIX sh on the CMU are
-the initial implementation. Extend it only for concrete tasks. See bench/OPERATIONS.md
+the initial implementation. Extend it only for concrete tasks. See docs/cli.md
 and docs/cli.md. Command-only ephemeral agents can test usability, while the primary
 retains ownership of live state and the complete outcome.
 
@@ -140,7 +140,7 @@ and proprietary OEM captures stay out of the public repository. See THIRD_PARTY.
 Use issues for concrete work and pull requests for coherent changes. A short plan
 and one focused OEM-code review should improve the approach, not become repeated
 approval gates. The primary still owns implementation and bench results.
-See CONTRIBUTING.md and bench/PLAN.md for the development-profile plan.
+See CONTRIBUTING.md and docs/history/bench-profile-plan.md for the development-profile plan.
 
 ## Knowledge, progress and maintenance
 
@@ -149,15 +149,18 @@ what we learned, relevant evidence and remaining uncertainty. Preserve independe
 implementation provenance; keep full OEM binaries and private captures out of
 published source.
 
-Document after useful results and batch updates. The remotely accessible dashboard
-is the user's first progress contact; keep it honest and current after meaningful
-milestones without making publication a gate for bench work.
+Document after useful results and batch updates. GitHub issues and pull requests are the progress record. Do not maintain a
+parallel dashboard or duplicate current-state indexes.
 
 Keep changing device state and the next concrete task in
-[the current handoff](notes/afk-session-status.txt), and operational instructions
+[the current handoff](docs/bench-state.txt), and operational instructions
 in [AGENTS.md](AGENTS.md). Product background and open UX questions are in
-[the product brief](notes/product-direction.txt); historical assignments there
+[the product brief](docs/history/product-direction.txt); historical assignments there
 are not current authority.
 
 Maintain this document when goals or working agreements change, not after every
 command. Keep it short enough to read at the start of a session.
+
+Repository layout: src/open_connect is host code; tests covers it; experiments
+contains prototype mods; docs contains setup, usage and findings. Retired records
+live under docs/history. Keep one starting README and one current lab-state file.

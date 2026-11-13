@@ -20,6 +20,7 @@ ask the user to press buttons, dismiss dialogs or rewire things to complete agen
 ## Code and documentation
 
 - src/open_connect/: host Python; nothing here is installed on the CMU.
+- cmu/: target integration code; loader probe is not installed or bench-qualified.
 - tests/: maintained host tests, including the semantic CLI and bench profile.
 - experiments/: prototype mods and trial tooling; generated payloads may affect the CMU.
 - docs/: setup, usage and concise findings. Use Git for historical records.

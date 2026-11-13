@@ -38,6 +38,14 @@ jobs:
           python -m unittest discover -s experiments/mapped-publication -v
           python -m unittest discover -s experiments/intro-handoff -p test_boot.py -v
           python -m unittest discover -s experiments/intro-handoff -p test_publication.py -v
+      - name: Install ELF linker for the loader probe
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends clang lld
+      - name: Optional loader probe (public inputs only)
+        env:
+          OC_LLD: /usr/bin/ld.lld
+        run: python -m unittest discover -s experiments/optional-loader -v
       - name: Installed CLI outside checkout
         shell: bash
         run: |

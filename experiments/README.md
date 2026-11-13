@@ -7,6 +7,7 @@ Nothing here is deployed by pip install or by importing open_connect.
 
 | Directory | What it contains | Deployment boundary |
 | --- | --- | --- |
+| [optional-loader](optional-loader/) | Native loader probe and public checks | Host build only; target adapter under cmu/; no live profile |
 | [disclaimer-native](disclaimer-native/) | ARM C bypass and host ELF patch builder | native.c is compiled into a CMU library candidate; Python stays on the host |
 | [intro-handoff](intro-handoff/) | Paired GUI completion hook and host trial runner | Generated JavaScript modifies systemApp.js; Python stays on the host |
 | [mapped-publication](mapped-publication/) | Library apply/undo with hardlink holds | Host orchestrator sends guarded shell payloads |

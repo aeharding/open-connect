@@ -1,0 +1,45 @@
+REVIEW-READY ONLY — first real-file warm O->C->O package,2026-11-13, t12.
+Eight focused host checks PASS. No UART/remount/real GUI write or live operator
+handoff occurred. Coordinator review of this new real-file boundary is required.
+
+Current identity authority:
+  checks/20261113T104206.713237Z/manifest.json
+  exact pre-test sources/transcript beside it in source/ and tests.txt
+Concrete payload+plan (nonce/retained backup/stage names, literal RW+RO/sync argv):
+  same folder/review-ready/command.sh and plan.json
+Exact bounded PROPOSED invocation as data, not executed:
+  same folder/review-ready/exact-invocation.json
+Payload12756B; wrapped13183B; max physical line165B. Proposed host deadline60s,
+output cap131072; existing paced runner/fresh root55. Target mount+sync wrappers
+use existing BusyBox nominal timeout8/TERM; no hard kernel-I/O deadline claim.
+
+Prepares verified retained O/C/metadata+pending intent while root is strictly RO,
+checks no-argument sync before RW; exact -i/-n mount argv has no alternate fallback.
+Requires request0 AND unique actual physical RW row, rejecting rc0/RO fallback.
+Stages C and rollback O in source's same parent; verifies before replacement.
+Known owned C+valid evidence restores verified O; O present commits disabled without
+rewriting it. OTHER/bad evidence refuses/preserves. Byte equality is checked bycmp,
+size/MD5/CRC; checked restore fields are0755,UID1018,GID3015,mtime seconds1433953097.
+Initial/final inode are recorded and real replacement is called inode=replaced.
+
+Cleanup stage refusal is isolated so post-original sync still runs. Restore,
+stage-cleanup or sync failure cannot skip paired RO after RW was requested;
+physical RO verification follows. Before any RW request, failures only verify
+unchanged RO. Failure/unresolved state is explicit, never reported as success.
+Backup/candidate/journal retained; only verified nonce-owned root stages removed.
+
+Checks cover normal warm roundtrip/new inode, RW fallback+unsupported switches,
+known-C failure restore, O-already no rewrite, OTHER/bad-journal refusal reachingRO,
+pre/post sync failures, stage-cleanup refusal reaching second sync+RO, failedRO.
+Prior7 profile remains checks/20261113T103647.577798Z/ (one concrete sync-order
+edge fixed afterward). No core/full-suite rerun; existing/frozen code untouched.
+
+Explicit remaining cleanup boundary: _finish resets HUP/INT/TERM to default;
+a new/repeated parent signal during cleanup can terminate before RO. One-trial
+scope assumes no such injected signal/interrupt. TERM is not globally ignored.
+Host fakes do NOT test timeout elapsed/signal semantics or prove vendor/RelFS.
+Single-writer/TOCTOU, ACL/xattr/full metadata, SIGKILL/uninterruptible I/O/host loss,
+power-loss durability and startup/health/recovery remain unproved. sync0 is only
+checked best-effort runtime flush, not durability evidence. Unknown stops/preserves.
+No t14 live handoff; test helpers t5m/t5n saved and removed. Source frozen to
+current passing manifest. Files:4 source files,README.txt,result.txt+check manifest.

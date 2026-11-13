@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "tests": 8,
+  "exit_code": 0,
+  "source_sha256": {
+    "check.py": "0133e7a8d114ecd1767207a5dc8933adda6018d79447558079cc0a4082fa3811",
+    "prepare.py": "bf6b61418b324992cd0bcc9a7aa619b9114b7572a8f5aacd002c3dbdd017951a",
+    "test_warm.py": "acd3b3ca0d72201c1f2a9246706a41f448c6f514393e87662b4e1fdd3d8f101d",
+    "warm.sh.in": "114fb59c63cde13e56d42702b1240704ef5126e151cff56e1fc63e9ca0075ba2"
+  },
+  "source_copies": "source/",
+  "source_unchanged": true,
+  "frozen_disclaimer_unchanged": true,
+  "review_ready": "/Users/aeharding/mazda-cmu-bench/experiments/disclaimer-warm-roundtrip/checks/20261113T104206.713237Z/review-ready",
+  "tests_sha256": "0eb214d16b4beb5c1271d9be241cd90e2564ab1d9760555a9767d6409ccb3853",
+  "scope": "HOST contract fakes only; no native mount/sync/chown, no UART/CMU work, not BusyBox/RelFS equivalence",
+  "operator_handoff_authorized": false
+}

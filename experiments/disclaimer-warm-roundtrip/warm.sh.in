@@ -1,0 +1,344 @@
+# REVIEW ONLY: real-file boundary requires coordinator approval before any operator handoff.
+set -f
+umask 077
+_run=@RUN@
+_bb=/bin/busybox
+_sync=/bin/sync
+_mounts=/proc/mounts
+_src=/jci/gui/apps/system/js/systemApp.js
+_parent=/jci/gui/apps/system/js
+_persist=/tmp/mnt/data_persist
+_d="$_persist/cmu-bench-warm-$_run"
+_cs="$_parent/.systemApp.js.cmu-bench-$_run-candidate"
+_os="$_parent/.systemApp.js.cmu-bench-$_run-original"
+_expected_initial=64785:1606:1433953097:94058:755:1018:3015:1
+_om=1433953097
+_cm=
+_initial_id=
+_parent_id=
+_persist_id=
+_di=
+_oi=
+_ci=
+_csi=none
+_osi=none
+_jready=0
+_rw_requested=0
+_source_checked=0
+emit() { printf 'WARM %s %s\n' "$_run" "$*"; }
+die() { emit "FAIL step=$1 preserve=$_d"; exit 1; }
+status() { emit "STATUS op=$1 rc=$2"; test "$2" = 0 || die "$1"; }
+canon() { _can=$(readlink -f "$1") || die canonical; test "$_can" = "$1" || die canonical_changed; }
+_id() { stat -c '%d:%i:%Y:%s:%a:%u:%g:%h' "$1"; }
+_root_mode() {
+ awk -v want="$1" '
+ $2=="/" {
+  print "ROOT_ROW:" $0
+  if($1=="rootfs"&&$3=="rootfs") {p++;if($4!="rw"||$5!="0"||$6!="0")bad=1;next}
+  n++
+  if($1!="/dev/ffx01p1"||$3!="relfs"||!($4==want",noatime"||$4=="noatime,"want)||$5!="0"||$6!="0")bad=1
+ }
+ END {exit !(p==1&&n==1&&!bad)}' "$_mounts"
+ _row_rc=$?
+ emit "ROOT_CHECK want=$1 rc=$_row_rc"
+ return "$_row_rc"
+}
+_mount_request() {
+ _want=$1
+ emit "MOUNT_REQUEST mode=$_want device=/dev/ffx01p1 node=/ flags=-i,-n timeout=8"
+ "$_bb" timeout -t 8 -s 15 "$_bb" mount -i -n -t relfs -o "remount,$_want,noatime" /dev/ffx01p1 /
+ _mount_rc=$?
+ emit "MOUNT_RC mode=$_want rc=$_mount_rc"
+ _root_mode "$_want"
+ _mount_row_rc=$?
+ test "$_mount_rc" = 0 && test "$_mount_row_rc" = 0
+}
+_flush() {
+ emit "SYNC_REQUEST phase=$1 argv=/bin/sync nominal_timeout=8"
+ "$_bb" timeout -t 8 -s 15 "$_sync"
+ status "SYNC_$1" "$?"
+}
+_source_route() {
+ for _sp in /jci /jci/gui /jci/gui/apps /jci/gui/apps/system /jci/gui/apps/system/js; do
+  test -d "$_sp" && test ! -L "$_sp" || die source_parent_type
+  canon "$_sp"
+  case $_sp in /jci|/jci/gui/apps) _smode=775;;*) _smode=755;;esac
+  _spm=$(stat -c '%F|%a|%u|%g|%d' "$_sp") || die parent_stat
+  test "$_spm" = "directory|$_smode|1018|3015|64785" || die source_parent_metadata
+ done
+ _pi=$(stat -c '%d:%i:%a:%u:%g' "$_parent") || die parent_identity
+ test -z "$_parent_id" || test "$_pi" = "$_parent_id" || die parent_identity_changed
+}
+_persist_route() {
+ for _pp in /tmp /tmp/mnt /tmp/mnt/data_persist; do
+  test -d "$_pp" && test ! -L "$_pp" || die persist_parent_type
+  canon "$_pp"
+  test "$(stat -c '%F|%u|%g' "$_pp")" = 'directory|0|0' || die persist_parent_owner
+ done
+ test "$(stat -c '%a|%d' "$_persist")" = '755|45826' || die persist_mode_device
+ _pdnow=$(stat -c '%d:%i' "$_persist") || die persist_identity
+ test -z "$_persist_id" || test "$_pdnow" = "$_persist_id" || die persist_identity_changed
+}
+_backup_guard() {
+ _persist_route
+ test -d "$_d" && test ! -L "$_d" || die backup_directory
+ canon "$_d"
+ test "$(stat -c '%F|%a|%u|%g' "$_d")" = 'directory|700|0|0' || die backup_owner_mode
+ test "$(stat -c '%d:%i' "$_d")" = "$_di" || die backup_identity
+}
+_image_path() {
+ case $1 in
+ "$_src"|"$_cs"|"$_os") _source_route;;
+ "$_d/original"|"$_d/candidate") _backup_guard;;
+ *) die image_path;;
+ esac
+ test -f "$1" && test ! -L "$1" || die image_type
+ canon "$1"
+}
+_verify() {
+ _vp=$1;_vn=$2;_vh=$3;_vc=$4;_vd=$5;_vm=$6
+ _image_path "$_vp"
+ _vmeta=$(stat -c '%F|%a|%u|%g|%h|%d|%s|%Y' "$_vp") || die image_stat
+ test "$_vmeta" = "regular file|755|1018|3015|1|$_vd|$_vn|$_vm" || die image_metadata
+ _vs=$(wc -c < "$_vp") || die image_size
+ test "$_vs" -eq "$_vn" || die size_mismatch
+ _hash=$(md5sum "$_vp") || die image_md5
+ set -- $_hash;test "$1" = "$_vh" || die md5_mismatch
+ _crc=$(cksum "$_vp") || die image_crc
+ set -- $_crc;test "$1" = "$_vc" && test "$2" = "$_vn" || die crc_mismatch
+ _vid=$(_id "$_vp") || die image_identity
+ emit "VERIFIED path=$_vp id=$_vid md5=$_vh crc=$_vc"
+}
+_verify_o() { _verify "$1" 94058 584c67f7186ada6bae9aae1be59b5cd0 376717896 "$2" "$_om"; }
+_verify_c() { _verify "$1" 94055 64db9d0df2277e1d95a037929aef30c4 776631029 "$2" "$_cm"; }
+_backups() {
+ _verify_o "$_d/original" 45826
+ test "$(_id "$_d/original")" = "$_oi" || die original_backup_changed
+ _verify_c "$_d/candidate" 45826
+ test "$(_id "$_d/candidate")" = "$_ci" || die candidate_backup_changed
+}
+_control() {
+ _cp=$1;_want=$2
+ _backup_guard
+ case $_cp in "$_d/journal"|"$_d/journal.new") ;;*) die control_path;;esac
+ test -f "$_cp" && test ! -L "$_cp" || die control_type
+ canon "$_cp"
+ test "$(stat -c '%F|%a|%u|%g|%h|%d' "$_cp")" = 'regular file|600|0|0|1|45826' || die control_metadata
+ _cn=$(wc -c < "$_cp") || die control_size
+ test "$_cn" -eq "$((${#_want}+1))" || die control_length
+ _text=$(cat "$_cp") || die control_read
+ test "$_text" = "$_want" || die control_data
+ _eh=$(printf '%s\n' "$_want" | md5sum) || die control_expected_hash
+ set -- $_eh;_eh=$1
+ _ah=$(md5sum "$_cp") || die control_hash
+ set -- $_ah;test "$1" = "$_eh" || die control_bytes
+}
+_write_state() {
+ _reg=$1;_pending=$2;_phase=$3
+ _next="WARM1|$_run|registry=$_reg|pending=$_pending|phase=$_phase|goal=O|initial=$_initial_id|directory=$_di|original=$_oi|candidate=$_ci|cstage=$_csi|ostage=$_osi"
+ _backup_guard
+ if test "$_jready" = 0; then
+  test ! -e "$_d/journal" && test ! -L "$_d/journal" || die journal_exists
+  printf '%s\n' "$_next" > "$_d/journal"
+  status INITIAL_INTENT "$?"
+ else
+  _control "$_d/journal" "$_jexpected"
+  test ! -e "$_d/journal.new" && test ! -L "$_d/journal.new" || die journal_stage_exists
+  printf '%s\n' "$_next" > "$_d/journal.new"
+  status STAGE_INTENT "$?"
+  _control "$_d/journal.new" "$_next"
+  mv -f "$_d/journal.new" "$_d/journal"
+  status COMMIT_INTENT "$?"
+ fi
+ _control "$_d/journal" "$_next"
+ _jexpected=$_next;_jready=1
+ emit "STATE registry=$_reg pending=$_pending phase=$_phase"
+}
+_inspect_source() {
+ _source_route
+ _kind=OTHER;_sid=unverified
+ if test ! -f "$_src" || test -L "$_src"; then emit 'SOURCE kind=OTHER reason=type';return;fi
+ _sm=$(stat -c '%F|%a|%u|%g|%h|%d|%s|%Y' "$_src") || die source_inspection
+ _sid=$(_id "$_src") || die source_identity
+ _sh=$(md5sum "$_src") || die source_hash
+ set -- $_sh;_sh=$1
+ _sc=$(cksum "$_src") || die source_crc
+ set -- $_sc;_sc=$1;_sn=$2
+ if test "$_sm" = "regular file|755|1018|3015|1|64785|94058|$_om" &&
+ test "$_sh $_sc $_sn" = '584c67f7186ada6bae9aae1be59b5cd0 376717896 94058';then _kind=O;fi
+ if test -n "$_cm" && test "$_sm" = "regular file|755|1018|3015|1|64785|94055|$_cm" &&
+ test "$_sh $_sc $_sn" = '64db9d0df2277e1d95a037929aef30c4 776631029 94055' &&
+ test "$_sid" = "$_csi";then _kind=C;fi
+ emit "SOURCE kind=$_kind id=$_sid"
+}
+_ensure_original() {
+ _backups
+ _control "$_d/journal" "$_jexpected"
+ _inspect_source
+ case $_kind in
+ C)
+  _root_mode rw || die restore_requires_verified_rw
+  _verify_o "$_os" 64785
+  test "$(_id "$_os")" = "$_osi" || die original_stage_changed
+  _write_state enabled DISABLE restoring_O
+  _inspect_source;test "$_kind" = C || die candidate_changed_before_restore
+  mv -f "$_os" "$_src"
+  status RESTORE_REAL_ORIGINAL "$?"
+  _verify_o "$_src" 64785
+  cmp "$_d/original" "$_src"
+  status COMPARE_RESTORED_ORIGINAL "$?"
+  _sid=$(_id "$_src") || die restored_identity
+  _write_state disabled none original_restored
+  emit "COMPLETE no_rewrite=0 initial_id=$_initial_id final_id=$_sid metadata=bytes-mode-uid-gid-mtime inode=replaced"
+  ;;
+ O)
+  cmp "$_d/original" "$_src"
+  status COMPARE_PRESENT_ORIGINAL "$?"
+  _write_state disabled none original_present
+  emit "COMPLETE no_rewrite=1 initial_id=$_initial_id final_id=$_sid metadata=bytes-mode-uid-gid-mtime"
+  ;;
+ *) die source_OTHER_no_overwrite;;
+ esac
+}
+_cleanup_stages() {
+ for _stage in "$_cs" "$_os";do
+  if test -e "$_stage" || test -L "$_stage";then
+   _root_mode rw || die stage_cleanup_requires_rw
+   if test "$_stage" = "$_cs";then
+    test "$_csi" != none || die unrecorded_candidate_stage
+    _verify_c "$_cs" 64785
+    test "$(_id "$_cs")" = "$_csi" || die candidate_stage_changed
+   else
+    test "$_osi" != none || die unrecorded_original_stage
+    _verify_o "$_os" 64785
+    test "$(_id "$_os")" = "$_osi" || die original_stage_changed
+   fi
+   rm "$_stage"
+   status REMOVE_OWNED_STAGE "$?"
+  fi
+ done
+}
+_finish() {
+ _entry_rc=$1
+ trap - 0 1 2 15
+ _cleanup_rc=0
+ if test "$_jready" = 1;then
+  ( _ensure_original
+    ( _cleanup_stages )
+    _stage_cleanup_rc=$?
+    if test "$_rw_requested" = 1;then _flush ORIGINAL_DISABLED;fi
+    exit "$_stage_cleanup_rc"
+  )
+  _cleanup_rc=$?
+  emit "FILE_CLEANUP rc=$_cleanup_rc"
+ fi
+ _ro_req=not_requested
+ if test "$_rw_requested" = 1;then
+  _mount_request ro
+  _ro_req=$?
+ fi
+ _root_mode ro
+ _ro_check=$?
+ emit "RO_FINAL request_rc=$_ro_req physical_row_rc=$_ro_check"
+ _original_rc=1
+ if test "$_source_checked" = 1;then
+  ( _inspect_source;test "$_kind" = O || die final_source_not_original )
+  _original_rc=$?
+ fi
+ if test "$_entry_rc" = 0 && test "$_cleanup_rc" = 0 && test "$_ro_req" = 0 &&
+ test "$_ro_check" = 0 && test "$_original_rc" = 0;then
+  emit "END outcome=warm_roundtrip_pass rc=0 retained=$_d ro=verified original=verified"
+  exit 0
+ fi
+ emit "END outcome=failed_or_unresolved rc=1 entry=$_entry_rc cleanup=$_cleanup_rc ro_request=$_ro_req ro_row=$_ro_check original=$_original_rc retained=$_d"
+ exit 1
+}
+trap '_finish $?' 0
+trap 'exit 125' 1 2 15
+# PREPARE RETAINED BACKUP, CANDIDATE AND INTENT WHILE ROOT IS STILL VERIFIED RO.
+_u=$(id -u) || die uid
+test "$_u" = 0 || die not_root
+_root_mode ro || die initial_root_not_exact_ro
+_source_route
+_parent_id=$(stat -c '%d:%i:%a:%u:%g' "$_parent") || die source_parent_capture
+_verify_o "$_src" 64785
+_initial_id=$(_id "$_src") || die initial_id
+test "$_initial_id" = "$_expected_initial" || die initial_snapshot_changed
+_source_checked=1
+_persist_route
+_persist_id=$(stat -c '%d:%i' "$_persist") || die persist_capture
+awk -v node="$_persist" '$2==node {n++;if($1=="/dev/mmcblk0p2"&&$3=="relfs"&&($4=="rw,noatime"||$4=="noatime,rw"))ok++} END{exit !(n==1&&ok==1)}' "$_mounts"
+status BACKUP_MOUNT "$?"
+for _volume in / "$_persist";do
+ _df=$(df "$_volume") || die df
+ emit "DF volume=$_volume data=$_df"
+ _free=$(printf '%s\n' "$_df" | awk 'NR==2 {print $4}')
+ case $_free in ''|*[!0-9]*) die free_parse;;esac
+ test "$_free" -ge 8192 || die free_budget
+done
+test ! -e "$_d" && test ! -L "$_d" || die backup_exists
+mkdir -m 700 "$_d"
+status CREATE_RETAINED_DIRECTORY "$?"
+_di=$(stat -c '%d:%i' "$_d") || die backup_capture
+_backup_guard
+cp -p "$_src" "$_d/original"
+status RETAIN_ORIGINAL "$?"
+_verify_o "$_d/original" 45826
+cmp "$_src" "$_d/original"
+status COMPARE_RETAINED_ORIGINAL "$?"
+_oi=$(_id "$_d/original") || die original_backup_capture
+_slice=$(dd if="$_d/original" bs=1 skip=83483 count=4)
+status FROZEN_OFFSET "$?"
+test "$_slice" = 3500 || die frozen_offset_changed
+{
+ dd if="$_d/original" bs=4096 count=20 &&
+ dd if="$_d/original" bs=1 skip=81920 count=1563 &&
+ printf '%s' 0 &&
+ dd if="$_d/original" bs=1 skip=83487 count=10571
+} > "$_d/candidate"
+status FROZEN_CANDIDATE_BYTES "$?"
+chown 1018:3015 "$_d/candidate"
+status CANDIDATE_OWNER "$?"
+chmod 755 "$_d/candidate"
+status CANDIDATE_MODE "$?"
+_cm=$(stat -c '%Y' "$_d/candidate") || die candidate_mtime
+_ci=$(_id "$_d/candidate") || die candidate_backup_capture
+_backups
+_write_state disabled ENABLE prepared
+_flush BACKUP_INTENT
+# RW and RO use these exact source-derived switches; no alternate argv is attempted.
+_rw_requested=1
+_mount_request rw || die rw_request_or_physical_row
+_root_mode rw || die stage_requires_verified_rw
+_source_route
+_verify_o "$_src" 64785
+test "$(_id "$_src")" = "$_initial_id" || die source_changed_before_staging
+test ! -e "$_cs" && test ! -L "$_cs" || die candidate_stage_exists
+test ! -e "$_os" && test ! -L "$_os" || die original_stage_exists
+cp -p "$_d/candidate" "$_cs"
+status STAGE_CANDIDATE "$?"
+_verify_c "$_cs" 64785
+_csi=$(_id "$_cs") || die candidate_stage_capture
+cp -p "$_d/original" "$_os"
+status STAGE_ORIGINAL "$?"
+_verify_o "$_os" 64785
+_osi=$(_id "$_os") || die original_stage_capture
+_write_state disabled ENABLE staged
+_backups
+_control "$_d/journal" "$_jexpected"
+_root_mode rw || die publish_requires_verified_rw
+_verify_o "$_src" 64785
+test "$(_id "$_src")" = "$_initial_id" || die source_changed_before_publish
+_verify_c "$_cs" 64785
+test "$(_id "$_cs")" = "$_csi" || die candidate_stage_changed
+mv -f "$_cs" "$_src"
+status PUBLISH_REAL_CANDIDATE "$?"
+_verify_c "$_src" 64785
+test "$(_id "$_src")" = "$_csi" || die candidate_publish_identity
+cmp "$_d/candidate" "$_src"
+status COMPARE_PUBLISHED_CANDIDATE "$?"
+_write_state enabled none candidate_verified
+emit "CANDIDATE_VERIFIED id=$_csi"
+# CANDIDATE_VERIFIED_CHECKPOINT
+_write_state enabled DISABLE planned_restore
+exit 0

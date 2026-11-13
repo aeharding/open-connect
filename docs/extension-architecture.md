@@ -181,9 +181,9 @@ that never reaches its USB handler. The first implementation has no new CMU menu
    dependency/constructor failures; a host fake alone does not prove ARM/Opera.
 3. **Bench boundary:** install the bootstrap with existing backups/undo. Demonstrate
    an enabled no-op startup, then off plus restart with identical OEM-file hashes,
-   optional native mappings absent, JS activation absent, stock startup/access and
-   no root remount for disabling. Demonstrate an interrupted trial skips the next
-   attempt through independent recovery. No automatic boot/retry loop.
+   optional native mappings absent and evidence that optional JS was neither loaded
+   nor evaluated. Verify stock startup/access and no root remount for disabling.
+   Demonstrate an interrupted trial skips the next attempt through independent recovery. No automatic boot/retry loop.
 4. **One feature:** move the existing paired bypass into owned modules, keeping
    its behavior and guards. Verify one enabled startup, disabled stock startup and
    full uninstall/original startup. Measure startup cost and visible behavior.

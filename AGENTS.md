@@ -37,6 +37,14 @@ instructions to restart those workers.
 Keep execution simple: exercise real host entry points, use relevant checks,
 then run the useful bench experiment. Batch concise documentation after results.
 
+## Firmware support policy
+
+The user mandates one exact baseline at a time: currently 55.00.750B NA.
+The successor must be the verified latest applicable NA firmware; 74.00.324(A)
+is only a candidate. Issue #2 owns selection/upgrade/access. No generic v55,
+cross-region or simultaneous legacy/current product support is implied.
+Keep STEERING.md and PLAN.md authoritative over older version-target notes.
+
 ## Bench development priority
 
 The user explicitly wants the best OEM-feeling fix, including native changes when

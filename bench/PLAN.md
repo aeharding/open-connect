@@ -97,3 +97,11 @@ so repeatedly enabling cannot be used as a UI initialization repair.
 Next implementation: the small host-invoked helper first; source-backed startup
 attachment second. No permanent hook was installed during this planning task.
 See REVIEW.md for the concise source-backed review.
+
+## Baseline policy
+
+The required current baseline is exactly 55.00.750B NA, not arbitrary v55.
+When issue #2 moves the project baseline, requalify this helper and its startup
+attachment on the selected firmware. Do not maintain an expanding compatibility
+matrix. Host-invoked capability is the next deliverable; persistent startup remains
+a separate step requiring a real hook and post-policy readiness evidence.

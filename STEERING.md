@@ -13,15 +13,45 @@ as proposals; never silently turn an agent's suggestion into a user decision.
 The project name is **Open Connect**. Use **Mazda Open Connect** as the README
 title. The bench is part of the project, not its product identity.
 
-Build an open-source, contribution-friendly Mazda Connect project that improves
-reliability and responsiveness while keeping the OEM feel. Features are optional.
-Users should be able to install, change, upgrade and uninstall through deliberate
-USB maintenance without needing their original stick. Configuration UX and package
-compatibility policy remain open.
+**Make Mazda Connect feel factory-original, work more reliably, and be easy to
+maintain—with optional improvements people can install and undo.**
 
-The autonomous bench and published reverse-engineering knowledge are valuable
-deliverables too. The user provides physical resources; the primary agent owns
-software implementation, bench operation, testing and recovery.
+Open Connect is an AGPL, contribution-friendly improvement layer for the original
+Mazda experience. Success is a better everyday startup, connection or interaction,
+with the normal controls and behavior retained. The number of mods, experiments,
+tooling components or agent-hours is not a measure of product progress.
+
+Users choose features and can install, reconfigure, upgrade, repair and uninstall
+through deliberate USB maintenance without needing their original stick.
+The current compatible release should maintain supported installations; arbitrary
+old-package compatibility is not promised. Configuration UX remains open.
+Original-backup restoration is as-found restoration, not a factory reset.
+
+The first feature is a clean disclaimer bypass. The broader motivation includes
+responsiveness and reliable wireless CarPlay. These need measurements and causal
+investigation; unused-app removal and RAM pressure are hypotheses, not the roadmap's
+predetermined solution.
+
+The autonomous bench and published reverse-engineering knowledge enable the
+product and help contributors. Build them when they unblock a concrete experiment
+or remove repeated effort. A 24/7 autonomous bench is an aspiration, not a
+prerequisite for the first usable release or an active background schedule.
+The user supplies physical resources; the primary owns software execution.
+
+## One required firmware baseline
+
+User decision: support **one exact firmware baseline at a time**. Current required
+baseline: **55.00.750B, North America (cmu150_NA)**, with exact source/API guards.
+A generic v55 label is not permission to apply patches to other v55 builds.
+
+Move the required baseline to the latest officially applicable North American
+release after package, upgrade sequence and development access are established.
+**74.00.324(A) is a candidate, not a verified latest version or upgrade instruction.**
+Determine its exact variant; do not treat 324 and 324A as interchangeable by assumption.
+The user wants modern firmware as the eventual requirement, not a growing
+multi-firmware support matrix. Historical experiments remain evidence after the move.
+Reject unsupported version/region/base before writes; do not auto-port offsets.
+Additional regions, hardware generations and legacy release support are deferred.
 
 ## Working style: hackathon
 
@@ -65,23 +95,21 @@ Bench success does not automatically establish end-user release safety.
 
 ## Current feature direction
 
-The first real feature is startup disclaimer bypass. Understand and modify the
-native startup decision while preserving OEM initialization, cleanup, focus,
-last-app/audio/display-off behavior and normal frontend lifecycle.
+Choose the simplest correct disclaimer bypass that preserves OEM initialization,
+cleanup, focus, last-app/audio/display-off behavior and the normal frontend lifecycle.
+Use native changes when they are the right intervention; do not require them when
+an existing OEM mechanism provides a simpler correct result.
 
-The native bypass and paired renderer cleanup now work on firmware55, with
-independent undo and restored-stock startup demonstrated. The user still sees
-a fade; smooth OEM-feeling startup remains unfinished. Compare the actual
-piotrmocko/mzd-v74-tweaks disclaimer mod the user identified before another
-visual change; do not assume it is paid ScreenTune.
+The independent native bypass and paired renderer cleanup worked on firmware55,
+including undo and restored-stock startup. The subsequent upstream JS comparison
+and Snap experiment still showed a handoff. Their noncommercial code remains local;
+the first AGPL release needs an independently distributable implementation.
+A clean bypass is the outcome; visual masking or timer reduction alone is not it.
+Do not indefinitely tune an unmeasured frame at the expense of a usable product.
 
-Scope the bench upgrade to the latest officially applicable North American CMU
-firmware now. The earlier “v73 later” label is superseded. Resolve the actual
-package, upgrade sequence, development access and bench power/media needs;
-shipping hardware does not prevent source research or preparation.
-
-[PLAN.md](PLAN.md) is the short current roadmap. Keep loaded-module lifetime in
-native install/undo: restoring disk bytes does not unload the running module.
+[PLAN.md](PLAN.md) orders the work and defines milestone exits. Firmware upgrade
+scoping is active now, alongside the next small bench helper. Native install/undo
+must account for loaded-module lifetime: restoring disk bytes does not unload it.
 Reuse the working hardlink-hold recovery instead of rebuilding tooling.
 
 ## Development home and license

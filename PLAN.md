@@ -1,136 +1,120 @@
-# Open Connect — working plan
+# Open Connect — roadmap
 
-Updated 2026-11-13. Owner: the primary agent, directly.
-This is the current roadmap; STEERING.md governs working style. Earlier interim
-plans and one-shot handoffs are historical evidence.
+Updated 2026-11-13. Primary developer owns delivery. This is the working roadmap,
+refined as experiments change the evidence; dates are not promised.
+[STEERING.md](STEERING.md) defines intent. GitHub issues track execution.
 
-## Where we are
+## North star
 
-- UART, camera, authenticated restart observation and independent file undo work.
-- Native disclaimer bypass works on 55.00.750B NA. The paired renderer hook keeps
-  intro cleanup until the next screen finishes transitioning. The long blank gap
-  was absent in the revised recording; the user still observes a fade out/in.
-  Seamless OEM-feeling startup is therefore unfinished.
-- Stock native is loaded; the newer single-file Snap JS variant is installed.
-  Latest startup: runs/open-connect-snap55/boot-C. It passes access/state checks
-  but still shows a brief missing-icon frame. See notes/disclaimer-snap-result.md.
-  Exact changing state and recovery bindings: notes/afk-session-status.txt.
-- Both-file undo and restored-stock startup were demonstrated in the preceding
-  trial. Firmware downgrade and recovery from an interrupted flash are different,
-  unproven capabilities.
-- Hardware last reported in shipping: USB hub/Ethernet and ACC relay. Do useful
-  software work now; distinguish actual hardware requirements from convenience.
+**Make Mazda Connect feel factory-original, work more reliably, and be easy to
+maintain—with optional improvements people can install and undo.**
 
-## Current: simplest smooth startup
+First deliver one useful feature through the complete maintenance lifecycle.
+Then use measured startup/connection failures to choose reliability improvements.
+The bench and reverse-engineering notes serve those outcomes; neither a large
+feature catalog nor a perfect automation platform is a prerequisite.
 
-Comparison completed; both approaches still showed a visual handoff. A single-file
-variant now uses Mazda Snap only for Disclaimer-to-Home and delays logo disposal
-until transition completion. The remaining question is live menu first-paint/icon
-readiness; avoid timer tuning or native complexity without evidence.
+## Support contract
 
-The user clarified the intended project:
-https://github.com/piotrmocko/mzd-v74-tweaks
-Inspected commit 5a17963a8631b3b68b9187b6ebbefeef1def05ef. Its
-no-more-disclaimer.sh replaces the exact v74 systemApp.js. The actual feature
-replaces Disclaimer's Dialog3Tmplt with NoCtrlTmplt, transparent background and
-visible Mazda intro surfaces; ready sends DisposeIntroVideo, Global.Yes and
-NotifyDisclaimerEnd. It retains the native Disclaimer context and accepts it
-immediately. This is the comparison target, not TouchTune or ScreenTune.
+Required today: **55.00.750B NA / cmu150_NA**, with exact original-file/API guards.
+One supported firmware at a time. The planned successor is the latest officially
+applicable NA release; **74.00.324(A) remains an unverified candidate**.
+[#2](https://github.com/aeharding/open-connect/issues/2) resolves exact package,
+variant, intermediates, development access and power/media procedure before flashing.
+Move the required baseline together and requalify features; do not maintain a
+v55/v74 compatibility matrix or replay old offsets. Unknown versions are refused.
+A future firmware switch supersedes current product support, not historical evidence.
 
-Compare actual startup/loading indicator/fades, with our native+JS pair restored
-first so the two approaches do not interact. Its unmodified installer requires
-74.00.324. A v55 adaptation is possible to investigate: NoCtrlTmplt and the same
-logo properties exist in our OEM55 source, but NotifyDisclaimerEnd was not found
-as a literal in the captured native55 system library. That absence alone is not
-proof of dispatch behavior. Do not copy its whole v74 system app onto v55.
-The user explicitly chose the v55 adaptation. It omits the v74-only
-NotifyDisclaimerEnd notification and otherwise retains upstream template/properties
-and ready-event order. Host checks and the live adapted-mod startup passed;
-that initial comparison has since been replaced by the Snap variant. See notes/existing-disclaimer-v55-result.txt. The sampled video still
-contains a brief dark transition; do not declare either approach superior.
-The prior native+JS demo pair has been independently undone, stock boot verified,
-and hardlink holds cleaned before installing this standalone JS comparison.
+## Milestones and exit criteria
 
-Save the source diff and original provenance separately from our independent
-implementation. Snapshot: runs/mzd-v74-tweaks-comparison. Its CC BY-NC-SA 4.0
-license is recorded; comparison code must retain attribution and remain distinct
-from any proposed Open Connect redistribution.
+| Milestone | User/developer outcome | Exit evidence | Work |
+| --- | --- | --- | --- |
+| **M1: Reproducible first feature** | Develop against a declared bench profile; demonstrate a clean OEM-feeling bypass | Small audio helper with explicit disable; verified startup attachment for persistence; measured bypass behavior, independent undo and original startup; independently distributable approach selected | [#1 bench profile](https://github.com/aeharding/open-connect/issues/1), [#3 handoff](https://github.com/aeharding/open-connect/issues/3) |
+| **M2: Supported firmware and repeatable starts** | One modern baseline and comparable startup experiments | Verified upgrade/access/stock baseline; warm/cold capabilities distinguished; a useful repeated measurement batch retains failures | [#2 firmware](https://github.com/aeharding/open-connect/issues/2), [#5 starts](https://github.com/aeharding/open-connect/issues/5) |
+| **M3: Maintainable USB developer preview** | Install and maintain one optional feature without the original stick | Selected-firmware feature qualification; real install/change/upgrade/repair/uninstall and replacement-USB test; scoped interruption evidence; reproducible public build/test instructions | [#6 qualification](https://github.com/aeharding/open-connect/issues/6), [#7 USB preview](https://github.com/aeharding/open-connect/issues/7), [#10 contributors](https://github.com/aeharding/open-connect/issues/10) |
+| **M4: Measured everyday reliability** | More dependable CarPlay and responsive interaction | Comparable stock/modified connection success and timing; source-backed diagnosis; real-car confirmation of relevant claims; ship only improvements supported by results | [#8 CarPlay](https://github.com/aeharding/open-connect/issues/8), [#9 resources](https://github.com/aeharding/open-connect/issues/9) |
 
-## Scope now: upgrade the bench to the latest applicable Mazda firmware
+Milestones overlap where useful: firmware research starts now; USB host design
+does not wait for the upgrade. Live qualification uses the finally selected baseline.
+Hardware dependencies gate only experiments that actually need them.
+A developer preview is not a general end-user car release.
 
-User direction replaces the earlier “v73 later” placeholder. Target the newest
-officially applicable release for this first-generation North American CMU.
-An exact version is not yet selected. 74.00.324(A) is a documented candidate, not
-a verified claim of latest as of today. A newer number for another CMU generation
-or region is not a suitable upgrade.
+## Execution order now
 
-Produce one concrete upgrade recipe:
-1. Resolve exact CMU hardware applicability, current Mazda release/package and
-   North American variant; obtain the applicable installation instructions and
-   package provenance/checksums.
-2. Establish the supported sequence from 55.00.750B, including any intermediate
-   release and separate failsafe/reinstall order. Do not assume a direct jump.
-3. Determine changes to UART/root/SSH and USB execution, and how we retain or
-   regain development access. Version-55 offsets and payloads cannot be replayed.
-4. Identify usable update USB/hub and bench power/ACC procedure. Establish which
-   steps need arriving hardware; Ethernet and the relay are not automatically
-   prerequisites merely because they are planned.
-5. Preserve device-specific configuration and useful originals off the CMU,
-   restore our modifications, boot stock, and establish the actual recovery
-   options. A file undo is not firmware rollback; do not promise a downgrade.
-6. Run the applicable update procedure when that recipe and its physical inputs
-   are available. Verify firmware/region, normal startup, development access,
-   USB/hub behavior and an untouched new-firmware baseline before porting mods.
+1. **#1, immediate implementation:** turn the already proven audio API recipe into
+   a small host-invoked status/activate/runtime-disable helper. The focused OEM-code
+   review is complete: [plan](bench/PLAN.md), [findings](bench/REVIEW.md).
+   Then prove the actual startup hook and post-policy boundary before persistence.
+   Do not repeat the review or build a force-enable daemon.
+2. **#2, active research:** resolve the exact supported latest-NA package and upgrade
+   route/access implications. Existing source leads are not a current-release proof.
+   Produce a concrete recipe and named remaining physical inputs.
+3. **#3, next feature experiment:** use saved menu/surface/lifecycle code to test one
+   measurable handoff improvement. Keep normal continuation and cleanup. If another
+   visual intervention has no demonstrated benefit, record that result and proceed
+   with the best supported design; no endless transition tuning.
+4. **#5/#7/#10, next:** repeatable startup batch, a small shared USB lifecycle and
+   a fresh-checkout contribution path. Reuse working components.
 
-Scoping and preparation are active now. This plan update does not start a flash.
-The deliverable is a short executable procedure with concrete remaining inputs,
-not a new installer framework or an endless completeness audit.
+One active implementation at a time. Independent source investigation may fill
+hardware waits; it does not imply a standing subagent team. Review a substantive
+plan once against real Mazda code, then review the actual diff and result.
+Use short-lived branches/PRs and close issues only when their outcome is achieved.
+A planning PR does not close implementation work.
 
-## Then
+## What we measure
 
-- Compare our bypass and the selected existing mod on their supported firmware.
-  Keep firmware changes separate from feature effects.
-- Port the best OEM-lifecycle fix to the selected modern firmware using its actual
-  binaries and source. Test startup, resume/focus paths and full undo.
-- User is independently arranging Ethernet/SSH when hardware arrives. Continue
-  local firmware analysis now; retain UART for boot/recovery observation.
-- Add controlled ACC cycles when available, then measure cold startup and wireless
-  CarPlay failures against a stock baseline. RAM pressure remains a hypothesis.
-- Turn the proven feature into optional USB install/update/reconfigure/uninstall.
-  Publish code and concise reverse-engineering notes with firmware scope.
+- **Startup experience:** warning presence, visible gap/fade, time to usable target
+  screen and preservation of intended last-app/display-off behavior. Distinguish
+  camera sampling limits from no-flash proof.
+- **Reliability:** successful starts/connections divided by actual attempts, time
+  to ready and failure categories under declared warm/cold/phone conditions.
+  Report tails when sample size supports them, not success-only averages.
+- **Responsiveness:** one relevant interaction timing and resource observations
+  before/after a change. Resident RSS alone is not reclaimable savings or causality.
+- **Maintenance:** observed lifecycle transitions, conflicts correctly refused,
+  interruption outcomes, exact as-found undo and original boot. Separate USB repair,
+  UART rescue and unbootable-device recovery.
+- **Reproducibility:** feature revision, exact firmware, enabled bench overrides,
+  available hardware and useful source-backed notes accompany each result.
 
-## Current source leads (checked 2026-11-13)
+No universal numerical performance targets are invented before a comparable
+baseline. Each experiment states its expected improvement and success criterion
+before running. Findings can justify closing a proposed feature without shipping it.
 
-- Mazda bulletin, November 2022: 74.00.324 or later for its listed models; directs
-  technicians to MGSS for update instructions/current releases. It does not prove
-  today's latest version or the precise upgrade sequence for this bench:
-  https://static.nhtsa.gov/odi/tsbs/2022/MC-10226834-0001.pdf
-- ScreenTune currently specifies 74.00.324(A) and explicitly excludes 74.00.331.
-  These are vendor compatibility statements, not Mazda release applicability or
-  requirements for piotrmocko's separately inspected disclaimer project:
-  https://miatafy.com/screentune/troubleshooting/unsupported-firmware/
-- Public Miatafy repositories:
-  https://github.com/Miatafy
-- Earlier retrofit-hub evidence and unresolved preservation details:
-  notes/firmware-readiness.txt (dated historical checklist).
+## Current evidence and dependencies
 
-Silent Entertainment testing is now unblocked without buying a TAU: the existing
-audio-manager enable API opens FM Now Playing and the source list; matching
-disable/readback passed. Use an explicit transient bench override, not a firmware
-patch. No speakers needed. Playback/cold-start/resume remain untested.
-See experiments/tau-bypass/README.md. Current state is disabled again, Home/rootRO.
+Firmware55 native bypass/paired renderer handoff and independent restoration have
+been demonstrated. The later local upstream-derived Snap JS comparison is installed
+with stock native; it still shows a brief handoff. See
+[handoff findings](notes/disclaimer-snap-result.md) and
+[current state](notes/afk-session-status.txt). This is not a release candidate.
 
-## Bench profile and GitHub development
+The existing audio-manager API opened FM Now Playing and the source list without
+a TAU. It was explicitly disabled again. No permanent startup profile is installed;
+actual playback, ACC/resume behavior and vehicle equivalence are unproved.
+See [TAU experiment](experiments/tau-bypass/README.md).
 
-Implement the reviewed silent-audio helper and then establish its persistent
-startup attachment: [bench/PLAN.md](bench/PLAN.md), [review](bench/REVIEW.md).
-Keep bench overrides separate from product features and declared in every test.
+Ethernet/SSH and controlled ACC hardware were last reported in transit; readiness
+must be checked when relevant. Continue local source analysis and UART work.
+A software reboot is not a cold car start. An audio readiness override must be off
+for measurements where it would hide the behavior under investigation.
 
-Development home: https://github.com/aeharding/open-connect (public).
-Original code: AGPL-3.0-or-later. See CONTRIBUTING.md and THIRD_PARTY.md.
-Issues track concrete outcomes; PRs carry coherent code, tests and results.
+## Deliberately deferred
 
-Active GitHub issues:
-- Bench profile: https://github.com/aeharding/open-connect/issues/1
-- Firmware upgrade: https://github.com/aeharding/open-connect/issues/2
-- Startup handoff: https://github.com/aeharding/open-connect/issues/3
+Broad firmware/region/hardware compatibility; themes or non-OEM feature catalogs;
+a web configurator; arbitrary old-USB compatibility; general TAU emulation; app
+removal without measurable benefit; a new installer/agent orchestration framework.
+No impossible-to-brick claim. Real-car rollouts need demonstrated scope beyond the bench.
+
+## Knowledge and release
+
+AGPL-3.0-or-later original code; [third-party boundaries](THIRD_PARTY.md).
+The CC BY-NC-SA comparison adaptations and full OEM captures stay outside the
+distribution. Each substantive feature PR updates its firmware-scoped how/verify/
+undo findings. Private evidence paths are not a public reproduction recipe.
+
+GitHub [issues](https://github.com/aeharding/open-connect/issues) and
+[milestones](https://github.com/aeharding/open-connect/milestones) are the work queue.
+This roadmap holds intent and dependency order; changing device state stays in
+the handoff. Update these after meaningful results, not every command.

@@ -1,0 +1,29 @@
+{
+  "scope": "OFFLINE synthetic evidence/fake port/camera only; no device opens or reboot",
+  "command": [
+    "/Users/aeharding/mazda-cmu-bench/.venv/bin/python",
+    "-B",
+    "-m",
+    "unittest",
+    "-v",
+    "test_candidate"
+  ],
+  "returncode": 0,
+  "unchanged_sources": true,
+  "preserved_executed_history": true,
+  "source_sha256": {
+    "experiments/disclaimer-startup-trial/boot/observe.py": "3b786fcc979d7c55317c78f935d69c60aba11cb03541444ffc7d1e49251083a3",
+    "experiments/disclaimer-startup-trial/boot/test_candidate.py": "750940dbe03dbd7b9c8c9f8e2468e98e532dc3e81f101d5e2adaecc072bf9965",
+    "experiments/disclaimer-startup-trial/boot/check.py": "b2131ca979eb6c4736e15e1c4d9b865896850510a3acdbae434d5542f1e13201",
+    "experiments/disclaimer-startup-trial/boot/README.md": "3fefcf16a8c466808f7d75d88d3d5c230e58cca477d8391a28edddbb6d68096d",
+    "experiments/disclaimer-startup-trial/boot/fixtures/logger-attached-fields.txt": "a65f89d0e93351a3d967cf9c3e785a86cf7e42182d45c67e2036a5e2fddb082d",
+    "experiments/disclaimer-startup-trial/boot/field-marker-history.json": "a149a401057e1242d17ac58a57208727dbe993df34b5b66506afe675db9ba60a",
+    "experiments/stock-warm-start/observe.py": "18d68f3addc60ec5deb3a22f779f83fddf44cec8b1494e44b7a659628816b1a6",
+    "experiments/stock-warm-start/test_observer.py": "267afffeaddf42b770a5ce1b7e73176b2d1a2214a5773a730cb943b265980e16",
+    "experiments/stock-warm-start/check.py": "53305f6abfe1e920998f98a15cc1f29beb4b99ac1ae409e1e386fd265e6d5141",
+    "cmu_bench/session.py": "2d1835a3292726a9b06b14d4d18a7b6cea30e13d7160484a6eac043b618d2ff2",
+    "experiments/stock-warm-start/replay.py": "5cd0f6bf0e9cdd827ef49f53db1e5248ab80212bd8aa1e037b37ad55ce1da304",
+    "experiments/stock-warm-start/fixtures/logger-boot.txt": "37a71914753930feb7d0ae8081d82da14af2f1bc1c2b89ac154b3aba01a7aafc",
+    "experiments/stock-warm-start/corrected-review.json": "9e3898f5baa5272ec4441d268dd1da3553a4ae2dcf6bd0a727a13303b4843ffc"
+  }
+}

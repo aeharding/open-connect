@@ -1,0 +1,13 @@
+{
+  "executed_source": "experiments/disclaimer-startup-trial/boot/checks/20261113T133059.498727Z/sources/experiments/disclaimer-startup-trial/boot/observe.py",
+  "executed_source_sha256": "51a3adcbefffce4f5a00922494067b843c84482cfe069bf2de9bf40345c48570",
+  "executed_commit": "5db11df",
+  "immutable_records": {
+    "experiments/disclaimer-startup-trial/boot/review.json": "baceac51625660bc3add70406f5feb79d6a1cf8154941782d22c6a0b166b5288",
+    "experiments/disclaimer-startup-trial/final-freeze.json": "65f5a1b5601d801acccaa232ec4599ed0396f8c945028b77b2caf82d53fa5645",
+    "experiments/disclaimer/freeze.json": "42eb3420551c9d647f58f624cfa53e86e5c379c286443bf5ddf53c0b05a37d6d"
+  },
+  "executed_unknown": "runs/20261113T073945-0600-t14-modified-startup/candidate-boot/manifest.json",
+  "scope": "OFFLINE parser correction only; no wire/target/core/feature/hardware authority",
+  "executed_unknown_sha256": "e5317bea2ee6100c1f5fbb0148e5c5e04dc98c90a7bbbdc621175bd3c73362e4"
+}

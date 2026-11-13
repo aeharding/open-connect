@@ -131,6 +131,53 @@ class BindingTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     candidate.checked_candidate_output(0, raw, binding, before)
 
+    def test_logger_attached_META_is_complete_and_raw_is_unchanged(self):
+        self.fixture()
+        binding = self.binding()
+        before = candidate.checked_candidate_output(0, source_output(), binding)
+        fixture = (BOOT / "fixtures/logger-attached-fields.txt").read_bytes()
+        for raw in (fixture, fixture.replace(b"\n", b"\r\n")):
+            with self.subTest(CRLF=b"\r\n" in raw):
+                original = bytes(raw)
+                after = candidate.checked_candidate_output(0, raw, binding, before)
+                self.assertEqual(after["META"], CID)
+                self.assertEqual(after["source_kind"], "C")
+                self.assertTrue(after["recovery_identity_matches"])
+                self.assertEqual(raw, original)
+        # Same observed prefix through the front door, not merely the helper.
+        rc, manifest, sent, starts, printed, bundle = self.fake_run(after_bytes=fixture)
+        self.assertEqual((rc, manifest["outcome"]), (0, candidate.SUCCESS))
+        self.assertEqual(sent.count(candidate.stock.REBOOT), 1)
+        self.assertEqual(json.loads((bundle / "after.json").read_text())["META"], CID)
+
+    def test_attached_records_reject_duplicates_malformed_and_partial_values(self):
+        self.fixture()
+        binding = self.binding()
+        before = candidate.checked_candidate_output(0, source_output(), binding)
+        raw = (BOOT / "fixtures/logger-attached-fields.txt").read_bytes()
+        duplicates = (raw + b"SWST|META|" + CID.encode() + b"\n",
+                      raw + b"noise(0xbeefSWST|META|" + CID.encode() + b"\n",
+                      raw.replace(CID.encode(), CID.encode() + b"SWST|META|" + CID.encode()))
+        malformed = (
+            raw[:-1],  # complete-looking value but no record terminator
+            raw.replace(CID.encode(), CID.rsplit(":", 1)[0].encode()),
+            raw.replace(CID.encode(), CID.encode() + b" trailing logger text"),
+            raw.replace(candidate.CMD5.encode(), candidate.CMD5[:-1].encode()),
+            raw.replace(b"776631029 94055", b"776631029"),
+            raw.replace(b"8.0 10.0", b"8.0 10.0 logger text"),
+            raw.replace(b"8.0 10.0", b"8.0 nan"),
+            raw.replace(b"ro,noatime 0 0", b"ro,noatime 0 0 extra"),
+            raw.replace(NEW_BOOT.encode(), NEW_BOOT[:-1].encode()),
+            raw + b"SWST|META",  # incomplete marker may not be silently ignored
+            raw + b"noiseSWST|UNKNOWN|value\n",
+            raw.replace(b"SWST|META|" + CID.encode(),
+                        b"printf 'SWST|META|" + CID.encode() + b"'"),
+        )
+        for bad in duplicates + malformed:
+            with self.subTest(raw=bad):
+                with self.assertRaises(ValueError):
+                    candidate.checked_candidate_output(0, bad, binding, before)
+
     def test_review_live_flag_never_reaches_devices(self):
         profile = self.root / "review.json"
         profile.write_text(json.dumps(candidate.make_profile()))

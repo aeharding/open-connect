@@ -20,6 +20,8 @@ def main():
     dependencies = json.loads((ROOT / "experiments/stock-warm-start/corrected-review.json").read_text())
     names = ["experiments/disclaimer-startup-trial/boot/" + x
              for x in ("observe.py", "test_candidate.py", "check.py", "README.md")]
+    names += ["experiments/disclaimer-startup-trial/boot/fixtures/logger-attached-fields.txt",
+              "experiments/disclaimer-startup-trial/boot/field-marker-history.json"]
     names += list(dependencies["source_pins"])
     names += ["experiments/stock-warm-start/corrected-review.json"]
     pins = {name: sha(ROOT / name) for name in names}
@@ -34,9 +36,14 @@ def main():
     (run / "stdout.txt").write_bytes(result.stdout)
     (run / "stderr.txt").write_bytes(result.stderr)
     unchanged = all(sha(ROOT / name) == pin for name, pin in pins.items())
-    code = result.returncode or (0 if unchanged else 1)
+    history = json.loads((BOOT / "field-marker-history.json").read_text())
+    preserved = all(sha(ROOT / name) == pin for name, pin in history["immutable_records"].items())
+    preserved = preserved and sha(ROOT / history["executed_source"]) == history["executed_source_sha256"]
+    preserved = preserved and sha(ROOT / history["executed_unknown"]) == history["executed_unknown_sha256"]
+    code = result.returncode or (0 if unchanged and preserved else 1)
     manifest = dict(scope="OFFLINE synthetic evidence/fake port/camera only; no device opens or reboot",
-                    command=argv, returncode=code, unchanged_sources=unchanged, source_sha256=pins)
+                    command=argv, returncode=code, unchanged_sources=unchanged,
+                    preserved_executed_history=preserved, source_sha256=pins)
     (run / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     if code == 0:
         sys.path.insert(0, str(BOOT))
@@ -46,9 +53,12 @@ def main():
                        test_manifest_sha256=sha(run / "manifest.json"),
                        apply_evidence_contract="README.md; exact three-field pointer and one actual target BIND line",
                        candidate_expected=dict(bytes=94055, md5=observe.CMD5, crc=observe.CCRC))
-        (BOOT / "review.json").write_text(json.dumps(profile, indent=2) + "\n")
+        profile.update(correction="OFFLINE attached-field parser only; unchanged wire/core/feature",
+                       historical_profile="experiments/disclaimer-startup-trial/boot/review.json",
+                       history="experiments/disclaimer-startup-trial/boot/field-marker-history.json")
+        (BOOT / "field-marker-review.json").write_text(json.dumps(profile, indent=2) + "\n")
     print(json.dumps(dict(manifest=str(run / "manifest.json"), returncode=code,
-                          review_profile=str(BOOT / "review.json") if code == 0 else None)))
+                          review_profile=str(BOOT / "field-marker-review.json") if code == 0 else None)))
     return code
 
 

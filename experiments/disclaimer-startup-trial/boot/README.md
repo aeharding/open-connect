@@ -75,6 +75,24 @@ login, bounded video and actual frame/PTS validation are inherited behavior.
 The observer never restores the GUI. Persistent apply/undo and combined trial
 policy belong to t12/t6. Approx5FPS/cropping do not prove no-flash or cold start.
 
+## Offline field-marker correction
+
+The executed trial's original outcome and `review.json` remain historical. Its
+postboot META record was attached to an unfinished logger line (`0x47eaSWST|META`),
+so the previous line-start parser missed it. Current code accepts one complete
+`SWST|KEY|value` record after a prefix on a newline-terminated line. Every expected
+field must occur once with a complete typed value. Duplicated/interleaved markers,
+unknown fields, quoted lookalikes, malformed/suffixed values and unterminated
+records refuse; fragments are never repaired. Raw evidence is not rewritten.
+
+The producer (`stock.CHECK`), wire/core, exact CID policy, RO and new-boot checks
+are unchanged. A sanitized prefix fixture uses only synthetic identities/times.
+The check runner now writes **field-marker-review.json**, always review-only with
+no binding or reboot authority. It verifies the old executed source copy, original
+unknown manifest, historical `review.json`, final-freeze and first-feature freeze
+are unchanged. `field-marker-history.json` records those preservation pins.
+This correction has no live verification or new device authority.
+
 ## Checks
 
     .venv/bin/python -B experiments/disclaimer-startup-trial/boot/check.py

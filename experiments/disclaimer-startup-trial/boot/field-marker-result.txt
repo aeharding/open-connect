@@ -1,0 +1,34 @@
+OFFLINE CANDIDATE FIELD-MARKER CORRECTION — PASS, November13 2026
+
+The parser now handles the observed unfinishedlogger prefix ending0x47ea before
+SWST|META. Only one complete typed record is accepted per expectedfield; prefix
+bytes stay in originalraw evidence. All six fields must be unique. Duplicate or
+interleavedmarkers, unknown keys, quotedlookalikes, malformed/suffixed/partial
+values and unterminatedrecords refuse. No fragment repair or first/last selection.
+
+Exact applied fullC identity, sourcehash/countCRC, physicalRO, changedbootid and
+loweruptime checks are unchanged. Producer stock.CHECK/wire/core/feature unchanged.
+Any fullCID change still means conflict/OTHER, no adoption or usableundo claim.
+Default/live gating remains unchanged; no new device/reboot authority.
+
+Relevant suite ran ONCE:14/14 PASS in0.029s, including sanitizedactual-prefix
+LF/CRLF +fakefrontdoor acceptance and malformed/duplicate/partial refusal cases.
+No UART/camera/credentials/target access. Existing12 identity/binding/guard checks
+also pass. Exact pre-test sources/stdoutstderr and preservation result:
+  boot/checks/20261113T141413.499871Z/manifest.json (relative to this experiment).
+Newprofile boot/field-marker-review.json is REVIEWONLY/livefalse/rebootnull with
+no applybinding. It does not replace historical review.json or final-freeze.json.
+
+Historical executed51a3... bytes remain in originalcheck copies/Git5db11df;
+field-marker-history.json records exact preservation fingerprints. Test runner
+verified original sourcecopy, original UNKNOWN manifest, executed review.json,
+final-freeze.json and firstfeature freeze unchanged. Original actualtrial outcome
+is not rewritten or relabeled automatedsuccess. Current bench O9456 is unchanged.
+
+Changed paths in boot/:
+  observe.py; test_candidate.py; check.py; README.md
+Added:
+  fixtures/logger-attached-fields.txt; field-marker-history.json
+  field-marker-review.json; field-marker-result.txt
+Plus the one saved check manifest/source snapshots above. Test helper t7p saved/
+removed; no background work or further action queued by this follow-up.

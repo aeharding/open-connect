@@ -129,3 +129,8 @@ Keep bench overrides separate from product features and declared in every test.
 Development home: https://github.com/aeharding/open-connect (public).
 Original code: AGPL-3.0-or-later. See CONTRIBUTING.md and THIRD_PARTY.md.
 Issues track concrete outcomes; PRs carry coherent code, tests and results.
+
+Active GitHub issues:
+- Bench profile: https://github.com/aeharding/open-connect/issues/1
+- Firmware upgrade: https://github.com/aeharding/open-connect/issues/2
+- Startup handoff: https://github.com/aeharding/open-connect/issues/3

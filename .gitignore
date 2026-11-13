@@ -42,3 +42,10 @@ private/
 # Generated UI source snapshots and per-run payloads remain local.
 /experiments/ui001/test-evidence/
 /experiments/ui001/prepared/
+
+# Generated experimental checks/builds remain local.
+/experiments/**/checks/
+/experiments/installer-proof/before-resume/
+/experiments/webcam-control/build-evidence/
+/experiments/webcam-control/vendor/
+/experiments/webcam-control/uvc-util

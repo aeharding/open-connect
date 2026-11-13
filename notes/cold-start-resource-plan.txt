@@ -50,3 +50,4 @@ runs/20261113T021453-0600-t14-warm-idle/resource-summary.json
 SHA256: 1314453458e4bf14c70a4f14056b0bb9cb6c182ddb2e3e29c33e4d29ba736137
 Original session/manifest.json and parsed-partial.json remain private/ignored.
 Context: notes/product-direction.txt; notes/post-browser-state-observation.txt.
+Final operator note: notes/warm-idle-resource-observation.txt (collector still UNKNOWN).

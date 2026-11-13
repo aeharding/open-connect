@@ -30,6 +30,8 @@ source hashes and minimal necessary references rather than whole OEM files.
 6. Shared installer infrastructure owns backup, journal and restore. Each feature
 declares its changes, how to verify them and how to undo them. Bench serial rescue
 does not establish validated end-user USB recovery; no "impossible to brick" claim.
+Exact original backups mean as-found installed bytes, not proved pristine factory
+OEM; restoring a baseline can restore earlier modifications as well.
 Public release and the user's personal car are separate from routine test-bench
 development and need their own demonstrated scope.
 
@@ -37,8 +39,10 @@ FIRST REAL FEATURE — NEW USER PRIORITY, CLEAN-ROOM FIRST
 Disclaimer bypass is the user's chosen first real feature, preserving OEM feel
 and avoiding manual startup acknowledgement if supported. First derive the design
 independently from installed OEM evidence; freeze source/design/patch/tests before
-retrospective Miatify/Miatafy comparison. Correct third-party project identity and
-its implementation/license have NOT been researched; comparison is parked.
+retrospective Miatify/Miatafy comparison. That boundary was preserved: first freeze
+08:35:45Z, external lookup began08:37:15Z. Retrospective is now saved in
+notes/disclaimer-retrospective.txt: Miatafy/ScreenTune public claims, unavailable
+disclaimer implementation, and separate TouchTune GPL license are distinguished.
 Acceptance: framework heartbeat retained; exact original backup; minimal patch
 bound to exact firmware/version and source hash; verification and undo; safe
 reconfiguration/upgrades; startup install/uninstall tested before release claims.
@@ -88,7 +92,8 @@ North star: autonomous bench -> optional OEM-feel reliability features -> robust
 USB maintenance and useful public knowledge.
 Now: stock55; native status overlay PASS with layout limit; preserve frontend
 heartbeat; measure before modifying wireless behavior. Disclaimer bypass is the user's first real feature, OEM-derived clean-room first;
-retrospective third-party comparison waits for an independent freeze. The host-only
+retrospective third-party comparison followed an independent freeze; no install
+approval or product architecture follows from the comparison. The host-only
 shared-installer prototype remains a ROOT PROPOSAL, not adopted architecture.
 Shipping window: prepare transport/power/preservation questions; exact firmware
 package/path remains OPEN. Arrival still needs actual capability validation.

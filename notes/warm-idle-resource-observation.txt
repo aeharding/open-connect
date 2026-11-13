@@ -1,0 +1,35 @@
+WARM-IDLE STOCK55 RESOURCE OBSERVATION — t14, November13 2026
+Partial measurements retained; original collector completion UNKNOWN, not PASS.
+ONE finite3-sample attempt, no retry, planned20s spacing/55s hostdeadline/64KiB cap.
+Fresh uid0/root55.00.750B/cmu150_NA at start. Target uptime2686.97,2709.45,
+2730.55s (~45min warm); actual gaps22.48/21.10s,43.58s span.
+Three global snapshots: MemTotal772232KiB (754.1MiB); MemFree310804/310516/310508KiB
+(303.2-303.5MiB), Buffers1440KiB, Cached162444/162460/162468KiB (~158.6MiB).
+MemAvailable absent; SwapTotal/Free0. Free/cache components are not MemAvailable.
+Two complete stable PID/start/full-NUL-argv process samples:
+Aha native launcherPID1740 /jci/sm/sm_svclauncher -l blm_ira_aha
+ /jci/ira/svcjciblm_ira_aha.so -a, RSS6672KiB (6.52MiB),20threads.
+Pandora native launcherPID1741 same launcher -l blm_ira_pandora
+ /jci/ira/svcjciblm_ira_pandora.so -a, RSS5948KiB (5.81MiB),18threads.
+OperaPID573 /jci/opera/opera -u /jci/gui/index.html, RSS55212KiB (53.92MiB).
+Aha/Pandora0 observedCPUjiffy delta over22.48s; Opera56, ~1.25% aggregate2core
+capacity. Global busy excl idle/iowait9.90/9.76%; observer+background activity included.
+RSS shares pages: no unique-reclaimable/removal benefit established. Shared Opera
+may host features without separate process. No coldstart/CarPlay/vehicle claim.
+
+Collector hit RXcap65536 at45.36s (operation RX66019B retained), during third
+process-candidate output; third per-process sample and END/PS1 missing.
+Authoring defect: JS String.replace replacement interpreted $$ as$, changing own-PID
+exclusion to own=$. Read-only samplerPID28990 was thus included, increasing output.
+Actual full argv identifies it; derived feature results exclude it, originals unchanged.
+One10s receive-only tail80.91s aftercap had service logs only, no completion.
+Exact finite source had reached3rd sample, only40s total planned sleeps, bounded
+max8PID reads, no terminal-stdin consumer/remaining sleep. Source/time/tail reconciled
+idle per t6, then ONE explicitlyauthorized normalCR+shortidentity separately returned
+root55/END0+PS1. Original UNKNOWN is not retroactively made complete.
+No signals/recovery keys/reset/browser/UI/settings/network/firmware action.
+Private evidence runs/20261113T021453-0600-t14-warm-idle/resource-summary.json,
+parsed-partial.json, session/, completion-reconciliation.json, post-cap-identity/.
+Passive logs/20261113T021659.557530-0600-uart.{json,jsonl,bin}.
+Tracked note omits personal Bluetooth/device data; raw remains private.
+Task helpers saved/exited/removed, ports closed; t13 has resource interpretation plan.

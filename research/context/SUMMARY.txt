@@ -57,8 +57,9 @@ Linux3.0.35ARMv7l. NEXT_VER55.00.800 is separate metadata. Future acquisition mu
 verify actual foreground/identity; historical PID18090 is never a cleanup target.
 UART1152008N1/no flow, FTDI0403:6001/A9048JM0 must be re-enumerated by operator.
 BusyBox1.19.2, MD5/POSIX cksum available, sha256sum absent; timeout needs -t SECS.
-Two verified exact small transfers only: /etc/version31B and version.ini13304B,
-pre/post source size+MD5+CRC match host (F036-F038). Original inventory version.ini
+Earlier two verified exact small transfers: /etc/version31B and version.ini13304B,
+pre/post source size+MD5+CRC match host (F036-F038). Later F067 adds private OEM
+GuiConfig5546B/systemApp94058B source captures with the same transfer comparisons. Original inventory version.ini
 13334B has trailing console text: preserve unchanged as metadata, not exact copy.
 No full backup, atomic snapshot/authenticity, demonstrated restore or second copy.
 Initial119 original/context files hashed; historical18 RX/event pairs reconstructed;
@@ -107,3 +108,31 @@ parked until t12 freezes independent source/design/patch/test artifacts. No
 Miatify/Miatafy identity/docs/implementation looked up by research yet. Full OEM
 snapshots stay ignored/private. Native overlay is a dev tool, not the product goal.
 See notes/product-direction.txt for user goals versus proposals/open UX choices.
+
+OEM SOURCE / OPERATOR BATCH COMPLETE
+Final warm resource note: notes/warm-idle-resource-observation.txt; no baseline retry,
+original collector UNKNOWN unchanged. Source chain reaches installed systemApp
+disclaimer logic; exact GuiConfig/systemApp original sizes and host SHA256 are in
+F067 and notes/oem-disclaimer-acquisition-observation.txt, with private manifests.
+All ten resource/source helpers closed; latest reported root55/normalPS1, no owned
+target child or patch. t12 may build HOST-ONLY independent prototype; no install,
+cold-start, USB recovery or public release demonstrated. Comparison still PARKED.
+Full OEM snapshots remain private/ignored; independent logic/observations/source
+hashes and minimal necessary references are the intended publishable material.
+
+INDEPENDENT DISCLAIMER FREEZE / RETROSPECTIVE COMPLETE
+Freeze42eb3420... at08:35:45Z precedes first external lookup08:37:15Z. Original
+freeze/design/candidate unchanged,6 host tests recorded, uninstalled/startup unproven.
+notes/disclaimer-retrospective.txt and miatafy-retrospective-provenance.json separate
+our after-display0ms Timeout candidate from Miatafy ScreenTune's public claims.
+No public ScreenTune disclaimer implementation established. Distinct TouchTune
+README/license is GPL-3.0-or-later; commercial ScreenTune license differs.
+Vendor replacement USB does not need original stick; older-package prose conflicts
+and boot/backups/recovery limits remain. Vendor74 context is not our v73 upgrade.
+No more project/repo/features exploration; no commercial binary or target action.
+Tiny installer proof is HOST-ONLY SYNTHETIC: experiments/installer-proof/result.txt,
+6 focused tests+demo, bytes/mode transaction/conflict/interruption model only.
+No CMU/OEM adapter, USB architecture, actual power-loss proof or policy selected.
+Terminology: our source captures are exact AS-FOUND installed bytes, not proved
+pristine factory OEM. Both our inverse and vendor first-install restore can retain
+earlier modifications. No new factory-authenticity/recovery claim.

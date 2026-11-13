@@ -1,7 +1,7 @@
 MAZDA CMU RESEARCH INDEX — canonical entry point
 Derived catalog; raw originals stay local/unchanged. Mutable context is qualified.
 
-66 facts/claims; 13 hypotheses (8 open, 5 resolved in observed scope); 17 decisions; 6 saved sources.
+67 facts/claims; 13 hypotheses (8 open, 5 resolved in observed scope); 17 decisions; 7 saved sources (one new primary-project collection).
 Search index.tsv by ID/topic/firmware/path; records retain scope and limits.
 Read context/SUMMARY.txt for handoff, constraints and physical-reference conflicts.
 Latest: native BENCH STATUS visible/cleanup/home+root55 PASS, crowded body qualified.
@@ -217,7 +217,7 @@ D017 Accept bounded native status overlay with layout limitation
 
 PROVENANCE AND LIMITS
 Initial original evidence: manifests/20261113T043356Z-original-evidence.json (119 files).
-Two verified exact small-file transfers are F036-F038; no full backup/restore/second copy.
+Four verified installed-file captures across F036-F038/F067; no full backup/restore/second copy.
 New November13 batch cites saved summaries/snippets; no repeated raw-run audit.
 Recovery note: ../notes/console-recovery-research.txt; no live recovery action by research worker.
 18 historical raw/event pairs reconstructed exactly; five prior hashes matched.
@@ -231,3 +231,15 @@ LATEST WARM-IDLE / PRODUCT HANDOFF
 separate fresh root55 and competing future cold-start hypotheses; no removal benefit inferred.
 ../notes/product-direction.txt — disclaimer is user-selected first real feature;
 clean-room OEM freeze precedes retrospective third-party comparison (parked).
+
+FINAL OPERATOR SOURCE/RESOURCE NOTES
+../notes/warm-idle-resource-observation.txt — partial UNKNOWN retained; separate root55.
+../notes/oem-disclaimer-acquisition-observation.txt — exact private GuiConfig/systemApp
+originals for independent host-only prototype (F067); no target patch or activation.
+Third-party comparison remains parked pending t12 independent freeze.
+
+POST-FREEZE RETROSPECTIVE / HOST MODEL
+../notes/disclaimer-retrospective.txt — Miatafy ScreenTune public claims versus frozen
+independent OEM55 candidate; code/license/USB compatibility limits explicitly qualified.
+context/miatafy-retrospective-provenance.json — exact primaryURLs/date/hash/chronology.
+../experiments/installer-proof/result.txt —6 host-synthetic tests+demo; no device/USB policy.

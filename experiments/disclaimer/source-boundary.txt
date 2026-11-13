@@ -1,0 +1,18 @@
+INDEPENDENT OEM FIRST PASS — opened 2026-11-13 by t12, coordinator t6.
+Input boundary: actual installed CMU55.00.750B/cmu150_NA OEM files and saved
+bench observations only. No third-party bypass source/implementation has been
+read for this pass. Miatify/Miatafy and MZD-AIO comparison is deferred until
+independent source provenance/design/patch/tests have immutable hashes.
+
+Current work is HOST-ONLY. t14 may acquire bounded read-only OEM evidence.
+No target patch/install, Navigate, service/reset action, firmware upgrade or
+heartbeat manipulation. Stock GuiFramework and its1s native heartbeat stay loaded.
+Need actual startup/render/dismiss/timeout trace before choosing a minimal patch.
+Any source copies require target pre/post length+MD5+POSIX cksum, matching host
+checks plus host SHA256; snippets remain labeled incomplete, never full originals.
+Full OEM originals/exact backups stay in ignored private runs/backups only;
+no full OEM source redistribution in feature paths. Track independent patch logic,
+synthetic tests, source hashes/references and concise documentation.
+Future handoff must identify exact supported firmware/base hashes, minimal diff,
+positive/negative checks, original-byte rollback, and missing startup validation.
+No cross-firmware/product policy or release is decided by this exploration.

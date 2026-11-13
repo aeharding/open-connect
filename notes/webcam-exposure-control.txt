@@ -1,0 +1,14 @@
+Webcam exposure result — 2026-11-13, operator observation
+Existing userspace uvc-util built in workspace; no driver/TCC/system install.
+Source https://github.com/jtfrey/uvc-util at8110da7025c95eea3096a7181af9a46c0cc7ac37.
+Native macOS SDK custom exposure/ISO/bias API is unavailable; UVC queries worked.
+Original AE mode8/exposure330/brightness128 preserved. One trial requested mode1,
+exposure82; immediate readback1/82/128. After fresh capture:1/87/128. Cause of
+82->87 change unassigned. Operator retained improved manual1/exposure87/brightness128.
+Fresh home image less washed out; Communication/clock clearer. Crop/angle remain.
+Before captures/20261113T005955.949047-0600-webcam.jpg
+After captures/20261113T010223.155887-0600-webcam.jpg
+Originals/query/set/readback records: runs/20261113T005731-0600-t14-webcam-control/.
+Restore: set manual1/exposure330, then separate call AE8; brightness was untouched.
+Exact commands/build/source provenance: experiments/webcam-control/README.txt.
+No raster processing, physical movement, UI repeat or CMU/firmware/network changes.

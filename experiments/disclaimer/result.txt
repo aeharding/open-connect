@@ -1,0 +1,29 @@
+READY — independent OEM55 HOST prototype,2026-11-13; target UNMODIFIED.
+6 focused tests PASS, including actual private OEM callbacks in NodeVM stubs,
+exact scoped3-byte deletion, base/firmware refusal, exact rollback and conflict
+preservation. First failed test harness run is preserved separately; only stub
+registration/macOS temporary-path fixture were corrected before final tests.
+
+Only initial display timer3500->0. OEM system Timeout, manual Agree, context guard,
+retry3500, pause/teardown and all other source bytes retained. First rendered
+frame may remain visible; no no-flash/startup/native MMUI/heartbeat runtime claim.
+
+Immutable independent freeze: experiments/disclaimer/freeze.json
+SHA25642eb3420551c9d647f58f624cfa53e86e5c379c286443bf5ddf53c0b05a37d6d
+Source/design/test inputs copied BEFORE tests, manifest:
+runs/20261113T083503.577880Z-t12-disclaimer-host/manifest.json
+SHA256e59a8c04a008f5a0ca1f4440d48d23030bc1a5bdc6aeb0d2b81327a5b1c36523
+Patch logic SHA256487eca90e648d6aaca5058efe7c883b1cc272a52403ef10b4ee956d1230cbeb1
+Base94058B SHA256985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432
+Candidate94055B SHA25643b21aa54308eb22c32051db44585422a4804c2d5406b80d0cc47e828dc5de3c
+
+Full OEM/original/candidate/diff remain ignored private runs only. sources.json
+pins actual installed source/prepost checks; README.txt has guarded proposed
+install/rollback and missing validations. No device-installer code or writes.
+No third-party bypass implementation read before independent freeze; t6/t13
+notified that retrospective comparison prerequisite is satisfied. No new action
+queued for t14; operator soleUART/camera owneridle. Both test helpers saved/removed.
+
+General host installer-proof remains paused as an untested draft per priority.
+Corrected status-overlay single-line default check PASS separately; historical
+original d969... live profile/evidence unchanged; no extra device call.

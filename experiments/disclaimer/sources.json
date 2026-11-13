@@ -1,0 +1,77 @@
+{
+  "boundary": "Independent OEM-only first pass; no third-party implementation read",
+  "firmware": "55.00.750B/cmu150_NA",
+  "acquired_at": "2026-11-13T08:27:36.641734+00:00",
+  "primary_source": {
+    "target": "/jci/gui/apps/system/js/systemApp.js",
+    "private_original": "runs/20261113T022134-0600-t14-oem-disclaimer/originals/jci/gui/apps/system/js/systemApp.js",
+    "operator_capture": "runs/20261113T022134-0600-t14-oem-disclaimer/systemapp-exact-result.json",
+    "raw_capture_manifest": "runs/20261113T022134-0600-t14-oem-disclaimer/systemapp-capture/manifest.json",
+    "target_pre": {
+      "bytes": 94058,
+      "md5": "584c67f7186ada6bae9aae1be59b5cd0",
+      "crc": 376717896,
+      "crc_bytes": 94058
+    },
+    "target_post": {
+      "bytes": 94058,
+      "md5": "584c67f7186ada6bae9aae1be59b5cd0",
+      "crc": 376717896,
+      "crc_bytes": 94058
+    },
+    "host": {
+      "bytes": 94058,
+      "md5": "584c67f7186ada6bae9aae1be59b5cd0",
+      "posix_crc": 376717896,
+      "sha256": "985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432"
+    },
+    "scope": "Complete exact installed file; consistency, not independent OEM authenticity/atomic snapshot"
+  },
+  "negative_control": {
+    "target": "/jci/gui/common/js/GuiConfig.js",
+    "private_original": "runs/20261113T022134-0600-t14-oem-disclaimer/originals/jci/gui/common/js/GuiConfig.js",
+    "bytes": 5546,
+    "sha256": "165ef686e419dd562868ac1be206cb2a7bcd6d52ef976578c3246cbc982976e0",
+    "finding": "No disclaimer flag; unchanged"
+  },
+  "references": [
+    {
+      "reference": "notes/oem-disclaimer-acquisition-observation.txt",
+      "sha256": "b2bb2cf744b7364aa7756869b00f11dedfa4c1e1de4e4e4c739b03082347dcc2",
+      "scope": "Operator acquisition method and source chain"
+    },
+    {
+      "reference": "runs/20261113T022134-0600-t14-oem-disclaimer/framework-startup-snippets.txt",
+      "sha256": "82f72b49b6afb76e54dd19cc2f83b6e88d7811d09c1e8340d80e6a0538787eef",
+      "scope": "Partial framework init/common load and MMUI startup exchange; no full backup"
+    },
+    {
+      "reference": "runs/20261113T022134-0600-t14-oem-disclaimer/common-loader-snippets.txt",
+      "sha256": "68abae4febc80284960fd2587927e7e7b7653e87b874c4867001f936aeca1955",
+      "scope": "Partial literal Common.js loader path and bounded siblings"
+    },
+    {
+      "reference": "runs/20261113T022134-0600-t14-oem-disclaimer/systemapp-disclaimer-snippets.txt",
+      "sha256": "31ffa936de1772d90867fe78820d96803012240458da7a3dd333b28434d21c55",
+      "scope": "Derived numbered excerpt, backed by exact full private source"
+    },
+    {
+      "reference": "runs/20261113T013306-0600-t14-post-browser-state/heartbeat-source-snippet.txt",
+      "sha256": "703512eeb284cab59ff3bc09d79f7ffc0ab39b4e93c605968463ea9a2e8ed040",
+      "scope": "Partial native guiManager heartbeat source context"
+    }
+  ],
+  "source_sections": {
+    "render_binding": "systemApp.js281-302",
+    "state": "553-567",
+    "display": "1968-1989",
+    "agree": "1991-2002",
+    "timeout_retry": "2004-2031",
+    "pause_teardown": "2033-2045"
+  },
+  "unknowns": [
+    "Native MMUI startup context decision/caller not acquired",
+    "No cold/quick startup or target patched execution"
+  ],
+  "distribution": "Full OEM originals/candidates remain ignored private runs/backups only"
+}

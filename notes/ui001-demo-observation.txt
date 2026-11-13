@@ -1,0 +1,23 @@
+UI001 FIRST VISIBLE DEMO — November13,2026; t14/t6
+One paced sleep4 proof passed exact owned identity/TERM0/wait143/cleanup0.
+One UI run1d86f9ddbe66feb40611834454dd9881: PID4706,PPID4696,start1187880.
+Complete NUL argv including unique title/text matched immediately before TERM.
+Actual TERM0,wait143,watchdog_expired,cleanup term_exit_verified/0,wrapper0,
+coreEND0+prompt; separate postflight identity_verified root55.00.750B/cmu150_NA.
+Before/during/after images: Communication home -> visible modal -> home.
+Qualified visual result: full title/nonce unreadable from original exposure/crop;
+after photograph was late (~101s afterspawn), so strict90s visual-return target
+is unverified. Actual owned wait/reap occurred ~42s afterspawn. No demo repeat.
+Source handoff passed17 tests; driver168b7de8532b9e4386403a4270ce61739aac28b033f35d7fec9264e415b10a0b.
+Normal bundles: runs/20261113T064054Z-t14-ui001-cap and ...-dialog.
+Compact proofs, image hashes/times, queued standard OPERA/source observations,
+helper closure and source handoff: /Users/aeharding/mazda-cmu-bench/runs/20261113T004208-0600-t14-ui001-demo-record
+OPERA: com.jci.opera_IHU_PRIMARY Navigate(URL:s), GoBack/GoForward/Refresh/
+TerminateOpera(), ReportError(errorData:s); only standard introspection called.
+Actual process558 argv /jci/opera/opera -u /jci/gui/index.html,cwd/.
+Installed /jci/opera/run-Opera lines15/17/19 confirms STARTPAGE and -u bootstrap.
+Seven referenced JS files had no Navigate/bus-name hit; tracker53B only owner/time.
+No previous-app/browser-history return semantics or OEM action validated.
+Camera home-text improvement separately in notes/webcam-legibility-observation.txt.
+All task-owned Mac helpers/handles closed; sole t14 ownership retained.
+No firmware/power/accounts/network/CMU settings changed; no recurring work.

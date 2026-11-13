@@ -1,0 +1,32 @@
+OEM55 DISCLAIMER SOURCE ACQUISITION — t14, November13 2026
+Outcome: source-backed installed disclaimer located and exact originals handed to
+t12 for independent HOST-ONLY prototype. No target patch or feature activation.
+Private source root runs/20261113T022134-0600-t14-oem-disclaimer/originals/.
+GuiConfig5546B MD5b33483695152b2471afa1a198c8a5637 CRC2732122456;
+SHA256165ef686e419dd562868ac1be206cb2a7bcd6d52ef976578c3246cbc982976e0.
+systemApp94058B MD5584c67f7186ada6bae9aae1be59b5cd0 CRC376717896;
+SHA256985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432.
+For both, fresh target PRE=POST size/MD5/POSIXCRC equals decoded host file.
+Strict base64 validation with whitespace-only removal; no console log filtering.
+These are byte-exact installed-file captures, not full firmware backup/atomic snapshot
+or independently authenticated OEM distributions. Original CRLF bytes preserved.
+94KiB capture bounded30s/262144B cap completed12.206s; no retry.
+Each query/capture freshroot55, actual coreEND0+PS1 and portclosed.
+
+Source chain from installed frontend/loader: GuiFramework adds common/js/Common.js;
+Common references system uiaId, loader derives apps/system/js/systemApp.js.
+No disclaimer literal in inspected GuiFramework,GuiConfig,Common; the systemApp
+contains actual Disclaimer context281-302, Agree callback, displayed/hide bindings,
+timer state549+, displayed1968+, initial3500ms, select1991+, timeout2004+.
+Discovery48hits capped40 is explicitly truncated; complete exact original is separate.
+Startup trigger/native event/timeout semantics are being traced by t12 against that
+complete source; no event invoked, no timer edited/disabled/spoofed.
+No MZD-AIO/Miatify/Miatafy/third-party bypass code read. Tracked deliverables contain
+provenance/independent logic only; complete OEM sources remain ignored/private.
+Private acquisition-result.json, *-exact-result.json and perquery manifests link
+exact command/wire, rawRX/TX/events, subcommandrc/bounds, source/hash provenance.
+Console-only context snippets are labeled separately from verified originals.
+Ten owned resource+source helpers saved/exited/removed (resource collector exit2
+preserved); both UART aliases lsof1/empty. No camera run for these reads.
+Latest known state root55 normalPS1; t14 soleowner idle/available for bounded source
+followups through t12. Cold-start validation waits controlled power hardware.

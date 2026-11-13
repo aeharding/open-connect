@@ -1,0 +1,43 @@
+{
+  "schema": "independent-first-pass-freeze-v1",
+  "frozen_at": "2026-11-13T08:35:45.425847+00:00",
+  "status": "HOST_ONLY_TESTED_UNINSTALLED",
+  "firmware": "55.00.750B/cmu150_NA",
+  "target": "/jci/gui/apps/system/js/systemApp.js",
+  "code_and_design_sha256": {
+    "experiments/disclaimer/README.txt": "cb68f3ac0dca6cb80fc3499944d3669e1b7a8eda1175fbe29623c0859a382396",
+    "experiments/disclaimer/patch.py": "487eca90e648d6aaca5058efe7c883b1cc272a52403ef10b4ee956d1230cbeb1",
+    "experiments/disclaimer/run_checks.py": "11dea631df8bdcc634988810de219be562dd3861d9fd897f654ec0cd69781f25",
+    "experiments/disclaimer/source-boundary.txt": "404edd5cd25bc81459eea0a8b7fd5b1bc13fca0d762748a68b5d637531acc717",
+    "experiments/disclaimer/sources.json": "4e0d5d26b3361251c1dbacca80aefe5657056915b4fb0e925d734cf5560e2bf2",
+    "experiments/disclaimer/test_behavior.js": "e7f3c6daf3f85e2b2f6a61014f214c4c4086ca96e34eed0d2e31b209b62caf77",
+    "experiments/disclaimer/test_patch.py": "5d3844377846a8b13a0a483673a33077a6ce4506ad02fb6b4fbb767853591184"
+  },
+  "source_list": "experiments/disclaimer/sources.json",
+  "source_snapshot_copies": "runs/20261113T083503.577880Z-t12-disclaimer-host/source",
+  "test_manifest": "runs/20261113T083503.577880Z-t12-disclaimer-host/manifest.json",
+  "test_manifest_sha256": "e59a8c04a008f5a0ca1f4440d48d23030bc1a5bdc6aeb0d2b81327a5b1c36523",
+  "focused_tests_passed": 6,
+  "original": {
+    "path": "runs/20261113T022134-0600-t14-oem-disclaimer/originals/jci/gui/apps/system/js/systemApp.js",
+    "sha256": "985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432",
+    "bytes": 94058,
+    "capture_metadata": "source-acquisition.json"
+  },
+  "candidate": {
+    "bytes": 94055,
+    "sha256": "43b21aa54308eb22c32051db44585422a4804c2d5406b80d0cc47e828dc5de3c"
+  },
+  "private_candidate": "runs/20261113T083503.577880Z-t12-disclaimer-host/candidate/candidate.bin",
+  "private_original_copy": "runs/20261113T083503.577880Z-t12-disclaimer-host/candidate/original.bin",
+  "private_diff": "runs/20261113T083503.577880Z-t12-disclaimer-host/candidate/patch.diff",
+  "private_diff_sha256": "1c19e40094ee4edb2202c459d729f6ebec5baae29e5123db0a3a4d1cd45690e8",
+  "change": "ONE initial display3500ms->0ms assignment;3500ms retry and OEM Timeout route retained",
+  "independence": "No third-party bypass implementation read before this immutable freeze",
+  "scope": "55-only exact OEM base; no OEM source redistribution in feature folder",
+  "target_modified": false,
+  "startup_validated": false,
+  "no_flash_claim": false,
+  "proposal": "README.txt contains conditional install/rollback plan; not executed or device-installer code",
+  "comparison": "Retrospective third-party comparison may now use this frozen independent artifact"
+}

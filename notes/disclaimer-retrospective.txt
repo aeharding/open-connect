@@ -1,0 +1,71 @@
+DISCLAIMER RETROSPECTIVE — DERIVED COMPARISON, November13 2026; t13
+Independent artifact frozen BEFORE external research:
+experiments/disclaimer/freeze.json SHA256
+42eb3420551c9d647f58f624cfa53e86e5c379c286443bf5ddf53c0b05a37d6d.
+Freeze08:35:45Z; first identity request08:37:15Z. Freeze/README hash verified;
+frozen design/code/tests unchanged. No target install/startup test/approval.
+
+CORRECT IDENTITY / EVIDENCE BOUNDARY
+Miatafy, https://miatafy.com/; relevant commercial product ScreenTune.
+The official public repository Miatafy/TouchTune is a DIFFERENT touchscreen feature,
+not a published ScreenTune disclaimer implementation. Its pinned README/license
+state GPL-3.0-or-later; ScreenTune terms describe a commercial one-vehicle license.
+No ScreenTune disclaimer code/license grant was established from these public
+sources. No commercial package, binary, account or signing bypass was accessed.
+Public descriptions below are vendor claims, not independently tested behavior.
+
+COMPARISON
+Behavior: our frozen OEM-derived candidate changes one initial displayed-handler
+timer3500->0, retains stock Timeout/native event routing, retry3500, Agree and
+teardown. It runs AFTER displayed callback: a visible flash remains possible.
+Miatafy describes automatic acceptance/home without waiting; public prose does not
+reveal whether it calls Agree, Timeout, skips context, or uses our edit. No equivalence.
+Versions: ours exactly55.00.750B/cmu150_NA and baseSHA985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432.
+Miatafy's automated baseline is v74.00.324/324A; its guide puts55-56 in manual/
+legacy territory and331 not yet validated. Regional recognition is not full testing.
+This does not change the user's planned/deferred "v73"; exact package/path stays open.
+Dependencies: ours is a host-only patch/undo model with6 recorded focused tests,
+exact original and hash-bound candidate, no device/USB installer or write procedure.
+Miatafy describes a configurable bundled USB product, same-car/VIN package, website
+configuration/download entitlement and installer firmware checks. No need to adopt
+its other features, disable apps/services or copy a commercial package.
+Undo: our original is exact AS-FOUND installed bytes, NOT proved pristine factory
+OEM. Our inverse restores that baseline, which may include prior mods too. Live
+backup/durability/atomic replacement, startup and uninstall remain untested. Miatafy describes
+checksummed first-install copies on CMU; REMOVE returns that baseline, which may
+already contain earlier modifications. It is not necessarily factory state.
+Original stick: Miatafy explicitly supports a fresh USB from a re-downloaded same-car
+package. Account/entitlement/package compatibility remain dependencies. Our desired
+replacement-stick maintenance is a goal, not yet implemented or a unique claim.
+Older packages: remove/download docs say1.0.11-or-earlier cannot change a1.1.0 install,
+but the remove page also says any same-car USB works regardless of version.
+This unresolved documentation conflict rules out citing a blanket any-version promise.
+
+FAILURE / VALIDATION LIMITS
+Our zero-delay-after-display candidate may still flash or meet unexpected MMUI
+ordering; host timer/event stubs do not prove Opera/render/startup/heartbeat behavior.
+Retry remains3500, so no new zero-delay retry loop is proposed.
+Miatafy says REMOVE needs a booted prompt; early releases<=1.0.11 can lose backups
+during factory reset;1.1.0 stores them differently. Recovery can exceed USB level.
+Those are vendor-described limits, not verified rescue for this bench. Original
+storage/power faults and incomplete restore coverage remain open; no impossible-brick
+claim, firmware action or new live test follows from this comparison.
+Useful next acceptance evidence is our own cold-start install/uninstall/return/
+heartbeat and interrupted-maintenance proof when separately supported, retaining
+the exact frozen first pass and treating any later revision as a new artifact.
+
+PRIMARY REFERENCES — retrieved2026-11-13 UTC; originals ignored locally
+Behavior: https://miatafy.com/screentune/features/startup-notices/
+Scope: https://miatafy.com/mazda-connect/disclaimer-screen/
+Product/terms: https://miatafy.com/screentune/ ; https://miatafy.com/terms/
+Install: https://miatafy.com/screentune/install/
+Replacement USB: https://miatafy.com/screentune/account/downloads/
+Undo/conflict: https://miatafy.com/screentune/remove/
+Failure limits: https://miatafy.com/screentune/recovery/
+Regional scope: https://miatafy.com/compatibility/supported-vehicles/
+Code/license boundary, pinned6061a6c98eeb1c348773ec4b2fd29eef3b39441e:
+https://github.com/Miatafy/TouchTune/tree/6061a6c98eeb1c348773ec4b2fd29eef3b39441e
+Exact requested/final URLs, retrieval times, sizes, hashes and applicability:
+research/context/miatafy-retrospective-provenance.json.
+No additional repos/features researched. Public full-page snapshots and all OEM
+originals remain ignored; tracked material contains observations/metadata only.

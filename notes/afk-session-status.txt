@@ -19,12 +19,15 @@ See notes/browser-demo-observation.txt and notes/post-browser-state-observation.
 
 ACTIVE TEAM OUTCOMES
 User-selected FIRST REAL FEATURE: startup disclaimer bypass, independent OEM-first.
-t12: trace exact captured OEM55 systemApp.js, minimal host-only patch/checks/rollback;
-freeze source/design/patch/test evidence before any third-party comparison.
+t12: independent host prototype FROZEN with6 checks, original94058B/candidate94055B;
+only initial3500->0 timer changed. Now integrating frozen patch into host maintenance
+model on private copies; no CMU write. No-flash/startup/live rollback remain unknown.
 t14: sole UART/camera owner, bounded read-only OEM source acquisition only.
-t13: interpret partial warm-idle resources and preserve product direction; external
-Miatify/Miatafy comparison is PARKED until independent freeze.
-No target modification/install/remount, no online bypass code, no new Navigate.
+t13: resource interpretation + retrospective comparison COMPLETE; external research
+started after freeze. Miatafy ScreenTune public behavior compared; disclaimer
+implementation unavailable in reviewed public sources, no code-equivalence claim.
+No target modification/install/remount or new Navigate. Frozen independent record
+is immutable; any later feature revision must be labeled separately.
 Native status overlay passed; it is a dev tool, not the product destination.
 The host-only installer experiment is paused while the first feature is defined.
 

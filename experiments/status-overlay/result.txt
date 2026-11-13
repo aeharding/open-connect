@@ -1,0 +1,14 @@
+ONE live native BENCH STATUS trial PASS — 2026-11-13, operator t14.
+Appearance/removal observed; readable title BENCH STATUS64195545. Stock home after.
+SPAWN07:57:23.158Z -> TERM07:57:35.591Z -> actual WAIT07:57:36.560Z (~13.40s reaped).
+Exact PID/start/PPID/fullNUL argv and TERM_ID matched; READY12, TERM0, WAIT143,
+cleanup0/wrapper0/coreEND0+PS1,0BEL, port closed; fresh postflight root55.
+Notes: notes/native-status-overlay-observation.txt
+Private main: runs/20261113T075551Z-t14-native-status/
+Private result/postflight: runs/20261113T075551Z-t14-native-status-record/result.json
+Original successful source+4-test profile is ready.json and checks/20261113T075405.223877Z/.
+Body newline0a bytes were present in exact argv; native rendering crowded them.
+Future default only shortened to32-char single-line FW/UART/files summary, tested
+with one focused default/bounds check. No live repeat or lifecycle/transport change.
+No Navigate, heartbeat, service, target-file/settings or power changes. Five owned
+host helpers all0/saved/removed; camera and serial aliases closed; operator idle.

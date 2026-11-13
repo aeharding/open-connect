@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
   "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T02:23:37-06:00",
+  "updated_at": "2026-11-13T02:53:17-06:00",
   "timezone": "America/Chicago",
   "snapshot_note": "Saved progress, not live telemetry. Reopen the private Page for a newer snapshot.",
   "links": {
     "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
     "html_download": null
   },
-  "headline": "First real feature: startup disclaimer bypass",
-  "summary": "Build an open-source toolkit of optional Mazda Connect improvements that preserve the OEM feel, with reversible USB maintenance and published research. Current work is an independent OEM-code first pass on firmware55, frozen before comparison with other projects.",
+  "headline": "Disclaimer prototype frozen; host checks passed",
+  "summary": "First real feature: independently derived from the captured installed55 source before retrospective comparison. It queues the existing OEM timeout immediately; it is uninstalled and may still flash. Shared reversible-maintenance integration is being exercised on host copies.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
@@ -286,23 +286,25 @@
       "id": "disclaimer",
       "title": "Startup disclaimer bypass",
       "state": "active",
-      "detail": "User-selected first real feature; OEM-only investigation on55.",
-      "proof": "Independent source/design/patch/test freeze comes before third-party comparison.",
-      "limits": "No target modification yet. Supported base hash, rollback and startup install/uninstall validation remain required; v73 is later.",
+      "detail": "Independent one-line3500ms→0 initial timer prototype frozen;6 focused host checks passed.",
+      "proof": "Exact55 source/base hash; OEM Timeout/retry/Agree/teardown retained; byte-exact host rollback and conflict refusal. Freeze predates external research.",
+      "limits": "Uninstalled. A frame may still render; live startup, heartbeat, write durability and uninstall are not validated.",
       "refs": [
-        "notes/product-direction.txt"
+        "experiments/disclaimer/freeze.json",
+        "experiments/disclaimer/result.txt",
+        "notes/disclaimer-retrospective.txt"
       ]
     }
   ],
   "tasks": [
     {
       "id": "disclaimer-first",
-      "lane": "now",
-      "state": "active",
-      "title": "Derive the disclaimer feature independently",
+      "lane": "later",
+      "state": "done",
+      "title": "Independent disclaimer first pass frozen",
       "owner": "Tooling + Bench operator",
-      "detail": "Trace actual OEM startup/render/dismiss behavior. Use private source copies; no target write yet.",
-      "pass": "Minimal firmware/base-hash-bound patch, focused checks, original rollback and independent artifact freeze."
+      "detail": "One initial timer assignment changed;6 host checks passed with exact original/candidate hashes. No CMU write.",
+      "pass": "Frozen record preserved independently; later revisions must be separate."
     },
     {
       "id": "warm-resources",
@@ -315,21 +317,21 @@
     },
     {
       "id": "disclaimer-compare",
-      "lane": "next",
-      "state": "waiting",
-      "title": "Compare approaches after the independent freeze",
+      "lane": "later",
+      "state": "done",
+      "title": "Retrospective comparison complete",
       "owner": "Research",
-      "detail": "Miatify/Miatafy is a later comparison input, not an implementation source for the first pass.",
-      "pass": "Compare public behavior, available mechanisms, compatibility and rollback without rewriting the independent result."
+      "detail": "Miatafy ScreenTune public behavior/maintenance compared. Public disclaimer implementation was not established.",
+      "pass": "Vendor descriptions are separate from our tests; no code-equivalence claim."
     },
     {
       "id": "shared-installer",
-      "lane": "next",
-      "state": "waiting",
-      "title": "Prove one shared maintenance engine",
+      "lane": "now",
+      "state": "active",
+      "title": "Integrate the frozen feature into the host maintenance proof",
       "owner": "Tooling + Coordinator",
-      "detail": "Host-only plan/apply/verify/uninstall/interruption experiment is paused while the real feature is defined.",
-      "pass": "Repeatable reversible fixture feature; USB entry point and device recovery are separate unproven gates."
+      "detail": "Generic host model demo+6 checks passed, including process-exit journal recovery. Private disclaimer-source adapter is next; no device actions.",
+      "pass": "Enable/verify/no-op/disable with exact original+mode; interruption/conflict recovery on host copies. No claim of USB, CMU or power-loss safety."
     },
     {
       "id": "heartbeat",
@@ -444,6 +446,18 @@
   ],
   "recent": [
     {
+      "title": "Independent prototype frozen",
+      "text": "6 host checks; initial3500→0 only, retry and OEM event flow retained. Uninstalled; flash/startup unknown."
+    },
+    {
+      "title": "Comparison separated from implementation",
+      "text": "Miatafy already documents replacement USB and first-install backups. Its version/recovery conditions are not an any-version or no-brick guarantee."
+    },
+    {
+      "title": "Host maintenance model working",
+      "text": "Plan/apply/verify/reapply/reconfigure/uninstall and forced process-exit recovery passed on temporary fixtures."
+    },
+    {
       "title": "First product feature selected",
       "text": "Startup disclaimer bypass starts from OEM code, then freezes before retrospective comparison."
     },
@@ -462,14 +476,6 @@
     {
       "title": "Browser return failed",
       "text": "Data page was visible. Heartbeat loss / Opera exit prevented the planned16s stock return; later recovery is a separate outcome."
-    },
-    {
-      "title": "Portable dashboard delivered",
-      "text": "Standalone offline V1 and private Page link are ready for cross-computer progress sync."
-    },
-    {
-      "title": "Exposure improved",
-      "text": "Fresh original frame is less washed out; Communication and clock clearer. Current observed exposure value87."
     }
   ],
   "guardrails": [

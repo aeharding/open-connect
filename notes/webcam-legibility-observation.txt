@@ -1,0 +1,16 @@
+WEBCAM SOFTWARE LEGIBILITY — November13,2026; t14 with t12
+Exact USB046d:0825 serial1AD54210 location0x08310000.
+Normal-user IOKit UVC control worked; no seize,driver install,TCC or CMU change.
+Existing open-source uvc-util built workspace-only; binary SHA256
+a35369c8776c49baf27d5449de27ff2e4535da8980a954114005f33720c7230d.
+Read original supported controls/current values first: mode8,exposure330,brightness128.
+One supported trial requested manual1/exposure82 (quarter),brightness unchanged.
+Readback before capture1/82/128; after capture1/87/128. Cause of drift unassigned.
+Fresh home images clearly improved white text/icon detail; retained1/87/128.
+No UI demo repeated, no image processing. Crop/angle remain; old fullrunID and
+visual timing qualification is unchanged. Actual before/after image refs/hashes,
+read-only controls, set/readback statuses, originals and two separate exact restore
+argv commands: /Users/aeharding/mazda-cmu-bench/runs/20261113T005731-0600-t14-webcam-control
+Before captures/20261113T005955.949047-0600-webcam.jpg
+After captures/20261113T010223.155887-0600-webcam.jpg
+Helpers closed; only reversible webcam capture profile retained.

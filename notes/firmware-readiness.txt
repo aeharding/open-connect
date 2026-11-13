@@ -17,8 +17,10 @@ with2019Mazda3 base-sedan exclusions. Software flavor alone does not identify th
 bench unit's vehicle/model/part/revision or establish upgrade applicability.
 [K5 observed] relfs root/dev/ffx01p1 ro; data/dev/ffx01p4 and mmcblk0p2 rw;
 resources/mmcblk0p1 ro; config-mfg/mtdblock5 squashfs ro; FlashFX/reliance loaded.
-[K6 preservation] Only /etc/version31B and /jci/version.ini13304B are verified exact
-small transfers. No full storage acquisition, demonstrated restore or second copy.
+[K6 preservation] Earlier /etc/version31B and /jci/version.ini13304B transfers are
+verified exact. Later OEM-only prototype acquisition adds GuiConfig5546B and
+systemApp94058B, private/ignored (F067). No full storage acquisition, demonstrated
+restore, independent OEM authenticity or second copy is established.
 
 OPEN — DO NOT FILL WITH ASSUMPTIONS
 [O1] Exact intended package name/full version/region, legitimate source/hash and

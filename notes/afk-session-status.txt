@@ -22,16 +22,21 @@ User-selected FIRST REAL FEATURE: startup disclaimer bypass, independent OEM-fir
 t12: independent host prototype FROZEN with6 checks, original94058B/candidate94055B;
 only initial3500->0 timer changed. Host maintenance adapter10checks+demo passed
 on private copies. No CMU write; no-flash/startup/live rollback remain unknown.
-Research/operator now prepare concrete first install/rollback validation plan;
-2 bounded readonly metadata/tool transactions completed, no writes/remount tests.
-t14: sole UART/camera owner, bounded read-only OEM source acquisition only.
+First install/rollback proposal is drafted, with RelFS write/durability and
+intent-aware disable recovery still open. Two readonly facts transactions completed.
+t12/t14 ACTIVE NEXT: prepare/check then ONE synthetic file-primitive probe under
+a fresh owned /tmp/cmu-bench-probe-* directory only. Creation/copy/stage/rename/
+metadata/readback/restore/cleanup of synthetic fixtures is authorized. No real GUI
+file, root remount, data_persist write, firmware, service, navigation or power action.
+t14 remains sole UART/camera owner; reconcile existing trial state before repeats.
 t13: resource interpretation + retrospective comparison COMPLETE; external research
 started after freeze. Miatafy ScreenTune public behavior compared; disclaimer
 implementation unavailable in reviewed public sources, no code-equivalence claim.
-No target modification/install/remount or new Navigate. Frozen independent record
+No actual disclaimer/OEM modification/install/remount or new Navigate. Frozen independent record
 is immutable; any later feature revision must be labeled separately.
 Native status overlay passed; it is a dev tool, not the product destination.
-The host-only installer experiment is paused while the first feature is defined.
+The host-only maintenance model and private-source adapter passed10 focused checks;
+this does not prove target filesystem, startup or power-loss behavior.
 
 WARM-IDLE PARTIAL DATA
 Original collector hit RX cap after accidentally including its own argv; UNKNOWN

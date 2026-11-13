@@ -248,3 +248,8 @@ HOST-COPY DISCLAIMER ADAPTER
 ../experiments/installer-proof/adapter-result.txt —4 adapter+6 engine tests/demo,
 frozen patch unchanged; AS-FOUND original recovery/conflicts on host only.
 No actual startup, power-loss, device metadata or USB installer proof.
+
+FIRST TARGET WRITE/ROLLBACK PROPOSAL — REVIEW ONLY
+../notes/disclaimer-first-install-plan.txt — warm original->candidate->original plan,
+exact byte/metadata guards, proposed persistent/same-parent paths, interruption limits.
+context/disclaimer-first-install-plan.json — bounded read-only provenance; no target writes.

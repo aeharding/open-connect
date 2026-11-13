@@ -1,0 +1,49 @@
+CONCEPT/SOURCE CHECK ONLY —2026-11-13, t12, for t13 target proposal.
+Source: frozen engine.py regular/atomic/_journal/_transition/verify/recover and
+adapter open_copy; identity authority adapter-checks/20261113T085514.871946Z/manifest.json.
+No implementation edits, tests or device commands executed for this check.
+
+Interruption classification (valid journal+stored images; exact bytes AND0755):
+Pending enable: before=original, after=candidate.
+  Original observed: verify says incomplete; recover clears pending as original.
+  Candidate observed: verify says incomplete; recover restores stored original.
+Pending disable: before=candidate, after=original.
+  Candidate observed: verify says incomplete; recover clears pending as candidate.
+  Original observed: verify says incomplete; recover RESTORES CANDIDATE, intentionally
+  aborting disable to its prior stable state. It does not finish an uninstall.
+Other bytes/mode, missing file, symlink/multiple links, or damaged journal/images:
+  refuse; no automatic retry, guessed restore or overwriting unknown state.
+Any pending transaction blocks apply. Without pending work, only the committed
+journal.current state is accepted. A known other image still conflicts. Without
+journal, original is accepted; candidate is not adopted as already installed.
+Adapter reopen uses stored original, not the external master; invalid/missing
+stored original blocks recovery. Generic reconfigure aborts to its prior config.
+
+What the host model actually covers
+- Full bytes/hash/length and permission mode. Snapshot image files are0600; journal
+  descriptors carry intended target mode. Atomic replacement fchmod sets that mode.
+- regular() uses lstat and requires regular type, st_nlink==1 and bounded size:
+  final-component symlinks and hardlinks are REFUSED, not preserved/reconstructed.
+- atomic() creates temporary file in destination parent, writes+flushes+fsyncs it,
+  os.replace() to the destination, then opens+fsyncs that parent directory. This
+  is same-parent host replacement for target, image and journal files separately.
+
+What remains outside the model
+- No original UID/GID capture/check/fchown. New inode ownership follows host process/
+  parent defaults. No ownership, ACL/xattr, timestamps, inode identity or hardlink
+  graph restoration. Host-copy0755 is not proof of restored CMU metadata.
+- No race-free pathname walk/O_NOFOLLOW/dirfd or atomic compare-and-swap. lstat and
+  reads/replacement are separate; single writer/private directory is an assumption.
+- No atomic multi-file transaction. Journal and target are separate replacements;
+  mkdir(.proof) does not explicitly fsync its parent at creation. Process-exit
+  checkpoints do not test arbitrary power cuts, directory loss or storage faults.
+- Host fsync/rename calls do not establish BusyBox cp/mv behavior, RelFS atomicity,
+  fsync support/durability, mount procedure or target recovery/access guarantees.
+
+Practical copy-over conclusion: reuse the exact-image decision table, conflict
+stop and stored-original intent ordering as a design. Do not treat host replacement
+as a proven on-CMU copy procedure. Target staging/rename needs independently checked
+path/link guards, complete staged bytes+UID/GID/mode, same-parent behavior and RelFS
+limits; in-place copy/truncate is not what this model exercised. The target proposal
+must explicitly choose abort-versus-complete policy for interrupted disable because
+this host recovery can re-enable the candidate. No live install is authorized here.

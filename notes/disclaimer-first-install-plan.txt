@@ -1,0 +1,59 @@
+FIRST ON-CMU DISCLAIMER WRITE/ROLLBACK — PROPOSAL ONLY, November13 2026; t13
+No CMU write/remount/reboot/installer is authorized or executed by this plan.
+Goal: one future WARM roundtrip original -> candidate -> original, without reloading
+the frontend; startup behavior is a separate shipping-gated validation.
+
+KNOWN GUARDS — RECHECK BEFORE ANY FUTURE MUTATION
+Target /jci/gui/apps/system/js/systemApp.js: regular, nonlink,nlink1,0755,
+uid1018/gid3015; all parents nonlinks/canonical unchanged, device64785.
+Current inode1606/mtime1433953097 identify this snapshot, not immutable identity.
+Installed55.00.750B/cmu150_NA/root; original is AS-FOUND, not pristine factory proof.
+Original94058B SHA985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432;
+candidate94055B SHA43b21aa54308eb22c32051db44585422a4804c2d5406b80d0cc47e828dc5de3c.
+Original MD5 584c67f7186ada6bae9aae1be59b5cd0 / POSIXCRC376717896;
+candidate MD5 64db9d0df2277e1d95a037929aef30c4 / POSIXCRC776631029.
+CMU lacks sha256sum: export/reconstruct on host for exact SHA, not MD5 alone.
+Backing root is /dev/ffx01p1 RelFS ro; rootfs/rw pseudoentry is not writable proof.
+
+PROPOSED FUTURE TRIAL — AFTER CONCRETE WRITE-PROCEDURE REVIEW
+1. Fresh root55/foreground/sole-owner check; re-export current target with PRE/POST
+size+MD5+CRC and hostSHA. Capture path/link/inode/metadata immediately before publish;
+any changed bytes/metadata/route is a conflict. Single writer is not atomic CAS.
+2. Keep immutable Mac original+metadata. Proposed persistent ORIGINAL+journal:
+NEW private run directory under /tmp/mnt/data_persist (rw RelFS,dev45826).
+It has570590KiB free; root95588KiB. Proposed free-space floor:1MiB on each.
+Refuse pre-existing/symlink destinations. /tmp alone is tmpfs, not a durable backup.
+Record original/candidate identity, metadata, intent and previous stable state BEFORE
+target change. Persistent location is known; crash durability remains UNPROVEN.
+3. Proposed staging: unique .systemApp.js.cmu-bench-RUN.tmp in target's SAME parent.
+Never truncate/copy over the live file. Verify staged bytes and0755/1018:3015 before
+a reviewed replacement. cp-p promises attributes only “if possible”; check them.
+Root write-window/flush/replace/return-to-ro procedure is still OPEN; no command queued.
+4. Read back published file: size/MD5/CRC plus full host-export SHA and metadata.
+Require actual END/status+PS1, fresh identity and before/after home/camera evidence;
+keep GuiFramework running. No Navigate/Refresh/restart to force the feature to load.
+5. Roll back ONLY exact candidate+expected metadata using stored original; re-export
+and verify originalSHA/size/0755/1018:3015. Restore prior ro mount state; remove only
+owned staging after success, retain backup/journal. Do not end claiming uninstall
+while journal is pending. Startup disclaimer/flash behavior was NOT tested here.
+
+INTERRUPTION / CONFLICT DISPOSITION
+Classify readback as original, candidate, or OTHER (missing,wrong metadata/link,
+unknown bytes); missing/bad journal or backup also conflicts. Preserve all evidence;
+no blind retry/overwrite/reboot. Host close does not prove target command stopped.
+Current host model ABORTS pending enable -> original, pending disable -> CANDIDATE
+even if original is already on disk. Target abort-versus-complete policy must be
+explicitly reviewed; original bytes alone do not prove committed uninstall.
+
+PREPARE NOW / REMAINING OPEN
+Now: frozen images/checksums, metadata/path guards, host intent/readback/classifier.
+Open before writes: target adapter, RelFS replacement/flush/durability, UID/GID and
+mtime/ACL/xattr restoration scope, TOCTOU and access-recovery fallback. Hostfsync
+and dd do not prove RelFS atomicity or restore viability; full backup/second copy open.
+Shipping-gated: validate ACC/B+ control, actual cold-start/no-flash/OEM heartbeat,
+fresh access and install/uninstall; only later controlled power-loss/USB-repair tests.
+UART login after a completed restart is not boot-failure recovery. No firmware work.
+
+Evidence: notes/proposal-readonly-facts-observation.txt (two read-only transactions);
+experiments/installer-proof/target-copy-limitations.txt; experiments/disclaimer/freeze.json.
+Exact source/hash/proposal metadata: research/context/disclaimer-first-install-plan.json.

@@ -1,0 +1,9 @@
+{
+  "candidate_path": "runs/20261113T083503.577880Z-t12-disclaimer-host/candidate/candidate.bin",
+  "bytes": 94055,
+  "sha256": "43b21aa54308eb22c32051db44585422a4804c2d5406b80d0cc47e828dc5de3c",
+  "md5": "64db9d0df2277e1d95a037929aef30c4",
+  "posix_crc": 776631029,
+  "method": "Host metadata only; bytes not printed or changed; candidate matches frozen SHA",
+  "recorded_at": "2026-11-13T09:13:22.184851+00:00"
+}

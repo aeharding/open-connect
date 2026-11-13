@@ -144,3 +144,15 @@ recovery after real process exit and conflict preservation. All7 disclaimer pins
 freeze unchanged. This is host-copy bytes+created-mode proof, not device metadata
 restoration, actual power loss/CMU recovery, startup/no-flash or USB architecture.
 No new independent patch after retrospective; no installer approval implied.
+
+FIRST ON-CMU WRITE/ROLLBACK PROPOSAL (NOT AUTHORIZATION)
+notes/disclaimer-first-install-plan.txt proposes a future WARM original->candidate->
+original byte roundtrip; current work is read-only metadata/host planning only.
+Exact0755/uid1018/gid3015/nlink1 and nonlink parent chain confirmed; backing root
+RelFS is RO despite rootfs/rw pseudoentry. Candidate MD5/CRC now recorded on host.
+Persistent backup/journal under data_persist and same-parent staging are proposed,
+not created or proven crash-durable. UID/GID/xattr/mtime scope, target write/fence/
+replacement and RelFS/power/access behavior remain OPEN. Host pending disable
+ABORTS to candidate, not completed uninstall; target policy requires explicit review.
+Source captures AS-FOUND, not authenticated factory. Startup/power/USB validation
+waits capability/shipping; no write/remount/reboot, source hash retry or test rerun.

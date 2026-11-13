@@ -1,0 +1,254 @@
+{
+  "kind": "first-target-install-rollback-review-proposal",
+  "recorded_at": "2026-11-13T09:13:22.184851+00:00",
+  "status": "PROPOSAL_ONLY_NO_TARGET_WRITES",
+  "target": "/jci/gui/apps/system/js/systemApp.js",
+  "firmware": "55.00.750B/cmu150_NA",
+  "original_kind": "Exact AS-FOUND installed bytes, not authenticated pristine factory OEM",
+  "original": {
+    "bytes": 94058,
+    "md5": "584c67f7186ada6bae9aae1be59b5cd0",
+    "posix_crc": 376717896,
+    "sha256": "985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432"
+  },
+  "candidate": {
+    "candidate_path": "runs/20261113T083503.577880Z-t12-disclaimer-host/candidate/candidate.bin",
+    "bytes": 94055,
+    "sha256": "43b21aa54308eb22c32051db44585422a4804c2d5406b80d0cc47e828dc5de3c",
+    "md5": "64db9d0df2277e1d95a037929aef30c4",
+    "posix_crc": 776631029,
+    "method": "Host metadata only; bytes not printed or changed; candidate matches frozen SHA",
+    "recorded_at": "2026-11-13T09:13:22.184851+00:00"
+  },
+  "metadata_snapshot": {
+    "path": "/jci/gui/apps/system/js/systemApp.js",
+    "type": "regular file",
+    "mode_octal": "755",
+    "uid": "1018",
+    "gid": "3015",
+    "nlink": "1",
+    "device": "64785",
+    "inode": "1606",
+    "size": "94058",
+    "mtime_epoch": "1433953097",
+    "canonical": "/jci/gui/apps/system/js/systemApp.js"
+  },
+  "parent_paths": [
+    {
+      "path": "/jci",
+      "type": "directory",
+      "mode_octal": "775",
+      "uid": "1018",
+      "gid": "3015",
+      "nlink": "95",
+      "device": "64785",
+      "inode": "233",
+      "size": "4096",
+      "mtime_epoch": "452",
+      "canonical": "/jci"
+    },
+    {
+      "path": "/jci/gui",
+      "type": "directory",
+      "mode_octal": "755",
+      "uid": "1018",
+      "gid": "3015",
+      "nlink": "7",
+      "device": "64785",
+      "inode": "449",
+      "size": "4096",
+      "mtime_epoch": "379",
+      "canonical": "/jci/gui"
+    },
+    {
+      "path": "/jci/gui/apps",
+      "type": "directory",
+      "mode_octal": "775",
+      "uid": "1018",
+      "gid": "3015",
+      "nlink": "39",
+      "device": "64785",
+      "inode": "450",
+      "size": "4096",
+      "mtime_epoch": "369",
+      "canonical": "/jci/gui/apps"
+    },
+    {
+      "path": "/jci/gui/apps/system",
+      "type": "directory",
+      "mode_octal": "755",
+      "uid": "1018",
+      "gid": "3015",
+      "nlink": "7",
+      "device": "64785",
+      "inode": "1568",
+      "size": "4096",
+      "mtime_epoch": "368",
+      "canonical": "/jci/gui/apps/system"
+    },
+    {
+      "path": "/jci/gui/apps/system/js",
+      "type": "directory",
+      "mode_octal": "755",
+      "uid": "1018",
+      "gid": "3015",
+      "nlink": "40",
+      "device": "64785",
+      "inode": "1569",
+      "size": "4096",
+      "mtime_epoch": "368",
+      "canonical": "/jci/gui/apps/system/js"
+    }
+  ],
+  "existing_storage": [
+    {
+      "path": "/tmp/mnt/data",
+      "type": "directory",
+      "mode_octal": "755",
+      "uid": "0",
+      "gid": "0",
+      "nlink": "40",
+      "device": "64788",
+      "inode": "2",
+      "size": "4096",
+      "mtime_epoch": "22",
+      "canonical": "/tmp/mnt/data"
+    },
+    {
+      "path": "/tmp/mnt/data_persist",
+      "type": "directory",
+      "mode_octal": "755",
+      "uid": "0",
+      "gid": "0",
+      "nlink": "6",
+      "device": "45826",
+      "inode": "2",
+      "size": "512",
+      "mtime_epoch": "114",
+      "canonical": "/tmp/mnt/data_persist"
+    }
+  ],
+  "mounts_snapshot": [
+    "rootfs / rootfs rw 0 0",
+    "/dev/ffx01p1 / relfs ro,noatime 0 0",
+    "none /tmp tmpfs rw,relatime,size=131072k 0 0",
+    "/dev/ffx01p4 /tmp/mnt/data relfs rw,noatime 0 0",
+    "/dev/mmcblk0p2 /tmp/mnt/data_persist relfs rw,noatime 0 0"
+  ],
+  "free_KiB_snapshot": {
+    "root": 95588,
+    "data": 291968,
+    "data_persist": 570590
+  },
+  "tools_presence": {
+    "cp": {
+      "path": "/bin/cp",
+      "presence_rc": 0
+    },
+    "mv": {
+      "path": "/bin/mv",
+      "presence_rc": 0
+    },
+    "mkdir": {
+      "path": "/bin/mkdir",
+      "presence_rc": 0
+    },
+    "chmod": {
+      "path": "/bin/chmod",
+      "presence_rc": 0
+    },
+    "chown": {
+      "path": "/bin/chown",
+      "presence_rc": 0
+    },
+    "sync": {
+      "path": "/bin/sync",
+      "presence_rc": 0
+    },
+    "cmp": {
+      "path": "/usr/bin/cmp",
+      "presence_rc": 0
+    }
+  },
+  "help_rc": {
+    "cp": 1,
+    "mv": 1,
+    "sync": 1
+  },
+  "proposed_future_paths": {
+    "backup_and_journal": "/tmp/mnt/data_persist/cmu-bench-disclaimer/RUN/ (NEW private directory, not created)",
+    "same_parent_stage": "/jci/gui/apps/system/js/.systemApp.js.cmu-bench-RUN.tmp (NEW, not created)",
+    "host_original": "Keep existing immutable private source plus fresh pre-write validated original/metadata",
+    "proposed_min_free_KiB_each_volume": 1024,
+    "tmpfs_only_backup": false,
+    "durability_verified": false
+  },
+  "prospective_trial": [
+    "fresh known root55/foreground and sole operator; re-export/recheck current base/path/metadata",
+    "preserve and verify stored original and metadata, persist intent before any target change",
+    "reviewed same-parent stage/replacement, full target byte and metadata readback",
+    "explicit candidate-only rollback with stored original; full readback/restore prior RO; retain journal/backup",
+    "no reload/restart/feature activation; close helpers and account only for owned staging"
+  ],
+  "interruption_readback": [
+    "exact original plus required metadata",
+    "exact candidate plus required metadata",
+    "other/missing/wrong metadata/link or bad/missing journal/images -> conflict"
+  ],
+  "host_recovery_policy": {
+    "pending_enable": "ABORT to prior original; even known candidate observed is incomplete",
+    "pending_disable": "ABORT to prior candidate; even original already on disk is incomplete, not finished uninstall",
+    "without_journal_candidate": "Do not adopt",
+    "target_policy": "OPEN for explicit review; no automatic target recovery write from this proposal"
+  },
+  "remaining_gaps": [
+    "target write/flush/replace/remount adapter and RelFS behavior, no assumption from host fsync/rename or BusyBox help",
+    "metadata UID/GID and mtime/ACL/xattr restore scope beyond host bytes+mode",
+    "single-writer/TOCTOU, no atomic compare-and-swap",
+    "durable directory/store ordering, true power loss and access/boot-failure recovery",
+    "full backup/restore viability and independent second destination not demonstrated"
+  ],
+  "shipping_gated": [
+    "validated ACC/B+ control rather than arrival alone",
+    "actual cold-start disclaimer/no-flash/heartbeat and fresh-access validation with install/uninstall",
+    "controlled interruption/power-loss and end-user USB maintenance/recovery are later separate tests"
+  ],
+  "provenance": [
+    {
+      "path": "runs/20261113T030603-0600-t14-proposal-facts/result.json",
+      "sha256": "01edd70f4cafa09cc660524a1b6c96d44fcdbcb08e3ee03f1dce0b49730250b2",
+      "scope": "Two bounded read-only transactions, current path/mount/tool facts only"
+    },
+    {
+      "path": "notes/proposal-readonly-facts-observation.txt",
+      "sha256": "21a784f6a3d5179fa8352541b54179e57caeb3fcce9499d2f1fe155b85e07659",
+      "scope": "Sanitized operator note, no copy/write/mount trial"
+    },
+    {
+      "path": "runs/20261113T022134-0600-t14-oem-disclaimer/systemapp-exact-result.json",
+      "sha256": "4a776918ab0d871412af2a69cabe1bf92a4958a31fe63b43212cb3fcb40edc33",
+      "scope": "Earlier exact AS-FOUND source capture; current content revalidation remains required"
+    },
+    {
+      "path": "experiments/installer-proof/target-copy-limitations.txt",
+      "sha256": "0aa9a24b251cb246cb655e634c20ecada6a6878157e76025f246f760d11d35db",
+      "scope": "Concept/source check from frozen host engine; not target proof"
+    },
+    {
+      "path": "experiments/disclaimer/freeze.json",
+      "sha256": "42eb3420551c9d647f58f624cfa53e86e5c379c286443bf5ddf53c0b05a37d6d",
+      "scope": "Independent unchanged patch/design/test identity"
+    },
+    {
+      "path": "research/context/disclaimer-first-install-candidate-checksums.json",
+      "sha256": "29134dfc5f80ccf738ff94129177e73227e15152ccd52fdbb9a000ad351a10f9",
+      "scope": "New host candidate MD5/POSIX CRC; SHA matches frozen candidate"
+    }
+  ],
+  "source_reads_by_research": "Sanitized metadata/limits only; candidate read once to compute required host checksums, no OEM content output",
+  "cmu_actions_by_research": false,
+  "read_only_operator_transactions": 2,
+  "new_test_runs": 0,
+  "write_or_install_authorization": false,
+  "frozen_feature_changed": false
+}

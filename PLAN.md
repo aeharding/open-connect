@@ -41,6 +41,14 @@ A developer preview is not a general end-user car release.
 
 ## Execution order now
 
+**Architecture research before another feature rewrite:** [#25](https://github.com/aeharding/open-connect/issues/25)
+plans a small optional-code boundary: disable for the next startup without restoring
+OEM files, while retaining independent uninstall/recovery. See
+[extension architecture](docs/extension-architecture.md). Next is a narrow loader
+proof, then a no-op module/off-path experiment; no runtime implementation is
+authorized by this research result. The tooling/cmu layout moves with real component
+work. Persistent autoload and a general plugin framework are not prerequisites.
+
 1. **#1, first increment delivered:** one `oc bench setup/status/teardown`
    manages the whole current runtime profile. Host and command-only agent checks,
    live setup/repeat/teardown/setup passed; the bench is intentionally enabled.

@@ -1,0 +1,45 @@
+FIRST MODIFIED DISCLAIMER STARTUP + INDEPENDENT UNDO — COMPLETED
+November13 2026; sole hardware operator t14, analysis t13, tooling t12.
+
+VISIBLE: warning0.402–1.005s versus stock4.223–4.625s: conservatively at least
+3.218s/~76% shorter. Warning still present. Original decoded frames/PTS at~4.96FPS,
+crop/exposure and ambiguousfade do not prove no-flash, exact0ms or rebootlatency.
+Timing authority: runs/20261113-t13-candidate-warning-visual/measurement.json.
+
+LIFECYCLE: one exact frozen C apply, ONE modified stock software reboot, ONE known
+root login, unchanged full appliedC identity afterboot, independently verified
+persistent recovery, explicit undo and final independentVERIFY/home. Recovery
+code+O/C+WARM1 were verified on data_persist BEFORE C publication, tmpfsdelivery
+removed. Apply8.372s and undo6.777s verified flush/mount statuses and physicalRO.
+No secondboot, force/bypass, app removal or heartbeat change. Frozen feature/core
+and executed ROOT/BOOT profiles remained unchanged.
+
+CURRENT: root55.00.750B/cmu150_NA, original94058B MD5
+584c67f7186ada6bae9aae1be59b5cd0/POSIXCRC376717896,0755/UID1018/GID3015/
+mtime1433953097/nlink1; actualsourceinode9456 (pretrial9457 nowhistorical).
+Control disabled/none/original_restored; /dev/ffx01p1 / relfs ro,noatime; fresh
+Communicationhome/no dialog. RetainedD57/O60/C61/recoverycode63 and journal remain;
+prior warm/COPY evidence unchanged. Final cleanup record belongs t14.
+
+PARSER LIMIT, ORIGINAL FAILURE PRESERVED
+candidate-boot/manifest.json remains unknown_after_request: missing/unexpected
+candidate persistence field. Postboot command8d4d18420a1c2732480e9601de3ee7ce
+completed0/PS1; its4114B output has partialruntime logger text ending
+'0x47eaSWST|META|...' instead of a line-start META. The startswith parser missed
+that one tag; the other5 tags were separate. Fresh postidentity64b354a2f4bdc93516a18d3b577a7e96 completed0 first. Actual fullC1606/4347/hashCRC/RO/newbootid/
+loweruptime were present; no identity conflict/authfailure. Exact saved spans and
+an independent live persistentVERIFY reconciled knownC without adoption, parser
+editing, authentication retry or another reboot. No automatedsuccess was fabricated.
+No robustness fix/tests were made during undo; any follow-up is separate work.
+
+PROVENANCE
+  experiments/disclaimer-startup-trial/final-freeze.json (reviewed source/test pins)
+  notes/disclaimer-modified-startup-live-handoff.txt; notes/disclaimer-startup-boundary-review.txt
+  runs/20261113T073945-0600-t14-modified-startup/compact-result.json
+  candidate-boot/ originalraw/manifest; candidate-access-reconciliation.json
+  postboot-independent.result.json; actual-bound/actual-bound-plan.json
+  captures/20261113T075706.035955-0600-webcam.jpg (fresh finalhome).
+
+One55/AS-FOUND WARM trial only. No fullbypass, coldACC/powerloss/crashdurability,
+allfirmware/USB installer/recovery or real-car readiness claim. FileO restored;
+runningpage loaded C, and a new unmodifiedstartup was NOT tested.

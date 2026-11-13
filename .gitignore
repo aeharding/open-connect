@@ -54,3 +54,10 @@ private/
 /experiments/installer-proof/before-disclaimer-adapter/
 /experiments/installer-proof/before-complete-recovery/
 /experiments/target-copy-transaction/prepared/
+
+# First startup trial: generated payloads and private check transcripts
+/experiments/disclaimer-startup-trial/prepared/
+/experiments/disclaimer-startup-trial/review-ready/
+/experiments/disclaimer-startup-trial/review-ready-final/
+/experiments/disclaimer-startup-trial/root-checks/
+/experiments/disclaimer-startup-trial/entry-checks/

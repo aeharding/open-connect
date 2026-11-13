@@ -81,6 +81,20 @@ state; retain one UART owner and responsibility for software cleanup.
   GID3015 and mtime1433953097, with new inode9457 (historical1606). Root physical
   RelFS was verified RO afterward. Historical one-shot payloads retain old inode
   guards; record fresh identities for new approved work.
+- The first modified startup trial then restored current ORIGINAL source identity
+  64785:9456:1433953097:94058:755:1018:3015:1, exact AS-FOUND hashes and checked
+  metadata, root55/home and physical RO. Inode9457 is now historical. Current
+  retained startup recovery is cmu-bench-startup-388ae4f695d2b19f0945f2d8428fca7e
+  under data_persist (dir57/O60/C61/code63), disabled/none. Do not reuse old
+  one-shot packages or infer identity from inode alone. See
+  notes/modified-disclaimer-startup-observation.txt for the complete outcome.
+- One modified warm boot shortened the still-visible warning to0.402-1.005s
+  from4.223-4.625s stock; this is not a complete visual bypass or USB release.
+  The original observer UNKNOWN from a logger-prefixed META field is preserved;
+  saved complete fields and fresh persistent VERIFY reconciled the result.
+  Independent undo restored disk O, but no new O startup was performed; the
+  running frontend was loaded from C. Corrected future tooling must preserve
+  strict field/identity checks and the executed source/profile history.
 - Every experiment records its question, applicable hardware/firmware, exact
   commands/code revision, before/after evidence, result, interpretation and cleanup.
 - No recurring/background schedule is implied by the development plan.

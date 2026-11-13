@@ -4,9 +4,11 @@ Derived catalog; raw originals stay local/unchanged. Mutable context is qualifie
 67 facts/claims; 13 hypotheses (8 open, 5 resolved in observed scope); 17 decisions; 7 saved sources (one new primary-project collection).
 Search index.tsv by ID/topic/firmware/path; records retain scope and limits.
 Read context/SUMMARY.txt for handoff, constraints and physical-reference conflicts.
-Latest: ONE stock warm restart reconciled PASS; root55/home/newbootid/loweruptime.
-AS-FOUND O9457/physicalRelFSRO and retained O/C/journal persisted; original observerUNKNOWN retained.
-WARNING sampled visibility4.223-4.625s including fade; modified startup/powerloss/USB recovery untested.
+Latest: ONE modified warmC startup independently reconciled+undone; current AS-FOUND O9456.
+Fresh root55/checkedO/disablednone/physicalRO/home; original observerUNKNOWN preserved.
+WARNING STILL VISIBLE but shorter:0.402-1.005s vs stock4.223-4.625s (fade qualified).
+Current startup retained record replaces old warm identities as context; no replay.
+No new O startup, no cold ACC/USB/crash-powerloss/no-flash proof.
 Browser timed return FAILED; later recovery separate. No more browser navigation.
 Shipping-window readiness: ../notes/firmware-readiness.txt; planned v73 exact package/path OPEN.
 Schema and update rules: SCHEMA.txt. Final preservation report: ../notes/research-preservation-result.txt.
@@ -259,7 +261,7 @@ context/disclaimer-first-install-plan.json — bounded read-only provenance; no 
 ONE ACTUAL WARM-FILE MILESTONE (67 facts/claims unchanged)
 ../notes/warm-real-file-roundtrip-observation.txt — ONE frozen body execution under
 explicitV2 authority; normal-runtime original bytes/checkedmetadata restored.
-Current /jci/gui/apps/system/js/systemApp.js:
+At that HISTORICAL warm-file finish /jci/gui/apps/system/js/systemApp.js:
 64785:9457:1433953097:94058:755:1018:3015:1 (AS-FOUND, not proved factory pristine).
 Bothsync0, disabled/pendingnone, pairedROrequest+uniquephysicalrow0; home/freshroot55.
 Retained original/candidate/journal+tmpfspayload; historical one-shot package unchanged.
@@ -280,3 +282,16 @@ onset31.844..32.045s/end36.268..36.469s VIDEO PTS; duration4.223..4.625s.
 Actual boundarygaps0.201s; no source-timeout/headerFPS or exact reboot-latency inference.
 No candidate-active startup, cold ACC, crash/powerloss, no-flash or USB recovery proof.
 Private reconciled proof and original-video/frame pointers are in the concise notes.
+
+ONE MODIFIED WARM STARTUP / INDEPENDENT UNDO (67 facts/claims unchanged)
+Private completed summary: runs/20261113T073945-0600-t14-modified-startup/compact-result.json.
+Exactly one Capply/warmCboot/login; unchanged fullC postboot independently reconciled,
+original observerUNKNOWN/postfield parser error preserved. Persistent undo+finalVERIFY0:
+CURRENT O64785:9456:1433953097:94058:755:1018:3015:1 (AS-FOUND), exact hashes/
+checkedmetadata, disablednone, syncs+physicalRO0, freshroot55/Communicationhome.
+Current retained startup dir45826:57/O60/C61/code63; older9457/warm records historical.
+../notes/disclaimer-candidate-visual-result.txt: STILL VISIBLE warning0.402-1.005s
+vs stock4.223-4.625s, at least3.218s/about76% shorter using conservative sample bounds.
+Original frame paths/PTS/captions included; approx5FPS/fade/crop limits, no no-flash.
+No second reboot/newOstartup (running page loadedfromC), cold ACC, USB recovery,
+factory authenticity/fullmetadata or crash/powerloss proof. No new live action implied.

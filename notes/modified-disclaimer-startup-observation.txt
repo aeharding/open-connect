@@ -1,0 +1,18 @@
+Modified disclaimer warm-start trial completed and independently undone,2026-11-13,t14.
+CURRENT: root55.00.750B/cmu150_NA; original systemApp.js94058B restored, SID64785:9456:1433953097:94058:755:1018:3015:1 (9457 historical), physicalrootRO, disabled/none control, visibleCommunicationhome. AllMachelpers/ports closed; retaineddata/code intentional.
+
+Visible result: WARNING stillappeared, but candidate0.402..1.005s includingpossiblefade versusstock4.223..4.625s: conservative >=3.218s/~76% shorter. t13 measurement/frame provenance: runs/20261113-t13-candidate-warning-visual/measurement.json. Approx5FPS/crop/exposure preclude no-flash, exact0ms or exactrebootlatency claims.
+
+Primary run: runs/20261113T073945-0600-t14-modified-startup/compact-result.json. Immutable rawRX/TX/events/wires/payloads/manifests, exactinvocations, actualbinding, metadataactivation and final-cleanup.json reside there. Authority notes/disclaimer-modified-startup-live-handoff.txt +qualified boundaryreview+final-freeze.used.json; ROOTb08e0c/BOOT51a3adc stayedunchanged. Full operator detail is operator-detailed-note.txt inprivate run.
+
+Beforepublication, actualretainedcontext was strictlyparsed/countMD5CRC verified: newdata_persistD57/root0700,O60/C61,prepared286B journal. Recovery14428B MD5080b60d3754f960038804715ee2450fc CRC15793661 waspersisted D/recovery.sh/root0600/inode63. Verifiedtemporarydelivery removed; independentdefaultVERIFY(O,prepared,writes0,recovery_ready1) passedBEFORE Cpublication. No sampleIDs executed.
+
+Actual Capply ONCE8.372s: frozen3500->0,94055B MD564db9d0df2277e1d95a037929aef30c4 CRC776631029, fullCID64785:1606:4347:94055:755:1018:3015:1. Persistentcode/data/control/Ostage9456 readiness, preflush,RW,publish/compare,postflush,pairedRO/physicalRO all0; actualBIND afterfinalchecks. Bootadapter revalidated actualhashedcoreoutput/END0+PS1. Only3 authorized runtimeprofile metadata flags changed, CID/pins/strictpolicy unchanged.
+
+ONE modifiednoflags reboot andONE establishedprompt-gatedrootlogin. Candidateobserver originalUNKNOWN remains: loggertext prefixedSWST|META, causingline-anchor omission aftercompletedpostCHECK0/PS1. All6 exactvalues existed. Savedmarker spans/rawhash plusunchangedstrictchecker verified fullCIDunchanged,newbootID,uptime72.97<4848.12,freshroot55/RO; noadoption, parseredit, authretry or reboot2. FreshpersistentdefaultVERIFY then confirmedcurrentC/control/backups/Ostage/code/recovery_ready1 beforeundo. Reconciliationfiles and postboot-independent-verify/ areseparatefromoriginalobserver.
+
+Independent RESTORE_ORIGINAL ONCE6.777s restored originalbytes,0755,1018:3015,mtime1433953097 with recordedinode9456; MD5584c67f7186ada6bae9aae1be59b5cd0 CRC376717896. Pre/postflush,RW,restore/compare,pairedRO/physicalRO all0. Finaljournal365B disabled/none/original_restored MD5ca68715bd8273ed95c4badd6ab4c5148 CRC143830337. FinalfreshindependentVERIFY2.258s confirmedO/root55/RO/writes0/recovery_ready1/END0+PS1.
+
+Beforeimage captures/20261113T074549.331898-0600-webcam.jpg; closedcandidatevideo425frames,PTS0..85.475s,intervalFPS4.960515,ffprobe0, actualSIGINTthenTERM/reaped255; finalhome captures/20261113T075706.035955-0600-webcam.jpg. Noownedcamera/UARThelpers remain; all13terminals saved/removed. RetainD57/O60/C61/code63/journal; oldwarm andCOPY retention untouched. Credentials/private raw stayignored.
+
+This proves one warmbench modifiedstartup and known-stateindependentundo. No coldpower/realcar/crashdurability/USBproduct-lifecycle proof. FileO+metadata+RO/home restored; runningfrontend loadedC. NOsecondstock-confirm startup performed. One uppercaseHCname refusal occurred beforeprogram/devicecreation; actualapply occurredonce, savedhostrefusal unchanged. No furtherliveaction queued.

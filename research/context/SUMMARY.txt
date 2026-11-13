@@ -3,11 +3,37 @@ Updated November13 2026; coordinator t6, sole hardware owner t14, researcher t13
 Entry: research/index.txt/index.tsv. Originals stay local; facts retain paths/hashes.
 
 LATEST KNOWN STATE / OUTCOME
-ONE STOCK WARM RESTART RECONCILED PASS, 2026-11-13: exactlyONE ordinary
+ONE MODIFIED WARM STARTUP + INDEPENDENT UNDO completed, 2026-11-13.
+Exactly one actual frozen C apply, one modified stock software reboot, one login.
+Original candidate observer UNKNOWN (postfield parser error) is preserved; saved
+postboot values plus fresh independent persistent VERIFY reconciled known fullC
+64785:1606:4347:94055:755:1018:3015:1 unchanged across this boot, without adoption.
+Explicit independently retained undo6.777s + final fresh VERIFY2.258s passed:
+CURRENT /jci/gui/apps/system/js/systemApp.js AS-FOUND ORIGINAL on disk is
+64785:9456:1433953097:94058:755:1018:3015:1.
+MD5584c67f7186ada6bae9aae1be59b5cd0 / POSIXCRC376717896,94058B;0755,
+UID1018/GID3015/mtime1433953097/nlink1 checked. Control disabled/none/
+original_restored; syncs+paired physicalRO checks0, fresh root55.00.750B/cmu150_NA,
+and fresh Communication home. Source9457 is now HISTORICAL, not a live guard.
+CURRENT retained startup record/code/O/C are under
+/tmp/mnt/data_persist/cmu-bench-startup-388ae4f695d2b19f0945f2d8428fca7e:
+directory45826:57, retainedO60/C61/code63; old warm records remain historical.
+Never replay old one-shot payloads or apply their stored source9457/1606 guards.
+Visible WARNING clearly shortened but STILL PRESENT: candidate0.402-1.005s
+including ambiguous darkfade vs stock4.223-4.625s; conservative3.218s/about76%
+shorter. Actual decoded-frame PTS, not source timeout; approx5FPS cannot prove
+no-flash or exact boot latency. Visual classification is separate from access/undo.
+Sources: runs/20261113T073945-0600-t14-modified-startup/compact-result.json and
+notes/disclaimer-candidate-visual-result.txt (original frame/measurement pointers).
+No second reboot/new O startup: restored fileO/home, but running page loaded fromC.
+No authenticated factory/fullmetadata, cold ACC, realcar/CarPlay, USB recovery or
+crash/powerloss durability claim. No new live authority follows this milestone.
+
+EARLIER STOCK WARM RESTART RECONCILED PASS, 2026-11-13: exactlyONE ordinary
 /sbin/reboot request without flags andONE established prompt-gated root login.
 Fresh root55.00.750B/cmu150_NA, changed bootID, uptime17902.22->585.89s;
 Communication home freshly observed. Uptime measured later, not reboot latency.
-AS-FOUND original current identity remains64785:9457:1433953097:94058:755:1018:3015:1,
+At that stock-baseline completion AS-FOUND O was64785:9457:1433953097:94058:755:1018:3015:1,
 size/MD5/POSIXCRC+checkedmetadata verified; physical /dev/ffx01p1 / relfs ro,noatime.
 Retained data_persist original50/candidate51/journal53 and dir49 persisted with
 verified bytes/metadata. Tmpfs delivery survival was NOT queried; old one-shot
@@ -26,17 +52,18 @@ Visual stock WARNING:22 consecutive samples159..180 inclfade, onset after31.844/
 by32.045s, disappearance after36.268/by36.469s VIDEO PTS; conservative visibility
 duration4.223-4.625s, boundarygaps0.201s. See notes/stock-warning-visual-baseline.txt.
 Approx5FPS/crop/exposure/clockalignment limit precision; no sub-frame/no-flash claim.
-This is stock WARM restart/persistence, not candidate-active startup, cold ACC,
-crash/powerloss durability or USB/product recovery. Next PREP for modified startup
-is separate; no new live candidate/reboot or mutating restore authority follows.
+That stock-only milestone did not test candidate-active startup, cold ACC,
+crash/powerloss durability or USB/product recovery. Subsequent modified startup
+and undo are recorded above; neither milestone confers further live authority.
 
 EARLIER ACTUAL WARM REAL-FILE MILESTONE: explicit V2 entry ran the frozen body ONCE,
 12.155s, ORIGINAL -> CANDIDATE -> ORIGINAL. Original94058B restored by cmp/MD5/
 POSIXCRC/count;0755/UID1018/GID3015/mtime1433953097/nlink1 checked.
-CURRENT main source identity:
+At that historical warm-file finish the main source identity was:
 64785:9457:1433953097:94058:755:1018:3015:1
-This is /jci/gui/apps/system/js/systemApp.js, AS-FOUND original bytes active;
-candidate is not enabled. Inode1606 is HISTORICAL initial identity, not current.
+AS-FOUND original was restored then; current O is9456 above. Old initial O1606
+and O9457 full identities are historical. Inodes may be reused: later C1606 had
+different size/mtime; an inode number alone never identifies a source profile.
 Journal disabled/pendingnone; both sync calls0, owned root stages cleaned.
 Paired RO request0 AND exact physical /dev/ffx01p1 / relfs ro,noatime check0;
 the separate rootfs/rw pseudoentry is baseline, not an RW result.

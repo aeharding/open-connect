@@ -46,8 +46,11 @@ Persistent recovery code+validated O/C/control must exist BEFORE C publication.
 Reuse frozen feature/WARM1/proven helpers/corrected observer; no new product schema.
 t13 owns one scoped practical boundary review, no repeated audits/test reruns.
 t14 completed COPY recovery; closes owned helpers and retains only intended data.
-NO new real/jci write/remount/sync/reboot/live-rootRESTORE is authorized by COPY
-evidence. Coordinator disposes the concrete combined real-root trial once reviewed.
+COPY evidence alone grants no real-file authority. Coordinator now conditionally
+authorizes ONE combined real ROOT apply/modified reboot/independent undo after the
+final tested packet is frozen and t13 has no unresolved practical blocker. t14
+may proceed directly then, no further per-step gate. Exact scope, failure stops
+and no second reboot: notes/disclaimer-modified-startup-live-handoff.txt.
 Modified startup, no-flash behavior, actual real-root fresh-process C->O recovery,
 coldACC/CarPlay, crash/power-loss, USB recovery remain unproved.
 

@@ -1,0 +1,62 @@
+ONE MODIFIED DISCLAIMER STARTUP / INDEPENDENT UNDO — COORDINATOR DISPOSITION
+November13 2026; coordinator t6; sole bench operator t14.
+
+This authorizes ONE complete modified warm-start trial once the final tested
+ROOT+candidate-observer packet is frozen and t13 reports no unresolved practical
+blocker. t14 may proceed directly on that checked handoff; no further per-step
+coordinator or user gate. Any materially new risk or unexpected state stops.
+
+Prerequisites: O9457 exact94058B MD5584c67f7186ada6bae9aae1be59b5cd0,
+CRC376717896,0755/UID1018/GID3015/mtime1433953097/nlink1; root55/NA and actual
+/dev/ffx01p1 / relfs ro,noatime. Frozen independent3500->0 candidate94055B
+MD564db9d0df2277e1d95a037929aef30c4 CRC776631029; no other feature changes.
+Preserve baseline evidence, old warm O/C/control and the successful isolated COPY.
+
+Allowed outcome, with existing finite bounds and exact actual guards:
+1. Prepare one new owned data_persist retained O/C/WARM1/code set while rootRO.
+   Parse actual metadata from completed evidence, never execute example identities.
+   DATA-stage long programs; short typed guarded entries only.
+2. Persist and readback-verify independently invocable recovery code and exact
+   originals/control BEFORE candidate publication. Remove temporary recovery
+   delivery. Its fresh-process defaultVERIFY must pass, including any existing
+   recorded original stage. No source/eval of control data.
+3. Apply exact C with proven checked mount/sync/stage/readback/control helpers.
+   Before RW check retained code/data/intent and preflush. Verify unique physical
+   RW row; no rc-only/alternateflag fallback. PairedRO on exit, exact C binding
+   and actual physicalRO are mandatory before boot.
+4. ONE /sbin/reboot CR, NO flags; start checked video first, receive-only through
+   bootloader. Bound180s. ONE known root login at actual new login/password prompts;
+   no credential guesses/retries or second reboot. Candidate-specific observer
+   must verify full appliedC identity/hash/metadata, root55, changed bootID/lower
+   uptime, physicalRO; labels must be C. Record actual identity even on conflict.
+5. Compare real-frame warning visibility with stock4.223-4.625s including fade.
+   Establish home and finite healthy operation. Do not promise no-flash at~5FPS.
+6. Perform explicit independently retained RESTORE_ORIGINAL after known state,
+   even if feature benefit is absent. Known exactC+validcontrol restoresO; knownO
+   verifies/commits without rewriting. Unknown bytes/metadata/control/stages/code
+   refuse and preserve. PairedRO attempt/check survives normal cleanup failures.
+   Final independentVERIFY, freshroot55, checkedO/disablednone/rootRO and freshhome;
+   retain originals/candidate/code/journal for review and close owned Mac handles.
+
+Failure/stop contract:
+- No reboot after failed/unknown apply or missing C-binding/RO/recovery readiness.
+- If observer misses readiness but an authentication attempt remains UNUSED,
+  t14 may reconcile via bounded passive observation and ONE NEW-live-prompt login
+  plus readonly checks; this completes the same outcome, not another reboot.
+  Failed/partial authentication or ambiguous console state: no retry/guess.
+- Full postbootC identity changed (including inode/mtime) => explicit recovery
+  identity conflict/OTHER; no automatic adoption, journal refresh or source rewrite.
+- Verified knownC/O with valid data may use the reviewed explicit undo within this
+  task. OTHER/bad evidence/no access/bootloop => stop, preserve and report.
+- Never bypass identity/metadata checks, use directGPIO/watchdog/service signals,
+  force/no-sync reboot, powercycle, OEM navigation or heartbeat spoof/disable.
+- RootRO failure remains unresolved even if original bytes were restored.
+- No deliberately injected parent interrupt/signal or crash/power-loss test.
+- No second stock-confirm reboot is included. Restored file+home after warm undo
+  does not establish a new unmodified startup or a complete USB product lifecycle.
+
+Record: root and boot final source/test pins once, exact actual invocations,
+before/boot/after UART+video, actual statuses and identity/control transitions,
+visible timing qualifications, retention and owned cleanup. Compact result first,
+concise documentation after. No broad audits/retests, new format/schema/installer,
+extra source hunt or firmware/hardware/network/settings change implied.

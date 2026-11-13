@@ -71,6 +71,16 @@ state; retain one UART owner and responsibility for software cleanup.
   checksum before treating them as backups.
 - Preserve original raw evidence. Keep credentials/private raw captures out of
   versioned fixtures; use provenance-linked sanitized derivatives.
+- Stage long programs that can alter installed CMU files as data in a fresh
+  root-owned tmpfs directory. Verify target byte count, MD5/POSIX CRC, canonical
+  routes and file/directory identity before a short guarded entry executes them.
+  Keep the staged body and entry linked to the reviewed source/test profile.
+- This BusyBox grep lacks -x. Reuse the verified Session identity parser for
+  exact root/firmware/flavor checks and use capabilities observed on this binary.
+- The first warm systemApp.js roundtrip restored AS-FOUND bytes,0755,UID1018,
+  GID3015 and mtime1433953097, with new inode9457 (historical1606). Root physical
+  RelFS was verified RO afterward. Historical one-shot payloads retain old inode
+  guards; record fresh identities for new approved work.
 - Every experiment records its question, applicable hardware/firmware, exact
   commands/code revision, before/after evidence, result, interpretation and cleanup.
 - No recurring/background schedule is implied by the development plan.

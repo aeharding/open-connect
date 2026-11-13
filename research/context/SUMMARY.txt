@@ -3,7 +3,33 @@ Updated November13 2026; coordinator t6, sole hardware owner t14, researcher t13
 Entry: research/index.txt/index.tsv. Originals stay local; facts retain paths/hashes.
 
 LATEST KNOWN STATE / OUTCOME
-Latest completed UI result: ONE native BENCH STATUS overlay passed readable title/shortID, owned
+ACTUAL WARM REAL-FILE MILESTONE: explicit V2 entry ran the frozen body ONCE,
+12.155s, ORIGINAL -> CANDIDATE -> ORIGINAL. Original94058B restored by cmp/MD5/
+POSIXCRC/count;0755/UID1018/GID3015/mtime1433953097/nlink1 checked.
+CURRENT main source identity:
+64785:9457:1433953097:94058:755:1018:3015:1
+This is /jci/gui/apps/system/js/systemApp.js, AS-FOUND original bytes active;
+candidate is not enabled. Inode1606 is HISTORICAL initial identity, not current.
+Journal disabled/pendingnone; both sync calls0, owned root stages cleaned.
+Paired RO request0 AND exact physical /dev/ffx01p1 / relfs ro,noatime check0;
+the separate rootfs/rw pseudoentry is baseline, not an RW result.
+CoreEND0/PS1/0BEL and separate fresh root55.00.750B/cmu150_NA END0; operator
+reported after Communication home/no dialog, capture requested0.360s after coreend.
+Task Mac helpers/ports/camera closed. Original/candidate/journal and staged tmpfs
+payload retained for review, not cleaned. Immutable one-shot warm package remains
+historical: no replay or old1606 guard reuse implied.
+This is normal warm file mechanics/checked-metadata proof, NOT authenticated
+factory source, startup/no-flash/ACL/xattr/fullmetadata, crash/power-loss durability,
+or USB/product recovery. No reload/reboot/feature behavior was tested.
+Source: notes/warm-real-file-roundtrip-observation.txt and
+runs/20261113T051316-0600-t14-warm-real-roundtrip-v2/compact-result.json.
+Supporting context only: data-stage proof, immutable prebody grep-x refusal,
+qualified8-check boundary review. V1 did not execute the body; V2 had new authority.
+Next t12 prototype is default-readonly journal inspection; this milestone confers
+no real restore/reboot/new install authority.
+
+EARLIER UI/BROWSER CONTEXT
+Earlier UI result: ONE native BENCH STATUS overlay passed readable title/shortID, owned
 TERM0/wait143/cleanup0, immediate after-camera home and separate root55 postflight
 (F066). Body crowded on one line despite newline bytes in exact argv; no repeat.
 Native UI task UART/camera helpers closed; t14 retains sole hardware ownership

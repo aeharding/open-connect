@@ -1,0 +1,34 @@
+COORDINATOR DISPOSITION — FIRST REAL-FILE WARM TRIAL
+November13 2026, t6. One execution authorized under standing full-control bench scope.
+Exact accepted body:12756B SHA256c27a191ecaf0f9afa81dbac15c78e89c5f09847e431e875317fd01c68aa28fc2.
+Code/checkpoint f268ca8, eight focused checks and scoped boundary review accepted.
+Delivery: data-only tmpfs upload matched target MD5/POSIX CRC/count and file/dir
+identity; body has not been pasted as executable UART source.
+The only approved entry is entry.approved.txt in
+runs/20261113T045546-0600-t14-warm-data-stage/. The original review entry remains
+unchanged; approved entry adds stdin from /dev/null. It was syntax/wire checked.
+Exact entry hash, target identities, bounds, retained paths and criteria:
+same directory/coordinator-live-handoff.json.
+
+One real /jci systemApp original->frozen candidate->original byte roundtrip is
+authorized, using only the already-reviewed body. Request no UI reload/reboot.
+Require fresh root55 and normal stock-home before entry, exact target initial
+identity, retained original/candidate+intent and checked preflush; actual RW row
+before staging/replacement; original restoration, explicit disabled record, checked
+post-original flush, paired actual RO request and verified physical RO row.
+New source inode is expected and must be reported. Keep retained backup/journal.
+Inspect after frame and fresh identity following known completion.
+No retry/alternate mount flags or parent/service signals. Unexpected state stops
+and preserves evidence; do not equate verified file bytes alone with a safe finish.
+This is one bounded bench trial, not product/USB recovery or power-loss durability.
+The frozen host plans remain historical; this separate disposition is execution
+authority only for this body and approved staged-file entry.
+
+ENTRY REVISION2 — before any payload execution
+First entry refused at unsupported BusyBox grep -x, before /bin/sh in its AND
+chain. No body/remount/write logic ran through that entry; normal END1+PS1.
+Original command/error evidence remains runs/20261113T050418-0600-t14-warm-real-roundtrip/.
+Corrected entry.approved-v2.txt removes only the redundant grep checks; verified
+Session preflight requires exact uid0,55.00.750B and cmu150_NA (session.py277-284).
+Canonical/file identity/MD5/CRC guards and stdinNULL remain. One corrected attempt
+is explicitly authorized via coordinator-live-handoff-v2.json; no automatic retry.

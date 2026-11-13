@@ -1,0 +1,34 @@
+PASS — FIRST ACTUAL CMU FILE WARM ROUNDTRIP, November13 2026
+Firmware55.00.750B/cmu150_NA; one body execution,12.155s.
+
+The AS-FOUND systemApp.js original was backed up, the frozen disclaimer candidate
+published and verified, then the original restored. Final source:94058B,
+MD5 584c67f7186ada6bae9aae1be59b5cd0, POSIX CRC376717896,
+mode0755/UID1018/GID3015/mtime1433953097/nlink1.
+Its inode intentionally changed1606->9457 on device64785.
+Candidate94055B/MD5 64db9d0df2277e1d95a037929aef30c4/CRC776631029 was verified.
+
+Recorded bench state:disabled, no pending intent. Both checked sync calls returned0.
+Owned root stages were removed. Paired read-only remount returned0 and the exact
+physical /dev/ffx01p1 / relfs ro,noatime row was verified; baseline rootfs/rw
+pseudo-entry remains separate. Core END0+normal prompt/zero BEL/closed port, then
+fresh root55/NA identity. After camera request began0.360s after core completion;
+stock Communication home was visible. No reload/reboot was requested.
+
+Reviewed program:8 focused host checks; source checkpoint f268ca8.
+Exact12756B body was staged as data and checksum-verified before a short guarded
+entry invoked it. The first entry used unsupported grep-x and refused BEFORE
+body/remount/write logic. The explicitly corrected entry used existing proven
+identity checks; body remained unchanged and ran exactly once. All evidence kept.
+
+Authority: notes/warm-real-file-roundtrip-observation.txt;
+runs/20261113T051316-0600-t14-warm-real-roundtrip-v2/compact-result.json.
+Original/candidate/journal retained on CMU in the nonce-owned data_persist folder.
+Temporary verified script retained in root-owned tmpfs. These are recovery evidence,
+not an installed product/USB registry. The old initial-inode1606 payload is one-shot
+and must not be reused against current source inode9457.
+
+This proves a normal-runtime file write and restoration on this bench.
+Disclaimer startup/no-flash behavior, signal/crash/power-loss durability, USB
+maintenance/recovery, factory authenticity and ACL/xattr/full-metadata recovery
+remain unproved. Next: inspect retained recovery state from a fresh read-only process.

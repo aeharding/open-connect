@@ -1,12 +1,12 @@
 {
   "page_id": "page_72594960d3f08191911f2944d96c7eee",
   "page_url": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
-  "visualization_reference": "![Mazda CMU Bench Dashboard](visualize:fde1_bGliZmlsZV80d2J6c2pTNmVyOEhLcU5OaWtqek93_FileDrive_147de6d1e140819180a22e56e12476bf)",
+  "visualization_reference": "![Mazda CMU Bench Dashboard](visualize:fde1_bGliZmlsZV9tMVVFdnFiV1JPTnlDYXlod0ViakpR_FileDrive_147de6d1e140819180a22e56e12476bf)",
   "visualization_block_id": "7d59a3d7-6ffb-486e-8366-7634ade4db68",
-  "download_reference": "library-file:fde1_bGliZmlsZV9DNkx3QkUwNWVaaUIwdnlscEF5WV9R_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "download_reference": "library-file:fde1_bGliZmlsZV9nQjUxeDJqb0tJcDVSSncybmZRQ3RR_FileDrive_147de6d1e140819180a22e56e12476bf",
   "download_block_id": "a2e95491-5ac3-421b-9473-1f02c3f040c6",
-  "html_sha256": "3ad4cd991e33953f83bbfd82460767dea9ec5c4957c038da9e395bdbe2a8b226",
-  "status_updated_at": "2026-11-13T04:12:21-06:00",
+  "html_sha256": "7cb25fd82c05a3f4cf158ade2294ba770e6969bd9400d814ce045eac550c4d81",
+  "status_updated_at": "2026-11-13T05:22:57-06:00",
   "source": "dashboard/index.html",
   "data_source": "dashboard/status.json",
   "privacy": "private personal Page; sanitized summary",
@@ -20,5 +20,6 @@
   "comparison_reference": "library-file:fde1_bGliZmlsZV9MekdHZFMyVG10NHZzRmhtYkpkUmhn_FileDrive_147de6d1e140819180a22e56e12476bf",
   "host_maintenance_reference": "library-file:fde1_bGliZmlsZV9uWkExMzY0cklxM2xQdmZfUUNPX0t3_FileDrive_147de6d1e140819180a22e56e12476bf",
   "host_completion_reference": "library-file:fde1_bGliZmlsZV9paEIwSmpFLU5lMVhmV0JmTjlGQnVR_FileDrive_147de6d1e140819180a22e56e12476bf",
-  "copy_recovery_reference": "library-file:fde1_bGliZmlsZV9lVG9KMEw1TXJNQ2lHWXFqczRkUlhB_FileDrive_147de6d1e140819180a22e56e12476bf"
+  "copy_recovery_reference": "library-file:fde1_bGliZmlsZV9lVG9KMEw1TXJNQ2lHWXFqczRkUlhB_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "warm_result_reference": "library-file:fde1_bGliZmlsZV9aNk9yS0VvV25GR190YldXa1VCeWZn_FileDrive_147de6d1e140819180a22e56e12476bf"
 }

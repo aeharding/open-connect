@@ -4,7 +4,8 @@ Derived catalog; raw originals stay local/unchanged. Mutable context is qualifie
 67 facts/claims; 13 hypotheses (8 open, 5 resolved in observed scope); 17 decisions; 7 saved sources (one new primary-project collection).
 Search index.tsv by ID/topic/firmware/path; records retain scope and limits.
 Read context/SUMMARY.txt for handoff, constraints and physical-reference conflicts.
-Latest: native BENCH STATUS visible/cleanup/home+root55 PASS, crowded body qualified.
+Latest: actual warm O->C->O PASS; AS-FOUND original active, sourceinode9457, physicalRelFSRO.
+Bothsync0, afterhome/freshroot55; startup/powerloss/USB recovery remain untested.
 Browser timed return FAILED; later recovery separate. No more browser navigation.
 Shipping-window readiness: ../notes/firmware-readiness.txt; planned v73 exact package/path OPEN.
 Schema and update rules: SCHEMA.txt. Final preservation report: ../notes/research-preservation-result.txt.
@@ -253,3 +254,14 @@ FIRST TARGET WRITE/ROLLBACK PROPOSAL — REVIEW ONLY
 ../notes/disclaimer-first-install-plan.txt — warm original->candidate->original plan,
 exact byte/metadata guards, proposed persistent/same-parent paths, interruption limits.
 context/disclaimer-first-install-plan.json — bounded read-only provenance; no target writes.
+
+ONE ACTUAL WARM-FILE MILESTONE (67 facts/claims unchanged)
+../notes/warm-real-file-roundtrip-observation.txt — ONE frozen body execution under
+explicitV2 authority; normal-runtime original bytes/checkedmetadata restored.
+Current /jci/gui/apps/system/js/systemApp.js:
+64785:9457:1433953097:94058:755:1018:3015:1 (AS-FOUND, not proved factory pristine).
+Bothsync0, disabled/pendingnone, pairedROrequest+uniquephysicalrow0; home/freshroot55.
+Retained original/candidate/journal+tmpfspayload; historical one-shot package unchanged.
+V1 prebodygrep refusal/data staging/qualified8-review are supporting context only.
+No startup/no-flash, fullmetadata, crash/powerloss or USB/productrecovery guarantee.
+Private compact proof: runs/20261113T051316-0600-t14-warm-real-roundtrip-v2/compact-result.json.

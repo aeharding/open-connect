@@ -1,28 +1,28 @@
 {
   "schema_version": 1,
   "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T04:12:21-06:00",
+  "updated_at": "2026-11-13T05:22:57-06:00",
   "timezone": "America/Chicago",
   "snapshot_note": "Saved progress, not live telemetry. Reopen the private Page for a newer snapshot.",
   "links": {
     "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
     "html_download": null
   },
-  "headline": "Interrupted uninstall completed on a CMU copy",
-  "summary": "The CMU deliberately stopped after restoring an isolated original copy but before committing its uninstall. Explicit completion then verified that file without rewriting it, recorded disabled/no-pending and cleaned up. The installed GUI is unchanged; real-file installation and startup behavior remain next.",
+  "headline": "First real-file roundtrip passed; original restored",
+  "summary": "The frozen disclaimer candidate was written to the actual CMU file, verified, and restored to the exact AS-FOUND original in 12.2 seconds. Checked metadata was restored, the new inode recorded, and the physical root returned to read-only. Stock home and fresh root access passed. Startup behavior is still untested.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
-    "console": "Root55 reverified · Linux 3.0.35",
+    "console": "Fresh root55 / NA identity after warm trial",
     "uart": "115200 · 8N1 · no flow control",
     "tx": "64-byte chunks · 20 ms RX gaps",
     "camera": "Manual mode 1 · exposure 87 · brightness 128",
     "scope": "USB + SD preserved · AUX not required",
-    "changes": "Installed GUI and root read-only filesystem unchanged. Isolated full-size copies and a transaction journal were created, verified and removed.",
-    "display": "Last observed stock Communication home",
+    "changes": "One temporary systemApp.js replacement was restored to AS-FOUND bytes, mode, owner/group and timestamp. New inode9457 recorded; root verified read-only. Backup/candidate/journal retained.",
+    "display": "Communication home observed after warm trial",
     "device_state": "done",
-    "state_label": "Stock baseline",
-    "firmware_qualifier": "Fresh identity after each completed device trial"
+    "state_label": "Original restored",
+    "firmware_qualifier": "Fresh post-trial identity"
   },
   "metrics": [
     {
@@ -38,8 +38,8 @@
       "label": "exact installed-file copies"
     },
     {
-      "value": "2",
-      "label": "native UI demos"
+      "value": "1",
+      "label": "real GUI file roundtrip"
     }
   ],
   "diagram": {
@@ -53,7 +53,7 @@
         "kind": "done",
         "title": "Mac control bench",
         "lines": [
-          "Paced UART + saved evidence",
+          "Paced UART · staged scripts",
           "Agent-operated, one owner"
         ]
       },
@@ -67,7 +67,7 @@
         "title": "Mazda CMU",
         "lines": [
           "55.00.750B · root verified",
-          "Stock GUI remains unchanged"
+          "AS-FOUND source restored"
         ]
       },
       {
@@ -79,8 +79,8 @@
         "kind": "done",
         "title": "Display / native UI",
         "lines": [
-          "Last observed stock home",
-          "Browser return failed earlier"
+          "Communication home after trial",
+          "No UI reload requested"
         ]
       },
       {
@@ -286,9 +286,9 @@
       "id": "disclaimer",
       "title": "Startup disclaimer bypass",
       "state": "active",
-      "detail": "Independent one-line3500ms→0 initial timer prototype frozen;6 focused host checks passed.",
-      "proof": "Exact55 source/base hash; OEM Timeout/retry/Agree/teardown retained; byte-exact host rollback and conflict refusal. Freeze predates external research.",
-      "limits": "Uninstalled. A frame may still render; live startup, heartbeat, write durability and uninstall are not validated.",
+      "detail": "Independent one-line initial3500ms→0 prototype frozen; actual file write-and-restore passed on exact firmware55.",
+      "proof": "Six feature checks, reviewed eight-check warm program, exact source/candidate hashes and live original→candidate→original readback. Stock OEM timeout/retry/teardown retained.",
+      "limits": "Original is restored. Startup/no-flash, persistent install, USB maintenance and crash/power-loss recovery remain unvalidated.",
       "refs": [
         "experiments/disclaimer/freeze.json",
         "experiments/disclaimer/result.txt",
@@ -340,17 +340,47 @@
       "refs": [
         "experiments/target-copy-transaction/result.txt"
       ]
+    },
+    {
+      "id": "real-warm-roundtrip",
+      "title": "Actual GUI file written and restored",
+      "state": "done",
+      "detail": "One 12.155 s real-file original → candidate → original trial passed.",
+      "proof": "Candidate and original count/MD5/CRC matched;0755/UID1018/GID3015/mtime restored, inode1606→9457 recorded. Both syncs, root-stage cleanup and physical RO verified. Fresh root55 and after-home image passed.",
+      "limits": "Normal runtime on this bench only. Original is AS-FOUND; no startup/no-flash, full metadata, crash/power-loss or USB recovery claim. Backup/candidate/journal retained.",
+      "refs": [
+        "experiments/disclaimer-warm-roundtrip/live-result.txt",
+        "notes/warm-real-file-roundtrip-observation.txt"
+      ]
     }
   ],
   "tasks": [
     {
-      "id": "warm-real-file-preparation",
+      "id": "fresh-process-recovery",
       "lane": "now",
       "state": "active",
-      "title": "Prepare the first real-file warm trial",
+      "title": "Inspect recovery state from a fresh process",
+      "owner": "Tooling + Bench operator",
+      "detail": "Parse the retained journal and image profile independently, then verify the already-restored original with a read-only action. Explicit restore capability is prepared/tested on host copies for later review.",
+      "pass": "Consistent original/disabled state verified without changing the real file or mount. Unknown or conflicting evidence refuses."
+    },
+    {
+      "id": "startup-comparison",
+      "lane": "next",
+      "state": "waiting",
+      "title": "Measure stock and modified startup behavior",
+      "owner": "Coordinator + Bench operator",
+      "detail": "Plan the first controlled startup comparison after standalone recovery is ready. Physical cold-start/ACC testing still depends on arriving hardware.",
+      "pass": "Observe notice timing/flash, heartbeat and return to stock after a tested uninstall. Warm file writes alone do not establish the visible feature."
+    },
+    {
+      "id": "warm-real-file-preparation",
+      "lane": "later",
+      "state": "done",
+      "title": "First real-file warm roundtrip passed",
       "owner": "Coordinator + Research + Bench operator",
-      "detail": "Resolve actual mount syntax and exact backing-volume verification, then prepare backup/stage/restore ordering. No installed-file write or remount is queued.",
-      "pass": "A bounded original → candidate → original trial can preserve the loaded stock frontend and restore the actual root mount to read-only. Startup testing is separate."
+      "detail": "12.155 s: exact candidate published, verified and restored to original; checked metadata, new inode, disabled journal, both flushes and physical read-only root verified.",
+      "pass": "Stock home after trial and fresh root55. No startup/reboot test yet; retained recovery evidence stays on the CMU."
     },
     {
       "id": "target-transaction",
@@ -523,10 +553,22 @@
     },
     {
       "title": "Evidence coverage",
-      "text": "Camera crop/angle, complete backup, restore behavior and second-copy protection remain open. A working dialog or file hash does not close these gaps."
+      "text": "Warm file restoration is verified. Full-device backup/restore, independent second-copy protection, startup behavior and crash/power-loss recovery remain open."
     }
   ],
   "recent": [
+    {
+      "title": "First actual file roundtrip passed",
+      "text": "Frozen candidate verified on the real CMU file, then original restored. Physical root is read-only; source inode changed as expected."
+    },
+    {
+      "title": "Verified data delivery used for first write",
+      "text": "12,756-byte reviewed script transferred as encoded data and checked on target. A short guarded entry invoked the exact file."
+    },
+    {
+      "title": "Entry guard refusal preserved",
+      "text": "An unsupported grep-x check stopped the first entry before the body ran. Explicit correction reused the tested identity preflight; the body ran once."
+    },
     {
       "title": "Interrupted copy uninstall completed",
       "text": "Deliberate stop left the original restored and uninstall pending. Explicit completion committed disabled without rewriting that file; scratch removed."
@@ -546,18 +588,6 @@
     {
       "title": "CMU tmpfs primitives passed",
       "text": "One 3.023 s isolated trial exercised copy, same-parent replacement, restore and cleanup."
-    },
-    {
-      "title": "Frozen feature runs through shared host model",
-      "text": "10 focused checks and private-copy demo passed; source original and frozen patch remain unchanged. Device writes remain unperformed."
-    },
-    {
-      "title": "Independent prototype frozen",
-      "text": "6 host checks; initial3500→0 only, retry and OEM event flow retained. Uninstalled; flash/startup unknown."
-    },
-    {
-      "title": "Comparison separated from implementation",
-      "text": "Miatafy already documents replacement USB and first-install backups. Its version/recovery conditions are not an any-version or no-brick guarantee."
     }
   ],
   "guardrails": [

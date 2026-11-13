@@ -1,0 +1,26 @@
+{
+  "finding": "entry_grep_x_unsupported_pre_body_refusal",
+  "scope": "OFFLINE saved evidence only",
+  "manifest": "runs/20261113T050418-0600-t14-warm-real-roundtrip/session/manifest.json",
+  "actual_command": "runs/20261113T050418-0600-t14-warm-real-roundtrip/session/ce1b73ee371b8bac884cb0e0b6b37f1d.command.txt",
+  "actual_output": "runs/20261113T050418-0600-t14-warm-real-roundtrip/session/ce1b73ee371b8bac884cb0e0b6b37f1d.output.bin",
+  "output_sha256": "f52b1f9097c654e5915f72f038566ee90261b50e90b15024dfec18f6925ea781",
+  "derivative_exact_matches": "runs/20261113T050418-0600-t14-warm-real-roundtrip/actual-warm-output.bin",
+  "remote_exit": 1,
+  "core_operation": "completed",
+  "overall": "remote_nonzero",
+  "identity": {
+    "firmware": "55.00.750B",
+    "flavor": "cmu150_NA",
+    "uid": 0,
+    "user": "root"
+  },
+  "port_closed": true,
+  "evidence": "invalid -x diagnostic; first grep in && chain; no WARM lines",
+  "interpretation": "First version grep failed before path/checksum guards and payload /bin/sh, so no warm-body mount/sync/file command was invoked by this entry",
+  "limits": "Post-attempt actual mount/file state was not newly queried; this conclusion follows exact completed entry/control flow, not a postflight filesystem observation",
+  "changes": false,
+  "reexecution": false,
+  "additional_UART": false,
+  "next_boundary": "Any entry repair/retry remains coordinator-owned; frozen eight-check body unchanged"
+}

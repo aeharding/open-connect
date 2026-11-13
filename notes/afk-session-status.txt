@@ -47,12 +47,27 @@ power-loss/recovery-policy claim.
 ONE read-only actual mount-help query completed: BusyBox1.19.2 helpRC1, coreEND0,
 root55/PS1/closed port. No actual mount invocation. Source/argv caveats and exact
 physical mount-row gating are in notes/remount-preparation.txt; rc0 can be RO fallback.
-ACTIVE t12: review-only first real-file WARM roundtrip package under
-experiments/disclaimer-warm-roundtrip/, with verified original/candidate/intent,
-same-parent stages, explicit restoration and actual root RO verification.
-NO live remount, /jci write, startup/reboot/browser/service/power handoff yet.
-Coordinator reviews this new real-file boundary after the concrete package exists.
-t14 idle with handles closed; t13 mount preparation complete.
+FIRST ACTUAL WARM REAL-FILE roundtrip PASSED12.155s via checksum-verified staged
+script and explicit corrected short entry. C94055B verified, O94058B restored to
+original MD5/CRC/mode755/UID1018/GID3015/mtime1433953097; new inode9457 vs1606.
+Both sync0, disabled/no pending journal, root-stage cleanup0, paired ROrequest0
+and unique physical relfs RO row0. Afterhome photo +fresh root55/NA passed.
+V1 entry failed BEFORE payload at unsupportedgrep-x; preserved; no body change.
+Body executed once through corrected v2; root body/entries and signal limits
+in notes/warm-roundtrip-live-handoff.txt, result in
+notes/warm-real-file-roundtrip-observation.txt.
+Retained O/C/journal data_persist folder and verified tmpfs payload stay in place.
+ACTIVE t12+t14: standalone fresh-process recovery inspection, default live READONLY
+verify on current O, strict journal/backup checks; explicit restoration capability
+tested on HOST copies/prepared for later review, not live authorized.
+Completed ONE read-only retained journal fixture:367B PRE/POST/host MD5+CRC match;
+retained metadata captured, delivered directly to t12. RelFS directory nlink5 is
+observed, not assumed POSIX2. No source/image hash repeat in this fixture query.
+Standing next live scope is ONE checked default/explicit VERIFY-only inspection,
+no writes/mount/sync; C/OTHER/conflict refuses. No additional coordinator gate for
+this read-only outcome. Mutating restore branches and any reboot remain unqueued.
+No startup/visible disclaimer or crash/power-loss/USB recovery proof yet.
+t13: one concise saved-result index update; no raw audit or new query.
 t14 remains sole UART/camera owner; reconcile existing trial state before repeats.
 t13: resource interpretation + retrospective comparison COMPLETE; external research
 started after freeze. Miatafy ScreenTune public behavior compared; disclaimer

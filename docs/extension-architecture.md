@@ -2,7 +2,8 @@
 
 Research and proposed implementation plan, 2026-11-13.
 Tracking: [#25](https://github.com/aeharding/open-connect/issues/25).
-No runtime loader or disable mechanism described here is implemented yet.
+The native loading probe is host-built; no runtime disable mechanism is implemented
+or installed yet. See [the probe findings](#loader-probe-findings).
 Scope: one feature on 55.00.750B NA, then extract shared pieces when needed.
 
 ## Goal and boundary
@@ -109,8 +110,49 @@ Investigate loading routes in this order:
    dynamically linked program ([loader documentation](https://man7.org/linux/man-pages/man8/ld.so.8.html)).
    Do not replace init, redesign boot or assume overlays are supported.
 
-No route is selected yet. Choose the smallest route that passes the disable
-contract, not the route with the fewest modified bytes.
+The native prototype uses a small explicit post-load hook; the renderer candidate
+uses Mazda's existing developer-script slot. Neither is bench-qualified.
+
+## Loader-probe findings
+
+Fresh read-only captures established these FW55-specific boundaries:
+
+- index.html:33 loads ../../data/integration/developer_mode_GuiConfig.js
+  before Utility/BaseApp/GuiFramework and framework.init(). This resolves to
+  **/data/integration/**, not /jci/data. The file is currently absent; normal GUI
+  startup already works without it. This is a candidate bootstrap slot, not a
+  proven optional-feature loader. Its parent is mode 0777; installation must
+  account for that access boundary and refuse an existing unowned script.
+- Utility.js:66–94 appends a script and handles onload only. It provides no
+  built-in onerror or fallback. Removing a node does not undo evaluation.
+- sm.conf:145–169 launches MMUI and Opera through separate dependency sets, with
+  no explicit ordering edge between them. Script presence is not readiness.
+- Current /data resolves through /mnt/data to /tmp/mnt/data on writable
+  /dev/ffx01p4 RelFS. data_persist is a different mount. Current availability
+  does not establish loader-time availability after cold boot.
+- Native mmuiLoadUias builds application/context priority records before invoking
+  entry loaders (0x2e08–0x2f50). Its directory mode is not a neutral plugin registry.
+  Missing-library failure returns through 0x2204–0x220c/0x28ac; successful loading
+  still says nothing about feature health.
+
+The [native probe](../experiments/optional-loader/README.md) hooks the final zero
+return at 0x31ac, after OEM application loading and before ServiceInit's
+GUIIFM_Internal_AppsLoadingFinish call at 0x1914. It uses existing loader imports,
+fits the 200-byte gap after the RX segment, and adds no mandatory dependency.
+Host build: 104-byte stub, unchanged 22952-byte module length, original epilogue
+retained. Missing bootstrap/symbol delegates normally; crashes/hangs do not.
+
+This is a loading probe only. The control record, consumed trial, component hashes,
+paired readiness and disable experiment below remain unfinished. No native or JS
+bootstrap has been installed. Hardware validation must distinguish entry execution
+from mapping, then prove the off path on a fresh startup.
+
+New exact-source SHA256 identities:
+index.html b0e116b941f29078ced19b864a1b888cf76d8bc3e4974af081efca4693e5c420;
+Utility.js eff9e63497fbd0f90d5dc9e2d9403c93fc6171cc71f70319462686a423fea791;
+sm.conf 52dac9b051ab02a07afdc7bdfac56402420f8230901b5a55a76a7e9c44fb2e08.
+Private capture/derivation: runs/runtime-boundary-research; size, checksum and
+identity matched before and after each export. No OEM writes or reboot occurred.
 
 ## Proposed activation contract
 

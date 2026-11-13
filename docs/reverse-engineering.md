@@ -69,3 +69,8 @@ requires coordinated readiness before activation. See the
 [source-backed architecture and disable plan](extension-architecture.md), which
 separates an installed bootstrap, optional code, disabled startup and full recovery.
 No new loader or disable mechanism has been tested on the CMU.
+
+The FW55 loader trace identifies an existing /data/integration/developer_mode_GuiConfig.js
+renderer slot and a post-UIA native hook. See [loader-probe findings](extension-architecture.md#loader-probe-findings)
+for ordering, source identities and limits. The no-op native probe is host-built only;
+trial control, paired readiness and disabled startup remain unproved.

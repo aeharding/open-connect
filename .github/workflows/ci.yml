@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host:
+    name: Host checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Install package and development tools
+        run: python -m pip install ".[dev]"
+      - name: Lint
+        run: ruff check --output-format=github src tests
+      - name: Format
+        run: ruff format --check src tests
+      - name: Offline host tests
+        run: python tests/run_offline.py
+      - name: Installed CLI outside checkout
+        shell: bash
+        run: |
+          cd "$(mktemp -d)"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import open_connect
+
+          assert not Path(open_connect.__file__).resolve().is_relative_to(
+              Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          ), "must test the installed package, not checkout imports"
+          subprocess.run(["oc", "--help"], check=True)
+          profile = json.loads(subprocess.check_output(["oc", "bench", "setup"], text=True))
+          assert profile["outcome"] == "dry_run_not_executed"
+          assert profile["executed"] is False and profile["state_written"] is False
+          assert profile["opens_port"] is False
+          uart = json.loads(subprocess.check_output(["oc", "uart"], text=True))
+          assert uart["mode"] == "dry_run"
+          assert uart["opens_port"] is False and uart["sends_bytes"] is False
+          assert not list(Path.cwd().iterdir()), "dry runs must not write state"
+          print("Installed CLI dry runs passed without device access or state writes.")
+          PY
+      - name: Save host test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: host-test-results
+          path: |
+            runs/tests/**/manifest.json
+            runs/tests/**/tests.txt
+          if-no-files-found: ignore
+          retention-days: 7

@@ -25,13 +25,31 @@ Keep this proportional: one focused review, not a standing review team.
 
 ~~~sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -e .
+.venv/bin/python -m pip install -e ".[dev]"
+.venv/bin/ruff check src tests
+.venv/bin/ruff format --check src tests
 .venv/bin/python tests/run_offline.py
 ~~~
 
 Host code lives in src/open_connect/, with tests in tests/.
 The offline runner includes the CLI and bench profile and opens no physical device.
 The installed entry point is oc; python -m open_connect is equivalent.
+
+CI runs those host checks on Linux with Python 3.13 for every PR and main push,
+then checks the installed CLI from outside the checkout. Require the Host checks
+job to pass alongside adversarial review before merging. To apply formatting
+locally, run .venv/bin/ruff format src tests.
+
+Scope: src/ and tests/ only. CI uses fake transports, local PTYs and a fake D-Bus
+service; no hardware, OEM files or credentials. It does not validate firmware,
+visual behavior, recovery on the CMU, or the prototype suites in experiments/.
+The known prototype import regression is tracked in issue #21; green host CI does
+not mean that regression is fixed. Add a public prototype check when that path
+has explicit inputs and runs independently of private captures.
+
+Actions are pinned to commit hashes, workflow permissions are read-only, and
+Dependabot proposes monthly grouped updates. Dependency PRs require the same
+tests and adversarial review; there is no automatic merge or deployment.
 
 ## Mods and device work
 

@@ -1,8 +1,6 @@
 import collections
-import errno
 import json
 import os
-from pathlib import Path
 import pty
 import re
 import select
@@ -12,23 +10,45 @@ import tempfile
 import termios
 import time
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
-from open_connect.session import (AdapterLock, BenchError, Bundle, CommandDecoder,
-                               IDENTITY, ProtocolError, Session, UnknownOutcome,
-                               prompt_state, resolve_adapter, verify_identity, wrap_command)
+from open_connect.session import (
+    AdapterLock,
+    BenchError,
+    Bundle,
+    CommandDecoder,
+    ProtocolError,
+    Session,
+    UnknownOutcome,
+    prompt_state,
+    resolve_adapter,
+    verify_identity,
+    wrap_command,
+)
 
 TOKEN = "a" * 32
 ROOT = Path(__file__).resolve().parents[1]
-IDENTITY_OUTPUT = (b'uid=0(root) gid=0(root)\nLinux cmu 3.0.35\n'
-                   b'JCI_SW_VER="MAZ_CMU-150_55.00.750"\nJCI_SW_VER_PATCH="B"\n'
-                   b'JCI_SW_FLAVOR="cmu150_NA"\n')
+IDENTITY_OUTPUT = (
+    b"uid=0(root) gid=0(root)\nLinux cmu 3.0.35\n"
+    b'JCI_SW_VER="MAZ_CMU-150_55.00.750"\nJCI_SW_VER_PATCH="B"\n'
+    b'JCI_SW_FLAVOR="cmu150_NA"\n'
+)
 
 
 def response(token, output=b"ok\n", status=0, prompt=b"/tmp/root # "):
-    return (b"\r\nCMU1 " + token.encode() + b" BEGIN\r\n" + output
-            + b"\r\nCMU1 " + token.encode() + b" END " + str(status).encode()
-            + b"\r\n" + prompt)
+    return (
+        b"\r\nCMU1 "
+        + token.encode()
+        + b" BEGIN\r\n"
+        + output
+        + b"\r\nCMU1 "
+        + token.encode()
+        + b" END "
+        + str(status).encode()
+        + b"\r\n"
+        + prompt
+    )
 
 
 class FakeTransport:
@@ -49,7 +69,7 @@ class FakeTransport:
         return b""
 
     def write(self, data):
-        data = data[:self.max_write]
+        data = data[: self.max_write]
         self.tx.extend(data)
         self.pending.extend(data)
         if self.pending.endswith(b"\r") and self.callback:
@@ -92,8 +112,12 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(t.tx, b"")
 
     def test_prompt_states_and_continuation_refusal_even_with_probe(self):
-        for text, expected in ((b"cmu login: ", "login"), (b"Password: ", "password"),
-                               (b"\r\n> 0", "continuation"), (b"log # text", "unknown")):
+        for text, expected in (
+            (b"cmu login: ", "login"),
+            (b"Password: ", "password"),
+            (b"\r\n> 0", "continuation"),
+            (b"log # text", "unknown"),
+        ):
             self.assertEqual(prompt_state(text), expected)
             if expected != "unknown":
                 t = FakeTransport([text])
@@ -107,16 +131,23 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(self.session(t).receive(0.02), original)
         self.assertEqual(t.tx, b"")
         self.assertEqual((self.bundle.path / "rx.bin").read_bytes(), original)
-        events = [json.loads(line) for line in (self.bundle.path / "events.jsonl").read_text().splitlines()]
-        self.assertEqual(b"".join(bytes.fromhex(e["hex"]) for e in events if e.get("direction") == "rx"), original)
+        events = [
+            json.loads(line)
+            for line in (self.bundle.path / "events.jsonl").read_text().splitlines()
+        ]
+        self.assertEqual(
+            b"".join(bytes.fromhex(e["hex"]) for e in events if e.get("direction") == "rx"),
+            original,
+        )
         self.assertFalse(any(e.get("direction") == "tx" for e in events))
 
     def test_echo_fake_markers_ignored_and_fragmented_exit(self):
         wire = wrap_command("printf ok", TOKEN)
         self.assertNotIn(b"CMU1 " + TOKEN.encode() + b" BEGIN", wire)
         decoder = CommandDecoder(TOKEN)
-        payload = (wire + b"\r\nlog CMU1 " + TOKEN.encode() + b" END 0\r\n"
-                   + response(TOKEN, status=7))
+        payload = (
+            wire + b"\r\nlog CMU1 " + TOKEN.encode() + b" END 0\r\n" + response(TOKEN, status=7)
+        )
         for byte in payload:
             decoder.feed(bytes([byte]))
         self.assertTrue(decoder.complete)
@@ -159,6 +190,7 @@ class SessionTests(unittest.TestCase):
         def callback(wire):
             token = re.search(rb"' ([a-f0-9]{32}); sh -c", wire).group(1).decode()
             return [wire + response(token, status=9)]
+
         t = FakeTransport(callback=callback, max_write=7)
         s = self.session(t)
         s.state, s.identity = "shell", {"uid": 0}
@@ -168,9 +200,11 @@ class SessionTests(unittest.TestCase):
 
     def test_identity_must_be_fresh_root_and_expected_firmware(self):
         self.assertEqual(verify_identity(IDENTITY_OUTPUT)["firmware"], "55.00.750B")
-        for bad in (IDENTITY_OUTPUT.replace(b"uid=0(root)", b"uid=1000(user)"),
-                    IDENTITY_OUTPUT + b'JCI_SW_VER_PATCH="B"\n',
-                    IDENTITY_OUTPUT.replace(b"55.00.750", b"55.00.800")):
+        for bad in (
+            IDENTITY_OUTPUT.replace(b"uid=0(root)", b"uid=1000(user)"),
+            IDENTITY_OUTPUT + b'JCI_SW_VER_PATCH="B"\n',
+            IDENTITY_OUTPUT.replace(b"55.00.750", b"55.00.800"),
+        ):
             with self.assertRaises(ProtocolError):
                 verify_identity(bad)
         s = self.session(FakeTransport())
@@ -199,17 +233,25 @@ class SessionTests(unittest.TestCase):
     def test_lock_contention_other_process(self):
         directory = Path(self.tmp.name) / "locks"
         with AdapterLock(directory):
-            code = ('from open_connect.session import AdapterLock; import sys; '
-                    'AdapterLock(sys.argv[1]).__enter__()')
-            child = subprocess.run([sys.executable, "-B", "-c", code, str(directory)], cwd=ROOT,
-                                   capture_output=True, timeout=3)
+            code = (
+                "from open_connect.session import AdapterLock; import sys; "
+                "AdapterLock(sys.argv[1]).__enter__()"
+            )
+            child = subprocess.run(
+                [sys.executable, "-B", "-c", code, str(directory)],
+                cwd=ROOT,
+                capture_output=True,
+                timeout=3,
+            )
         self.assertNotEqual(child.returncode, 0)
         self.assertIn(b"BlockingIOError", child.stderr)
 
     def test_production_identity_not_weakened_for_pty(self):
         def port(device="/dev/cu.usbserial-A9048JM0", serial="A9048JM0"):
-            return SimpleNamespace(vid=0x0403, pid=0x6001, serial_number=serial,
-                                   device=device, location="test")
+            return SimpleNamespace(
+                vid=0x0403, pid=0x6001, serial_number=serial, device=device, location="test"
+            )
+
         self.assertEqual(resolve_adapter(lambda: [port()])["serial_number"], "A9048JM0")
         for ports in ([], [port(), port()], [port(serial="other")], [port(device="/dev/ttys999")]):
             with self.assertRaises(BenchError):
@@ -221,8 +263,14 @@ class SessionTests(unittest.TestCase):
         attrs[3] &= ~termios.ECHO
         termios.tcsetattr(slave, termios.TCSANOW, attrs)
         env = dict(os.environ, PS1="/tmp/root # ", PS2="> ", ENV="")
-        child = subprocess.Popen(["/bin/sh", "-i"], stdin=slave, stdout=slave, stderr=slave,
-                                 env=env, start_new_session=True)
+        child = subprocess.Popen(
+            ["/bin/sh", "-i"],
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+            env=env,
+            start_new_session=True,
+        )
         os.close(slave)
         try:
             s = self.session(MasterTransport(master), timeout=2)
@@ -243,7 +291,9 @@ class SessionTests(unittest.TestCase):
 
     def test_pyserial35_receive_only_over_explicit_test_pty(self):
         import serial
+
         from open_connect.session import SETTINGS
+
         master, slave = pty.openpty()
         port = serial.Serial(port=None, **SETTINGS)
         try:
@@ -263,8 +313,12 @@ class SessionTests(unittest.TestCase):
             os.close(slave)
 
     def test_cli_default_no_hardware_or_output_files(self):
-        child = subprocess.run([sys.executable, "-B", "-m", "open_connect", "uart"],
-                               capture_output=True, cwd=self.tmp.name, timeout=2)
+        child = subprocess.run(
+            [sys.executable, "-B", "-m", "open_connect", "uart"],
+            capture_output=True,
+            cwd=self.tmp.name,
+            timeout=2,
+        )
         self.assertEqual(child.returncode, 0, child.stderr)
         plan = json.loads(child.stdout)
         self.assertFalse(plan["opens_port"])

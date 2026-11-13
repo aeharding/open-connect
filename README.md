@@ -11,7 +11,8 @@ One supported firmware at a time; the planned modern replacement is not yet veri
 - Native startup disclaimer bypass and independent undo have been demonstrated.
   Smoother startup handoff remains under investigation.
 - Silent Entertainment testing works without a TAU through Mazda's existing
-  audio-manager API. A persistent bench profile is being planned.
+  audio-manager API. A single CLI manages runtime bench setup/teardown; startup
+  persistence remains planned.
 - Upgrade scoping targets the latest applicable North American firmware; the
   exact package and supported upgrade sequence are not yet established.
 
@@ -34,7 +35,8 @@ Use issues for concrete work and pull requests for coherent changes. The primary
 developer owns implementation and bench operation; focused reviewers investigate
 specific design questions against actual Mazda code.
 
-[Host/bench instructions](README.txt) explain the existing tools.
+[Bench setup and CLI guide](bench/README.md) explains the current commands.
+[Detailed host instructions](README.txt) cover the lower-level tools.
 [Current handoff](notes/afk-session-status.txt) records changing device state.
 Historical experiment profiles are evidence, not reusable live authorization.
 

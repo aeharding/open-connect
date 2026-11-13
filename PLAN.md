@@ -41,11 +41,12 @@ A developer preview is not a general end-user car release.
 
 ## Execution order now
 
-1. **#1, immediate implementation:** turn the already proven audio API recipe into
-   a small host-invoked status/activate/runtime-disable helper. The focused OEM-code
-   review is complete: [plan](bench/PLAN.md), [findings](bench/REVIEW.md).
-   Prove the startup hook before adding persistence; it does not gate other feature work.
-   Do not repeat the review or build a force-enable daemon.
+1. **#1, first increment delivered:** one `oc bench setup/status/teardown`
+   manages the whole current runtime profile. Host and command-only agent checks,
+   live setup/repeat/teardown/setup passed; the bench is intentionally enabled.
+   [Guide](bench/README.md), [result](bench/RESULT.md), [plan](bench/PLAN.md).
+   Persistent startup still needs a verified hook/readiness boundary; it does not
+   gate feature work. No per-helper public controls or force-enable daemon.
 2. **#2, active research:** resolve the exact supported latest-NA package and upgrade
    route/access implications. Existing source leads are not a current-release proof.
    Produce a concrete recipe and named remaining physical inputs.
@@ -110,7 +111,8 @@ with stock native; it still shows a brief handoff. See
 [current state](notes/afk-session-status.txt). This is not a release candidate.
 
 The existing audio-manager API opened FM Now Playing and the source list without
-a TAU. It was explicitly disabled again. No permanent startup profile is installed;
+a TAU. The CLI then verified setup/teardown and left the runtime profile enabled for
+development. No permanent startup hook is installed;
 actual playback, ACC/resume behavior and vehicle equivalence are unproved.
 See [TAU experiment](experiments/tau-bypass/README.md).
 
@@ -137,3 +139,5 @@ GitHub [issues](https://github.com/aeharding/open-connect/issues) and
 [milestones](https://github.com/aeharding/open-connect/milestones) are the work queue.
 This roadmap holds intent and dependency order; changing device state stays in
 the handoff. Update these after meaningful results, not every command.
+
+Semantic CLI: https://github.com/aeharding/open-connect/issues/14. SSH/network transport: https://github.com/aeharding/open-connect/issues/15.

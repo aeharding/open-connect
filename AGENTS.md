@@ -7,6 +7,13 @@ unavailable physical operation as a dependency; do not assign it to the user.
 
 ## Coordination
 
+Working style: a hackathon with trusted teammates. Give agents complete outcome
+ownership and room to choose routine implementation details. Coordinate dependencies,
+resolve blockers and integrate results; do not act as a per-command approval gate.
+Prefer the smallest working demo and fast feedback. Keep documentation concise and
+batch it after useful results. Pause for genuinely new risk or an unexpected device
+state; retain one UART owner and responsibility for software cleanup.
+
 - The point agent coordinates. Delegate scoped execution and research through
   Herdr's `hc` API/CLI exclusively; do not use native agent-spawn/collaboration
   tools. Run program/file operations through Herdr too.

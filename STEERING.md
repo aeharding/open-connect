@@ -47,8 +47,7 @@ The user supplies physical resources; the primary owns software execution.
 Bench helpers are managed as one development profile: setup, status and teardown.
 No per-helper manual activation, new CMU menu or graphical UI is needed. A thin
 semantic CLI reuses working tools; Python on the host and POSIX sh on the CMU are
-the initial implementation. Extend it only for concrete tasks. See docs/cli.md
-and docs/cli.md. Command-only ephemeral agents can test usability, while the primary
+the initial implementation. Extend it only for concrete tasks. See docs/cli.md. Command-only ephemeral agents can test usability, while the primary
 retains ownership of live state and the complete outcome.
 
 ## One required firmware baseline
@@ -137,9 +136,11 @@ Reuse the working hardlink-hold recovery instead of rebuilding tooling.
 The public repository is https://github.com/aeharding/open-connect.
 Original project code uses AGPL-3.0-or-later; incompatible comparison adaptations
 and proprietary OEM captures stay out of the public repository. See THIRD_PARTY.md.
-Use issues for concrete work and pull requests for coherent changes. A short plan
-and one focused OEM-code review should improve the approach, not become repeated
-approval gates. The primary still owns implementation and bench results.
+Use issues for concrete work and pull requests for coherent changes. Every PR
+requires independent adversarial review before merge, including small fixes and
+documentation. Review the actual final diff for correctness, clarity and unnecessary
+complexity; resolve blockers and record the reviewed commit. Keep the review
+focused and proportional. The primary still owns implementation and bench results.
 See CONTRIBUTING.md for development workflow and issue #1 for bench-profile work.
 
 ## Knowledge, progress and maintenance

@@ -4,6 +4,23 @@ Start with [README.md](README.md). Work is tracked in
 [GitHub issues](https://github.com/aeharding/open-connect/issues); use short-lived
 branches and reviewable pull requests.
 
+## Review before every merge
+
+Every PR requires an independent adversarial review before merging, including
+documentation, moves, deletions and small fixes. A separate ephemeral reviewer
+or another contributor must inspect the actual diff and affected entry points,
+not just the author's summary. The author remains responsible for the result.
+
+Challenge whether a newcomer can understand the result, what became broken or
+misleading, what is unnecessary, and whether the evidence supports the claims.
+Report concrete findings with severity and file references; do not manufacture
+objections to fill a checklist.
+
+Record the reviewed commit, findings and their disposition in the PR. Resolve
+blocking findings before merge. After changes, have the reviewer check the
+affected delta; a review of an earlier revision is not approval of new code.
+Keep this proportional: one focused review, not a standing review team.
+
 ## Host code
 
 ~~~sh

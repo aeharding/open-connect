@@ -2,13 +2,13 @@
   "schema": "NATIVE_INTRO_HOST_REVIEW_V1",
   "status": "HOST_CHECKS_PASS",
   "live_authority": false,
-  "profile": "/Users/aeharding/open-connect/runs/t12-native-host-20261113T182648.838090Z/candidate/profile.json",
-  "manifest": "/Users/aeharding/open-connect/runs/t12-native-host-20261113T182648.838090Z/manifest.json",
+  "profile": "/Users/aeharding/open-connect/runs/t12-native-host-20261113T191107.434648Z/candidate/profile.json",
+  "manifest": "/Users/aeharding/open-connect/runs/t12-native-host-20261113T191107.434648Z/manifest.json",
   "source_pins": {
-    "experiments/disclaimer-native/native.c": "b36598b64fa7bf17c57a3f136a42045532cc2ea8b751a0f49427a5539d079394",
-    "experiments/disclaimer-native/build.py": "0c9db315a983329c95bd0040bbd29e99a515e2767d66b815fed17e020ed1f4c9",
-    "experiments/disclaimer-native/host_test.c": "1dcaa8d0ddfc5c0c7baaf11919c18726348f4e56fb963802f7410351b601775d",
-    "experiments/disclaimer-native/test_native.py": "04710074b4bac54b2df87e88a9eb4469abc602642b667de64518f73d23bf7aec",
+    "experiments/disclaimer-native/native.c": "cc7bd83ea07589e587c160c190e4b1fa2d555b1050381fe08a7111f8f9bd12e9",
+    "experiments/disclaimer-native/build.py": "3e9b0571b380108d7ca1f49d64ba0f5cfcbd7677e7c7af1ab48feda583fe1f73",
+    "experiments/disclaimer-native/host_test.c": "c8f74d3f26bbe5858f2aabb773958aa4cd03573e706b076a367af996de506171",
+    "experiments/disclaimer-native/test_native.py": "06a69daa38900bebb5cd58ee1609cf9b353807630c72c868c4b1c02ab20e6d90",
     "experiments/disclaimer-native/check.py": "16fca1803371d4651f22f9e63d0ccca62bc465a06e09602b69a64f8e830c20f3"
   }
 }

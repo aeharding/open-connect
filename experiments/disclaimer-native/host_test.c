@@ -114,18 +114,18 @@ static void invoke(void) {
 int main(void) {
     for(int i=0;i<9;i++) {
         reset();selected=i;invoke();
-        assert(used_clone==1 && system_calls==1 && stop_calls==1 && warning_calls==1);
-        assert(logo==0 && context.context==rules194[i][5] && last_log_rc==100);
+        assert(used_clone==1 && system_calls==0 && stop_calls==1 && warning_calls==1);
+        assert(logo==2 && context.context==rules194[i][5] && last_log_rc==100);
         assert(granted_actions==(rules194[i][1]!=0) && denied_actions==0);
     }
     puts("PASS nine actual OEM rule successors/flags, NULL default, one exit, exact args/return");
     for(int i=0;i<9;i++) {
         reset();selected=i;granted=0;invoke();
-        assert(used_clone==1 && system_calls==1 && logo==0);
+        assert(used_clone==1 && system_calls==0 && logo==2);
         assert(stop_calls==0 && warning_calls==0 && context.context==1021);
         assert(granted_actions==0 && denied_actions==(rules194[i][2]!=0));
     }
-    puts("PASS denial preserves callback alternatives/state/return; intro disposal intentional, no quick/exit");
+    puts("PASS denial preserves callback alternatives/state/return; intro retained until renderer completion, no quick/exit");
     for(int i=0;i<6;i++) {
         reset();granted=0;
         if(i==0)focus_app=2;
@@ -137,10 +137,6 @@ int main(void) {
         invoke();assert(!used_clone && !system_calls && !stop_calls && !warning_calls);
     }
     puts("PASS nofocus, unsupported mode/event/context/table remains stock before mutation");
-    reset();intro_rc=7;invoke();
-    assert(!used_clone && system_calls==1 && logo==2 && !stop_calls);
-    assert(context.context==1010 && warning_calls==1 && error_logs==1 && last_log_rc==7);
-    puts("PASS intro cleanup failure preserved/status reported and original Show path used");
     reset();quick_rc=77;invoke();
     assert(used_clone && warning_calls==1 && stop_calls==1 && error_logs==1 && last_log_rc==77);
     puts("PASS quick cleanup failure reported; normal manager result not fabricated");

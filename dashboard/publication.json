@@ -1,16 +1,16 @@
 {
   "page_id": "page_72594960d3f08191911f2944d96c7eee",
   "page_url": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
-  "visualization_reference": "![Mazda Open Connect Dashboard](visualize:fde1_bGliZmlsZV9jcXNBSEJxNDdmUXllMUJxUXpJejhn_FileDrive_147de6d1e140819180a22e56e12476bf)",
+  "visualization_reference": "![Mazda Open Connect Dashboard](visualize:fde1_bGliZmlsZV9hR1NFZmN2eFpOaVNkODdJVlhZdzFn_FileDrive_147de6d1e140819180a22e56e12476bf)",
   "visualization_block_id": "7d59a3d7-6ffb-486e-8366-7634ade4db68",
-  "download_reference": "library-file:fde1_bGliZmlsZV9nekNINF9pLTVsSXRrUUhENklxaHJR_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "download_reference": "library-file:fde1_bGliZmlsZV9sZkpSbWRBRHhYUVVmNjNEeGpDV0pR_FileDrive_147de6d1e140819180a22e56e12476bf",
   "download_block_id": "a2e95491-5ac3-421b-9473-1f02c3f040c6",
-  "html_sha256": "d5c75bc1b23e00c9dfabc53687b6b4745bb45eb4a6f765e7e36cee98941a9dc3",
-  "status_updated_at": "2026-11-13T12:48:11-06:00",
+  "html_sha256": "0f4f63616c80507593e4d93e9bded999b6d019d6fa1ac9163f64dc5a05d44c45",
+  "status_updated_at": "2026-11-13T13:28:16-06:00",
   "source": "dashboard/index.html",
   "data_source": "dashboard/status.json",
   "privacy": "private personal Page; sanitized summary",
-  "render_check": "Data-only update; existing dark/light controls and wide/narrow layout checks retained. Page embed and downloads saved/read back; hosted rendering not independently previewed.",
+  "render_check": "Data-only update; existing theme/layout code retained. Uploaded files and Page blocks read back; hosted visual preview not available in this run.",
   "themes": [
     "Auto",
     "Light",
@@ -43,5 +43,8 @@
   "restored_stock_visual_reference": "library-file:fde1_bGliZmlsZV9lZWFVZDlfQlJ5aGhEVlQwWFhSNjNR_FileDrive_147de6d1e140819180a22e56e12476bf",
   "native_host_prototype_reference": "library-file:fde1_bGliZmlsZV91WjRSQ28xZVFIbWo2UUN5TktIZFBn_FileDrive_147de6d1e140819180a22e56e12476bf",
   "native_v2_result_reference": "library-file:fde1_bGliZmlsZV9rVVJRRmpuc3Qtc21YeDBQSkhqNWhB_FileDrive_147de6d1e140819180a22e56e12476bf",
-  "native_v2_video_reference": "library-file:fde1_bGliZmlsZV93MzBGZ0FGMFh1MVhwZDBITkJzc2hB_FileDrive_147de6d1e140819180a22e56e12476bf"
+  "native_v2_video_reference": "library-file:fde1_bGliZmlsZV93MzBGZ0FGMFh1MVhwZDBITkJzc2hB_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "smooth_video_reference": "library-file:fde1_bGliZmlsZV92dTV6dXgwOV83RFFHZ1dpV0hRNVVR_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "smooth_result_reference": "library-file:fde1_bGliZmlsZV9wVjdLUHRiMUtVbDE2bVRIVWpTV1dB_FileDrive_147de6d1e140819180a22e56e12476bf",
+  "page_sequence": 44
 }

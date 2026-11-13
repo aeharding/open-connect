@@ -12,6 +12,8 @@ OH=@ORIGINAL_HASH@
 CH=@CANDIDATE_HASH@
 OC=@ORIGINAL_CRC@
 CC=@CANDIDATE_CRC@
+OS=@ORIGINAL_SIZE@
+CS=@CANDIDATE_SIZE@
 MODE=${1:-VERIFY}
 WRITING=0
 emit() { printf 'OCLINK|%s\n' "$*"; }
@@ -25,10 +27,10 @@ regular() {
 }
 image() {
  regular "$1"
- test "$(stat -c '%s:%a:%u:%g' "$1")" = '454142:755:1018:3015' || die "metadata $1"
- case "$2" in O) h=$OH;c=$OC;; C) h=$CH;c=$CC;; *) die image_kind;;esac
+ case "$2" in O) h=$OH;c=$OC;n=$OS;; C) h=$CH;c=$CC;n=$CS;; *) die image_kind;;esac
+ test "$(stat -c '%s:%a:%u:%g' "$1")" = "$n:755:1018:3015" || die "metadata $1"
  test "$(md5sum < "$1")" = "$h  -" || die "hash $1"
- test "$(cksum < "$1")" = "$c 454142" || die "crc $1"
+ test "$(cksum < "$1")" = "$c $n" || die "crc $1"
 }
 alias() {
  image "$1" "$2"

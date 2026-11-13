@@ -7,7 +7,8 @@ R=ROOT/os.environ.get("OC_RUN","runs/open-connect-native-linked")
 def save(name,x): (R/name).write_text(json.dumps(x,indent=2)+"\n")
 def load(name):return json.loads((R/name).read_text())
 def entry(mode):
- p=load("plan/plan.json");code=load("code.json")
+ return bound_entry(load("plan/plan.json"),load("code.json"),mode)
+def bound_entry(p,code,mode):
  return f'''d={p["directory"]}
 test -d "$d" && test ! -L "$d" && test "$(readlink -f "$d")" = "$d" || exit 70
 test "$(stat -c '%d:%i:%a:%u:%g' "$d")" = '{code["directory"]}' || exit 71

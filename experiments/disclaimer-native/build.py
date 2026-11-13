@@ -196,7 +196,7 @@ def build(output,original_path=ORIGINAL):
         limits=['host C contract model, not ARM execution or CMU proof',
                 'new no-exception C has no injected unwind entries; original metadata retained',
                 'same-frame cloned table view relies on synchronous manager consumption',
-                'intro cleanup before continuation denial is intentional; quickstop only on actual exit'])
+                'requires paired renderer completion hook for deferred stock DisposeIntroVideo; quickstop only on actual exit'])
     (output/'profile.json').write_text(json.dumps(profile,indent=2)+'\n')
     for name,flags in [('native-object',['-d','-r','-h']),('candidate-headers',['-p','-h'])]:
         inputfile=output/('native.o' if name=='native-object' else 'candidate.bin')

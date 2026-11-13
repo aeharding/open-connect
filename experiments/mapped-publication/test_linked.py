@@ -8,7 +8,7 @@ class LinkedTests(unittest.TestCase):
   self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
   self.r=Path(self.tmp.name).resolve();self.d=self.r/"data";self.d.mkdir(mode=0o700)
   self.p=self.r/"lib.so";self.h=self.r/"holdO";self.c=self.r/"holdC";self.s=self.r/"stage"
-  self.o=b"O"*454142;self.new=b"C"*454142
+  self.o=b"O"*getattr(self,"original_size",454142);self.new=b"C"*getattr(self,"candidate_size",454142)
   for p,b in [(self.p,self.o),(self.d/"original",self.o),(self.d/"candidate",self.new)]:
    p.write_bytes(b);p.chmod(0o755)
   (self.d/"state").write_text("prepared|none\n");(self.d/"state").chmod(0o600)

@@ -4,6 +4,11 @@ Open Connect is an open-source project to improve Mazda Connect reliability and
 responsiveness while preserving the OEM feel. This repository includes feature
 experiments, reverse-engineering findings and the development bench tools.
 
+Latest feature: native disclaimer bypass with renderer-completed intro cleanup.
+The recorded black startup gap is gone; a brief dim fade remains. Both-file undo
+and restored-stock boot passed. See notes/native-intro-handoff-result.txt; current
+installed state is in notes/afk-session-status.txt. Exact firmware55 bench work.
+
 Progress dashboard: https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee
 Portable source: dashboard/index.html (snapshot data: dashboard/status.json).
 

@@ -17,7 +17,8 @@ def render(target,d,hold_o,hold_c,stage,oid,parents,original=None,candidate=None
     o=original or P["original"];c=candidate or P["candidate"]
     vals={"TARGET":target,"DIRECTORY":d,"HOLD_O":hold_o,"HOLD_C":hold_c,"STAGE":stage,
           "ORIGINAL_ID":oid,"ORIGINAL_HASH":o["md5"],"CANDIDATE_HASH":c["md5"],
-          "ORIGINAL_CRC":str(o["crc"]),"CANDIDATE_CRC":str(c["crc"])}
+          "ORIGINAL_CRC":str(o["crc"]),"CANDIDATE_CRC":str(c["crc"]),
+          "ORIGINAL_SIZE":str(o["bytes"]),"CANDIDATE_SIZE":str(c["bytes"])}
     guards=[]
     for path,sid in parents.items():
         guards.extend([f'test -d {path} && test ! -L {path} && test "$(readlink -f {path})" = {path} || die parent',

@@ -1,41 +1,41 @@
 {
   "schema_version": 1,
   "title": "Mazda Open Connect",
-  "updated_at": "2026-11-13T12:48:11-06:00",
+  "updated_at": "2026-11-13T13:28:16-06:00",
   "timezone": "America/Chicago",
-  "snapshot_note": "Saved progress, not live telemetry. Candidate publication verified; root remount to read-only failed. Original-only recovery is underway.",
+  "snapshot_note": "Saved progress, not live telemetry. Improved pair verified running; root read-only.",
   "links": {
     "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
     "html_download": null
   },
-  "headline": "Native bypass running for the live demo",
-  "summary": "The user watched the native bypass boot to home. The patch remains installed and loaded, with physical root read-only; independent original recovery is retained. The earlier complete undo and stock confirmation passed. A brief black transition remains to investigate.",
+  "headline": "Black startup pause removed in the recorded trial",
+  "summary": "Intro cleanup now waits for the renderer. The prior0.6–1.0s sampled black gap is absent; a brief dim fade remains. Paired undo and original startup passed, then the improved version was installed and booted for the live demo.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
-    "console": "Fresh root55 / NA and exact loaded candidate verified after demo",
+    "console": "Fresh root55 / NA; native and renderer pair verified",
     "uart": "115200 · 8N1 · no flow control",
     "tx": "64-byte chunks · 20 ms RX gaps",
     "camera": "Last read: manual1 · exposure87 · brightness128",
     "scope": "USB + SD preserved · AUX not required",
-    "changes": "Native v2 candidate intentionally installed and loaded for the live demo. Physical root read-only; original backup, independent recovery and inode holds retained.",
-    "display": "User observed normal startup/home with a brief black transition",
+    "changes": "Improved native + renderer pair intentionally installed and loaded. Root read-only; originals and independent undo retained.",
+    "display": "Home reached; no disclaimer. Brief dim fade remains.",
     "device_state": "done",
-    "state_label": "Native demo running · root read-only",
+    "state_label": "Improved demo running · root read-only",
     "firmware_qualifier": "One exact55 warm Intro startup; other startup paths remain open"
   },
   "metrics": [
     {
-      "value": "Bypassed",
-      "label": "native Disclaimer context in tested path"
+      "value": "No gap",
+      "label": "black interval absent in sampled trial"
     },
     {
-      "value": "2 boots",
-      "label": "candidate + restored original verified"
+      "value": "Paired undo",
+      "label": "both originals restored and booted"
     },
     {
       "value": "RO",
-      "label": "current original filesystem"
+      "label": "current root filesystem"
     },
     {
       "value": "55.00.750B",
@@ -66,8 +66,8 @@
         "kind": "done",
         "title": "Mazda CMU",
         "lines": [
-          "55.00.750B · native demo running",
-          "Candidate loaded / root read-only"
+          "55.00.750B · improved demo running",
+          "Native + renderer / root read-only"
         ]
       },
       {
@@ -79,8 +79,8 @@
         "kind": "done",
         "title": "Display / native UI",
         "lines": [
-          "User watched disclaimer bypass",
-          "Brief black transition to investigate"
+          "Disclaimer skipped; black gap absent",
+          "Brief dim fade remains"
         ]
       },
       {
@@ -201,6 +201,17 @@
     ]
   },
   "milestones": [
+    {
+      "id": "intro-handoff",
+      "title": "Intro handoff fixed; paired undo verified",
+      "state": "done",
+      "detail": "Native intro remains until home transition completion, then the stock cleanup event runs.",
+      "proof": "Paired candidate/original boots, exact mappings and hashes, independent undo and hold cleanup. Separate live demo passed.",
+      "limits": "No blank handoff frame at~5FPS; brief dim frame remains. Exact55 warm Intro path.",
+      "refs": [
+        "notes/native-intro-handoff-result.txt"
+      ]
+    },
     {
       "id": "native-v2",
       "title": "Native bypass + undo + stock confirmation passed",
@@ -489,6 +500,15 @@
   ],
   "tasks": [
     {
+      "id": "handoff-next",
+      "lane": "next",
+      "state": "waiting",
+      "title": "Assess remaining brief transition fade",
+      "owner": "Primary agent",
+      "detail": "The long black pause is resolved. Evaluate the remaining stock Crossfade and alternate destinations.",
+      "pass": "OEM-feeling handoff with preserved cleanup, focus and resume choices."
+    },
+    {
       "id": "native-next",
       "lane": "next",
       "state": "waiting",
@@ -754,20 +774,20 @@
   ],
   "recent": [
     {
-      "title": "Live demo confirmed; patch left running",
-      "text": "Fresh read-only reconciliation verifies loaded candidate/rootRO. Mac ENOSPC interrupted original recorder; its UNKNOWN result is preserved. User authorized storage cleanup to300GB free."
+      "title": "Improved live demo passed",
+      "text": "Both patches installed and loaded; root read-only, access verified, independent recovery retained."
     },
     {
-      "title": "Native warning bypass demonstrated",
-      "text": "No warning in reviewed candidate startup; native log skips Disclaimer and reaches HomeScreen."
+      "title": "Black gap absent in sampled handoff",
+      "text": "Cleanup now runs after transition completion. Brief dim fade remains."
     },
     {
-      "title": "Original restored and rebooted",
-      "text": "The warning returned. Exact original loaded, root read-only, hold cleanup complete."
+      "title": "Both originals restored and booted in prior trial",
+      "text": "Native and JS undo, stock warning/home, fresh mapping and hold cleanup passed."
     },
     {
-      "title": "Busy-filesystem cause handled",
-      "text": "Mapped original/candidate inodes keep owned hardlinks until their processes unload them."
+      "title": "Mac storage reclaimed",
+      "text": "More than300GB free after authorized cache, VM, simulator and user-file cleanup."
     }
   ],
   "guardrails": [

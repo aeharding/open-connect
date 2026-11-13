@@ -91,16 +91,14 @@ word cmu_native_process(word handle, Machine *machine, Event *event,
     Machine local;
     Cell cells[203];
     Column columns[22];
-    int result;
     /* No waits, synthetic events, direct context assignment or table writes. */
     if (!supported(machine,event,current,&b) || *b.logo_state!=2 ||
         cmu_focused_app(cmu_uia_handle())!=1)
         return cmu_stock_process(handle,machine,event,current,a4,a5);
-    result=cmu_system(b.intro_command);
-    record(result==0 ? 5 : 2,"CMU_NATIVE_BYPASS intro rc=%d",result);
-    if (result!=0)
-        return cmu_stock_process(handle,machine,event,current,a4,a5);
-    *b.logo_state=0; /* Stock cleanup clears only on system() success. */
+    /* The renderer disposes intro through stock DisposeIntroVideo only after
+     * the incoming screen has completed its transition. Keep its native surface
+     * alive here, including the denied-focus path. */
+    record(5,"CMU_NATIVE_BYPASS deferred intro rc=%d",0);
     cmu_copy(&local,machine,sizeof local);
     cmu_copy(cells,machine->cells,sizeof cells);
     cmu_copy(columns,machine->columns,sizeof columns);

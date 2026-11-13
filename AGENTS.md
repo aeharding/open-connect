@@ -46,7 +46,9 @@ learning, not the completed feature; masking and timer tuning remain parked.
 Native v2 now demonstrated a true Intro startup bypass, with independent undo
 and restored-original startup verified. The mapped-inode EBUSY issue was solved
 using same-filesystem hardlink holds across apply/undo and loaded-module lifetime.
-See notes/native-disclaimer-v2-result.txt and the current handoff; old payloads
+The newer paired renderer handoff removes the sampled long black gap; both-file
+undo and original startup passed. See notes/native-intro-handoff-result.txt and
+the current handoff; old payloads
 and worker assignments are historical, not replay instructions.
 
 ## Verified reference state

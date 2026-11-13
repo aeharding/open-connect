@@ -59,7 +59,7 @@ class NativeTests(unittest.TestCase):
         r=subprocess.run([str(OUT/'host-contract')],capture_output=True,text=True,timeout=10)
         (OUT/'host.stdout').write_text(r.stdout);(OUT/'host.stderr').write_text(r.stderr)
         self.assertEqual(r.returncode,0,r.stdout+r.stderr)
-        self.assertEqual(r.stdout.count('PASS '),5)
+        self.assertEqual(r.stdout.count('PASS '),4)
         self.assertIn('HOST MODEL ONLY',r.stdout)
 
     def test_public_destination_refused_without_candidate_write(self):

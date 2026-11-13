@@ -1,9 +1,0 @@
-Stock warm-reboot route preflight only, 2026-11-13, operator t14.
-Evidence: runs/20261113T055807-0600-t14-stock-reboot-preflight/route-output.txt and route/manifest.json (raw RX/TX/events/command).
-Fresh root55.00.750B/cmu150_NA; core completed0+PS1/closed port. Uptime16080.94s.
-Current systemApp original94058B MD5584c67f7186ada6bae9aae1be59b5cd0 CRC376717896; inode9457/mode755/1018:3015/nlink1/mtime1433953097. Physical /dev/ffx01p1 root RelFS ro,noatime; pseudo rootfs rw is baseline.
-Actual /sbin/reboot resolves /bin/busybox; reboot --help rc1, BusyBox1.19.2, normal init route versus forbidden -f/-n.
-PID1 argv is /sbin/init NUL (11B); exe /sbin/init_cmu135288B MD58087f4cd0d1d827a6a3d5dec8d94899e, different from BusyBox703709B MD541b96f03a7934fc927b7d523eaf4b17e. /sbin/init->init_target->init_cmu. /etc/inittab absent, head/wc each1.
-Thus upstream BusyBox init.c behavior cannot be attributed to vendor PID1. This does not prove stock reboot incompatible. No reboot/signal/init/telinit execution. Reboot held for route investigation.
-Camera enumeration only: index0 USB Camera VID:1133 PID:2085; inventory/20261113T055807.789000-0600-camera-devices.json. No video started. boot_id not queried.
-Helpers t64/t65 finished0, outputs saved, removed. UART aliases checked in cleanup.json. Private credential JSON0600 retained; no secret in this note. New t6 scope permits at most two bounded readonly route text batches; no reboot yet.

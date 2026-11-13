@@ -22,7 +22,7 @@ ask the user to press buttons, dismiss dialogs or rewire things to complete agen
 - src/open_connect/: host Python; nothing here is installed on the CMU.
 - tests/: maintained host tests, including the semantic CLI and bench profile.
 - experiments/: prototype mods and trial tooling; generated payloads may affect the CMU.
-- docs/: setup, usage and concise findings. docs/history/ is dated evidence.
+- docs/: setup, usage and concise findings. Use Git for historical records.
 - GitHub issues/PRs: work queue and review. No separate progress-dashboard requirement.
 
 Use the installed oc command or python -m open_connect. Low-level UART operations

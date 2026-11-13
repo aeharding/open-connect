@@ -44,7 +44,7 @@ A developer preview is not a general end-user car release.
 1. **#1, first increment delivered:** one `oc bench setup/status/teardown`
    manages the whole current runtime profile. Host and command-only agent checks,
    live setup/repeat/teardown/setup passed; the bench is intentionally enabled.
-   [Guide](bench/README.md), [result](bench/RESULT.md), [plan](bench/PLAN.md).
+   [CLI operations](bench/OPERATIONS.md), [result](bench/RESULT.md), [plan](bench/PLAN.md).
    Persistent startup still needs a verified hook/readiness boundary; it does not
    gate feature work. No per-helper public controls or force-enable daemon.
 2. **#2, active research:** resolve the exact supported latest-NA package and upgrade

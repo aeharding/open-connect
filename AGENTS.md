@@ -137,7 +137,7 @@ and worker assignments are historical, not replay instructions.
 ## Context and durable records
 
 Start with README.txt, notes/afk-session-status.txt (current), notes/status.txt,
-and PLAN.md. Read bench/README.md for semantic CLI operations. Use scripts/oc
+and PLAN.md. Read bench/OPERATIONS.md for semantic CLI operations. Use scripts/oc
 for implemented bench-profile setup/status/teardown; scripts/cmu-session.py remains
 the lower-level command runner for operations not yet exposed by the CLI;
 the legacy fixed-window helper remains historical. The current runner limits

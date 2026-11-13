@@ -1,5 +1,5 @@
 """Exact OEM55 patch: dispose the native intro only after renderer transition completion."""
-import hashlib,json,sys
+import argparse,hashlib,json,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
@@ -25,14 +25,22 @@ def patch(b):
  offset=b.index(ANCHOR)+len(ANCHOR)
  insertion=INSERT.replace(b"\n",b"\r\n") if b"\r\n" in b else INSERT
  return b[:offset]+insertion+b[offset:],offset,insertion
-def build(out):
+def build(out,original):
  out=Path(out).resolve()
- if not out.is_relative_to(ROOT/"runs"):raise ValueError("private output required")
- out.mkdir(parents=True,exist_ok=False)
- b=BASE.read_bytes();c,offset,insert=patch(b)
+ if not out.is_relative_to(ROOT/"runs") or out==ROOT/"runs":raise ValueError("private output required")
+ b=Path(original).read_bytes();c,offset,insert=patch(b)
+ out.mkdir(mode=0o700,parents=True,exist_ok=False)
  for name,data in [("original.js",b),("candidate.js",c),("insert.bin",insert)]:out.joinpath(name).write_bytes(data)
  profile=dict(original=fp(b),candidate=fp(c),insert=fp(insert),offset=offset,
               target="/jci/gui/apps/system/js/systemApp.js",candidate_path=str(out/"candidate.js"))
  out.joinpath("profile.json").write_text(json.dumps(profile,indent=2)+"\n")
  return profile
-if __name__=="__main__":print(json.dumps(build(sys.argv[1]),indent=2))
+def main():
+ parser=argparse.ArgumentParser(description=__doc__)
+ parser.add_argument("--original",type=Path,required=True,help="exact private OEM systemApp.js")
+ parser.add_argument("--output",type=Path,required=True,help="new private directory under runs/")
+ args=parser.parse_args()
+ try: result=build(args.output,args.original)
+ except (OSError,ValueError) as exc: parser.exit(2,f"build not completed: {exc}\n")
+ print(json.dumps(result,indent=2))
+if __name__=="__main__":main()

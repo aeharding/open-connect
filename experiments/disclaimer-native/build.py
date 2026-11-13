@@ -8,12 +8,12 @@ import re
 import struct
 import subprocess
 import sys
+import shutil
 
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
 from open_connect.files import posix_cksum
 HERE=Path(__file__).resolve().parent
-ORIGINAL=ROOT/'runs/20261113T100437-0600-t14-mmui-upstream/originals/jci/mmui/uia/libjciuiasystem.so'
 BASE_SHA='acf24ffd3719a29d2b4eefe80855ef6f164852fe3464858d07ca2d956395d302'
 BASE_LENGTH=454142
 TARGET='/jci/mmui/uia/libjciuiasystem.so'
@@ -21,8 +21,6 @@ FIRMWARE='55.00.750B/cmu150_NA'
 STUB=0x48c00
 END=0x49000
 SITE=0x7ed4
-CLANG='/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang'
-OBJDUMP='/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/llvm-objdump'
 
 
 def metadata(data):
@@ -31,6 +29,28 @@ def metadata(data):
 
 
 class Rejected(ValueError):pass
+
+
+def tool(name, explicit=None):
+    """Resolve explicit tools or PATH; Apple developer tools also support xcrun."""
+    value=str(explicit or name)
+    found=shutil.which(value)
+    if not found and explicit is None and sys.platform=="darwin":
+        r=subprocess.run(["xcrun","--find",name],capture_output=True,text=True)
+        if r.returncode==0:
+            found=shutil.which(r.stdout.strip())
+    if not found:
+        raise Rejected(f"missing executable {value}; install LLVM or pass its explicit path")
+    return str(Path(found).absolute())
+
+
+def private_output(output):
+    output=Path(output).resolve()
+    if not any(output.is_relative_to(ROOT/n) and output!=ROOT/n for n in ("runs","backups")):
+        raise Rejected("OEM/candidate bytes must remain private under runs/backups")
+    if output.exists():
+        raise Rejected("output already exists; choose a new directory")
+    return output
 
 
 class ELF:
@@ -145,22 +165,22 @@ def rollback(current,original,expected_candidate):
     return original
 
 
-def build(output,original_path=ORIGINAL):
-    original=Path(original_path).read_bytes();guard(original)
-    output=Path(output).resolve()
-    if not any(output.is_relative_to(ROOT/n) and output!=ROOT/n for n in ('runs','backups')):
-        raise Rejected('OEM/candidate bytes must remain private under runs/backups')
+def build(output,original_path,*,clang=None,objdump=None):
+    output=private_output(output)
+    original_path=Path(original_path).resolve()
+    original=original_path.read_bytes();guard(original)
+    clang=tool("clang",clang);objdump=tool("llvm-objdump",objdump)
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
     (output/'native.c').write_bytes((HERE/'native.c').read_bytes())
     (output/'build.py').write_bytes(Path(__file__).read_bytes())
-    cmd=[CLANG,'--target=armv7-none-eabi','-march=armv7-a','-marm','-mfloat-abi=hard','-mfpu=vfpv3',
+    cmd=[clang,'--target=armv7-none-eabi','-march=armv7-a','-marm','-mfloat-abi=hard','-mfpu=vfpv3',
          '-Oz','-ffreestanding','-fPIC','-fvisibility=hidden','-fno-unwind-tables',
          '-fno-asynchronous-unwind-tables','-fno-stack-protector','-c',str(output/'native.c'),'-o',str(output/'native.o')]
     r=subprocess.run(cmd,capture_output=True)
     (output/'compile.stdout').write_bytes(r.stdout);(output/'compile.stderr').write_bytes(r.stderr)
     (output/'compile.json').write_text(json.dumps(dict(command=cmd,returncode=r.returncode),indent=2)+'\n')
     if r.returncode:raise Rejected('ARM compiler failed; see retained compile evidence')
-    p=subprocess.run([OBJDUMP,'-d','-j','.plt',str(original_path)],capture_output=True)
+    p=subprocess.run([objdump,'-d','-j','.plt',str(original_path)],capture_output=True)
     (output/'original-plt.txt').write_bytes(p.stdout)
     if p.returncode:raise Rejected('PLT disassembly failed')
     labels={m[2]:int(m[1],16) for m in re.finditer(r'^([0-9a-f]+) <([^>]+)>:',p.stdout.decode(),re.M)}
@@ -178,7 +198,9 @@ def build(output,original_path=ORIGINAL):
     for j,i in enumerate(blocks):reconstructed[i*4096:(i+1)*4096]=delta[j*4096:(j+1)*4096]
     if bytes(reconstructed)!=candidate:raise Rejected('unexpected changes outside three delta blocks')
     (output/'delta-blocks.bin').write_bytes(delta)
-    profile=dict(schema='NATIVE_INTRO_CANDIDATE_V1',status='HOST_ONLY_UNINSTALLED',live_authority=False,
+    tools={name:dict(path=exe,version=subprocess.check_output([exe,'--version'],text=True).splitlines()[0])
+           for name,exe in [('clang',clang),('llvm-objdump',objdump)]}
+    profile=dict(tools=tools,schema='NATIVE_INTRO_CANDIDATE_V1',status='HOST_ONLY_UNINSTALLED',live_authority=False,
         firmware=FIRMWARE,target=TARGET,original=metadata(original),candidate=metadata(candidate),
         candidate_path=str(output/'candidate.bin'),
         delta=dict(path=str(output/'delta-blocks.bin'),**metadata(delta),block_size=4096,block_indices=blocks),
@@ -200,12 +222,23 @@ def build(output,original_path=ORIGINAL):
     (output/'profile.json').write_text(json.dumps(profile,indent=2)+'\n')
     for name,flags in [('native-object',['-d','-r','-h']),('candidate-headers',['-p','-h'])]:
         inputfile=output/('native.o' if name=='native-object' else 'candidate.bin')
-        q=subprocess.run([OBJDUMP,*flags,str(inputfile)],capture_output=True)
+        q=subprocess.run([objdump,*flags,str(inputfile)],capture_output=True)
         (output/(name+'.txt')).write_bytes(q.stdout)
         if q.returncode:raise Rejected(name+' verification failed')
     return profile
 
-if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--original',type=Path,default=ORIGINAL)
-    p.add_argument('--output',type=Path,required=True);a=p.parse_args()
-    print(json.dumps(build(a.output,a.original),indent=2))
+def main():
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--original",type=Path,required=True,help="exact private OEM libjciuiasystem.so")
+    p.add_argument("--output",type=Path,required=True,help="new directory below runs/ or backups/")
+    p.add_argument("--clang",help="ARM-capable Clang executable (default: PATH, then xcrun)")
+    p.add_argument("--objdump",help="llvm-objdump executable (default: PATH, then xcrun)")
+    a=p.parse_args()
+    try:
+        profile=build(a.output,a.original,clang=a.clang,objdump=a.objdump)
+    except (OSError,ValueError,subprocess.SubprocessError) as exc:
+        p.exit(2,f"build not completed: {exc}\n")
+    print(json.dumps(profile,indent=2))
+    return 0
+
+if __name__=='__main__':raise SystemExit(main())

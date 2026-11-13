@@ -18,6 +18,8 @@ They remain here because some of the later trials still import them. They are
 not independent supported products. Consolidate a shared helper when working
 on its actual consumer; do not copy another experiment to make a new framework.
 
+For the complete paired feature, start with the [fresh-checkout build](intro-handoff/README.md).
+
 ## Running checks
 
 Read the directory's instructions first. The mapped-publication suite and
@@ -31,6 +33,6 @@ Repository reorganization changes source paths and hashes; these old live profil
 are historical and must not be replayed as current authorization. Fresh target
 identity, current checked code and independent undo remain necessary for live work.
 
-Current limitations: several prototype inputs are still tied to local capture
+Current limitations: live trial plans and some older prototypes still refer to local capture
 paths, and shared publication/startup code crosses experiment directories. These
 are unfinished extraction work, not a stable public mod API.

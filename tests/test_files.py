@@ -8,9 +8,9 @@ import sys
 import tempfile
 import unittest
 
-from cmu_bench.files import (ALLOWLIST, CHUNK_BYTES, MAX_BYTES, capture_file, decode_file,
+from open_connect.files import (ALLOWLIST, CHUNK_BYTES, MAX_BYTES, capture_file, decode_file,
                              export_command, posix_cksum)
-from cmu_bench.session import ProtocolError, wrap_command
+from open_connect.session import ProtocolError, wrap_command
 
 TOKEN = "b" * 32
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,7 +108,7 @@ class FileTests(unittest.TestCase):
 
     def test_fresh_identity_to_verified_artifact_and_reject_bad_export(self):
         import re
-        from cmu_bench.session import Bundle, Session
+        from open_connect.session import Bundle, Session
         from test_session import FakeTransport, IDENTITY_OUTPUT, response
         for corrupted in (False, True):
             with tempfile.TemporaryDirectory() as temp:

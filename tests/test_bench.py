@@ -1,7 +1,6 @@
 """Focused profile checks: real shell/DBus formatting and real CLI Bundle boundary."""
 import base64
 import contextlib
-import importlib.util
 import io
 import json
 import os
@@ -15,10 +14,8 @@ import unittest
 from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
-spec = importlib.util.spec_from_file_location("oc_profile", HERE / "profile.py")
-p = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(p)
-from cmu_bench.session import verify_identity, wrap_command
+from open_connect import bench as p
+from open_connect.session import verify_identity, wrap_command
 
 INSTANCE = dict(boot="11111111-1111-1111-1111-111111111111", bus="a" * 32, owner=":1.26")
 FAKE_DBUS = r'''
@@ -189,7 +186,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.values()["mutations"],[True])
 
     def test_public_cli_dry_run_no_state_or_bundle(self):
-        result=subprocess.run([sys.executable,str(HERE.parent/"scripts/oc"),"bench","setup","--state",str(self.store.path)],capture_output=True,text=True)
+        result=subprocess.run([sys.executable,"-m","open_connect","bench","setup","--state",str(self.store.path)],capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
         output=json.loads(result.stdout)
         self.assertEqual(output["outcome"],"dry_run_not_executed")

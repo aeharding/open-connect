@@ -3,7 +3,7 @@ import hashlib,json,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
-from cmu_bench.files import posix_cksum
+from open_connect.files import posix_cksum
 BASE=ROOT/"runs/20261113T022134-0600-t14-oem-disclaimer/originals/jci/gui/apps/system/js/systemApp.js"
 SHA="985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432"
 ANCHOR=b'        "IntroAnimation" : {'

@@ -6,9 +6,7 @@ import os
 from pathlib import Path
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-from cmu_bench.session import (AdapterLock, BenchError, Bundle, Session, UnknownOutcome,
+from open_connect.session import (AdapterLock, BenchError, Bundle, Session, UnknownOutcome,
                                IDENTIFY, open_adapter, utcnow, nonce, wrap_command)
 
 
@@ -43,7 +41,7 @@ def main(argv=None):
     if args.action == "receive" and args.solicit_prompt:
         p.error("receive is strictly RX-only")
     if args.action == "export":
-        from cmu_bench.files import export_command
+        from open_connect.files import export_command
         planned_command = export_command(args.path, "0" * 32, args.encoder, args.checksum)
     else:
         planned_command = args.command or (IDENTIFY if args.action == "identify" else None)
@@ -77,7 +75,7 @@ def main(argv=None):
                         status, _ = session.execute(args.command)
                         outcome, result = ("completed" if status == 0 else "remote_nonzero"), (0 if status == 0 else 3)
                     elif args.action == "export":
-                        from cmu_bench.files import capture_file
+                        from open_connect.files import capture_file
                         capture_file(session, args.path, args.encoder, args.checksum)
                         outcome, result = "verified_file", 0
                     else:

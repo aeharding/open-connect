@@ -15,7 +15,7 @@ ROOT=HERE.parents[1]
 sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(ROOT/'experiments/disclaimer-recovery-inspection'))
 import journal as old
-from cmu_bench.session import wrap_command
+from open_connect.session import wrap_command
 
 def module(name,path):
  s=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m

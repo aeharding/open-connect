@@ -14,7 +14,7 @@ import time
 import unittest
 from types import SimpleNamespace
 
-from cmu_bench.session import (AdapterLock, BenchError, Bundle, CommandDecoder,
+from open_connect.session import (AdapterLock, BenchError, Bundle, CommandDecoder,
                                IDENTITY, ProtocolError, Session, UnknownOutcome,
                                prompt_state, resolve_adapter, verify_identity, wrap_command)
 
@@ -199,7 +199,7 @@ class SessionTests(unittest.TestCase):
     def test_lock_contention_other_process(self):
         directory = Path(self.tmp.name) / "locks"
         with AdapterLock(directory):
-            code = ('from cmu_bench.session import AdapterLock; import sys; '
+            code = ('from open_connect.session import AdapterLock; import sys; '
                     'AdapterLock(sys.argv[1]).__enter__()')
             child = subprocess.run([sys.executable, "-B", "-c", code, str(directory)], cwd=ROOT,
                                    capture_output=True, timeout=3)
@@ -243,7 +243,7 @@ class SessionTests(unittest.TestCase):
 
     def test_pyserial35_receive_only_over_explicit_test_pty(self):
         import serial
-        from cmu_bench.session import SETTINGS
+        from open_connect.session import SETTINGS
         master, slave = pty.openpty()
         port = serial.Serial(port=None, **SETTINGS)
         try:
@@ -263,7 +263,7 @@ class SessionTests(unittest.TestCase):
             os.close(slave)
 
     def test_cli_default_no_hardware_or_output_files(self):
-        child = subprocess.run([sys.executable, "-B", str(ROOT / "scripts/cmu-session.py")],
+        child = subprocess.run([sys.executable, "-B", "-m", "open_connect", "uart"],
                                capture_output=True, cwd=self.tmp.name, timeout=2)
         self.assertEqual(child.returncode, 0, child.stderr)
         plan = json.loads(child.stdout)

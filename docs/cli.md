@@ -1,89 +1,81 @@
-# Open Connect CLI — initial surface
+# Use the host CLI
 
-Status: first bench-profile CLI implemented and live-verified. No SSH or other
-semantic commands implemented yet.
-The user asked for semantic commands that a fresh agent can use from a command
-alone. Keep this a thin interface over working tools, not a new automation framework.
+For wiring, start with [bench setup](bench-setup.md).
+The CLI runs on your computer. It sends commands over UART; it does not install
+a daemon or package on the CMU.
 
-## First commands
+## Install and preview
 
-| Command | Meaning | Device effect |
-| --- | --- | --- |
-| `oc bench setup` | Apply the complete current bench profile | Current helper enables silent Entertainment if needed |
-| `oc bench status` | Observe profile and actual service state | Read-only |
-| `oc bench teardown` | Undo setup-owned bench effects | Disable the owned override; preserve pre-enabled state |
+From the checkout:
 
-No per-mod public activation commands, graphical interface or CMU menu.
-The current profile contains one helper; adding another means these same operations
-handle the combined profile and report partial failure honestly.
-These are development tools, separate from product install/update/uninstall.
+~~~sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+.venv/bin/oc --help
+.venv/bin/oc bench setup
+~~~
 
-Entry point: `.venv/bin/python scripts/oc`. Until a command is actually implemented,
-it must not appear as an available command. Next potential additions, only when
-needed: device status, existing UI navigation/capture and observed restart.
-Use actual OEM operations and established recovery, not guessed shell recipes.
+The last command is a **dry run**: no device opens, changes or receipt writes.
+All commands below can also use python -m open_connect.
+When operating through Herdr, prefix the command with hc exec --cwd "$PWD".
 
-## Execution contract
+## Bench profile
 
-- Help and omitted `--live` are offline: no port, device bytes or state writes.
-- Live use requires an owned operation, a fresh evidence bundle and the existing
-  exclusive adapter lock. `--owner` defaults to the Herdr terminal identity when available, otherwise a local
-  process label; callers do not need to invent one.
-- `--solicit-prompt` asserts a known idle shell. Do not infer that state from a
-  failed command or retry an uncertain command. No automatic login/bootloader input.
-- Current firmware requirement: exact 55.00.750B NA. Identity is checked before
-  operation; boot, bus and current service owner bind the bench receipt.
-- Setup is idempotent. Record intent before mutation; verify status after the API
-  reply. Never automatically repeat a mutation after an uncertain outcome.
-- Teardown means bench effects only, not product uninstall or whole-device reset.
-  Never disable audio that was already enabled before this setup or belongs to a
-  replacement service/boot. Report expired ownership and actual observed state.
-- All operations have finite deadlines, release the port and save failure evidence.
-  Profile ownership is serialized with the same lock; no daemon or startup hook yet.
-- Live JSON returns outcome, error, bundle and observed bench profile. Exit 0 means
-  the operation was verified; 1 means failed/refused; 2 means uncertain UART outcome.
-  Dry-run JSON explicitly says dry_run_not_executed, executed=false and state_written=false. A verified status can report an inactive,
-  expired or pending profile; exit 0 is not shorthand for “profile active.”
-- No credentials, raw PIDs or remembered D-Bus unique names in user commands.
-  Raw evidence remains private; public results contain sanitized findings.
+The current profile enables silent Entertainment UI testing through Mazda's
+Audio Manager API. No TAU or speakers are required. This does not emulate the
+tuner or establish working playback.
 
-## Implementation choices
+| Command | Behavior |
+| --- | --- |
+| oc bench setup | Enable the whole current development profile |
+| oc bench status | Read actual state and whether our ownership still applies |
+| oc bench teardown | Disable only a change owned by setup on this service instance |
 
-Use Python standard library for command parsing, JSON, state receipts and result
-handling; reuse existing pySerial/Session/AdapterLock/Bundle for UART. No new package
-or CLI framework. Bash is convenient as a caller but not as the host JSON/state
-engine. Target commands use the observed BusyBox POSIX sh and installed dbus-send.
-No Bash runtime is required on the CMU.
+Before live use, establish an idle root shell on **55.00.750B NA**, then close
+your serial terminal. The CLI does not log in or reset the device. Our current
+runner is pinned to FTDI 0403:6001/A9048JM0; another adapter needs configuration.
 
-Preserve the semantic operation/result contract when SSH arrives; add that
-transport only when actual SSH is available. UART remains the startup/recovery
-channel. Do not build a speculative transport/plugin abstraction now.
+Choose one operation; use a fresh bundle directory each time:
 
-## Cold-agent validation
+~~~sh
+.venv/bin/oc bench status --live --solicit-prompt --bundle runs/my-status
+.venv/bin/oc bench setup --live --solicit-prompt --bundle runs/my-setup
+.venv/bin/oc bench teardown --live --solicit-prompt --bundle runs/my-teardown
+~~~
 
-Use ephemeral agents with a command-only brief, no project conversation or standing
-specialist roles. First exercise offline help/dry-run, then one serialized read-only
-live status command after focused host checks. The primary owns live setup/teardown
-and resource state. Collect actual command/result, mistakes, time and unnecessary
-steps; fix demonstrated ambiguity rather than adding a manual or another framework.
-Agent success must be separate from actual device success. One agent's report
-cannot override the underlying command result/evidence.
+The profile is **runtime-only**, with no startup hook. After reboot/service
+replacement, check status before setup. Teardown leaves pre-enabled audio alone
+and does not uninstall product mods or restore every user setting.
 
-## SSH and networking direction
+The private receipt is .bench-state/profile.json relative to the working directory.
+Run from the same checkout, or pass the same explicit --state path each time.
+Keep it; deleting it discards ownership information. Use --state to select a
+different receipt explicitly. Only one program should own UART at a time.
+--solicit-prompt sends one CR: use it only when the shell is known to be idle.
 
-Keep the same operations and structured results when adding SSH. Use the host's
-OpenSSH client and existing SSH agent/config; avoid a new SSH Python dependency.
-Verify the host key and pair the configured endpoint to this bench, then check
-fresh device/firmware identity. An IP address alone is not identity.
+## Low-level UART
 
-UART and SSH must share one lock for this configured CMU. SSH is the intended
-normal command/transfer path; UART remains useful through boot and connection loss.
-A dropped SSH connection after mutation is unknown, never a reason to resend over
-UART. Reconnect/readback must establish what happened before any further change.
-Check actual remote transfer capabilities; do not assume an SFTP subsystem exists.
+~~~sh
+.venv/bin/oc uart --help
+.venv/bin/oc uart --action identify
+~~~
 
-Networking is not implemented in this initial CLI. Do not add a transport framework,
-install a daemon or expose another API on the CMU. Add a small OpenSSH-backed executor
-when the hardware/SSH endpoint is available and test the same semantic operations.
+The second command previews an identity check. Live operations additionally need
+--live and a fresh --bundle. The existing receive, identify, command and restricted
+exact-file export actions are available; consult help for their arguments.
+Receive is read-only and never solicits a prompt.
 
-Guides: [hardware setup](../bench/README.md) · [CLI operations](../bench/OPERATIONS.md). Tracking: https://github.com/aeharding/open-connect/issues/14; SSH: https://github.com/aeharding/open-connect/issues/15.
+## Read the result
+
+- Exit 0: verified live operation, or an explicitly labeled successful dry run.
+- Exit 1: failure/refusal. Read the error and saved bundle.
+- Exit 2: uncertain delivery/execution. Reconcile the device; do not blindly retry.
+
+For active bench setup, require outcome=verified and bench_profile.active=true.
+A verified status may correctly report inactive or expired ownership.
+Raw UART evidence is private under the requested runs/ bundle.
+
+[Host tests](../CONTRIBUTING.md) cover these operations without hardware.
+The [original live profile result](history/bench-profile-result.md) records bench evidence.
+SSH is not implemented; [issue #15](https://github.com/aeharding/open-connect/issues/15)
+tracks it. UART works without networking.

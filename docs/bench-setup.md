@@ -2,7 +2,7 @@
 
 Start here to connect **power, a display and UART** to a first-generation CMU.
 Our development firmware is **55.00.750B North America**.
-Once the hardware works, use [CLI operations](OPERATIONS.md).
+Once the hardware works, use [CLI operations](cli.md).
 
 ## Parts
 
@@ -83,7 +83,7 @@ From the repository on the host computer:
 
 ~~~sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -e .
 .venv/bin/python -m serial.tools.list_ports -v
 ~~~
 
@@ -117,7 +117,7 @@ our exact supported firmware; it does not perform login or unlock the CMU.
 
 ## Next
 
-- [Operate the bench with the CLI](OPERATIONS.md): status, setup and teardown of
+- [Operate the bench with the CLI](cli.md): status, setup and teardown of
   the silent-audio development profile.
 - Networking is optional. UART works without it. SSH transport is
   [planned in #15](https://github.com/aeharding/open-connect/issues/15);

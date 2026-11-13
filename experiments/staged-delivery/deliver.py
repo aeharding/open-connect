@@ -12,8 +12,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from cmu_bench.files import posix_cksum
-from cmu_bench.session import AdapterLock, Bundle, Session, open_adapter, nonce, wrap_command
+from open_connect.files import posix_cksum
+from open_connect.session import AdapterLock, Bundle, Session, open_adapter, nonce, wrap_command
 
 LIMIT = 16384
 PREFIX = '/tmp/cmu-bench-payload-'

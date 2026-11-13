@@ -11,7 +11,7 @@ import sys
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT))
-from cmu_bench.session import wrap_command
+from open_connect.session import wrap_command
 FREEZE = ROOT / 'experiments/disclaimer/freeze.json'
 FREEZE_SHA = '42eb3420551c9d647f58f624cfa53e86e5c379c286443bf5ddf53c0b05a37d6d'
 HELP = ROOT / 'runs/20261113T040546-0600-t14-copy-transaction-record/mount-help-output.txt'
@@ -101,7 +101,7 @@ def main():
         (args.out / 'sample-wire.bin').write_bytes(wrap_command(command, '0'*32))
         (args.out / 'plan.json').write_text(json.dumps(record,indent=2)+'\n')
         command_path = str(args.out / 'command.sh')
-        code = ('from pathlib import Path; import runpy; m=runpy.run_path("scripts/cmu-session.py"); '
+        code = ('from pathlib import Path; import runpy; m=runpy.run_path("src/open_connect/uart.py"); '
                 'raise SystemExit(m["main"](["--live","--action","command","--command",'
                 'Path('+repr(command_path)+').read_text(),"--deadline","60","--output-cap","131072",'
                 '"--solicit-prompt","--bundle","runs/NEW_REVIEWED_WARM_BUNDLE","--owner","t14"]))')

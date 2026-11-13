@@ -22,7 +22,7 @@ ROOT=HERE.parents[1]
 sys.path.insert(0,str(ROOT)); sys.path.insert(0,str(HERE))
 import prepare
 import invoke
-from cmu_bench.session import Bundle,Session,UnknownOutcome,wrap_command
+from open_connect.session import Bundle,Session,UnknownOutcome,wrap_command
 RUN='0123456789abcdef'*2
 
 

@@ -11,7 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from cmu_bench.session import wrap_command
+from open_connect.session import wrap_command
 CAP_RUN = 'ca' * 16
 
 

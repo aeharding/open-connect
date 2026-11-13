@@ -17,7 +17,7 @@ def main():
     for p in [HERE/'deliver.py',HERE/'test_deliver.py',HERE/'check.py']:
         data=p.read_bytes();(out/'sources'/p.name).write_bytes(data);pins[str(p.relative_to(ROOT))]=sha(data)
     deps={str(p.relative_to(ROOT)):sha(p.read_bytes()) for p in
-          [ROOT/'cmu_bench/session.py',ROOT/'cmu_bench/files.py',ROOT/'scripts/cmu-session.py']}
+          [ROOT/'src/open_connect/session.py',ROOT/'src/open_connect/files.py',ROOT/'src/open_connect/uart.py']}
     result=subprocess.run([sys.executable,'-B','-m','unittest','-v','test_deliver'],cwd=HERE,
                           stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                           env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'},timeout=180)

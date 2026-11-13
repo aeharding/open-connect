@@ -29,9 +29,9 @@ A future firmware switch supersedes current product support, not historical evid
 
 | Milestone | User/developer outcome | Exit evidence | Work |
 | --- | --- | --- | --- |
-| **M1: Reproducible first feature** | Develop against a declared bench profile; demonstrate a clean OEM-feeling bypass | Small audio helper with explicit disable; verified startup attachment for persistence; measured bypass behavior, independent undo and original startup; independently distributable approach selected | [#1 bench profile](https://github.com/aeharding/open-connect/issues/1), [#3 handoff](https://github.com/aeharding/open-connect/issues/3) |
+| **M1: Reproducible first feature** | Develop against a declared bench profile; demonstrate a clean OEM-feeling bypass | Small audio helper with explicit disable; measured bypass behavior, independent undo and original startup; independently distributable approach selected | [#1 bench profile](https://github.com/aeharding/open-connect/issues/1), [#3 handoff](https://github.com/aeharding/open-connect/issues/3) |
 | **M2: Supported firmware and repeatable starts** | One modern baseline and comparable startup experiments | Verified upgrade/access/stock baseline; warm/cold capabilities distinguished; a useful repeated measurement batch retains failures | [#2 firmware](https://github.com/aeharding/open-connect/issues/2), [#5 starts](https://github.com/aeharding/open-connect/issues/5) |
-| **M3: Maintainable USB developer preview** | Install and maintain one optional feature without the original stick | Selected-firmware feature qualification; real install/change/upgrade/repair/uninstall and replacement-USB test; scoped interruption evidence; reproducible public build/test instructions | [#6 qualification](https://github.com/aeharding/open-connect/issues/6), [#7 USB preview](https://github.com/aeharding/open-connect/issues/7), [#10 contributors](https://github.com/aeharding/open-connect/issues/10) |
+| **M3: Maintainable USB developer preview** | Install and maintain one optional feature without the original stick | Selected-firmware feature qualification; real install/update/reinstall/uninstall and replacement-USB test; scoped interruption evidence; reproducible public build/test instructions | [#6 qualification](https://github.com/aeharding/open-connect/issues/6), [#7 USB preview](https://github.com/aeharding/open-connect/issues/7), [#10 contributors](https://github.com/aeharding/open-connect/issues/10) |
 | **M4: Measured everyday reliability** | More dependable CarPlay and responsive interaction | Comparable stock/modified connection success and timing; source-backed diagnosis; real-car confirmation of relevant claims; ship only improvements supported by results | [#8 CarPlay](https://github.com/aeharding/open-connect/issues/8), [#9 resources](https://github.com/aeharding/open-connect/issues/9) |
 
 Milestones overlap where useful: firmware research starts now; USB host design
@@ -44,7 +44,7 @@ A developer preview is not a general end-user car release.
 1. **#1, immediate implementation:** turn the already proven audio API recipe into
    a small host-invoked status/activate/runtime-disable helper. The focused OEM-code
    review is complete: [plan](bench/PLAN.md), [findings](bench/REVIEW.md).
-   Then prove the actual startup hook and post-policy boundary before persistence.
+   Prove the startup hook before adding persistence; it does not gate other feature work.
    Do not repeat the review or build a force-enable daemon.
 2. **#2, active research:** resolve the exact supported latest-NA package and upgrade
    route/access implications. Existing source leads are not a current-release proof.
@@ -62,6 +62,19 @@ plan once against real Mazda code, then review the actual diff and result.
 Use short-lived branches/PRs and close issues only when their outcome is achieved.
 A planning PR does not close implementation work.
 
+## Keep the first release small
+
+One feature, one firmware, **Install/update** and **Uninstall**. Installing again
+performs a reinstall; interrupted transactions are handled internally. No separate
+Repair or Change options UI. Add feature selection only when multiple useful
+features exist.
+
+Necessary infrastructure now: exact-base validation, verified original backups,
+repeatable execution and independent undo, plus the small audio helper that
+unblocks real UI testing. Reuse existing tools. Require a concrete current consumer
+or demonstrated repeated task before adding infrastructure. Keep components easy
+to replace; defer frameworks and broad compatibility.
+
 ## What we measure
 
 - **Startup experience:** warning presence, visible gap/fade, time to usable target
@@ -73,7 +86,7 @@ A planning PR does not close implementation work.
 - **Responsiveness:** one relevant interaction timing and resource observations
   before/after a change. Resident RSS alone is not reclaimable savings or causality.
 - **Maintenance:** observed lifecycle transitions, conflicts correctly refused,
-  interruption outcomes, exact as-found undo and original boot. Separate USB repair,
+  interruption outcomes, exact as-found undo and original boot. Separate installer recovery,
   UART rescue and unbootable-device recovery.
 - **Reproducibility:** feature revision, exact firmware, enabled bench overrides,
   available hardware and useful source-backed notes accompany each result.

@@ -53,3 +53,10 @@ Support one exact firmware baseline at a time: currently 55.00.750B NA.
 Changing the baseline requires qualified stock/access evidence and feature
 requalification. Reject unsupported builds; do not add legacy compatibility
 without an explicit change to project direction.
+
+Before adding infrastructure, name the current experiment it unblocks or the
+repeated task it removes. Implement that smallest useful piece, using existing
+tools. Preserve exact-base checks and undo; defer generalized configuration,
+plugin systems and multi-version abstractions until concrete use requires them.
+The first preview exposes Install/update and Uninstall only; reinstall and
+interruption recovery reuse those paths.

@@ -1,0 +1,90 @@
+BLACK INTERVAL AFTER NATIVE DISCLAIMER BYPASS — INVESTIGATION
+2026-11-13. Saved sources/logs/video only; no target changes or restart.
+
+Finding
+The v2 patch disposes the native intro too early. This is a concrete lifecycle
+ordering defect in the current bypass, not evidence that home fundamentally
+needs a black loading screen. Logs + video + actual renderer code align.
+Live-demo candidate remains installed/running, root RO; no new patch built.
+
+Candidate vs original (target log clock, not video PTS)
+Candidate:
+ 25.330 native wrapper reports successful intro cleanup, then publishes HomeScreen.
+ 25.521 TRANLOGOEND_SURFACE unregistered.
+ 25.864 GUI begins Crossfade IntroAnimation -> HomeScreen.
+ 26.498 MainMenu template transition complete.
+The intro surface disappears 343ms before transition start and 977ms before its
+completion. The Crossfade incoming root additionally waits300ms, then fades in
+over300ms; delay uses fill-mode both (opacity0 before active animation).
+
+Original confirmation:
+ 26.729 publishes Disclaimer.
+ 26.886 starts Crossfade IntroAnimation -> Disclaimer.
+ 27.606 template transition complete.
+ 27.609 compositor hides TRANLOGOEND_SURFACE.
+ 27.614 GUI DisposeIntroVideo arrives at native MMUI.
+ 27.759 intro surface unregistered.
+Stock keeps the native image until replacement is rendered and hidden by the
+framework; v2 kills it before requesting the replacement.
+
+Observed image interval
+Original candidate clip, every sampled frame143..154 inspected:
+ f145 PTS29.229 still shows intro icons;
+ f146..149 PTS29.430..30.034 are dark/blank in the CMU screen area;
+ f150 PTS30.235 shows the first faint incoming home icons;
+ f151 PTS30.436 clearly shows home.
+Conservative sampled near-black interval0.604..1.006s, not exact panel timing.
+Camera exposure/crop/~5FPS limit the threshold; bezel reflections remain bright.
+Video and target log clocks are not numerically equated.
+Evidence: runs/open-connect-black-flash/candidate-boundary.jpg and
+candidate-frame-times.json; underlying original camera.mkv remains unchanged.
+
+Exact source contract
+- experiments/disclaimer-native/native.c: cmu_native_process runs stock intro
+  termination and clears logo_state BEFORE cmu_stock_process publishes next UI.
+- GuiFramework.js1420-1438 unions incoming surfaces into existing visible surfaces.
+  1445-1459 removes old surfaces only at transition completion1474-1480.
+  Old template noLongerDisplayed is then called1489; new displayed callback1538.
+- systemApp.js366-374: IntroAnimation uses transparent NoCtrl and declares
+  TRANLOGO_SURFACE/TRANLOGOEND_SURFACE. Disclaimer displayed1968-1970 sends
+  DisposeIntroVideo. Home has no equivalent cleanup sender in this file.
+- TransitionsGen.js342 explicitly marks Startup/Ending.Home as NA;
+  Transitions.js283-290 resolves NA to default Crossfade (matching actual log).
+  Crossfade Gen783-840 applies incoming fadeIn_300_300; CSS285-290 defines
+  delay300/duration300/fillboth. This fallback amplifies an already missing image.
+- Actual native table row43/event1402 DisposeIntroVideo maps to A22:
+  UIA_SYSTEM_OnDisposeIntroVideo, same-next-context sentinel, including
+  Home1013, Entertainment1001, Intro1021, Disclaimer1010, SourceReconnect1012,
+  DisplayOff1000 and QuickStart1017. It is not restricted to Disclaimer.
+  Exact static decoding: runs/open-connect-black-flash/dispose-dispatch.json.
+
+Recommended next prototype
+Keep native bypass decision and OEM continuation/focus/exit hooks. Move disposal
+out of the pre-dispatch wrapper. Use the outgoing Intro template's actual
+post-transition/noLongerDisplayed lifecycle to send the existing DisposeIntroVideo
+event after the new screen is rendered and old surfaces are hidden.
+A narrowly scoped frontend lifecycle hook plus the native change is justified:
+it connects rendering completion to native resource cleanup, rather than hiding
+pixels or estimating a delay. Bound it to the bypassed Intro handoff and make
+cleanup once/idempotent; preserve stock unsupported paths and failure behavior.
+Do not just remove disposal (leaks player/resources), sleep a fixed duration,
+globally speed up CSS, or suppress renderer completion.
+
+Expected difficulty: a small, testable two-part lifecycle change, rather than
+a new compositor. No runtime success claimed yet. Validate actual destination
+visible before intro unregister, cleanup completed, no warning/black interval,
+normal heartbeat and continuation, independent undo. Existing renderer already
+supplies the relevant completion point. If a residual fade remains after ordering
+is corrected, evaluate only that specific Intro-to-destination transition.
+
+Private provenance
+- runs/open-connect-native-v2/boot-{C,O}/{rx.bin,camera.mkv,camera-result.json}
+- runs/open-connect-black-flash/{C-timeline.txt,O-timeline.txt,
+  candidate-frame-times.json,candidate-boundary.jpg,dispose-dispatch.json}
+- Exact sources already captured under runs/20261113T081530-0600-t14-rev2-lifecycle/,
+  runs/20261113T091307-0600-t14-paint-source/,
+  runs/20261113T022134-0600-t14-oem-disclaimer/.
+- Native ELF and typed table analysis: runs/20261113-t12-mmui-static/elf_local.py,
+  table-raw-words.json; exact system library SHA
+  acf24ffd3719a29d2b4eefe80855ef6f164852fe3464858d07ca2d956395d302.
+Full OEM source remains private/ignored. Earlier static proposals stay historical.

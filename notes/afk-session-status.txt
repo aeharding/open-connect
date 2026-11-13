@@ -1,5 +1,7 @@
 CURRENT LIVE DEMO — 2026-11-13T12:47:54.202913-06:00
 
+Black-flash investigation complete: v2 disposes intro before Home rendering; stock keeps it through transition completion. Next prototype moves native disposal to actual outgoing Intro completion using existing DisposeIntroVideo event. See notes/native-bypass-black-flash.txt. No target changes or boot during investigation.
+
 User watched native v2 bypass. Candidate is intentionally INSTALLED AND RUNNING, exact C 64785:1606:621:454142:755:1018:3015:2, fresh root55/NA, mapped C and physical root RO verified by fresh prompt login/read-only reconciliation. Independent original backup/recovery and hardlink holds retained. Run: runs/open-connect-live-demo. Initial observer UNKNOWN after Mac ENOSPC during capture; one reboot, no retry; separate demo-reconcile PASS. User reports normal demo with brief black transition. Do not claim current original. Undo is trial.py UNDO then boot.py O using OC_RUN=runs/open-connect-live-demo and the v2 profile; boot.py O expects boot-C/final.json, so bind actual demo-reconcile/final.json explicitly for that future operation without overwriting original UNKNOWN.
 
 Disk cleanup COMPLETE: 383.2 GB free. Removed discarded VMs/Android emulators, simulator runtimes/devices, rebuildable caches, Downloads contents, old wingover-pr153 checkout and quickemu. Open Connect/recovery and active Voyager workspace preserved. Detailed deletion records in runs/open-connect-live-demo/.

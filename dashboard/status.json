@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
   "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T10:41:53-06:00",
+  "updated_at": "2026-11-13T11:13:04-06:00",
   "timezone": "America/Chicago",
-  "snapshot_note": "Saved progress, not live telemetry. Original CMU running; native disclaimer-bypass prototype is being built.",
+  "snapshot_note": "Saved progress, not live telemetry. Native HOST candidate passed; complete bench trial is preparing. Original CMU still running.",
   "links": {
     "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
     "html_download": null
   },
-  "headline": "Building the native disclaimer bypass",
-  "summary": "Native startup chooses the disclaimer before the GUI renders it. We found the exact decision and nine OEM continuation branches, and are building an Intro-only bypass that preserves cleanup, focus and app restoration. The earlier timer experiment shortened the warning but did not bypass it. The CMU is currently running its verified original.",
+  "headline": "Native prototype passed; bench trial preparing",
+  "summary": "The native Intro-only bypass is built and passed four focused host checks plus its semantic review. It reuses OEM startup choices and cleanup without entering the disclaimer context. The operator is preparing candidate startup, independent undo and a restored-original startup. No native patch has reached the CMU yet.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
@@ -449,6 +449,19 @@
       "refs": [
         "experiments/staged-delivery/result.txt"
       ]
+    },
+    {
+      "id": "native-host-prototype",
+      "title": "Native HOST prototype built and reviewed",
+      "state": "done",
+      "detail": "Compiled924B ARM stub, same-size454142B module, compact12KiB delta. Four focused host checks passed.",
+      "proof": "Executed same-C wrapper contract plus exact-base/delta/undo and ARM PIC relocation checks; one focused semantic review found no practical blocker.",
+      "limits": "Host fake verifies wrapper/data handling, not actual OEM predicates, ARM execution or CMU startup. Runtime experiment is next.",
+      "refs": [
+        "experiments/disclaimer-native/README.txt",
+        "experiments/disclaimer-native/freeze.json",
+        "notes/disclaimer-native-prototype-review.txt"
+      ]
     }
   ],
   "tasks": [
@@ -474,10 +487,10 @@
       "id": "disclaimer-next-design",
       "lane": "now",
       "state": "active",
-      "title": "Build the correct native startup bypass",
-      "owner": "Tooling + Research; Bench operator for runtime",
-      "detail": "One Intro-only native routing point identified. Implement the OEM nine-rule continuation with intro/quick-logo cleanup and normal focus, pending-warning and context hooks.",
-      "pass": "A working guarded native candidate, focused decision/ABI/PIC tests and one semantic review; then complete bench apply/startup/independent undo/original-startup evidence. No native patch or runtime result yet."
+      "title": "Run the native startup and undo trial",
+      "owner": "Bench operator; Tooling support; Research visuals",
+      "detail": "Native candidate built/frozen; four host checks and focused semantic review complete. Finish native runtime checks, then candidate apply/startup, independent undo and original-confirmation startup.",
+      "pass": "Actual native context/cleanup and visible outcome, fresh access/full module identity/mapping/read-only root, independent undo and original loaded after confirmation boot. Real ARM execution is still pending."
     },
     {
       "id": "modified-startup-prep",
@@ -700,20 +713,20 @@
   ],
   "recent": [
     {
-      "title": "Correct native fix is the priority",
-      "text": "The user wants the ideal OEM-feeling solution on the test bench. Timer tuning and visual masking are parked."
+      "title": "Native HOST candidate is built and frozen",
+      "text": "Four focused checks and one semantic review complete. It bypasses the native Intro detour while retaining OEM continuation rules and cleanup."
     },
     {
-      "title": "Native decision and nine-rule continuation found",
-      "text": "Intro-only routing and real predicate/focus/exit/entry behavior are understood. A working native prototype is now assigned."
+      "title": "Complete native experiment assigned",
+      "text": "Operator prepares one candidate boot, independent native undo and one original-confirmation boot. No new approval chain after the checked runtime freeze."
     },
     {
-      "title": "Original startup and undo cycle verified",
-      "text": "Original currently running, root read-only and recovery disabled/no-pending. Earlier timer warning was shorter but still visible."
+      "title": "Original CMU still running",
+      "text": "The last actual bench state remains original55, root read-only, Communication home and retained recovery disabled/no-pending."
     },
     {
-      "title": "Reusable DATA delivery completed",
-      "text": "Six host checks passed. No live CMU trial or payload execution."
+      "title": "Timer experiment stays historical",
+      "text": "It shortened the warning but did not bypass it. Masking and further timer tuning are parked."
     }
   ],
   "guardrails": [

@@ -8,8 +8,14 @@ explicitly rejects workaround-led conservatism on this test bench. Timer shorten
 is historical, not feature completion; masking/timer tuning are parked. Native
 analysis is complete in notes/disclaimer-native-startup-flow.txt: one Intro-only
 ShowDisclaimer routing point, OEM nine-rule continuation and explicit cleanup.
-T12 now owns the working HOST native prototype; t13 focused semantics and t14
-runtime requirements. No native candidate/publication/runtime proof yet.
+The native HOST candidate is now built/frozen with4 focused checks, including
+SAME-C wrapper execution and compiled ARM/PIC/delta checks. ONE focused semantic
+review found no practical blocker; real manager execution/timing remain bench
+questions. See experiments/disclaimer-native/freeze.json and
+notes/disclaimer-native-prototype-review.txt. T14 owns checked native runtime
+preparation plus complete C apply/one C boot/independent undo/one original-confirm
+startup under notes/native-disclaimer-complete-handoff.txt, without another
+per-step approval gate. No actual native publication/runtime result yet.
 The DATA-only delivery CLI finished6 HOST checks; not live-tested.
 Latest actual bench remains the booted original below.
 

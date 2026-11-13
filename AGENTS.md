@@ -52,6 +52,13 @@ parked. Current native prototype ownership is t12, focused semantics t13, sole
 hardware execution t14. No additional user approval is needed for routine work in
 an assigned experiment; bring a concrete new boundary to the coordinator.
 
+The native HOST feature is frozen and its one semantic review completed.
+The current complete native bench outcome is assigned to t14 under
+notes/native-disclaimer-complete-handoff.txt: after relevant runtime checks and
+profile freeze, candidate apply/startup, independent undo and original-confirmation
+startup proceed without another per-step permission gate. Preserve actual request
+counts and current loaded-vs-disk state; historical JS profiles are not reusable.
+
 ## Verified reference state
 
 - CMU firmware: 55.00.750B, North America (`cmu150_NA`), Linux 3.0.35 ARMv7l.

@@ -1,0 +1,60 @@
+{
+  "schema": "NATIVE_INTRO_FREEZE_V1",
+  "status": "HOST_TESTED_UNINSTALLED",
+  "live_authority": false,
+  "source_pins": {
+    "experiments/disclaimer-native/native.c": "0b37317b3cbc09e790a03bc83d7bf27064fc24d1e28c6b1655aa46fb30472676",
+    "experiments/disclaimer-native/build.py": "0c9db315a983329c95bd0040bbd29e99a515e2767d66b815fed17e020ed1f4c9",
+    "experiments/disclaimer-native/host_test.c": "3bb1247094615bcea6324c54a725f1302d73da3a896d49f0e4f56973b30f55ce",
+    "experiments/disclaimer-native/test_native.py": "04710074b4bac54b2df87e88a9eb4469abc602642b667de64518f73d23bf7aec",
+    "experiments/disclaimer-native/check.py": "16fca1803371d4651f22f9e63d0ccca62bc465a06e09602b69a64f8e830c20f3"
+  },
+  "profile": "/Users/aeharding/mazda-cmu-bench/runs/t12-native-host-20261113T170401.731894Z/candidate/profile.json",
+  "profile_sha256": "2cdeda3139cc5f2303ce89b924ac7e8b93da32621c90c49eac6c0ddf9f4140ff",
+  "test_manifest": "/Users/aeharding/mazda-cmu-bench/runs/t12-native-host-20261113T170401.731894Z/manifest.json",
+  "test_manifest_sha256": "2fc92d54ec62cb6be997d29ee0b86d3b98e28cc64cc2b0b3622eb0939eb8aa86",
+  "original": {
+    "bytes": 454142,
+    "md5": "b9ff5edc632163f88cda04686c118591",
+    "crc": 3625493025,
+    "sha256": "acf24ffd3719a29d2b4eefe80855ef6f164852fe3464858d07ca2d956395d302"
+  },
+  "candidate": {
+    "bytes": 454142,
+    "md5": "85e9f407a28901e29e176e2471d02059",
+    "crc": 2919851988,
+    "sha256": "c59113a5df5d864c6514866aedddc10af75b2227d9713dd7938f76d897957777"
+  },
+  "delta": {
+    "path": "/Users/aeharding/mazda-cmu-bench/runs/t12-native-host-20261113T170401.731894Z/candidate/delta-blocks.bin",
+    "bytes": 12288,
+    "md5": "a2ca97d24b5ae5848480ad383c7d9477",
+    "crc": 1117720872,
+    "sha256": "3ab53bf8cb5d617ee721dd29788467a4424e380bf26009c91fd58d6f41864ac0",
+    "block_size": 4096,
+    "block_indices": [
+      0,
+      7,
+      72
+    ]
+  },
+  "scope": {
+    "event": 1470,
+    "current_context": 1021,
+    "focused_app": 1,
+    "logo_state": 2,
+    "unsupported": "original stock flow",
+    "quick_start": false,
+    "cold_start": false
+  },
+  "runtime_owner": "t14",
+  "review": {
+    "path": "notes/disclaimer-native-prototype-review.txt",
+    "sha256": "f70359948b170efa105ab22a80f557b9b56feb0ae5c9e87b26f7882a8c68b8dd",
+    "disposition": "qualified no practical semantic blocker; host fake does not execute real manager engine"
+  },
+  "prior_failed_check": "runs/t12-native-host-20261113T170324.601552Z/manifest.json",
+  "docs": {
+    "README.txt": "77ada2828ff67313cdb85f017e0e78565f4983bcb8136273a16a2c62c8514b99"
+  }
+}

@@ -1,0 +1,64 @@
+NATIVE INTRO PROTOTYPE — FOCUSED SEMANTIC REVIEW, t13, 2026-11-13
+Disposition: QUALIFIED NO PRACTICAL SEMANTIC BLOCKER in the tested HOST candidate.
+This completes the one scoped review; no extra review gate or test rerun requested.
+It does not establish ARM execution, real manager behavior or CMU startup success.
+
+Reviewed authority
+ experiments/disclaimer-native/native.c
+ SHA256 0b37317b3cbc09e790a03bc83d7bf27064fc24d1e28c6b1655aa46fb30472676
+ This matches the exact source checkpoint I reviewed; final manifest/pre-test copies
+ are runs/t12-native-host-20261113T170401.731894Z/{manifest.json,sources/}.
+ host-ready.json points to candidate/profile.json there; candidate454142B
+ SHAc59113a5df5d864c6514866aedddc10af75b2227d9713dd7938f76d897957777.
+ Scope is new compound semantics and relevant saved checks, not a full ELF audit.
+
+Concrete findings / resolved design points
+- native.c71-92: exact machine/context/table guard, Show1470/currentIntro1021,
+  logo_state2 and native focusedSystem1 precede cleanup. No-focus/unsupported paths
+  call stock with all six original arguments and preserve its return, before mutation.
+- native.c94-99: factor only OEM intro command; no OnDisposeIntroVideo/SetAppContext
+  call. Clear logo state only on raw systemRC0. Failure is logged and uses stock A80
+  without pretending a bypass committed; normal manager return remains authoritative.
+- native.c100-106: per-call copies change only cell79's record to the original
+  nine-rule A194 and cloned Intro exit hook. Original rule pointer/order/full words,
+  granted/denied alternatives, NULL/default handling and original tables remain stock.
+  This avoids suppressing the manager's NULL-action behavior with new rule callbacks.
+- native.c63-69: ONE-word old-context hook is forwarded to original Intro exit once;
+  quick-logo stop occurs only when the unchanged manager invokes that exit hook.
+  Stop result100 success/error status is reported, not substituted for manager status.
+  Native logger argument layout and StopService100 convention match saved code.
+- Later focus denial AFTER eligibility intentionally may follow intro disposal.
+  This reflects disposal preceding later Timeout arbitration, not exact stock-path
+  equivalence. No quick stop/exit/transition-success claim follows a denied result.
+- Supported Intro flow retains normal manager-owned pending-warning hook once.
+  QuickStart/other modes/events/tables take stock paths; no cold/universal claim.
+
+Table lifetime qualification
+ Focused saved-code tracing found no retained Machine/Cell/Column pointer on the
+ inspected direct paths. Lookup/focus helpers consume them synchronously; heap
+ AppContext copying originates from the original event/context data, not the clone.
+ This supports the per-call clone. Opaque/nested callback retention is not exhaustively
+ proved. Evidence: runs/20261113-t13-native-semantic-review/retention-result.json
+ and retention-slices.txt. Exit call9fec..9ff8 passes one old-context word.
+ No new disassembly, source acquisition or target action was needed.
+
+Saved verification read (not rerun)
+ Four relevant checks PASS, including SAME-C host execution; host.stdout groups cover
+ nine captured rows, grant/deny, NULL/default, six arguments/return, original tables,
+ unsupported/no-focus, intro failure and quick-stop failure. host.stderr is empty.
+ Read pre-test sources/host_test.c54-142 and saved stdout/stderr/manifest.
+ Important limit: the fake selects a row and models context dispatch; it does NOT
+ execute OEM predicates, focus/flag engine or callbacks. Its generic granted path
+ assigns sentinel -1001 and calls exit for row0; real sentinel handling is not
+ modeled. Nine-row coverage is wrapper/data-preservation evidence, not proof of real
+ arbitration, no-focus behavior, retention or warning/cleanup timing.
+ Real ARM/PIC execution, nested pending-warning effects, native cleanup outcomes,
+ intended next app and visible result remain discriminating bench questions.
+ Restoring diskO does not unload mappedC; runtime package/two-startup scope is owned
+ by t14/t6. No install/reboot authorization is granted by this review.
+
+Preservation / owned delta
+ ONLY notes/disclaimer-native-prototype-review.txt is new for coordinator staging.
+ Private exact reviewed C/checkpoint/retention evidence stays in ignored
+ runs/20261113-t13-native-semantic-review/. Prior synthesis note stays frozen.
+ No source edits, tests, UART/camera, staging/commit, catalog/facts/dashboard changes.

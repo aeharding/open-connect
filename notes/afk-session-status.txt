@@ -73,12 +73,29 @@ Scoped path: ShowDisclaimer1470 + IntroAnimation1021, lookup VA0x58698/file0x506
 Reuse OEM nine-rule automatic selection and exclusive focus grant/deny outcomes;
 compose intro-video/quick-logo cleanup without premature SetAppContext, retain
 Intro's pending-warning hook, then normal exit/entry. Other paths remain stock.
-T12 owns working HOST prototype/candidate/guards/undo and executable evidence;
-t13 supports focused semantics; t14 sole hardware owner coordinates runtime
-requirements, currently closed/stock. No native patch built or published yet.
-Next concrete result: candidate + relevant checks + one focused review, then one
-complete native apply/startup/independent undo/restored-O startup bench experiment.
-No CSS mask, timer tuning, bare table alias, event substitution or forced Home.
+Native HOST prototype COMPLETE/FROZEN: experiments/disclaimer-native/freeze.json.
+Four focused checks passed, including executed SAME-C wrapper/data contract and
+ARM ELF/PIC/delta checks; no actual ARM manager execution yet. Candidate same454142B
+SHAc59113a5df5d864c6514866aedddc10af75b2227d9713dd7938f76d897957777,
+MD585e9f407a28901e29e176e2471d02059/CRC2919851988.
+Delta12288B SHA3ab53bf8cb5d617ee721dd29788467a4424e380bf26009c91fd58d6f41864ac0.
+T13's ONE focused semantic review is complete: qualified no practical blocker,
+notes/disclaimer-native-prototype-review.txt. Fake-manager/sentinel/retention and
+timing limits remain bench questions, not extra source-acquisition/review gates.
+T12 keeps native source frozen and supports concrete integration issues.
+T14 OWNS experiments/native-disclaimer-runtime/ plus complete bench outcome.
+LIVE OUTCOME AUTHORITY: notes/native-disclaimer-complete-handoff.txt.
+After relevant runtime checks PASS and exact package/profile freezes, proceed
+autonomously: retain/verify independent native undo BEFORE C -> guarded C apply/RO
+-> ONE C boot/login/video -> independent known-state undo/O+RO -> ONE original
+confirmation boot/login/mapping/home/cleanup. No further coordinator/user gate.
+Routine integration fixes with relevant checks/preserved failures are included.
+Unknown image/control/mapping or new boot loop stops/preserves with concrete report.
+Actual IDs stay unbound until completed evidence; do not reuse JS or sample records.
+T13 owns closed-video visual interpretation after C/O clips arrive; no re-review.
+Native runtime package is being prepared; no actual native publication yet at this
+handoff timestamp. Preserve spent request counts once operator execution begins.
+No CSS mask/timer, bare table alias, event substitution or forced Home.
 
 LATEST POINTERS
  experiments/restored-stock-startup/{README.txt,result.txt,ready.json}
@@ -91,6 +108,8 @@ LATEST POINTERS
  notes/disclaimer-rev2-lifecycle-finding.txt
  notes/rev2-lifecycle-source-acquisition.txt
  notes/disclaimer-native-startup-flow.txt
+ notes/native-disclaimer-complete-handoff.txt
+ experiments/disclaimer-native/README.txt
  experiments/staged-delivery/result.txt
  research/context/SUMMARY.txt and research/index.tsv.
 

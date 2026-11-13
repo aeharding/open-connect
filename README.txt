@@ -1,11 +1,15 @@
-Mazda CMU bench: current development entry point
+Mazda Open Connect
+
+Open Connect is an open-source project to improve Mazda Connect reliability and
+responsiveness while preserving the OEM feel. This repository includes feature
+experiments, reverse-engineering findings and the development bench tools.
 
 Progress dashboard: https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee
 Portable source: dashboard/index.html (snapshot data: dashboard/status.json).
 
 
-This bench is operated by the coordinator and its agents through Herdr hc.
-The user performs no manual bench or UI steps. Read AGENTS.md before working.
+The primary agent operates the development bench directly through Herdr hc.
+The user performs no manual bench or UI steps. Read STEERING.md, then AGENTS.md.
 Current status: notes/status.txt and notes/afk-session-status.txt.
 Research: research/index.txt (human entry) and research/index.tsv (catalog).
 Latest frontend result: notes/browser-navigation-finding.txt (failed browser return,
@@ -32,9 +36,9 @@ small-file capture. Default invocation is a dry run and does not enumerate/open
 a port, transmit, or create files.
 
 Examples below run through Herdr from this folder:
-  hc exec --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B scripts/cmu-session.py --action command --command id
-  hc exec --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B scripts/cmu-session.py --action export --path /etc/version --checksum md5 --encoder base64
-  hc run --bg --name cmu-tests --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B tests/run_offline.py
+  hc exec --cwd /Users/aeharding/open-connect .venv/bin/python -B scripts/cmu-session.py --action command --command id
+  hc exec --cwd /Users/aeharding/open-connect .venv/bin/python -B scripts/cmu-session.py --action export --path /etc/version --checksum md5 --encoder base64
+  hc run --bg --name cmu-tests --cwd /Users/aeharding/open-connect .venv/bin/python -B tests/run_offline.py
   hc wait cmu-tests
   hc read cmu-tests --lines 80
 
@@ -68,7 +72,7 @@ remains unchanged as a historical metadata reference with unrelated trailing tex
 CAMERA AND LEGACY HELPERS
 scripts/bench.py retains device inventory, receive-only logging and webcam still
 capture. Camera uses exact currently enumerated USB name, video only, no audio:
-  hc exec --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python scripts/bench.py camera --device 'USB Camera VID:1133 PID:2085'
+  hc exec --cwd /Users/aeharding/open-connect .venv/bin/python scripts/bench.py camera --device 'USB Camera VID:1133 PID:2085'
 Capture success needs actual image inspection; framing/glare limit some readings.
 scripts/console-command.py is preserved for historical evidence. Its fixed read
 window and initial CR do not provide robust command completion or general recovery.

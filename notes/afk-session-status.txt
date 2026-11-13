@@ -1,9 +1,30 @@
+CURRENT — Open Connect native bypass v2 complete — 2026-11-13T12:38:09-06:00
+
+Native bypass demonstrated: no Disclaimer context/visible warning in candidate warm startup. Original independently restored and rebooted; stock warning returned. Current native O64785:9457:1433953535:454142:755:1018:3015:1, loaded original, root55/NA/physicalRO. Both v2 boot observers PASS; final holds removed. JS remains original9456. Persistent recovery/backups retained; no live trial queued. Primary agent owns work; no standing subagents.
+Evidence: notes/native-disclaimer-v2-result.txt and runs/open-connect-native-v2/result.json.
+Next: extend evidence to actual alternate startup/resume branches; USB/ACC/SSH hardware still shipping.
+
+HISTORICAL HANDOFF BELOW (superseded current state):
+CURRENT WORKING MODE — USER OVERRIDE, November13
+Standing agents t12/t13/t14 STOPPED. Primary t6 now owns implementation, UART/
+camera, tests, recovery and integration directly. Only ephemeral, narrowly scoped
+helpers may be used; no standing specialist team or main-work delegation.
+
+LATEST RECOVERY REPORT / SAVED RESULT
+Original-only recovery observer completed PASS at
+runs/20261113T111353-0600-t14-native-intro/recovery/original-boot-v2.
+ONE O reboot/ONE login; exact nativeO9457, root55/NA, fresh nondeleted mappedO9457,
+physicalrootRO, newbootID/loweruptime, persistentVERIFY O/disablednone.
+No candidate boot or native feature execution. Final home-frame inspection was
+pending when the standing operator was stopped; do not infer it from accessPASS.
+The RW recovery section below is historical and superseded by this recovery result.
+
 CMU BENCH — CURRENT HANDOFF, November13 2026
 Sync: https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee
-Herdr exclusively. Coordinator t6; t14 solely owns UART/camera.
+Herdr exclusively. Primary t6 directly owns all work and UART/camera.
 Trusted outcome ownership, concise results; status questions do not pause work.
 
-ACTIVE NATIVE RECOVERY — SUPERSEDES THE STOCK MOUNT STATE BELOW
+HISTORICAL NATIVE RECOVERY — SEE LATEST RESULT ABOVE
 Native C was published and verified, but paired remountRO failed255/EBUSY.
 Actual physical /dev/ffx01p1 / relfs is rw,noatime. No candidate reboot/login.
 Native target /jci/mmui/uia/libjciuiasystem.so current known C:

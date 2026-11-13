@@ -10,6 +10,7 @@
 static Machine machine;
 static Context context;
 static Event event;
+static EventData event_data;
 static Cell cells[203], saved_cells[203];
 static Column columns[22], saved_columns[22];
 static volatile u32 logo;
@@ -58,6 +59,7 @@ word cmu_stock_process(word handle,Machine *m,Event *ev,Context *current,
     assert(handle==0x1234 && ev==&event && current==&context && a4==p4 && a5==p5);
     if(m!=&machine) {
         used_clone++;
+        assert(ev->app==1 && ev->payload==&event_data && ev->payload->event==1470);
         assert(m->columns_count==22 && m->rows_count==126 && m->cells_count==203);
         assert(m->rows==machine.rows && m->lookup==machine.lookup);
         for(int i=0;i<203;i++) {
@@ -93,7 +95,9 @@ static void reset(void) {
     machine=(Machine){22,126,203,columns,&rows_marker,cells,&lookup_marker};
     cells[79]=(Cell){0,1,(void *)rule80};cells[193]=(Cell){0,9,(void *)rules194};
     columns[9].context=1021;columns[9].exit=original_warning;
-    context.context=1021;event=(Event){7,1,1470,(void *)0x3333,0};
+    context.context=1021;
+    event_data=(EventData){1,1470};
+    event=(Event){7,1,1,&event_data,0}; /* Actual caller: app at +8, pointer at +12. */
     logo=2;focus_app=1;granted=1;selected=8;intro_rc=0;quick_rc=100;
     process_calls=system_calls=stop_calls=warning_calls=used_clone=0;
     granted_actions=denied_actions=error_logs=0;last_log_rc=-999;
@@ -122,13 +126,14 @@ int main(void) {
         assert(granted_actions==0 && denied_actions==(rules194[i][2]!=0));
     }
     puts("PASS denial preserves callback alternatives/state/return; intro disposal intentional, no quick/exit");
-    for(int i=0;i<5;i++) {
+    for(int i=0;i<6;i++) {
         reset();granted=0;
         if(i==0)focus_app=2;
         if(i==1)logo=1;
-        if(i==2)event.event=411;
+        if(i==2)event_data.event=411;
         if(i==3)context.context=1017;
         if(i==4)machine.cells_count=202;
+        if(i==5)event.payload=0;
         invoke();assert(!used_clone && !system_calls && !stop_calls && !warning_calls);
     }
     puts("PASS nofocus, unsupported mode/event/context/table remains stock before mutation");

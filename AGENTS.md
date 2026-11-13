@@ -1,4 +1,8 @@
-# Mazda CMU bench agent instructions
+# Open Connect agent instructions
+
+Read [STEERING.md](STEERING.md) first. It is the living product and working-style
+agreement; keep these operational instructions consistent with it. Current device
+state belongs in notes/afk-session-status.txt, not historical handoffs.
 
 This is an agent-operated development and research bench. The user will not touch
 the bench, press buttons, dismiss dialogs, reposition the camera, or perform wiring
@@ -7,69 +11,43 @@ unavailable physical operation as a dependency; do not assign it to the user.
 
 ## Coordination
 
-A retrospective, status question or workflow discussion does not cancel active
-authorized work. Address it, then resume unless the user explicitly pauses, stops
-or replaces the task.
+The primary agent owns implementation, bench operation, testing, recovery and
+integration directly. The user stopped the standing multi-agent team on November13.
+Do not restart persistent specialist agents or delegate the main work.
+Ephemeral agents are allowed only for a specific, narrowly bounded task and must
+exit when it is done. The primary agent remains accountable for the complete result.
 
-Working style: a hackathon with trusted teammates. Give agents complete outcome
-ownership and room to choose routine implementation details. Coordinate dependencies,
-resolve blockers and integrate results; do not act as a per-command approval gate.
-Prefer the smallest working demo and fast feedback. Keep documentation concise and
-batch it after useful results. Pause for genuinely new risk or an unexpected device
-state; retain one UART owner and responsibility for software cleanup.
+A status question or workflow discussion does not cancel authorized project work.
+Answer promptly, then continue. Do not leave the user waiting while composing a
+long internal analysis.
 
-- The point agent coordinates. Delegate scoped execution and research through
-  Herdr's `hc` API/CLI exclusively; do not use native agent-spawn/collaboration
-  tools. Run program/file operations through Herdr too.
-- Consult `hc --skill` and `hc <command> --help` for exact API/CLI behavior.
-- Launch agents interactively with `hc run --bg`, an exact name/scope, and an
-  explicit verified parent when caller identity is ambiguous. Codex agents use
-  `--no-daemon` so their commands stay in their Herdr context.
-- Only the coordinator assigns new agents or additional delegation. Workers
-  report results and artifact paths with `hc send <coordinator>`.
-- Give one bench operator exclusive UART ownership. Other agents use saved
-  evidence and request live work from that owner. Never run a passive logger,
-  command helper, terminal program, or second operator on the UART concurrently.
-- Assign complete bounded work packages with clear stop conditions. Do not
-  repeatedly seek coordinator authorization for routine steps already within
-  that task. Pin reviewed code once and avoid full-source audits per command.
-- Prioritize a compact live result after relevant tests and one scoped review;
-  do batch indexing/documentation afterward. Keep originals, including failures.
-- Keep camera access serialized. Use `hc wait` for running Herdr programs/agents.
-  Clean up only helper terminals created by the current task after results are saved.
+Run program/file operations through Herdr hc. No native collaboration tools.
+Preserve originals and failures; keep UART/camera access serialized and clean up
+owned resources. The primary agent t6 is now the sole bench operator; t12/t13/t14
+have been stopped. Historical worker assignments and handoffs are evidence, not
+instructions to restart those workers.
+Keep execution simple: exercise real host entry points, use relevant checks,
+then run the useful bench experiment. Batch concise documentation after results.
 
 ## Bench development priority
 
 The user explicitly wants the best OEM-feeling fix, including native changes when
 appropriate. This dedicated test bench exists for experimentation; do not apply
 production-car risk aversion as a reason to prefer a timer tweak or visual mask.
-Use backups, independent undo and repeatable experiments to support the correct
-design. Trusted owners choose routine details and deliver working outcomes.
-The current disclaimer goal is to bypass its native startup detour while retaining
-OEM initialization, cleanup, focus and resume choices. The measured timer change is
-historical learning, not the completed feature. CSS masking and timer tuning are
-parked. Current native prototype ownership is t12, focused semantics t13, sole
-hardware execution t14. No additional user approval is needed for routine work in
-an assigned experiment; bring a concrete new boundary to the coordinator.
+Use backups, independent undo and relevant tests to support the correct design.
+Reverse engineering that establishes the right native behavior is core work.
+Avoid repeated reviews, bespoke tooling and documentation churn that delay the
+complete experiment. The primary agent owns the outcome directly.
 
-The native HOST feature is frozen and its one semantic review completed.
-The current complete native bench outcome is assigned to t14 under
-notes/native-disclaimer-complete-handoff.txt: after relevant runtime checks and
-profile freeze, candidate apply/startup, independent undo and original-confirmation
-startup proceed without another per-step permission gate. Preserve actual request
-counts and current loaded-vs-disk state; historical JS profiles are not reusable.
+The disclaimer goal is to bypass its native startup detour while retaining OEM
+initialization, cleanup, focus and resume choices. Timer reduction is historical
+learning, not the completed feature; masking and timer tuning remain parked.
 
-## Active native recovery exception
-
-The first native publication wrote exact C but its pairedRO remount returned
-EBUSY255; physical root remains RW. No candidate reboot was requested.
-This supersedes the historical stockRO baseline below. Follow the complete known
-original recovery in notes/native-apply-recovery-handoff.txt: t14 owns explicit
-RW-entry known-state undo and one truthful original-only recovery boot if needed,
-with exact original/mapping/physicalRO/VERIFY/home closure. Do not boot candidate,
-repeat the failed install, assume defaultRO recovery accepts RW, or treat disk
-restore as unloading the existing mapped module. Current evidence and retained
-identities are at the TOP of notes/afk-session-status.txt.
+Native v2 now demonstrated a true Intro startup bypass, with independent undo
+and restored-original startup verified. The mapped-inode EBUSY issue was solved
+using same-filesystem hardlink holds across apply/undo and loaded-module lifetime.
+See notes/native-disclaimer-v2-result.txt and the current handoff; old payloads
+and worker assignments are historical, not replay instructions.
 
 ## Verified reference state
 
@@ -87,8 +65,8 @@ identities are at the TOP of notes/afk-session-status.txt.
 
 ## Execution and evidence
 
-- Follow the assigned task. The interim task is planning, preservation, tooling,
-  and bounded reversible experiments; keep firmware55 as its reference baseline.
+- Own the complete current feature experiment, including implementation and bench
+  validation. Keep firmware55 as the reference until the planned upgrade is ready.
 - Routine software cleanup within an authorized task needs no repeated user
   confirmation. Agents dismiss their own dialogs and release their resources.
 - Match owned-process identity before termination. Never kill all dialog processes.
@@ -151,7 +129,8 @@ operator, baseline, and development/research plans in notes/ provide supporting 
 As implementation proceeds, keep a searchable research index linking sources,
 findings, hypotheses, decisions and immutable run evidence. Source records include
 exact URL/reference, retrieval date, hash/revision, relevant page/section, scope,
-conflicts and superseded status. Update the index and handoff at the end of each task.
+conflicts and superseded status. Batch useful findings and handoff updates after meaningful results; do not make
+index maintenance a gate for experiments.
 
 ## User progress dashboard
 
@@ -167,8 +146,8 @@ skill for cloud updates and preserve the Page URL.
 The stock GuiFramework schedules native guiManager.javascriptHeartbeat every1s.
 Whole-page data navigation rendered but lost that producer, triggered a heartbeat
 fault/Opera exit and failed its timed return; root55/home were separately restored.
-Current experiments keep the stock document/framework loaded and use owned native
-overlays. Do not repeat that navigation branch or spoof/disable its heartbeat.
+Preserve the stock document/framework lifecycle during feature work; the proven
+native overlays are development tools, not the current product goal. Do not repeat that navigation branch or spoof/disable its heartbeat.
 USBhub/Ethernet+USBACCrelay remain in shipping; the user-planned v73 upgrade is
 deferred. Preserve55 while doing useful software/tooling/preservation work.
 

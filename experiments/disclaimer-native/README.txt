@@ -1,3 +1,8 @@
+CURRENT v2: native Intro bypass demonstrated on 55.00.750B; see
+notes/native-disclaimer-v2-result.txt. host-ready.json points to the corrected
+nested-event ABI checks (182648.838090Z). freeze.json and the original review
+remain historical v1 provenance; they do not pin the changed v2 sources.
+
 Native Intro-only disclaimer bypass — HOST prototype
 
 The candidate bypasses native Disclaimer selection on the observed normal Intro

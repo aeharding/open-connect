@@ -13,7 +13,10 @@ typedef struct {
     Column *columns; void *rows; Cell *cells; void *lookup;
 } Machine;
 typedef struct { u32 app, context, f2, bytes; void *data; } Context;
-typedef struct { u32 source, app, event; void *payload; u32 f4; } Event;
+/* Callback builds outer words at sp+28; manager dereferences +12, then +4.
+ * Actual libjciuiamgr instructions f56c/f730/f734, not a flattened event ID. */
+typedef struct { u32 app, event; } EventData;
+typedef struct { u32 handle, source, app; EventData *payload; u32 f4; } Event;
 typedef struct {
     Machine *machine; Context *context; Cell *cells; Column *columns;
     void *rules80, *rules194, *rows, *lookup;
@@ -41,6 +44,8 @@ static Binding cmu_binding(void) {
 }
 _Static_assert(sizeof(Machine)==28 && sizeof(Cell)==12 && sizeof(Column)==36, "ARM table ABI");
 _Static_assert(sizeof(Context)==20 && sizeof(Event)==20, "ARM context/event ABI");
+_Static_assert(__builtin_offsetof(Event,payload)==12 &&
+               __builtin_offsetof(EventData,event)==4, "ARM nested event ABI");
 #endif
 
 extern word cmu_stock_process(word, Machine *, Event *, Context *, void *, void *);
@@ -70,7 +75,7 @@ static void cmu_intro_exit(word context) {
 
 static int supported(Machine *m, Event *event, Context *current, Binding *b) {
     return m==b->machine && current==b->context && event &&
-        current->context==1021 && event->event==1470 &&
+        current->context==1021 && event->payload && event->payload->event==1470 &&
         m->columns_count==22 && m->rows_count==126 && m->cells_count==203 &&
         m->columns==b->columns && m->rows==b->rows &&
         m->cells==b->cells && m->lookup==b->lookup &&

@@ -1,45 +1,45 @@
 {
   "schema_version": 1,
-  "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T11:25:09-06:00",
+  "title": "Mazda Open Connect",
+  "updated_at": "2026-11-13T12:38:09-06:00",
   "timezone": "America/Chicago",
   "snapshot_note": "Saved progress, not live telemetry. Candidate publication verified; root remount to read-only failed. Original-only recovery is underway.",
   "links": {
     "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
     "html_download": null
   },
-  "headline": "Native install stopped; restoring the original",
-  "summary": "The native candidate was written and verified, but returning the root filesystem to read-only failed with “Device or resource busy.” No candidate startup was attempted. The operator is restoring the exact original from verified retained backups, with a normal original-only recovery boot if needed.",
+  "headline": "Native disclaimer bypass works on the bench",
+  "summary": "The native startup now goes directly to stock home without the Disclaimer context. No warning was visible in the reviewed startup video. Independent undo and a fresh original boot both passed; the stock warning returned. The bench is back on the original library with root read-only.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
-    "console": "Fresh root55 / NA at failed apply; serial closed afterward",
+    "console": "Fresh root55 / NA; both v2 boot observers passed",
     "uart": "115200 · 8N1 · no flow control",
     "tx": "64-byte chunks · 20 ms RX gaps",
     "camera": "Last read: manual1 · exposure87 · brightness128",
     "scope": "USB + SD preserved · AUX not required",
-    "changes": "Exact native candidate on disk; physical root is writable after failed remount. Verified original/candidate/recovery retained, enabled/no pending control. Original-only recovery assigned; GUI source remains stock.",
-    "display": "Last verified Communication home before native install; fresh recovery frame pending",
-    "device_state": "hold",
-    "state_label": "Native recovery underway",
-    "firmware_qualifier": "One exact55 base; warm software restarts only"
+    "changes": "Original native library restored, loaded and verified after reboot; physical root read-only. Temporary inode holds removed; independent recovery/backups retained. GUI source stays stock.",
+    "display": "Restored-stock warning followed by Communication home",
+    "device_state": "done",
+    "state_label": "Original restored · native bypass proven",
+    "firmware_qualifier": "One exact55 warm Intro startup; other startup paths remain open"
   },
   "metrics": [
     {
-      "value": "~1s",
-      "label": "earlier timer experiment; still visible"
+      "value": "Bypassed",
+      "label": "native Disclaimer context in tested path"
     },
     {
-      "value": "~4s",
-      "label": "original warning returned"
+      "value": "2 boots",
+      "label": "candidate + restored original verified"
     },
     {
-      "value": "1",
-      "label": "complete warm apply / undo cycle"
+      "value": "RO",
+      "label": "current original filesystem"
     },
     {
-      "value": "1",
-      "label": "exact firmware/base configuration"
+      "value": "55.00.750B",
+      "label": "exact tested firmware"
     }
   ],
   "diagram": {
@@ -79,8 +79,8 @@
         "kind": "done",
         "title": "Display / native UI",
         "lines": [
-          "Stock warning restored → home",
-          "Original frames / timing verified"
+          "Native bypass demonstrated",
+          "Original warning returned after undo"
         ]
       },
       {
@@ -201,6 +201,17 @@
     ]
   },
   "milestones": [
+    {
+      "id": "native-v2",
+      "title": "Native bypass + undo + stock confirmation passed",
+      "state": "done",
+      "detail": "Corrected native event ABI; reused OEM continuation and cleanup. Candidate startup reached stock home without publishing Disclaimer.",
+      "proof": "Two automated startup checks, exact loaded mappings, independent undo, root RO and final hardlink cleanup. Video and native logs agree.",
+      "limits": "One exact55 warm Intro path. No sub-frame or all-branches claim.",
+      "refs": [
+        "notes/native-disclaimer-v2-result.txt"
+      ]
+    },
     {
       "id": "console",
       "title": "Root access restored",
@@ -478,6 +489,15 @@
   ],
   "tasks": [
     {
+      "id": "native-next",
+      "lane": "next",
+      "state": "waiting",
+      "title": "Exercise alternate native startup paths",
+      "owner": "Primary agent",
+      "detail": "Extend the demonstrated Intro path to saved-app, focus and resume cases using actual state-machine evidence.",
+      "pass": "Correct stock continuation and cleanup in each exercised path; keep firmware55 as the baseline."
+    },
+    {
       "id": "staged-delivery-tool",
       "lane": "later",
       "state": "done",
@@ -488,11 +508,11 @@
     },
     {
       "id": "native-install-lifetime",
-      "lane": "next",
-      "state": "waiting",
+      "lane": "later",
+      "state": "done",
       "title": "Correct loaded-library publication lifetime",
-      "owner": "Tooling + Bench operator",
-      "detail": "After original recovery, diagnose the busy remount and design native publication/undo that retains needed mapped inode links. Feature candidate remains unchanged.",
+      "owner": "Primary agent",
+      "detail": "Superseded by completed native v2 bypass, independent undo and restored-original startup. Historical evidence retained.",
       "pass": "Concrete retained-inode lifecycle, focused checks and a new complete experiment; no in-place patch or proc relink."
     },
     {
@@ -506,11 +526,11 @@
     },
     {
       "id": "disclaimer-next-design",
-      "lane": "now",
-      "state": "active",
+      "lane": "later",
+      "state": "done",
       "title": "Restore the original native library",
-      "owner": "Bench operator; Tooling support; Research visuals",
-      "detail": "Fresh known-state checks, separate explicit writable-root undo, exact original/control/sync and paired read-only remount; one original-only recovery boot if needed.",
+      "owner": "Primary agent",
+      "detail": "Superseded by completed native v2 bypass, independent undo and restored-original startup. Historical evidence retained.",
       "pass": "Exact original and fresh nondeleted mapping, read-only root, independent VERIFY/disabled-none, stock home and owned cleanup. No candidate startup or retry in this recovery."
     },
     {
@@ -644,8 +664,8 @@
       "lane": "later",
       "state": "done",
       "title": "Prepare a heartbeat-preserving overlay",
-      "owner": "Tooling + Research",
-      "detail": "One native BENCH STATUS trial passed owned cleanup and fresh root55; title readable, original body crowded. Future default shortened offline.",
+      "owner": "Primary agent",
+      "detail": "Superseded by completed native v2 bypass, independent undo and restored-original startup. Historical evidence retained.",
       "pass": "Development tool, separate from the first installable feature."
     },
     {
@@ -729,21 +749,21 @@
     },
     {
       "title": "Evidence coverage",
-      "text": "One exact55 warm apply/boot/undo/original-boot cycle is verified. Full visual bypass, repeat coldACC/CarPlay runs, full-device restore, independent second copy, fullmetadata/crash/powerloss and USB maintenance remain open."
+      "text": "Native bypass demonstrated on one exact55 warm Intro path. Other startup modes, cold ACC, full-device recovery and USB release validation remain open."
     }
   ],
   "recent": [
     {
-      "title": "Original-only recovery underway",
-      "text": "Known candidate is on disk and root is writable. Explicit guarded undo and a normal original recovery boot are assigned."
+      "title": "Native warning bypass demonstrated",
+      "text": "No warning in reviewed candidate startup; native log skips Disclaimer and reaches HomeScreen."
     },
     {
-      "title": "Native apply stopped before startup",
-      "text": "Publication checks passed; returning root to read-only failed with Device or resource busy. No candidate reboot was requested."
+      "title": "Original restored and rebooted",
+      "text": "The warning returned. Exact original loaded, root read-only, hold cleanup complete."
     },
     {
-      "title": "HOST feature remains frozen and reviewed",
-      "text": "Four focused checks and semantic review passed. The current failure is an installation/lifecycle boundary, not an observed feature result."
+      "title": "Busy-filesystem cause handled",
+      "text": "Mapped original/candidate inodes keep owned hardlinks until their processes unload them."
     }
   ],
   "guardrails": [

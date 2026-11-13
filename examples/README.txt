@@ -5,11 +5,11 @@ Tests: ../tests/test_session.py, test_files.py, test_cli.py, run_offline.py
 Coordinator handoff: ../notes/tooling-development-result.txt
 
 Start with an offline plan (no enumeration, port open, TX or output files):
- hc exec --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B scripts/cmu-session.py --action command --command id
- hc exec --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B scripts/cmu-session.py --action export --path /etc/version --checksum md5 --encoder base64
+ hc exec --cwd /Users/aeharding/open-connect .venv/bin/python -B scripts/cmu-session.py --action command --command id
+ hc exec --cwd /Users/aeharding/open-connect .venv/bin/python -B scripts/cmu-session.py --action export --path /etc/version --checksum md5 --encoder base64
 
 Run all host-only tests through Herdr:
- hc run --bg --name cmu-tooling-tests --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B tests/run_offline.py
+ hc run --bg --name cmu-tooling-tests --cwd /Users/aeharding/open-connect .venv/bin/python -B tests/run_offline.py
  hc wait cmu-tooling-tests
  hc read cmu-tooling-tests --lines 80
 Test runner saves an immutable dated result and source hashes in tooling-runs/.

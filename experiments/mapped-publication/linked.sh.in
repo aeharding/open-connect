@@ -1,0 +1,177 @@
+#!/bin/sh
+# Independent apply/undo for one exact native library; inputs fixed at rendering.
+set -fu
+umask 077
+P=@TARGET@
+D=@DIRECTORY@
+H=@HOLD_O@
+C=@HOLD_C@
+S=@STAGE@
+OID=@ORIGINAL_ID@
+OH=@ORIGINAL_HASH@
+CH=@CANDIDATE_HASH@
+OC=@ORIGINAL_CRC@
+CC=@CANDIDATE_CRC@
+MODE=${1:-VERIFY}
+WRITING=0
+emit() { printf 'OCLINK|%s\n' "$*"; }
+die() { emit "REFUSED|$*"; exit 73; }
+sid() { stat -c '%d:%i:%Y:%s:%a:%u:%g' "$1"; }
+links() { stat -c %h "$1"; }
+absent() { test ! -e "$1" && test ! -L "$1"; }
+regular() {
+ test -f "$1" && test ! -L "$1" || die "file $1"
+ test "$(readlink -f "$1")" = "$1" || die "canonical $1"
+}
+image() {
+ regular "$1"
+ test "$(stat -c '%s:%a:%u:%g' "$1")" = '454142:755:1018:3015' || die "metadata $1"
+ case "$2" in O) h=$OH;c=$OC;; C) h=$CH;c=$CC;; *) die image_kind;;esac
+ test "$(md5sum < "$1")" = "$h  -" || die "hash $1"
+ test "$(cksum < "$1")" = "$c 454142" || die "crc $1"
+}
+alias() {
+ image "$1" "$2"
+ test "$(sid "$1")" = "$3" || die "identity $1"
+ test "$(links "$1")" = "$4" || die "links $1"
+}
+rootmode() {
+ awk '$1=="/dev/ffx01p1"&&$2=="/"&&$3=="relfs"{n++;m=$4}END{if(n!=1)exit 1;print m}' /proc/mounts
+}
+flush() { timeout -t 8 -s TERM /bin/sync; }
+mountmode() {
+ timeout -t 8 -s TERM /bin/busybox mount -i -n -t relfs -o remount,"$1",noatime /dev/ffx01p1 /
+}
+finish() {
+ rc=$?
+ trap - 0 HUP INT TERM
+ if test "$WRITING" = 1;then
+  flush;f=$?
+  mountmode ro;r=$?
+  mode=$(rootmode);m=$?
+  emit "FINAL|operation=$rc|sync=$f|ro_request=$r|row=$mode"
+  test "$f:$r:$m:$mode" = 0:0:0:ro,noatime || rc=74
+ fi
+ exit "$rc"
+}
+begin_write() {
+ flush || die preflush
+ WRITING=1
+ trap finish 0
+ trap 'exit 125' HUP INT TERM
+ mountmode rw || die remount_rw
+ test "$(rootmode)" = rw,noatime || die physical_rw
+}
+state() {
+ absent "$D/state.new" || die journal_conflict
+ printf '%s|%s\n' "$1" "$CID" > "$D/state.new" || die journal_write
+ chmod 600 "$D/state.new" || die journal_mode
+ mv "$D/state.new" "$D/state" || die journal_publish
+ PHASE=$1
+}
+load() {
+ regular "$D/state"
+ test "$(stat -c '%a:%u:%g:%h' "$D/state")" = 600:0:0:1 || die state_mode
+ test "$(wc -l < "$D/state")" -eq 1 || die state_lines
+ IFS='|' read -r PHASE CID EXTRA < "$D/state" || die state_read
+ test -z "$EXTRA" || die state_fields
+ case "$PHASE" in prepared|staged|candidate|restored|clean);;*)die state_phase;;esac
+ case "$CID" in none) test "$PHASE" = prepared || die missing_candidate;;
+  *[!0-9:]*|'')die candidate_id;;
+  *) test "$(printf '%s' "$CID" | awk -F: '{print NF}')" = 7 || die candidate_id_fields;;
+ esac
+}
+classify() {
+ regular "$P"
+ id=$(sid "$P") || die target_stat
+ if test "$id" = "$OID";then KIND=O;image "$P" O
+ elif test "$CID" != none && test "$id" = "$CID";then KIND=C;image "$P" C
+ else die unknown_target;fi
+}
+verify_links() {
+ if test "$KIND" = C;then
+  alias "$P" C "$CID" 2
+  alias "$C" C "$CID" 2
+  alias "$H" O "$OID" 1
+ else
+  if absent "$H";then alias "$P" O "$OID" 1
+  else alias "$P" O "$OID" 2;alias "$H" O "$OID" 2;fi
+  if ! absent "$C";then alias "$C" C "$CID" 1;fi
+ fi
+}
+test "$(id -u)" = 0 || die root
+@PARENT_GUARDS@
+test -d "$D" && test ! -L "$D" && test "$(readlink -f "$D")" = "$D" || die retained_dir
+test "$(stat -c '%a:%u:%g:%d' "$D")" = 700:0:0:45826 || die retained_owner
+image "$D/original" O
+image "$D/candidate" C
+test "$(links "$D/original"):$(links "$D/candidate")" = 1:1 || die backup_links
+mode=$(rootmode) || die physical_root
+case "$mode" in ro,noatime|rw,noatime);;*)die mount_flags;;esac
+load
+classify
+case "$MODE" in
+ VERIFY)
+  case "$PHASE:$KIND" in prepared:O|candidate:C|restored:O|clean:O);;*)die state_vs_target;;esac
+  verify_links
+  absent "$S" || die unexpected_stage
+  emit "VERIFY|$KIND|$PHASE|$(sid "$P"):$(links "$P")|$mode|writes=0"
+ ;;
+ APPLY)
+  test "$mode:$PHASE:$KIND" = ro,noatime:prepared:O || die apply_state
+  alias "$P" O "$OID" 1
+  absent "$H" && absent "$C" && absent "$S" || die existing_alias
+  begin_write
+  cp -p "$D/candidate" "$S" || die stage_candidate
+  image "$S" C
+  test "$(links "$S"):$(stat -c %d "$S")" = 1:64785 || die stage_links_device
+  CID=$(sid "$S") || die candidate_identity
+  state staged
+  alias "$P" O "$OID" 1
+  ln "$P" "$H" || die hold_original
+  alias "$P" O "$OID" 2;alias "$H" O "$OID" 2
+  ln "$S" "$C" || die hold_candidate
+  alias "$S" C "$CID" 2;alias "$C" C "$CID" 2
+  mv -f "$S" "$P" || die publish_candidate
+  KIND=C;verify_links
+  state candidate
+  emit "APPLIED|$CID:2"
+ ;;
+ UNDO)
+  test "$CID" != none || die no_publication
+  verify_links
+  absent "$S" || die stage_conflict
+  begin_write
+  if test "$KIND" = C;then
+   alias "$H" O "$OID" 1;alias "$C" C "$CID" 2
+   ln "$H" "$S" || die stage_original
+   alias "$S" O "$OID" 2
+   mv -f "$S" "$P" || die restore_original
+  fi
+  KIND=O;verify_links
+  state restored
+  emit "RESTORED|$OID:$(links "$P")"
+ ;;
+ CLEAN)
+  test "$mode:$PHASE:$KIND" = ro,noatime:restored:O || die cleanup_state
+  verify_links
+  absent "$S" || die stage_conflict
+  ci=$(printf '%s' "$CID" | cut -d: -f2)
+  oi=$(printf '%s' "$OID" | cut -d: -f2)
+  for maps in /proc/[0-9]*/maps;do
+   test -r "$maps" || continue
+   if awk -v i="$ci" '$4=="fd:11"&&$5==i{found=1}END{exit !found}' "$maps";then die candidate_still_mapped;fi
+  done
+  pid=$(pgrep -f '(^| )/jci/mmui/svcjcimmui[.]so( |$)') || die mmui
+  case "$pid" in ''|*[!0-9]*)die mmui_identity;;esac
+  test "$(md5sum < "/proc/$pid/cmdline")" = 'a43fc1bb895b0e6c13480c8f4b875a58  -' || die mmui_argv
+  awk -v i="$oi" '$4=="fd:11"&&$5==i&&NF==6{n++}END{exit !(n>0)}' "/proc/$pid/maps" || die original_not_mapped
+  begin_write
+  alias "$H" O "$OID" 2;alias "$C" C "$CID" 1
+  rm "$H" "$C" || die remove_holds
+  alias "$P" O "$OID" 1
+  state clean
+  emit "CLEAN|$OID:1"
+ ;;
+ *)die mode;;
+esac

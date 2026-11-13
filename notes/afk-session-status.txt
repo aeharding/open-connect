@@ -57,17 +57,27 @@ Body executed once through corrected v2; root body/entries and signal limits
 in notes/warm-roundtrip-live-handoff.txt, result in
 notes/warm-real-file-roundtrip-observation.txt.
 Retained O/C/journal data_persist folder and verified tmpfs payload stay in place.
-ACTIVE t12+t14: standalone fresh-process recovery inspection, default live READONLY
-verify on current O, strict journal/backup checks; explicit restoration capability
-tested on HOST copies/prepared for later review, not live authorized.
-Completed ONE read-only retained journal fixture:367B PRE/POST/host MD5+CRC match;
-retained metadata captured, delivered directly to t12. RelFS directory nlink5 is
-observed, not assumed POSIX2. No source/image hash repeat in this fixture query.
-Standing next live scope is ONE checked default/explicit VERIFY-only inspection,
-no writes/mount/sync; C/OTHER/conflict refuses. No additional coordinator gate for
-this read-only outcome. Mutating restore branches and any reboot remain unqueued.
-No startup/visible disclaimer or crash/power-loss/USB recovery proof yet.
-t13: one concise saved-result index update; no raw audit or new query.
+Standalone fresh-process VERIFY PASSED2.049s: strict WARM1 data parse, stored O/C
+full hash/metadata and current O9457 (not historical1606) verified. Journal367B
+disabled/none/original_restored; noop1/writes0, physical rootRO, root55/coreEND0.
+notes/recovery-verify-readonly-observation.txt and
+experiments/disclaimer-recovery-inspection/result.txt.
+Only generated VERIFY payload staged/executed; restore template remains host-tested
+preparation only, no actual C restoration, remount or sync by this inspection.
+ACTIVE t12+t14 with t13 source support: ONE STOCK WARM SOFTWARE RESTART baseline
+from confirmed original O +rootRO, bounded UART/video observation, one deliberate
+new-prompt-gated established login and fresh identity/uptime/original/RO/persistence.
+Relevant checked observer + normal reboot route must be established first. No
+extra routine coordinator gate, but ambiguity/non-stock state stops before request.
+One normal no-flags reboot only; no force/no-sync/poweroff/halt/relay/firmware or
+feature-file changes. RX-only through bootloader, no login guesses/retries, no
+automatic repeated reboot. Observe up to180s and preserve unknown/loop/no-readiness.
+Read-only reboothelp/PID1 identity+shutdown evidence preflight authorized; do not
+execute init/telinit for discovery. Actual normal stock restart is conditional
+within this complete task; patched startup/mutating recovery remain unqueued.
+Warm CMU backups/journal retained; tmpfs delivery files may normally vanish on boot,
+their exact Mac bytes/hash provenance already preserved. Persistence is measured.
+No visible disclaimer/cold ACC/CarPlay/crash-powerloss/USB recovery proof yet.
 t14 remains sole UART/camera owner; reconcile existing trial state before repeats.
 t13: resource interpretation + retrospective comparison COMPLETE; external research
 started after freeze. Miatafy ScreenTune public behavior compared; disclaimer

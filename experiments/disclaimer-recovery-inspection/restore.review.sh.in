@@ -1,0 +1,48 @@
+# FUTURE REVIEW ONLY: requires a separately authorized, already-RW root window.
+# This capability does not mount/sync or promise RO return; never handed live here.
+umask 077
+case "$_kind:$_registry:$_pending:$_phase" in
+ C:enabled:none:candidate_verified|C:enabled:DISABLE:planned_restore|C:enabled:DISABLE:restoring_O|C:disabled:ENABLE:staged) ;;
+ *) die restore_requires_known_C_and_valid_intent;;
+esac
+# Refuse every unknown destination; never truncate/overwrite an existing stage.
+test ! -e "$_os" && test ! -L "$_os" || die restore_stage_exists
+test ! -e "$_d/journal.new" && test ! -L "$_d/journal.new" || die journal_stage_exists
+cp -p "$_d/original" "$_os"
+status STAGE_STORED_O "$?"
+_verify_o "$_os" 64785
+_new_osi=$(_id "$_os") || die staged_O_id
+_pending_text="WARM1|$_run|registry=enabled|pending=DISABLE|phase=restoring_O|goal=O|initial=$_initial|directory=$_di|original=$_oi|candidate=$_ci|cstage=$_csi|ostage=$_new_osi"
+_commit_record() {
+ _next=$1
+ _backup_guard
+ test ! -e "$_d/journal.new" && test ! -L "$_d/journal.new" || die control_stage_exists
+ printf '%s\n' "$_next" > "$_d/journal.new"
+ status STAGE_RECORD "$?"
+ test "$(stat -c '%F|%a|%u|%g|%h|%d' "$_d/journal.new")" = 'regular file|600|0|0|1|45826' || die staged_record_metadata
+ _staged=$(cat "$_d/journal.new") || die staged_record_read
+ _len=$(wc -c < "$_d/journal.new") || die staged_record_count
+ test "$_staged" = "$_next" && test "$_len" -eq "$((${#_next}+1))" || die staged_record_bytes
+ mv -f "$_d/journal.new" "$_d/journal"
+ status COMMIT_RECORD "$?"
+}
+_commit_record "$_pending_text"
+_backups
+_classify
+test "$_kind" = C || die changed_C_no_overwrite
+_verify_o "$_os" 64785
+test "$(_id "$_os")" = "$_new_osi" || die staged_O_changed
+mv -f "$_os" "$_src"
+status RESTORE_STORED_O "$?"
+_verify_o "$_src" 64785
+cmp "$_d/original" "$_src"
+status EXACT_RESTORED_O "$?"
+_final=$(_id "$_src") || die restored_identity
+test "$_final" = "$_new_osi" || die restored_inode
+_disabled_text="WARM1|$_run|registry=disabled|pending=none|phase=original_restored|goal=O|initial=$_initial|directory=$_di|original=$_oi|candidate=$_ci|cstage=$_csi|ostage=$_final"
+_commit_record "$_disabled_text"
+_read_record
+_backups
+_classify
+test "$_kind:$_registry:$_pending" = 'O:disabled:none' || die incomplete_restore
+emit "END mode=RESTORE_ORIGINAL rc=0 kind=O registry=disabled pending=none final_id=$_sid policy=review_only"

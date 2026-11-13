@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "tests": 6,
+  "exit_code": 0,
+  "source_sha256": {
+    "check.py": "678e4fbd87c1f708996b68b9483d82d350bb136cb3fb4b317cc7e8a739a62324",
+    "inspect.sh.in": "8e5729372230ecdbdf1a68d00254d0d9a6f3361dee5e028116cabeed6d7bcb32",
+    "journal.py": "df221cfdcfd4cbc83d5effb24ad663cafe5b6df609581882efcaae39fe9b0f84",
+    "prepare.py": "8cc08c5665f4ad00f1b9e17f2a345281925bfa5253e5290ebd1bea6adfc1011f",
+    "restore.review.sh.in": "af38e40c9c8b65c1d1dbaa2b9649e9d75fe8257efbe4e1d535c37909f262d33a",
+    "test_inspection.py": "02e472c8de1872619128756162ea691fb1eef21c73fac71aa5665a5922997633"
+  },
+  "source_copies": "source/",
+  "source_unchanged": true,
+  "ready_VERIFY": "/Users/aeharding/mazda-cmu-bench/experiments/disclaimer-recovery-inspection/checks/20261113T113617.774769Z/ready-VERIFY",
+  "tests_sha256": "b95e2783b9a53e5f0782ecb14f8087b3a33dae18820ab2212a4472a381302d43",
+  "fixture": "/Users/aeharding/mazda-cmu-bench/runs/20261113T051316-0600-t14-warm-real-roundtrip-v2/retained-journal.exact.bin",
+  "scope": "HOST byte/mode/inode checks with logical UID/GID/device fakes; no UART/native mount/sync; restore remains review-only",
+  "live_scope": "ONE VERIFY on current original only"
+}

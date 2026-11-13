@@ -1,0 +1,109 @@
+# Fresh process. No journal is sourced/evaluated. VERIFY contains read commands only.
+set -f
+_run=@WARM@
+_inspect=@INSPECT@
+_mounts=/proc/mounts
+_src=/jci/gui/apps/system/js/systemApp.js
+_parent=/jci/gui/apps/system/js
+_persist=/tmp/mnt/data_persist
+_d="$_persist/cmu-bench-warm-$_run"
+_cs="$_parent/.systemApp.js.cmu-bench-$_run-candidate"
+_os="$_parent/.systemApp.js.cmu-bench-$_inspect-recovery-original"
+_parent_id=
+_persist_id=
+_di=@DIRECTORY@
+_expected_oi=@ORIGINAL_ID@
+_expected_ci=@CANDIDATE_ID@
+_expected_initial=@INITIAL_ID@
+_expected_csi=@CSTAGE_ID@
+_om=1433953097
+emit() { printf 'RECOVERY %s %s\n' "$_inspect" "$*"; }
+die() { emit "REFUSED reason=$1 preserved=1";exit 1; }
+status() { emit "STATUS op=$1 rc=$2";test "$2" = 0 || die "$1"; }
+@HELPERS@
+_read_record() {
+ _backup_guard
+ _entries=$(ls -A "$_d") || die retained_list
+ test "$_entries" = "$(printf 'candidate\njournal\noriginal')" || die unexpected_retained_entry
+ test -f "$_d/journal" && test ! -L "$_d/journal" || die journal_type
+ canon "$_d/journal"
+ test "$(stat -c '%F|%a|%u|%g|%h|%d' "$_d/journal")" = 'regular file|600|0|0|1|45826' || die journal_metadata
+ _jn=$(wc -c < "$_d/journal") || die journal_count
+ set -- $_jn;_jn=$1
+ test "$_jn" -gt 0 && test "$_jn" -le 2048 || die journal_bound
+ awk -F'|' -v warm="$_run" '
+ function id(x,dev,sz,mt, a,n,i) {
+  n=split(x,a,":");if(n!=8)return 0
+  for(i=1;i<=8;i++)if(a[i]!~/^(0|[1-9][0-9]*)$/)return 0
+  return a[1]==dev&&a[2]>0&&a[4]==sz&&a[5]==755&&a[6]==1018&&a[7]==3015&&a[8]==1&&(mt==""||a[3]==mt)
+ }
+ NR==1 {
+  if(NF!=12||$1!="WARM1"||$2!=warm)bad=1
+  if($3!~/^registry=(enabled|disabled)$/||$4!~/^pending=(none|ENABLE|DISABLE)$/||$6!="goal=O")bad=1
+  phase=substr($5,7);reg=substr($3,10);pending=substr($4,9)
+  if($5!~/^phase=/)bad=1
+  if(phase=="prepared"||phase=="staged") {if(reg!="disabled"||pending!="ENABLE")bad=1}
+  else if(phase=="candidate_verified") {if(reg!="enabled"||pending!="none")bad=1}
+  else if(phase=="planned_restore"||phase=="restoring_O") {if(reg!="enabled"||pending!="DISABLE")bad=1}
+  else if(phase=="original_restored"||phase=="original_present") {if(reg!="disabled"||pending!="none")bad=1}
+  else bad=1
+  if($7!~/^initial=/||!id(substr($7,9),64785,94058,1433953097))bad=1
+  if($8!~/^directory=45826:[1-9][0-9]*$/)bad=1
+  if($9!~/^original=/||!id(substr($9,10),45826,94058,1433953097))bad=1
+  if($10!~/^candidate=/||!id(substr($10,11),45826,94055,""))bad=1
+  split(substr($10,11),cm,":")
+  if($11!~/^cstage=/||($11!="cstage=none"&&!id(substr($11,8),64785,94055,cm[3])))bad=1
+  if($12!~/^ostage=/||($12!="ostage=none"&&!id(substr($12,8),64785,94058,1433953097)))bad=1
+  if(phase!="prepared"&&phase!="original_present"&&($11=="cstage=none"||$12=="ostage=none"))bad=1
+ }
+ END{exit !(NR==1&&!bad)}' "$_d/journal"
+ status STRICT_DATA_PARSE "$?"
+ IFS='|' read -r _magic _jr _rf _pf _phf _goal _if _df _of _cf _csf _osf _extra < "$_d/journal"
+ status READ_DATA "$?"
+ _registry=${_rf#registry=};_pending=${_pf#pending=};_phase=${_phf#phase=}
+ _initial=${_if#initial=};_read_di=${_df#directory=};_oi=${_of#original=};_ci=${_cf#candidate=}
+ _csi=${_csf#cstage=};_osi=${_osf#ostage=}
+ test "$_read_di" = "$_di" && test "$_oi" = "$_expected_oi" && test "$_ci" = "$_expected_ci" || die stored_profile_changed
+ test "$_initial" = "$_expected_initial" && test "$_csi" = "$_expected_csi" || die transaction_profile_changed
+ _jtext="$_magic|$_jr|$_rf|$_pf|$_phf|$_goal|$_if|$_df|$_of|$_cf|$_csf|$_osf"
+ test "$_jn" -eq "$((${#_jtext}+1))" || die journal_exact_length
+ _eh=$(printf '%s\n' "$_jtext" | md5sum) || die expected_journal_hash
+ set -- $_eh;_eh=$1
+ _jh=$(md5sum "$_d/journal") || die journal_hash
+ set -- $_jh;test "$1" = "$_eh" || die journal_exact_bytes
+ _jh=$1
+ _journal_id_start=$(stat -c '%d:%i:%Y:%s:%a:%u:%g:%h' "$_d/journal") || die journal_identity
+ _journal_hash_start=$_jh
+ _rest=${_ci#*:};_rest=${_rest#*:};_cm=${_rest%%:*}
+ _jcrc=$(cksum "$_d/journal") || die journal_crc
+ set -- $_jcrc;test "$2" = "$_jn" || die journal_crc_length
+ emit "JOURNAL registry=$_registry pending=$_pending phase=$_phase bytes=$_jn md5=$_jh crc=$1 data_only=1"
+}
+_classify() {
+ _source_route
+ _kind=OTHER
+ test -f "$_src" && test ! -L "$_src" || die current_type
+ canon "$_src"
+ _sid=$(_id "$_src") || die current_identity
+ if test "$_sid" = "$_osi" || test "$_sid" = "$_initial";then
+  _verify_o "$_src" 64785
+  cmp "$_d/original" "$_src"
+  status EXACT_CURRENT_O "$?"
+  _kind=O
+ elif test "$_sid" = "$_csi";then
+  _verify_c "$_src" 64785
+  cmp "$_d/candidate" "$_src"
+  status EXACT_CURRENT_C "$?"
+  _kind=C
+ fi
+ emit "CURRENT kind=$_kind id=$_sid historical_initial=$_initial"
+}
+_u=$(id -u) || die uid
+test "$_u" = 0 || die not_root
+_root_mode @ROOT_MODE@ || die physical_root_mode
+_persist_route
+_persist_id=$(stat -c '%d:%i' "$_persist") || die persist_identity
+_read_record
+_backups
+_classify
+@ACTION@

@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
   "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T05:22:57-06:00",
+  "updated_at": "2026-11-13T05:58:05-06:00",
   "timezone": "America/Chicago",
   "snapshot_note": "Saved progress, not live telemetry. Reopen the private Page for a newer snapshot.",
   "links": {
     "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
     "html_download": null
   },
-  "headline": "First real-file roundtrip passed; original restored",
-  "summary": "The frozen disclaimer candidate was written to the actual CMU file, verified, and restored to the exact AS-FOUND original in 12.2 seconds. Checked metadata was restored, the new inode recorded, and the physical root returned to read-only. Stock home and fresh root access passed. Startup behavior is still untested.",
+  "headline": "Fresh recovery-state verification passed",
+  "summary": "A new CMU process parsed the retained journal, verified both stored images and recognized the restored original in 2.0 seconds, with no writes or mount changes. The actual file roundtrip is complete and root remains read-only. Next: one stock warm software restart with UART/video capture, before any modified startup test.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
@@ -352,25 +352,46 @@
         "experiments/disclaimer-warm-roundtrip/live-result.txt",
         "notes/warm-real-file-roundtrip-observation.txt"
       ]
+    },
+    {
+      "id": "fresh-process-recovery-verify",
+      "title": "Recovery state verified independently",
+      "state": "done",
+      "detail": "One fresh-process read-only VERIFY passed in 2.049 s.",
+      "proof": "Journal367 B parsed as data; stored original/candidate hashes and metadata matched. Current original9457 distinguished from historical1606; disabled/no-pending, noop1/writes0, actual physical RO and fresh root55 verified.",
+      "limits": "VERIFY contains no restore/mount/sync branch. Restore capability is host-tested preparation only; no live recovery, reboot, crash/power-loss or USB guarantee follows.",
+      "refs": [
+        "experiments/disclaimer-recovery-inspection/result.txt",
+        "notes/recovery-verify-readonly-observation.txt"
+      ]
     }
   ],
   "tasks": [
     {
-      "id": "fresh-process-recovery",
+      "id": "stock-warm-start",
       "lane": "now",
       "state": "active",
-      "title": "Inspect recovery state from a fresh process",
+      "title": "Stock warm software restart baseline",
+      "owner": "Tooling + Bench operator + Research",
+      "detail": "Prepare and run one normal software restart from verified AS-FOUND original/read-only root. Capture UART and video, then one prompt-gated known login and postboot identity/original/RO and retained-data checks.",
+      "pass": "Actual reboot trace + lower uptime, stock startup/home and root access observed within a bounded window. No forced restart, feature-file changes or automatic reboot retry."
+    },
+    {
+      "id": "fresh-process-recovery",
+      "lane": "later",
+      "state": "done",
+      "title": "Fresh-process recovery inspection passed",
       "owner": "Tooling + Bench operator",
-      "detail": "Parse the retained journal and image profile independently, then verify the already-restored original with a read-only action. Explicit restore capability is prepared/tested on host copies for later review.",
-      "pass": "Consistent original/disabled state verified without changing the real file or mount. Unknown or conflicting evidence refuses."
+      "detail": "Strict journal/data parse, stored O/C hashes and metadata, current original9457 and disabled/no-pending state verified; noop1/writes0, physical root read-only.",
+      "pass": "One 2.049 s read-only CMU inspection. Actual restoration from C and crash/power-loss recovery remain untested."
     },
     {
       "id": "startup-comparison",
       "lane": "next",
       "state": "waiting",
-      "title": "Measure stock and modified startup behavior",
+      "title": "Test modified startup after the stock baseline",
       "owner": "Coordinator + Bench operator",
-      "detail": "Plan the first controlled startup comparison after standalone recovery is ready. Physical cold-start/ACC testing still depends on arriving hardware.",
+      "detail": "Compare modified notice behavior only after stock warm startup/access and recovery preparation. Physical cold-start/ACC testing still waits for arriving hardware.",
       "pass": "Observe notice timing/flash, heartbeat and return to stock after a tested uninstall. Warm file writes alone do not establish the visible feature."
     },
     {
@@ -558,6 +579,10 @@
   ],
   "recent": [
     {
+      "title": "Fresh recovery-state inspection passed",
+      "text": "An independent process verified the retained journal, backups and current original without writing anything. Next is a stock warm restart baseline."
+    },
+    {
       "title": "First actual file roundtrip passed",
       "text": "Frozen candidate verified on the real CMU file, then original restored. Physical root is read-only; source inode changed as expected."
     },
@@ -584,10 +609,6 @@
     {
       "title": "CMU writable RelFS primitives passed",
       "text": "One 3.776 s trial on tiny isolated files, with metadata/checksum readback and complete cleanup. Root filesystem untouched."
-    },
-    {
-      "title": "CMU tmpfs primitives passed",
-      "text": "One 3.023 s isolated trial exercised copy, same-parent replacement, restore and cleanup."
     }
   ],
   "guardrails": [

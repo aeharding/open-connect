@@ -1,0 +1,35 @@
+PASS — ONE fresh-process live readonly VERIFY,2026-11-13; operator t14.
+Live authority/result:
+  runs/20261113T054130-0600-t14-recovery-verify/compact-result.json
+  same folder/actual-inspection-markers.txt, inspection/ and stage-proof.json
+2.049s; coreEND0+PS1, freshroot55.00.750B/cmu150_NA,0BEL,portclosed.
+
+Strict DATA parse0 of journal367B/MD5+POSIXCRC; disabled/pendingnone/original_restored.
+Stored original50 and candidate51 full bytes/hashes+UID/GID/mode/mtime/links verified.
+Actual currentO id64785:9457:1433953097:94058:755:1018:3015:1, distinct from historical
+initial1606. Journal id45826:53:13399:367:600:0:0:1 rechecked. END VERIFY0/noop1/writes0;
+actual unique physical root row ro,noatime. No mount/sync/source or journal writes.
+Separately authorized tmpfs DATA delivery retained only new VERIFY payload:
+/tmp/cmu-bench-verify-payload-ab090b2b528b2131ec219bec393d5b82/p.
+Original warm O/C/journal and old payload retained; no warm-body repeat.
+
+Host checks:6 PASS; authority checks/20261113T113617.774769Z/manifest.json.
+Pre-test source copies/transcript beside it; ready-VERIFY/ contains exact accepted
+8668B command and checksum/size/bounds plan. Sources unchanged after this run.
+Earlier failed host checks preserved at113440.896387Z (wc padding) and113524.432762Z
+(future writer's control-file umask); corrected before PASS/live handoff.
+One operator HC name rejection caused no process/device attempt; one actual VERIFY.
+
+Restore-original capability is SEPARATE review-only, host-tested on private copies;
+never staged/executed live. It requires separately authorized already-RW root and
+an outer reviewed flush/RO/failure policy, not provided or approved by this proof.
+Known C+valid intent restored storedO/metadata and committed disabled in host model;
+OTHER/bad evidence refused; a fresh host VERIFY recognized the updated record.
+No live C/OTHER injection, actual restoration, product/USB policy or startup/reboot,
+power-loss/durability/CMU recovery promise. Checked metadata scope and TOCTOU limits
+remain. Existing/frozen feature/core/warm/engine sources unchanged.
+
+Six source files +README/result and passing check manifest are the review set.
+Final operator note: notes/recovery-verify-readonly-observation.txt; proof/cleanup.json
+records owned t62/t63 saved/exited0/removed, aliases closed and camera unused.
+No new work/live action queued; sole operator idle.

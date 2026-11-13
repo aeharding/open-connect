@@ -1,0 +1,45 @@
+FULL-FILE COPY-ONLY HANDOFF —2026-11-13, t12 -> t14; one owned scratch trial.
+No new feature transform, target writer, package or test suite. No /jci write.
+
+Authority: experiments/disclaimer/freeze.json and its pinned authored patch.py.
+Original AS-FOUND private bytes:
+  runs/20261113T022134-0600-t14-oem-disclaimer/originals/jci/gui/apps/system/js/systemApp.js
+Frozen private candidate:
+  runs/20261113T083503.577880Z-t12-disclaimer-host/candidate/candidate.bin
+
+ZERO-BASED byte offset83483: old4 ASCII bytes3500 (hex33353030) ->one ASCII0 (hex30).
+Suffix begins83487; preserve exact original encoding/CRLF, do not normalize text.
+Assignment begins83450; only initial display assignment changes, not retry3500.
+Host arithmetic reconstruction was compared byte-for-byte with the imported frozen
+patch_original result and matched the frozen candidate SHA. No frozen files changed.
+
+Original94058 bytes:
+  MD5 584c67f7186ada6bae9aae1be59b5cd0
+  POSIXCRC376717896, length94058
+  hostSHA256985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432
+Candidate94055 bytes:
+  MD5 64db9d0df2277e1d95a037929aef30c4
+  POSIXCRC776631029, length94055
+  hostSHA25643b21aa54308eb22c32051db44585422a4804c2d5406b80d0cc47e828dc5de3c
+CMU lacks sha256sum; host SHA is frozen artifact provenance, not a target SHA claim.
+
+Preconditions: t14's proven fresh root55/path/mount/free/owned nonce-dir guards;
+$d/original is a verified full copy matching the exact original and expected
+0755/UID1018/GID3015/nonlink/nlink1. $d/stage is absent and same-parent owned path.
+Literal guard: dd if="$d/original" bs=1 skip=83483 count=4 must return0 and3500.
+
+Bounded BusyBox-compatible assembly (only copied input and owned stage):
+{ dd if="$d/original" bs=4096 count=20 &&
+  dd if="$d/original" bs=1 skip=81920 count=1563 &&
+  printf '%s' 0 &&
+  dd if="$d/original" bs=1 skip=83487 count=10571; } >"$d/stage"
+
+Construction status must be0, then independently verify full candidate size/MD5/CRC
+and staged metadata before replacement. Output sum81920+1563+1+10571=94055.
+No helper status printf on stdout INSIDE that redirected block: stdout is payload.
+Log status after the block or on stderr; preserve failure instead of retry/overwrite.
+
+Operator owns the existing guarded copy-only replacement, exact original restore,
+attribute/readback checks and exact cleanup. t14 handles host syntax/routine checks;
+no additional capability/camera/audit requested. This is full-size runtime copy
+mechanics only, not rootRelFS install, durability/power loss, startup or GUI proof.

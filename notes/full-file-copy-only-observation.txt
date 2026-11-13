@@ -1,0 +1,27 @@
+FULL-FILE COPY-ONLY RUNTIME PROOF — t14, November13 2026
+ONE trial PASS6.506s, freshroot55.00.750B/cmu150_NA, coreEND0+PS1/0BEL/portclosed.
+Installed /jci/gui/apps/system/js/systemApp.js verified BEFORE+AFTER unchanged:
+canonical/nonlinkparents and regular0755/UID1018/GID3015/nlink1,
+device64785/inode1606/mtime1433953097,94058B,
+MD5584c67f7186ada6bae9aae1be59b5cd0/POSIXCRC376717896.
+Writes stayed in fresh owned0700 root directory
+/tmp/mnt/data_persist/cmu-bench-probe-46d053a7ba1eebb678928cdc93aab319.
+Parent chain root-owned/canonical/nonlink, actual /dev/mmcblk0p2 rwRelFS/device45826;
+free570590KiB passed8192KiB budget. Stable scratch device/inode45826:49.
+Host byte equation checked against experiments/disclaimer/freeze.json and frozen
+candidate. Copied source; target guarded ASCII3500 at zero-based83483, replaced only
+those4bytes with ASCII0 via t12 frozenrecipe; exact encoding/CRLF preserved.
+Constructed candidate94055B MD564db9d0df2277e1d95a037929aef30c4/CRC776631029.
+Owned active copy original->candidate->original,cp-p/mv-f/cmp/readbacks succeeded.
+Ten owned-file states matched bytes/count/MD5/CRC and0755/1018:3015/nonlink/nlink1;
+17explicitstatusmarkers0. Exact3-file whitelist rm0+rmdir0, END0/CLEANUPabsent/UID0.
+Reused proven small script; one hostsh-n/literalnoncecheck, no new package/audit.
+Private evidence runs/20261113T034954-0600-t14-full-file-copy/:
+command.sh,plan.json,session/ (exact wire/rawRX/TX/events/codehashes/actualcompletion),
+actual-markers.txt,compact-result.json,cleanup.json. HostSHAs are provenance only.
+One owned helper saved/exited0/removed; both serialaliases lsof1empty; camera unused.
+No /jci write,actualbackup/candidateinstallation,rootremount,sync,reboot,service,
+browser,heartbeat/watchdog/power action. This is isolated full-file normal-runtime
+copy mechanics on data_persist, not actual GUI startup/install, rootRelFS atomicity,
+durability, crash/CMUrecovery or target recovery-policy validation.
+Compactresult sent first to t6/t12/t13; soleowner idle; no further live task queued.

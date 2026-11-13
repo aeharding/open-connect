@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
   "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T03:06:32-06:00",
+  "updated_at": "2026-11-13T03:51:19-06:00",
   "timezone": "America/Chicago",
   "snapshot_note": "Saved progress, not live telemetry. Reopen the private Page for a newer snapshot.",
   "links": {
     "latest_page": "https://chatgpt.com/space/page_72594960d3f08191911f2944d96c7eee",
     "html_download": null
   },
-  "headline": "Disclaimer prototype frozen; host checks passed",
-  "summary": "The independent firmware55 disclaimer prototype is frozen and uninstalled. Six feature checks passed; a shared host-only maintenance model also passed10 focused checks on private source copies, including interruption recovery. Live startup/no-flash, CMU write durability and rollback remain unproven.",
+  "headline": "Full disclaimer copy roundtrip passed on CMU",
+  "summary": "The CMU constructed the frozen disclaimer candidate from its exact installed original, replaced an isolated copy and restored it in 6.5 seconds. The installed GUI stayed unchanged. Six feature checks and 16 shared host maintenance checks passed; actual installation, startup behavior and crash recovery remain ahead.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
@@ -18,11 +18,11 @@
     "tx": "64-byte chunks · 20 ms RX gaps",
     "camera": "Manual mode 1 · exposure 87 · brightness 128",
     "scope": "USB + SD preserved · AUX not required",
-    "changes": "No intentional firmware, account, network or persistent-settings changes. Intervening restart observed separately.",
+    "changes": "Installed GUI and root read-only filesystem unchanged. Only nonce-owned synthetic scratch files were created and removed in the latest device trials.",
     "display": "Fresh stock Communication home",
     "device_state": "done",
-    "state_label": "Restored",
-    "firmware_qualifier": "Fresh post-event identity"
+    "state_label": "Stock baseline",
+    "firmware_qualifier": "Fresh identity after each completed device trial"
   },
   "metrics": [
     {
@@ -30,16 +30,16 @@
       "label": "core tests passing"
     },
     {
-      "value": "17",
-      "label": "UI tests passing"
+      "value": "16",
+      "label": "host maintenance checks"
+    },
+    {
+      "value": "4",
+      "label": "exact installed-file copies"
     },
     {
       "value": "2",
-      "label": "exact metadata files"
-    },
-    {
-      "value": "1",
-      "label": "native dialog demo"
+      "label": "native UI demos"
     }
   ],
   "diagram": {
@@ -66,8 +66,8 @@
         "kind": "done",
         "title": "Mazda CMU",
         "lines": [
-          "55.00.750B · root restored",
-          "NA baseline · uptime454s"
+          "55.00.750B · root verified",
+          "Stock GUI remains unchanged"
         ]
       },
       {
@@ -297,18 +297,59 @@
     },
     {
       "id": "host-maintenance",
-      "title": "Shared host maintenance proof",
+      "title": "Explicit host uninstall recovery",
       "state": "done",
-      "detail": "Frozen feature exercised on copied source;10 focused checks and demo passed.",
-      "proof": "Enable/verify/no-op/disable restored exact original bytes+mode; stored journal recovered real process exits; unrelated edits refused.",
-      "limits": "Host copies and process exits only. No actual CMU install, startup, ownership restoration, power-loss recovery, USB or schema approval.",
+      "detail": "16 checks passed: 6 engine, 4 adapter and 6 completion checks.",
+      "proof": "Default ABORT is unchanged. Opt-in COMPLETE restores the stored original from candidate, or verifies and commits an original already present without rewriting it.",
+      "limits": "Host bytes/mode and process-exit model only. Target recovery policy, ownership restoration, power-loss behavior and USB entry point remain open.",
       "refs": [
-        "experiments/installer-proof/adapter-result.txt",
-        "experiments/installer-proof/final-handoff.json"
+        "experiments/installer-proof/complete-recovery-result.txt",
+        "notes/disclaimer-recovery-intent-table.txt"
+      ]
+    },
+    {
+      "id": "device-primitives",
+      "title": "CMU file operations on isolated fixtures",
+      "state": "done",
+      "detail": "One tmpfs trial and one writable RelFS trial passed with 22/23-byte synthetic files.",
+      "proof": "Copy, same-parent replace/restore, metadata and checksum readback: 9 verified states and 16 tool statuses per trial. Both scratch directories removed; fresh root55 and normal completion.",
+      "limits": "Runtime on the tested writable volumes only. Root RelFS, interrupted replacement, sync and crash/power-loss recovery were not tested.",
+      "refs": [
+        "notes/tmpfs-file-primitives-observation.txt",
+        "notes/relfs-file-primitives-observation.txt"
+      ]
+    },
+    {
+      "id": "full-file-copy",
+      "title": "Full-size disclaimer copy roundtrip",
+      "state": "done",
+      "detail": "94,058 B original → 94,055 B frozen candidate → exact original, on an isolated CMU copy.",
+      "proof": "6.506 s; frozen byte recipe, 10 verified byte/attribute states, 17 tool statuses at zero, original source checked before/after, scratch removed and root55/core completion.",
+      "limits": "The installed GUI was never changed or reloaded. No root RelFS, journal interruption, sync, crash recovery, startup/no-flash or power-loss claim.",
+      "refs": [
+        "notes/full-file-copy-only-observation.txt"
       ]
     }
   ],
   "tasks": [
+    {
+      "id": "target-transaction",
+      "lane": "now",
+      "state": "active",
+      "title": "Interrupted uninstall on an isolated CMU copy",
+      "owner": "Coordinator + Tooling + Bench operator",
+      "detail": "Tooling and the bench operator are preparing one bounded journal experiment: deliberately stop after restoring an original copy, then explicitly complete without rewriting it. Real GUI stays untouched.",
+      "pass": "Known original can be restored and verified after a deliberately interrupted copy transaction. Actual GUI installation is a separate bounded step."
+    },
+    {
+      "id": "full-file-copy",
+      "lane": "later",
+      "state": "done",
+      "title": "Full disclaimer copy roundtrip passed",
+      "owner": "Bench operator + Tooling",
+      "detail": "One 6.506 s trial verified the exact 94 KB original, constructed the frozen candidate, replaced and restored an isolated CMU copy, and removed scratch.",
+      "pass": "Original and candidate bytes, mode and ownership matched. The installed source was unchanged before/after; root filesystem remained read-only."
+    },
     {
       "id": "live-validation-plan",
       "lane": "now",
@@ -351,7 +392,7 @@
       "state": "done",
       "title": "Shared host maintenance integration passed",
       "owner": "Tooling + Coordinator",
-      "detail": "4 adapter+6 engine checks and demo: enable/verify/no-op/disable, exact original+mode restoration, process-exit recovery and edit conflicts on private copies.",
+      "detail": "16 host checks passed, including ABORT regressions and opt-in COMPLETE-disable. An already-restored original is committed without rewriting it.",
       "pass": "Model evidence only: no CMU write, startup, USB entry point, power-loss or product-schema proof."
     },
     {
@@ -467,6 +508,22 @@
   ],
   "recent": [
     {
+      "title": "Full-size copy works on the CMU",
+      "text": "The exact frozen candidate was constructed, checked, replaced and restored on an isolated copy. Actual installed source unchanged; scratch removed."
+    },
+    {
+      "title": "Explicit uninstall completion passed",
+      "text": "16 total host checks. COMPLETE is a deliberate option; default recovery still aborts to the previous state."
+    },
+    {
+      "title": "CMU writable RelFS primitives passed",
+      "text": "One 3.776 s trial on tiny isolated files, with metadata/checksum readback and complete cleanup. Root filesystem untouched."
+    },
+    {
+      "title": "CMU tmpfs primitives passed",
+      "text": "One 3.023 s isolated trial exercised copy, same-parent replacement, restore and cleanup."
+    },
+    {
       "title": "Frozen feature runs through shared host model",
       "text": "10 focused checks and private-copy demo passed; source original and frozen patch remain unchanged. Device writes remain unperformed."
     },
@@ -481,22 +538,6 @@
     {
       "title": "Host maintenance model working",
       "text": "Plan/apply/verify/reapply/reconfigure/uninstall and forced process-exit recovery passed on temporary fixtures."
-    },
-    {
-      "title": "First product feature selected",
-      "text": "Startup disclaimer bypass starts from OEM code, then freezes before retrospective comparison."
-    },
-    {
-      "title": "Partial warm-idle resource evidence",
-      "text": "Aha/Pandora are resident but idle in the observed interval. No cold-start RAM-pressure or removal-benefit conclusion."
-    },
-    {
-      "title": "Stock heartbeat producer identified",
-      "text": "GuiFramework invokes native javascriptHeartbeat() every1s; source/logs explain the earlier missed heartbeat after leaving the stock page. No spoofing or disablement."
-    },
-    {
-      "title": "Root55 / home restored separately",
-      "text": "Fresh Communication home and completed root55 identity at uptime454s. No full boot-trace or long-term stability claim."
     }
   ],
   "guardrails": [

@@ -33,11 +33,16 @@ does not prove root-RelFS atomicity, durability, power-loss or recovery.
 Host-only explicit complete_uninstall PASSED16 checks (6 completion+10 regressions):
 verify/commit original already present without rewrite, or restore stored original
 from candidate; default recover ABORT unchanged. Target recovery policy remains OPEN.
-ACTIVE t14 with t12: ONE full94KB COPY-ONLY source/candidate/original roundtrip in
-a fresh owned data_persist directory. Actual /jci file is read-only input and stays
-unchanged. No root remount, sync, startup, firmware/service/browser/power action.
-Stop on conflict, preserve scratch on failure; no automatic retry.
-t13: recovery intent table completed; six install-proposal paths stay historical.
+ONE full94KB COPY-ONLY trial PASSED6.506s: exact installed source94058B was
+copied, frozen candidate94055B constructed, owned copy replaced/restored and
+scratch removed.10 file states/17 toolstatus0; installed source bytes+metadata
+unchanged BEFORE/AFTER. notes/full-file-copy-only-observation.txt.
+ACTIVE t12+t14: smallest experimental two-phase interrupted DISABLE on another
+isolated full-size data_persist copy, then explicit COMPLETE verifies/commits an
+already-restored original WITHOUT rewrite. Expected finite phase1 exit is planned;
+unknown state/conflict must preserve and stop. Real /jci stays read-only input.
+No root remount, sync, startup, firmware/service/browser/power or actual install.
+t13 intent note complete; six install-proposal paths remain historical.
 t14 remains sole UART/camera owner; reconcile existing trial state before repeats.
 t13: resource interpretation + retrospective comparison COMPLETE; external research
 started after freeze. Miatafy ScreenTune public behavior compared; disclaimer

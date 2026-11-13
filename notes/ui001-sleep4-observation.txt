@@ -1,0 +1,124 @@
+UI001 SLEEP4 CAPABILITY ATTEMPT — UNKNOWN; CONSOLE RESTORED
+Operator t14, coordinator t6. 2026-11-12 America/Chicago.
+Evidence parent: /Users/aeharding/mazda-cmu-bench/runs/20261112T233747-0600-t14-sleep4-acceptance
+Original live bundle: /Users/aeharding/mazda-cmu-bench/runs/20261112T233747-0600-t14-sleep4-cap
+CAPABILITY ACCEPTED: NO. Exactly one authorized attempt; no retry or live UI.
+Final known console: fresh uid0/root, firmware55.00.750B/cmu150_NA after separately
+authorized recovery and short identify; later short post-event diagnostics completed.
+Target experimental-child presence/absence and cleanup were NOT verified.
+
+AUTHORIZATION / SOURCE PROFILE
+Exact t6 sleep4 authorization is acceptance/authorization.txt. Freeze original
+copied byte-for-byte there; freeze SHA256:
+8599996c8d246d6f3397c99bea30101122966cc5a81af8181bee8c0cfadc6667.
+All16 executable UI/capability and frozen30 harness files matched both freeze.json
+and immutable final16 pre-test source bytes before live use;16/16 manifest and
+log hashes verified. Full comparison and accepted plan are in preflight.json.
+No frozen UI or harness executable source was edited by this operator. Documentation correction is
+separate from the immutable executable profile.
+The stock finite6s timeout watcher exception was expressly accepted by t6:
+notes/ui001-timeout-decision.txt; numeric-PID/vendor/race limits remain.
+This exception is not a generic assurance that host closure cleans up a target.
+Subsequent paced-TX development authorized to t12 is separate; any future live
+profile requires its own exact reviewed handoff.
+
+ONE EXACT LIVE INVOCATION
+Saved in invocation.txt; ran as owned Herdr t32/ui001-cap:
+ hc run --bg --name ui001-cap --parent t14 --cwd /Users/aeharding/mazda-cmu-bench
+ .venv/bin/python -B experiments/ui001/invoke.py --phase capability --live
+ --bundle runs/20261112T233747-0600-t14-sleep4-cap --owner t14
+The frozen command source is6633bytes, SHA256
+1ba4dd060a824d4b8b21962ef5db945994f093bbdd6f3797820db6efe7c511d3.
+Its actual wrapped wire is7108bytes/207physical lines/max179B.
+Frozen harness host deadline15s; nominal independent target timeout6s.
+All FTDI identity/1152008N1/no-flow/inactive RTS-DTR/ownership prerequisites passed.
+
+ACTUAL EVIDENCE, NOT THE INTENDED LIFECYCLE
+Fresh identity operation37fcef921fc973d0f5a00b508136cfe2 completed END0 and root55.
+Task operation7100f8c85aaa97b2c4277afbdf9c0298 has one actual BEGIN; NO actual END.
+No actual UI001 PREP,SPAWN,IDENTITY,READY,TERM_ID,TERM,WAIT or RESULT record exists.
+Expected sleep4 argv/PID/PPID/starttime/TERM0/wait143/cleanup/READY are unproven.
+Observed target output includes:
+ sh: syntax error: unterminated quoted string
+ -sh: trap: pid=: invalid signal specification
+ -sh: syntax error: unexpected newline (expecting ")")
+ -sh: syntax error: unexpected "esac"
+ -sh: syntax error: unexpected "done"
+ -sh: _finish: not found
+Echoed input includes BEL bytes and damaged/truncated fragments. The final
+command-related echo is a truncated END-printf suffix followed by '> '.
+Later captured bytes are asynchronous runtime logs, not completion evidence.
+This is observed damaged multiline interactive input; root cause is unproven.
+The final unknown manifest honestly records begin_seen=true,end_status_seen=null,
+"missing complete nonce END plus fresh shell prompt",host exit2,port_closed=true.
+RX14765B and TX7444B preserved. The only probe requested was this one.
+A source comment, echoed SPAWN/kill/wait text, timeout launch or elapsed4s/6s does
+not establish a real child, its identity, signal, exit or absence.
+No target PID was inferred from Mac helper PIDs or historical observations.
+
+FORENSIC SOURCE LINKS
+Original raw bundle has rx.bin,tx.bin,events.jsonl, the exact identity/task command
+and wire files, completed identity output and task .partial-output.bin.
+actual-marker-observation.json preserves actual markers, task/no-UI flags,
+last256 raw bytes and diagnostic lines. failure-diagnostic.json preserves raw
+tail, operation status and Mac handle result.
+rx-non-runtime-derivative.bin only strips ANSI CSI and timestamp-prefixed lines;
+its exact transformation is documented. It is not a repaired source or backup.
+Original raw bytes remain untouched. t12 is analyzing these saved artifacts only.
+A host wait-orchestration JSON parse error occurred before the15s terminal exited;
+the same t32 was then waited to actual exit2. It did not cause a retry or signal.
+
+ONE AUTHORIZED VISUAL OBSERVATION
+One existing bench.py camera capture, no UART and no UI interaction:
+ captures/20261112T234117.481657-0600-webcam.jpg
+115550bytes; SHA2566854fd8f696e9a614b01c7dec24dcc181e907b159d370f77881fd056e667a5a3.
+Capture rc0, exact USB webcam/no audio. Operator and coordinator visually inspected
+Communication home menu, no dialog. Left edge cropped/highlights bright.
+This is display evidence only, NOT target process or child absence.
+No duplicate camera capture; image predates the recovery below.
+
+SEPARATELY AUTHORIZED NARROW RECOVERY
+t6 reviewed actual raw bytes and expressly superseded the stop/no-recovery hold
+for ONE guarded05 15 04 attempt,2s passive/4s response,no CR/LF/BREAK.
+continuation-recovery/ preserves exact new authorization, raw RX/TX and code.
+The prior reviewed recovery source was reused, changing ONLY its evidence RUN
+directory literal; source/derivative hashes and reversible diff are recorded.
+At23:43:09.837265 wrote exactly051504 once after no contrary passive state.
+Observed explicitly:
+ -sh: syntax error: unterminated quoted string
+ /tmp/root #
+No new credentials or recovery repeats. Port closed; raw event reconstruction
+verified. This restores parser readiness, not proof of prior lifecycle cleanup.
+
+ONE CONDITIONAL SHORT IDENTIFY
+Only after that exact response, one frozen new-harness identify was run:
+ post-recovery-identify/manifest.json SHA256
+774db3568e3684e3dd33c3ce1f441d2b45e35cce12af363121e365bf838b463a.
+It completed identity_verified,uid0/root,55.00.750B,cmu150_NA,END0+fresh prompt,
+port_closed=true; wire335B/max109B. recovery-gate.json and identify gate preserve
+controls, hashes, exactness and completion. Original probe remains UNKNOWN.
+
+ONE ADDITIONAL AUTHORIZED POST-EVENT DIAGNOSTIC
+Separate bundle post-event-serial-diagnostics and report
+notes/uart-postevent-observation.txt. Task wire543B/18lines/max86B; including the
+unchanged proven335B identity and one CR, total879B. Fresh root55, query END0+prompt.
+Read-only stty-a, fd0readlink and exactly3 permitted proc driver filenames only.
+It does not establish before/after counters or a cause for damaged input.
+No additional probe, UI, stty setting change or process cleanup signal was used.
+
+FINAL CLEANUP / STATE / LIMITS
+All5 owned Mac helpers t32..t36 saved before removal: probe exited2, camera,
+recovery,identify and diagnostics exited0. All five finished children of t14
+were removed; latest cu+tty lsof returned1/empty; no ffmpeg process.
+No extra/passive UART query, retry, broader cleanup signal, calibration, UI or
+child experiment was run. No intentional target file/network/power/settings/
+account/USB-SD change was part of this task. Damaged input did execute some
+interactive fragments; prior ephemeral shell variables/traps were not fully
+audited. Fresh identity is not a complete shell/environment/process inventory.
+Target child presence/absence remains UNVERIFIED, not assumed absent.
+No capability READY/pass or UI authorization is inferred. Known console/root
+readiness has separately been restored and checked. Next live work is held
+for a new exact reviewed handoff; sole hardware ownership remains with t14.
+Raw/private evidence stays ignored under runs/logs/captures; all earlier files
+and unknown manifest remain unchanged. Aggregate index/manifest links each
+authorization, frozen source, original failure, recovery, diagnostics and hashes.

@@ -4,6 +4,17 @@ Coordinator: Herdr t6. Current sole hardware owner: t14. Research worker: t13.
 Start: research/index.txt; searchable catalog: research/index.tsv.
 Original records remain in their original paths. References carry host SHA-256.
 
+LATEST CONTROL STATE — UNKNOWN attempt, THEN separately restored root55
+One23:37 sleep4 task remains UNKNOWN: BEGIN seen, no completed END/status+prompt.
+One later approved051504 returned a real quote error+PS1; a separate335B identity
+completed root55/cmu150_NA/exit0/END+fresh prompt. A separately approved short
+post-event diagnostic also completed. These do NOT validate the prior lifecycle.
+Target child presence/absence and ephemeral shell variables/traps remain unaudited;
+fresh identity is not a complete process/environment inventory.
+See F052-F054/H010 and notes/ui001-live-hold.txt. No retry/child/UI; a separate
+paced profile is being prepared, and inert7KiB calibration is not yet accepted.
+Fresh acquisition/state/identity proof remain mandatory; no physical work by user.
+
 CONSTRAINTS AND SCOPE
 No human bench interaction is available. Agents own software operation/cleanup.
 No firmware change (keep55.00.750B/cmu150_NA), power change, account/permission
@@ -52,7 +63,8 @@ UNRESOLVED PHYSICAL REFERENCE CONFLICTS AND DEPENDENCIES
 - Actual hub/cables, physical commander, usable USB media and SD navigation are
   unverified. Preserve USB/SD; AUX is not required.
 - Relay model, channels, B+/ACC wiring and shutdown timing are unverified.
-- Ethernet arrival/attachment/chipset/driver/link/SSH remain dependencies.
+- Ethernet adapter/link and SSH authentication remain dependencies. Existing
+  module candidates and sshd listening on22 are observations, not reachable SSH.
 - Camera missing edges cannot be recovered by physical movement in this task.
 - Rev3 Library identifier is retained in notes/status.txt; no Rev3 PDF was
   retrieved or independently validated here. No generic Linux restore assumed.
@@ -76,6 +88,40 @@ This supersedes the no-exact-file gap only for those two files. Full storage/
 service baseline, restore/atomicity, second copy and physical acceptance remain
 separate gaps. Preserve old13334B metadata unchanged. No next live action is
 assigned here; coordinator t6 reviews scope and remaining work.
-Tooling review R1 (F039) records a source-pinned SystemExit cancellation metadata
-edge; normal live exports do not test that path or establish a later fix.
+Tooling review R1 (F039) was fixed in the later pinned30-test profile (F051).
+Normal live exports alone did not test cancellation; the separate regression did.
+
+COMPLETED BASELINE / NAMESPACE MAP
+Storage/mount/MTD and loaded-module observations are historical bounded snapshots.
+Follow-up8 commands completed with fresh root55; module candidate files, lo/wlan0,
+empty IPv4 routes and an existing sshd listener were observed. route -n failed
+with rc1/fscanf and is not a successful alternate dump. No network state changed.
+Existing SSH listener/config is not external link, SSH reachability or login.
+D-Bus map used12 TOTAL calls (2 ListNames+4 GetNameOwner+6 Introspect), yielding
+6 complete XML replies, no interfaces at QUERIED nodes, actual maximum depth2.
+OPERA / -> /com -> /com/jci was queried; advertised NEXT leaf
+/com/jci/OPERA_IHU_PRIMARY at depth3 was NOT queried. Devices /com also remains
+advertised/unqueried; empty Wayland/system roots prove no broader absence.
+research/context/dbus-namespace-map.json omits private unique-owner/client IDs.
+Raw replies/name lists stay ignored. This establishes no application/input API.
+
+UI001 REVIEW / DECISION / PROVENANCE
+notes/ui001-review.txt is unchanged historical review. Revision2 verifies
+final16/16 plus18 pre-test source copies; frozen30 source unchanged. R1/R2/R4
+resolved in source/model, R3 qualified by t6 decision permitting ONLY finite
+stock6s/47s daemonized timeout watchers. Numeric-PID/vendor/model/host-close
+limits remain; no custom persistent worker/schedule. Review authorized no UI.
+The subsequent ONE sleep4 attempt is UNKNOWN; later root restoration is separate.
+Old v2 source is preserved in Git444dd53; new pacing is a separate unaccepted
+profile. Hold child/UI until actual inert7KiB calibration acceptance (H011).
+Original4108B rendered draft/plan persist; exact old template can be recovered
+in memory by reversing one run-ID assignment/hash-match. Other original probe/
+Python/test/fake bytes are not verified available; no full old-source claim.
+
+MUTABLE CONTEXT PROVENANCE
+Working notes/status.txt and notes/interim-plan.txt were edited by ongoing
+coordination after the initial snapshot. Historical plan bytes are verified in
+Git dcdaf032...; old status SHA is retained but exact old status bytes were not
+located at that working path. Facts qualify these references; raw proof files
+remain unchanged. A context hash alone is not an archived original copy.
 Review notes/research-preservation-result.txt for commit and final exclusions.

@@ -1,0 +1,255 @@
+{
+  "created_at": "2026-11-13T05:42:27.038877+00:00",
+  "method": "Herdr host-only SHA256/length and saved event reconstruction; no code tests/live work",
+  "coordinator_core_commit": "2b65423704c291e67b8fd8f2d06c3d38e47e415a",
+  "completed_run_audits": [
+    {
+      "manifest": {
+        "path": "runs/20261112T230433-0600-t14-baseline-followup/manifest.json",
+        "sha256": "fd9fdd02a4087a2f1919ea23674f69ff83df0416d74e2244cc1d975129da815d",
+        "bytes": 37301,
+        "locator": "aggregate provenance and completion"
+      },
+      "outcome": "read_only_baseline_completed_child_probe_held_before_launch",
+      "artifact_count": 99,
+      "artifact_hash_mismatches": [],
+      "bundles_checked": 8,
+      "rx_tx_streams_match": 16,
+      "scope": "All original data remains in ignored run; this audit exports hashes/counts only"
+    },
+    {
+      "manifest": {
+        "path": "runs/20261112T231925-0600-t14-dbus-introspection/manifest.json",
+        "sha256": "22a2d15536e77715562821da11006cef67ff05a745237e11df88c9510cce8d9d",
+        "bytes": 68934,
+        "locator": "aggregate provenance and completion"
+      },
+      "outcome": "bounded_map_completed_with_budget_gaps",
+      "artifact_count": 157,
+      "artifact_hash_mismatches": [],
+      "bundles_checked": 12,
+      "rx_tx_streams_match": 24,
+      "scope": "All original data remains in ignored run; this audit exports hashes/counts only"
+    }
+  ],
+  "sleep4_attempt": {
+    "manifest": {
+      "path": "runs/20261112T233747-0600-t14-sleep4-cap/manifest.json",
+      "sha256": "316e537f71f417f9c587a5d60eb68e04aa0b8e3c956afc1fb97c24565fafe6bb",
+      "bytes": 11462,
+      "locator": "unknown operation result; no lifecycle success"
+    },
+    "outcome": "unknown",
+    "error": "missing complete nonce END plus fresh shell prompt",
+    "port_closed": true,
+    "operations": [
+      {
+        "outcome": "completed",
+        "identity_probe": true,
+        "exit_status": 0,
+        "begin_seen": null,
+        "end_status_seen": null,
+        "rx_bytes": 683
+      },
+      {
+        "outcome": "unknown",
+        "identity_probe": false,
+        "exit_status": null,
+        "begin_seen": true,
+        "end_status_seen": null,
+        "rx_bytes": 14068
+      }
+    ],
+    "artifact_count": 9,
+    "artifacts_match": true,
+    "both_streams_match": true,
+    "scope": "One attempt; fresh identity succeeded first, task command unknown without end/prompt. No assumption about child launch or target cleanup."
+  },
+  "mutable_context_changes": [
+    {
+      "fact": "F001",
+      "path": "notes/status.txt",
+      "historical_sha256": "48e809f2cdeeb5534cdb0a81d936ddfe1f7a28b8b4207de76108aa4b40a7a199",
+      "current_sha256": "005bef11fd0d846387c4c9b1cc6f8ac70458fe79213dc31448d7f5bcb4adc704",
+      "historical_bytes_reference": null,
+      "limit": "Mutable status context updated; original recorded hash preserved, original status bytes not located by this audit. Raw corroborating evidence remains."
+    },
+    {
+      "fact": "F007",
+      "path": "notes/status.txt",
+      "historical_sha256": "48e809f2cdeeb5534cdb0a81d936ddfe1f7a28b8b4207de76108aa4b40a7a199",
+      "current_sha256": "005bef11fd0d846387c4c9b1cc6f8ac70458fe79213dc31448d7f5bcb4adc704",
+      "historical_bytes_reference": null,
+      "limit": "Mutable status context updated; original recorded hash preserved, original status bytes not located by this audit. Raw corroborating evidence remains."
+    },
+    {
+      "fact": "F010",
+      "path": "notes/status.txt",
+      "historical_sha256": "48e809f2cdeeb5534cdb0a81d936ddfe1f7a28b8b4207de76108aa4b40a7a199",
+      "current_sha256": "005bef11fd0d846387c4c9b1cc6f8ac70458fe79213dc31448d7f5bcb4adc704",
+      "historical_bytes_reference": null,
+      "limit": "Mutable status context updated; original recorded hash preserved, original status bytes not located by this audit. Raw corroborating evidence remains."
+    },
+    {
+      "fact": "F017",
+      "path": "notes/interim-plan.txt",
+      "historical_sha256": "1ce04808973e1685e2d7f9fc67bea0524eee6fa0eeba63565064f603061730f6",
+      "current_sha256": "e568d4d5143788730ab858166732ed1c79c94b64a602ff03b9952137838d3e3c",
+      "historical_bytes_reference": "git:dcdaf03235dffa72d1c47b95fa2cf9ae158b210c:notes/interim-plan.txt"
+    },
+    {
+      "fact": "F018",
+      "path": "notes/status.txt",
+      "historical_sha256": "48e809f2cdeeb5534cdb0a81d936ddfe1f7a28b8b4207de76108aa4b40a7a199",
+      "current_sha256": "005bef11fd0d846387c4c9b1cc6f8ac70458fe79213dc31448d7f5bcb4adc704",
+      "historical_bytes_reference": null,
+      "limit": "Mutable status context updated; original recorded hash preserved, original status bytes not located by this audit. Raw corroborating evidence remains."
+    },
+    {
+      "fact": "F019",
+      "path": "notes/status.txt",
+      "historical_sha256": "48e809f2cdeeb5534cdb0a81d936ddfe1f7a28b8b4207de76108aa4b40a7a199",
+      "current_sha256": "005bef11fd0d846387c4c9b1cc6f8ac70458fe79213dc31448d7f5bcb4adc704",
+      "historical_bytes_reference": null,
+      "limit": "Mutable status context updated; original recorded hash preserved, original status bytes not located by this audit. Raw corroborating evidence remains."
+    },
+    {
+      "fact": "F020",
+      "path": "notes/status.txt",
+      "historical_sha256": "48e809f2cdeeb5534cdb0a81d936ddfe1f7a28b8b4207de76108aa4b40a7a199",
+      "current_sha256": "005bef11fd0d846387c4c9b1cc6f8ac70458fe79213dc31448d7f5bcb4adc704",
+      "historical_bytes_reference": null,
+      "limit": "Mutable status context updated; original recorded hash preserved, original status bytes not located by this audit. Raw corroborating evidence remains."
+    },
+    {
+      "fact": "F021",
+      "path": "notes/status.txt",
+      "historical_sha256": "48e809f2cdeeb5534cdb0a81d936ddfe1f7a28b8b4207de76108aa4b40a7a199",
+      "current_sha256": "005bef11fd0d846387c4c9b1cc6f8ac70458fe79213dc31448d7f5bcb4adc704",
+      "historical_bytes_reference": null,
+      "limit": "Mutable status context updated; original recorded hash preserved, original status bytes not located by this audit. Raw corroborating evidence remains."
+    },
+    {
+      "fact": "F021",
+      "path": "notes/interim-plan.txt",
+      "historical_sha256": "1ce04808973e1685e2d7f9fc67bea0524eee6fa0eeba63565064f603061730f6",
+      "current_sha256": "e568d4d5143788730ab858166732ed1c79c94b64a602ff03b9952137838d3e3c",
+      "historical_bytes_reference": "git:dcdaf03235dffa72d1c47b95fa2cf9ae158b210c:notes/interim-plan.txt"
+    }
+  ],
+  "initial_raw_files_unchanged": 105,
+  "files": [
+    {
+      "path": "runs/20261112T230433-0600-t14-baseline-followup/manifest.json",
+      "sha256": "fd9fdd02a4087a2f1919ea23674f69ff83df0416d74e2244cc1d975129da815d",
+      "bytes": 37301,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "runs/20261112T230433-0600-t14-baseline-followup/index.txt",
+      "sha256": "bb4f4bf52eec7652ad87f011f3dbf08954bcab07cec1324dfe2c44e0b81bf386",
+      "bytes": 757,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "runs/20261112T231925-0600-t14-dbus-introspection/manifest.json",
+      "sha256": "22a2d15536e77715562821da11006cef67ff05a745237e11df88c9510cce8d9d",
+      "bytes": 68934,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "runs/20261112T231925-0600-t14-dbus-introspection/index.txt",
+      "sha256": "6e54e6cdb3a02ceaa63abe1ef145d39b06e5ffde10c12e80014e76ced1c19d62",
+      "bytes": 816,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-cap/manifest.json",
+      "sha256": "316e537f71f417f9c587a5d60eb68e04aa0b8e3c956afc1fb97c24565fafe6bb",
+      "bytes": 11462,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "notes/afk-baseline-observation.txt",
+      "sha256": "9d154e9f3586682b65d08f177556ef9a254010723f2f8739eb9b5bf03a0c9791",
+      "bytes": 9240,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "notes/afk-baseline-followup.txt",
+      "sha256": "d9916ed0e8068af8f3a4b3c15694fdc76a70ac7a17605d09b2af4c4d01bf5175",
+      "bytes": 6385,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "notes/dbus-introspection-observation.txt",
+      "sha256": "46fdcf0467a501e8d1846362884edfc9e45bbf249888efbb13ce2ee3524ad946",
+      "bytes": 6504,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "notes/ui001-prerequisites-observation.txt",
+      "sha256": "e862c716166ddf24b3fc8e6f975b8ff71c0ca649ee2dfe9b8190b27cea74edd3",
+      "bytes": 2614,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "notes/ui001-timeout-decision.txt",
+      "sha256": "d34717beb6d1503c3d1c3f4b361850734c15ca699652483af650e59bab4cc346",
+      "bytes": 2039,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "notes/ui001-review.txt",
+      "sha256": "7dc8b883bc968bb7443cfefd2dd6af605e5182806a5ec523b53392be21d3d3d8",
+      "bytes": 6711,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "notes/ui001-review-revision2.txt",
+      "sha256": "dc42daffaaede2c770cb332e3e0fa741c6c25ca07fbc4c65a1c7a20ae56d05c9",
+      "bytes": 6797,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "experiments/ui001/freeze.json",
+      "sha256": "8599996c8d246d6f3397c99bea30101122966cc5a81af8181bee8c0cfadc6667",
+      "bytes": 7599,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "experiments/ui001/test-evidence/20261113T052952.388551Z/manifest.json",
+      "sha256": "fb8603f327aa662ec8cbb62bfe7f1582399e61672ed58a74a6b7650bae820db7",
+      "bytes": 6550,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "experiments/ui001/documentation-delta-stock-timeout/record.json",
+      "sha256": "c1e25fb22bfe960302d54202476d880a287cd5ca57be58423a1fde6911729ef7",
+      "bytes": 7567,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    },
+    {
+      "path": "examples/operator-ready-exception-fix.json",
+      "sha256": "265f45177e7730ae680b80e163eb60504494572c458bb197e249655d8062a2b8",
+      "bytes": 2923,
+      "locator": "saved source/context for scoped findings",
+      "access": "pointer/hash only; private source contents not exported"
+    }
+  ]
+}

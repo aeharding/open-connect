@@ -109,3 +109,10 @@ LIMITATIONS / CLEANUP
  only this worker's finished test terminals are removed after durable save.
  Second-copy backup is not configured/claimed. Coordinator t6 received both
  early milestones and final result; source baseline remains55.00.750B.
+
+PACED TX FOLLOW-UP 2026-11-13: minimal64B/20ms host writer now passes37 offline tests.
+No protocol/wire change. Same decoder/cap gets RX during TX; one operation deadline.
+Failed7KiB live submission remains UNKNOWN; separately restored root is distinct.
+See notes/uart-tx-investigation.txt and examples/operator-ready-paced-tx.json for
+new isolated profile, source copies, diff and inert printf-to-cksum calibration.
+Legacy profiles/final UI freeze remain immutable; UIinvoke unchanged; no new live run.

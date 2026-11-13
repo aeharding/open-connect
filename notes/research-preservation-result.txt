@@ -124,3 +124,16 @@ All16 owned post-commit follow-up paths remain for coordinator review (other wor
   research/recovery/2026-11-12-incomplete-input-analysis.json
   research/tools/analyze_incomplete_input.py
   research/tools/fetch_busybox.py
+
+BOUNDED BASELINE / DBUS / UI001 RECONCILIATION — 2026-11-13T05:57:58.870075+00:00
+Current catalog54 facts/claims;11 hypotheses(9 open,2 scoped resolved);12 decisions;5 saved sources.
+Core source/research batch2b65423704c291e67b8fd8f2d06c3d38e47e415a and UIv2/reviews444dd53 committed BY COORDINATOR; no worker Git staging/commit.
+Completed baseline8+DBus12 bundles:256 artifact hashes and40 raw/event streams checked. Namespace6 XML/12 TOTAL calls; queried max depth2.
+NEXT advertised /com/jci/OPERA_IHU_PRIMARY and devices/com were NOT queried. Existing sshd/listener is NOT reachable/authenticated SSH.
+Unknown sleep4 manifest immutable;9 bundle artifact hashes checked. Later root55 restoration and post-event diagnostics are separate; no measured counter delta/port mapping/cause or child absence inferred.
+Final sleep4 aggregate75 hashes checked; no lifecycle acceptance, retry or UI authorization. Newpaced profile/inert7KiB acceptance NOT claimed.
+105 initial raw originals unchanged. Working status/plan context edits qualified without replacing original hashes; plan original is in Git, old status bytes unverified.
+Explicit owned path allowlist:research/manifests/2026-11-12-catalog-update-allowlist.txt (16 paths); result/limits in matching catalog-update-result.json.
+No source edits, tests, hardware, staging or commits by this preservation task. Other-worker changes stay outside allowlist.
+
+Paced code-only review added:notes/uart-pacing-review.txt; immutable profile9be805d3... checked, all7 artifact hashes/9 sourcepins and saved37/37 copies match. No test rerun/liveacceptance. Owned allowlist now16; current index329 entries.

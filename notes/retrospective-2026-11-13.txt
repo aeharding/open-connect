@@ -1,0 +1,38 @@
+COORDINATOR RETROSPECTIVE — November13 2026
+The useful result is a working paced-send profile, not completion of UI001.
+One7,093-byte live submission completed in3.198s with correct target POSIX CRC
+158748838/length6699, fresh root55, actual END0+prompt and zero BEL. The tested
+sender uses64-byte chunks and20ms receive gaps.37 offline tests pass.
+
+What I got wrong
+- I put repeated source audits, coordinator handoffs and documentation on the
+  critical path of a small reversible task. I own that coordination overhead.
+- I treated a600-byte physical-line limit as enough for a much larger queued
+  submission. Small-file success did not validate7KiB paste behavior.
+- We initially called the successful paced test rejected because the comparison
+  fixture omitted one known wrapper newline. Its checksum/status were valid.
+- Updates described process more often than concrete outcomes; the user had to
+  ask for progress. More parallel agents did not make this workflow efficient.
+
+What was useful
+Single UART ownership, inert preflight before a modal, explicit completion
+markers, unknown-on-timeout and preserved RX made diagnosis/recovery possible.
+Root was restored without reboot or power changes. Exact small metadata copies
+and research/code history remain available. Those controls should stay.
+
+Changes to how I coordinate
+1. Assign one complete bounded work package with stop conditions, rather than
+   repeatedly authorizing routine steps already within that package.
+2. Reproduce with the smallest inert input, patch, run relevant tests and one
+   scoped review, then get the live result. Archive/index after the result.
+3. Pin an accepted code profile once; avoid repeated full-source audits per
+   transaction. Report a compact measured result before generating summaries.
+4. Distinguish transport/content success from wrapper/framing fixture defects.
+   Preserve both original reports; validate the tagged payload and known framing.
+5. Stop new experiments when asked for a retrospective. Leave the bench at a
+   known state, with handles closed and a concrete next step.
+
+Next: update the separate UI driver to accept the paced profile, then validate
+one self-cleaning native dialog with camera evidence. UI001 has not passed its
+live child/visibility milestones. No further bench actions were taken for this
+retrospective. No change to firmware, accounts, networking, settings or power.

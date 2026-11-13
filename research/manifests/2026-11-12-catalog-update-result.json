@@ -1,0 +1,134 @@
+{
+  "created_at": "2026-11-13T05:57:58.870075+00:00",
+  "coordinator_base_commit": "444dd53ac8761adcdaa82ce93b2fafa18690d458",
+  "policy": "Explicit owned-path allowlist only; curator performs no staging or commit.",
+  "facts": 54,
+  "hypotheses_total": 11,
+  "hypotheses_open": 9,
+  "hypotheses_resolved_in_observed_scope": [
+    "H003",
+    "H009"
+  ],
+  "decisions": 12,
+  "saved_primary_and_project_sources": 5,
+  "namespaces": {
+    "total_calls": 12,
+    "Introspect": 6,
+    "queried_max_depth": 2,
+    "advertised_OPERA_leaf_queried": false
+  },
+  "completed_baseline_and_dbus_artifact_hashes_checked": 256,
+  "completed_baseline_and_dbus_bundles": 20,
+  "completed_baseline_and_dbus_rx_tx_streams_checked": 40,
+  "probe_unknown_artifacts_checked": 9,
+  "sealed_sleep4_aggregate_artifacts_checked": 75,
+  "later_restoration": "separate051504 + fresh root55/END0; diagnostics separate; does not validate earlier lifecycle",
+  "later_restoration_and_diagnostic_streams_checked": 6,
+  "mutable_context": "Old interim plan bytes verified in initial Git; old mutable status recorded hash retained and availability gap disclosed.",
+  "initial_raw_files_unchanged": 105,
+  "source_provenance": "UIv2 has final16/18 copies and Git444dd53; original failed template recoverable from exact render, other old source unverified.",
+  "transport_state": "Old sleep4 attempt remains UNKNOWN. Later root restored. New paced profile/calibration acceptance NOT claimed.",
+  "exclusions": "Private raw runs/logs/captures/inventory/source snapshots excluded; public map omits unique owner/client identities; no credentials copied.",
+  "owned_paths": [
+    "notes/research-preservation-result.txt",
+    "research/SCHEMA.txt",
+    "research/context/SUMMARY.txt",
+    "research/context/dbus-namespace-map.json",
+    "research/decisions/2026-11-12-preservation.jsonl",
+    "research/facts.jsonl",
+    "research/hypotheses.jsonl",
+    "research/index.tsv",
+    "research/index.txt",
+    "research/sources/manifest.jsonl",
+    "research/manifests/2026-11-12-baseline-dbus-ui001-audit.json",
+    "research/manifests/2026-11-12-sleep4-later-root-state.json",
+    "research/manifests/2026-11-12-sleep4-sealed-provenance.json",
+    "research/manifests/2026-11-12-catalog-update-allowlist.txt",
+    "research/manifests/2026-11-12-catalog-update-result.json",
+    "notes/uart-pacing-review.txt"
+  ],
+  "unchanged_reviews_already_committed": [
+    "notes/ui001-review.txt",
+    "notes/ui001-review-revision2.txt"
+  ],
+  "out_of_scope_unstaged_paths": "Other workers' source/tests/profiles/docs are not part of this allowlist; no duplicate live work.",
+  "hardware_access": false,
+  "code_test_runs": 0,
+  "git_staging_or_commit": false,
+  "index_rows": 329,
+  "owned_path_deltas": [
+    {
+      "path": "notes/research-preservation-result.txt",
+      "delta": "modified tracked"
+    },
+    {
+      "path": "research/SCHEMA.txt",
+      "delta": "modified tracked"
+    },
+    {
+      "path": "research/context/SUMMARY.txt",
+      "delta": "modified tracked"
+    },
+    {
+      "path": "research/context/dbus-namespace-map.json",
+      "delta": "new untracked"
+    },
+    {
+      "path": "research/decisions/2026-11-12-preservation.jsonl",
+      "delta": "modified tracked"
+    },
+    {
+      "path": "research/facts.jsonl",
+      "delta": "modified tracked"
+    },
+    {
+      "path": "research/hypotheses.jsonl",
+      "delta": "modified tracked"
+    },
+    {
+      "path": "research/index.tsv",
+      "delta": "modified tracked"
+    },
+    {
+      "path": "research/index.txt",
+      "delta": "modified tracked"
+    },
+    {
+      "path": "research/sources/manifest.jsonl",
+      "delta": "modified tracked"
+    },
+    {
+      "path": "research/manifests/2026-11-12-baseline-dbus-ui001-audit.json",
+      "delta": "new untracked"
+    },
+    {
+      "path": "research/manifests/2026-11-12-sleep4-later-root-state.json",
+      "delta": "new untracked"
+    },
+    {
+      "path": "research/manifests/2026-11-12-sleep4-sealed-provenance.json",
+      "delta": "new untracked"
+    },
+    {
+      "path": "research/manifests/2026-11-12-catalog-update-allowlist.txt",
+      "delta": "new untracked"
+    },
+    {
+      "path": "research/manifests/2026-11-12-catalog-update-result.json",
+      "delta": "new untracked"
+    },
+    {
+      "path": "notes/uart-pacing-review.txt",
+      "delta": "new untracked review only"
+    }
+  ],
+  "paced_code_review": {
+    "path": "notes/uart-pacing-review.txt",
+    "profile": "examples/operator-ready-paced-tx.json",
+    "profile_sha256": "9be805d31cc3dec8aab7f0ad4d7f4beb7f9b11f8a08b7735df37d62e18bfee7e",
+    "qualified_code_disposition": "No practical blocker to ONE inert calibration after root hashcheck/handoff",
+    "saved_tests": 37,
+    "tests_rerun_by_reviewer": 0,
+    "live_calibration_acceptance": false
+  }
+}

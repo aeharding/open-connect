@@ -1,9 +1,10 @@
 MAZDA CMU RESEARCH INDEX — canonical entry point
-Derived catalog; original evidence stays local and unchanged.
+Derived catalog; raw original evidence stays local and unchanged. Mutable context is qualified.
 
-39 facts/claims; 9 hypotheses (7 open, 2 resolved in observed scope); 9 decisions; 5 saved sources.
+54 facts/claims; 11 hypotheses (9 open, 2 resolved in observed scope); 12 decisions; 5 saved sources.
 Search index.tsv by ID/topic/firmware/path; records retain scope and limits.
 Read context/SUMMARY.txt for handoff, constraints and physical-reference conflicts.
+Latest: sleep4 lifecycle UNKNOWN; later root55 restored; child/UI HOLD and paced calibration unaccepted.
 Schema and update rules: SCHEMA.txt. Final preservation report: ../notes/research-preservation-result.txt.
 
 CURRENT AUTHORITY AND SAFETY CONSTRAINTS
@@ -37,7 +38,7 @@ busybox-1.19.2: BusyBox1.19.2 official release source
   https://busybox.net/downloads/busybox-1.19.2.tar.bz2
   2168055 bytes; SHA-256 ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9
   research/sources/snapshots/20261113T044437Z/busybox-1.19.2/ea7ec9b6df70b8c528f4a2b6300e9913431c7223308fb08dfafa7508d75a0cb9/busybox-1.19.2.tar.bz2
-  shell/ash.c interactive input, parser, top-level exception handling; libbb/lineedit.c Ctrl-C/Ctrl-D handling
+  shell/ash.c interactive input, parser, top-level exception handling; libbb/lineedit.c Ctrl-C/Ctrl-D handling; miscutils/timeout.c lines63-117: detached stock watcher and exec
 
 FACTS AND LIMITS
 F001 [observed-in-saved-evidence] Saved inventory identifies the FTDI FT232R as VID:PID 0403:6001, serial A9048JM0; observed cu path /dev/cu.usbserial-A9048JM0.
@@ -118,6 +119,36 @@ F038 [observed-by-operator-with-host-evidence-audit] The reviewed harness passed
   Limit: These exact nested multiline base64/MD5 captures are live accepted; no assertion about other commands, full storage, arbitrary cancellation paths or bulk-rate reliability.
 F039 [observed-host-code-review] At reviewed CLI SHA2564d62c56d0b3c0bfa4250ca4536b2ca79a13a77d9e0119cf5bc161e5ab57de9ea, one synthetic SystemExit-after-partial-TX check observed3 acknowledged bytes, operation unknown, top-level bundle failed, and port closed.
   Limit: Historical reviewed-source finding; no hardware used and no claim about a later patched revision. Normal live export success does not test SystemExit cancellation.
+F040 [observed-by-operator] Bounded storage baseline observed relfs root /dev/ffx01p1 read-only; /dev/ffx01p4 data and mmcblk0p2 data_persist read-write; mmcblk0p1 resources read-only; mtdblock5/config-mfg squashfs read-only. Stored modules include the FlashFX/reliance/relfs stack.
+  Limit: Historical bounded output with per-subcommand limits; no raw-device export, atomic storage image, complete device map or restore feasibility is established.
+F041 [observed-by-operator-with-host-hash-audit] The bounded USB network module-file listing found asix.ko21600B, cdc_ether.ko8472B, cdc_ncm.ko12483B and usbnet.ko23922B. Earlier /proc/modules observed loaded asix+usbnet.
+  Limit: Installed candidate files, historically loaded modules and support for an actual future adapter are distinct. No module loaded or link tested in this follow-up.
+F042 [observed-by-operator-with-host-hash-audit] The interface snapshot showed lo and wlan0 only; wlan0 was administratively UP but NO-CARRIER/state DOWN with no shown external IP. IPv4 ip route returned0 and no entries; route -n failed with fscanf/rc1.
+  Limit: No route/config change; failed route -n is not a second successful dump. Snapshot does not prove later adapter behavior or connectivity.
+F043 [observed-by-operator-with-host-hash-audit] An existing /usr/sbin/sshd process was observed listening on0.0.0.0:22; selected existing configuration directives and binary/file metadata were read.
+  Limit: No TCP/SSH connection or authentication was attempted. A listener/config file is not reachable SSH, effective full runtime configuration, host-key verification or a transfer channel.
+F044 [observed-by-operator-with-host-hash-audit] Finite standard ListNames replies reported334 HMI names and256 service names. The later map freshly resolved four selected service owners and bound subsequent introspection replies to those owners.
+  Limit: Point-in-time name ownership includes temporary clients; full names and unique-owner/client identifiers remain private. Names do not establish methods or safe UI behavior.
+F045 [observed-by-operator-with-host-hash-audit] The bounded D-Bus map completed12 total calls:2 ListNames,4 GetNameOwner and6 Introspect. Six complete XML replies had no interfaces at queried nodes; actual queried depth was2 under an allowed maximum3.
+  Limit: These are6 introspection calls, not12 plus discovery. No application signature, action, input route or service-global absence is established.
+F046 [observed-by-operator] Queried OPERA nodes were /, /com and /com/jci; the NEXT node /com/jci/OPERA_IHU_PRIMARY was advertised but NOT queried. Devices / advertised /com, likewise NOT followed; Wayland/system roots returned empty metadata.
+  Limit: Conservative12-call total budget was exhausted. Advertised leaves are future source-backed candidates, not inspected objects; empty roots do not exclude methods elsewhere.
+F047 [observed-by-operator] Process prerequisites observed a44-field vendor /proc stat record with state at tail1, PPID at tail2 and starttime at tail20 after final ') '; od preserved NUL cmdline separators for the known shell invocation.
+  Limit: Historical shell IDs are not reusable. That prerequisite task launched no child and sent no TERM; it does not validate the later sleep lifecycle.
+F048 [decision-plus-primary-source] Coordinator t6 permits only the stock finite BusyBox6s capability and47s UI timeout watchers as a narrow exception to the earlier no-detached-helper preference. Stock1.19.2 source daemonizes a grandchild, polls numeric parent existence and signals that PID.
+  Limit: No custom persistent worker or schedule. Stock watcher lacks start/cmdline binding; vendor patches unknown; shim is a contract model; host deadline does not kill target. The decision itself authorizes no live action.
+F049 [observed-host-review] Qualified UI001 revision2 review verified final16/16 evidence and18 pre-test source copies with frozen30 unchanged. R1/R2/R4 are addressed in the pinned source/model; R3 is qualified by t6's narrow stock-watcher decision.
+  Limit: Review was not live acceptance or authorization. Model/synthetic process timing does not prove vendor runtime, visible UI, or lifecycle success of a later attempt.
+F050 [observed-host-provenance-audit] The first failed UI draft retains its exact4108B rendered command/plan. Reversing only its saved run-ID assignment in memory matches the original4084B template SHA2564461ef8c809ff22494f80b24f753e62f15b97ddb5834cb00effb67e49b6ec133; full original probe/Python/test source retention was not found.
+  Limit: No reconstructed file was saved or labeled original. Old hashes/logs cannot reproduce the complete failed package; external backups not examined.
+F051 [observed-saved-host-test-evidence] The later CLI exception-only fix catches SystemExit and preserves top-level unknown after partial TX; the separately saved30-test profile and frozen source record passed without changing accepted wire plans.
+  Limit: Resolves the historical F039 reviewed-source finding for that pinned later revision; normal live exports alone did not exercise cancellation.
+F052 [observed-saved-unknown-operation] One sleep4 attempt at23:37 produced a successful fresh root55 identity operation, then task outcome unknown: BEGIN was seen but no complete task END/status plus fresh prompt. Saved top-level outcome is unknown and Mac port closed.
+  Limit: No successful child launch, TERM, wait143, cleanup or current shell state is inferred. No retry, UI or further sends are approved; later evidence may refine actual state.
+F053 [observed-by-operator-with-host-evidence-audit] After the unknown sleep4 attempt, one separately approved051504 returned an unterminated-quote error and primary prompt; a subsequent335B frozen identify completed root55.00.750B/cmu150_NA with exit0/END+fresh prompt. A separate short post-event diagnostic completed later.
+  Limit: Restored console state is separate from earlier UNKNOWN lifecycle. Post-event diagnostics are not a retry or measured before/after error-counter delta; no probe success, UI or paced-calibration acceptance. Damaged fragments executed; ephemeral parent-shell variables/traps were not fully audited. Fresh identity is not a complete environment/process inventory or child absence proof.
+F054 [observed-saved-transport-failure-evidence] The unpaced7108B task had510 BEL bytes in saved RX; the dated transport-hold note reports one host write acknowledgement in0.475ms and missing short-line echo suffixes.
+  Limit: Host acknowledgement is queue acceptance, not target receipt. Exact accepted target input and cause (editor/typeahead/TTY/FIFO/vendor) remain unproven. A paced64B/20ms candidate is planned separately, not accepted.
 
 QUESTIONS AND DISPOSITIONS (tests, results and dependencies in hypotheses.jsonl)
 H001 [open] Does this exact retrofit hub retain required legacy USB/SD functionality on firmware55?
@@ -129,6 +160,8 @@ H006 [open] Will the eventual Ethernet adapter have a compatible CMU driver/link
 H007 [open] What are actual B+/ACC shutdown timing and safe relay channel behavior?
 H008 [open] Where can a verified independent second raw-evidence copy be stored?
 H009 [resolved-in-observed-scope] Can one coordinator-approved clear-current-line plus EOF transaction abandon this saved incomplete quote without executing the pending request?
+H010 [open] Can the exact reviewed sleep4 profile demonstrate owned-child TERM0, wait143 and completed END+prompt?
+H011 [open] Can a separately reviewed paced sender complete an authorized inert7KiB calibration without drops/BEL or unknown framing?
 
 DECISIONS (dated rationale in decisions/)
 D001 Preserve firmware55 and current bench state
@@ -140,14 +173,23 @@ D006 Preserve literal Mazda version requirements and scope
 D007 Keep physical-reference conflicts unresolved
 D008 Stop uncertain continuation sends; recovery recommendations remain offline
 D009 Accept two exact small-file captures and scoped parser recovery
+D010 Narrowly allow finite stock timeout watcher
+D011 Keep namespace/listener evidence and unknown probe within exact scope
+D012 Hold child/UI while a new paced transport profile is reviewed
 
 PROVENANCE AND LIMITS
 Initial original evidence: manifests/20261113T043356Z-original-evidence.json (119 files).
-Latest recovery/capture audit: manifests/2026-11-12-recovery-and-exact-capture-milestones.json (40 evidence paths).
-F035-F038 record scoped parser recovery and two checksum-verified file transfers; full backup/restore/second copy remain unproven.
-Recovery observation: ../notes/console-recovery-observation.txt; research worker used saved evidence only.
-18 historical raw/event pairs reconstructed exactly; five prior hashes matched.
+F036-F038 record two exact verified content transfers. F052-F054 separate UNKNOWN sleep4, later recovery and unproven transport cause.
+Latest context: ../notes/ui001-live-hold.txt and ../notes/ui001-sleep4-observation.txt; curator made no live sends.
+18 initial raw/event pairs and five prior hashes match; baseline/DBus256 hashes and40 streams verified, sealed sleep4 aggregate75 hashes match.
 Raw credentials/login TX/private identities stay out of Git. Fixtures are allowlisted derivatives.
 A local hash/commit is not a second copy, full backup, boot observation or verified recovery.
 Both Mazda PDFs match prior hashes. Literal requirements: 2018 v70.00.21; 2019 70.00.021B.
 Those prerequisites do not prove actual bench hub identity or legacy USB/SD failure.
+
+CURRENT CURATION
+Existing sshd/listener is not SSH reachability/authentication.
+OPERA /com/jci queried; NEXT /com/jci/OPERA_IHU_PRIMARY advertised, not queried.
+No child/UI or new pacing/calibration acceptance is inferred.
+Owned commit allowlist: manifests/2026-11-12-catalog-update-allowlist.txt.
+Paced code review: ../notes/uart-pacing-review.txt (37 saved tests, no live calibration acceptance).

@@ -1,0 +1,362 @@
+--- before/cmu_bench/session.py
++++ after/cmu_bench/session.py
+@@ -14,6 +14,8 @@
+ import time
+ 
+ IDENTITY = (0x0403, 0x6001, "A9048JM0")
++TX_CHUNK_BYTES = 64
++TX_GAP_SECONDS = 0.020
+ SETTINGS = dict(baudrate=115200, bytesize=8, parity="N", stopbits=1,
+                 timeout=0.05, write_timeout=1, xonxoff=False,
+                 rtscts=False, dsrdtr=False, exclusive=True)
+@@ -290,8 +292,20 @@
+         self.timeout, self.output_cap = timeout, output_cap
+         self.state, self.identity = "unknown", None
+ 
+-    def _read(self, received):
+-        chunk = self.transport.read(4096)
++    def _read(self, received, until=None):
++        previous = getattr(self.transport, "timeout", None)
++        adjustable = hasattr(self.transport, "timeout")
++        if until is not None:
++            remaining = until - time.monotonic()
++            if remaining <= 0:
++                return b""
++            if adjustable:
++                self.transport.timeout = min(previous if previous is not None else remaining, remaining)
++        try:
++            chunk = self.transport.read(4096)
++        finally:
++            if adjustable and until is not None:
++                self.transport.timeout = previous
+         if chunk:
+             self.bundle.record("rx", chunk)
+             received.extend(chunk)
+@@ -299,24 +313,77 @@
+                 raise BenchError("operation RX cap exceeded; evidence retained")
+         return chunk
+ 
+-    def _send(self, data):
+-        self.bundle.event("tx_requested", length=len(data), sha256=digest(data), hex=data.hex())
+-        deadline = time.monotonic() + min(1.0, self.timeout)
++    def _send(self, data, *, deadline, received, on_rx=None, operation=None):
++        profile = dict(chunk_bytes=TX_CHUNK_BYTES, gap_seconds=TX_GAP_SECONDS,
++                       acknowledgment="host write count, not target acknowledgment")
++        self.bundle.meta["tx_profile"] = profile
++        request = dict(id=nonce(), requested_bytes=len(data), acknowledged_bytes=0,
++                       completed_chunks=0, write_calls=0, gaps=0, outcome="unknown",
++                       started_at=utcnow(), **profile)
++        self.bundle.meta.setdefault("transmissions", []).append(request)
++        if operation is not None:
++            operation["tx_request_id"] = request["id"]
++        self.bundle.event("tx_requested", request_id=request["id"], length=len(data),
++                          sha256=digest(data), hex=data.hex(), profile=profile)
+         sent = 0
++        original_write_timeout = getattr(self.transport, "write_timeout", None)
++        adjustable_write = hasattr(self.transport, "write_timeout")
+         try:
+             while sent < len(data):
++                chunk_start = sent
++                chunk_end = min(sent + TX_CHUNK_BYTES, len(data))
++                calls = 0
++                # Partial writes finish THIS chunk; they do not add pacing gaps.
++                while sent < chunk_end:
++                    remaining = deadline - time.monotonic()
++                    if remaining <= 0:
++                        raise TimeoutError("operation deadline during TX")
++                    if adjustable_write:
++                        self.transport.write_timeout = min(original_write_timeout if original_write_timeout is not None else remaining, remaining)
++                    request["write_calls"] += 1
++                    calls += 1
++                    n = self.transport.write(data[sent:chunk_end])
++                    if n is None or not 0 < n <= chunk_end - sent:
++                        raise OSError("invalid/zero write count")
++                    self.bundle.record("tx", data[sent:sent+n])
++                    sent += n
++                    request["acknowledged_bytes"] = sent
++                request["completed_chunks"] += 1
++                self.bundle.event("tx_chunk", request_id=request["id"],
++                                  offset=chunk_start, length=sent-chunk_start,
++                                  write_calls=calls, acknowledged_total=sent)
+                 if time.monotonic() >= deadline:
+-                    raise TimeoutError("TX deadline")
+-                n = self.transport.write(data[sent:])
+-                if n is None or not 0 < n <= len(data) - sent:
+-                    raise OSError("invalid/zero write count")
+-                self.bundle.record("tx", data[sent:sent+n])
+-                sent += n
++                    raise TimeoutError("operation deadline during TX")
++                if sent < len(data):
++                    started = time.monotonic()
++                    gap_end = started + TX_GAP_SECONDS
++                    rx_before = len(received)
++                    completed = False
++                    try:
++                        while time.monotonic() < gap_end:
++                            if time.monotonic() >= deadline:
++                                raise TimeoutError("operation deadline during TX gap")
++                            chunk = self._read(received, until=min(gap_end, deadline))
++                            if chunk and on_rx is not None:
++                                on_rx(chunk)
++                        completed = True
++                    finally:
++                        request["gaps"] += 1
++                        self.bundle.event("tx_gap", request_id=request["id"],
++                                          after_acknowledged_bytes=sent,
++                                          requested_seconds=TX_GAP_SECONDS,
++                                          actual_seconds=time.monotonic()-started,
++                                          rx_bytes=len(received)-rx_before, completed=completed)
++            request["outcome"] = "acknowledged_by_host"
+         except BaseException:
+             self.state, self.identity = "uncertain", None
+-            self.bundle.event("tx_uncertain", acknowledged_bytes=sent,
++            self.bundle.event("tx_uncertain", request_id=request["id"], acknowledged_bytes=sent,
+                               note="transport may have sent additional bytes before failure")
+             raise
++        finally:
++            request["ended_at"] = utcnow()
++            if adjustable_write:
++                self.transport.write_timeout = original_write_timeout
+ 
+     def receive(self, seconds):
+         if not 0 < seconds <= 60:
+@@ -343,11 +410,11 @@
+         if self.state in ("login", "password", "continuation"):
+             raise BenchError("unexpected " + self.state + "; no probe or automatic recovery")
+         probe_attempted = solicit and self.state != "shell"
++        deadline = time.monotonic() + self.timeout
+         try:
+             if probe_attempted:
+                 # Caller explicitly asserts a known idle shell; never an automatic probe.
+-                self._send(b"\r")
+-            deadline = time.monotonic() + self.timeout
++                self._send(b"\r", deadline=deadline, received=received)
+             while time.monotonic() < deadline:
+                 self._read(received)
+                 self.state = prompt_state(bytes(received))
+@@ -380,10 +447,12 @@
+         self.state = "in_flight"
+         try:
+             deadline = time.monotonic() + self.timeout
+-            self._send(wire)
++            self._send(wire, deadline=deadline, received=received,
++                       on_rx=decoder.feed, operation=operation)
+             while time.monotonic() < deadline:
+-                chunk = self._read(received)
+-                decoder.feed(chunk)
++                if not decoder.complete:
++                    chunk = self._read(received, until=deadline)
++                    decoder.feed(chunk)
+                 if decoder.complete:
+                     operation.update(outcome="completed", exit_status=decoder.exit_status,
+                                      ended_at=utcnow(), rx_bytes=len(received),
+--- before/tests/run_offline.py
++++ after/tests/run_offline.py
+@@ -1,4 +1,4 @@
+-"""Run synthetic/PTY tests and retain immutable evidence under examples/ only."""
++"""Run offline tests; preserve exact source bytes BEFORE execution in examples/."""
+ import datetime
+ import hashlib
+ import io
+@@ -9,34 +9,33 @@
+ import sys
+ import unittest
+ 
+-ROOT = Path(__file__).resolve().parents[1]
+-sys.path.insert(0, str(ROOT))
+-os.chdir(ROOT)
++ROOT=Path(__file__).resolve().parents[1]
++sys.path.insert(0,str(ROOT));os.chdir(ROOT)
+ import serial
+-
+-stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+-path = ROOT / "examples" / "tooling-runs" / stamp
+-path.mkdir(parents=True, mode=0o700)
+-log = io.StringIO()
+-suite = unittest.defaultTestLoader.discover(str(ROOT / "tests"))
+-result = unittest.TextTestRunner(stream=log, verbosity=2).run(suite)
+-(path / "tests.txt").write_text(log.getvalue())
+-source = {}
+-for pattern in ("cmu_bench/*.py", "scripts/cmu-session.py", "tests/*.py"):
++stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
++path=ROOT/'examples/tooling-runs'/stamp
++path.mkdir(parents=True,mode=0o700)
++source={};copies={}
++for pattern in ('cmu_bench/*.py','scripts/cmu-session.py','tests/*.py'):
+     for p in ROOT.glob(pattern):
+-        source[str(p.relative_to(ROOT))] = hashlib.sha256(p.read_bytes()).hexdigest()
+-manifest = dict(question="Does the offline vertical slice preserve evidence and fail closed?",
+-                firmware_scope="55.00.750B cmu150_NA; no real device used", mode="offline_only",
+-                hardware_opened=False, camera_opened=False, synthetic_pty_only=True,
+-                command="hc run --bg --name cmu-tooling-tests --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B tests/run_offline.py",
+-                started_at=stamp, ended_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+-                tests=result.testsRun, failures=len(result.failures), errors=len(result.errors),
+-                passed=result.wasSuccessful(), python=sys.version, pyserial=serial.VERSION,
+-                platform=platform.platform(), source_sha256=source,
+-                test_log_sha256=hashlib.sha256((path / "tests.txt").read_bytes()).hexdigest(),
+-                cleanup="PTY child owned by each test terminated/reaped; temp bundles/locks removed; real UART/camera never opened",
+-                interpretation="Host/PTY evidence only; no live CMU or recovery claim")
+-(path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+-print(log.getvalue())
+-print("DURABLE TEST EVIDENCE:", path)
++        data=p.read_bytes();name=str(p.relative_to(ROOT));h=hashlib.sha256(data).hexdigest()
++        target=path/'source'/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
++        source[name]=h;copies[name]=dict(bytes=len(data),sha256=h,snapshot=str(target.relative_to(path)))
++log=io.StringIO();suite=unittest.defaultTestLoader.discover(str(ROOT/'tests'))
++result=unittest.TextTestRunner(stream=log,verbosity=2).run(suite)
++(path/'tests.txt').write_text(log.getvalue())
++stable=all(hashlib.sha256((ROOT/p).read_bytes()).hexdigest()==h for p,h in source.items())
++manifest=dict(question='Does the bounded command/file runner preserve evidence under paced TX and failures?',
++              firmware_scope='55.00.750B cmu150_NA; no real device used',mode='offline_only',hardware_opened=False,camera_opened=False,
++              synthetic_pty_only=True,command='hc run --bg --name cmu-paced-tests --cwd /Users/aeharding/mazda-cmu-bench .venv/bin/python -B tests/run_offline.py',
++              started_at=stamp,ended_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),tests=result.testsRun,
++              failures=len(result.failures),errors=len(result.errors),passed=result.wasSuccessful(),
++              python=sys.version,pyserial=serial.VERSION,platform=platform.platform(),source_sha256=source,
++              source_copies=copies,source_bytes_stable_during_tests=stable,
++              test_log_sha256=hashlib.sha256((path/'tests.txt').read_bytes()).hexdigest(),
++              cleanup='Owned PTY children terminated/reaped and temp bundles/locks removed; no real UART/camera',
++              interpretation='Host/PTY evidence only; no live calibration/CMU flow-control or recovery claim')
++(path/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
++print(log.getvalue());print('DURABLE TEST EVIDENCE:',path)
++assert stable,'source changed during tests'
+ raise SystemExit(0 if result.wasSuccessful() else 1)
+--- before/tests/test_paced_tx.py
++++ after/tests/test_paced_tx.py
+@@ -0,0 +1,137 @@
++"""Paced TX contract tests: no physical devices, protocol bytes unchanged."""
++import collections
++import contextlib
++import io
++import json
++from pathlib import Path
++import re
++import tempfile
++import time
++import unittest
++from unittest.mock import patch
++
++from cmu_bench.session import Bundle,Session,UnknownOutcome,TX_CHUNK_BYTES,TX_GAP_SECONDS
++from test_cli import cli,LockStub
++
++
++class StreamingTransport:
++    def __init__(self,max_write=64,noise=None,interrupt_at=None):
++        self.tx=bytearray();self.rx=collections.deque();self.started=False
++        self.max_write=max_write;self.noise=noise;self.interrupt_at=interrupt_at
++        self.timeout=0.01;self.write_timeout=1;self.closed=False;self.write_sizes=[]
++
++    def write(self,data):
++        self.write_sizes.append(len(data))
++        if self.interrupt_at is not None and len(self.tx)>=self.interrupt_at:
++            raise KeyboardInterrupt()
++        n=min(len(data),self.max_write)
++        if self.interrupt_at is not None:n=min(n,self.interrupt_at-len(self.tx))
++        self.tx.extend(data[:n])
++        match=re.search(rb' ([a-f0-9]{32}); sh -c',self.tx)
++        if match and not self.started:
++            self.started=True;self.token=match.group(1)
++            if self.noise is not None:self.rx.append(self.noise)
++            else:
++                record=b'\r\nCMU1 '+self.token+b' BEGIN\r\n'
++                self.rx.extend([record[:13],record[13:27],record[27:],b'early\x00\xff\r\n'])
++        if self.tx.endswith(b'\r') and self.started:
++            self.rx.append(b'\r\nCMU1 '+self.token+b' END 7\r\n/tmp/root # ')
++        return n
++
++    def read(self,n):
++        if self.rx:return self.rx.popleft()
++        time.sleep(min(self.timeout,0.001));return b''
++
++    def close(self):self.closed=True
++
++
++class PacedTxTests(unittest.TestCase):
++    def setUp(self):
++        self.temp=tempfile.TemporaryDirectory();self.folder=Path(self.temp.name)
++        self.bundle=Bundle(self.folder/'bundle','offline paced TX','unittest')
++
++    def tearDown(self):
++        self.bundle.finish('offline test finished');self.temp.cleanup()
++
++    def session(self,port,timeout=0.6,cap=1048576):
++        s=Session(port,self.bundle,timeout=timeout,output_cap=cap)
++        s.state='shell';s.identity={'uid':0};return s
++
++    def test_rx_frames_and_binary_output_arriving_during_tx_reach_same_decoder(self):
++        port=StreamingTransport();s=self.session(port)
++        status,output=s.execute('printf '+('x'*250))
++        self.assertEqual(status,7);self.assertIn(b'early\x00\xff',output)
++        self.assertLessEqual(max(port.write_sizes),64)
++        rows=[json.loads(line) for line in (self.bundle.path/'events.jsonl').read_text().splitlines()]
++        first_rx=next(i for i,e in enumerate(rows) if e.get('direction')=='rx')
++        last_tx=max(i for i,e in enumerate(rows) if e.get('direction')=='tx')
++        self.assertLess(first_rx,last_tx)
++        for direction in ('rx','tx'):
++            reconstructed=b''.join(bytes.fromhex(e['hex']) for e in rows if e.get('direction')==direction)
++            self.assertEqual(reconstructed,(self.bundle.path/(direction+'.bin')).read_bytes())
++        gaps=[e for e in rows if e['kind']=='tx_gap']
++        self.assertTrue(any(e['rx_bytes'] for e in gaps))
++        self.assertTrue(all(e['requested_seconds']==TX_GAP_SECONDS for e in gaps))
++
++    def test_partial_writes_finish_chunk_without_per_partial_gap_penalty(self):
++        port=StreamingTransport(max_write=3);s=self.session(port,timeout=0.5)
++        status,_=s.execute('printf '+('x'*220))
++        self.assertEqual(status,7)
++        request=self.bundle.meta['transmissions'][-1]
++        self.assertEqual(request['gaps'],request['completed_chunks']-1)
++        self.assertGreater(request['write_calls'],request['completed_chunks']*3)
++        self.assertEqual((self.bundle.path/'tx.bin').read_bytes(),bytes(port.tx))
++        self.assertEqual(request['acknowledged_bytes'],len(port.tx))
++
++    def test_operation_deadline_applies_during_paced_tx_without_retry(self):
++        port=StreamingTransport();s=self.session(port,timeout=0.035)
++        with self.assertRaises(UnknownOutcome):s.execute('printf '+('x'*300)+'\n: '+(' '*180))
++        sent=bytes(port.tx);self.assertGreater(len(sent),0)
++        self.assertFalse(sent.endswith(b'\r'));self.assertEqual(s.state,'uncertain')
++        with self.assertRaises(UnknownOutcome):s.execute('true')
++        self.assertEqual(bytes(port.tx),sent)
++        self.assertEqual(self.bundle.meta['operations'][-1]['outcome'],'unknown')
++        self.assertEqual(self.bundle.meta['transmissions'][-1]['outcome'],'unknown')
++
++    def test_submission_longer_than_one_second_is_allowed_within_total_deadline(self):
++        port=StreamingTransport();s=self.session(port,timeout=2.5)
++        started=time.monotonic();status,_=s.execute(':\n'+(':'+(' '*90)+'\n')*38)
++        self.assertEqual(status,7);self.assertGreater(time.monotonic()-started,1.0)
++        self.assertTrue(port.tx.endswith(b'\r'))
++        self.assertEqual(self.bundle.meta['transmissions'][-1]['outcome'],'acknowledged_by_host')
++
++    def test_rx_cap_during_tx_stops_further_tx_preserves_all_received_bytes(self):
++        noise=b'z'*100;port=StreamingTransport(noise=noise)
++        s=self.session(port,cap=50)
++        with self.assertRaises(UnknownOutcome):s.execute('printf '+('x'*400))
++        self.assertEqual((self.bundle.path/'rx.bin').read_bytes(),noise)
++        self.assertFalse(port.tx.endswith(b'\r'));self.assertEqual(s.state,'uncertain')
++        self.assertLess(len(port.tx),200)
++
++    def test_cli_cancellation_after_paced_chunk_preserves_unknown_and_closes(self):
++        port=StreamingTransport(interrupt_at=70)
++        # Fresh initial prompt lets CLI enter its real identity transaction.
++        port.rx.append(b'/tmp/root # ')
++        path=self.folder/'cli-cancel'
++        with patch.object(cli,'AdapterLock',return_value=LockStub()),patch.object(cli,'open_adapter',return_value=port):
++            with contextlib.redirect_stdout(io.StringIO()):
++                rc=cli.main(['--live','--action','command','--command','id','--bundle',str(path),'--deadline','0.5'])
++        m=json.loads((path/'manifest.json').read_text())
++        self.assertEqual(rc,2);self.assertEqual(m['outcome'],'unknown')
++        self.assertEqual(m['operations'][0]['outcome'],'unknown')
++        self.assertTrue(port.closed);self.assertEqual(len(port.tx),70)
++        self.assertEqual((path/'tx.bin').read_bytes(),bytes(port.tx))
++
++    def test_cli_rx_cap_during_tx_keeps_unknown_and_closes(self):
++        port=StreamingTransport(noise=b'z'*100);port.rx.append(b'/tmp/root # ')
++        path=self.folder/'cli-cap'
++        with patch.object(cli,'AdapterLock',return_value=LockStub()),patch.object(cli,'open_adapter',return_value=port):
++            with contextlib.redirect_stdout(io.StringIO()):
++                rc=cli.main(['--live','--action','command','--command','id','--bundle',str(path),'--deadline','0.5','--output-cap','50'])
++        m=json.loads((path/'manifest.json').read_text())
++        self.assertEqual(rc,2);self.assertEqual(m['outcome'],'unknown');self.assertTrue(port.closed)
++        self.assertEqual((path/'rx.bin').read_bytes(),b'/tmp/root # '+b'z'*100)
++        self.assertLess(len(port.tx),335)
++
++
++if __name__=='__main__':unittest.main()

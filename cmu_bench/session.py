@@ -14,6 +14,8 @@ import stat
 import time
 
 IDENTITY = (0x0403, 0x6001, "A9048JM0")
+TX_CHUNK_BYTES = 64
+TX_GAP_SECONDS = 0.020
 SETTINGS = dict(baudrate=115200, bytesize=8, parity="N", stopbits=1,
                 timeout=0.05, write_timeout=1, xonxoff=False,
                 rtscts=False, dsrdtr=False, exclusive=True)
@@ -290,8 +292,20 @@ class Session:
         self.timeout, self.output_cap = timeout, output_cap
         self.state, self.identity = "unknown", None
 
-    def _read(self, received):
-        chunk = self.transport.read(4096)
+    def _read(self, received, until=None):
+        previous = getattr(self.transport, "timeout", None)
+        adjustable = hasattr(self.transport, "timeout")
+        if until is not None:
+            remaining = until - time.monotonic()
+            if remaining <= 0:
+                return b""
+            if adjustable:
+                self.transport.timeout = min(previous if previous is not None else remaining, remaining)
+        try:
+            chunk = self.transport.read(4096)
+        finally:
+            if adjustable and until is not None:
+                self.transport.timeout = previous
         if chunk:
             self.bundle.record("rx", chunk)
             received.extend(chunk)
@@ -299,24 +313,77 @@ class Session:
                 raise BenchError("operation RX cap exceeded; evidence retained")
         return chunk
 
-    def _send(self, data):
-        self.bundle.event("tx_requested", length=len(data), sha256=digest(data), hex=data.hex())
-        deadline = time.monotonic() + min(1.0, self.timeout)
+    def _send(self, data, *, deadline, received, on_rx=None, operation=None):
+        profile = dict(chunk_bytes=TX_CHUNK_BYTES, gap_seconds=TX_GAP_SECONDS,
+                       acknowledgment="host write count, not target acknowledgment")
+        self.bundle.meta["tx_profile"] = profile
+        request = dict(id=nonce(), requested_bytes=len(data), acknowledged_bytes=0,
+                       completed_chunks=0, write_calls=0, gaps=0, outcome="unknown",
+                       started_at=utcnow(), **profile)
+        self.bundle.meta.setdefault("transmissions", []).append(request)
+        if operation is not None:
+            operation["tx_request_id"] = request["id"]
+        self.bundle.event("tx_requested", request_id=request["id"], length=len(data),
+                          sha256=digest(data), hex=data.hex(), profile=profile)
         sent = 0
+        original_write_timeout = getattr(self.transport, "write_timeout", None)
+        adjustable_write = hasattr(self.transport, "write_timeout")
         try:
             while sent < len(data):
+                chunk_start = sent
+                chunk_end = min(sent + TX_CHUNK_BYTES, len(data))
+                calls = 0
+                # Partial writes finish THIS chunk; they do not add pacing gaps.
+                while sent < chunk_end:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise TimeoutError("operation deadline during TX")
+                    if adjustable_write:
+                        self.transport.write_timeout = min(original_write_timeout if original_write_timeout is not None else remaining, remaining)
+                    request["write_calls"] += 1
+                    calls += 1
+                    n = self.transport.write(data[sent:chunk_end])
+                    if n is None or not 0 < n <= chunk_end - sent:
+                        raise OSError("invalid/zero write count")
+                    self.bundle.record("tx", data[sent:sent+n])
+                    sent += n
+                    request["acknowledged_bytes"] = sent
+                request["completed_chunks"] += 1
+                self.bundle.event("tx_chunk", request_id=request["id"],
+                                  offset=chunk_start, length=sent-chunk_start,
+                                  write_calls=calls, acknowledged_total=sent)
                 if time.monotonic() >= deadline:
-                    raise TimeoutError("TX deadline")
-                n = self.transport.write(data[sent:])
-                if n is None or not 0 < n <= len(data) - sent:
-                    raise OSError("invalid/zero write count")
-                self.bundle.record("tx", data[sent:sent+n])
-                sent += n
+                    raise TimeoutError("operation deadline during TX")
+                if sent < len(data):
+                    started = time.monotonic()
+                    gap_end = started + TX_GAP_SECONDS
+                    rx_before = len(received)
+                    completed = False
+                    try:
+                        while time.monotonic() < gap_end:
+                            if time.monotonic() >= deadline:
+                                raise TimeoutError("operation deadline during TX gap")
+                            chunk = self._read(received, until=min(gap_end, deadline))
+                            if chunk and on_rx is not None:
+                                on_rx(chunk)
+                        completed = True
+                    finally:
+                        request["gaps"] += 1
+                        self.bundle.event("tx_gap", request_id=request["id"],
+                                          after_acknowledged_bytes=sent,
+                                          requested_seconds=TX_GAP_SECONDS,
+                                          actual_seconds=time.monotonic()-started,
+                                          rx_bytes=len(received)-rx_before, completed=completed)
+            request["outcome"] = "acknowledged_by_host"
         except BaseException:
             self.state, self.identity = "uncertain", None
-            self.bundle.event("tx_uncertain", acknowledged_bytes=sent,
+            self.bundle.event("tx_uncertain", request_id=request["id"], acknowledged_bytes=sent,
                               note="transport may have sent additional bytes before failure")
             raise
+        finally:
+            request["ended_at"] = utcnow()
+            if adjustable_write:
+                self.transport.write_timeout = original_write_timeout
 
     def receive(self, seconds):
         if not 0 < seconds <= 60:
@@ -343,11 +410,11 @@ class Session:
         if self.state in ("login", "password", "continuation"):
             raise BenchError("unexpected " + self.state + "; no probe or automatic recovery")
         probe_attempted = solicit and self.state != "shell"
+        deadline = time.monotonic() + self.timeout
         try:
             if probe_attempted:
                 # Caller explicitly asserts a known idle shell; never an automatic probe.
-                self._send(b"\r")
-            deadline = time.monotonic() + self.timeout
+                self._send(b"\r", deadline=deadline, received=received)
             while time.monotonic() < deadline:
                 self._read(received)
                 self.state = prompt_state(bytes(received))
@@ -380,10 +447,12 @@ class Session:
         self.state = "in_flight"
         try:
             deadline = time.monotonic() + self.timeout
-            self._send(wire)
+            self._send(wire, deadline=deadline, received=received,
+                       on_rx=decoder.feed, operation=operation)
             while time.monotonic() < deadline:
-                chunk = self._read(received)
-                decoder.feed(chunk)
+                if not decoder.complete:
+                    chunk = self._read(received, until=deadline)
+                    decoder.feed(chunk)
                 if decoder.complete:
                     operation.update(outcome="completed", exit_status=decoder.exit_status,
                                      ended_at=utcnow(), rx_bytes=len(received),

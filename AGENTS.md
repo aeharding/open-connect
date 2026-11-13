@@ -19,6 +19,11 @@ unavailable physical operation as a dependency; do not assign it to the user.
 - Give one bench operator exclusive UART ownership. Other agents use saved
   evidence and request live work from that owner. Never run a passive logger,
   command helper, terminal program, or second operator on the UART concurrently.
+- Assign complete bounded work packages with clear stop conditions. Do not
+  repeatedly seek coordinator authorization for routine steps already within
+  that task. Pin reviewed code once and avoid full-source audits per command.
+- Prioritize a compact live result after relevant tests and one scoped review;
+  do batch indexing/documentation afterward. Keep originals, including failures.
 - Keep camera access serialized. Use `hc wait` for running Herdr programs/agents.
   Clean up only helper terminals created by the current task after results are saved.
 
@@ -64,7 +69,9 @@ unavailable physical operation as a dependency; do not assign it to the user.
 Start with README.txt, notes/afk-session-status.txt (current), notes/status.txt,
 and notes/interim-plan.txt. Prefer scripts/cmu-session.py for new live commands;
 the legacy fixed-window helper remains historical. The current runner limits
-physical input lines to600 bytes and has validated exact-file exports. BusyBox
+physical input lines to600 bytes and has validated exact-file exports. Default TX
+is paced64-byte chunks with20ms RX gaps; one7KiB calibration passed. The old
+UI driver pins require explicit integration before new live UI work. BusyBox
 requires timeout -t SECONDS and provides MD5/cksum but no sha256sum. The specialized
 operator, baseline, and development/research plans in notes/ provide supporting detail.
 As implementation proceeds, keep a searchable research index linking sources,

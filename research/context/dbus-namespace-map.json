@@ -1,0 +1,99 @@
+{
+  "kind": "derived-sanitized-namespace-map",
+  "recorded_at": "2026-11-13T05:45:26.788051+00:00",
+  "source": {
+    "id": "ev-20603f8f1a58",
+    "path": "notes/dbus-introspection-observation.txt",
+    "sha256": "46fdcf0467a501e8d1846362884edfc9e45bbf249888efbb13ce2ee3524ad946",
+    "locator": "Root and returned-child map; bounded12 total standard calls"
+  },
+  "budget": {
+    "all_calls": 12,
+    "ListNames": 2,
+    "GetNameOwner": 4,
+    "Introspect": 6,
+    "queried_max_depth": 2,
+    "allowed_max_depth": 3
+  },
+  "queried": [
+    {
+      "bus": "HMI",
+      "service": "com.jci.OPERA_IHU_PRIMARY",
+      "path": "/",
+      "children": [
+        "com"
+      ],
+      "interfaces": [],
+      "query_id": "q07"
+    },
+    {
+      "bus": "HMI",
+      "service": "com.jci.WaylandManager",
+      "path": "/",
+      "children": [],
+      "interfaces": [],
+      "query_id": "q08"
+    },
+    {
+      "bus": "HMI",
+      "service": "com.jci.system",
+      "path": "/",
+      "children": [],
+      "interfaces": [],
+      "query_id": "q09"
+    },
+    {
+      "bus": "service",
+      "service": "com.jci.cpp.devices.Service",
+      "path": "/",
+      "children": [
+        "com"
+      ],
+      "interfaces": [],
+      "query_id": "q10"
+    },
+    {
+      "bus": "HMI",
+      "service": "com.jci.OPERA_IHU_PRIMARY",
+      "path": "/com",
+      "children": [
+        "jci"
+      ],
+      "interfaces": [],
+      "query_id": "q11"
+    },
+    {
+      "bus": "HMI",
+      "service": "com.jci.OPERA_IHU_PRIMARY",
+      "path": "/com/jci",
+      "children": [
+        "OPERA_IHU_PRIMARY"
+      ],
+      "interfaces": [],
+      "query_id": "q12"
+    }
+  ],
+  "advertised_not_queried": [
+    {
+      "bus": "HMI",
+      "service": "com.jci.OPERA_IHU_PRIMARY",
+      "path": "/com/jci/OPERA_IHU_PRIMARY",
+      "depth": 3,
+      "advertised_by": "q12"
+    },
+    {
+      "bus": "service",
+      "service": "com.jci.cpp.devices.Service",
+      "path": "/com",
+      "depth": 1,
+      "advertised_by": "q10"
+    }
+  ],
+  "owner_binding": "Operator bound requests/replies to freshly resolved unique owners; private unique IDs omitted.",
+  "limits": [
+    "No application interface/signature/method/input action established",
+    "An empty queried root does not prove objects/methods absent elsewhere",
+    "Advertised paths are NOT queried objects",
+    "Raw name lists, XML and client/owner identifiers remain in ignored runs."
+  ]
+}

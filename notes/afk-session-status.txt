@@ -22,13 +22,17 @@ COMPLETED
   Each includes fresh matching source pre/post sizes+checksums, host checks,
   actual completion status, source hashes and closed Mac port.
 
-ACTIVE NEXT WORK
-- t14: network/service/module/ListNames inventory is complete. Bounded read-only
-  D-Bus object discovery is active. Disposable child probe remains held.
-- t12: package/test a foreground-watchdog UI001 experiment offline; no live UI yet.
-- t13: research index and review results reconciled for recovery/exact-file copies.
-- Coordinator: review, version reviewed code and findings, and assign each live
-  action explicitly through Herdr. No simultaneous UART access.
+CURRENT STOPPING POINT
+- Paced64B/20ms sender:37 offline tests and ONE inert7093B live calibration passed.
+  Target CRC158748838/count6699,3.198s,0BEL, fresh root55/coreEND0+prompt.
+- Initial strict rejection was one known extra wrapper LF omitted by the fixture.
+  Original raw/fixture/rejection report remain unchanged; transport accepted only.
+- User requested retrospective; no further bench actions. Operator t14 idle,
+  ownership retained, all Mac helper/UART/camera handles closed.
+- Next: integrate paced profile into the separate UI driver, then one bounded
+  child/UI lifecycle and camera test. No live UI001 pass or automatic schedule.
+- Research/code/experiments preserved locally in Git; no remote or second copy.
+- Read notes/retrospective-2026-11-13.txt and notes/uart-calibration-acceptance.txt.
 
 LIMITS
 No full-device backup, atomic snapshot, restore test or independent second copy.

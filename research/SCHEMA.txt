@@ -24,3 +24,14 @@ Run index rebuild after appending records:
   hc exec --cwd /Users/aeharding/mazda-cmu-bench python3 research/tools/rebuild_index.py
 New source editions get new immutable paths and new records. Do not rerun the
 one-shot seed/download scripts over existing catalog files.
+
+Mutable context and historical Git references
+Some notes/plans are maintained working context, unlike immutable raw evidence.
+If evidence.git_revision is set, verify its recorded SHA with git show
+REV:path instead of current working bytes. A qualified availability value may
+record a historical context hash whose original bytes were not archived; preserve
+that hash and disclose the gap, never silently replace it with current content.
+Current derived index/SUMMARY may be curated after rebuild to show hypothesis
+dispositions and latest handoff; canonical record IDs and index.tsv stay aligned.
+Raw unique D-Bus owners/client identifiers and replies stay in ignored runs;
+sanitized namespace maps distinguish queried paths from advertised next nodes.

@@ -1,5 +1,5 @@
 MAZDA CMU BENCH — CURRENT STATUS
-Updated 2026-11-12T23:22:20.833551-06:00 by coordinator Herdr t6.
+Updated 2026-11-12T23:50:28.848687-06:00 by coordinator Herdr t6.
 Read AGENTS.md and research/index.txt before continuing. Local Git main; no remote.
 
 WORKING REFERENCE
@@ -13,7 +13,8 @@ Preserve USB and SD; AUX unnecessary. No manual bench/UI work assigned to user.
 
 IMPLEMENTED AND VERIFIED
 - Research catalog with immutable local source snapshots, evidence hashes,
-  facts/hypotheses/decisions and searchable index; initial Git commit dcdaf03.
+  facts/hypotheses/decisions and searchable index. Local commits dcdaf03,2b65423
+  and444dd53 preserve research, tested tooling and the experimental UIv2 revision.
 - Reviewed session/file runner: cmu_bench and scripts/cmu-session.py. Default
   dry-run, sole owner lock, fresh identity, bounded input lines, framed completion,
   RX/TX evidence and exact-file checks.30 offline tests pass; coordinator CLI6 pass.
@@ -27,8 +28,9 @@ IMPLEMENTED AND VERIFIED
 - asix+usbnet loaded; matching module files plus cdc_ether/cdc_ncm observed.
   Current interface snapshot showed lo+wlan0 only, no carrier/nonloopback address
   or IPv4 routes. Existing sshd listens0.0.0.0:22; no SSH connection test yet.
-- Both known D-Bus sockets ListNames succeeded; actual object/interface discovery
-  is ongoing read-only. Names alone do not establish callable UI controls.
+- Bounded D-Bus namespace map completed12 standard calls. The returned Opera
+  chain reaches /com/jci/OPERA_IHU_PRIMARY as an UNQUERIED advertised next leaf.
+  No application signatures or UI control methods were established.
 - Our original native dialog was launched, observed, and later terminated by
   exact ownership guard with a fresh camera-confirmed return to home.
 
@@ -42,14 +44,18 @@ The new runner caps physical lines600 bytes; live exports max159 bytes per line.
 The old13334-byte extracted version reference remains unchanged as metadata.
 New exact copies are separate artifacts. No raw failure evidence was rewritten.
 
-ACTIVE WORK / OWNERS
-Coordinator t6 owns integration and Herdr-only task control. t14 is sole UART/
-camera owner for current scoped read-only service/interface discovery. Last
-completed batches closed both cu/tty handles; new acquisitions recheck ownership.
-t12 prepares UI001 offline. Draft lifecycle bugs were caught in fake tests;
-startup/error cleanup and independent timeout are being fixed before any live UI.
-The disposable sleep probe has NOT run. No UI watchdog/timer is currently deployed.
-t13 performs scoped offline review/research curation. No other worker touches UART.
+CURRENT STOPPING POINT
+The paced sender passed37 offline tests and ONE live inert7093-byte calibration:
+CRC158748838/count6699, root55, actual END0+prompt,3.198s,0BEL.
+See notes/uart-calibration-acceptance.txt. Initial whole-output rejection was a
+known extra wrapper LF omitted by the fixture; original reports are preserved.
+The cause of earlier unpaced input corruption remains unproven.
+t14 retains sole UART/camera ownership IDLE; all helper/serial/camera handles
+closed. No further bench actions after the user requested a retrospective.
+t12 source/profile and t13 scoped review/catalog are saved. No background schedule.
+UI001's old driver pins intentionally remain fail-closed; integrate the accepted
+paced profile before any new child/UI test. No live UI001 cleanup/visibility pass.
+See notes/retrospective-2026-11-13.txt for the coordination changes.
 
 REMAINING DEPENDENCIES
 No full storage backup, atomic snapshot, restore test or independent second copy.

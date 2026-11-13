@@ -1,0 +1,16 @@
+notes/research-preservation-result.txt
+research/SCHEMA.txt
+research/context/SUMMARY.txt
+research/context/dbus-namespace-map.json
+research/decisions/2026-11-12-preservation.jsonl
+research/facts.jsonl
+research/hypotheses.jsonl
+research/index.tsv
+research/index.txt
+research/sources/manifest.jsonl
+research/manifests/2026-11-12-baseline-dbus-ui001-audit.json
+research/manifests/2026-11-12-sleep4-later-root-state.json
+research/manifests/2026-11-12-sleep4-sealed-provenance.json
+research/manifests/2026-11-12-catalog-update-allowlist.txt
+research/manifests/2026-11-12-catalog-update-result.json
+notes/uart-pacing-review.txt

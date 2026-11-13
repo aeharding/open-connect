@@ -1,0 +1,89 @@
+UART TX INVESTIGATION / PACED-WRITE HANDOFF — t12 to t6
+2026-11-13 America/Chicago. OFFLINE ONLY; no UART/camera, installs, delegation,
+Git operations or target changes. UIinvoke/frozen UI source were not edited.
+
+OBSERVED FAILED SUBMISSION (original immutable bundle)
+ runs/20261112T233747-0600-t14-sleep4-cap/manifest.json
+ SHA256316e537f71f417f9c587a5d60eb68e04aa0b8e3c956afc1fb97c24565fafe6bb
+Fresh identity37fcef... completed exit0/root55.00.750B/cmu150_NA+END+prompt.
+Task7100f8... remained UNKNOWN: one7108-byte host write acknowledgment,207 real
+LF physical lines,max179B. Host write acknowledgment is not CMU byte receipt.
+RX14765B SHA256b170ca69776a490ca8ba1334cd02c6310d39a101a0dd22146e80ce3a578aa91d.
+510 BEL07 occurred in3 RX chunks at05:38:16.569/.620/.673Z. TX contained no BEL.
+Literal echo comparison after removing only observed CRCRLF softwraps and
+normalizing CRLF: all nonempty TX lines through176 occur somewhere in echo;
+first whole line absent is177 at wire byte6066 (_initial=$?,11B), echo has _i.
+This is literal coverage, NOT a reconstruction of all target-accepted bytes or
+an exact first-loss offset. Later short lines/quotes/END printf are truncated.
+Actual task BEGIN is followed by unterminated-quote syntax error, malformed
+interactive trap/esac/done/_finish errors. No actual nonce-prefixed UI001 PREP,
+SPAWN, IDENTITY, READY, TERM/WAIT/RESULT records. No child identity/absence proof.
+Last command-related RX ends in truncated END printf plus continuation '> ' at
+05:38:17.135570Z; following RX is runtime logs. BEGIN alone proves no sleep/timer.
+Prior accepted exports1366/1370B,37 lines,max159B had0 BEL. Physical-line cap alone
+is insufficient. Editor/typeahead/tty/FIFO/backpressure/vendor causes cannot be
+distinguished from stored bytes. No causal UART-error-counter claim is made.
+
+RESTORATION / PRESERVATION
+Per t14, separately authorized one051504 restored quote-error+PS1; fresh335B
+identify and543B task/86B max-line diagnostics completed. See
+notes/ui001-sleep4-observation.txt and notes/uart-postevent-observation.txt.
+Current root restored does not convert original task UNKNOWN to success.
+Original unknown bundle untouched. Exact pre-change sources and executed failed
+command/wire/full TX copies: runs/20261112-paced-tx-before-t12/manifest.json.
+Baseline core commit2b65423 and UI commit444dd53 were reported by t6, not changed
+by worker. No failed-probe retry or UI action was performed.
+
+MINIMAL IMPLEMENTATION
+cmu_bench/session.py only production source changed. TX_CHUNK_BYTES64 and
+TX_GAP_SECONDS0.020. Each full chunk is acknowledged by host write counts;
+partial writes finish that same chunk without per-partial pacing penalties.
+Between complete chunks, bounded reads drain RX and feed the SAME command
+decoder, received-byte cap, raw stream and event recorder. No read is discarded.
+Single absolute execute deadline includes TX, gaps and response; old1s all-TX
+budget removed. Individual writes/read timeouts are capped by remaining time;
+existing singleCR prompt solicitation remains bounded and uncertain on failure.
+No protocol/wire-byte, USB identity, login/retry/recovery or remote change.
+Metadata: tx_profile/transmissions with host-only acknowledgment disclaimer;
+per acknowledged write bytes, tx_chunk offset/length/writecalls, tx_gap actual
+elapsed/RXbytes/completion, and uncertainty/acknowledged-prefix evidence.
+UIinvoke is intentionally unchanged and still pins historical30-test sources;
+new core profile is isolated for inert calibration, not UI integration.
+
+TESTS / DIFF
+Final37/37 pass: examples/tooling-runs/20261113T055706.237509Z/manifest.json.
+Exact pre-test source BYTES and hashes are in that run/source/. Original30 plus
+7 new tests cover early fragmented RX+binary data during TX, partial writes,
+operation TX deadline/no retry, >1s submission within total budget, RX cap during
+TX, front-door cancellation/cap preserving unknown/evidence/closed port.
+First37-run055412.453697Z retained:30 existing passed;2 new fixtures hit unchanged
+600B guard before TX, then only those fixtures were split into valid short lines.
+Implementation unchanged between runs. Reviewable diff: examples/uart-paced-tx.diff.
+No further fullsuite after checksum-only fixture edit. All test helpers saved
+then only worker-owned finished terminals removed.
+
+INERT CALIBRATION — PREPARED, NO LIVE AUTHORIZATION HERE
+ examples/uart-tx-calibration.command.txt
+ command SHA25661eb1c9502b2c58bbced6261f64355106d44cb7a146d061d382133af0430fbf5
+ 7093 sample-wire bytes; max physical146B (<200); existing framing still<=600B.
+ SAME quoted6699-byte ASCII DATA, SHA256
+ 074db81968bb0999d1ebff518fe89596ce875706378a168965fc58c8e38715ff.
+ printf '%s' DATA | cksum; actual pipeline status captured, TXCAL BEGIN/END0.
+ Expected target POSIX CRC+length:158748838 6699, independently /usr/bin/cksum.
+ Local /bin/sh exact compact output check exit0; expected output/hash and fresh
+ unused tag are in examples/uart-tx-calibration.plan.json. Ordinary finite checksum
+ pipeline child explicitly permitted by t6; no sleep/UI/testchild/target files.
+ Original noisy full-output plan/bytes preserved under ignored
+ runs/20261112-paced-tx-before-t12/calibration-before-cksum/.
+Actual operation nonce is generated fresh by core at future run; sample wire
+is review-only. Need exact fresh root55 + actual core END0+prompt, actual TXCAL
+BEGIN, exact CRC+length line and END0. Reject corrupted/interleaved result; do not
+filter logs inside result into success. Normalize CRLF only for this known ASCII
+record; raw bytes remain original. No automatic retry on timeout/uncertainty.
+
+NEW REVIEW PROFILE
+examples/operator-ready-paced-tx.json pins source/diff/tests/calibration and exact
+future operator argv. It is separate from unchanged legacy ready/freeze artifacts.
+t13 review and separate t6 authorization precede ONE inert calibration by t14.
+Any later UI integration requires a separate scope; no UI code was changed here.
+Pacing is a candidate mitigation, not a proven diagnosis or live fix until tested.

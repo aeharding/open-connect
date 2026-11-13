@@ -1,0 +1,209 @@
+{
+  "created_at": "2026-11-13T05:51:02.291692+00:00",
+  "method": "Herdr saved host evidence hash/event audit; no tests/live action",
+  "unknown_probe_remains_unknown": "runs/20261112T233747-0600-t14-sleep4-cap/manifest.json",
+  "later_recovery": {
+    "exact_tx_hex": "051504",
+    "no_CR_LF_BREAK": true,
+    "syntax_error_and_later_primary_prompt": true,
+    "rx_event_matches_raw": true,
+    "ordered_marker_audit": {
+      "error_offset": 1571,
+      "primary_prompt_offsets": [
+        1612
+      ],
+      "raw_bytes": 3689,
+      "method": "Strip ANSI CSI, require real line-start prompt after returned error, then verify separate fresh identity; do not require prompt to be final bytes"
+    }
+  },
+  "audit_initial_failure_preserved": {
+    "predicate": "raw_RX.endswith(primary_prompt)",
+    "result": false,
+    "effect": "Initial host-only audit aborted before saving a result. This predicate was overstrict because asynchronous runtime data follows the returned prompt; no raw input was changed."
+  },
+  "later_completed_bundles": [
+    {
+      "bundle": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-recovery-identify",
+      "manifest_sha256": "774db3568e3684e3dd33c3ce1f441d2b45e35cce12af363121e365bf838b463a",
+      "outcome": "identity_verified",
+      "completed_operations": 1,
+      "all_artifacts_match": true,
+      "rx_tx_reconstruction_match": true,
+      "port_closed": true
+    },
+    {
+      "bundle": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-serial-diagnostics",
+      "manifest_sha256": "f876216ce7d63ef017a0a8c051e87e20b1060db9cc714a334e243952cba48f5c",
+      "outcome": "completed",
+      "completed_operations": 2,
+      "all_artifacts_match": true,
+      "rx_tx_reconstruction_match": true,
+      "port_closed": true
+    }
+  ],
+  "scope": "Restored root55 console is later independent evidence; does not complete/verify earlier sleep4 lifecycle or measure diagnostic counter deltas.",
+  "files": [
+    {
+      "path": "notes/ui001-live-hold.txt",
+      "bytes": 1844,
+      "sha256": "27547bf2e8ca9099cf292731d67bab44cdec9d63cc3caf5dac67e293bb17fd51",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/continuation-recovery/authorization.txt",
+      "bytes": 958,
+      "sha256": "1ae2557f9922bd574336bc73381947e07252aee533951e30145b47f12a542441",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/continuation-recovery/preflight.json",
+      "bytes": 1414,
+      "sha256": "f248a5f4b128890a8f7230909338907d5de91bcf0576a0bc7cc994df6e863c0c",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/continuation-recovery/recovery.bin",
+      "bytes": 3689,
+      "sha256": "b378d26eff3110ad5a000b0d7428064a0f12b3a42d34af4c041a3700a0c5f07b",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/continuation-recovery/recovery.json",
+      "bytes": 8693,
+      "sha256": "817568bdde3d72a788da6ce01832c5286b23a4bc6d7e47f24f471714ef2021e1",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/continuation-recovery/recovery.jsonl",
+      "bytes": 16509,
+      "sha256": "5d3b1d4565c2376c0225610139a5f52b2e42bc30507e9a9687cd4ca79e6dd819",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/continuation-recovery/recovery.py",
+      "bytes": 3900,
+      "sha256": "817d91eafaf656334ce4895befd9ff3e882f0ef2551df40e1bcfd575d94ec2ee",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-diagnostics-gate.json",
+      "bytes": 552,
+      "sha256": "4c585b22ff9c2e7e53febacfa054cece917b664c5c107564df4e82140fb3214f",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-serial-diagnostics/099e75ccb6b79b686af8c576a7e9e1a4.command.txt",
+      "bytes": 172,
+      "sha256": "0d8e2ef8d1001075c62c5e9b702e2692ca15c95299c142af748c768ac1721598",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-serial-diagnostics/099e75ccb6b79b686af8c576a7e9e1a4.output.bin",
+      "bytes": 206,
+      "sha256": "93301c9ef17ac2be1edf161f4ff3df39bc52025be536a7d47de4dc420ed8e30b",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-serial-diagnostics/099e75ccb6b79b686af8c576a7e9e1a4.wire.bin",
+      "bytes": 335,
+      "sha256": "b6c262d81c241b9014f3e2c6b8629b09b6be6f236d7dffa852b75580a6dcb9e9",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-serial-diagnostics/45bb56a44ab1ecfb243793b815e877f9.command.txt",
+      "bytes": 340,
+      "sha256": "4ee1ce78e90aad2ee683bb216000d622d622639ec197fd2367e39e3ce0abacfa",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-serial-diagnostics/45bb56a44ab1ecfb243793b815e877f9.output.bin",
+      "bytes": 1272,
+      "sha256": "c6c6d9474f17a11054553b7fced1be3aeace250afc07dad7e06348ce6025ee56",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-serial-diagnostics/45bb56a44ab1ecfb243793b815e877f9.wire.bin",
+      "bytes": 543,
+      "sha256": "8e67f15166eaf4032d7d8e2f7df9a33a0a4e29287aa386179024334dc394b0db",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-serial-diagnostics/events.jsonl",
+      "bytes": 12106,
+      "sha256": "c1caa53e0e9fa1084bdb3da6be22b70edd6c28c5e9ff16bc9943bcae40b5e5d9",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-serial-diagnostics/manifest.json",
+      "bytes": 4740,
+      "sha256": "f876216ce7d63ef017a0a8c051e87e20b1060db9cc714a334e243952cba48f5c",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-serial-diagnostics/rx.bin",
+      "bytes": 2709,
+      "sha256": "4928f1706c427dd0b3cbb8c667f46f736ad8b5ac960649aa990be78555ed2c22",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-event-serial-diagnostics/tx.bin",
+      "bytes": 879,
+      "sha256": "56bc098dcc52d56cf7b6fca3b850d76cd14f9fdadb6c4b44034bce192a9a585a",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-recovery-identify-gate.json",
+      "bytes": 458,
+      "sha256": "d4b62251e045e241a5310917591fc2349cbc17091ed30088482f484a48d1a59a",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-recovery-identify/9f7159ff3cae3328f3cf55a3422da712.command.txt",
+      "bytes": 172,
+      "sha256": "0d8e2ef8d1001075c62c5e9b702e2692ca15c95299c142af748c768ac1721598",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-recovery-identify/9f7159ff3cae3328f3cf55a3422da712.output.bin",
+      "bytes": 206,
+      "sha256": "93301c9ef17ac2be1edf161f4ff3df39bc52025be536a7d47de4dc420ed8e30b",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-recovery-identify/9f7159ff3cae3328f3cf55a3422da712.wire.bin",
+      "bytes": 335,
+      "sha256": "d89706450e64c50bebbe499f8de882a431858a36e692094870e214d8c7e55331",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-recovery-identify/events.jsonl",
+      "bytes": 4703,
+      "sha256": "58c2f787bacf763308bffdd9fa609b912ff69ae84c8b6d72722179b94049c112",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-recovery-identify/manifest.json",
+      "bytes": 3436,
+      "sha256": "774db3568e3684e3dd33c3ce1f441d2b45e35cce12af363121e365bf838b463a",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-recovery-identify/rx.bin",
+      "bytes": 696,
+      "sha256": "5c19dc50b807485df665badd26a9a8952d55140f1fd7682542acfa4d0522bd0b",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/post-recovery-identify/tx.bin",
+      "bytes": 336,
+      "sha256": "eecd7ff6a06c260d2895c9b211732a47f73021216edf0af04ab1590b8fc4c0d0",
+      "access": "pointer/hash only; original contents remain local"
+    },
+    {
+      "path": "runs/20261112T233747-0600-t14-sleep4-acceptance/recovery-gate.json",
+      "bytes": 285,
+      "sha256": "ba24fe86ab44b23cc2fa76ad61beebc42653f0fc57ccaa458745edd60da291fd",
+      "access": "pointer/hash only; original contents remain local"
+    }
+  ]
+}

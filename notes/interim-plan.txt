@@ -1,8 +1,11 @@
 MAZDA CMU BENCH — DEVELOPMENT AND RESEARCH PLAN BEFORE ETHERNET
 Prepared November 12, 2026, America/Chicago.
 Status: execution underway. Preservation/Git, reviewed UART tooling, bounded baseline
-and two checksum-verified metadata copies are implemented; UI001 remains offline
-pending lifecycle fixes/review and a single capability probe. Detailed current
+and two checksum-verified metadata copies are implemented. UI001 lifecycle passed
+offline review, but one sleep4 submission was UNKNOWN due input corruption. Root
+was restored. The paced sender passed37 tests and one inert7KiB calibration;
+live UI integration/lifecycle/visibility remains next. Retrospective stopped
+further bench actions; see notes/retrospective-2026-11-13.txt. Detailed current
 results: notes/status.txt, research/index.txt and linked immutable run manifests.
 The sequence below remains the roadmap; unmarked future milestones are not implied.
 

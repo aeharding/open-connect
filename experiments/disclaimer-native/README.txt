@@ -17,8 +17,6 @@ Build separately (usually use the paired command instead):
   .venv/bin/python experiments/disclaimer-native/check.py \
     --original /private/firmware55/libjciuiasystem.so \
     --output runs/native-check
-    --original /private/firmware55/libjciuiasystem.so \
-    --output runs/native-check
 
 Inputs and tools are explicit. --clang, --objdump and --host-cc override PATH
 discovery; macOS also supports xcrun. Clang must support armv7-none-eabi;

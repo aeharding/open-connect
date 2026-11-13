@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "title": "Mazda CMU bench",
-  "updated_at": "2026-11-13T02:53:17-06:00",
+  "updated_at": "2026-11-13T03:06:32-06:00",
   "timezone": "America/Chicago",
   "snapshot_note": "Saved progress, not live telemetry. Reopen the private Page for a newer snapshot.",
   "links": {
@@ -9,7 +9,7 @@
     "html_download": null
   },
   "headline": "Disclaimer prototype frozen; host checks passed",
-  "summary": "First real feature: independently derived from the captured installed55 source before retrospective comparison. It queues the existing OEM timeout immediately; it is uninstalled and may still flash. Shared reversible-maintenance integration is being exercised on host copies.",
+  "summary": "The independent firmware55 disclaimer prototype is frozen and uninstalled. Six feature checks passed; a shared host-only maintenance model also passed10 focused checks on private source copies, including interruption recovery. Live startup/no-flash, CMU write durability and rollback remain unproven.",
   "current": {
     "firmware": "55.00.750B",
     "region": "North America · cmu150_NA",
@@ -294,9 +294,30 @@
         "experiments/disclaimer/result.txt",
         "notes/disclaimer-retrospective.txt"
       ]
+    },
+    {
+      "id": "host-maintenance",
+      "title": "Shared host maintenance proof",
+      "state": "done",
+      "detail": "Frozen feature exercised on copied source;10 focused checks and demo passed.",
+      "proof": "Enable/verify/no-op/disable restored exact original bytes+mode; stored journal recovered real process exits; unrelated edits refused.",
+      "limits": "Host copies and process exits only. No actual CMU install, startup, ownership restoration, power-loss recovery, USB or schema approval.",
+      "refs": [
+        "experiments/installer-proof/adapter-result.txt",
+        "experiments/installer-proof/final-handoff.json"
+      ]
     }
   ],
   "tasks": [
+    {
+      "id": "live-validation-plan",
+      "lane": "now",
+      "state": "active",
+      "title": "Prepare the first on-device validation plan",
+      "owner": "Research + Bench operator",
+      "detail": "Reuse saved evidence and fill only missing read-only facts: exact target metadata, mount/tool constraints, durable original/staging and recovery access. No target writes.",
+      "pass": "Concrete known-vs-open install/uninstall/interruption plan. Controlled startup/power-loss and USB commissioning remain later gates."
+    },
     {
       "id": "disclaimer-first",
       "lane": "later",
@@ -326,12 +347,12 @@
     },
     {
       "id": "shared-installer",
-      "lane": "now",
-      "state": "active",
-      "title": "Integrate the frozen feature into the host maintenance proof",
+      "lane": "later",
+      "state": "done",
+      "title": "Shared host maintenance integration passed",
       "owner": "Tooling + Coordinator",
-      "detail": "Generic host model demo+6 checks passed, including process-exit journal recovery. Private disclaimer-source adapter is next; no device actions.",
-      "pass": "Enable/verify/no-op/disable with exact original+mode; interruption/conflict recovery on host copies. No claim of USB, CMU or power-loss safety."
+      "detail": "4 adapter+6 engine checks and demo: enable/verify/no-op/disable, exact original+mode restoration, process-exit recovery and edit conflicts on private copies.",
+      "pass": "Model evidence only: no CMU write, startup, USB entry point, power-loss or product-schema proof."
     },
     {
       "id": "heartbeat",
@@ -446,6 +467,10 @@
   ],
   "recent": [
     {
+      "title": "Frozen feature runs through shared host model",
+      "text": "10 focused checks and private-copy demo passed; source original and frozen patch remain unchanged. Device writes remain unperformed."
+    },
+    {
       "title": "Independent prototype frozen",
       "text": "6 host checks; initial3500→0 only, retry and OEM event flow retained. Uninstalled; flash/startup unknown."
     },
@@ -472,10 +497,6 @@
     {
       "title": "Root55 / home restored separately",
       "text": "Fresh Communication home and completed root55 identity at uptime454s. No full boot-trace or long-term stability claim."
-    },
-    {
-      "title": "Browser return failed",
-      "text": "Data page was visible. Heartbeat loss / Opera exit prevented the planned16s stock return; later recovery is a separate outcome."
     }
   ],
   "guardrails": [

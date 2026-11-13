@@ -20,8 +20,10 @@ See notes/browser-demo-observation.txt and notes/post-browser-state-observation.
 ACTIVE TEAM OUTCOMES
 User-selected FIRST REAL FEATURE: startup disclaimer bypass, independent OEM-first.
 t12: independent host prototype FROZEN with6 checks, original94058B/candidate94055B;
-only initial3500->0 timer changed. Now integrating frozen patch into host maintenance
-model on private copies; no CMU write. No-flash/startup/live rollback remain unknown.
+only initial3500->0 timer changed. Host maintenance adapter10checks+demo passed
+on private copies. No CMU write; no-flash/startup/live rollback remain unknown.
+Research/operator now prepare concrete first install/rollback validation plan;
+2 bounded readonly metadata/tool transactions completed, no writes/remount tests.
 t14: sole UART/camera owner, bounded read-only OEM source acquisition only.
 t13: resource interpretation + retrospective comparison COMPLETE; external research
 started after freeze. Miatafy ScreenTune public behavior compared; disclaimer

@@ -11,7 +11,7 @@ The Lua handler owns audio enable state; SYSTEM startup policy can subsequently
 turn it off when the TAU is absent. Service availability alone is therefore not
 a sufficient startup activation boundary.
 
-The [bench helper](../src/open_connect/bench.py) uses that API. Live setup,
+The [bench helper](https://github.com/aeharding/open-connect/blob/main/src/open_connect/bench.py) uses that API. Live setup,
 repeat setup, teardown and setup passed; FM Now Playing and the source list opened
 without a TAU. This proves UI access, not sound output or playback. Runtime state
 and ownership expire on reboot/service replacement; no persistent hook is verified.
@@ -29,16 +29,16 @@ The native prototype reuses the ordered continuation rather than forcing Home.
 Rule granted/denied actions are alternatives; actions precede the old context's
 exit hook. Cleanup and pending-warning behavior must be preserved.
 
-The [native prototype](../experiments/disclaimer-native/) bypassed the observed
+The [native prototype](https://github.com/aeharding/open-connect/tree/main/experiments/disclaimer-native/) bypassed the observed
 warm Intro route. Early intro-player disposal caused a black interval. The
-[paired renderer hook](../experiments/intro-handoff/) defers DisposeIntroVideo
+[paired renderer hook](https://github.com/aeharding/open-connect/tree/main/experiments/intro-handoff/) defers DisposeIntroVideo
 until renderer completion; the sampled long gap disappeared, but a dim transition
 remained. Independent undo and restored-original startup passed. This does not
 establish cold ACC, every resume branch or a seamless sub-frame transition.
 
 The separate upstream-derived comparison uses a transparent NoCtrl template and
 native Yes; the local Snap variant still showed a handoff. It is excluded from
-AGPL distribution under its noncommercial license; see [THIRD_PARTY.md](../THIRD_PARTY.md).
+AGPL distribution under its noncommercial license; see [THIRD_PARTY.md](https://github.com/aeharding/open-connect/blob/main/THIRD_PARTY.md).
 
 ## Loaded libraries and read-only remount
 
@@ -46,7 +46,7 @@ Replacing a still-mapped native library caused an EBUSY read-only remount failur
 Keeping same-filesystem hardlink holds through apply, undo and loaded-module
 lifetime resolved the observed case. Restoring the file on disk does not unload
 modified code: verify a restored-original startup and mapping before releasing
-its holds. See [mapped publication](../experiments/mapped-publication/README.md).
+its holds. See [mapped publication](https://github.com/aeharding/open-connect/blob/main/experiments/mapped-publication/README.md).
 
 ## Spinner and frontend lifecycle
 
@@ -75,7 +75,7 @@ mechanism has been tested on the CMU. Current source findings:
   Current availability does not establish availability at an earlier boot hook.
 - svcjcimmui.so constructs UIA priority/context records before invoking loaders
   (0x2e08–0x2f50). It is not a neutral plugin registry. The host-built
-  [probe](../experiments/optional-loader/README.md) hooks its final return at
+  [probe](https://github.com/aeharding/open-connect/blob/main/experiments/optional-loader/README.md) hooks its final return at
   0x31ac, before ServiceInit calls AppsLoadingFinish at 0x1914. This cannot select
   services that have already started.
 - Websockets.js:507–551 constructs/sends events on an open MMUI socket.

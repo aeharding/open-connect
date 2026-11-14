@@ -56,7 +56,23 @@ firmware inputs. CI does not prove firmware behavior, visual results or CMU reco
 
 Actions are pinned to commit hashes, workflow permissions are read-only, and
 Dependabot proposes monthly grouped updates. Dependency PRs require the same
-tests and adversarial review; there is no automatic merge or deployment.
+tests and adversarial review; there is no automatic merge. Reviewed documentation
+on main is deployed automatically to GitHub Pages.
+
+## Documentation
+
+Edit Markdown in docs/ and navigation in zensical.toml. With Python 3.13:
+
+~~~sh
+.venv/bin/python -m pip install -e ".[docs]"
+.venv/bin/zensical serve
+# Before opening a PR:
+.venv/bin/zensical build --clean --strict
+~~~
+
+The Documentation build job validates internal links and anchors on every PR.
+Main builds deploy to [GitHub Pages](https://aeharding.github.io/open-connect/).
+See [documentation guidance](docs/documentation.md) for content and publication rules.
 
 ## Mods and device work
 

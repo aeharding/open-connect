@@ -75,7 +75,7 @@ For active bench setup, require outcome=verified and bench_profile.active=true.
 A verified status may correctly report inactive or expired ownership.
 Raw UART evidence is private under the requested runs/ bundle.
 
-[Host tests](../CONTRIBUTING.md) cover these operations without hardware.
+[Host tests](https://github.com/aeharding/open-connect/blob/main/CONTRIBUTING.md) cover these operations without hardware.
 [Audio Manager findings](reverse-engineering.md#silent-entertainment-without-a-tau) summarize the bench result.
 SSH is not implemented; [issue #15](https://github.com/aeharding/open-connect/issues/15)
 tracks it. UART works without networking.

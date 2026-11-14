@@ -77,3 +77,6 @@ private/
 # Retired demo working files remain private if present on the original bench.
 /experiments/ui001/
 /experiments/status-overlay/
+
+# Generated documentation website.
+/site/

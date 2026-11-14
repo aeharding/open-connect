@@ -25,7 +25,7 @@ class SelectorTests(unittest.TestCase):
                         "-o", str(self.real)], check=True)
         flush = f"""#!/bin/sh
 test "$1" != "$OC_FAIL_FLUSH" || exit 1
-if test "$OC_HANG_FLUSH" = 1; then sleep 5; fi
+if test "$OC_HANG_FLUSH" = 1; then sleep 8; fi
 exec {self.real} "$@"
 """.encode()
         for name, data, mode in [("flush", flush, 0o700), ("generation.conf", b"stock\n", 0o600),
@@ -51,7 +51,9 @@ elif name=="stat":
 elif name=="timeout":
  assert a[:2]==["-t","5"]
  p=subprocess.Popen(a[2:],start_new_session=True)
- try:rc=p.wait(timeout=0.8)
+ # Full selectors launch many Python boundary shims. Keep the actual five-second
+ # budget; only the isolated descendant test opts into an accelerated timeout.
+ try:rc=p.wait(timeout=float(os.environ.get("OC_TEST_TIMEOUT", "5")))
  except subprocess.TimeoutExpired:
   p.terminate();p.wait();rc=143
  sys.exit(rc)
@@ -78,7 +80,7 @@ else:raise ValueError(name)
 
     def run_parent(self, **env):
         r = subprocess.run(["/bin/sh", str(self.parent)], env=dict(self.env, **env),
-                           capture_output=True, text=True, timeout=3)
+                           capture_output=True, text=True, timeout=10)
         self.assertEqual(r.returncode, 0, r.stderr)
         return r.stdout
 
@@ -134,7 +136,7 @@ else:raise ValueError(name)
                 prototype.hook(str(self.d), body.encode()).replace("/bin/busybox", str(self.bin / "busybox")) +
                 'printf "CHOSEN|%s\\n" "$SMCFG_NORMALMODE"\n')
             started = __import__("time").monotonic()
-            self.baseline()
+            self.baseline(OC_TEST_TIMEOUT="0.8")
             self.assertLess(__import__("time").monotonic() - started, 1.8)
 
 

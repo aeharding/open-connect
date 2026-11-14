@@ -46,4 +46,4 @@ No install command or live profile is provided. Before the bench trial, finish
 one-attempt control and independent undo, establish storage/parent access at the
 loading point, and verify entry execution as well as mapping. The renderer has a
 separate existing developer-script slot; its readiness cannot be inferred from
-this native probe. See [loader findings](../../docs/extension-architecture.md#loader-probe-findings).
+this native probe. See [loader findings](../../docs/reverse-engineering.md#optional-extension-loading).

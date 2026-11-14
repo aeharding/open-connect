@@ -51,7 +51,7 @@ before normal-mode setup, the Logger and SM. Next: prove a bounded synchronous
 selector there with a no-change generation and baseline fallback; reset-cause
 and clean-end classification remain unproved. Validate one service change, one logging
 setting and the existing paired bypass against the same global-disable contract.
-See [the revised proposal](docs/extension-architecture.md#next-proof-and-implementation-order).
+See [the revised proposal](docs/extension-architecture.md#next-proof).
 Persistent mode needs explicit health/failure semantics; no automatic-recovery
 claim follows from installing a loader. No new general plugin framework is needed.
 
@@ -84,11 +84,11 @@ performs a reinstall; interrupted transactions are handled internally. No separa
 Repair or Change options UI. Add feature selection only when multiple useful
 features exist.
 
-Conflict uninstall saves the complete affected current state, then restores
-pre-install originals. It retains one **Undo this uninstall** checkpoint. Undo
-requires the relevant post-uninstall state to remain unchanged; later edits mean
-stop, preserve everything and no force/merge fallback.
-See [the scoped uninstall contract](docs/uninstall.md).
+Intended conflict behavior: save current state before restoring pre-install
+originals, and allow that uninstall to be reversed. Later relevant edits mean
+stop and preserve everything. Storage, transaction and recovery mechanics are
+still to be designed against the actual installer.
+See [the working uninstall direction](docs/uninstall.md).
 
 Necessary infrastructure now: exact-base validation, verified original backups,
 repeatable execution and independent undo, plus the small audio helper that

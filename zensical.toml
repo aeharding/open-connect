@@ -18,7 +18,7 @@ nav = [
   { "Development" = [
     { "Contribute" = "development.md" },
     { "Architecture" = "extension-architecture.md" },
-    { "Uninstall design" = "uninstall.md" },
+    { "Uninstall direction" = "uninstall.md" },
     { "Edit these docs" = "documentation.md" },
   ] },
   { "CMU reverse engineering" = [

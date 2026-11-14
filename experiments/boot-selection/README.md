@@ -29,9 +29,11 @@ the baseline configuration; the JS result used the saved crash archive and a
 fresh postboot check after live serial logging missed a marker. The original
 observer failure remains preserved.
 
-A separate full supply cut preserved a consumed record after checked flushes.
-It ran in normal runtime with the hook removed, not during early selection.
-These are one observation per fault/power case, not a persistent retry policy
+Two separate full supply cuts preserved consumed records: one in normal runtime,
+and one during a three-second pause after early commit but before services.
+The early cut returned to OEM SM configuration. Neither interrupted rename/fsync;
+the first early observer refused before any power command and is preserved.
+These are one actual cut per power case, not a persistent retry policy
 or general durability guarantee. See [the findings](../../docs/reverse-engineering.md#startup-selection-and-reset-evidence).
 
 The existing comparison JS stayed installed; “baseline” means the pre-existing
@@ -66,5 +68,6 @@ I/O. Successful fsync alone is not proof against every power failure.
 
 Private evidence: runs/boot-selector-flush/result.json and
 runs/early-selector/result.json, runs/native-fault-trial/result.json,
-runs/js-hang-trial-v2/result.json and runs/power-cut-trial/result.json, with
+runs/js-hang-trial-v2/result.json, runs/power-cut-trial/result.json and
+runs/early-power-cut/result.json, with
 unchanged raw bundles and failed attempts. OEM inputs, generated payloads, credentials and captures are not published.

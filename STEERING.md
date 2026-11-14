@@ -151,7 +151,8 @@ persistent edits that need repair before stock startup can resume.
 The revised [architecture proposal](docs/extension-architecture.md) recommends a
 small pre-consumer selector, immutable composed configurations and per-feature
 adapters. The early boundary has one-shot warm-boot and controlled native/JS fault evidence.
-Early power-interruption windows and persistent feature policy remain unqualified.
+Power cuts after completed record flushes passed; interrupted writes and persistent
+feature policy remain unqualified.
 Keep requested disable, verified baseline startup, automatic failed-start detection
 and full uninstall distinct. No hot-unload or universal crash-recovery promise.
 

@@ -66,12 +66,14 @@ This cannot rescue a broken kernel, baseline or bootstrap.
 | Two ordinary warm boots | Trial selected once; baseline selected next |
 | Native MMUI process crash | Mazda watchdog reset; baseline selected next |
 | Trial-only JS event-loop hang | Mazda closed Opera after missed heartbeats, then reset; original entry page returned |
-| Full power cut after a flushed record | Consumed record survived; voltage setting unchanged |
+| Full power cut after a flushed record | Consumed record survived |
+| Cut after early commit, before services | Spent record survived; next boot chose baseline |
 
 The JS result needed Mazda's saved crash log plus fresh postboot checks: serial
 logging lagged behind the reset. The original observer's incomplete result remains
-unchanged. The power test was after a completed write in normal runtime, **not**
-during early selection. Each fault/power case was tried once.
+unchanged. Power cuts covered a completed runtime write and an explicit pause
+after the early record flush, before services. Neither cut interrupted rename/fsync.
+Each fault/power case has one actual observation; voltage settings were unchanged.
 
 All trial hooks were removed. Existing bench modifications remained.
 [CMU findings](reverse-engineering.md#startup-selection-and-reset-evidence)
@@ -79,8 +81,8 @@ explain the evidence and limits.
 
 ## Next proof
 
-Test interruption at the early commit boundary, then select a useful combination
-of service policy, logging and optional code through the same mechanism.
+Select a useful combination of service policy, logging and optional code through
+the same mechanism.
 Verify that baseline selection omits the whole combination.
 
 Keep one-shot trials while learning. Persistent mode still needs a finite retry

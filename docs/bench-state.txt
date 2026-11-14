@@ -14,10 +14,10 @@ Installed:
 - Original /usr/bin/autostart restored and independently verified:
   64785:7113:1380015098:3039:775:1018:3015:1. No trial hook installed.
 - silent-ui-v1 runtime bench profile ON/active/owned after the final boot.
-  Receipt .bench-state/profile.json; runs/js-hang-trial-v2/bench-ready.
+  Receipt .bench-state/profile.json; runs/early-power-cut/bench-ready.
   It expires on reboot/service replacement; no persistent audio hook.
 
-Latest verified boot: 11910098-a711-462a-9c4b-c5da768a2ba3
+Latest verified boot: b5ab4e92-3101-41d6-9e7e-1b4f36471a29
 Running SM used /jci/sm/sm.conf; Opera used /jci/gui/index.html.
 Fresh final still shows Communication Home. Existing comparison remains installed.
 Original autostart was restored after that boot; no extra boot after removing it.
@@ -31,7 +31,12 @@ Closed experiments:
   Earlier runs/js-hang-trial/ probe failed to inject the hang; retained separately.
 - runs/power-cut-trial/result.json: consumed record survived one 6.964s supply
   interruption after a completed runtime flush. Scratch files cleaned.
-  Not a cut during early selection; no voltage-setting commands.
+  No cut during rename/fsync; no voltage-setting commands.
+- runs/early-power-cut/result.json: one actual 6.920s supply cut after the early
+  record flush, before service selection; spent record survived and OEM SM
+  configuration returned. Original autostart independently restored/cleaned.
+  First observer refused before any power command; original UNKNOWN preserved
+  with separate access reconciliation and explicit rearm for the fresh attempt.
 
 DPS150 connected via USB; output ON, voltage/current settings unchanged.
 Do not change voltage. Notify the user before any power cut so they can watch.

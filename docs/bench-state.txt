@@ -1,35 +1,47 @@
 CURRENT LAB STATE — last verified 2026-11-13
 
 Firmware: 55.00.750B NA, cmu150_NA. Physical root /dev/ffx01p1 is RO.
-Primary owns software operation; UART/camera handles closed at last observation.
-Revalidate before live work; recorded identities are not future authorization.
+Primary owns software operation. Owned UART/camera/supply handles are closed.
+Revalidate identities before operations; these records are not future authority.
 
-Installed and loaded:
-- Native ORIGINAL: /jci/mmui/uia/libjciuiasystem.so
-  SID 64785:9457:1433953535:454142:755:1018:3015:1
-- Local noncommercial comparison Snap JS: /jci/gui/apps/system/js/systemApp.js
-  SID 64785:1606:1293:93955:755:1018:3015:2
-  No warning in inspected samples; a brief dark transition remains.
-- silent-ui-v1 bench profile ON/active/owned, audio enabled.
-  Runtime only; no startup hook. Disable for genuine missing-TAU measurements.
-  After reboot/service replacement, check status; ownership expires.
+Installed:
+- Native ORIGINAL /jci/mmui/uia/libjciuiasystem.so.
+  Last full SID 64785:9457:1433953535:454142:755:1018:3015:1;
+  latest postboot MD5 b9ff5edc632163f88cda04686c118591.
+- Local noncommercial comparison Snap JS /jci/gui/apps/system/js/systemApp.js.
+  Last full SID 64785:1606:1293:93955:755:1018:3015:2;
+  latest postboot MD5 c8d0aceb75ad216aa548ada2989abd7c.
+- Original /usr/bin/autostart restored and independently verified:
+  64785:7113:1380015098:3039:775:1018:3015:1. No trial hook installed.
+- silent-ui-v1 runtime bench profile ON/active/owned after the final boot.
+  Receipt .bench-state/profile.json; runs/js-hang-trial-v2/bench-ready.
+  It expires on reboot/service replacement; no persistent audio hook.
 
-Bench receipt: .bench-state/profile.json (private).
-Profile lifecycle evidence: runs/bench-profile/lifecycle-result.json;
-last setup bundle: runs/bench-profile/live-ready.
-Run oc from the repository root or use the same explicit --state path.
-Guide: docs/cli.md. Wiring: docs/bench-setup.md.
+Latest verified boot: 11910098-a711-462a-9c4b-c5da768a2ba3
+Running SM used /jci/sm/sm.conf; Opera used /jci/gui/index.html.
+Fresh final still shows Communication Home. Existing comparison remains installed.
+Original autostart was restored after that boot; no extra boot after removing it.
 
-Private comparison recovery retained at:
+Closed experiments:
+- runs/early-selector/result.json: two warm boots, trial then baseline.
+- runs/native-fault-trial/result.json: one MMUI SIGSEGV, watchdog reset, baseline.
+- runs/js-hang-trial-v2/result.json: one actual JS hang, heartbeat failure, Opera
+  exit, watchdog reset and baseline. Original observer UNKNOWN preserved;
+  saved crash archive and fresh postboot access independently reconciled it.
+  Earlier runs/js-hang-trial/ probe failed to inject the hang; retained separately.
+- runs/power-cut-trial/result.json: consumed record survived one 6.964s supply
+  interruption after a completed runtime flush. Scratch files cleaned.
+  Not a cut during early selection; no voltage-setting commands.
+
+DPS150 connected via USB; output ON, voltage/current settings unchanged.
+Do not change voltage. Notify the user before any power cut so they can watch.
+Ethernet/SSH and ACC control were last reported in transit.
+
+Inactive trial data/backups/undo remain under /tmp/mnt/data_persist/oc-boot-*;
+their host plans are in the experiment directories above. No active holds remain
+for autostart. Original comparison recovery remains:
  /tmp/mnt/data_persist/oc-intro-hook-2c89d86213ff5f278a639696d1759380
-Host plan: runs/open-connect-snap55/trial/plan/plan.json
-Latest recorded boot binding: runs/open-connect-snap55/boot-C/final.json
+Host plan: runs/open-connect-snap55/trial/plan/plan.json.
 
-Local comparison scripts are excluded from the public repo under their license.
-They are not requalified by the host-package reorganization; update imports and
-check the relevant entry points before any future operation. Keep the retained
-independent device undo intact. Restoring the bench profile alone does not remove
-the installed comparison JS.
-
-Next work and dependencies: PLAN.md and GitHub issues. Ethernet/ACC hardware was
-last reported shipping. Mazda behavior and open questions: docs/reverse-engineering.md.
+Guide: docs/bench-setup.md and docs/cli.md.
+Next work: PLAN.md and issue #25. Findings: docs/reverse-engineering.md.

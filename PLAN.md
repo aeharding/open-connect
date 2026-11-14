@@ -47,11 +47,13 @@ A developer preview is not a general end-user car release.
 now covers service/configuration features as well as optional native/JS code.
 The current MMUI loader is host-built only and cannot select earlier service
 startup. Read-only analysis now identifies the normal branch of /usr/bin/autostart
-before normal-mode setup, the Logger and SM. A one-shot prototype now passed two warm
-boots: unchanged generation selected once, baseline selected next, hook removed
-with independent undo. Next: controlled JS/native failures and subsequent fallback;
-reset-cause and clean-end classification remain unproved. Validate one service change, one logging
-setting and the existing paired bypass against the same global-disable contract.
+before normal-mode setup, the Logger and SM. One-shot selection and subsequent
+baseline startup now passed ordinary warm boots, an MMUI crash and a deliberate
+JS hang. A separate full supply cut preserved a flushed consumed record; it did
+not interrupt early selection. Hooks were removed after each trial.
+Next: interruption at the early commit boundary, then one service change, one
+logging setting and optional code under the same global-disable contract.
+Reset-cause classification and persistent retry/health policy remain open.
 See [the revised proposal](docs/extension-architecture.md#next-proof).
 Persistent mode needs explicit health/failure semantics; no automatic-recovery
 claim follows from installing a loader. No new general plugin framework is needed.
@@ -131,9 +133,10 @@ development. No permanent startup hook is installed;
 actual playback, ACC/resume behavior and vehicle equivalence are unproved.
 See [TAU experiment](experiments/tau-bypass/README.md).
 
-Ethernet/SSH and controlled ACC hardware were last reported in transit; readiness
-must be checked when relevant. Continue local source analysis and UART work.
-A software reboot is not a cold car start. An audio readiness override must be off
+The DPS150 now provides tested full-output power control; voltage settings must
+remain unchanged. Ethernet/SSH and controlled ACC hardware were last reported in
+transit. Full supply loss and software reboot do not establish vehicle ACC/resume
+behavior. Continue local source analysis and UART work. An audio readiness override must be off
 for measurements where it would hide the behavior under investigation.
 
 ## Deliberately deferred

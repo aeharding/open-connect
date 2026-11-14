@@ -23,11 +23,20 @@ Fresh root access, read-only root, unchanged existing JS/native images and Home
 were verified. Independent undo restored autostart's original bytes, inode,
 metadata and link count after the second boot.
 
-This establishes the early boundary and one-shot fallback. It does **not** prove
-crash/watchdog recovery, cold startup, power-loss durability or a usable health
-policy. The existing comparison JS stayed installed; “baseline” in this experiment
-means the pre-existing bench service configuration, not an entirely stock unit.
-There was no third boot after removing the hook.
+Follow-up bench adaptations exercised an MMUI process crash and a trial-only
+frontend infinite loop. Both triggered Mazda's watchdog reset and returned to
+the baseline configuration; the JS result used the saved crash archive and a
+fresh postboot check after live serial logging missed a marker. The original
+observer failure remains preserved.
+
+A separate full supply cut preserved a consumed record after checked flushes.
+It ran in normal runtime with the hook removed, not during early selection.
+These are one observation per fault/power case, not a persistent retry policy
+or general durability guarantee. See [the findings](../../docs/reverse-engineering.md#startup-selection-and-reset-evidence).
+
+The existing comparison JS stayed installed; “baseline” means the pre-existing
+bench configuration, not an entirely stock unit. Independent undo removed every
+trial hook; there was no additional boot after removing each hook.
 
 ## Reproduce the code
 
@@ -56,5 +65,6 @@ A timeout cannot guarantee progress through uninterruptible kernel filesystem
 I/O. Successful fsync alone is not proof against every power failure.
 
 Private evidence: runs/boot-selector-flush/result.json and
-runs/early-selector/result.json, with unchanged raw bundles and initial host
-failures. OEM inputs, generated payloads, credentials and captures are not published.
+runs/early-selector/result.json, runs/native-fault-trial/result.json,
+runs/js-hang-trial-v2/result.json and runs/power-cut-trial/result.json, with
+unchanged raw bundles and failed attempts. OEM inputs, generated payloads, credentials and captures are not published.

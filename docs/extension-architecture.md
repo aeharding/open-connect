@@ -1,291 +1,258 @@
-# Open Connect extension architecture
+# Open Connect architecture
 
-Research and proposed implementation plan, 2026-11-13.
-Tracking: [#25](https://github.com/aeharding/open-connect/issues/25).
-The native loading probe is host-built; no runtime disable mechanism is implemented
-or installed yet. See [the probe findings](#loader-probe-findings).
-Scope: one feature on 55.00.750B NA, then extract shared pieces when needed.
+Revised proposal, 2026-11-13. Tracking: [#25](https://github.com/aeharding/open-connect/issues/25).
+This replaces the disclaimer-centered runtime plan. The product scope comes from
+the user; the design below is a recommendation, not a proven boot mechanism.
+Only the existing native loader probe has been host-built. No selector, automatic
+safe mode or optional runtime has been installed.
 
-## Goal and boundary
+## Product scope
 
-Keep Mazda's software running, with small integration points that can load our
-separate feature code. Disabling Open Connect should require changing only our
-owned control state and restarting, without restoring OEM files or remounting root.
+Improve the existing Mazda experience without replacing its appearance. The
+scope is comparable to Miatafy/ScreenTune's non-customization features, not just
+a disclaimer plugin. Feature families belong in the architecture now; implementing
+all of them in the first release does not.
 
-**Disabled means optional code is not loaded on the next verified startup.**
-The installed bootstrap still executes its small stock-path decision. It is
-not literally an untouched system. A broken bootstrap, linker path or OEM patch
-can fail before that decision; independent original-file restoration remains
-necessary. Disable complements [Uninstall](uninstall.md), not replaces it.
+| Feature family | Likely integration, subject to Mazda source validation |
+| --- | --- |
+| Disclaimer bypass and smoother intro handoff | Native context decisions plus renderer/resource completion, or a simpler validated OEM path |
+| Optional startup-animation skip | Intro process/surface lifecycle; independent of disclaimer selection |
+| Aha, Pandora, Stitcher, TV/CD/DVD and other unused services | Startup graph, shared helpers and corresponding menu/source registrations |
+| Optional SiriusXM, DAB, voice or navigation changes | Same mechanism, with vehicle capabilities and retained consumers explicitly checked |
+| Reduced logging | Logger startup configuration or a verified nonpersistent API setting; keep minimal recovery diagnostics |
+| Screen caching and other performance tuning | Process arguments/configuration or targeted code; measure benefit and memory tradeoffs |
+| Message-ordering/reliability fixes | GUI/native protocol behavior, potentially before normal UI readiness |
+| Menu/list looping, scroll timing and interface beeps | Existing controls/configuration or narrowly scoped GUI/audio behavior |
+| Touch availability, Android Auto touch, ghost-touch disable | Actual input/projection components; contradictory selections rejected |
+| Camera warning text | Camera/UI integration without altering camera availability |
+| Wireless CarPlay startup/reconnect and unwanted radio fallback | Network, projection and audio lifecycle; not automatically an MMUI-only feature |
+| Silent Entertainment and diagnostics for the bench | Separate development selection using OEM APIs; excluded from customer/performance baselines |
 
-There is no promise of safe hot-unload. Deleting a file or changing configuration
-does not remove loaded native code, callbacks or JavaScript side effects.
-Report requested state separately from observed state; a disable request is not
-complete until a fresh startup proves the optional code was skipped.
+Miatafy's [feature list](https://miatafy.com/screentune/whats-possible/),
+[service options](https://miatafy.com/screentune/features/mazda-services/),
+[configuration](https://miatafy.com/screentune/configure/) and
+[message-ordering description](https://miatafy.com/screentune/bugfixes/) establish
+the comparison scope, not correctness or measured benefit on our firmware.
+OEM appearance permits removing dead entries for disabled services; it does not
+mean themes, replacement dashboards, gauges or a new launcher. Those are outside
+the current baseline. Similar scope does not authorize copying proprietary or
+incompatibly licensed implementations.
 
-## Repository layout
+## Central decision: select a complete boot configuration
 
-Use execution boundaries as the top-level distinction:
+A feature is a user-visible behavior, not necessarily a library. One immutable
+configuration contains the chosen features, their settings, firmware identity
+and all resolved artifacts. Call this a generation. Select it once per boot,
+before any affected OEM consumer runs. All participating processes use that same
+selection; changing desired state while running affects a later boot.
 
-~~~text
-tooling/                 Host Python package, oc CLI, builders and tests
-cmu/                    Code that executes on the Mazda unit
-  bootstrap/            Small load/skip decision and stock delegation
-  adapters/             Exact-firmware APIs, hooks and compatibility checks
-  features/
-    disclaimer/         The paired native and renderer feature
-docs/                   Setup, architecture and findings
-experiments/            Unfinished prototypes and trial machinery
-~~~
+The architecture needs three responsibilities:
 
-The existing Python package moves together to tooling/src/open_connect, with
-its tests and packaging configuration under tooling. The installed command stays
-oc; open_connect remains the Python import name. The bootstrap is the minimal
-always-present boundary; a feature is optional behavior; an adapter contains
-Mazda-specific knowledge. Runtime is a description, not another catch-all folder.
+1. **Build/install tooling:** compose selected changes from verified originals,
+   validate dependencies/conflicts, stage one complete generation, preserve
+   originals and independent recovery. Existing Python tooling owns this work.
+2. **Small trusted startup selector:** choose baseline or one generation, record
+   the attempt before effects, and arrange the required early file/configuration
+   views. It must run before the earliest component we intend to change.
+3. **Firmware adapters and feature code:** apply the selected behavior at the
+   actual service, native or GUI lifecycle point. Only components that need
+   ongoing behavior remain resident.
 
-This is the agreed layout direction, not an instruction to create empty folders.
-Move the host package in one reviewed PR, updating installation, CI and links.
-Introduce cmu components with the first loader experiment. Keep a feature's native
-and JS pieces together even though they execute in different processes. Do not
-create one framework for each language.
+This is not a new init system or replacement service manager. Mazda still owns
+startup and service supervision. The selector is not an MMUI plugin: MMUI starts
+too late to select its own startup prerequisites. The current loader experiment
+is one possible adapter, not the foundation of whole-system safe mode.
 
-Other projects separate concrete components similarly: [Magisk](https://github.com/topjohnwu/Magisk)
-uses app/native/tools, [Magic Lantern](https://github.com/reticulatedpines/magiclantern_simplified)
-uses src/platform/modules, and [BepInEx](https://github.com/BepInEx/BepInEx) separates
-preloader/core/runtimes. These are precedents, not structures to copy wholesale.
+Do not build a plugin marketplace, arbitrary boot-script runner, generic
+dependency solver or new message bus. A small explicit set of supported features
+can be composed deterministically with straightforward validation.
 
-## What the precedents actually establish
+## Making configuration changes disappear in safe mode
 
-| Project | Observed mechanism | Lesson and limit |
-| --- | --- | --- |
-| [NickelHook source](https://github.com/pgaskin/NickelHook/blob/bcd90ba94d90d22562fb64ef2920ed3323c1dae5/nh.c#L366) | During initialization it renames its loaded library to a failsafe name, retains the mapping, and later restores the name. Initialization errors attempt hook restoration. | Keep a failed extension out of the next startup. Its rename/timer mechanism is not proof of health or of RelFS durability. |
-| [NickelHook loading](https://github.com/pgaskin/NickelHook/blob/bcd90ba94d90d22562fb64ef2920ed3323c1dae5/nhplugin.h) | Uses a Qt image-plugin entry point. | An existing loader can reduce OEM changes; this particular entry point does not transfer to Mazda by assumption. |
-| [Magic Lantern modules](https://github.com/reticulatedpines/magiclantern_simplified/blob/142472e95054d73640f50789ac0fd66325499d82/src/module.c#L2054) | Writes a load marker, skips loading if it remains, and removes it during clean shutdown. | A previous incomplete session can suppress the next attempt. Normal power cuts can look like failures; Mazda shutdown behavior must be established before adopting this policy. |
-| [Magisk lifecycle](https://topjohnwu.github.io/Magisk/details.html#magisk-booting-process) and [module flags](https://topjohnwu.github.io/Magisk/guides.html#magisk-modules) | Separates boot stages, module disable/removal and boot-completion tracking. | Separate desired state from successful activation. Android init/property/mount facilities are not established CMU capabilities. |
+Prefer changes whose effects are reconstructed for each boot, with original OEM
+files retained underneath. In priority order:
 
-Two additional comparisons clarify the paired design:
+- Pass a generated configuration through an existing supported launch argument.
+- Where a consumer requires a fixed path, investigate a temporary file view
+  established before its first read, such as a narrowly scoped bind mount.
+- Use guarded in-memory/native/JS hooks when the behavior requires code.
+- Use an OEM API only after establishing whether it persists state and which
+  later OEM policy can overwrite it.
 
-- [BepInEx's chainloader](https://github.com/BepInEx/BepInEx/blob/master/BepInEx.Core/Bootstrap/BaseChainloader.cs)
-  separates bootstrap/loading from plugin discovery and dependency ordering.
-  We need the separation, but one explicit feature does not need its discovery
-  and dependency framework.
-- [Electron's process communication](https://www.electronjs.org/docs/latest/tutorial/ipc)
-  uses explicit messages between main and renderer processes. This is the closer
-  analogy for our native/GUI pair: sharing a version or file is not proof that
-  both halves initialized. Electron's APIs are not available on this CMU.
+A generated file may be configuration, patched JS or an exact-base patched native
+library. Small code edits do not automatically need a dynamic plugin loader.
+Owned native/JS modules remain useful for substantial independent feature logic.
 
-Linux loads shared-library constructors before dlopen returns. Therefore a flag
-checked inside optional library initialization cannot protect against every
-loader/constructor failure. The external decision must precede loading. This also
-explains why catching an init error cannot catch arbitrary native crashes or hangs.
-See [dlopen](https://man7.org/linux/man-pages/man3/dlopen.3.html).
+**These mechanisms are candidates, not established CMU capabilities.** In
+particular, an early selector, the required mount behavior/visibility, storage
+availability and cold-start ordering remain unproved. No OverlayFS, alternate
+boot slot, modern init facility or global preload is assumed.
 
-## Mazda evidence and unresolved integration
+The off path must omit all optional file views, startup actions and code loading.
+A broken optional generation should therefore not require rewriting a damaged
+sm.conf before the next normal start. Minimal integration patches still execute;
+baseline means no Open Connect feature effects, not byte-identical factory state.
 
-These are observations from exact saved files, not new device tests:
+Persistent OEM edits or database mutations cannot be smuggled into this contract:
+skipping a script does not reverse its previous write. A feature must either be
+made boot-scoped or have a proven restoration path before its earliest consumer.
+Until then it does not qualify for the unified safe-mode guarantee. Firmware
+updates remain separate maintenance, not a reversible feature selection.
 
-- GuiFramework.js _addAppFiles, lines 1860–1908, calls utility.loadScript.
-  _initApp, lines 1274–1286, constructs the app and calls appInit synchronously.
-  systemApp.js builds its context table in appInit. This identifies real lifecycle
-  boundaries, not a proven optional-script loader or missing-file fallback.
-- The saved svcjcimmui.so mmui_ProcessEntry calls dlopen at 0x1ee4/0x20d8 and
-  dlsym at 0x2298/0x25a4. mmui_config.xml identifies the System UIA and its entry API.
-  UIA entries also participate in application/context setup. Adding an entry is
-  not yet a demonstrated harmless extension route.
-- libjciuiasystem.so's inspected imports include access, but not dlopen/dlsym.
-  Its current injected stub is not already a general optional-library loader.
-- The paired bypass depends on renderer completion cleanup. Native activation
-  without the matching JS hook is not an acceptable degraded mode.
-- Earlier bench work proved persistent storage across a normal reboot and exposed
-  mapped-file/RO constraints. It did not establish storage availability at the
-  proposed early load point, arbitrary crash recovery or cold-power durability.
+Selection of a generation can be atomic; execution of many effects is not.
+Prepare and validate before launching consumers. A partial activation must be
+unwound and verified before claiming baseline. If it cannot be unwound, report
+incomplete activation and use independent recovery; never call a mixed state
+stock. Do not delay essential OEM services indefinitely while waiting for ours.
 
-Exact source identities: GuiFramework SHA256 ff733276cdbd39cfdf764aba23c2c427039b560db13c10d370f7351b1279cba4;
-systemApp 985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432;
-svcjcimmui 2c2c0494817b13a38c36a8276a39899b4096efc217e82568fe3842f8b34bb025;
-mmui_config c94446b8c6e5bde79607514d3eb41036a3f56914d2d3f418605110bc250be0d0;
-native System acf24ffd3719a29d2b4eefe80855ef6f164852fe3464858d07ca2d956395d302.
-Full files and disassembly remain private; findings are summarized in
-[reverse-engineering.md](reverse-engineering.md).
+## Feature composition and dependencies
 
-Investigate loading routes in this order:
+Build each resulting file once from a verified baseline and the complete selected
+feature set, rather than stacking patches over the last installation. Record
+exact inputs and outputs. Conflicting transformations must be explicitly combined
+and tested or refused. Git-style patches are source recipes, not fuzzy on-device
+merge instructions. OEM-derived outputs stay private.
 
-1. Existing Mazda loading/launch mechanisms with a proven optional, failure-tolerant
-   contract. Trace exact service startup plus GUI document/Utility imports and
-   their failure paths; acquire only missing reference-derived files.
-2. A small explicit bootstrap patch if the existing route cannot provide the
-   required stock fallback. Optional code must not become a mandatory ELF dependency.
-3. Process-specific launch injection only if its scope, dependencies and inherited
-   environment are proven. Do not use global /etc/ld.so.preload: it affects every
-   dynamically linked program ([loader documentation](https://man7.org/linux/man-pages/man8/ld.so.8.html)).
-   Do not replace init, redesign boot or assume overlays are supported.
+Each feature needs only a small concrete contract: supported firmware/hardware,
+touched files or APIs, activation point, dependencies/conflicts, persistent effects,
+verification and disable behavior. Features sharing a file do not each own a
+separate backup/restore cycle.
 
-The native prototype uses a small explicit post-load hook; the renderer candidate
-uses Mazda's existing developer-script slot. Neither is bench-qualified.
+Service disabling is one coordinated feature change: service graph, remaining
+consumers, shared helpers, and visible source/menu state. Saved FW55 sm.conf
+lines 67–74 make stage_wifi and stage_vr depend on blm_ira_aha; start_wifi then
+depends on stage_wifi (526–528). Removing Aha alone is not a complete plan.
+This establishes a dependency to resolve, not proof of a particular runtime
+failure. Keep shared helpers when a remaining consumer needs them. Unknown
+hardware capability is not permission to disable its service.
+
+A paired native/renderer feature requires matching readiness before its own
+decision point; that is not a universal prerequisite for unrelated configuration
+features. Existing Mazda messages may carry readiness, but the global boot
+decision and recovery must not depend on the GUI or on a message-ordering feature
+whose activation they are trying to authorize.
+
+## Disable, trial and failure semantics
+
+Keep four concepts distinct:
+
+| Operation | Meaning |
+| --- | --- |
+| Disable one feature | Build/select a new complete configuration without it; verify after restart |
+| Disable Open Connect / safe mode | Select baseline for the next boot across services, files and code |
+| Undo an update | Explicitly select a retained compatible generation |
+| Uninstall | Restore pre-install integration files and remove owned deployment state using the existing conflict/undo contract |
+
+Retain baseline, the active confirmed generation and at most one candidate/
+previous generation as needed for the current transaction. Keep loaded artifacts
+until their processes exit; disk restoration does not unload code. No hot-unload
+or live multi-process configuration switch is promised.
+
+**First experiment: one attempt.** Staging a candidate does not select it.
+An explicit trial is consumed and recorded before the first optional effect.
+An interrupted/unconfirmed trial selects baseline on the next boot. Readiness
+reports are evidence, not permission to retry or promote themselves. Confirmation
+must bind the exact generation and attempt. A process respawn must not consume
+another trial or silently pick a different generation; preserve the boot decision
+outside managed processes. Their restart behavior needs its own qualification.
+
+**Proposed persistent mode:** before each enabled startup, record an incomplete
+attempt. Mark it healthy only after a defined system/feature startup check.
+A previous incomplete or explicitly failed attempt selects baseline and remains
+disabled until deliberately changed. Explicit off always wins. A late success
+from an old boot/attempt cannot override off or a newer configuration.
+
+This detects failure before that health checkpoint, not every later defect.
+A crash after success may be invisible unless an independent observer records it;
+a power cut before success may produce a false fallback. No reliable classifier
+has been established for this CMU. An always-running crash supervisor is not
+assumed necessary or sufficient. Define this product tradeoff and qualify
+warm/cold/ACC behavior before persistent mode ships; do not advertise universal
+automatic recovery.
+
+Health must include retained service readiness, GUI/native consistency and the
+enabled features' relevant behavior. A PID, delay, home screenshot or module's
+own success flag is insufficient alone. Diagnostics must survive the logging
+reduction feature. Failure falls back to the entire baseline initially; automatic
+per-feature blame/bisection is deferred.
+
+The trusted selector and its state storage are the recovery boundary. Missing or
+invalid optional inputs choose baseline. Record consumption before effects;
+verify persistence with the actual filesystem and interruption experiments.
+Rename/sync success is not proof against power loss. If the selector, kernel,
+baseline or its storage fails, optional-feature safe mode cannot rescue it.
+
+Independent recovery must not require MMUI, networking or any service users can
+disable. UART is demonstrated bench access; an early USB/key safe-mode request
+is a desired future mechanism, not something already available. First deployment
+must have independent original-file undo. No firmware downgrade/brick-proof claim.
+
+## Precedents and what we borrow
+
+- [Magisk](https://topjohnwu.github.io/Magisk/guides.html): disabled modules omit
+  their file mounts and startup scripts, with different startup stages for
+  different work. This is closer to the full feature scope than a UI plugin
+  loader. Android's implementation and facilities cannot be assumed on Mazda.
+- [NixOS generations](https://nixos.org/manual/nixos/stable/#sec-rollback):
+  complete retained configurations make rollback understandable. Borrow that
+  model, not Nix, a new package manager or a whole-OS rebuild.
+- [RAUC boot confirmation](https://rauc.readthedocs.io/en/latest/using.html#marking-a-boot-as-successful-or-failed):
+  a successful installation is distinct from a successful boot; health is
+  system-specific. We are not proposing RAUC or repartitioning the CMU.
+- [Miatafy's installer description](https://miatafy.com/screentune/how-it-works/):
+  it resolves a full configuration and preserves first-install backups. It does
+  not establish the next-boot, no-restoration safe-mode contract proposed here.
+- [NickelHook](https://github.com/pgaskin/NickelHook/blob/bcd90ba94d90d22562fb64ef2920ed3323c1dae5/nh.c)
+  and [BepInEx](https://github.com/BepInEx/BepInEx/blob/master/BepInEx.Core/Bootstrap/BaseChainloader.cs):
+  useful loader/feature separation, but not sufficient for early service policy.
 
 ## Loader-probe findings
 
-Fresh read-only captures established these FW55-specific boundaries:
+The existing [native probe](../experiments/optional-loader/README.md) adds a
+104-byte optional load at the end of mmuiLoadUias in svcjcimmui.so. Host checks
+passed; no runtime installation occurred. Missing library/symbol returns to the
+OEM path, but constructors execute before dlopen returns and crashes/hangs are
+not caught. It does not provide whole-startup selection or attempt persistence.
 
-- index.html:33 loads ../../data/integration/developer_mode_GuiConfig.js
-  before Utility/BaseApp/GuiFramework and framework.init(). This resolves to
-  **/data/integration/**, not /jci/data. The file is currently absent; normal GUI
-  startup already works without it. This is a candidate bootstrap slot, not a
-  proven optional-feature loader. Its parent is mode 0777; installation must
-  account for that access boundary and refuse an existing unowned script.
-- Utility.js:66–94 appends a script and handles onload only. It provides no
-  built-in onerror or fallback. Removing a node does not undo evaluation.
-- sm.conf:145–169 launches MMUI and Opera through separate dependency sets, with
-  no explicit ordering edge between them. Script presence is not readiness.
-- Current /data resolves through /mnt/data to /tmp/mnt/data on writable
-  /dev/ffx01p4 RelFS. data_persist is a different mount. Current availability
-  does not establish loader-time availability after cold boot.
-- Native mmuiLoadUias builds application/context priority records before invoking
-  entry loaders (0x2e08–0x2f50). Its directory mode is not a neutral plugin registry.
-  Missing-library failure returns through 0x2204–0x220c/0x28ac; successful loading
-  still says nothing about feature health.
-
-The [native probe](../experiments/optional-loader/README.md) hooks the final zero
-return at 0x31ac, after OEM application loading and before ServiceInit's
-GUIIFM_Internal_AppsLoadingFinish call at 0x1914. It uses existing loader imports,
-fits the 200-byte gap after the RX segment, and adds no mandatory dependency.
-Host build: 104-byte stub, unchanged 22952-byte module length, original epilogue
-retained. Missing bootstrap/symbol delegates normally; crashes/hangs do not.
-
-This is a loading probe only. The control record, consumed trial, component hashes,
-paired readiness and disable experiment below remain unfinished. No native or JS
-bootstrap has been installed. Hardware validation must distinguish entry execution
-from mapping, then prove the off path on a fresh startup.
-
-New exact-source SHA256 identities:
-index.html b0e116b941f29078ced19b864a1b888cf76d8bc3e4974af081efca4693e5c420;
-Utility.js eff9e63497fbd0f90d5dc9e2d9403c93fc6171cc71f70319462686a423fea791;
-sm.conf 52dac9b051ab02a07afdc7bdfac56402420f8230901b5a55a76a7e9c44fb2e08.
-Private capture/derivation: runs/runtime-boundary-research; size, checksum and
-identity matched before and after each export. No OEM writes or reboot occurred.
+The saved GUI index has an optional /data/integration/developer_mode_GuiConfig.js
+slot before framework initialization. Its parent is mode 0777. It is a candidate
+adapter with an installation/ownership boundary, not a proven safe feature loader.
+The existing developer script was absent at observation.
 
 ## Native/renderer readiness boundary
 
-Fresh read-only captures provide a candidate communication route through Mazda's
-existing GUI connection; no additional daemon or listening socket is proposed.
+The saved GUI WebSocket event path delivers the complete JSON object to a native
+per-UIA callback. A strict System callback adapter is a candidate for paired
+readiness without another daemon. Callback timing/concurrency, pointer lifetime,
+renderer readiness and attempt delivery remain unproved. No callback replacement
+or new GUI event was exercised. See [Mazda findings](reverse-engineering.md#optional-extension-loading)
+for exact source/provenance; do not make this transport the early selector.
 
-Websockets.js:507–551 constructs a JSON event with eventId, uiaId and params,
-then sends it only when the existing MMUI WebSocket is open. In libjciguiifm.so,
-the event branch at 0x4d64–0x4d7c resolves the UIA name and passes the complete
-JSON object to GUIIFM_ProcessEventJSON. That function (0x4584) walks registered
-UIA records and invokes the matching record's event callback at offset 12 with
-the JSON pointer. getGuiifmCallbackLLHead (0x40dc) exposes the list head.
+## Next proof and implementation order
 
-This suggests a small FW55 adapter around the existing System event callback:
-recognize one strictly namespaced readiness message, and delegate every unrelated
-message unchanged. It is a proposal, not an installed or runtime-tested API.
-GUIIFM_Register refuses an existing UIA ID, and UIA name resolution occurs before
-dispatch, so registering an arbitrary new name is not an established shortcut.
+1. Trace the actual launch boundary before the service manager reads its graph
+   and before other intended consumers. Establish where control/artifacts are
+   available then. A service listed inside sm.conf is not automatically early
+   enough to choose that file.
+2. Prove a no-change generation and baseline selection at that boundary, including
+   missing/corrupt state, partial setup, consumed trials and a fresh baseline boot.
+   Test any required file-view primitive separately before using OEM paths.
+3. Exercise three representative feature shapes: one service configuration
+   change, one logging/configuration setting, and the existing paired bypass.
+   They can be separate trials; they must share selection/recovery semantics.
+4. Verify global off restores original service startup, configuration reads and
+   optional-code absence without rewriting managed OEM files. Verify retained
+   user settings, disabled-feature menus and independent uninstall.
+5. Only then port more features, define production health confirmation and move
+   the single required firmware baseline. Measure overhead as well as benefit.
 
-The portable part should own only the attempt and pair decision; the adapter
-should own Mazda's callback layout and message encoding. Native owns consumption
-of the attempt. The renderer reports the matching attempt and component version.
-A message from an old attempt, duplicate, or arriving after the startup decision
-must not activate a feature. These messages coordinate trusted installed
-components; a nonce is not authentication against another compromised local client.
+If no practical pre-consumer selector/view is available, stop claiming this
+architecture is established. Reconsider the integration patch or explicitly
+choose a restore-based installer with weaker fallback; do not silently substitute
+one. Do not redesign init or adopt a full overlay framework without evidence.
 
-Before using this route, the narrow remaining questions are callback installation
-timing and concurrency, pointer/module lifetime, the renderer's actual ready/send
-point, and how it receives the native attempt identity without evaluating disabled
-feature code. The developer-script slot runs before Websockets is defined; its
-mere execution is not that readiness point. No callback has been replaced and no
-new GUI event has been sent. Do not turn this candidate into a general event bus.
-
-Exact source SHA256 identities:
-Websockets.js 090486339f83b40d9758faf867f3984e14e659df574fa702033a60d49406c973;
-GuiConfig.js 165ef686e419dd562868ac1be206cb2a7bcd6d52ef976578c3246cbc982976e0;
-libjciguiifm.so d438121db2d3fa5f75dc9b40f5eb6d54b607ac348cfd490f3ed750621572be09.
-Private source/provenance: runs/runtime-boundary-research/*-result.json and
-guiifm-disassembly.txt. These captures establish the observed dispatch, not
-end-to-end readiness, failure recovery or cold-start behavior.
-
-## Proposed activation contract
-
-The bootstrap has a small fixed interface, no mod discovery, network access,
-feature logic or configuration framework. It validates a bounded, non-executable
-control record and one explicit feature bundle. Missing, invalid, unreadable or
-unsupported state takes the stock path. No searching for a substitute version.
-
-Check permission/path ownership, firmware adapter, component hashes and interface
-version before activation. Use immutable versioned feature files so updates do
-not overwrite mapped libraries. Do not delete old mapped versions while in use.
-
-The disabled path must decide before loading optional native libraries or
-evaluating optional JS. A successful dlopen is not successful feature activation.
-Avoid custom native constructor work and JS top-level mutations; use explicit
-initialization that can decline before changing OEM state. If a callback already
-caused side effects, do not blindly call the original again after an exception.
-
-Latch one configuration/bundle generation for the whole startup. The native and
-renderer components must both be ready for that generation before the native
-bypass can activate. If readiness is absent at the existing decision point, keep
-stock behavior for that startup; no late activation or new wait in Mazda's path.
-The existing GUI event path is a candidate transport; adapter installation and
-readiness timing remain implementation questions.
-File presence alone cannot establish renderer readiness.
-
-### First experiment: off or one attempt
-
-Start with explicit off and a one-shot trial, rather than persistent autoload.
-One owner consumes a trial request and records the attempt before optional code
-executes; native and JS components share the same attempt decision. Do not consume
-separate requests independently. A service respawn must not silently retry it.
-
-If attempt-state storage cannot be verified, skip loading. A failed attempt stays
-disabled until explicitly rearmed. A health report records the outcome; it does
-not re-enable a consumed trial. This avoids needing a trustworthy shutdown hook
-for the first experiment. RelFS write ordering and power-loss persistence still
-require proof; a successful sync is not that proof.
-
-Persistent autoload comes later. It needs a defined health boundary and crash
-policy: process alive, a timer, a warm reboot or a camera home frame alone is
-insufficient. A marker cleared at startup would miss later crashes; a marker kept
-until shutdown can classify normal power removal as failure. Do not claim that
-tradeoff is already resolved or use the OEM watchdog as a success signal.
-
-## Disable, recovery and uninstall
-
-| Situation | Expected behavior |
-| --- | --- |
-| Off before startup | Bootstrap delegates to stock; optional native/JS code not loaded |
-| Disable while running | Save next-startup off; report still active/restart required |
-| Missing/invalid module or mismatched pair before activation | Stock path; no partial feature activation |
-| Optional code crashes or hangs | No in-process recovery guarantee; consumed trial blocks another attempt once the independently reachable restart path runs |
-| Bootstrap/loader/OEM patch is broken | Off switch may be unreachable; restore originals using independent recovery |
-| Uninstall | Restore pre-install files; existing conflict snapshot/one-undo contract remains |
-
-The control write and recovery command must not depend on the optional runtime
-or its UI. UART is the demonstrated bench access; SSH and USB recovery reachability
-must be established separately. Do not promise a magic USB file can rescue a CMU
-that never reaches its USB handler. The first implementation has no new CMU menu.
-
-## Delivery sequence and acceptance
-
-1. **Loader proof:** finish the narrow source trace, choose one route and document
-   load order, accessible control storage, permissions and error handling.
-2. **No-op boundary:** host-test off/missing/corrupt/wrong-version inputs, partial
-   init, paired readiness, late load, repeated callbacks and consumed attempts.
-   Check original delegation exactly once. Use actual Linux loader fixtures for
-   dependency/constructor failures; a host fake alone does not prove ARM/Opera.
-3. **Bench boundary:** install the bootstrap with existing backups/undo. Demonstrate
-   an enabled no-op startup, then off plus restart with identical OEM-file hashes,
-   optional native mappings absent and evidence that optional JS was neither loaded
-   nor evaluated. Verify stock startup/access and no root remount for disabling.
-   Demonstrate an interrupted trial skips the next attempt through independent recovery. No automatic boot/retry loop.
-4. **One feature:** move the existing paired bypass into owned modules, keeping
-   its behavior and guards. Verify one enabled startup, disabled stock startup and
-   full uninstall/original startup. Measure startup cost and visible behavior.
-5. **Then reuse:** add another feature only when useful; extract shared helpers
-   then. Assess persistent autoload and any broader firmware change separately.
-
-Text patches remain useful to install the bootstrap/adapters; native changes need
-exact-base recipes. Most feature logic lives in our own files. Future selections
-compose from verified originals, with explicit dependencies/conflicts. No fuzzy
-merges, hot-unload, general event bus, third-party plugin marketplace or new scripting
-engine is needed for this first boundary.
+Repository direction stays tooling/ for host builders/CLI/tests and
+cmu/{bootstrap,adapters,features} for target control and feature artifacts/recipes.
+Firmware-specific offsets, service names and lifecycle contracts belong in
+adapters. Create only components needed by these proofs. No layout migration,
+new runtime code or hardware change is part of this architecture revision.

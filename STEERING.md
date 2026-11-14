@@ -33,10 +33,17 @@ Maintenance uses a compatible replacement USB stick; the original stick is not
 required. Arbitrary old-package compatibility is not promised.
 Original-backup restoration is as-found restoration, not a factory reset.
 
-The first feature is a clean disclaimer bypass. The broader motivation includes
-responsiveness and reliable wireless CarPlay. These need measurements and causal
-investigation; unused-app removal and RAM pressure are hypotheses, not the roadmap's
-predetermined solution.
+The product scope is comparable to Miatafy/ScreenTune's non-customization
+improvements: startup/disclaimer behavior, unused services, logging and performance,
+OEM menu/input conveniences, and phone/audio reliability. Preserve Mazda's look
+and feel; do not turn this into themes, replacement dashboards or a launcher.
+The disclaimer is the first experiment, not the architecture's scope.
+
+Unused Aha/Pandora/Stitcher, TV and other service choices, logging levels and
+performance settings are first-class feature candidates. Their dependencies,
+benefits and hardware applicability need evidence; reducing process counts or
+idle memory alone is not proof of a useful improvement. Similar feature scope is
+not a requirement to copy another product's implementation or defaults.
 
 The autonomous bench and published reverse-engineering knowledge enable the
 product and help contributors. Build them when they unblock a concrete experiment
@@ -133,12 +140,19 @@ Reuse the working hardlink-hold recovery instead of rebuilding tooling.
 
 ## Extension architecture direction
 
-Investigate small firmware-specific integration points loading our own optional
-feature code. The desired disable operation skips that code on a subsequent
-verified startup without rewriting OEM files; it does not promise hot-unload or
-recovery from a broken bootstrap. Preserve full uninstall and independent recovery.
-The research/implementation boundary is in [the architecture plan](docs/extension-architecture.md).
-User-preferred layout direction: tooling/ for host code, cmu/ for bootstrap,
+Design around one complete selected boot configuration covering service policy,
+configuration and optional code. A native/JS loader is an adapter, not the whole
+architecture. Global disable must account for earlier service/configuration
+effects too; a late MMUI flag cannot undo them. Prefer boot-scoped changes over
+persistent edits that need repair before stock startup can resume.
+
+The revised [architecture proposal](docs/extension-architecture.md) recommends a
+small pre-consumer selector, immutable composed configurations and per-feature
+adapters. That early boundary and its safe-mode behavior are not yet proven.
+Keep requested disable, verified baseline startup, automatic failed-start detection
+and full uninstall distinct. No hot-unload or universal crash-recovery promise.
+
+The user-preferred layout remains tooling/ for host code, cmu/ for bootstrap,
 adapters and features. Move complete components with their tests; avoid empty
 scaffolding or another history folder. Current paths remain until that migration.
 

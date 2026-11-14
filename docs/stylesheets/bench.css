@@ -1,0 +1,116 @@
+/* Wiring guide only. All surfaces inherit the site's selected palette. */
+.md-grid:has(.bench-guide) { max-width: 64rem; }
+.md-content:has(.bench-guide) .md-content__inner { margin-inline: auto; max-width: 60rem; padding-inline: 1rem; }
+.md-content:has(.bench-guide) h1 { margin-bottom: .45rem; color: var(--md-default-fg-color); font-weight: 750; letter-spacing: -.035em; }
+.bench-guide {
+  --batt: #a91d31; --batt-bg: #fce4e8;
+  --acc: #835400; --acc-bg: #fff0c6;
+  --ground: #146048; --ground-bg: #daf2e7;
+  --lin: #6742a5; --lin-bg: #eee5fa;
+  --uart: #1b5a9b; --uart-bg: #dfedff;
+  --quiet: #536174; --quiet-bg: #edf0f4;
+  --edge: #b8c2ce; --panel: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+}
+[data-md-color-scheme="slate"] .bench-guide {
+  --batt: #ffadba; --batt-bg: #462c38;
+  --acc: #f4d080; --acc-bg: #443b27;
+  --ground: #8cddbc; --ground-bg: #203f36;
+  --lin: #d4b4ff; --lin-bg: #382d4f;
+  --uart: #a1cfff; --uart-bg: #233b56;
+  --quiet: #a5afbd; --quiet-bg: #2b303b;
+  --edge: #626c7c;
+}
+.bench-guide .bench-intro { font-size: .9rem; color: var(--md-default-fg-color--light); margin: 0 0 1.1rem; }
+.bench-jumps { display: flex; gap: .45rem; flex-wrap: wrap; margin-bottom: 1.8rem; }
+.bench-jumps a { border: 1px solid var(--edge); border-radius: 2rem; padding: .32rem .8rem; font-size: .72rem; color: inherit; }
+.bench-jumps a:hover, .bench-jumps a:focus-visible { background: var(--quiet-bg); }
+.bench-section { margin-block: 1.8rem 2.6rem; scroll-margin-top: 5rem; }
+.bench-guide .section-heading { display: flex; align-items: center; gap: .65rem; margin-bottom: .65rem; }
+.bench-guide .section-heading h2 { margin: 0; font-size: 1.2rem; font-weight: 720; letter-spacing: -.02em; }
+.step-number { font-size: .68rem; font-weight: 750; border: 1px solid var(--edge); border-radius: .3rem; padding: .15rem .35rem; color: var(--md-default-fg-color--light); }
+.view-rule { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; background: var(--quiet-bg); border-left: 3px solid var(--uart); padding: .7rem .85rem; border-radius: .25rem; font-size: .78rem; }
+.view-rule strong { font-size: .68rem; letter-spacing: .055em; white-space: nowrap; }
+.pin-legend { display: flex; gap: .4rem .9rem; flex-wrap: wrap; margin: .8rem 0 .25rem; font-size: .68rem; font-weight: 650; }
+.pin-legend span::before { content: ""; display: inline-block; background: currentColor; width: .5rem; height: .5rem; border-radius: .12rem; margin-right: .32rem; }
+.bench-guide .legend-note { font-size: .67rem; margin: 0 0 1rem; color: var(--md-default-fg-color--light); }
+.bench-guide .batt { color: var(--batt); } .bench-guide .acc { color: var(--acc); }
+.bench-guide .ground { color: var(--ground); } .bench-guide .lin { color: var(--lin); }
+.bench-guide .uart { color: var(--uart); } .bench-guide .unused { color: var(--quiet); }
+.connector-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 1rem; }
+.connector-card { border: 1px solid var(--edge); border-radius: .5rem; padding: 1rem; background: var(--panel); min-width: 0; }
+.bench-guide .connector-card h3 { margin: 0; font-size: 1.04rem; font-weight: 750; }
+.bench-guide .connector-card header p { margin: .1rem 0 0; font-size: .71rem; color: var(--md-default-fg-color--light); }
+.connector-view { margin-top: .8rem; }
+.latch { display: block; text-align: center; font-size: .52rem; letter-spacing: .05em; font-weight: 700; }
+.wire-entry-icon { width: 1.5rem; height: 1.2rem; vertical-align: -.35rem; margin-right: .35rem; color: var(--uart); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.wire-entry-icon .entry-wires { stroke-width: 2.3; }
+.latch::after { content: ""; display: block; width: 2.3rem; height: .4rem; border: 2px solid var(--edge); border-bottom: 0; margin: .2rem auto 0; }
+.bench-guide table.pin-map { display: table; margin: 0; width: 100%; table-layout: fixed; border-collapse: collapse; border: 2px solid var(--edge); font-size: .84rem; background: transparent; }
+.bench-guide table.pin-map td { padding: .55rem 0; border: 1px solid var(--edge); text-align: center; font-weight: 750; line-height: 1.1; min-width: 0; }
+.pin-map .batt { background: var(--batt-bg); } .pin-map .acc { background: var(--acc-bg); }
+.pin-map .ground { background: var(--ground-bg); } .pin-map .lin { background: var(--lin-bg); }
+.pin-map .uart { background: var(--uart-bg); } .pin-map .unused { background: var(--quiet-bg); }
+.bench-guide .pin-map .key { background: repeating-linear-gradient(135deg,var(--quiet-bg) 0,var(--quiet-bg) 4px,var(--edge) 4px,var(--edge) 5px); color: var(--md-default-fg-color); font-size: .5rem; }
+.pin-connections { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .65rem .5rem; margin: .9rem 0 0; }
+.pin-connections dt { font-size: .61rem; letter-spacing: .035em; font-weight: 750; }
+.bench-guide .pin-connections dd { margin: .1rem 0 0; font-size: .67rem; line-height: 1.45; }
+.bench-guide .card-note { font-size: .65rem; color: var(--md-default-fg-color--light); line-height: 1.5; margin: .8rem 0 0; }
+.bench-guide .bench-section > p { font-size: .8rem; margin-top: .5rem; }
+.power-drawing { padding: .6rem 1rem; border: 1px solid var(--edge); border-radius: .5rem; }
+.power-drawing svg { display: block; width: 100%; height: auto; overflow: visible; }
+.power-drawing text { fill: var(--md-default-fg-color); font-size: 19px; font-family: inherit; }
+.power-drawing .rail-label { fill: currentColor; font-size: 22px; font-weight: 700; }
+.power-drawing .small-label { font-size: 17px; }
+.power-drawing .wire { fill: currentColor; stroke: currentColor; stroke-width: 4; }
+.power-drawing .wire path { fill: none; }
+.power-drawing .fuse { fill: var(--panel); stroke: var(--batt); stroke-width: 3; }
+.short-notes { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.bench-guide .short-notes p { font-size: .72rem; line-height: 1.6; margin: .7rem 0 0; }
+.cable-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.cable-card { border: 1px solid var(--edge); border-radius: .5rem; padding: .9rem 1rem; min-width: 0; }
+.bench-guide .cable-card h3, .bench-guide .network-route h3 { margin: 0 0 .5rem; font-size: .88rem; font-weight: 750; }
+.cable-route { display: flex; gap: .55rem; align-items: center; font-size: .75rem; font-weight: 650; }
+.cable-route b { color: var(--uart); font-size: 1.1rem; }
+.bench-guide .cable-card p { font-size: .72rem; line-height: 1.6; margin: .6rem 0 0; color: var(--md-default-fg-color--light); }
+.wire-list { margin: 0; font-size: .72rem; }
+.wire-list > div { display: flex; gap: .5rem; justify-content: space-between; padding-block: .15rem; }
+.bench-guide .wire-list dd { margin: 0; }
+.network-route { background: var(--quiet-bg); border-radius: .4rem; padding: .8rem 1rem; margin-top: 1rem; }
+.bench-guide .network-route p { font-size: .76rem; margin: 0; line-height: 1.8; }
+.network-route b { padding-inline: .25rem; color: var(--uart); }
+.network-route > span { font-size: .66rem; color: var(--md-default-fg-color--light); }
+.bench-guide details.bench-detail { border: 1px solid var(--edge); border-radius: .4rem; padding: .7rem .9rem; margin: 1rem 0 0; font-size: .72rem; background: transparent; box-shadow: none; }
+.bench-guide .bench-detail summary { font-weight: 650; cursor: pointer; margin: 0; padding: 0; background: transparent; }
+ .md-typeset .bench-guide .bench-detail summary::before { display: none; }
+.md-typeset .bench-guide .bench-detail summary { padding-right: 1.5rem; }
+.md-typeset .bench-guide .bench-detail summary::after { content: "+"; display: block; position: absolute; inset: 0 0 auto auto; width: 1rem; height: auto; mask-image: none; background: transparent; color: inherit; font-size: 1rem; line-height: 1.1; transform: none; }
+.md-typeset .bench-guide .bench-detail[open] summary::after { content: "−"; }
+.bench-guide .bench-detail summary { list-style: disclosure-closed; }
+.bench-guide .bench-detail[open] summary { list-style: disclosure-open; margin-bottom: .6rem; }
+.bench-guide .bench-detail ul { margin-bottom: .2rem; }
+.bench-guide .bench-detail p { margin: .7rem 0 0; }
+.bench-guide .bench-detail code { font-size: .65rem; }
+.md-typeset .bench-guide ol.boot-steps { list-style: none; padding: 0; margin: .9rem 0; display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; counter-reset: boots; }
+.bench-guide .boot-steps li { margin: 0; border-top: 3px solid var(--uart); padding-top: .6rem; font-size: .75rem; }
+.boot-steps li strong::before { counter-increment: boots; content: counter(boots) ". "; color: var(--uart); }
+.boot-steps span { display: block; font-size: .69rem; line-height: 1.6; margin-top: .3rem; color: var(--md-default-fg-color--light); }
+.bench-guide .next-link { font-size: .75rem; }
+.bench-sources { margin-bottom: 2rem !important; }
+@media (max-width: 760px) {
+ .connector-grid, .cable-grid, .short-notes { grid-template-columns: 1fr; }
+ .bench-guide table.pin-map { font-size: .78rem; }
+ .bench-guide .connector-card { padding: .8rem; }
+ .md-typeset .bench-guide ol.boot-steps { grid-template-columns: 1fr 1fr; }
+ .power-drawing { padding: .6rem .2rem; overflow-x: auto; }
+ .power-drawing svg { min-width: 560px; }
+ .view-rule { gap: .2rem; }
+ .bench-jumps { margin-bottom: 1.25rem; }
+}
+@media print {
+ .md-header, .md-tabs, .md-sidebar, .md-footer, .bench-jumps, .md-content__button { display: none !important; }
+ .bench-guide { --panel: white; --edge: #9ba3ad; color: #17202a; }
+ .connector-card, .power-drawing, .cable-card { break-inside: avoid; }
+ .connector-grid { grid-template-columns: 1.15fr 1fr; }
+ .bench-guide .bench-section { margin-block: 1rem; }
+}

@@ -163,6 +163,40 @@ banner arrives after this early console marker. Its replacement used the actual
 ordered bootloader/kernel-handoff text. That failed attempt and subsequent
 one-login reconciliation remain separate from the successful power-cut run.
 
+### A real feature can be selected without replacing its installed files
+
+One corrected trial loaded the independently implemented native disclaimer
+bypass and its JS cleanup companion from a prepared configuration. Actual logs
+showed `IntroAnimation → HomeScreen`, then intro disposal after Home's transition
+completed. Native mappings, JS execution, fresh access and read-only root passed.
+
+The following boot selected the original MMUI/Opera paths and native library,
+with no companion marker. Both reached Home. The prepared files stayed in place;
+the original installed native and local comparison JS files stayed unchanged.
+This proves feature selection and omission, not a new timing/no-flash result
+or qualification of every last-app/display-off route.
+
+Private evidence: `runs/selected-feature-v2/result.json`.
+The [reproduction guide](https://github.com/aeharding/open-connect/tree/main/experiments/boot-selection#select-the-paired-disclaimer-feature)
+builds from explicitly supplied private originals; none are published.
+
+### A live process is not proof of a working UI
+
+The first selected-feature trial exposed an OEM loader limit: both MMUI XML
+`libpath` and `lib` fields truncate at 49 bytes. The selected plugin loaded,
+but the system UIA did not. MMUI remained alive, and no automatic reset was
+observed before an explicit normal reboot returned to baseline. Installed
+native/JS files were unchanged.
+
+Check initialization and useful behavior, not only process existence. Selection
+provides fallback **on the next boot**; it does not guarantee that every failure
+will cause a reboot. Automatic recovery from this kind of partial startup still
+needs a bounded health check outside the optional component.
+
+The corrected adapter splits the parent and relative library path within both
+limits. See the [feature builder](https://github.com/aeharding/open-connect/blob/main/experiments/boot-selection/feature.py).
+Private failed trial, diagnosis and recovery: `runs/selected-feature/result.json`.
+
 ### What causes a reset?
 
 ~~~mermaid
@@ -254,6 +288,17 @@ Private evidence: `runs/attempt-budget/result.json`, confirmation, all three
 closed observer/video bundles and independent undo. A host import refusal before
 device open remains separate from the successful fault run.
 
+### ACC must be a real transition
+
+The saved firmware55 SYSTEM code monitors `/sys/class/gpio/ACC_Sense`.
+Its initial sample can also reach the ACC-on notification path, so receiving
+“ACC on” is not proof of a new drive. Automatic budget renewal must distinguish
+an actual OFF → ON transition from startup or a restarted service.
+
+Physical ACC/resume testing is deferred until controlled ACC is available.
+The GPIO helper also configures direction and edges; do not invoke it as a
+read-only query. Private source trace: `runs/acc-renewal-research/result.json`.
+
 ### Implications for recovery
 
 - **Select early.** init_cmu attempts the data_persist mount before autostart;
@@ -331,8 +376,10 @@ Mazda already writes persistent settings and crash archives. Its `log-save.sh`
 first builds an archive in `/tmp`, then moves it to `/data_persist/log/saved_logs`
 and updates a counter. For Open Connect, keep frequent measurements in bounded
 RAM-backed `/tmp/oc-*` files or stream them to the host; persist configuration
-and recovery state when it changes. `/tmp/mnt/data_persist` is a persistent
-mount despite its `/tmp` prefix.
+and recovery state when it changes. Small startup/shutdown records per drive
+are reasonable; avoid continuous polling writes. Commit the startup record before
+optional effects and treat shutdown recording as best effort: power may vanish
+before it runs. `/tmp/mnt/data_persist` is a persistent mount despite its `/tmp` prefix.
 
 The [kernel tmpfs documentation](https://docs.kernel.org/filesystems/tmpfs.html)
 explains the memory-backed filesystem. Our successful flush/power tests above

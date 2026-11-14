@@ -144,7 +144,7 @@ not replenish the proposed retry budget.
 default; first exercise a no-change generation and unavailable/corrupt control.
 No optional service, native or JS behavior belongs in that first experiment.
 The selector, bounded execution, durable attempt accounting, cold/ACC behavior
-and automatic fallback still need qualification. See [the implementation order](extension-architecture.md#next-proof-and-implementation-order).
+and automatic fallback still need qualification. See [the implementation order](extension-architecture.md#next-proof).
 
 Private captures and derived addresses: runs/startup-recovery-research/result.json
 and supporting-slices.txt. New sources have exact before/after identity, byte count,

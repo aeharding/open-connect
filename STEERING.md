@@ -7,6 +7,8 @@ we work; it is not a run log or an approval checklist. New user direction takes
 precedence. Update the relevant paragraph when direction changes, removing
 contradictions rather than accumulating layers of instructions. Label proposals
 as proposals; never silently turn an agent's suggestion into a user decision.
+Keep overview pages short and match design detail to implementation maturity.
+Agreeing on an outcome does not settle its implementation mechanics.
 
 ## North star
 

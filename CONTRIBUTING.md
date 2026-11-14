@@ -54,7 +54,7 @@ This covers the import regression from #21 and keeps historical execution-profil
 validation at the live boundary. Other prototype checks may still require private
 firmware inputs. CI does not prove firmware behavior, visual results or CMU recovery.
 
-Actions are pinned to commit hashes, workflow permissions are read-only, and
+Actions are pinned to commit hashes, validation jobs have read-only permissions, and
 Dependabot proposes monthly grouped updates. Dependency PRs require the same
 tests and adversarial review; there is no automatic merge. Reviewed documentation
 on main is deployed automatically to GitHub Pages.

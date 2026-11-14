@@ -17,7 +17,9 @@ is not proof of firmware or network support.
 ## 1. Power, display and commander
 
 Disconnect power before assembling a new harness. Use a fuse near supply positive,
-sized for the wiring and load. **Leave the existing DPS150 voltage setting unchanged.**
+sized for the wiring and load. On a **new bench**, verify nominal **12 V output**
+with all modules disconnected, then turn output off before connecting the harness.
+**For the established development lab, leave the DPS150 output setting unchanged.**
 The table describes the intended harness, including the proposed ACC branch.
 
 Open or zoom the original, printable connector drawings:
@@ -73,8 +75,12 @@ The chip supports configurable I/O levels: [FTDI FT232R datasheet][ftdi].
 The **[DPS150 connector drawing](assets/bench-wiring/dps150.svg)** separates its
 Micro-USB control port, USB-C/DC power **inputs**, and +/− bench **outputs**.
 This host link is already working; it does not route through the Mazda hub or
-TTL adapter. See FNIRSI's [PC connection instructions][fnirsi-control] and
-[power-input information][fnirsi-power].
+TTL adapter. See FNIRSI's [PC connection instructions][fnirsi-control].
+
+FNIRSI specifies [step-down operation][fnirsi-power]: **input voltage must exceed
+output voltage**. For nominal 12 V output, use a compatible USB-C PD/QC or DC
+source delivering above 12 V; a 5 V USB charger is insufficient. Use only one
+power input at a time.
 
 ## 3. Mazda hub and USB Ethernet
 
@@ -113,6 +119,14 @@ python -m serial.tools.list_ports -v
 # Replace UART_PORT with the enumerated FT232R port:
 python -m serial.tools.miniterm --rts 0 --dtr 0 --eol CR UART_PORT 115200
 ~~~
+
+For a completed harness with an ACC switch, start with ACC off:
+
+1. Open the UART terminal above before applying bench power.
+2. Enable the supply output to apply B+.
+3. Switch ACC on.
+4. Wait for normal boot **without typing**; input during the bootloader countdown
+   can interrupt startup.
 
 Only one program owns UART. Exit miniterm with **Ctrl+]** before using
 [CLI operations](cli.md). Readable boot logs confirm the receive path; a shell

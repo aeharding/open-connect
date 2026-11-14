@@ -62,9 +62,29 @@ and native initialization rather than suppressing or spoofing the heartbeat.
 
 ## Optional extension loading
 
-The [architecture proposal](extension-architecture.md) now covers service and
-configuration selection as well as optional code. A one-shot early selector has
-now passed the warm-boot test below; the optional loader remains unqualified.
+**One selected startup now controls service policy, logging and native/JS code
+together.** A following baseline boot omitted the combination while the prepared
+files remained unchanged.
+
+| Part | Selected boot | Following baseline |
+| --- | --- | --- |
+| Stitcher | Did not auto-start | Process running again |
+| Native logging | Inherited Warn; native filter rejected Info | Override absent; native Info messages returned |
+| Native extension | Copied MMUI plugin loaded and invoked our marker module | Original plugin; marker module absent |
+| GUI extension | Copied index ran our JS marker | Original index; no JS marker |
+
+Both boots reached Communication Home. The original startup file was then restored
+and its holds removed, with root read-only. The existing comparison JS stayed
+installed, so this baseline is the bench configuration, not a factory-stock unit.
+
+These are code-entry and fallback results, not a performance claim or a shipping
+feature. Timing and CPU/RAM samples were retained; one pair cannot establish an
+optimization. Private evidence: `runs/composed-generation/result.json`.
+See the [architecture direction](extension-architecture.md) for what remains open.
+
+<details>
+<summary>Source references and earlier leads</summary>
+
 Current source findings:
 
 - index.html:33 loads ../../data/integration/developer_mode_GuiConfig.js before
@@ -75,7 +95,7 @@ Current source findings:
   /data resolves to /tmp/mnt/data on /dev/ffx01p4; data_persist is separate.
   Current availability does not establish availability at an earlier boot hook.
 - svcjcimmui.so constructs UIA priority/context records before invoking loaders
-  (0x2e08–0x2f50). It is not a neutral plugin registry. The host-built
+  (0x2e08–0x2f50). It is not a neutral plugin registry. The
   [probe](https://github.com/aeharding/open-connect/blob/main/experiments/optional-loader/README.md) hooks its final return at
   0x31ac, before ServiceInit calls AppsLoadingFinish at 0x1914. This cannot select
   services that have already started.
@@ -99,6 +119,8 @@ Websockets.js 090486339f83b40d9758faf867f3984e14e659df574fa702033a60d49406c973;
 GuiConfig.js 165ef686e419dd562868ac1be206cb2a7bcd6d52ef976578c3246cbc982976e0;
 libjciguiifm.so d438121db2d3fa5f75dc9b40f5eb6d54b607ac348cfd490f3ed750621572be09.
 Plugin source pins and build reproduction are in the probe README.
+
+</details>
 Captures were read-only with known completion and closed ports; no OEM write or
 reboot occurred. Source ordering is not proof of runtime fallback or cold startup.
 

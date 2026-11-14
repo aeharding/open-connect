@@ -52,11 +52,14 @@ baseline startup now passed ordinary warm boots, an MMUI crash and a deliberate
 JS hang. Full supply cuts preserved consumed records in normal runtime and
 after early commit, before services. Cuts during rename/fsync remain untested.
 Hooks were removed after each trial.
-Next: one service change, one logging setting and optional code under the same
-global-disable contract.
-The native logging library's environment override is now bench-proven in isolated
-processes; use that for the logging test before introducing a whole-service mount
-namespace. A private read-only view also passed, but mount visibility remains open.
+One combined selected/baseline pair now passed: Stitcher startup policy, native
+logging override, native entry and JS entry were selected together, then omitted
+on the next boot without restoring their prepared files. Both reached Home;
+the temporary startup hook was independently removed afterward.
+Next: qualify persistent attempt/health policy and one useful feature through
+these adapters. The code markers are not yet a shipping feature.
+A private file view remains an option, but this composition used OEM environment
+and launch settings without a whole-service mount namespace.
 Reset-cause classification and persistent retry/health policy remain open.
 See [the revised proposal](docs/extension-architecture.md#next-proof).
 Persistent mode needs explicit health/failure semantics; no automatic-recovery

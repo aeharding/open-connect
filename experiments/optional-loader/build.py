@@ -77,10 +77,15 @@ def patch(original, obj):
     return bytes(candidate), relocs
 
 
-def compile_stub(clang, output):
+def compile_stub(clang, output, library_path=None):
+    options = []
+    if library_path is not None:
+        if not library_path.startswith("/") or any(c in library_path for c in "\n\r\0"):
+            raise ValueError("absolute library path required")
+        options = ["-DOC_BOOTSTRAP_PATH=" + json.dumps(library_path)]
     subprocess.run([
         clang, "--target=armv7-none-eabi", "-march=armv7-a", "-marm",
-        "-mfloat-abi=hard", "-mfpu=vfpv3", "-c", str(SOURCE), "-o", str(output),
+        "-mfloat-abi=hard", "-mfpu=vfpv3", *options, "-c", str(SOURCE), "-o", str(output),
     ], check=True, capture_output=True)
     return output.read_bytes()
 

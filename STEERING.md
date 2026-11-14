@@ -35,6 +35,13 @@ Maintenance uses a compatible replacement USB stick; the original stick is not
 required. Arbitrary old-package compatibility is not promised.
 Original-backup restoration is as-found restoration, not a factory reset.
 
+USB maintenance should feel OEM: use Mazda's normal UI for concise progress,
+completion and any necessary decisions, never debug alerts. USB insertion is
+the intended entry point, with automatic detection/application where supported;
+users should not need to browse the drive in the media center. The insertion
+and launch mechanism must be proven on the supported firmware before promising
+that experience. Keep the flow simple.
+
 The product scope is comparable to Miatafy/ScreenTune's non-customization
 improvements: startup/disclaimer behavior, unused services, logging and performance,
 OEM menu/input conveniences, and phone/audio reliability. Preserve Mazda's look

@@ -21,6 +21,17 @@ class LoaderProbe(unittest.TestCase):
                 word = int.from_bytes(blob[r["place"]-build.START:r["place"]-build.START+4], "little")
                 self.assertEqual(build.elf.branch_target(word, base+r["place"]), base+r["target"])
 
+
+    def test_owned_generation_path_fits_verified_gap(self):
+        path = "/tmp/mnt/data_persist/oc-boot-" + "a" * 32 + "/bootstrap.so"
+        with tempfile.TemporaryDirectory() as td:
+            obj = build.compile_stub(build.elf.tool("clang"), Path(td) / "loader.o", path)
+            blob, relocs = build.link(obj)
+        self.assertLessEqual(len(blob), 200)
+        self.assertIn(path.encode() + b"\0", blob)
+        self.assertEqual(len(relocs), 2)
+
+
     def test_unknown_original_refused(self):
         with self.assertRaisesRegex(ValueError, "unsupported exact"):
             build.patch(bytes(22952), b"")

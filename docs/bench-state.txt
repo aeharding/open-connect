@@ -14,15 +14,24 @@ Installed:
 - Original /usr/bin/autostart restored and independently verified:
   64785:7113:1380015098:3039:775:1018:3015:1. No trial hook installed.
 - silent-ui-v1 runtime bench profile ON/active/owned after the final boot.
-  Receipt .bench-state/profile.json; runs/early-power-cut/bench-ready.
+  Receipt .bench-state/profile.json; runs/composed-generation/bench-ready.
   It expires on reboot/service replacement; no persistent audio hook.
 
-Latest verified boot: b5ab4e92-3101-41d6-9e7e-1b4f36471a29
+Latest verified boot: ad4875c9-ba7b-4b68-983a-99c35d1730c4
 Running SM used /jci/sm/sm.conf; Opera used /jci/gui/index.html.
-Fresh final still shows Communication Home. Existing comparison remains installed.
+Baseline video shows Communication Home; bench profile was re-enabled afterward.
+Existing comparison remains installed.
 Original autostart was restored after that boot; no extra boot after removing it.
 
 Closed experiments:
+- runs/composed-generation/result.json: one selected service/logging/native/JS
+  configuration, then one baseline boot omitting all four effects. Stitcher
+  returned, Warn environment was absent, native Info logs returned, original
+  MMUI/Opera paths were restored, and the optional module/markers were absent.
+  Both Home frames verified; original autostart undo/hold cleanup/rootRO passed.
+  Prepared generation remains spent/inactive at:
+  /tmp/mnt/data_persist/oc-boot-27ef418b5ef3c409a5bab3a8de805a87.
+  Initial host timeout/partial quoted upload and its reconciliation are preserved.
 - runs/early-selector/result.json: two warm boots, trial then baseline.
 - runs/native-fault-trial/result.json: one MMUI SIGSEGV, watchdog reset, baseline.
 - runs/js-hang-trial-v2/result.json: one actual JS hang, heartbeat failure, Opera

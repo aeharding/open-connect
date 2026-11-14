@@ -1,7 +1,8 @@
 # Architecture direction
 
-**Working proposal, now backed by fault tests on 55.00.750B North America.**
-One-shot fallback worked after an MMUI crash and a deliberate JS hang.
+**Working proposal, backed by composition and fault tests on 55.00.750B NA.**
+Service policy, logging and native/JS code now worked under one selection.
+One-shot fallback also worked after an MMUI crash and a deliberate JS hang.
 Persistent feature policy remains to be designed.
 
 ## The idea
@@ -63,6 +64,7 @@ This cannot rescue a broken kernel, baseline or bootstrap.
 
 | Test | Result |
 | --- | --- |
+| Combined service/logging/native/JS trial | All four effects selected; following baseline omitted all four |
 | Two ordinary warm boots | Trial selected once; baseline selected next |
 | Native MMUI process crash | Mazda watchdog reset; baseline selected next |
 | Trial-only JS event-loop hang | Mazda closed Opera after missed heartbeats, then reset; original entry page returned |
@@ -81,15 +83,11 @@ explain the evidence and limits.
 
 ## Next proof
 
-Select a useful combination of service policy, logging and optional code through
-the same mechanism.
-Verify that baseline selection omits the whole combination.
+Qualify persistent operation: a finite attempt budget, useful health evidence and
+explicit recovery after failures. Startup-ready alone must not erase protection
+against later faults.
 
-Mazda's native logging environment override has now passed a disposable-process
-test, offering a path without persistent file edits. A private read-only file
-view also passed; adopting it for all services still needs USB/resource-mount
-visibility checks. Use the simpler OEM mechanism where it fits.
-
-Keep one-shot trials while learning. Persistent mode still needs a finite retry
-policy that does not mistake every Mazda crash or battery loss for a bad feature.
-Track the work in [#25](https://github.com/aeharding/open-connect/issues/25).
+Then exercise a useful feature through the qualified adapters. Native/JS markers
+prove entry and baseline omission; they do not yet constitute that feature.
+Use Mazda's own configuration mechanisms where they fit. Track the work in
+[#25](https://github.com/aeharding/open-connect/issues/25).

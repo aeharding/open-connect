@@ -43,18 +43,18 @@ features = [
 ]
 
 [[project.theme.palette]]
-scheme = "default"
-primary = "indigo"
-accent = "red"
-toggle.icon = "material/brightness-7"
-toggle.name = "Switch to dark mode"
-
-[[project.theme.palette]]
 scheme = "slate"
 primary = "indigo"
 accent = "red"
 toggle.icon = "material/brightness-4"
 toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "indigo"
+accent = "red"
+toggle.icon = "material/brightness-7"
+toggle.name = "Switch to dark mode"
 
 [project.validation]
 invalid_links = true

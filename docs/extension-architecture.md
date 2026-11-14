@@ -156,19 +156,52 @@ must bind the exact generation and attempt. A process respawn must not consume
 another trial or silently pick a different generation; preserve the boot decision
 outside managed processes. Their restart behavior needs its own qualification.
 
-**Proposed persistent mode:** before each enabled startup, record an incomplete
-attempt. Mark it healthy only after a defined system/feature startup check.
-A previous incomplete or explicitly failed attempt selects baseline and remains
-disabled until deliberately changed. Explicit off always wins. A late success
-from an old boot/attempt cannot override off or a newer configuration.
+**Recovery priority:** prevent repeated modified watchdog boots first, minimize
+unnecessary fallback second. Preserve the requested configuration while actual
+boot selection is baseline. Safe mode does not uninstall or establish blame.
 
-This detects failure before that health checkpoint, not every later defect.
-A crash after success may be invisible unless an independent observer records it;
-a power cut before success may produce a false fallback. No reliable classifier
-has been established for this CMU. An always-running crash supervisor is not
-assumed necessary or sufficient. Define this product tradeoff and qualify
-warm/cold/ACC behavior before persistent mode ships; do not advertise universal
-automatic recovery.
+**Proposed persistent mode: bounded attempts between normal session endings.**
+For a previously confirmed generation, start with two attempt credits: an initial
+start and at most one automatic retry after an ambiguous fault. This is a proposed
+product policy to qualify, not an implemented counter. New/unconfirmed generations
+still get the one-shot behavior above.
+
+- Debit and durably record an attempt before any optional effects. Keep a session
+  record bound to generation and boot/attempt, outside managed processes.
+- Record startup health separately. Reaching the health checkpoint does not
+  replenish credits or mark the whole session as normally ended.
+- Replenish credits only after a verified normal end of an enabled session, or an
+  explicit independently verified rearm/confirmation. A baseline boot, elapsed
+  delay, service respawn or stale callback must not replenish them.
+- A failure reset may pass through ordinary shutdown code. A generic shutdown
+  callback or SIGTERM is not proof of normal intent/completion. Establish that
+  boundary and preserve any recorded fault over a later clean-shutdown report.
+- If the previous session ended unexpectedly and credit remains, allow the one
+  retry. If no credit remains, latch baseline until deliberately rearmed. Explicit
+  off, unsupported inputs or invalid state always select baseline.
+- A positively identified power interruption may reconcile that session's consumed
+  credit without clearing earlier fault history. Unknown reset reasons count
+  against the finite budget; they are not assumed to be harmless power loss.
+
+Thus a stable configuration can survive one isolated Mazda fault without losing
+its selections, but cannot cycle through failing modified boots indefinitely.
+Two faulted sessions still exhaust the budget if both reached startup-ready first.
+The retry allows one additional failure/reset; it is the deliberate tradeoff for
+fewer false fallbacks, not a claim that the first fault is harmless.
+
+Passive recovery does not need a handler to run during the crash: a previously
+debited, unfinished session is sufficient. Reliable reset-cause information could
+reduce false positives, but has not been established on this CMU. Without a
+qualified normal-end distinction, confirmed unattended operation must not ship;
+retain explicit one-shot trials rather than silently treating every reset as
+clean or adopting an unbounded timeout-based retry.
+
+Qualification must cover: an unconfirmed failure; two consecutive confirmed
+failures before and after startup-ready; one fault followed by a verified normal
+session; baseline starts that do not rearm; fault-driven software shutdown; genuine
+power loss with and without a reliable reason; corrupt state; service restart;
+stale health/shutdown reports; and ACC/suspend/resume versus actual reboot.
+No automatic per-feature attribution or general crash supervisor is required.
 
 Health must include retained service readiness, GUI/native consistency and the
 enabled features' relevant behavior. A PID, delay, home screenshot or module's

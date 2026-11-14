@@ -152,6 +152,14 @@ adapters. That early boundary and its safe-mode behavior are not yet proven.
 Keep requested disable, verified baseline startup, automatic failed-start detection
 and full uninstall distinct. No hot-unload or universal crash-recovery promise.
 
+User priority: prevent an endless watchdog boot loop first; avoid unnecessary
+safe-mode fallback after battery loss or an unrelated Mazda fault second.
+Recovery should preserve installed features and the user's selection, not
+uninstall or blame a tweak from one reset. New configurations get stricter trial
+handling than previously confirmed ones. Any automatic retry policy must have a
+persistent finite limit; a startup-ready signal must not erase later-fault
+protection. Retry counts and reset classification remain proposed until qualified.
+
 The user-preferred layout remains tooling/ for host code, cmu/ for bootstrap,
 adapters and features. Move complete components with their tests; avoid empty
 scaffolding or another history folder. Current paths remain until that migration.

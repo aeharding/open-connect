@@ -1,0 +1,79 @@
+#!/bin/sh
+# Short-lived cross-filesystem view probe; never changes the original bytes.
+set -fu
+umask 077
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+@HELPER_GUARD@
+helper="$p"
+D=/tmp/oc-namespace-@NONCE@
+P=/config/common/log/settings.txt
+fail() { printf 'OCNSPROBE|REFUSED|%s\n' "$1"; exit 73; }
+root_ro() {
+ awk '$1=="/dev/ffx01p1"&&$2=="/"&&$3=="relfs"{n++;m=$4}END{exit !(n==1&&m=="ro,noatime")}' /proc/mounts
+}
+baseline() {
+ test "$(stat -c '%d:%i:%Y:%s:%a:%u:%g:%h' "$P")" = '64785:9452:1355963336:74:775:1018:3015:1' &&
+ test "$(md5sum < "$P")" = '5979df75ae32f21df48d14272694a9d7  -' &&
+ awk -v p="$P" '$2==p{n++}END{exit n!=0}' /proc/mounts &&
+ root_ro
+}
+test "$(id -u)" = 0 || fail root
+baseline || fail baseline
+for parent in /config /config/common /config/common/log /tmp; do
+ test -d "$parent" && test ! -L "$parent" && test "$(readlink -f "$parent")" = "$parent" || fail parent
+done
+awk '$2=="/tmp"{n++;if($3=="tmpfs")ok++}END{exit !(n==1&&ok==1)}' /proc/mounts || fail tmpfs
+test ! -e "$D" && test ! -L "$D" || fail exists
+mkdir -m 700 "$D" || fail mkdir
+cp "$helper" "$D/namespace" && chmod 700 "$D/namespace" || fail copy_helper
+cmp "$helper" "$D/namespace" || fail helper_copy
+sed 's/^COMMON_LOG_LEVEL=Info$/COMMON_LOG_LEVEL=Warn/' "$P" > "$D/settings" || fail candidate
+test "$(wc -c < "$D/settings")" -eq 74 || fail candidate_size
+cat > "$D/child.sh" <<'OC_CHILD'
+#!/bin/sh
+set -eu
+D="$1"
+P=/config/common/log/settings.txt
+ci=$(stat -c '%d:%i:%Y:%s:%a:%u:%g:%h' "$D/settings")
+/bin/busybox mount -i -n -o bind "$D/settings" "$P"
+/bin/busybox mount -i -n -o remount,bind,ro "$P"
+test "$(stat -c '%d:%i:%Y:%s:%a:%u:%g:%h' "$P")" = "$ci"
+cmp "$P" "$D/settings"
+test "$(sed -n 's/^COMMON_LOG_LEVEL=//p' "$P")" = Warn
+awk -v p="$P" '$2==p{n++;if((","$4",")~/,ro,/)ro++}END{exit !(n==1&&ro==1)}' /proc/mounts
+awk '$1=="/dev/ffx01p1"&&$2=="/"&&$3=="relfs"{n++;m=$4}END{exit !(n==1&&m=="ro,noatime")}' /proc/mounts
+printf 'OCNSPROBE|CHILD|Warn|root_ro=1|view_ro=1\n'
+printf '%s\n' "$$" > "$D/ready"
+i=0
+while test ! -f "$D/release" && test "$i" -lt 7; do sleep 1; i=$((i+1)); done
+test -f "$D/release"
+printf 'OCNSPROBE|CHILD_EXIT|no_explicit_unmount\n'
+OC_CHILD
+/bin/busybox timeout -t 12 "$D/namespace" /bin/sh "$D/child.sh" "$D" > "$D/child.log" 2>&1 &
+job=$!
+i=0
+while test ! -f "$D/ready" && test "$i" -lt 5; do sleep 1; i=$((i+1)); done
+seen=0
+if test -f "$D/ready"; then
+ child=$(cat "$D/ready")
+ case "$child" in ''|*[!0-9]*) fail child_pid;; esac
+ baseline || fail baseline_during_child
+ test -r "/proc/$child/mountinfo" || fail child_not_live
+ awk -v p="$P" '$5==p{n++;print "OCNSPROBE|CHILD_MOUNT|" $0}END{exit n!=1}' "/proc/$child/mountinfo" || fail child_mount
+ printf 'OCNSPROBE|PARENT|Info|root_ro=1|no_view=1\n'
+ seen=1
+fi
+printf 'release\n' > "$D/release"
+if wait "$job"; then child_rc=0; else child_rc=$?; fi
+cat "$D/child.log"
+printf 'OCNSPROBE|RESULT|child_rc=%s|simultaneous_isolation=%s\n' "$child_rc" "$seen"
+baseline || fail final_baseline
+for f in "$D"/* "$D"/.[!.]* "$D"/..?*; do
+ test -e "$f" || test -L "$f" || continue
+ case "$f" in "$D/namespace"|"$D/settings"|"$D/child.sh"|"$D/child.log"|"$D/ready"|"$D/release") ;; *) fail unexpected_entry;; esac
+done
+rm -f "$D/namespace" "$D/settings" "$D/child.sh" "$D/child.log" "$D/ready" "$D/release"
+rmdir "$D" || fail cleanup
+printf 'OCNSPROBE|END|baseline_unchanged|scratch_removed\n'
+test "$child_rc:$seen" = 0:1 || exit 74

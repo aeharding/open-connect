@@ -47,6 +47,14 @@ benefits and hardware applicability need evidence; reducing process counts or
 idle memory alone is not proof of a useful improvement. Similar feature scope is
 not a requirement to copy another product's implementation or defaults.
 
+Every performance or optimization change needs comparable baseline and modified
+timing trials. Define the timed operation and conditions before the change, run
+repeated trials, and retain failures as well as successes. Report the spread and
+any regressions; do not call a change faster without measured evidence.
+Pair timings with relevant CPU, RAM and I/O measurements under the same workload
+and startup phase. Name the memory metric; lower RSS alone is not proof of a
+useful improvement. Keep the baseline, feature set and measurement method explicit.
+
 The autonomous bench and published reverse-engineering knowledge enable the
 product and help contributors. Build them when they unblock a concrete experiment
 or remove repeated effort. A 24/7 autonomous bench is an aspiration, not a

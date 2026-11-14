@@ -85,6 +85,11 @@ Select a useful combination of service policy, logging and optional code through
 the same mechanism.
 Verify that baseline selection omits the whole combination.
 
+Mazda's native logging environment override has now passed a disposable-process
+test, offering a path without persistent file edits. A private read-only file
+view also passed; adopting it for all services still needs USB/resource-mount
+visibility checks. Use the simpler OEM mechanism where it fits.
+
 Keep one-shot trials while learning. Persistent mode still needs a finite retry
 policy that does not mistake every Mazda crash or battery loss for a bad feature.
 Track the work in [#25](https://github.com/aeharding/open-connect/issues/25).

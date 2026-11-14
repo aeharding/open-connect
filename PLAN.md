@@ -54,6 +54,9 @@ after early commit, before services. Cuts during rename/fsync remain untested.
 Hooks were removed after each trial.
 Next: one service change, one logging setting and optional code under the same
 global-disable contract.
+The native logging library's environment override is now bench-proven in isolated
+processes; use that for the logging test before introducing a whole-service mount
+namespace. A private read-only view also passed, but mount visibility remains open.
 Reset-cause classification and persistent retry/health policy remain open.
 See [the revised proposal](docs/extension-architecture.md#next-proof).
 Persistent mode needs explicit health/failure semantics; no automatic-recovery

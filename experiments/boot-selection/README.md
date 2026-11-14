@@ -71,3 +71,56 @@ runs/early-selector/result.json, runs/native-fault-trial/result.json,
 runs/js-hang-trial-v2/result.json, runs/power-cut-trial/result.json and
 runs/early-power-cut/result.json, with
 unchanged raw bundles and failed attempts. OEM inputs, generated payloads, credentials and captures are not published.
+
+## Private configuration-view probe
+
+`namespace.c` unshares the mount namespace, makes its mounts recursively private,
+then executes one absolute program with its arguments and environment preserved.
+A failed isolation step never executes that program.
+
+`probe-namespace.sh.in` exercised the actual ARM helper on firmware55: the child
+saw a read-only `Warn` settings view while the parent simultaneously saw original
+`Info`. Exiting the child removed the view without explicit unmount. Original
+identity/hash and physical root RO were checked before, during and after;
+scratch and staged deliveries were removed. No reboot or service change occurred.
+
+~~~sh
+python -m unittest discover -s experiments/boot-selection -p test_namespace.py -v
+python experiments/boot-selection/build_namespace.py --output runs/namespace-build
+~~~
+
+The four host checks cover call ordering, isolation failures and preserved exec
+arguments/environment. They do not emulate Linux mounts. The probe template needs
+a fresh nonce and a checked DATA-delivery guard before execution.
+
+Whole-service startup is still unqualified: private propagation changes how later
+USB/resource mounts and shutdown processes see mounts. This is not a root-code
+sandbox or a decision to adopt namespace isolation for the product.
+Private evidence: `runs/combined-startup/namespace-result.json`.
+
+## OEM logging environment probe
+
+The exact firmware55 `libjcicommon.so` reads settings files before environment
+variables. `log-query.c` queries its current level and native acceptance filter
+from a disposable process; it does not hook a Mazda service.
+
+Three actual fresh processes gave `Info → Warn → Info` when only the middle one
+received `COMMON_LOG_LEVEL=Warn`. Its filter admitted Warn and rejected Info.
+Each process sampled twice, two seconds apart. Persistent settings and root RO
+were unchanged; the temporary library was removed. This is not a performance
+claim or a complete service-inheritance test.
+
+To build with an explicitly supplied private original:
+
+~~~sh
+clang --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard -mfpu=vfpv3 \
+  -Os -fPIC -ffreestanding -fno-stack-protector -fno-unwind-tables \
+  -fvisibility=hidden -c experiments/boot-selection/log-query.c -o /private/output/query.o
+ld.lld -shared -z defs --build-id=none -soname oc-log-query.so \
+  /private/output/query.o -L/private/firmware/jci/lib -ljcicommon -o /private/output/query.so
+~~~
+
+The bench input was `libjcicommon.so` SHA256
+`0f3bf19fa890332ef2196531eebed3ce6e166cf805cc1edc1e53f98a873effbf`.
+Use a verified DATA delivery and only preload the result into a disposable utility,
+never into an existing service. Private evidence: `runs/combined-startup/log-query-result.json`.

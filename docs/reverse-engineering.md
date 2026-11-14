@@ -100,3 +100,61 @@ libjciguiifm.so d438121db2d3fa5f75dc9b40f5eb6d54b607ac348cfd490f3ed750621572be09
 Plugin source pins and build reproduction are in the probe README.
 Captures were read-only with known completion and closed ports; no OEM write or
 reboot occurred. Source ordering is not proof of runtime fallback or cold startup.
+
+## Startup selection and reset evidence
+
+Read-only source work identified a **normal-boot insertion point before the
+service manager**, not an installed recovery mechanism:
+
+- /usr/bin/autostart:65–69 sources start_normal_mode.sh, launches the Logger, then
+  runs SM with an explicit configuration argument. Selection immediately before
+  line 67 can precede all three. The existing normal/test/RF branches must retain
+  their meanings; stock test mode is not Open Connect safe mode.
+- init_cmu's startup graph calls the data_persist mount before autostart:
+  mount record 0x24a70 → autostart record 0x24bb0, following the same execution
+  chain. The mount handler at 0xb1a8 calls mount; fluxProcess at 0xc450 advances
+  through the chain. This proves ordering of the **attempt**, not mount success.
+  Inspect the actual mount/device and owned files before consuming persistent
+  control. Missing storage must select baseline without waiting indefinitely.
+- start_normal_mode.sh:49–50 launches /data_persist/dev/bin/autorun **in the
+  background**. Its completion is not ordered before the Logger or SM. It is not
+  a suitable hook for selecting their configuration. stage_1.sh is only an empty
+  shell script and, as an SM service, is too late to choose SM's graph.
+
+The actual SM distinguishes stopping watchdog feeding from disabling the watchdog.
+A critical-service exit reaches SMHEALTH_StopWatchdog at 0x1bb28; its notice goes
+to /dev/console (0x27e2c–0x27e34), then SM_WD_Stop calls stopFeeding at 0x311cc.
+This is compiled fault behavior, not a fault we induced.
+
+sm.conf:11–19 configures fault reports, including log-save.sh and sync.
+log-save.sh:13/97/127 archives running logs into /data_persist/log/saved_logs.
+Those archives may explain a failure, but absence is not evidence of a clean
+power loss: capture can fail or be interrupted, and archives are rotated.
+The inspected kernel messages, standard watchdog status files and filtered NV
+key names supplied no usable reset cause. This is a bounded negative result,
+not proof that the hardware exposes none.
+
+Neither generic SM completion nor the init shutdown handler is a clean-end
+classifier. Both sm_stop and sm_forceStop flush the event log and post the same
+shutdown semaphore (0x6dd60 / 0x6d508). No verified power-loss/normal-end classifier
+was found. A health event, shutdown callback or missing crash log must therefore
+not replenish the proposed retry budget.
+
+**Next proof:** a minimal synchronous normal-branch selector with baseline as its
+default; first exercise a no-change generation and unavailable/corrupt control.
+No optional service, native or JS behavior belongs in that first experiment.
+The selector, bounded execution, durable attempt accounting, cold/ACC behavior
+and automatic fallback still need qualification. See [the implementation order](extension-architecture.md#next-proof-and-implementation-order).
+
+Private captures and derived addresses: runs/startup-recovery-research/result.json
+and supporting-slices.txt. New sources have exact before/after identity, byte count,
+MD5 and CRC agreement; all capture ports closed. No device write, reset, signal
+or watchdog operation occurred. Source SHA256 values:
+
+| Source | SHA256 |
+| --- | --- |
+| autostart | b91b2c5a5b7d036860321da730ad571dbae9164d2632946f6566238c3cd42e31 |
+| start_normal_mode.sh | 6a020f2b9a92406510519820cfdee004fd4b9ef41a0ab212eb2727ffe8db80a2 |
+| sm | cd1104d9b0a28dcce361520de203c1180b2e6f81d939c4223a369fd66a055f0c |
+| log-save.sh | a1beb68337f7c4e334b2510f0c9ad6992acebb8a7533a4022b0fbb6678428c62 |
+| init_cmu (previous capture) | a5c3b821236f3993b15021a80130df4e33b359beb7722a8a6a6fa9a74cf455bb |

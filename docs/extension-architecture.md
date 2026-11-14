@@ -3,7 +3,8 @@
 Revised proposal, 2026-11-13. Tracking: [#25](https://github.com/aeharding/open-connect/issues/25).
 This replaces the disclaimer-centered runtime plan. The product scope comes from
 the user; the design below is a recommendation, not a proven boot mechanism.
-Only the existing native loader probe has been host-built. No selector, automatic
+The early startup boundary is now source-backed; only the native loader probe has
+been host-built. No selector, automatic
 safe mode or optional runtime has been installed.
 
 ## Product scope
@@ -261,12 +262,32 @@ renderer readiness and attempt delivery remain unproved. No callback replacement
 or new GUI event was exercised. See [Mazda findings](reverse-engineering.md#optional-extension-loading)
 for exact source/provenance; do not make this transport the early selector.
 
+## Firmware55 startup boundary
+
+Source analysis now identifies a concrete candidate: the normal branch of
+/usr/bin/autostart, **before** it sources start_normal_mode.sh and starts the
+Logger and SM. SM already accepts its graph through an explicit -f argument.
+The init graph attempts the data_persist mount before this script. Check the
+actual mount and owned control at entry; ordering is not a mount-success guarantee.
+
+Use a small synchronous selector there, returning baseline on unavailable or
+invalid control. Keep Mazda's test/RF branches unchanged. The existing
+/data_persist/dev/bin/autorun runs asynchronously and cannot order this selection.
+A service added inside sm.conf is also too late to choose that graph. This
+narrows the first integration patch without replacing init or SM.
+
+The captured SM has fault reporting and separate watchdog stop-feeding paths,
+but no reliable reset-cause or clean-end classifier has been established.
+Persistent log archives are diagnostic evidence, not permission to refund retry
+credits. The bounded-attempt policy remains necessary even when diagnosis is
+unknown. [Source findings and limits](reverse-engineering.md#startup-selection-and-reset-evidence).
+
 ## Next proof and implementation order
 
-1. Trace the actual launch boundary before the service manager reads its graph
-   and before other intended consumers. Establish where control/artifacts are
-   available then. A service listed inside sm.conf is not automatically early
-   enough to choose that file.
+1. Use the source-backed normal-branch autostart boundary above. Build the smallest
+   synchronous selector with finite execution and an unchanged OEM continuation.
+   Check mount/control availability before reading a generation; qualify the
+   actual timeout and baseline behavior, not just host shell mocks.
 2. Prove a no-change generation and baseline selection at that boundary, including
    missing/corrupt state, partial setup, consumed trials and a fresh baseline boot.
    Test any required file-view primitive separately before using OEM paths.

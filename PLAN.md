@@ -46,8 +46,10 @@ A developer preview is not a general end-user car release.
 **Whole-startup architecture before another loader increment:** [#25](https://github.com/aeharding/open-connect/issues/25)
 now covers service/configuration features as well as optional native/JS code.
 The current MMUI loader is host-built only and cannot select earlier service
-startup. Next: establish a practical boundary before affected consumers, then
-prove baseline versus one composed trial. Validate one service change, one logging
+startup. Read-only analysis now identifies the normal branch of /usr/bin/autostart
+before normal-mode setup, the Logger and SM. Next: prove a bounded synchronous
+selector there with a no-change generation and baseline fallback; reset-cause
+and clean-end classification remain unproved. Validate one service change, one logging
 setting and the existing paired bypass against the same global-disable contract.
 See [the revised proposal](docs/extension-architecture.md#next-proof-and-implementation-order).
 Persistent mode needs explicit health/failure semantics; no automatic-recovery

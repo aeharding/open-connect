@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="1070" viewBox="0 0 760 1070" role="img" aria-labelledby="title desc">
+<title id="title">Mazda3 display and commander connector faces</title><desc id="desc">Display power and commander have eight terminal positions, with socket and mirrored mating plug faces. The shielded display cable is separately drawn. Module-side signals and directions are labeled.</desc>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#18212b;font-size:20px}.title{font-size:28px;font-weight:bold}.head{font-size:22px;font-weight:bold}.small{font-size:17px}.tiny{font-size:15px}.pin{font-size:22px;font-weight:bold}.power{fill:#fff0e9}.data{fill:#e7f3ff}.gnd{fill:#e9ecef}.unused{fill:#f6f6f6}.box{fill:#fff;stroke:#18212b;stroke-width:2}.wire{fill:none;stroke:#18212b;stroke-width:3}.planned{stroke-dasharray:9 6}a text{fill:#155c91;text-decoration:underline}</style><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#18212b"/></marker></defs>
+<rect width="760" height="1070" rx="10" fill="#fff"/>
+<text x="24" y="38" class="title">Display + commander · 2014–2016 Mazda3</text>
+<text x="24" y="73" class="small">Every face looks into contacts. Latch/key up; outlines are schematic.</text>
+<text x="24" y="112" class="head">DISPLAY POWER · 8 positions</text>
+<text x="186.0" y="134" class="head" text-anchor="middle">Module/socket face</text>
+<rect x="30" y="182" width="312" height="110" rx="8" class="box"/>
+<rect x="157.0" y="167" width="58" height="15" rx="1" class="box"/>
+<text x="186.0" y="162" class="tiny" text-anchor="middle">latch / key ↑</text>
+<rect x="38" y="194" width="74" height="43" class="power" stroke="#18212b" stroke-width="1.5"/>
+<text x="75.0" y="223.5" class="pin" text-anchor="middle">1G</text>
+<rect x="112" y="194" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="149.0" y="223.5" class="pin" text-anchor="middle">1E</text>
+<rect x="186" y="194" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="223.0" y="223.5" class="pin" text-anchor="middle">1C</text>
+<rect x="260" y="194" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="297.0" y="223.5" class="pin" text-anchor="middle">1A</text>
+<rect x="38" y="237" width="74" height="43" class="power" stroke="#18212b" stroke-width="1.5"/>
+<text x="75.0" y="266.5" class="pin" text-anchor="middle">1H</text>
+<rect x="112" y="237" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="149.0" y="266.5" class="pin" text-anchor="middle">1F</text>
+<rect x="186" y="237" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="223.0" y="266.5" class="pin" text-anchor="middle">1D</text>
+<rect x="260" y="237" width="74" height="43" class="gnd" stroke="#18212b" stroke-width="1.5"/>
+<text x="297.0" y="266.5" class="pin" text-anchor="middle">1B</text>
+<text x="572.0" y="134" class="head" text-anchor="middle">Mating-plug face</text>
+<rect x="416" y="182" width="312" height="110" rx="8" class="box"/>
+<rect x="543.0" y="167" width="58" height="15" rx="1" class="box"/>
+<text x="572.0" y="162" class="tiny" text-anchor="middle">latch / key ↑</text>
+<rect x="424" y="194" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="461.0" y="223.5" class="pin" text-anchor="middle">1A</text>
+<rect x="498" y="194" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="535.0" y="223.5" class="pin" text-anchor="middle">1C</text>
+<rect x="572" y="194" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="609.0" y="223.5" class="pin" text-anchor="middle">1E</text>
+<rect x="646" y="194" width="74" height="43" class="power" stroke="#18212b" stroke-width="1.5"/>
+<text x="683.0" y="223.5" class="pin" text-anchor="middle">1G</text>
+<rect x="424" y="237" width="74" height="43" class="gnd" stroke="#18212b" stroke-width="1.5"/>
+<text x="461.0" y="266.5" class="pin" text-anchor="middle">1B</text>
+<rect x="498" y="237" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="535.0" y="266.5" class="pin" text-anchor="middle">1D</text>
+<rect x="572" y="237" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="609.0" y="266.5" class="pin" text-anchor="middle">1F</text>
+<rect x="646" y="237" width="74" height="43" class="power" stroke="#18212b" stroke-width="1.5"/>
+<text x="683.0" y="266.5" class="pin" text-anchor="middle">1H</text>
+<text x="26" y="318" class="small">Fused B+ → 1H · Switched ACC → 1G · 1B → common ground</text>
+<text x="26" y="348" class="small">1A, 1C, 1D, 1E, 1F: unused. Keep Mazda labels; do not renumber.</text>
+<text x="24" y="398" class="head">DISPLAY DATA · matching shielded cable</text>
+<text x="112.0" y="424" class="head" text-anchor="middle">CMU socket face</text>
+<rect x="46" y="472" width="132" height="104" rx="8" class="box"/>
+<rect x="83.0" y="457" width="58" height="15" rx="1" class="box"/>
+<text x="112.0" y="452" class="tiny" text-anchor="middle">latch / key ↑</text>
+<rect x="54" y="484" width="58" height="40" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="83.0" y="512.0" class="pin" text-anchor="middle">3C</text>
+<rect x="112" y="484" width="58" height="40" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="141.0" y="512.0" class="pin" text-anchor="middle">3A</text>
+<rect x="54" y="524" width="58" height="40" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="83.0" y="552.0" class="pin" text-anchor="middle">3D</text>
+<rect x="112" y="524" width="58" height="40" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="141.0" y="552.0" class="pin" text-anchor="middle">3B</text>
+<text x="624.0" y="424" class="head" text-anchor="middle">Display socket face</text>
+<rect x="558" y="472" width="132" height="104" rx="8" class="box"/>
+<rect x="595.0" y="457" width="58" height="15" rx="1" class="box"/>
+<text x="624.0" y="452" class="tiny" text-anchor="middle">latch / key ↑</text>
+<rect x="566" y="484" width="58" height="40" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="595.0" y="512.0" class="pin" text-anchor="middle">2C</text>
+<rect x="624" y="484" width="58" height="40" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="653.0" y="512.0" class="pin" text-anchor="middle">2A</text>
+<rect x="566" y="524" width="58" height="40" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="595.0" y="552.0" class="pin" text-anchor="middle">2D</text>
+<rect x="624" y="524" width="58" height="40" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="653.0" y="552.0" class="pin" text-anchor="middle">2B</text>
+<path d="M200 510L534 510" class="wire" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<text x="367" y="490" class="small" text-anchor="middle">3B ↔ 2B (+); 3D ↔ 2D (−)</text>
+<text x="367" y="545" class="small" text-anchor="middle">Image → / touch + status ←</text>
+<text x="26" y="600" class="small">Each mating-plug face is A,C above B,D (left → right), key up.</text>
+<text x="26" y="628" class="small">Use the complete cable and shield. A/C are unused; never apply 12 V.</text>
+<text x="24" y="680" class="head">COMMANDER · 8 positions</text>
+<text x="186.0" y="702" class="head" text-anchor="middle">Module/socket face</text>
+<rect x="30" y="750" width="312" height="110" rx="8" class="box"/>
+<rect x="157.0" y="735" width="58" height="15" rx="1" class="box"/>
+<text x="186.0" y="730" class="tiny" text-anchor="middle">latch / key ↑</text>
+<rect x="38" y="762" width="74" height="43" class="gnd" stroke="#18212b" stroke-width="1.5"/>
+<text x="75.0" y="791.5" class="pin" text-anchor="middle">G</text>
+<rect x="112" y="762" width="74" height="43" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="149.0" y="791.5" class="pin" text-anchor="middle">E</text>
+<rect x="186" y="762" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="223.0" y="791.5" class="pin" text-anchor="middle">C</text>
+<rect x="260" y="762" width="74" height="43" class="power" stroke="#18212b" stroke-width="1.5"/>
+<text x="297.0" y="791.5" class="pin" text-anchor="middle">A</text>
+<rect x="38" y="805" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="75.0" y="834.5" class="pin" text-anchor="middle">H</text>
+<rect x="112" y="805" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="149.0" y="834.5" class="pin" text-anchor="middle">F</text>
+<rect x="186" y="805" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="223.0" y="834.5" class="pin" text-anchor="middle">D</text>
+<rect x="260" y="805" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="297.0" y="834.5" class="pin" text-anchor="middle">B</text>
+<text x="572.0" y="702" class="head" text-anchor="middle">Mating-plug face</text>
+<rect x="416" y="750" width="312" height="110" rx="8" class="box"/>
+<rect x="543.0" y="735" width="58" height="15" rx="1" class="box"/>
+<text x="572.0" y="730" class="tiny" text-anchor="middle">latch / key ↑</text>
+<rect x="424" y="762" width="74" height="43" class="power" stroke="#18212b" stroke-width="1.5"/>
+<text x="461.0" y="791.5" class="pin" text-anchor="middle">A</text>
+<rect x="498" y="762" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="535.0" y="791.5" class="pin" text-anchor="middle">C</text>
+<rect x="572" y="762" width="74" height="43" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="609.0" y="791.5" class="pin" text-anchor="middle">E</text>
+<rect x="646" y="762" width="74" height="43" class="gnd" stroke="#18212b" stroke-width="1.5"/>
+<text x="683.0" y="791.5" class="pin" text-anchor="middle">G</text>
+<rect x="424" y="805" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="461.0" y="834.5" class="pin" text-anchor="middle">B</text>
+<rect x="498" y="805" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="535.0" y="834.5" class="pin" text-anchor="middle">D</text>
+<rect x="572" y="805" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="609.0" y="834.5" class="pin" text-anchor="middle">F</text>
+<rect x="646" y="805" width="74" height="43" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="683.0" y="834.5" class="pin" text-anchor="middle">H</text>
+<text x="26" y="891" class="small">Switched ACC → A · CMU 2K ↔ E (LIN) · G → common ground</text>
+<text x="26" y="921" class="small">B = TNS lighting input; H = illumination return: isolate for unlit use.</text>
+<text x="26" y="951" class="small">C, D, F: unused. LIN carries the buttons, dial and joystick actions.</text>
+<a href="https://mazda3.neocities.org/esicont/srvc/html/id0902n7103400">
+<text x="26" y="990" class="tiny">Mazda3 display power: B108E:1C</text>
+</a>
+<a href="https://mazda3.neocities.org/esicont/srvc/html/id0902n7103500">
+<text x="26" y="1018" class="tiny">Mazda3 display data: B108E:87</text>
+</a>
+<a href="https://mazda3.neocities.org/esicont/srvc/html/id0902n7103100">
+<text x="26" y="1046" class="tiny">Mazda3 commander: B1087:87; functions in TN-M3-1311 §09-89</text>
+</a>
+</svg>

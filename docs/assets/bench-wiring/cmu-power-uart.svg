@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="800" viewBox="0 0 760 800" role="img" aria-labelledby="title desc">
+<title id="title">CMU power and UART connector faces</title><desc id="desc">Original schematic of the blue 18-terminal CMU connector. Both views look into contacts; plug face is mirrored. Latch at top. All terminal positions labeled, including unused cavities. See the guide for sources.</desc>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#18212b;font-size:20px}.title{font-size:28px;font-weight:bold}.head{font-size:22px;font-weight:bold}.small{font-size:17px}.tiny{font-size:15px}.pin{font-size:22px;font-weight:bold}.power{fill:#fff0e9}.data{fill:#e7f3ff}.gnd{fill:#e9ecef}.unused{fill:#f6f6f6}.box{fill:#fff;stroke:#18212b;stroke-width:2}.wire{fill:none;stroke:#18212b;stroke-width:3}.planned{stroke-dasharray:9 6}a text{fill:#155c91;text-decoration:underline}</style><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#18212b"/></marker></defs>
+<rect width="760" height="800" rx="10" fill="#fff"/>
+<text x="26" y="40" class="title">CMU · power, ACC, LIN and UART</text>
+<text x="26" y="72" class="small">Blue 18-terminal connector · schematic, not to scale</text>
+<text x="380.0" y="105" class="head" text-anchor="middle">Module/socket face · looking into CMU</text>
+<rect x="32" y="153" width="696" height="120" rx="8" class="box"/>
+<rect x="351.0" y="138" width="58" height="15" rx="1" class="box"/>
+<text x="380.0" y="133" class="tiny" text-anchor="middle">latch / key ↑</text>
+<rect x="40" y="165" width="68" height="48" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="74.0" y="197.0" class="pin" text-anchor="middle">2S</text>
+<rect x="108" y="165" width="68" height="48" class="power" stroke="#18212b" stroke-width="1.5"/>
+<text x="142.0" y="197.0" class="pin" text-anchor="middle">2Q</text>
+<rect x="176" y="165" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="210.0" y="197.0" class="pin" text-anchor="middle">2O</text>
+<rect x="244" y="165" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="278.0" y="197.0" class="pin" text-anchor="middle">2M</text>
+<rect x="312" y="165" width="68" height="48" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="346.0" y="197.0" class="pin" text-anchor="middle">2K</text>
+<rect x="380" y="165" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="414.0" y="197.0" class="pin" text-anchor="middle">2I</text>
+<rect x="448" y="165" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="482.0" y="197.0" class="pin" text-anchor="middle">2G</text>
+<rect x="516" y="165" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="550.0" y="197.0" class="pin" text-anchor="middle">2E</text>
+<rect x="584" y="165" width="68" height="48" class="gnd" stroke="#18212b" stroke-width="1.5"/>
+<text x="618.0" y="197.0" class="pin" text-anchor="middle">2C</text>
+<rect x="652" y="165" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="686.0" y="197.0" class="pin" text-anchor="middle">2A</text>
+<rect x="40" y="213" width="68" height="48" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="74.0" y="245.0" class="pin" text-anchor="middle">2T</text>
+<rect x="108" y="213" width="68" height="48" class="power" stroke="#18212b" stroke-width="1.5"/>
+<text x="142.0" y="245.0" class="pin" text-anchor="middle">2R</text>
+<rect x="176" y="213" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="210.0" y="245.0" class="pin" text-anchor="middle">2P</text>
+<rect x="247" y="216" width="62" height="42" rx="2" class="gnd"/>
+<text x="278.0" y="244.0" class="pin" text-anchor="middle">×</text>
+<rect x="312" y="213" width="68" height="48" class="gnd" stroke="#18212b" stroke-width="1.5"/>
+<text x="346.0" y="245.0" class="pin" text-anchor="middle">2L</text>
+<rect x="380" y="213" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="414.0" y="245.0" class="pin" text-anchor="middle">2J</text>
+<rect x="451" y="216" width="62" height="42" rx="2" class="gnd"/>
+<text x="482.0" y="244.0" class="pin" text-anchor="middle">×</text>
+<rect x="516" y="213" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="550.0" y="245.0" class="pin" text-anchor="middle">2F</text>
+<rect x="584" y="213" width="68" height="48" class="gnd" stroke="#18212b" stroke-width="1.5"/>
+<text x="618.0" y="245.0" class="pin" text-anchor="middle">2D</text>
+<rect x="652" y="213" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="686.0" y="245.0" class="pin" text-anchor="middle">2B</text>
+<text x="380.0" y="305" class="head" text-anchor="middle">Mating-plug face · looking into cable contacts</text>
+<rect x="32" y="353" width="696" height="120" rx="8" class="box"/>
+<rect x="351.0" y="338" width="58" height="15" rx="1" class="box"/>
+<text x="380.0" y="333" class="tiny" text-anchor="middle">latch / key ↑</text>
+<rect x="40" y="365" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="74.0" y="397.0" class="pin" text-anchor="middle">2A</text>
+<rect x="108" y="365" width="68" height="48" class="gnd" stroke="#18212b" stroke-width="1.5"/>
+<text x="142.0" y="397.0" class="pin" text-anchor="middle">2C</text>
+<rect x="176" y="365" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="210.0" y="397.0" class="pin" text-anchor="middle">2E</text>
+<rect x="244" y="365" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="278.0" y="397.0" class="pin" text-anchor="middle">2G</text>
+<rect x="312" y="365" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="346.0" y="397.0" class="pin" text-anchor="middle">2I</text>
+<rect x="380" y="365" width="68" height="48" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="414.0" y="397.0" class="pin" text-anchor="middle">2K</text>
+<rect x="448" y="365" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="482.0" y="397.0" class="pin" text-anchor="middle">2M</text>
+<rect x="516" y="365" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="550.0" y="397.0" class="pin" text-anchor="middle">2O</text>
+<rect x="584" y="365" width="68" height="48" class="power" stroke="#18212b" stroke-width="1.5"/>
+<text x="618.0" y="397.0" class="pin" text-anchor="middle">2Q</text>
+<rect x="652" y="365" width="68" height="48" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="686.0" y="397.0" class="pin" text-anchor="middle">2S</text>
+<rect x="40" y="413" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="74.0" y="445.0" class="pin" text-anchor="middle">2B</text>
+<rect x="108" y="413" width="68" height="48" class="gnd" stroke="#18212b" stroke-width="1.5"/>
+<text x="142.0" y="445.0" class="pin" text-anchor="middle">2D</text>
+<rect x="176" y="413" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="210.0" y="445.0" class="pin" text-anchor="middle">2F</text>
+<rect x="247" y="416" width="62" height="42" rx="2" class="gnd"/>
+<text x="278.0" y="444.0" class="pin" text-anchor="middle">×</text>
+<rect x="312" y="413" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="346.0" y="445.0" class="pin" text-anchor="middle">2J</text>
+<rect x="380" y="413" width="68" height="48" class="gnd" stroke="#18212b" stroke-width="1.5"/>
+<text x="414.0" y="445.0" class="pin" text-anchor="middle">2L</text>
+<rect x="451" y="416" width="62" height="42" rx="2" class="gnd"/>
+<text x="482.0" y="444.0" class="pin" text-anchor="middle">×</text>
+<rect x="516" y="413" width="68" height="48" class="unused" stroke="#18212b" stroke-width="1.5"/>
+<text x="550.0" y="445.0" class="pin" text-anchor="middle">2P</text>
+<rect x="584" y="413" width="68" height="48" class="power" stroke="#18212b" stroke-width="1.5"/>
+<text x="618.0" y="445.0" class="pin" text-anchor="middle">2R</text>
+<rect x="652" y="413" width="68" height="48" class="data" stroke="#18212b" stroke-width="1.5"/>
+<text x="686.0" y="445.0" class="pin" text-anchor="middle">2T</text>
+<text x="30" y="500" class="small">Turn the plug around to see its wire-entry side: that is NOT the lower view.</text>
+<text x="30" y="540" class="small">Fused supply + → 2R (B+) · Fused supply + → ACC switch → 2Q</text>
+<text x="30" y="573" class="small">2C, 2D, 2L → common supply − / ground · 2K ↔ commander E (LIN)</text>
+<text x="30" y="606" class="small">2S (CMU TX out) → adapter RX in · Adapter TX out → 2T (CMU RX in)</text>
+<text x="30" y="645" class="small">All other shown pins: leave unconnected for this silent bench.</text>
+<text x="30" y="675" class="small">× = keyed gap, no terminal. 2O uses the letter O, not zero.</text>
+<text x="30" y="705" class="small">UART: 3.3 V TTL · adapter power lead disconnected · 115200 / 8N1</text>
+<a href="https://mazda3.neocities.org/esicont/srvc/html/id0902n7103100">
+<text x="30" y="748" class="tiny">Mazda3 B1087:87: cavity layout / LIN</text>
+</a>
+<a href="https://mazda3.neocities.org/esicont/srvc/html/id000000800400">
+<text x="30" y="776" class="tiny">Mazda viewing convention; terminal functions and UART sources in guide</text>
+</a>
+</svg>

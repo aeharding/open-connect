@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="460" height="1484" viewBox="0 0 460 1484" role="img" aria-labelledby="title desc">
+<title id="title">2016 Mazda3 silent bench connection overview</title><desc id="desc">Logical routes, not connector faces. Constant B+ and switched ACC are separate. All modules share ground. Display data, commander LIN, crossed UART, host DPS150 USB control and USB Ethernet each have a separate path.</desc>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#18212b;font-size:20px}.title{font-size:28px;font-weight:bold}.head{font-size:22px;font-weight:bold}.small{font-size:17px}.tiny{font-size:15px}.pin{font-size:22px;font-weight:bold}.power{fill:#fff0e9}.data{fill:#e7f3ff}.gnd{fill:#e9ecef}.unused{fill:#f6f6f6}.box{fill:#fff;stroke:#18212b;stroke-width:2}.wire{fill:none;stroke:#18212b;stroke-width:3}.planned{stroke-dasharray:9 6}a text{fill:#155c91;text-decoration:underline}</style><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#18212b"/></marker></defs>
+<rect width="460" height="1484" rx="10" fill="#fff"/>
+<text x="20" y="36" class="title">2016 Mazda3 · bench wiring</text>
+<text x="20" y="66" class="small">Logical routes; open detail drawings for faces.</text>
+<rect x="20" y="88" width="420" height="126" rx="8" class="box"/>
+<text x="34" y="118" class="head">DPS150 → bench power</text>
+<text x="34" y="146" class="small">+ → fuse → B+ (nominal 12 V)</text>
+<text x="34" y="171" class="small">− → common ground</text>
+<text x="34" y="196" class="small">Leave the existing voltage setting unchanged.</text>
+<path d="M230 216L230 238" class="wire" marker-end="url(#arrow)"/>
+<rect x="20" y="248" width="420" height="126" rx="8" class="box"/>
+<text x="34" y="278" class="head">Constant B+</text>
+<text x="34" y="306" class="small">→ CMU 2R</text>
+<text x="34" y="331" class="small">→ display 1H</text>
+<text x="34" y="356" class="small">→ Mazda hub 1L</text>
+<path d="M230 376L230 398" class="wire planned" marker-end="url(#arrow)"/>
+<rect x="20" y="408" width="420" height="151" rx="8" class="box planned"/>
+<text x="34" y="438" class="head">B+ → ACC switch → ACC bus</text>
+<text x="34" y="466" class="small">→ CMU 2Q; display 1G</text>
+<text x="34" y="491" class="small">→ commander A; Mazda hub 1K</text>
+<text x="34" y="516" class="small">Proposed switch: not yet installed.</text>
+<text x="34" y="541" class="small">B+ stays on when ACC is off.</text>
+<rect x="20" y="581" width="420" height="126" rx="8" class="box"/>
+<text x="34" y="611" class="head">Common ground → supply −</text>
+<text x="34" y="639" class="small">CMU 2C / 2D / 2L; display 1B</text>
+<text x="34" y="664" class="small">Commander G; Mazda hub 1A / 1J</text>
+<text x="34" y="689" class="small">FT232R adapter GND</text>
+<rect x="20" y="729" width="420" height="126" rx="8" class="box"/>
+<text x="34" y="759" class="head">Display + commander signals</text>
+<text x="34" y="787" class="small">CMU 3B/3D ↔ display 2B/2D (+/−)</text>
+<text x="34" y="812" class="small">Matching shielded display data cable</text>
+<text x="34" y="837" class="small">CMU 2K ↔ commander E (LIN)</text>
+<rect x="20" y="877" width="420" height="151" rx="8" class="box"/>
+<text x="34" y="907" class="head">Computer USB → FT232R → CMU</text>
+<text x="34" y="935" class="small">Adapter TX → CMU 2T (RX)</text>
+<text x="34" y="960" class="small">Adapter RX ← CMU 2S (TX)</text>
+<text x="34" y="985" class="small">Adapter power lead disconnected.</text>
+<text x="34" y="1010" class="small">115200 / 8N1; RTS/DTR inactive</text>
+<rect x="20" y="1050" width="420" height="101" rx="8" class="box"/>
+<text x="34" y="1080" class="head">Other computer USB → DPS150</text>
+<text x="34" y="1108" class="small">USB data cable → Micro-USB control port</text>
+<text x="34" y="1133" class="small">Separate from CMU and TTL UART.</text>
+<rect x="20" y="1173" width="420" height="201" rx="8" class="box planned"/>
+<text x="34" y="1203" class="head">Incoming hub + Ethernet route</text>
+<text x="34" y="1231" class="small">CMU → matching keyed hub cable(s)</text>
+<text x="34" y="1256" class="small">→ Mazda hub front USB data port</text>
+<text x="34" y="1281" class="small">→ USB Ethernet adapter → RJ45 cable</text>
+<text x="34" y="1306" class="small">→ switch/router → computer Ethernet</text>
+<text x="34" y="1331" class="small">Hub power pigtail also required.</text>
+<text x="34" y="1356" class="small">Firmware/driver support unqualified.</text>
+<text x="20" y="1412" class="head">No TAU, amplifier or speakers required.</text>
+<text x="20" y="1442" class="small">Solid: established connections / standard pinout.</text>
+<text x="20" y="1466" class="small">Dashed: planned hardware, not bench-qualified.</text>
+</svg>

@@ -1,128 +1,136 @@
 # Build a Mazda Connect test bench
 
-Start here to connect **power, a display and UART** to a first-generation CMU.
-Our development firmware is **55.00.750B North America**.
-Once the hardware works, use [CLI operations](cli.md).
+This guide covers **2014–2016 Mazda3 / first-generation Mazda Connect**: CMU,
+matching display, commander and Mazda media hub. Use mating pigtails and the
+matching shielded data cables. A regulated 12 V supply, fused wiring, common ground
+and a USB-to-TTL UART adapter complete a silent UI bench. **TAU, amplifier,
+speakers, GPS antenna and a navigation SD card are optional.**
 
-## Parts
+The development bench has working CMU/display, **FT232R UART** and **FNIRSI
+DPS150 USB serial control**. The ACC switch is a proposed addition; the incoming
+AliExpress CarPlay hub/harness and Ethernet adapter are not yet qualified.
+Our software baseline remains **55.00.750B NA**. Physical connector compatibility
+is not proof of firmware or network support.
 
-- First-generation CMU, matching display, display data cable and power harnesses.
-  Buy mating pigtails with the unit if possible; bare modules need connector terminals.
-- Regulated 12 V DC supply, fused power wiring and an ACC switch.
-- USB-to-TTL UART adapter, with documented 3.3 V signal levels, and three signal wires.
-  The [MazdaTweaks serial guide](https://mazdatweaks.com/serial/) uses a CP2102 adapter.
-- Computer with USB and Python 3; a multimeter for checking power and ground.
+[![Bench connection overview](assets/bench-wiring/overview.svg)](assets/bench-wiring/overview.svg)
 
-A commander, webcam and network adapter can come later. No TAU or speakers are
-needed for our silent Entertainment UI tests.
+## 1. Power, display and commander
 
-## 1. Wire power and the display
+Disconnect power before assembling a new harness. Use a fuse near supply positive,
+sized for the wiring and load. **Leave the existing DPS150 voltage setting unchanged.**
+The table describes the intended harness, including the proposed ACC branch.
 
-Disconnect power while wiring. Use the pin labels in the
-[connector drawing](https://mzdonline.wordpress.com/2018/07/13/power-up-junkyard-cmu/#:~:text=Wiring%20diagram);
-the mating harness view is mirrored relative to the CMU socket. Do not identify
-pins by wire color alone.
+Open or zoom the original, printable connector drawings:
+**[CMU power + UART](assets/bench-wiring/cmu-power-uart.svg)** ·
+**[Display + commander](assets/bench-wiring/display-commander.svg)** ·
+**[Hub power + USB](assets/bench-wiring/usb.svg)**.
 
-| CMU power connector | Connect to |
+Each drawing labels **module/socket face** and **mating-plug face**, viewed into
+the contacts with the indicated latch at the top. The plug face is mirrored;
+the wire-entry view is not the plug face. Mazda's [viewing convention][views]
+explains why its *harness-side* drawings have the same left-to-right order as
+the module socket. Pin names below are Mazda terminal labels, not wire colors.
+
+| Source | Destination | Purpose |
+| --- | --- | --- |
+| Fused supply **+** (B+) | CMU **2R**; display **1H**; stock hub **1L** | Constant supply into each module |
+| Fused B+ → **ACC switch** → ACC bus | CMU **2Q**; display **1G**; commander **A**; stock hub **1K** | Switched supply into each module |
+| Supply **−** / common ground | CMU **2C, 2D, 2L**; display **1B**; commander **G**; stock hub **1A, 1J**; UART **GND** | Common return/reference |
+| CMU **2K** ↔ commander **E** | One LIN wire | Commander communication; neither UART nor CAN |
+| CMU display connector **3B / 3D** ↔ display **2B / 2D** | Matching shielded display cable, + to + and − to − | Image to display; touch/status back to CMU |
+
+Keep B+ present when ACC is switched off; switching the supply output removes
+both and is a hard power cut. The display needs **both** its power plug and its
+data cable. Commander **B** (TNS/lighting) and **H** (illumination return) can
+remain isolated for an unlit bench; C, D and F are unused. Leave the CMU's CAN,
+TAU/RS485 and unrelated AV connections unconnected for this silent setup.
+
+Sources: Mazda3 [training manual][training], sections 09-33, 09-83, 09-89 and
+09-93 (terminal functions); Mazda3 service drawings for [display power][display-power],
+[display data][display-data], [commander LIN][commander] and [CMU ACC][acc].
+The hub face is cross-checked against Mazda's [2016 MX-5 shared hub connector
+0920-206A][hub-face], PDF page 2; it is **not an aftermarket internal pinout**.
+Use the hub's matching 12-way pigtail intact on a standard retrofit.
+
+## 2. UART and supply control are separate USB links
+
+| Source | Destination |
 | --- | --- |
-| **2R — B+** | Fused +12 V |
-| **2Q — ACC** | +12 V through the ACC switch |
-| **2C / 2D / 2L — ground** | Supply negative, following the matching harness |
+| Computer USB | FT232R adapter USB socket |
+| CMU **2S — TX output** | Adapter **RX / RXD input** |
+| Adapter **TX / TXD output** | CMU **2T — RX input** |
+| Adapter **GND** | Common supply/CMU ground |
+| Computer's other USB connection | DPS150 **Micro-USB communication socket**, using a data cable |
 
-Keep B+ powered when switching ACC off. Give the display its matching power
-connection **as well as** the CMU-to-display data cable; the data connection alone
-is not the complete display wiring.
+Use **3.3 V TTL signals**, **115200 baud, 8N1**, no flow control, **RTS/DTR
+inactive**. Leave the adapter's **VCC/5V/3V3 power lead disconnected**, and do
+not connect RTS, CTS or DTR. FT232R names the chip; verify the adapter's actual
+I/O voltage, not just its power-output label. TX and RX cross by function.
+Mazda's service tables leave the console pins unnamed; their UART functions
+come from the [CMU hardware research][hardware] and working bench communication.
+The chip supports configurable I/O levels: [FTDI FT232R datasheet][ftdi].
 
-~~~text
-12 V supply + ── fuse ──┬────────── CMU 2R (B+)
-                       ├── switch ─ CMU 2Q (ACC)
-                       └────────── matching display power harness
+The **[DPS150 connector drawing](assets/bench-wiring/dps150.svg)** separates its
+Micro-USB control port, USB-C/DC power **inputs**, and +/− bench **outputs**.
+This host link is already working; it does not route through the Mazda hub or
+TTL adapter. See FNIRSI's [PC connection instructions][fnirsi-control] and
+[power-input information][fnirsi-power].
 
-Supply negative ────────────────── CMU / display ground
-                                         │
-Computer ── USB UART adapter ── GND ──────┘
-                     RX ◀───────── CMU 2S (TX)
-                     TX ─────────▶ CMU 2T (RX)
+## 3. Mazda hub and USB Ethernet
 
-CMU ───────── matching display data cable ───────── Display
-~~~
+The **[USB drawing](assets/bench-wiring/usb.svg)** shows two alternatives:
 
-This is a logical wiring diagram, not a connector-face drawing. The published
-[bench build](https://mzdonline.wordpress.com/2018/07/13/power-up-junkyard-cmu/)
-includes connector photographs and display-power details; it used a 12 V, 10 A
-supply. That is a supply rating, not a claim that the CMU draws 10 A.
-Use the wiring diagram for your actual CMU/display variant before applying power.
-The [hardware reference](https://github.com/silverchris/mazda-cmu-documentation/blob/gh-pages/hardware.md#connectors)
-also lists the connector signals.
-
-## 2. Connect UART: three wires
-
-| USB UART adapter | CMU |
+| Hub | CMU → hub connection |
 | --- | --- |
-| **RX / RXD** | **2S — CMU TX** |
-| **TX / TXD** | **2T — CMU RX** |
-| **GND** | Common CMU/supply ground |
+| Original 2014–2016 hub | Original keyed cable: CMU **4A → 2A** ground, **4B ↔ 2B** D+, **4C → 2C** USB power, **4D ↔ 2D** D−. Retain the 12-way power/AUX plug. |
+| Common CarPlay retrofit hub | Supplied **gray/green → black** cable and **gray/blue → brown** cable, each into its matching keyed socket; retain the 12-way power/AUX plug. Isolate the superseded original USB cable at both ends. |
 
-TX and RX cross: each transmitter connects to the other device's receiver.
-Leave the adapter's **VCC/5V/3V3 power lead disconnected**, along with RTS, CTS and
-DTR. The 12 V supply powers the CMU; USB powers the adapter. Keep 12 V away from
-the UART pins.
+The stock mapping is from Mazda3 [B1252:87][usb-data] and [B1252:09][usb-power].
+The retrofit route is Mazda's **C922 V6 605**, [connection diagram, Common-4][retrofit].
+Those colors identify **cable-end housings**, not conductor order. The incoming
+AliExpress kit is expected to follow this common layout; use its matching molded
+keys and supplied cables. Do not transfer stock 4A–4D numbering to its second
+link or splice USB conductors from a color guess. The separate power plug still
+needs B+, ACC and ground; USB cables do not replace it.
 
-Use the [UART connector photos](https://mazdatweaks.com/serial/) to locate 2S/2T.
-Use a TTL UART adapter, not a conventional RS-232 cable. Check the adapter's
-signal-voltage specification; a power-output label alone does not establish it.
+For networking: **CMU → Mazda hub → front USB data port → USB Ethernet adapter
+→ RJ45 patch cable → network switch/router → computer Ethernet**. An optional
+computer-side USB Ethernet adapter belongs on the computer's USB bus. Neither
+adapter is a USB cable between two hosts. Use assembled USB/RJ45 cables.
 
-Our bench uses an FTDI FT232R adapter. CP2102 is another documented wiring option;
-Open Connect's current automated runner is pinned to our particular FTDI device.
-A different adapter can be used with a serial terminal, but needs runner
-configuration before using the automated CLI.
+The ordered adapter still needs driver qualification. Mazda requires compatible
+firmware **before** fitting the CarPlay hub; v55 is not a verified CarPlay-hub
+configuration. Ethernet link, IP configuration and SSH service are separate
+checks; UART works without them.
 
-## 3. Read the first boot
+## 4. First serial connection
 
-From the repository on the host computer:
+Install the host tools as described in [development setup](development.md).
+Enumerate the UART adapter rather than copying another bench's device name:
 
 ~~~sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -e .
-.venv/bin/python -m serial.tools.list_ports -v
+python -m serial.tools.list_ports -v
+# Replace UART_PORT with the enumerated FT232R port:
+python -m serial.tools.miniterm --rts 0 --dtr 0 --eol CR UART_PORT 115200
 ~~~
 
-Find the adapter's port. On our Mac it is /dev/cu.usbserial-A9048JM0; yours
-will differ. Open it with **115200 baud, 8 data bits, no parity, 1 stop bit,
-no flow control**:
+Only one program owns UART. Exit miniterm with **Ctrl+]** before using
+[CLI operations](cli.md). Readable boot logs confirm the receive path; a shell
+also depends on firmware/access state. A black display with readable logs points
+first to the display's power and data connections. For silent Entertainment tests,
+use the [bench profile](cli.md), which does not require a physical TAU or speakers.
 
-~~~sh
-.venv/bin/python -m serial.tools.miniterm --rts 0 --dtr 0 --eol CR /dev/cu.usbserial-A9048JM0 115200
-~~~
-
-Turn on power and ACC. You should see readable boot logs and the display boot.
-Let startup finish without typing into the bootloader. Exit miniterm with
-**Ctrl+]** before running another tool; only one program should own UART.
-
-Receiving logs proves the receive connection. Interactive shell access is a
-separate firmware-dependent step: wiring UART does not automatically unlock every
-firmware. The automated CLI currently expects an established idle root shell on
-our exact supported firmware; it does not perform login or unlock the CMU.
-
-## If it does not work
-
-| Symptom | First checks |
-| --- | --- |
-| No display or boot logs | B+, ACC, ground and supply output |
-| Boot logs but black display | Display power and matching data cable |
-| No serial output but display boots | Correct port, adapter RX to 2S, common ground |
-| Garbled serial output | 115200/8N1, signal levels and ground |
-| Logs work but typing does not | Adapter TX to 2T; firmware/login state |
-| Port busy | Close the other serial terminal or Open Connect operation |
-
-## Next
-
-- [Operate the bench with the CLI](cli.md): status, setup and teardown of
-  the silent-audio development profile.
-- Networking is optional. UART works without it. SSH transport is
-  [planned in #15](https://github.com/aeharding/open-connect/issues/15);
-  connecting Ethernet alone does not provide a configured SSH service.
-
-The pinout above comes from the linked first-generation CMU references; it is not
-a newly measured pinout of every model. Our recorded bench evidence verifies
-115200/8N1 communication and software operation.
+[views]: https://mazda3.neocities.org/esicont/srvc/html/id000000800400
+[training]: https://www.scribd.com/document/796872875/New-Model-Mazda3-Bm
+[display-power]: https://mazda3.neocities.org/esicont/srvc/html/id0902n7103400
+[display-data]: https://mazda3.neocities.org/esicont/srvc/html/id0902n7103500
+[commander]: https://mazda3.neocities.org/esicont/srvc/html/id0902n7103100
+[acc]: https://mazda3.neocities.org/esicont/srvc/html/id0902n7106800
+[hub-face]: https://www.mx5manual.com/assets/service_manuals/en_us/2016/MX5/pdf/0920_2b.pdf
+[hardware]: https://github.com/silverchris/mazda-cmu-documentation/blob/gh-pages/hardware.md#connectors
+[ftdi]: https://ftdichip.com/wp-content/uploads/2020/08/DS_FT232R.pdf
+[usb-data]: https://mazda3.neocities.org/esicont/srvc/html/id0902n7105300
+[usb-power]: https://mazda3.neocities.org/esicont/srvc/html/id0902n7105100
+[retrofit]: https://mazdaparts.org/content/MAZDA3SCREENMIRRORC922V6605.pdf
+[fnirsi-control]: https://www.fnirsi.com/pages/software-downloads
+[fnirsi-power]: https://www.fnirsi.com/products/dps-150

@@ -118,16 +118,28 @@ configuration. A spent record selects Mazda's original service configuration.
 | Two ordinary warm boots | Trial configuration once, OEM configuration next; running SM arguments verified | Selection proof, not a feature-health policy |
 | SIGSEGV to one identity-checked MMUI process | SM stopped feeding the watchdog; automatic reset booted the baseline configuration | External process fault, not a bug in a modified library |
 | Trial-only JS infinite loop | Native GUI Manager closed Opera after missing heartbeats; watchdog reset returned to the original entry page | Reconciled from the saved crash archive and fresh target checks; original serial observer stayed incomplete |
-| Supply output off/on after a flushed consumed record | Record survived; fresh root access and read-only root returned | One completed write in normal runtime, not a cut during early selection or rename/fsync |
+| Supply output off/on after a flushed consumed record | Record survived; fresh root access and read-only root returned | One completed write in normal runtime |
+| Supply cut after early commit, before services | Spent record survived; next boot selected OEM SM configuration | Explicit three-second post-flush pause; not during rename/fsync |
 
 These tests retained the existing comparison JS and original native library.
 “Baseline” here means the pre-existing bench configuration, not an entirely stock
-unit. Independent undo removed the startup hook after the warm-boot and native
-and JS crash trials. The power-cut test ran with the hook already removed.
+unit. Independent undo removed the startup hook and its hardlink holds after
+each completed trial. The runtime power test ran with the hook already removed.
 
-The actual power interruption was **6.964 seconds between output requests**.
-The DPS150's voltage/current settings were identical before and after; no
-voltage-setting command was sent. This tests full supply loss, not ACC behavior.
+The runtime and early-startup power interruptions were **6.964 s** and **6.920 s**
+between output requests. DPS150 voltage/current settings were unchanged; no
+voltage-setting commands were sent. These test full supply loss, not ACC.
+
+For the early test, the selector emitted a console marker after successful file
+and directory flushes, then paused before returning to service startup. Output-off
+was confirmed 0.390 s after that marker, within the three-second pause. The next
+boot saw the record spent and started OEM SM configuration; fresh root access,
+read-only root and Home returned. The original startup script was then restored.
+
+The first early-test observer refused before cutting power: the logged Linux
+banner arrives after this early console marker. Its replacement used the actual
+ordered bootloader/kernel-handoff text. That failed attempt and subsequent
+one-login reconciliation remain separate from the successful power-cut run.
 
 ### What causes a reset?
 
@@ -187,7 +199,7 @@ broken baseline, kernel or selector.
 
 Private evidence: runs/early-selector/result.json,
 runs/native-fault-trial/result.json, runs/js-hang-trial-v2/result.json,
-runs/power-cut-trial/result.json and
+runs/power-cut-trial/result.json, runs/early-power-cut/result.json and
 runs/boot-selector-flush/result.json. Failed attempts and raw captures remain
 unchanged. The [architecture direction](extension-architecture.md) describes the
 next decision.

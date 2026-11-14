@@ -49,10 +49,11 @@ The current MMUI loader is host-built only and cannot select earlier service
 startup. Read-only analysis now identifies the normal branch of /usr/bin/autostart
 before normal-mode setup, the Logger and SM. One-shot selection and subsequent
 baseline startup now passed ordinary warm boots, an MMUI crash and a deliberate
-JS hang. A separate full supply cut preserved a flushed consumed record; it did
-not interrupt early selection. Hooks were removed after each trial.
-Next: interruption at the early commit boundary, then one service change, one
-logging setting and optional code under the same global-disable contract.
+JS hang. Full supply cuts preserved consumed records in normal runtime and
+after early commit, before services. Cuts during rename/fsync remain untested.
+Hooks were removed after each trial.
+Next: one service change, one logging setting and optional code under the same
+global-disable contract.
 Reset-cause classification and persistent retry/health policy remain open.
 See [the revised proposal](docs/extension-architecture.md#next-proof).
 Persistent mode needs explicit health/failure semantics; no automatic-recovery

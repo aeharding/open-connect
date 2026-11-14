@@ -1,4 +1,4 @@
-CURRENT LAB STATE — last verified 2026-11-13
+CURRENT LAB STATE — last verified 2026-11-14
 
 Firmware: 55.00.750B NA, cmu150_NA. Physical root /dev/ffx01p1 is RO.
 Primary owns software operation. Owned UART/camera/supply handles are closed.
@@ -14,16 +14,23 @@ Installed:
 - Original /usr/bin/autostart restored and independently verified:
   64785:7113:1380015098:3039:775:1018:3015:1. No trial hook installed.
 - silent-ui-v1 runtime bench profile ON/active/owned after the final boot.
-  Receipt .bench-state/profile.json; runs/composed-generation/bench-ready.
+  Receipt .bench-state/profile.json; runs/persistent-policy-research/bench-ready.
   It expires on reboot/service replacement; no persistent audio hook.
 
-Latest verified boot: ad4875c9-ba7b-4b68-983a-99c35d1730c4
+Latest verified boot: 27db8704-c070-4317-a197-fc3398a37598
 Running SM used /jci/sm/sm.conf; Opera used /jci/gui/index.html.
-Baseline video shows Communication Home; bench profile was re-enabled afterward.
-Existing comparison remains installed.
-Original autostart was restored after that boot; no extra boot after removing it.
+Latest fault-comparison video shows Communication Home; bench profile was
+re-enabled afterward. Existing comparison remains installed.
+Original autostart was already restored before this boot and verified afterward.
 
 Closed experiments:
+- runs/persistent-policy-research/result.json: one bound stock-MMUI SIGSEGV,
+  automatic watchdog reset, one login and fresh baseline/native-map/rootRO
+  verification. New MMUI PID746/PPID207/start1659. Original autostart unchanged;
+  no hook installed. Both the preceding normal reboot and this fault reset
+  returned IBC reset word 0x00000001 (Power-up sequence).
+  Read-only SYSTEM/ibclog/boot-diagnostic capture; no supply commands.
+  Observer/video closed; cleanup.json confirms owned UART/camera handles closed.
 - runs/composed-generation/result.json: one selected service/logging/native/JS
   configuration, then one baseline boot omitting all four effects. Stitcher
   returned, Warn environment was absent, native Info logs returned, original

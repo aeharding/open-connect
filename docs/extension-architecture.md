@@ -57,8 +57,14 @@ installations. Service changes must account for their remaining consumers.
   which component caused it.
 - Recovery must work without optional native code, the GUI or networking.
 
-Retry counts, reliable health signals and treatment of power loss are still open.
-This cannot rescue a broken kernel, baseline or bootstrap.
+The [reset comparison](reverse-engineering.md#a-reset-label-is-not-a-cause-classifier)
+found the same “Power-up” word after normal reboot and watchdog reset. That label,
+a ready screen or a shutdown request must not grant fresh attempts.
+
+Retry counts and the event that permits another attempt are still open. A real
+ACC cycle or explicit maintenance action is a candidate boundary to qualify;
+a cached ACC value is not proof of a new cycle. This cannot rescue a broken kernel,
+baseline or bootstrap.
 
 ## Evidence so far
 
@@ -83,9 +89,10 @@ explain the evidence and limits.
 
 ## Next proof
 
-Qualify persistent operation: a finite attempt budget, useful health evidence and
-explicit recovery after failures. Startup-ready alone must not erase protection
-against later faults.
+Qualify persistent operation: a finite attempt budget and an observed event
+that permits a fresh attempt. Trace and test actual ACC transitions when control
+is available; do not treat generic reset/shutdown labels as that event.
+Keep one-shot developer trials while this remains unproved.
 
 Then exercise a useful feature through the qualified adapters. Native/JS markers
 prove entry and baseline omission; they do not yet constitute that feature.

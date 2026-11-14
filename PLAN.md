@@ -60,7 +60,11 @@ Next: qualify persistent attempt/health policy and one useful feature through
 these adapters. The code markers are not yet a shipping feature.
 A private file view remains an option, but this composition used OEM environment
 and launch settings without a whole-service mount namespace.
-Reset-cause classification and persistent retry/health policy remain open.
+The bootloader reports the same reset word for a tested normal reboot and
+MMUI-fault/watchdog reset. Shutdown notifications precede the actual shutdown.
+Persistent retry policy therefore needs a separately qualified rearm event,
+such as a real ACC cycle or explicit maintenance action; neither is implemented
+by the current one-shot selector.
 See [the revised proposal](docs/extension-architecture.md#next-proof).
 Persistent mode needs explicit health/failure semantics; no automatic-recovery
 claim follows from installing a loader. No new general plugin framework is needed.

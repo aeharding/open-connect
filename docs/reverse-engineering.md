@@ -199,6 +199,35 @@ spent control and read-only root. This is a reconciled result, not an uninterrup
 automated pass. An earlier probe hit Mazda's .js-only log-stack parser before
 scheduling the hang; that failed injection remains recorded.
 
+### A reset label is not a cause classifier
+
+**A normal software reboot and a deliberate MMUI crash reported the same
+bootloader reset word.** It cannot decide whether to renew retry attempts.
+
+| Known preceding action | Next boot's ibclog result |
+| --- | --- |
+| One normal /sbin/reboot | 0x00000001 — “Power-up sequence” |
+| One identity-checked MMUI SIGSEGV, followed by Mazda's watchdog reset | 0x00000001 — “Power-up sequence” |
+
+The second run reached Home with fresh root access, original native mappings,
+baseline service configuration and read-only root. No new startup hook, software
+reboot fallback or supply command was used. This compares one run of each path;
+it does not classify battery loss or every possible reset.
+
+The /usr/sbin/ibclog tool reads the bootloader buffer identified by ibcinfo= in the
+kernel command line. The executable maps it read-only and decodes a private copy.
+It also provides early boot timings. The separate boottime wrapper can signal
+PID1; it is not just a passive log read. One read of the 64 KiB jci-boot-diag
+partition contained only erased 0xff bytes.
+
+**A shutdown request is not a successful shutdown.** In the exact SYSTEM service,
+NotifyShutdown carries requested reboot flags and precedes settings save,
+service stop and board reset/power-off. SM's normal and forced stop paths also
+share completion signaling. None alone establishes a clean session end.
+
+Private evidence: runs/persistent-policy-research/result.json, exact SYSTEM and
+ibclog sources, and the closed watchdog-reset observer/video bundle.
+
 ### Implications for recovery
 
 - **Select early.** init_cmu attempts the data_persist mount before autostart;
@@ -207,17 +236,17 @@ scheduling the hang; that failed injection remains recorded.
 - **Consume before effects.** Missing, invalid or spent control must select
   baseline. An observed ready screen must not automatically replenish attempts:
   faults can happen later.
-- **Do not guess reset causes.** Saved crash logs can help diagnose a failure, but
-  missing logs do not prove battery loss. No reliable reset-cause or clean-end
-  classifier has been established.
+- **Do not guess reset causes.** The identical reset words above cannot authorize
+  another attempt. Missing crash logs and shutdown-request notifications also
+  cannot establish a clean end. Keep diagnosis separate from permission to retry.
 - **Bound bootstrap work.** The parent uses a five-second timeout without an
   inherited stdout pipe. Host tests cover invalid control, failed flushes and a
   surviving child. Uninterruptible filesystem I/O remains outside that guarantee.
 
-Still open: interrupted early-boot writes, repeated power cuts, ACC/resume,
-persistent retry/health policy, and service/logging/native features selected
-through this same boundary. These results do not establish recovery from a
-broken baseline, kernel or selector.
+Still open: interrupted early-boot writes, repeated power cuts, ACC/resume and
+persistent retry/health policy. Service/logging/native/JS composition is now
+[demonstrated together](#optional-extension-loading).
+These results do not establish recovery from a broken baseline, kernel or selector.
 
 Private evidence: runs/early-selector/result.json,
 runs/native-fault-trial/result.json, runs/js-hang-trial-v2/result.json,
@@ -247,8 +276,8 @@ unchanged and root stayed read-only.
 
 The compiled initializer reads settings files, then parses environment variables.
 This is a simpler candidate for a selected startup than rewriting the log settings
-file or isolating all services. Whole-startup inheritance, other logging stacks
-and performance benefits remain untested.
+file or isolating all services. The later composed trial confirmed inheritance
+by SM/MMUI. Other logging stacks and performance benefits remain untested.
 Private evidence: `runs/combined-startup/log-query-result.json`.
 
 ## Configuration views without rewriting originals

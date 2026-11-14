@@ -63,3 +63,7 @@ generated site and deploys it to GitHub Pages; manual dispatch also requires mai
 The deployment job alone has Pages and identity-token write permissions. Source
 changes still go through review, and generated HTML is never committed to a
 separate branch.
+
+Use Mermaid for small architecture and failure-flow diagrams; keep the main
+conclusion in text too. [Zensical's diagram guide](https://zensical.org/docs/authoring/diagrams/)
+covers the supported syntax and theme behavior.

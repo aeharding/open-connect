@@ -104,6 +104,10 @@ reboot occurred. Source ordering is not proof of runtime fallback or cold startu
 
 ## Startup selection and reset evidence
 
+**Main learning:** a consumed trial can fall back without a working GUI or
+optional runtime. Mazda's existing watchdog performs the reset; Open Connect
+must choose what runs afterward.
+
 The [one-shot selector](https://github.com/aeharding/open-connect/tree/main/experiments/boot-selection)
 runs in /usr/bin/autostart before normal-mode setup, the Logger and Service
 Manager (SM). It consumes and flushes a trial record before choosing a fixed
@@ -126,6 +130,20 @@ The DPS150's voltage/current settings were identical before and after; no
 voltage-setting command was sent. This tests full supply loss, not ACC behavior.
 
 ### What causes a reset?
+
+~~~mermaid
+flowchart TD
+    JS["JavaScript event-loop hang"] --> Miss["Native monitor misses JS heartbeat"]
+    Miss --> Close["Opera closes"]
+    Native["Critical native process exits"] --> SM["Service Manager stops watchdog feeding"]
+    Close --> SM
+    SM --> Reset["Watchdog resets CMU"]
+    Reset --> Selector["Early selector sees spent trial"]
+    Selector --> Baseline["Start baseline services and frontend"]
+~~~
+
+This is the chain observed in the controlled tests, not a claim that every JS
+exception or native fault resets the unit.
 
 A critical MMUI exit produced SM's reset_board=yes notice and watchdog-feeding
 stop, followed by a new kernel boot. Opera also exited in that sequence.

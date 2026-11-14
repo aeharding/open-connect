@@ -9,10 +9,18 @@ Persistent feature policy remains to be designed.
 Select one complete Open Connect configuration **before Mazda's services start**.
 On a fallback boot, skip its changes and let Mazda start normally.
 
-~~~text
-Mazda startup → small selector → baseline or selected configuration
-                              → Mazda services, native code and GUI
+~~~mermaid
+flowchart TD
+    Boot["Mazda startup"] --> Select{"Valid unused trial?"}
+    Select -->|No| Baseline["Start baseline configuration"]
+    Select -->|Yes| Consume["Consume record + verify flush"]
+    Consume -->|Failure or timeout| Baseline
+    Consume -->|Success| Trial["Start trial configuration"]
+    Trial -->|Fault causes reset| Boot
 ~~~
+
+The record is already spent when trial code starts. The following boot therefore
+takes the baseline path, even if the trial never reached a working GUI.
 
 “Baseline” means Open Connect features are off. The small installed integration
 point remains; this is different from uninstalling it.

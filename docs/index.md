@@ -23,8 +23,11 @@ are not automatically valid on other firmware.
 
 The host tools provide UART operations and a runtime bench profile for silent
 Entertainment UI testing. Prototype disclaimer changes have been tested and
-undone on the bench. A general installer and automatic boot-loop recovery are
-still development work.
+undone on the bench. An early one-shot selector has also returned to baseline
+after controlled native and JavaScript faults. See the
+[startup recovery findings](reverse-engineering.md#startup-selection-and-reset-evidence)
+for the diagrams, actual results and remaining limits. Persistent retry policy
+and a general installer are still development work.
 
 Installing the Python package installs host tools only; it does not deploy
 anything to the CMU. Start with the CLI's dry run before using a connected device.

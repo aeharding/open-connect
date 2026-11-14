@@ -11,7 +11,7 @@ import subprocess
 SOURCE = Path(__file__).with_name("flush.c")
 
 
-def build(output):
+def build(output, source=SOURCE, name="flush-arm"):
     output.mkdir(parents=True, exist_ok=False)
     clang = os.environ.get("CC") or shutil.which("clang")
     linker = os.environ.get("OC_LLD") or shutil.which("ld.lld")
@@ -21,14 +21,14 @@ def build(output):
             linker = str(mac_linker)
     if not clang or not linker:
         raise RuntimeError("clang and ld.lld are required; set CC / OC_LLD if needed")
-    target = output / "flush-arm"
+    target = output / name
     command = [
         clang, "--target=armv7-linux-gnueabi", "-marm", "-mfloat-abi=soft",
         "-Os", "-ffreestanding", "-fno-stack-protector", "-fno-unwind-tables",
         "-fno-asynchronous-unwind-tables", "-nostdlib", "-static",
         "-Wall", "-Wextra", "-Werror", "--ld-path=" + linker,
         "-Wl,-e,_start,--build-id=none,-z,max-page-size=4096,--strip-all",
-        str(SOURCE.resolve()), "-o", str(target.resolve()),
+        str(source.resolve()), "-o", str(target.resolve()),
     ]
     result = subprocess.run(command, capture_output=True, text=True)
     (output / "stdout.txt").write_text(result.stdout)
@@ -37,7 +37,7 @@ def build(output):
     data = target.read_bytes()
     if data[:7] != b"\x7fELF\x01\x01\x01" or int.from_bytes(data[18:20], "little") != 40:
         raise RuntimeError("expected a little-endian ELF32 ARM executable")
-    record = dict(command=command, source_sha256=hashlib.sha256(SOURCE.read_bytes()).hexdigest(),
+    record = dict(command=command, source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
                   bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
     (output / "build.json").write_text(json.dumps(record, indent=2) + "\n")
     print(json.dumps(record))

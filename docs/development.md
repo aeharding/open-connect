@@ -53,3 +53,15 @@ verify what is on disk and what is loaded. Current state of the project's
 particular bench stays in the
 [repository handoff](https://github.com/aeharding/open-connect/blob/main/docs/bench-state.txt),
 not in a generic setup recipe.
+
+## Measure optimizations
+
+Every performance or optimization change needs a measured baseline and modified
+trials—not just fewer processes or a lower memory number.
+
+- Define the timed operation, workload and startup phase before changing code.
+  Keep firmware, hardware and other enabled features comparable.
+- Repeat timings and relevant CPU, RAM and I/O samples. Name the memory metric
+  and account for measurement overhead.
+- Retain failures, report the spread and check regressions. Claim only the
+  improvement the measurements demonstrate.

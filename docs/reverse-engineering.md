@@ -214,3 +214,49 @@ supporting-slices.txt. Exact source SHA256:
 | sm | cd1104d9b0a28dcce361520de203c1180b2e6f81d939c4223a369fd66a055f0c |
 | log-save.sh | a1beb68337f7c4e334b2510f0c9ad6992acebb8a7533a4022b0fbb6678428c62 |
 | init_cmu | a5c3b821236f3993b15021a80130df4e33b359beb7722a8a6a6fa9a74cf455bb |
+
+## Native logging already supports a temporary override
+
+**Use Mazda's own setting first.** Three disposable processes using the actual
+`libjcicommon.so` reported `Info → Warn → Info`: only the middle process inherited
+`COMMON_LOG_LEVEL=Warn`. Its native filter rejected Info messages and accepted
+Warn; two samples two seconds apart agreed. The persistent settings file stayed
+unchanged and root stayed read-only.
+
+The compiled initializer reads settings files, then parses environment variables.
+This is a simpler candidate for a selected startup than rewriting the log settings
+file or isolating all services. Whole-startup inheritance, other logging stacks
+and performance benefits remain untested.
+Private evidence: `runs/combined-startup/log-query-result.json`.
+
+## Configuration views without rewriting originals
+
+**A short-lived private mount view worked on the bench.** A child process saw
+`COMMON_LOG_LEVEL=Warn` through a read-only bind mount while the parent still saw
+the original `Info` file. The view disappeared when the child exited, without an
+explicit unmount; the physical root stayed read-only and temporary files were removed.
+
+Mazda's `jci-log.sh` sets this default in `/config/common/log/settings.txt`.
+`Logger.xml` selects sinks; it is not that default-level setting.
+
+This proves the filesystem mechanism, not a complete startup architecture.
+Isolating all services also isolates later mounts: USB, eMMC resources and
+shutdown visibility must be checked before adopting it for service startup.
+Mount isolation is not a sandbox for root code and does not make ordinary writes
+inside the namespace temporary.
+
+The [probe source and checks](https://github.com/aeharding/open-connect/tree/main/experiments/boot-selection)
+are public; exact private evidence is `runs/combined-startup/namespace-result.json`.
+
+### Normal persistent writes
+
+Mazda already writes persistent settings and crash archives. Its `log-save.sh`
+first builds an archive in `/tmp`, then moves it to `/data_persist/log/saved_logs`
+and updates a counter. For Open Connect, keep frequent measurements in bounded
+RAM-backed `/tmp/oc-*` files or stream them to the host; persist configuration
+and recovery state when it changes. `/tmp/mnt/data_persist` is a persistent
+mount despite its `/tmp` prefix.
+
+The [kernel tmpfs documentation](https://docs.kernel.org/filesystems/tmpfs.html)
+explains the memory-backed filesystem. Our successful flush/power tests above
+do not establish a write-endurance budget or safety during interrupted writes.

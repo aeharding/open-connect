@@ -50,6 +50,7 @@ jobs:
         run: |
           python -m unittest discover -s experiments/boot-selection -v
           python experiments/boot-selection/build_flush.py --output runs/selector-ci
+          python experiments/boot-selection/build_namespace.py --output runs/namespace-ci
       - name: Installed CLI outside checkout
         shell: bash
         run: |

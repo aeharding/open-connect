@@ -10,6 +10,9 @@ The supported bench firmware is **55.00.750B North America**.
 
 ## Start here
 
+**[Read the documentation](https://aeharding.github.io/open-connect/)** — bench
+wiring, development guides and CMU reverse engineering.
+
 - **Build a bench:** [power, display and UART wiring](docs/bench-setup.md).
 - **Use a connected bench:** [CLI commands](docs/cli.md).
 - **Change the code:** install the host tools and run the offline tests below.
@@ -35,7 +38,7 @@ Prototype-specific checks are separate and may need private OEM inputs.
 | [cmu/adapters/](cmu/adapters/) | Firmware-specific target integration; currently a host-built native loader probe | CMU when explicitly installed; no automatic deployment |
 | [tests/](tests/) | Offline tests for that host package | Your computer; fake transport or local PTYs |
 | [experiments/](experiments/) | Prototype mods, builders and bench trials; see its index before running anything | Builders run on the host; generated payloads may change the CMU |
-| [docs/](docs/README.md) | Setup, usage and Mazda findings | Documentation |
+| [docs/](docs/index.md) | Setup, usage and Mazda findings | Documentation |
 
 There is no automatic deployment step. Installing the Python package installs
 **only host tools**. Product patches are still experiments, not bundled into the CLI.

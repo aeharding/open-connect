@@ -23,7 +23,8 @@ ask the user to press buttons, dismiss dialogs or rewire things to complete agen
 - cmu/: target integration code; loader probe is not installed or bench-qualified.
 - tests/: maintained host tests, including the semantic CLI and bench profile.
 - experiments/: prototype mods and trial tooling; generated payloads may affect the CMU.
-- docs/: setup, usage and concise findings. Use Git for historical records.
+- docs/: Markdown sources for the GitHub Pages site: setup, usage and CMU findings.
+  Navigation and site settings are in zensical.toml. Use Git for historical records.
 - GitHub issues/PRs: work queue and review. No separate progress-dashboard requirement.
 
 Use the installed oc command or python -m open_connect. Low-level UART operations

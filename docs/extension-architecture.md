@@ -242,7 +242,7 @@ must have independent original-file undo. No firmware downgrade/brick-proof clai
 
 ## Loader-probe findings
 
-The existing [native probe](../experiments/optional-loader/README.md) adds a
+The existing [native probe](https://github.com/aeharding/open-connect/blob/main/experiments/optional-loader/README.md) adds a
 104-byte optional load at the end of mmuiLoadUias in svcjcimmui.so. Host checks
 passed; no runtime installation occurred. Missing library/symbol returns to the
 OEM path, but constructors execute before dlopen returns and crashes/hangs are

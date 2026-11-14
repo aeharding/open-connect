@@ -1,0 +1,61 @@
+[project]
+site_name = "Mazda Open Connect"
+site_description = "Development guides and reverse-engineering knowledge for first-generation Mazda Connect."
+site_url = "https://aeharding.github.io/open-connect/"
+repo_url = "https://github.com/aeharding/open-connect"
+repo_name = "aeharding/open-connect"
+edit_uri = "edit/main/docs/"
+docs_dir = "docs"
+site_dir = "site"
+copyright = "Open Connect contributors · AGPL-3.0-or-later"
+exclude_docs = "/bench-state.txt"
+nav = [
+  { "Start here" = [
+    { "Overview" = "index.md" },
+    { "Wire a bench" = "bench-setup.md" },
+    { "Use the CLI" = "cli.md" },
+  ] },
+  { "Development" = [
+    { "Contribute" = "development.md" },
+    { "Architecture" = "extension-architecture.md" },
+    { "Uninstall design" = "uninstall.md" },
+    { "Edit these docs" = "documentation.md" },
+  ] },
+  { "CMU reverse engineering" = [
+    { "System overview" = "cmu/index.md" },
+    { "Findings" = "reverse-engineering.md" },
+  ] },
+]
+
+[project.theme]
+variant = "modern"
+language = "en"
+font = false
+features = [
+  "navigation.tabs",
+  "navigation.sections",
+  "navigation.indexes",
+  "navigation.top",
+  "navigation.footer",
+  "content.action.edit",
+  "content.code.copy",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "indigo"
+accent = "red"
+toggle.icon = "material/brightness-7"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "indigo"
+accent = "red"
+toggle.icon = "material/brightness-4"
+toggle.name = "Switch to light mode"
+
+[project.validation]
+invalid_links = true
+invalid_link_anchors = true

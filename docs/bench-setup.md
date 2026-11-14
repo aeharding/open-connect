@@ -32,7 +32,7 @@ hide:
 <tr><th scope="row">12 V supply</th><td><a href="https://www.fnirsi.com/products/dps-150">FNIRSI DPS-150</a> + suitable input power source</td></tr>
 <tr><th scope="row">USB UART</th><td><a href="https://www.sparkfun.com/sparkfun-ftdi-basic-breakout-3-3v.html">SparkFun FTDI Basic 3.3 V · DEV-09873</a> + Mini-B data cable</td></tr>
 <tr><th scope="row">ACC control</th><td>Manual switch, or <a href="https://robiz.net/en-gb/rmt/lcus1channeltypec">USB-C LCUS-1 relay</a> + data cable</td></tr>
-<tr><th scope="row">Wiring tools</th><td>Inline fuse/holder, wire, insulated connectors, crimper and multimeter</td></tr>
+<tr><th scope="row">Wiring tools</th><td>Inline fuse/holder, wire, insulated connectors, crimper, multimeter and optional terminal-release / depinning tool set</td></tr>
 <tr><th scope="row">Computer</th><td>Linux or macOS; USB ports for UART and optional power controls</td></tr>
 </tbody></table>
 <p>Use only UART TX, RX and GND. Keep the SparkFun board at 3.3 V; its power and handshake pins stay disconnected.</p>

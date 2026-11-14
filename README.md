@@ -1,7 +1,9 @@
 # Mazda Open Connect
 
-Make first-generation Mazda Connect feel factory-original, work more reliably,
-and be easy to maintain. First feature: a clean startup disclaimer bypass.
+Improve first-generation Mazda Connect while preserving Mazda's look and feel:
+startup behavior, unused services, logging/performance, controls and connectivity.
+The first experiment is a clean disclaimer bypass; the
+[architecture](docs/extension-architecture.md) covers the broader feature scope.
 
 **Development project, not an end-user installer.**
 The supported bench firmware is **55.00.750B North America**.

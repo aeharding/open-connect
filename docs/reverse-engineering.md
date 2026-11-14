@@ -62,21 +62,41 @@ and native initialization rather than suppressing or spoofing the heartbeat.
 
 ## Optional extension loading
 
-Saved firmware55 code has both native UIA dynamic loading and GUI script loading.
-Those mechanisms are not yet a verified optional-mod contract. The current native
-feature library lacks dlopen/dlsym imports, and its paired renderer dependency
-requires coordinated readiness before activation. See the
-[source-backed architecture and disable plan](extension-architecture.md), which
-separates an installed bootstrap, optional code, disabled startup and full recovery.
-No new loader or disable mechanism has been tested on the CMU.
+The [architecture proposal](extension-architecture.md) now covers service and
+configuration selection as well as optional code. No early selector or disable
+mechanism has been tested on the CMU. Current source findings:
 
-The FW55 loader trace identifies an existing /data/integration/developer_mode_GuiConfig.js
-renderer slot and a post-UIA native hook. See [loader-probe findings](extension-architecture.md#loader-probe-findings)
-for ordering, source identities and limits. The no-op native probe is host-built only;
-trial control, paired readiness and disabled startup remain unproved.
+- index.html:33 loads ../../data/integration/developer_mode_GuiConfig.js before
+  Utility/BaseApp/GuiFramework and framework.init(). It resolves to /data/integration,
+  whose parent was mode 0777; the script was absent. Utility.js:66–94 handles script
+  onload only, not onerror. This is a candidate bootstrap slot, not readiness proof.
+- sm.conf:145–169 starts MMUI and Opera through separate dependency sets. Current
+  /data resolves to /tmp/mnt/data on /dev/ffx01p4; data_persist is separate.
+  Current availability does not establish availability at an earlier boot hook.
+- svcjcimmui.so constructs UIA priority/context records before invoking loaders
+  (0x2e08–0x2f50). It is not a neutral plugin registry. The host-built
+  [probe](../experiments/optional-loader/README.md) hooks its final return at
+  0x31ac, before ServiceInit calls AppsLoadingFinish at 0x1914. This cannot select
+  services that have already started.
+- Websockets.js:507–551 constructs/sends events on an open MMUI socket.
+  libjciguiifm.so:0x4d64–0x4d7c resolves the UIA name and passes the complete JSON
+  object to ProcessEventJSON (0x4584). That walks UIA records and calls the event
+  callback at offset 12. getGuiifmCallbackLLHead is at 0x40dc; Register at 0x40e8
+  refuses an existing ID. No new callback or GUI message has been exercised.
+- sm.conf:67–74 makes Wi-Fi and voice startup stages depend on blm_ira_aha;
+  start_wifi:526–528 in turn depends on stage_wifi. Pandora, Stitcher and Aha
+  declarations are at 414–437; TV at 519–523. A service-removal plan must resolve
+  retained consumers and startup dependencies, not simply remove declarations.
 
-The [readiness trace](extension-architecture.md#nativerenderer-readiness-boundary)
-shows that the existing GUI WebSocket delivers complete event objects to a native
-per-UIA callback. A System callback adapter is a candidate for coordinating the
-pair without another daemon. Its installation timing and renderer startup contract
-remain unproved; no new callback or message was exercised on the bench.
+Private exact sources, checksums, before/after identities and saved disassembly:
+runs/runtime-boundary-research/*-result.json and guiifm-disassembly.txt.
+The relevant source SHA256 values are:
+sm.conf 52dac9b051ab02a07afdc7bdfac56402420f8230901b5a55a76a7e9c44fb2e08;
+index.html b0e116b941f29078ced19b864a1b888cf76d8bc3e4974af081efca4693e5c420;
+Utility.js eff9e63497fbd0f90d5dc9e2d9403c93fc6171cc71f70319462686a423fea791;
+Websockets.js 090486339f83b40d9758faf867f3984e14e659df574fa702033a60d49406c973;
+GuiConfig.js 165ef686e419dd562868ac1be206cb2a7bcd6d52ef976578c3246cbc982976e0;
+libjciguiifm.so d438121db2d3fa5f75dc9b40f5eb6d54b607ac348cfd490f3ed750621572be09.
+Plugin source pins and build reproduction are in the probe README.
+Captures were read-only with known completion and closed ports; no OEM write or
+reboot occurred. Source ordering is not proof of runtime fallback or cold startup.

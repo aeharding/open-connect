@@ -3,6 +3,7 @@
 - [Build a bench](bench-setup.md): parts, power, display and UART.
 - [Use the CLI](cli.md): connect and operate the development profile.
 - [Mazda findings](reverse-engineering.md): what we learned and the supporting records.
+- [Architecture and feature scope](extension-architecture.md): proposed boot selection, adapters and recovery.
 - [Uninstall behavior](uninstall.md): planned product semantics.
 - [Current lab state](bench-state.txt): the project's particular device, not a setup recipe.
 

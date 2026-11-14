@@ -9,10 +9,12 @@ refined as experiments change the evidence; dates are not promised.
 **Make Mazda Connect feel factory-original, work more reliably, and be easy to
 maintain—with optional improvements people can install and undo.**
 
-First deliver one useful feature through the complete maintenance lifecycle.
-Then use measured startup/connection failures to choose reliability improvements.
-The bench and reverse-engineering notes serve those outcomes; neither a large
-feature catalog nor a perfect automation platform is a prerequisite.
+The intended feature scope spans Miatafy/ScreenTune-style startup, service,
+logging/performance, input and connectivity improvements while retaining OEM
+appearance. The first release remains small, but its architecture must cover
+those different execution points rather than only the disclaimer's UI process.
+See the [feature map and architecture](docs/extension-architecture.md#product-scope).
+The bench and reverse engineering serve this product, not a separate platform.
 
 ## Support contract
 
@@ -41,13 +43,15 @@ A developer preview is not a general end-user car release.
 
 ## Execution order now
 
-**Architecture research before another feature rewrite:** [#25](https://github.com/aeharding/open-connect/issues/25)
-plans a small optional-code boundary: disable for the next startup without restoring
-OEM files, while retaining independent uninstall/recovery. See
-[extension architecture](docs/extension-architecture.md). Next is a narrow loader
-proof, then a no-op module/off-path experiment; no runtime implementation is
-authorized by this research result. The tooling/cmu layout moves with real component
-work. Persistent autoload and a general plugin framework are not prerequisites.
+**Whole-startup architecture before another loader increment:** [#25](https://github.com/aeharding/open-connect/issues/25)
+now covers service/configuration features as well as optional native/JS code.
+The current MMUI loader is host-built only and cannot select earlier service
+startup. Next: establish a practical boundary before affected consumers, then
+prove baseline versus one composed trial. Validate one service change, one logging
+setting and the existing paired bypass against the same global-disable contract.
+See [the revised proposal](docs/extension-architecture.md#next-proof-and-implementation-order).
+Persistent mode needs explicit health/failure semantics; no automatic-recovery
+claim follows from installing a loader. No new general plugin framework is needed.
 
 1. **#1, first increment delivered:** one `oc bench setup/status/teardown`
    manages the whole current runtime profile. Host and command-only agent checks,

@@ -205,3 +205,49 @@ commands were used; the existing comparison JS remained installed.
 Private evidence: `runs/attempt-budget/result.json`, three closed video/observer
 bundles, confirmation and independent undo. A host import refusal before opening
 UART is preserved separately.
+
+
+## Select the paired disclaimer feature
+
+One corrected bench trial ran the native bypass and JS cleanup together:
+`IntroAnimation → HomeScreen`, then intro disposal. The following baseline boot
+omitted both selected components without restoring feature files. Independent
+autostart undo/hold cleanup closed the trial. This is selection evidence, not a
+new performance or no-flash claim. Private evidence: `runs/selected-feature-v2/result.json`.
+The first trial's path-truncation failure and explicit baseline recovery remain
+separate in `runs/selected-feature/result.json`.
+
+`feature.py` builds this one-shot configuration for the independently
+implemented [native/JS handoff](../intro-handoff/README.md). First run that
+experiment's `check.py` with private originals to produce a passing pair directory.
+
+The selected MMUI plugin reads a generated XML file that points its system UIA
+at `uia.so`. A selected GUI index routes only `systemApp.js` to its companion.
+Other apps and resources keep their OEM paths. Neither installed feature file
+is replaced; the only root integration is the existing early selector.
+
+~~~sh
+python experiments/boot-selection/feature.py \
+  --original /private/firmware/usr/bin/autostart \
+  --config /private/firmware/jci/sm/sm.conf \
+  --flush runs/selector-build/flush-arm \
+  --plugin /private/firmware/jci/mmui/svcjcimmui.so \
+  --mmui-xml /private/firmware/jci/mmui/mmui_config.xml \
+  --index /private/firmware/jci/gui/index.html \
+  --pair runs/paired-feature-check \
+  --directory /tmp/mnt/data_persist/oc-boot-0123456789abcdef0123456789abcdef \
+  --output runs/selected-feature-payload
+~~~
+
+Use a fresh nonce for a real installation. This command only builds files; it
+does not install or reboot. The copied plugin changes its configuration filename
+and the containing ELF segment size, without adding executable instructions.
+Mazda's `libpath` and `lib` fields each accept 49 bytes; splitting the generation
+parent and relative `oc-boot-<nonce>/uia.so` path avoids truncation.
+
+Public checks run with the normal test command above. To also test exact OEM
+loader fields and the real GUI dispatcher, set `OC_FEATURE_INPUTS` to a private
+JSON file containing absolute paths named `plugin`, `mmui_xml`, `index`,
+`utility`, `framework` and `pair`. The last three are the original
+`Utility.js`, `GuiFramework.js` and the passing pair directory. Missing private
+inputs are reported as skipped checks.

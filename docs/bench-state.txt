@@ -14,17 +14,28 @@ Installed:
 - Original /usr/bin/autostart restored and independently verified:
   64785:7113:1380015098:3039:775:1018:3015:1. No trial hook installed.
 - silent-ui-v1 runtime bench profile ON/active/owned after the final boot.
-  Receipt .bench-state/profile.json; runs/attempt-budget/bench-ready.
+  Receipt .bench-state/profile.json; runs/selected-feature-v2/bench-ready.
   It expires on reboot/service replacement; no persistent audio hook.
 
-Latest verified boot: 78689994-8804-49e1-8424-e4094ef6f708
+Latest verified boot: cf2ea20c-6731-4d6d-89c4-1fe7fb75f5ae
 Running SM used /jci/sm/sm.conf; Opera used /jci/gui/index.html.
-Latest budget-fallback video shows Communication Home; bench profile was
+Latest selected-feature baseline video shows Communication Home; bench profile was
 re-enabled afterward. Existing comparison remains installed.
 Original autostart was independently restored/verified after this boot; no extra
 boot was performed after removing the shell hook.
 
 Closed experiments:
+- runs/selected-feature-v2/result.json: real native bypass and JS cleanup selected
+  together, then baseline omitted both without feature-file restoration. Exact
+  mappings, actual JS execution, IntroAnimation->HomeScreen and post-display
+  intro disposal passed. Both Home videos verified. Independent autostart undo,
+  hold cleanup, rootRO and bench-profile setup passed; all handles closed.
+  Spent generation: /tmp/mnt/data_persist/oc-boot-9d483d7db90189aba2f330f0eaa8f792.
+  No power/ACC commands. No new timing/no-flash claim.
+- runs/selected-feature/result.json: first feature trial failed because OEM XML
+  libpath truncated at 49 bytes. System UIA was absent while MMUI stayed alive;
+  explicit normal recovery boot and independent autostart undo/cleanup passed.
+  Original UNKNOWN preserved. Corrected v2 uses parent/relative path fields.
 - runs/attempt-budget/result.json: two selected startups using a two-attempt
   ledger; explicit confirmation kept the first charge. One late MMUI SIGSEGV
   caused Mazda's reset and a baseline boot with all four effects omitted.

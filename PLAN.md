@@ -59,8 +59,12 @@ the temporary startup hook was independently removed afterward.
 A finite two-attempt prototype now passed two selected startups and a late MMUI
 fault: confirmation did not refund attempts, and the reset selected baseline
 with all four effects omitted. The limit is a test parameter, not product policy.
-Next: qualify automatic renewal/health policy and one useful feature through
-these adapters. The code markers are not yet a shipping feature.
+A useful native/JS bypass now ran through selected configurations, followed by
+baseline omission without restoring installed feature files. The first attempt
+also exposed a partial-startup failure: a truncated library path left MMUI alive
+without its system UIA. Next: a bounded health check outside optional code,
+then automatic renewal when physical ACC control is available. Explicit trials
+can support feature development now; production retry/health policy remains open.
 A private file view remains an option, but this composition used OEM environment
 and launch settings without a whole-service mount namespace.
 The bootloader reports the same reset word for a tested normal reboot and

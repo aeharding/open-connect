@@ -1,9 +1,10 @@
 # Architecture direction
 
 **Working proposal, backed by composition and fault tests on 55.00.750B NA.**
-Service policy, logging and native/JS code now worked under one selection.
-One-shot fallback also worked after an MMUI crash and a deliberate JS hang.
-A finite attempt budget now passed a late-fault test; automatic renewal remains open.
+Service policy, logging and native/JS code worked under one selection.
+A real native/JS feature now ran from selected files, then was omitted on the
+next boot without restoring installed feature files. Fault tests support finite
+fallback; partial-startup health detection and automatic renewal remain open.
 
 ## The idea
 
@@ -67,12 +68,15 @@ The prototype charges every selected boot. Its **two-attempt limit is a test
 parameter, not the product policy**. An explicit maintenance operation can renew
 a confirmed generation's budget; its stale-command checks have host coverage.
 Automatic renewal still needs a proven event, such as a real ACC cycle. A cached
-ACC value is insufficient. This cannot rescue a broken kernel, baseline or bootstrap.
+ACC value is insufficient. A partial startup can leave processes alive without a
+working UI: fallback chooses the next boot, but does not itself cause that boot.
+This cannot rescue a broken kernel, baseline or bootstrap.
 
 ## Evidence so far
 
 | Test | Result |
 | --- | --- |
+| Paired disclaimer feature | Selected native bypass and JS cleanup ran together; next boot omitted both without feature-file restoration |
 | Combined service/logging/native/JS trial | All four effects selected; following baseline omitted all four |
 | Two ordinary warm boots | Trial selected once; baseline selected next |
 | Native MMUI process crash | Mazda watchdog reset; baseline selected next |
@@ -93,13 +97,12 @@ explain the evidence and limits.
 
 ## Next proof
 
-Qualify **when attempts may be renewed automatically** without allowing a late
-crash loop. Trace and test actual ACC transitions when control is available.
-The finite ledger is now demonstrated; production retry counts, false-fallback
-behavior and interrupted writes remain open. Keep explicit developer trials
-while that policy is unproved.
+- **Health:** detect incomplete initialization outside the optional component.
+  A failed library load left MMUI alive; process existence alone was insufficient.
+- **Renewal:** test actual ACC OFF → ON before allowing automatic retries.
+  This physical test is deferred until controlled ACC is available.
+- **Durability:** qualify interrupted record updates, beyond completed-flush cuts.
 
-Then exercise a useful feature through the qualified adapters. Native/JS markers
-prove entry and baseline omission; they do not yet constitute that feature.
-Use Mazda's own configuration mechanisms where they fit. Track the work in
-[#25](https://github.com/aeharding/open-connect/issues/25).
+Continue useful feature development with explicit trials while those production
+policies remain open. No general plugin framework is needed.
+Track the work in [#25](https://github.com/aeharding/open-connect/issues/25).

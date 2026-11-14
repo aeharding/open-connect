@@ -46,7 +46,7 @@ jobs:
         env:
           OC_LLD: /usr/bin/ld.lld
         run: python -m unittest discover -s experiments/optional-loader -v
-      - name: One-shot selector (host checks and ARM build only)
+      - name: Boot selection (host checks and ARM build only)
         run: |
           python -m unittest discover -s experiments/boot-selection -v
           python experiments/boot-selection/build_flush.py --output runs/selector-ci

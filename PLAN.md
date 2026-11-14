@@ -56,15 +56,18 @@ One combined selected/baseline pair now passed: Stitcher startup policy, native
 logging override, native entry and JS entry were selected together, then omitted
 on the next boot without restoring their prepared files. Both reached Home;
 the temporary startup hook was independently removed afterward.
-Next: qualify persistent attempt/health policy and one useful feature through
+A finite two-attempt prototype now passed two selected startups and a late MMUI
+fault: confirmation did not refund attempts, and the reset selected baseline
+with all four effects omitted. The limit is a test parameter, not product policy.
+Next: qualify automatic renewal/health policy and one useful feature through
 these adapters. The code markers are not yet a shipping feature.
 A private file view remains an option, but this composition used OEM environment
 and launch settings without a whole-service mount namespace.
 The bootloader reports the same reset word for a tested normal reboot and
 MMUI-fault/watchdog reset. Shutdown notifications precede the actual shutdown.
 Persistent retry policy therefore needs a separately qualified rearm event,
-such as a real ACC cycle or explicit maintenance action; neither is implemented
-by the current one-shot selector.
+such as a real ACC cycle. Explicit maintenance renewal now has a host-tested
+prototype; automatic ACC renewal remains unimplemented.
 See [the revised proposal](docs/extension-architecture.md#next-proof).
 Persistent mode needs explicit health/failure semantics; no automatic-recovery
 claim follows from installing a loader. No new general plugin framework is needed.

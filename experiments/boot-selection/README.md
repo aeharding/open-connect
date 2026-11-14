@@ -1,4 +1,4 @@
-# One-shot boot selection experiment
+# Boot selection experiments
 
 **Firmware 55.00.750B NA. Bench prototype, not an installer.**
 
@@ -9,7 +9,8 @@ changed or spent control keeps Mazda's original configuration.
 
 The parent invokes the selector directly with a five-second timeout and redirects
 output. It does not wait on a pipe that a surviving descendant could hold open.
-There is no rearming, health policy, optional feature or watchdog modification.
+The original one-shot selector has no rearming or health policy. The finite-budget
+adaptation below adds explicit confirmation/renewal; neither changes Mazda's watchdog.
 
 ## Result
 
@@ -166,3 +167,41 @@ Private actual evidence: `runs/composed-generation/result.json`, including both
 closed observer/video bundles, fresh identities, original-file undo and cleanup.
 The initial host timeout/partial-input refusal remains separately recorded;
 it happened before publication and was reconciled before completing preparation.
+
+## Finite attempt budget
+
+`budget.py` adapts a fresh composed payload. `budget.sh.in` is the target policy;
+the original one-shot files remain unchanged.
+
+~~~sh
+python experiments/boot-selection/budget.py \
+  --source runs/composed-payload --output runs/budget-payload --attempts 2
+~~~
+
+This builds only. Two is an experiment parameter, not a production default.
+
+- Default `STATUS` reads only. The startup hook explicitly calls `SELECT`.
+- A new generation gets one startup until `CONFIRM`; confirmation never refunds
+  the reserved attempt. Every selected boot spends an attempt before effects.
+- `RENEW` is explicit maintenance for a confirmed generation. It requires the
+  generation, expected epoch and current boot, increments the epoch and prevents
+  another selection in that same boot. There is no ACC listener or automatic renewal.
+- Mutations use one exclusive lock, exact records and checked file/directory
+  flushes. An interrupted mutation can leave a lock requiring administrative
+  recovery. The checksum detects content changes, not rollback to an old valid record.
+
+Eight host checks cover real shell/file operations, competing calls, stale
+commands, failed flushes, changed dependencies and late-fault exhaustion.
+
+The actual three-boot test on firmware55 passed: first selection used one attempt;
+explicit confirmation kept that charge; the second selection reached Home with
+both attempts spent. One identity-checked MMUI SIGSEGV then caused Mazda's reset,
+and the exhausted record selected baseline with all four effects omitted.
+Independent undo restored original autostart and removed its holds.
+
+This is one external process fault after readiness, not an optional-code defect
+or interrupted-write durability test. Renewal has host coverage only. No supply
+commands were used; the existing comparison JS remained installed.
+Private evidence: `runs/attempt-budget/result.json`, three closed video/observer
+bundles, confirmation and independent undo. A host import refusal before opening
+UART is preserved separately.

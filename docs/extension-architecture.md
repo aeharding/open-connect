@@ -1,8 +1,8 @@
 # Architecture direction
 
-**Working proposal.** A one-shot selector has passed two warm boots on
-**55.00.750B North America**. Crash recovery and persistent feature policy
-remain unqualified.
+**Working proposal, now backed by fault tests on 55.00.750B North America.**
+One-shot fallback worked after an MMUI crash and a deliberate JS hang.
+Persistent feature policy remains to be designed.
 
 ## The idea
 
@@ -53,22 +53,28 @@ This cannot rescue a broken kernel, baseline or bootstrap.
 
 ## Evidence so far
 
-A small prototype ran in **/usr/bin/autostart**, before normal-mode setup, the
-Logger and Service Manager. First boot selected an unchanged copy of Mazda's
-configuration after consuming its trial record. The next boot automatically used
-Mazda's original configuration. Independent undo then removed the hook.
+| Test | Result |
+| --- | --- |
+| Two ordinary warm boots | Trial selected once; baseline selected next |
+| Native MMUI process crash | Mazda watchdog reset; baseline selected next |
+| Trial-only JS event-loop hang | Mazda closed Opera after missed heartbeats, then reset; original entry page returned |
+| Full power cut after a flushed record | Consumed record survived; voltage setting unchanged |
 
-This proves a narrow selection/fallback path, not watchdog or power-loss recovery.
-The existing bench modifications stayed unchanged.
+The JS result needed Mazda's saved crash log plus fresh postboot checks: serial
+logging lagged behind the reset. The original observer's incomplete result remains
+unchanged. The power test was after a completed write in normal runtime, **not**
+during early selection. Each fault/power case was tried once.
+
+All trial hooks were removed. Existing bench modifications remained.
 [CMU findings](reverse-engineering.md#startup-selection-and-reset-evidence)
-hold the supporting evidence and limitations.
+explain the evidence and limits.
 
 ## Next proof
 
-Exercise controlled JS and native failures through a consumed trial, observing
-Mazda's actual fault handling and the following baseline boot. Then qualify a
-service setting, logging setting and code feature through the same boundary.
+Test interruption at the early commit boundary, then select a useful combination
+of service policy, logging and optional code through the same mechanism.
+Verify that baseline selection omits the whole combination.
 
-The result should decide the architecture. Track the experiment in
-[#25](https://github.com/aeharding/open-connect/issues/25); expand the design only
-when implementation exposes a concrete need.
+Keep one-shot trials while learning. Persistent mode still needs a finite retry
+policy that does not mistake every Mazda crash or battery loss for a bad feature.
+Track the work in [#25](https://github.com/aeharding/open-connect/issues/25).

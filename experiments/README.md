@@ -7,7 +7,7 @@ Nothing here is deployed by pip install or by importing open_connect.
 
 | Directory | What it contains | Deployment boundary |
 | --- | --- | --- |
-| [boot-selection](boot-selection/) | One-shot early configuration selector and checked flush helper | Two warm boots verified selection then baseline; not an installer |
+| [boot-selection](boot-selection/) | One-shot early configuration selector and checked flush helper | Warm boots and controlled faults verified one-shot fallback; not an installer |
 | [optional-loader](optional-loader/) | Native loader probe and public checks | Host build only; target adapter under cmu/; no live profile |
 | [disclaimer-native](disclaimer-native/) | ARM C bypass and host ELF patch builder | native.c is compiled into a CMU library candidate; Python stays on the host |
 | [intro-handoff](intro-handoff/) | Paired GUI completion hook and host trial runner | Generated JavaScript modifies systemApp.js; Python stays on the host |

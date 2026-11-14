@@ -104,65 +104,78 @@ reboot occurred. Source ordering is not proof of runtime fallback or cold startu
 
 ## Startup selection and reset evidence
 
-The [one-shot selector prototype](https://github.com/aeharding/open-connect/tree/main/experiments/boot-selection)
-passed two warm boots: a checked, consumed trial selected an unchanged copy of
-sm.conf; the next boot selected the OEM path without rearming. Both running SM
-command lines and fresh boot identities were verified, with physical root RO.
-The hook was then removed using independent undo. Existing comparison JS and
-original native code stayed unchanged; this was not an entirely stock-unit test.
+The [one-shot selector](https://github.com/aeharding/open-connect/tree/main/experiments/boot-selection)
+runs in /usr/bin/autostart before normal-mode setup, the Logger and Service
+Manager (SM). It consumes and flushes a trial record before choosing a fixed
+configuration. A spent record selects Mazda's original service configuration.
 
-The source-backed insertion point is before the **normal-mode service startup**:
+| Actual bench test | Observed result | Limit |
+| --- | --- | --- |
+| Two ordinary warm boots | Trial configuration once, OEM configuration next; running SM arguments verified | Selection proof, not a feature-health policy |
+| SIGSEGV to one identity-checked MMUI process | SM stopped feeding the watchdog; automatic reset booted the baseline configuration | External process fault, not a bug in a modified library |
+| Trial-only JS infinite loop | Native GUI Manager closed Opera after missing heartbeats; watchdog reset returned to the original entry page | Reconciled from the saved crash archive and fresh target checks; original serial observer stayed incomplete |
+| Supply output off/on after a flushed consumed record | Record survived; fresh root access and read-only root returned | One completed write in normal runtime, not a cut during early selection or rename/fsync |
 
-- /usr/bin/autostart:65–69 sources start_normal_mode.sh, launches the Logger, then
-  runs SM with an explicit configuration argument. Selection immediately before
-  line 67 can precede all three. The existing normal/test/RF branches must retain
-  their meanings; stock test mode is not Open Connect safe mode.
-- init_cmu's startup graph calls the data_persist mount before autostart:
-  mount record 0x24a70 → autostart record 0x24bb0, following the same execution
-  chain. The mount handler at 0xb1a8 calls mount; fluxProcess at 0xc450 advances
-  through the chain. This proves ordering of the **attempt**, not mount success.
-  Inspect the actual mount/device and owned files before consuming persistent
-  control. Missing storage must select baseline without waiting indefinitely.
-- start_normal_mode.sh:49–50 launches /data_persist/dev/bin/autorun **in the
-  background**. Its completion is not ordered before the Logger or SM. It is not
-  a suitable hook for selecting their configuration. stage_1.sh is only an empty
-  shell script and, as an SM service, is too late to choose SM's graph.
+These tests retained the existing comparison JS and original native library.
+“Baseline” here means the pre-existing bench configuration, not an entirely stock
+unit. Independent undo removed the startup hook after the warm-boot and native
+and JS crash trials. The power-cut test ran with the hook already removed.
 
-The actual SM distinguishes stopping watchdog feeding from disabling the watchdog.
-A critical-service exit reaches SMHEALTH_StopWatchdog at 0x1bb28; its notice goes
-to /dev/console (0x27e2c–0x27e34), then SM_WD_Stop calls stopFeeding at 0x311cc.
-This is compiled fault behavior, not a fault we induced.
+The actual power interruption was **6.964 seconds between output requests**.
+The DPS150's voltage/current settings were identical before and after; no
+voltage-setting command was sent. This tests full supply loss, not ACC behavior.
 
-sm.conf:11–19 configures fault reports, including log-save.sh and sync.
-log-save.sh:13/97/127 archives running logs into /data_persist/log/saved_logs.
-Those archives may explain a failure, but absence is not evidence of a clean
-power loss: capture can fail or be interrupted, and archives are rotated.
-The inspected kernel messages, standard watchdog status files and filtered NV
-key names supplied no usable reset cause. This is a bounded negative result,
-not proof that the hardware exposes none.
+### What causes a reset?
 
-Neither generic SM completion nor the init shutdown handler is a clean-end
-classifier. Both sm_stop and sm_forceStop flush the event log and post the same
-shutdown semaphore (0x6dd60 / 0x6d508). No verified power-loss/normal-end classifier
-was found. A health event, shutdown callback or missing crash log must therefore
-not replenish the proposed retry budget.
+A critical MMUI exit produced SM's reset_board=yes notice and watchdog-feeding
+stop, followed by a new kernel boot. Opera also exited in that sequence.
+This matches the compiled path through SMHEALTH_StopWatchdog (0x1bb28) and
+SM_WD_Stop/stopFeeding (0x311cc). It does not disable or replace the watchdog.
 
-Host checks cover corrupt/missing control, failed flushes and timeout. Actual
-RelFS file and directory fsync calls returned zero, but power-loss durability is
-unproved. The parent uses direct invocation with output redirected, so a surviving
-child cannot hold startup open through an inherited stdout pipe. Uninterruptible
-kernel I/O remains outside that timeout guarantee.
+JavaScript exceptions and a stuck event loop are different failure modes.
+The framework catches several callback exceptions and continues. In the hang
+trial, a copied entry document kept Mazda's framework but scheduled an infinite
+loop. The saved log records the hang marker at uptime 48.942 s, then
+OnHeartbeatMissed at 58.490 s: no JS heartbeat for ten seconds, so close Opera.
+SM detected Opera's exit at 59.691 s and stopped watchdog feeding.
 
-**Next proof:** controlled JS/native failures and the following baseline boot.
-No crash, watchdog reset or cold/ACC transition was induced in this experiment.
-Current prototype and private evidence: experiments/boot-selection/,
-runs/early-selector/result.json and runs/boot-selector-flush/result.json.
-See [the implementation order](extension-architecture.md#next-proof).
+Serial logging was still draining messages from uptime 26 s when the reset
+occurred. The observer therefore missed the hang marker and stopped as unknown.
+The exact saved crash archive supplied that marker and heartbeat failure; a
+separate fresh login verified baseline SM arguments, the OEM Opera entry path,
+spent control and read-only root. This is a reconciled result, not an uninterrupted
+automated pass. An earlier probe hit Mazda's .js-only log-stack parser before
+scheduling the hang; that failed injection remains recorded.
 
-Private captures and derived addresses: runs/startup-recovery-research/result.json
-and supporting-slices.txt. Those read-only captures have exact before/after identity, byte count,
-MD5 and CRC agreement; all capture ports closed. That source-acquisition phase
-performed no device write, reset, signal or watchdog operation. Source SHA256 values:
+### Implications for recovery
+
+- **Select early.** init_cmu attempts the data_persist mount before autostart;
+  still verify the actual mount. /data_persist/dev/bin/autorun is backgrounded
+  inside start_normal_mode.sh and cannot reliably choose SM's configuration.
+- **Consume before effects.** Missing, invalid or spent control must select
+  baseline. An observed ready screen must not automatically replenish attempts:
+  faults can happen later.
+- **Do not guess reset causes.** Saved crash logs can help diagnose a failure, but
+  missing logs do not prove battery loss. No reliable reset-cause or clean-end
+  classifier has been established.
+- **Bound bootstrap work.** The parent uses a five-second timeout without an
+  inherited stdout pipe. Host tests cover invalid control, failed flushes and a
+  surviving child. Uninterruptible filesystem I/O remains outside that guarantee.
+
+Still open: interrupted early-boot writes, repeated power cuts, ACC/resume,
+persistent retry/health policy, and service/logging/native features selected
+through this same boundary. These results do not establish recovery from a
+broken baseline, kernel or selector.
+
+Private evidence: runs/early-selector/result.json,
+runs/native-fault-trial/result.json, runs/js-hang-trial-v2/result.json,
+runs/power-cut-trial/result.json and
+runs/boot-selector-flush/result.json. Failed attempts and raw captures remain
+unchanged. The [architecture direction](extension-architecture.md) describes the
+next decision.
+
+Source evidence is retained in runs/startup-recovery-research/result.json and
+supporting-slices.txt. Exact source SHA256:
 
 | Source | SHA256 |
 | --- | --- |
@@ -170,4 +183,4 @@ performed no device write, reset, signal or watchdog operation. Source SHA256 va
 | start_normal_mode.sh | 6a020f2b9a92406510519820cfdee004fd4b9ef41a0ab212eb2727ffe8db80a2 |
 | sm | cd1104d9b0a28dcce361520de203c1180b2e6f81d939c4223a369fd66a055f0c |
 | log-save.sh | a1beb68337f7c4e334b2510f0c9ad6992acebb8a7533a4022b0fbb6678428c62 |
-| init_cmu (previous capture) | a5c3b821236f3993b15021a80130df4e33b359beb7722a8a6a6fa9a74cf455bb |
+| init_cmu | a5c3b821236f3993b15021a80130df4e33b359beb7722a8a6a6fa9a74cf455bb |

@@ -63,8 +63,9 @@ and native initialization rather than suppressing or spoofing the heartbeat.
 ## Optional extension loading
 
 The [architecture proposal](extension-architecture.md) now covers service and
-configuration selection as well as optional code. No early selector or disable
-mechanism has been tested on the CMU. Current source findings:
+configuration selection as well as optional code. A one-shot early selector has
+now passed the warm-boot test below; the optional loader remains unqualified.
+Current source findings:
 
 - index.html:33 loads ../../data/integration/developer_mode_GuiConfig.js before
   Utility/BaseApp/GuiFramework and framework.init(). It resolves to /data/integration,
@@ -103,8 +104,14 @@ reboot occurred. Source ordering is not proof of runtime fallback or cold startu
 
 ## Startup selection and reset evidence
 
-Read-only source work identified a **normal-boot insertion point before the
-service manager**, not an installed recovery mechanism:
+The [one-shot selector prototype](https://github.com/aeharding/open-connect/tree/main/experiments/boot-selection)
+passed two warm boots: a checked, consumed trial selected an unchanged copy of
+sm.conf; the next boot selected the OEM path without rearming. Both running SM
+command lines and fresh boot identities were verified, with physical root RO.
+The hook was then removed using independent undo. Existing comparison JS and
+original native code stayed unchanged; this was not an entirely stock-unit test.
+
+The source-backed insertion point is before the **normal-mode service startup**:
 
 - /usr/bin/autostart:65–69 sources start_normal_mode.sh, launches the Logger, then
   runs SM with an explicit configuration argument. Selection immediately before
@@ -140,16 +147,22 @@ shutdown semaphore (0x6dd60 / 0x6d508). No verified power-loss/normal-end classi
 was found. A health event, shutdown callback or missing crash log must therefore
 not replenish the proposed retry budget.
 
-**Next proof:** a minimal synchronous normal-branch selector with baseline as its
-default; first exercise a no-change generation and unavailable/corrupt control.
-No optional service, native or JS behavior belongs in that first experiment.
-The selector, bounded execution, durable attempt accounting, cold/ACC behavior
-and automatic fallback still need qualification. See [the implementation order](extension-architecture.md#next-proof).
+Host checks cover corrupt/missing control, failed flushes and timeout. Actual
+RelFS file and directory fsync calls returned zero, but power-loss durability is
+unproved. The parent uses direct invocation with output redirected, so a surviving
+child cannot hold startup open through an inherited stdout pipe. Uninterruptible
+kernel I/O remains outside that timeout guarantee.
+
+**Next proof:** controlled JS/native failures and the following baseline boot.
+No crash, watchdog reset or cold/ACC transition was induced in this experiment.
+Current prototype and private evidence: experiments/boot-selection/,
+runs/early-selector/result.json and runs/boot-selector-flush/result.json.
+See [the implementation order](extension-architecture.md#next-proof).
 
 Private captures and derived addresses: runs/startup-recovery-research/result.json
-and supporting-slices.txt. New sources have exact before/after identity, byte count,
-MD5 and CRC agreement; all capture ports closed. No device write, reset, signal
-or watchdog operation occurred. Source SHA256 values:
+and supporting-slices.txt. Those read-only captures have exact before/after identity, byte count,
+MD5 and CRC agreement; all capture ports closed. That source-acquisition phase
+performed no device write, reset, signal or watchdog operation. Source SHA256 values:
 
 | Source | SHA256 |
 | --- | --- |

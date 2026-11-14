@@ -150,7 +150,8 @@ persistent edits that need repair before stock startup can resume.
 
 The revised [architecture proposal](docs/extension-architecture.md) recommends a
 small pre-consumer selector, immutable composed configurations and per-feature
-adapters. That early boundary and its safe-mode behavior are not yet proven.
+adapters. The early boundary has a two-warm-boot one-shot proof; crash recovery
+and persistent feature policy still need bench qualification.
 Keep requested disable, verified baseline startup, automatic failed-start detection
 and full uninstall distinct. No hot-unload or universal crash-recovery promise.
 

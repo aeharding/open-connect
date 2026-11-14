@@ -1,0 +1,54 @@
+#!/bin/sh
+# Owned persistent-volume scratch only. No root filesystem write or remount.
+set -u
+umask 077
+run=@NONCE@
+d=/tmp/mnt/data_persist/oc-flush-probe-$run
+b=@BINARY_PATH@
+emit() { printf 'OCFLUSH|%s|%s\n' "$run" "$*"; }
+die() { emit "REFUSED|$1|preserved=1"; exit 73; }
+root_ro() {
+ awk '$1=="/dev/ffx01p1"&&$2=="/"&&$3=="relfs"{n++;if((","$4",")!~/,ro,/)bad=1}END{exit !(n==1&&!bad)}' /proc/mounts
+}
+test "$(id -u)" = 0 && root_ro || die baseline
+for p in /tmp /tmp/mnt /tmp/mnt/data_persist; do
+ test -d "$p" && test ! -L "$p" && test "$(readlink -f "$p")" = "$p" || die parent
+ test "$(stat -c '%u:%g' "$p")" = 0:0 || die owner
+done
+awk '$1=="/dev/mmcblk0p2"&&$2=="/tmp/mnt/data_persist"&&$3=="relfs"{n++;if((","$4",")!~/,rw,/)bad=1}END{exit !(n==1&&!bad)}' /proc/mounts || die persistent_mount
+df -Pk /tmp/mnt/data_persist | awk 'NR==2{ok=($4>=1024)}END{exit !ok}' || die space
+test -f "$b" && test ! -L "$b" && test "$(readlink -f "$b")" = "$b" || die binary_path
+test "$(stat -c '%d:%i:%Y:%s:%a:%u:%g:%h' "$b")" = '@BINARY_ID@' || die binary_identity
+test "$(md5sum < "$b")" = '@BINARY_MD5@  -' || die binary_bytes
+test "$(cksum < "$b")" = '@BINARY_CRC@ @BINARY_SIZE@' || die binary_crc
+test ! -e "$d" && test ! -L "$d" || die exists
+mkdir -m 700 "$d" || die mkdir
+test "$(readlink -f "$d")" = "$d" || die directory_path
+di=$(stat -c '%d:%i:%a:%u:%g' "$d") || die directory_identity
+cp "$b" "$d/flush" && chmod 700 "$d/flush" || die executable_copy
+cmp "$b" "$d/flush" || die executable_bytes
+set -C
+printf 'trial:%s\n' "$run" > "$d/state" || die initial_state
+flush() {
+ /bin/busybox timeout -t 8 "$d/flush" "$1" "$2"
+ rc=$?
+ emit "CALL|$3|rc=$rc"
+ test "$rc" = 0 || die "$3"
+}
+flush f "$d/state" initial_file
+flush d "$d" initial_directory
+printf 'consumed:%s\n' "$run" > "$d/state.next" || die consumed_state
+flush f "$d/state.next" replacement_file
+mv -f "$d/state.next" "$d/state" || die publish_record
+flush d "$d" renamed_directory
+flush f "$d/state" final_file
+test "$(cat "$d/state")" = "consumed:$run" || die readback
+emit "CONSUMED|$(stat -c '%d:%i:%Y:%s:%a:%u:%g:%h' "$d/state")"
+test "$(stat -c '%d:%i:%a:%u:%g' "$d")" = "$di" || die directory_changed
+for p in "$d"/* "$d"/.[!.]* "$d"/..?*; do
+ test -e "$p" || test -L "$p" || continue
+ case "$p" in "$d/flush"|"$d/state") ;; *) die unexpected_entry;; esac
+done
+rm "$d/flush" "$d/state" && rmdir "$d" || die cleanup
+root_ro || die final_root
+emit "END|0|scratch_absent=1|root_ro=1"

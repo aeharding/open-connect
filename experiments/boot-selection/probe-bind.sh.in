@@ -1,0 +1,72 @@
+#!/bin/sh
+# Isolated capability probe. Replaced token is a host-generated 32-hex nonce.
+set -u
+umask 077
+run=__NONCE__
+d=/tmp/mnt/data_persist/oc-view-probe-$run
+emit() { printf 'OCVIEW|%s|%s\n' "$run" "$*"; }
+die() { emit "REFUSED|$1|preserved=1"; exit 73; }
+sid() { stat -c '%d:%i:%Y:%s:%a:%u:%g:%h' "$1"; }
+canon() { test "$(readlink -f "$1")" = "$1" || die canonical; }
+root_ro() {
+ awk '$1=="/dev/ffx01p1"&&$2=="/"&&$3=="relfs"{n++;if((","$4",")!~/,ro,/)bad=1}END{exit !(n==1&&!bad)}' /proc/mounts
+}
+test "$(id -u)" = 0 || die uid
+root_ro || die initial_root_mount
+for p in /tmp /tmp/mnt /tmp/mnt/data_persist; do
+ test -d "$p" && test ! -L "$p" || die parent_type
+ canon "$p"
+ test "$(stat -c '%u:%g' "$p")" = 0:0 || die parent_owner
+done
+awk '$1=="/dev/mmcblk0p2"&&$2=="/tmp/mnt/data_persist"&&$3=="relfs"{n++;if((","$4",")!~/,rw,/)bad=1}END{exit !(n==1&&!bad)}' /proc/mounts || die data_mount
+test ! -e "$d" && test ! -L "$d" || die exists
+mkdir -m 700 "$d" || die mkdir
+canon "$d"
+di=$(stat -c '%d:%i:%a:%u:%g' "$d") || die directory_identity
+case "$di" in *:700:0:0) ;; *) die directory_metadata;; esac
+set -C
+printf 'original\n' > "$d/active" || die original
+printf 'candidate\n' > "$d/candidate" || die candidate
+ln "$d/active" "$d/original.hold" || die hold
+oi=$(sid "$d/active") || die original_identity
+ci=$(sid "$d/candidate") || die candidate_identity
+test "$oi" = "$(sid "$d/original.hold")" || die hold_identity
+emit "PRE|$di|$oi|$ci"
+# Measure the actual installed timeout with an owned, finite child.
+t0=$(cut -d' ' -f1 /proc/uptime)
+ /bin/busybox timeout -t 1 /bin/busybox sleep 4
+trc=$?
+t1=$(cut -d' ' -f1 /proc/uptime)
+emit "TIMEOUT|$trc|$t0|$t1"
+test "$trc" != 0 || die timeout_did_not_stop_child
+awk -v a="$t0" -v b="$t1" 'BEGIN{exit !(b-a>=0.8&&b-a<3.5)}' || die timeout_bound
+/bin/busybox timeout -t 8 /bin/busybox mount -i -n -o bind "$d/candidate" "$d/active"
+rc=$?
+emit "MOUNT_RC|$rc"
+test "$rc" = 0 || die mount
+awk -v p="$d/active" '$2==p{n++}END{exit n!=1}' /proc/mounts || die view_mount_row
+test "$(sid "$d/active")" = "$ci" || die candidate_identity_after_mount
+cmp "$d/active" "$d/candidate" || die candidate_bytes
+test "$(sid "$d/original.hold")" = "$oi" || die original_identity_changed
+test "$(cat "$d/original.hold")" = original || die original_bytes_changed
+root_ro || die root_changed
+emit "VIEW|candidate|original_preserved=1|root_ro=1"
+awk -v p="$d/active" '$2==p{print "OCVIEW_MOUNT|" $0}' /proc/mounts
+awk -v p="$d/active" '$5==p{print "OCVIEW_MOUNTINFO|" $0}' /proc/self/mountinfo
+/bin/busybox timeout -t 8 /bin/busybox umount "$d/active"
+rc=$?
+emit "UNMOUNT_RC|$rc"
+test "$rc" = 0 || die unmount
+awk -v p="$d/active" '$2==p{n++}END{exit n!=0}' /proc/mounts || die remaining_mount
+test "$(sid "$d/active")" = "$oi" || die restored_identity
+cmp "$d/active" "$d/original.hold" || die restored_bytes
+test "$(sid "$d/candidate")" = "$ci" || die candidate_changed
+test "$(stat -c '%d:%i:%a:%u:%g' "$d")" = "$di" || die directory_changed
+for p in "$d"/* "$d"/.[!.]* "$d"/..?*; do
+ test -e "$p" || test -L "$p" || continue
+ case "$p" in "$d/active"|"$d/candidate"|"$d/original.hold") ;; *) die unexpected_entry;; esac
+done
+rm "$d/active" "$d/candidate" "$d/original.hold" || die cleanup_files
+rmdir "$d" || die cleanup_directory
+root_ro || die final_root
+emit "END|0|original_restored=1|scratch_absent=1|root_ro=1"

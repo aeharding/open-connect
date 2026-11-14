@@ -1,0 +1,35 @@
+#!/bin/sh
+# One trial only. No health decision, rearming, feature code or watchdog changes.
+set -fu
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+umask 077
+D=@DIRECTORY@
+absent() { test ! -e "$1" && test ! -L "$1"; }
+file() {
+ test -f "$1" && test ! -L "$1" && test "$(readlink -f "$1")" = "$1" || exit 70
+ test "$(stat -c '%a:%u:%g:%h:%s' "$1")" = "$2:0:0:1:$3" || exit 71
+ test "$(md5sum < "$1")" = "$4  -" || exit 72
+}
+# The persistence volume must really be mounted, not an underlying root directory.
+@MOUNT_GUARD@
+for p in /tmp /tmp/mnt /tmp/mnt/data_persist "$D"; do
+ test -d "$p" && test ! -L "$p" && test "$(readlink -f "$p")" = "$p" || exit 73
+done
+test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0 || exit 74
+test "$(id -u)" = 0 || exit 75
+file "$D/generation.conf" 600 @CONFIG_SIZE@ @CONFIG_MD5@
+file "$D/flush" 700 @FLUSH_SIZE@ @FLUSH_MD5@
+absent "$D/spent" || exit 76
+file "$D/armed" 600 @RECORD_SIZE@ @RECORD_MD5@
+# A killed selector leaves this lock and therefore falls back next time.
+mkdir -m 700 "$D/select.lock" || exit 77
+absent "$D/spent" || exit 78
+file "$D/armed" 600 @RECORD_SIZE@ @RECORD_MD5@
+mv "$D/armed" "$D/spent" || exit 79
+"$D/flush" f "$D/spent" || exit 80
+"$D/flush" d "$D" || exit 81
+file "$D/spent" 600 @RECORD_SIZE@ @RECORD_MD5@
+rmdir "$D/select.lock" || exit 82
+# The parent selects one compiled-in path only after successful exit.
+exit 0

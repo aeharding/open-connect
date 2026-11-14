@@ -45,9 +45,9 @@ A developer preview is not a general end-user car release.
 
 **Whole-startup architecture before another loader increment:** [#25](https://github.com/aeharding/open-connect/issues/25)
 now covers service/configuration features as well as optional native/JS code.
-The current MMUI loader is host-built only and cannot select earlier service
-startup. Read-only analysis now identifies the normal branch of /usr/bin/autostart
-before normal-mode setup, the Logger and SM. One-shot selection and subsequent
+The MMUI loader cannot select earlier service startup. The tested early boundary
+is the normal branch of /usr/bin/autostart, before normal-mode setup, the Logger
+and SM. One-shot selection and subsequent
 baseline startup now passed ordinary warm boots, an MMUI crash and a deliberate
 JS hang. Full supply cuts preserved consumed records in normal runtime and
 after early commit, before services. Cuts during rename/fsync remain untested.

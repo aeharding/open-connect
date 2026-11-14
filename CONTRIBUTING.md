@@ -82,10 +82,17 @@ Read [bench setup](docs/bench-setup.md), [CLI usage](docs/cli.md) and the curren
 [lab state](docs/bench-state.txt) before operating the project's bench.
 One operator owns UART and cleanup.
 
-For a substantive patch, write a short approach and use one focused review against
-actual Mazda behavior. Implement, test the relevant failure modes, run the useful
-bench experiment and undo. Record firmware, enabled bench profile and the distinction
-between installed files and loaded code. Avoid repeated review gates.
+Before implementing a substantive patch, state the user-visible outcome, the
+question this experiment answers, and evidence that would count as success.
+Check relevant existing implementations early and compare them with actual Mazda
+behavior. Label partial improvements and unproved proposals explicitly.
+
+Write a short approach and use one focused review. Reuse working orchestration,
+check its real entry point, then run the smallest useful bench experiment and undo.
+Record firmware, bench profile, installed versus loaded code, and whether a
+failure occurred in the CMU or our tooling. Unknown outcomes stay unknown until
+reconciled. Tests and infrastructure must support the concrete question; avoid
+repeated review gates and success claims based only on command completion.
 
 ## Keep it small
 

@@ -11,6 +11,8 @@ No standing specialist agents. Use ephemeral reviewers only when explicitly
 requested or required by the contribution workflow, for one concrete question.
 Answer the user promptly; status questions do not cancel ongoing work.
 Build the smallest complete experiment. Avoid duplicated audits, tooling and logs.
+Apply the experiment discipline in STEERING.md: outcome first, early prior art,
+one decision per experiment, and separate device failures from tooling failures.
 
 Run program/file operations through Herdr hc. Keep UART/camera ownership serialized
 and close owned resources. Match process identity before termination.

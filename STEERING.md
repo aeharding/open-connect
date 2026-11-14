@@ -1,6 +1,6 @@
 # Open Connect — living steering agreement
 
-Last updated: 2026-11-13, from the user's explicit direction.
+Last updated: 2026-11-14, from the user's explicit direction.
 
 Read this first when starting or resuming work. It records product intent and how
 we work; it is not a run log or an approval checklist. New user direction takes
@@ -113,6 +113,24 @@ originals, repeatable execution and independent undo right now. Reuse those piec
 Defer generalized plugin/configuration systems, broad compatibility and speculative
 workflows until a real second use requires them. Prefer a small replaceable helper
 over committing the project to an architecture early.
+
+Before choosing an implementation, define the user-visible outcome and the
+evidence that would establish it. A partial improvement may be a useful experiment;
+label it explicitly rather than treating it as delivery of the requested feature.
+Check relevant prior art early, then compare it against Mazda's actual behavior.
+
+Each experiment must answer one concrete question that changes the next decision.
+Infrastructure, checks and documentation earn their scope by supporting that
+question. Reuse tested orchestration and check the real entry point before live
+work; do not attribute avoidable runner failures to missing hardware.
+SSH improves throughput; ACC gates specific lifecycle tests, not all development.
+
+Keep proposals provisional and overviews short: current direction, evidence,
+open questions. Surface consequential choices with a concrete recommendation.
+Distinguish device behavior from observer/tool failure immediately; an incomplete
+capture cannot establish that the CMU failed, and a successful command cannot
+establish that the feature worked. Report results clearly without requiring the
+user to repeatedly redirect the work.
 
 ## Ownership and execution
 

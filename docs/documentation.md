@@ -36,6 +36,14 @@ Keep one source for each subject. Product direction and the roadmap remain in
 the repository's STEERING.md and PLAN.md; link to them rather than copying them.
 The lab handoff, bench-state.txt, is deliberately excluded from the website.
 
+## Keep the direction readable
+
+Lead with the current answer, its evidence and the unresolved question. Keep
+overviews short; use a diagram when it explains the decision more clearly.
+Label proposals as proposals and match detail to implementation maturity.
+A useful experiment or partial improvement is not automatically a delivered
+feature. Separate device observations from failures in the capture or runner.
+
 ## Write useful reverse-engineering notes
 
 A finding should name the exact firmware and component, explain what was learned,

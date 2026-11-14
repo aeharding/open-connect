@@ -228,6 +228,32 @@ share completion signaling. None alone establishes a clean session end.
 Private evidence: runs/persistent-policy-research/result.json, exact SYSTEM and
 ibclog sources, and the closed watchdog-reset observer/video bundle.
 
+### Readiness must not refund attempts
+
+**A fault after Home still needs to exhaust the startup budget.** A three-boot
+test used the same composed service/logging/native/JS configuration with a
+two-attempt limit:
+
+| Step | Persistent result |
+| --- | --- |
+| First selected startup, then explicit confirmation | One attempt used; confirmation refunded nothing |
+| Second selected startup reached Home | Both attempts used |
+| One bound MMUI SIGSEGV after readiness | Mazda reset; baseline boot kept the exhausted record |
+
+Fresh checks confirmed OEM SM/Opera paths, no optional native mapping or logging
+override, Stitcher running again, root RO and Home. The original autostart was
+then independently restored and its holds removed. Existing comparison JS stayed.
+
+This proves the finite-budget mechanism in one late-fault case. It does not
+choose a production attempt count or an automatic renewal event. Every selected
+boot currently spends an attempt; ordinary restarts are not distinguished.
+Explicit maintenance renewal has host checks only. Power loss during record
+updates and automatic ACC renewal remain untested.
+
+Private evidence: `runs/attempt-budget/result.json`, confirmation, all three
+closed observer/video bundles and independent undo. A host import refusal before
+device open remains separate from the successful fault run.
+
 ### Implications for recovery
 
 - **Select early.** init_cmu attempts the data_persist mount before autostart;
@@ -244,7 +270,7 @@ ibclog sources, and the closed watchdog-reset observer/video bundle.
   surviving child. Uninterruptible filesystem I/O remains outside that guarantee.
 
 Still open: interrupted early-boot writes, repeated power cuts, ACC/resume and
-persistent retry/health policy. Service/logging/native/JS composition is now
+production retry/health policy and automatic renewal. Service/logging/native/JS composition is now
 [demonstrated together](#optional-extension-loading).
 These results do not establish recovery from a broken baseline, kernel or selector.
 

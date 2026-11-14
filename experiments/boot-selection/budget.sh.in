@@ -1,0 +1,130 @@
+#!/bin/sh
+# Experimental finite attempt ledger. No ACC listener or automatic renewal.
+set -fu
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+umask 077
+D=@DIRECTORY@
+GEN=@GENERATION@
+LIMIT=@LIMIT@
+BOOT_FILE=/proc/sys/kernel/random/boot_id
+@MOUNT_GUARD@
+absent() { test ! -e "$1" && test ! -L "$1"; }
+refuse() { echo "OCBUDGET|refused|$1"; exit 70; }
+uuid() {
+ case "$1" in ????????-????-????-????-????????????) :;; *) return 1;; esac
+ case "$1" in *[!0-9a-f-]*) return 1;; esac
+}
+file() {
+ test -f "$1" && test ! -L "$1" && test "$(readlink -f "$1")" = "$1" || refuse file
+ test "$(stat -c '%a:%u:%g:%h' "$1")" = "$2:0:0:1" || refuse metadata
+}
+for p in /tmp /tmp/mnt /tmp/mnt/data_persist "$D"; do
+ test -d "$p" && test ! -L "$p" && test "$(readlink -f "$p")" = "$p" || refuse parent
+done
+test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0 || refuse directory
+test "$(id -u)" = 0 || refuse uid
+file "$D/flush" 700
+test "$(stat -c %s "$D/flush")" = @FLUSH_SIZE@ || refuse flush_size
+test "$(md5sum < "$D/flush")" = '@FLUSH_MD5@  -' || refuse flush_hash
+BOOT=$(cat "$BOOT_FILE") || refuse boot_read
+uuid "$BOOT" || refuse boot
+read_record() {
+ file "$D/policy" 600
+ test "$(stat -c %s "$D/policy")" -le 256 || refuse record_size
+ exec 3<"$D/policy" || refuse record_open
+ IFS='|' read -r TAG G E PHASE USED LAST EXTRA <&3 || refuse record_line
+ test -z "$EXTRA" || refuse record_fields
+ IFS='|' read -r SUM DIGEST EXTRA <&3 || refuse checksum_line
+ test -z "$EXTRA" || refuse checksum_fields
+ JUNK=
+ if IFS= read -r JUNK <&3 || test -n "$JUNK"; then refuse trailing_data; fi
+ exec 3<&-
+ test "$TAG" = OC_ATTEMPT_1 && test "$G" = "$GEN" && test "$SUM" = MD5 || refuse record_kind
+ case "$E" in ''|*[!0-9]*) refuse epoch;; esac
+ case "$E" in 0|[1-9]*) :;; *) refuse epoch;; esac
+ test "${#E}" -le 9 || refuse epoch
+ test "$E" = "$((E + 0))" || refuse epoch
+ case "$USED" in [0-9]) :;; *) refuse used;; esac
+ test "$USED" -le "$LIMIT" || refuse used
+ case "$PHASE" in
+ trial) test "$E" = 0 && test "$USED" -le 1 || refuse trial
+        if test "$USED" = 0; then test "$LAST" = none || refuse initial; fi;;
+ confirmed) test "$LAST" != none || refuse confirmed
+            if test "$E" = 0; then test "$USED" -gt 0 || refuse confirmed; fi;;
+ *) refuse phase;;
+esac
+ if test "$LAST" = none; then
+  test "$E:$PHASE:$USED" = 0:trial:0 || refuse initial
+ else uuid "$LAST" || refuse last_boot
+ fi
+ BODY=$(printf 'OC_ATTEMPT_1|%s|%s|%s|%s|%s' "$G" "$E" "$PHASE" "$USED" "$LAST")
+ H=$(printf '%s\n' "$BODY" | md5sum) || refuse checksum
+ test "$DIGEST  -" = "$H" || refuse checksum
+ printf '%s\nMD5|%s\n' "$BODY" "$DIGEST" | cmp -s - "$D/policy" || refuse canonical
+ SNAPSHOT=$(md5sum < "$D/policy") || refuse snapshot
+}
+report() {
+ echo "OCBUDGET|$1|$GEN|$E|$PHASE|$USED|$LIMIT|$LAST"
+}
+MODE=${1-STATUS}
+case "$MODE" in STATUS|SELECT) test "$#" -le 1 || refuse arguments;;
+ CONFIRM|RENEW) test "$#" = 4 || refuse arguments;;
+ *) refuse operation;; esac
+read_record
+if test "$MODE" = STATUS; then
+ report status
+ if absent "$D/policy.lock" && absent "$D/policy.next"; then echo 'OCBUDGET|pending|no'; else echo 'OCBUDGET|pending|yes'; fi
+ exit 0
+fi
+guard_action() {
+ if test "$MODE" = SELECT; then
+  test "$BOOT" != "$LAST" || refuse same_boot
+  test "$USED" -lt "$LIMIT" || refuse exhausted
+  if test "$PHASE" = trial; then test "$USED" = 0 || refuse unconfirmed; fi
+ else
+  test "$2" = "$GEN" && test "$3" = "$E" && test "$4" = "$BOOT" || refuse stale_binding
+  if test "$MODE" = CONFIRM; then
+   test "$LAST" = "$BOOT" && test "$USED" -gt 0 || refuse not_charged
+  else
+   test "$PHASE" = confirmed && test "$E" -lt 999999999 || refuse renewal
+  fi
+ fi
+}
+guard_action "$@"
+if test "$MODE" = CONFIRM && test "$PHASE" = confirmed; then report confirmed_unchanged; exit 0; fi
+absent "$D/policy.next" || refuse pending
+OLD=$SNAPSHOT
+# No waiting or stealing. Any interrupted mutation leaves a refusal next time.
+mkdir -m 700 "$D/policy.lock" || refuse locked
+read_record
+test "$SNAPSHOT" = "$OLD" && test "$(cat "$BOOT_FILE")" = "$BOOT" || refuse changed
+guard_action "$@"
+if test "$MODE" = SELECT; then
+ @DEPENDENCY_GUARDS@
+ USED=$((USED + 1))
+ LAST=$BOOT
+elif test "$MODE" = CONFIRM; then
+ PHASE=confirmed
+else
+ E=$((E + 1))
+ USED=0
+ # Fence this boot too: renewal never enables another selection in the same boot.
+ LAST=$BOOT
+fi
+BODY=$(printf 'OC_ATTEMPT_1|%s|%s|%s|%s|%s' "$GEN" "$E" "$PHASE" "$USED" "$LAST")
+H=$(printf '%s\n' "$BODY" | md5sum) || refuse new_checksum
+H=${H%% *}
+(set -C; printf '%s\nMD5|%s\n' "$BODY" "$H" > "$D/policy.next") || refuse stage
+"$D/flush" f "$D/policy.next" || refuse file_flush
+test "$(md5sum < "$D/policy")" = "$OLD" || refuse changed_before_commit
+mv "$D/policy.next" "$D/policy" || refuse commit
+"$D/flush" d "$D" || refuse commit_flush
+read_record
+EXPECTED=$SNAPSHOT
+rmdir "$D/policy.lock" || refuse unlock
+# Make removal durable before admitting optional effects after a power failure.
+"$D/flush" d "$D" || refuse unlock_flush
+test "$(md5sum < "$D/policy")" = "$EXPECTED" && test "$(cat "$BOOT_FILE")" = "$BOOT" || refuse final_changed
+report "$MODE"
+exit 0

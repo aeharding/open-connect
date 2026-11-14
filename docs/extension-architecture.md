@@ -3,7 +3,7 @@
 **Working proposal, backed by composition and fault tests on 55.00.750B NA.**
 Service policy, logging and native/JS code now worked under one selection.
 One-shot fallback also worked after an MMUI crash and a deliberate JS hang.
-Persistent feature policy remains to be designed.
+A finite attempt budget now passed a late-fault test; automatic renewal remains open.
 
 ## The idea
 
@@ -12,16 +12,18 @@ On a fallback boot, skip its changes and let Mazda start normally.
 
 ~~~mermaid
 flowchart TD
-    Boot["Mazda startup"] --> Select{"Valid unused trial?"}
+    Boot["Mazda startup"] --> Select{"Valid trial / attempts available?"}
     Select -->|No| Baseline["Start baseline configuration"]
-    Select -->|Yes| Consume["Consume record + verify flush"]
+    Select -->|Yes| Consume["Reserve attempt + verify flush"]
     Consume -->|Failure or timeout| Baseline
-    Consume -->|Success| Trial["Start trial configuration"]
+    Consume -->|Success| Trial["Start selected configuration"]
     Trial -->|Fault causes reset| Boot
 ~~~
 
-The record is already spent when trial code starts. The following boot therefore
-takes the baseline path, even if the trial never reached a working GUI.
+An attempt is spent before optional code starts. A new configuration gets one
+startup until explicitly confirmed. Confirmation does not refund that attempt.
+Once the finite budget is exhausted, the next boot selects baseline—even when
+the previous startup reached Home before failing.
 
 “Baseline” means Open Connect features are off. The small installed integration
 point remains; this is different from uninstalling it.
@@ -49,7 +51,7 @@ installations. Service changes must account for their remaining consumers.
 
 ## Recovery direction
 
-- Record an attempt **before** optional effects. Start with one-shot trials.
+- Record an attempt **before** optional effects. New configurations start as trials.
 - Missing or invalid control selects baseline.
 - Repeated failures must exhaust a finite attempt budget. Startup-ready alone
   must not replenish it.
@@ -61,10 +63,11 @@ The [reset comparison](reverse-engineering.md#a-reset-label-is-not-a-cause-class
 found the same “Power-up” word after normal reboot and watchdog reset. That label,
 a ready screen or a shutdown request must not grant fresh attempts.
 
-Retry counts and the event that permits another attempt are still open. A real
-ACC cycle or explicit maintenance action is a candidate boundary to qualify;
-a cached ACC value is not proof of a new cycle. This cannot rescue a broken kernel,
-baseline or bootstrap.
+The prototype charges every selected boot. Its **two-attempt limit is a test
+parameter, not the product policy**. An explicit maintenance operation can renew
+a confirmed generation's budget; its stale-command checks have host coverage.
+Automatic renewal still needs a proven event, such as a real ACC cycle. A cached
+ACC value is insufficient. This cannot rescue a broken kernel, baseline or bootstrap.
 
 ## Evidence so far
 
@@ -73,6 +76,7 @@ baseline or bootstrap.
 | Combined service/logging/native/JS trial | All four effects selected; following baseline omitted all four |
 | Two ordinary warm boots | Trial selected once; baseline selected next |
 | Native MMUI process crash | Mazda watchdog reset; baseline selected next |
+| Late crash after two selected, ready startups | Confirmation kept the first charge; exhausted budget selected baseline and omitted all four effects |
 | Trial-only JS event-loop hang | Mazda closed Opera after missed heartbeats, then reset; original entry page returned |
 | Full power cut after a flushed record | Consumed record survived |
 | Cut after early commit, before services | Spent record survived; next boot chose baseline |
@@ -89,10 +93,11 @@ explain the evidence and limits.
 
 ## Next proof
 
-Qualify persistent operation: a finite attempt budget and an observed event
-that permits a fresh attempt. Trace and test actual ACC transitions when control
-is available; do not treat generic reset/shutdown labels as that event.
-Keep one-shot developer trials while this remains unproved.
+Qualify **when attempts may be renewed automatically** without allowing a late
+crash loop. Trace and test actual ACC transitions when control is available.
+The finite ledger is now demonstrated; production retry counts, false-fallback
+behavior and interrupted writes remain open. Keep explicit developer trials
+while that policy is unproved.
 
 Then exercise a useful feature through the qualified adapters. Native/JS markers
 prove entry and baseline omission; they do not yet constitute that feature.

@@ -7,6 +7,7 @@ repo_name = "aeharding/open-connect"
 edit_uri = "edit/main/docs/"
 docs_dir = "docs"
 site_dir = "site"
+extra_css = ["stylesheets/bench.css"]
 copyright = "Open Connect contributors · AGPL-3.0-or-later"
 exclude_docs = "/bench-state.txt"
 nav = [

@@ -67,6 +67,13 @@
 .power-drawing .fuse { fill: var(--panel); stroke: var(--batt); stroke-width: 3; }
 .short-notes { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .bench-guide .short-notes p { font-size: .72rem; line-height: 1.6; margin: .7rem 0 0; }
+.kit-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 1rem; }
+.bench-guide table.kit-table { display: table; width: 100%; margin: 0; border-collapse: collapse; font-size: .73rem; background: transparent; }
+.bench-guide .kit-table th, .bench-guide .kit-table td { text-align: left; vertical-align: top; padding: .45rem 0; border-bottom: 1px solid var(--edge); line-height: 1.5; }
+.bench-guide .kit-table th { width: 29%; padding-right: .6rem; font-weight: 650; }
+.bench-guide .kit-table tr:last-child > * { border-bottom: none; }
+.kit-table small { display: block; font-size: .63rem; color: var(--md-default-fg-color--light); }
+.bench-guide .kit-options { font-size: .72rem; }
 .cable-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .cable-card { border: 1px solid var(--edge); border-radius: .5rem; padding: .9rem 1rem; min-width: 0; }
 .bench-guide .cable-card h3, .bench-guide .network-route h3 { margin: 0 0 .5rem; font-size: .88rem; font-weight: 750; }
@@ -98,7 +105,7 @@
 .bench-guide .next-link { font-size: .75rem; }
 .bench-sources { margin-bottom: 2rem !important; }
 @media (max-width: 760px) {
- .connector-grid, .cable-grid, .short-notes { grid-template-columns: 1fr; }
+ .connector-grid, .cable-grid, .short-notes, .kit-grid { grid-template-columns: 1fr; }
  .bench-guide table.pin-map { font-size: .78rem; }
  .bench-guide .connector-card { padding: .8rem; }
  .md-typeset .bench-guide ol.boot-steps { grid-template-columns: 1fr 1fr; }

@@ -11,8 +11,39 @@ hide:
 <p class="bench-intro">2014–2016 Mazda3 · CMU, screen, commander and USB hub.<br>A silent development bench needs no TAU, amplifier or speakers.</p>
 
 <nav class="bench-jumps" aria-label="Wiring guide sections">
-<a href="#pin-maps">Pin maps</a><a href="#power">Power</a><a href="#cables">Cables &amp; USB</a><a href="#first-boot">First boot</a>
+<a href="#equipment">Equipment</a><a href="#pin-maps">Pin maps</a><a href="#power">Power</a><a href="#cables">Cables &amp; USB</a><a href="#first-boot">First boot</a>
 </nav>
+
+<section id="equipment" class="bench-section">
+<div class="section-heading"><h2>What you'll need</h2></div>
+<div class="kit-grid">
+<section class="cable-card"><h3>Mazda hardware · one of each</h3>
+<table class="kit-table" aria-label="Mazda parts and example part numbers"><tbody>
+<tr><th scope="row">CMU</th><td><a href="https://static.nhtsa.gov/odi/tsbs/2018/MC-10134704-9999.pdf">BHP1-66-9C0N</a><small>2014–2016 Japan-built Mazda3, NA example</small></td></tr>
+<tr><th scope="row">Display</th><td><a href="https://static.nhtsa.gov/odi/tsbs/2019/MC-10160602-0001.pdf">BHP1-61-1J0E</a></td></tr>
+<tr><th scope="row">Commander</th><td><a href="https://www.mazdapartsnow.com/genuine/mazda~control-switch~bhn166cm0d">BHN1-66-CM0D</a></td></tr>
+<tr><th scope="row">Stock USB hub</th><td><a href="https://mazda.oempartsonline.com/oem-parts/mazda-auxiliary-jack-bhp1669u0b">BHP1-66-9U0B</a></td></tr>
+<tr><th scope="row">Plugs &amp; cables</th><td>Matching power plugs with wire tails, shielded display cable and hub data cable</td></tr>
+</tbody></table>
+<p>Ask the donor-parts seller to include the plugs and cables. These are sourcing examples; match connector shapes and check the CMU's firmware separately.</p>
+</section>
+<section class="cable-card"><h3>Power, computer &amp; tools</h3>
+<table class="kit-table" aria-label="Bench equipment"><tbody>
+<tr><th scope="row">12 V supply</th><td><a href="https://www.fnirsi.com/products/dps-150">FNIRSI DPS-150</a> + suitable input power source</td></tr>
+<tr><th scope="row">USB UART</th><td><a href="https://www.sparkfun.com/sparkfun-ftdi-basic-breakout-3-3v.html">SparkFun FTDI Basic 3.3 V · DEV-09873</a> + Mini-B data cable</td></tr>
+<tr><th scope="row">ACC control</th><td>Manual switch, or <a href="https://robiz.net/en-gb/rmt/lcus1channeltypec">USB-C LCUS-1 relay</a> + data cable</td></tr>
+<tr><th scope="row">Wiring tools</th><td>Inline fuse/holder, wire, insulated connectors, crimper and multimeter</td></tr>
+<tr><th scope="row">Computer</th><td>Linux or macOS; USB ports for UART and optional power controls</td></tr>
+</tbody></table>
+<p>Use only UART TX, RX and GND. Keep the SparkFun board at 3.3 V; its power and handshake pins stay disconnected.</p>
+</section>
+</div>
+<p class="kit-options"><strong>Optional:</strong> USB Ethernet adapter + network cable; camera for recordings; Micro-USB data cable for DPS150 control.</p>
+<details class="bench-detail"><summary>CarPlay hub instead of the stock hub</summary>
+<p>OEM references: <a href="https://www.mazdaswag.com/oem-parts/mazda-genuine-oem-mazda-android-apple-car-play-auxiliary-unit-c922-v6-605a-required-for-installation-tk78669u0e">TK78-66-9U0E hub</a> (replaces C/D revisions) and <a href="https://www.mazdapartsfactor.com/oem-parts/mazda-smartphone-screen-mirroring-kit-c922v6605a">C922-V6-605A cable kit</a>. Aftermarket kits often use these reference numbers; that does not make them OEM.</p>
+<p>Upgrade to compatible firmware <strong>before</strong> connecting the retrofit hub. Use the stock hub for a v55 bench; our incoming aftermarket kit is not yet qualified.</p>
+</details>
+</section>
 
 <section id="pin-maps" class="bench-section">
 <div class="section-heading"><span class="step-number">01</span><h2>Find the pins</h2></div>

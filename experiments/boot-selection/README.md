@@ -124,3 +124,45 @@ The bench input was `libjcicommon.so` SHA256
 `0f3bf19fa890332ef2196531eebed3ce6e166cf805cc1edc1e53f98a873effbf`.
 Use a verified DATA delivery and only preload the result into a disposable utility,
 never into an existing service. Private evidence: `runs/combined-startup/log-query-result.json`.
+
+## Composed startup
+
+One actual selected/baseline pair passed on firmware55:
+
+- Stitcher did not auto-start, then ran in baseline.
+- SM/MMUI inherited Warn; the native filter rejected Info. Baseline had no
+  override and native Info messages returned.
+- A copied MMUI plugin loaded and invoked our own module. Baseline had neither
+  that mapping nor its marker.
+- A copied index retained the OEM resource base and ran our JS marker. Baseline
+  used the original Opera entry path with no marker.
+
+Both reached Home. The original autostart was independently restored and holds
+cleaned; prepared data remained inactive. The prior local comparison JS remained
+the bench baseline. This proves composition and code entry, not a shipping feature
+or a performance improvement. One timing/resource sample pair is insufficient.
+
+Build from explicitly supplied private originals and the ARM flush helper:
+
+~~~sh
+python experiments/boot-selection/compose.py \
+  --original /private/firmware/usr/bin/autostart \
+  --config /private/firmware/jci/sm/sm.conf \
+  --plugin /private/firmware/jci/mmui/svcjcimmui.so \
+  --index /private/firmware/jci/gui/index.html \
+  --common /private/firmware/jci/lib/libjcicommon.so \
+  --flush runs/flush-build/flush-arm \
+  --directory '/tmp/mnt/data_persist/oc-boot-<fresh-32-hex-nonce>' \
+  --output runs/composed-payload
+~~~
+
+Supply a fresh 32-digit hexadecimal nonce and a new output directory.
+This builds only; it does not install or reboot. Every extra generation file is
+checked before the selector consumes and flushes its record. Only successful
+selection changes the service configuration and exports the logging override.
+The public checks exercise that ordering and reject changed dependencies.
+
+Private actual evidence: `runs/composed-generation/result.json`, including both
+closed observer/video bundles, fresh identities, original-file undo and cleanup.
+The initial host timeout/partial-input refusal remains separately recorded;
+it happened before publication and was reconciled before completing preparation.

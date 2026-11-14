@@ -64,7 +64,11 @@ else:raise ValueError(name)
             (self.bin / name).symlink_to(stub)
         self.env = dict(os.environ, PATH=str(self.bin) + ":" + os.environ["PATH"],
                         OC_FAIL_FLUSH="", OC_HANG_FLUSH="0")
-        text = prototype.selector(str(self.d), b"stock\n", flush, b"OC_TRIAL_1|test\n")
+        self.install_selector()
+
+    def install_selector(self, dependencies=None, log_level=None):
+        text = prototype.selector(str(self.d), b"stock\n", (self.d / "flush").read_bytes(),
+                                  b"OC_TRIAL_1|test\n", dependencies)
         text = text.replace(prototype.MOUNT_GUARD, ": # mounted-volume boundary stub")
         text = text.replace('for p in /tmp /tmp/mnt /tmp/mnt/data_persist "$D"; do',
                             'for p in "$D"; do')
@@ -75,8 +79,9 @@ else:raise ValueError(name)
         self.parent = self.r / "parent.sh"
         self.parent.write_text(
             "SMCFG_NORMALMODE=/jci/sm/sm.conf\n" +
-            prototype.hook(str(self.d), self.s.read_bytes()).replace("/bin/busybox", str(self.bin / "busybox")) +
-            'printf "CHOSEN|%s\\n" "$SMCFG_NORMALMODE"\n')
+            prototype.hook(str(self.d), self.s.read_bytes(), log_level).replace("/bin/busybox", str(self.bin / "busybox")) +
+            'printf "CHOSEN|%s\\n" "$SMCFG_NORMALMODE"\n' +
+            'printf "LEVEL|%s\\n" "${COMMON_LOG_LEVEL-unset}"\n')
 
     def run_parent(self, **env):
         r = subprocess.run(["/bin/sh", str(self.parent)], env=dict(self.env, **env),
@@ -138,6 +143,44 @@ else:raise ValueError(name)
             started = __import__("time").monotonic()
             self.baseline(OC_TEST_TIMEOUT="0.8")
             self.assertLess(__import__("time").monotonic() - started, 1.8)
+
+
+    def test_complete_generation_selects_environment_once(self):
+        dependencies = {"mmui.so": b"plugin", "bootstrap.so": b"code",
+                        "index.html": b"index", "probe.js": b"script"}
+        for name, data in dependencies.items():
+            p = self.d / name
+            p.write_bytes(data)
+            p.chmod(0o600)
+        self.env.pop("COMMON_LOG_LEVEL", None)
+        self.install_selector(dependencies, "Warn")
+        first = self.run_parent()
+        self.assertIn("OCBOOT|trial|", first)
+        self.assertIn("LEVEL|Warn\n", first)
+        second = self.run_parent()
+        self.assertIn("CHOSEN|/jci/sm/sm.conf\n", second)
+        self.assertIn("LEVEL|unset\n", second)
+        self.assertNotIn("OCBOOT|trial|", second)
+
+    def test_changed_generation_dependency_cannot_select_or_consume(self):
+        dependencies = {"mmui.so": b"plugin", "bootstrap.so": b"code",
+                        "index.html": b"index", "probe.js": b"script"}
+        for name, data in dependencies.items():
+            p = self.d / name
+            p.write_bytes(data)
+            p.chmod(0o600)
+        self.env.pop("COMMON_LOG_LEVEL", None)
+        self.install_selector(dependencies, "Warn")
+        for name, original in dependencies.items():
+            with self.subTest(dependency=name):
+                p = self.d / name
+                p.write_bytes(original + b"changed")
+                out = self.run_parent()
+                self.assertIn("CHOSEN|/jci/sm/sm.conf\n", out)
+                self.assertIn("LEVEL|unset\n", out)
+                self.assertFalse((self.d / "spent").exists())
+                self.assertEqual((self.d / "armed").read_bytes(), b"OC_TRIAL_1|test\n")
+                p.write_bytes(original)
 
 
 if __name__ == "__main__":

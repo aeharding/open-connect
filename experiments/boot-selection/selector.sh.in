@@ -20,6 +20,7 @@ test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0 || exit 74
 test "$(id -u)" = 0 || exit 75
 file "$D/generation.conf" 600 @CONFIG_SIZE@ @CONFIG_MD5@
 file "$D/flush" 700 @FLUSH_SIZE@ @FLUSH_MD5@
+@DEPENDENCY_GUARDS@
 absent "$D/spent" || exit 76
 file "$D/armed" 600 @RECORD_SIZE@ @RECORD_MD5@
 # A killed selector leaves this lock and therefore falls back next time.

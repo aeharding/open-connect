@@ -3,6 +3,9 @@
  * Replaces only mov r0, #0; resumes the unchanged OEM epilogue.
  * Missing library/symbol returns to stock. This cannot catch a crash or hang.
  */
+#ifndef OC_BOOTSTRAP_PATH
+#define OC_BOOTSTRAP_PATH "/data/open-connect/bootstrap-v1.so"
+#endif
 .syntax unified
 .arm
 .text
@@ -26,7 +29,7 @@ finished:
 .size oc_mmui_load, .-oc_mmui_load
 .balign 4
 library_path:
-    .asciz "/data/open-connect/bootstrap-v1.so"
+    .asciz OC_BOOTSTRAP_PATH
 entry_name:
     .asciz "oc_bootstrap_v1"
 .balign 4

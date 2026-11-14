@@ -74,3 +74,9 @@ The FW55 loader trace identifies an existing /data/integration/developer_mode_Gu
 renderer slot and a post-UIA native hook. See [loader-probe findings](extension-architecture.md#loader-probe-findings)
 for ordering, source identities and limits. The no-op native probe is host-built only;
 trial control, paired readiness and disabled startup remain unproved.
+
+The [readiness trace](extension-architecture.md#nativerenderer-readiness-boundary)
+shows that the existing GUI WebSocket delivers complete event objects to a native
+per-UIA callback. A System callback adapter is a candidate for coordinating the
+pair without another daemon. Its installation timing and renderer startup contract
+remain unproved; no new callback or message was exercised on the bench.

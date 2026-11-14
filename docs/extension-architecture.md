@@ -64,6 +64,17 @@ preloader/core/runtimes. These are precedents, not structures to copy wholesale.
 | [Magic Lantern modules](https://github.com/reticulatedpines/magiclantern_simplified/blob/142472e95054d73640f50789ac0fd66325499d82/src/module.c#L2054) | Writes a load marker, skips loading if it remains, and removes it during clean shutdown. | A previous incomplete session can suppress the next attempt. Normal power cuts can look like failures; Mazda shutdown behavior must be established before adopting this policy. |
 | [Magisk lifecycle](https://topjohnwu.github.io/Magisk/details.html#magisk-booting-process) and [module flags](https://topjohnwu.github.io/Magisk/guides.html#magisk-modules) | Separates boot stages, module disable/removal and boot-completion tracking. | Separate desired state from successful activation. Android init/property/mount facilities are not established CMU capabilities. |
 
+Two additional comparisons clarify the paired design:
+
+- [BepInEx's chainloader](https://github.com/BepInEx/BepInEx/blob/master/BepInEx.Core/Bootstrap/BaseChainloader.cs)
+  separates bootstrap/loading from plugin discovery and dependency ordering.
+  We need the separation, but one explicit feature does not need its discovery
+  and dependency framework.
+- [Electron's process communication](https://www.electronjs.org/docs/latest/tutorial/ipc)
+  uses explicit messages between main and renderer processes. This is the closer
+  analogy for our native/GUI pair: sharing a version or file is not proof that
+  both halves initialized. Electron's APIs are not available on this CMU.
+
 Linux loads shared-library constructors before dlopen returns. Therefore a flag
 checked inside optional library initialization cannot protect against every
 loader/constructor failure. The external decision must precede loading. This also
@@ -154,6 +165,46 @@ sm.conf 52dac9b051ab02a07afdc7bdfac56402420f8230901b5a55a76a7e9c44fb2e08.
 Private capture/derivation: runs/runtime-boundary-research; size, checksum and
 identity matched before and after each export. No OEM writes or reboot occurred.
 
+## Native/renderer readiness boundary
+
+Fresh read-only captures provide a candidate communication route through Mazda's
+existing GUI connection; no additional daemon or listening socket is proposed.
+
+Websockets.js:507–551 constructs a JSON event with eventId, uiaId and params,
+then sends it only when the existing MMUI WebSocket is open. In libjciguiifm.so,
+the event branch at 0x4d64–0x4d7c resolves the UIA name and passes the complete
+JSON object to GUIIFM_ProcessEventJSON. That function (0x4584) walks registered
+UIA records and invokes the matching record's event callback at offset 12 with
+the JSON pointer. getGuiifmCallbackLLHead (0x40dc) exposes the list head.
+
+This suggests a small FW55 adapter around the existing System event callback:
+recognize one strictly namespaced readiness message, and delegate every unrelated
+message unchanged. It is a proposal, not an installed or runtime-tested API.
+GUIIFM_Register refuses an existing UIA ID, and UIA name resolution occurs before
+dispatch, so registering an arbitrary new name is not an established shortcut.
+
+The portable part should own only the attempt and pair decision; the adapter
+should own Mazda's callback layout and message encoding. Native owns consumption
+of the attempt. The renderer reports the matching attempt and component version.
+A message from an old attempt, duplicate, or arriving after the startup decision
+must not activate a feature. These messages coordinate trusted installed
+components; a nonce is not authentication against another compromised local client.
+
+Before using this route, the narrow remaining questions are callback installation
+timing and concurrency, pointer/module lifetime, the renderer's actual ready/send
+point, and how it receives the native attempt identity without evaluating disabled
+feature code. The developer-script slot runs before Websockets is defined; its
+mere execution is not that readiness point. No callback has been replaced and no
+new GUI event has been sent. Do not turn this candidate into a general event bus.
+
+Exact source SHA256 identities:
+Websockets.js 090486339f83b40d9758faf867f3984e14e659df574fa702033a60d49406c973;
+GuiConfig.js 165ef686e419dd562868ac1be206cb2a7bcd6d52ef976578c3246cbc982976e0;
+libjciguiifm.so d438121db2d3fa5f75dc9b40f5eb6d54b607ac348cfd490f3ed750621572be09.
+Private source/provenance: runs/runtime-boundary-research/*-result.json and
+guiifm-disassembly.txt. These captures establish the observed dispatch, not
+end-to-end readiness, failure recovery or cold-start behavior.
+
 ## Proposed activation contract
 
 The bootstrap has a small fixed interface, no mod discovery, network access,
@@ -175,7 +226,8 @@ Latch one configuration/bundle generation for the whole startup. The native and
 renderer components must both be ready for that generation before the native
 bypass can activate. If readiness is absent at the existing decision point, keep
 stock behavior for that startup; no late activation or new wait in Mazda's path.
-The transport and timing for that agreement remain an implementation question.
+The existing GUI event path is a candidate transport; adapter installation and
+readiness timing remain implementation questions.
 File presence alone cannot establish renderer readiness.
 
 ### First experiment: off or one attempt

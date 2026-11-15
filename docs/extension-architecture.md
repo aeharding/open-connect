@@ -97,10 +97,12 @@ explain the evidence and limits.
 
 ## Next proof
 
-- **Health:** detect incomplete initialization outside the optional component.
-  A failed library load left MMUI alive and SYSTEM reporting Normal while the
-  screen stayed on the logo. Neither alone is a health check.
-  [Measured counterexample](reverse-engineering.md#normal-does-not-mean-the-gui-initialized).
+- **Health:** use a verified rendering boundary, not a promising status name.
+  Normal and HMIReady can occur without a working UI; firmware55 ignores
+  InitializeGuiComplete. Mazda's state timeout recovered the injected JS app
+  failure, but not the missing native module. A small rendering acknowledgment
+  and independent deadline remain proposals.
+  [Actual signal and failure tests](reverse-engineering.md#ready-signals-are-not-equivalent).
 - **Renewal:** test actual ACC OFF → ON before allowing automatic retries.
   This physical test is deferred until controlled ACC is available.
 - **Durability:** qualify interrupted record updates, beyond completed-flush cuts.

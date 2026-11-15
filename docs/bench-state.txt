@@ -14,17 +14,28 @@ Installed:
 - Original /usr/bin/autostart restored and independently verified:
   64785:7113:1380015098:3039:775:1018:3015:1. No trial hook installed.
 - silent-ui-v1 runtime bench profile ON/active/owned after the final boot.
-  Receipt .bench-state/profile.json; runs/startup-health-trial/bench-ready.
+  Receipt .bench-state/profile.json; runs/gui-ready-js/bench-ready.
   It expires on reboot/service replacement; no persistent audio hook.
 
-Latest verified boot: c4cb33ec-daa4-446f-b0f0-821ff4e814c6
+Latest verified boot: af97f0c0-40b4-47b0-988a-171c7fecdb64
 Running SM used /jci/sm/sm.conf; Opera used /jci/gui/index.html.
-Latest startup-health baseline video shows Communication Home; bench profile was
-re-enabled afterward. Existing comparison remains installed.
+Latest post-recovery still runs/gui-ready-js/final-home.jpg shows Communication
+Home; bench profile was re-enabled afterward. Existing comparison remains installed.
 Original autostart was independently restored/verified after this boot; no extra
 boot was performed after removing the shell hook.
 
 Closed experiments:
+- runs/gui-ready-missing/result.json: passive ReportGuiAvailable capture absent
+  with missing system UIA/logo, present with baseline/Home. Start/end bus-ID
+  canaries established coverage; original autostart undo and holds cleaned.
+- runs/gui-ready-js/result.json: selected system-app throw at21.971; OEM
+  loadingApp timeout29.982/forceExit31.020/SM watchdog stop31.301, automatic
+  baseline boot. Trial bus capture contained ReportGuiAvailable despite failure.
+  Original observer UNKNOWN preserved; fresh reconciliation proves original
+  MMUI/native/Opera, rootRO/Home. Original autostart restored/verified/cleaned.
+  No on-target health policy; draft host conditional recovery was not executed.
+  No power/ACC action. UART/camera closed, runtime bench profile on.
+  Spent generation: /tmp/mnt/data_persist/oc-boot-fffa51aaa438bea938cf1bd0f9cf8122.
 - runs/startup-health-trial/result.json: deliberately absent system UIA left
   MMUI/Opera alive and the logo visible, yet SYSTEM entered Normal at 45.410s
   and returned state2 at 112.53s. Healthy Home/Compass also returned2.

@@ -14,17 +14,25 @@ Installed:
 - Original /usr/bin/autostart restored and independently verified:
   64785:7113:1380015098:3039:775:1018:3015:1. No trial hook installed.
 - silent-ui-v1 runtime bench profile ON/active/owned after the final boot.
-  Receipt .bench-state/profile.json; runs/selected-feature-v2/bench-ready.
+  Receipt .bench-state/profile.json; runs/startup-health-trial/bench-ready.
   It expires on reboot/service replacement; no persistent audio hook.
 
-Latest verified boot: cf2ea20c-6731-4d6d-89c4-1fe7fb75f5ae
+Latest verified boot: c4cb33ec-daa4-446f-b0f0-821ff4e814c6
 Running SM used /jci/sm/sm.conf; Opera used /jci/gui/index.html.
-Latest selected-feature baseline video shows Communication Home; bench profile was
+Latest startup-health baseline video shows Communication Home; bench profile was
 re-enabled afterward. Existing comparison remains installed.
 Original autostart was independently restored/verified after this boot; no extra
 boot was performed after removing the shell hook.
 
 Closed experiments:
+- runs/startup-health-trial/result.json: deliberately absent system UIA left
+  MMUI/Opera alive and the logo visible, yet SYSTEM entered Normal at 45.410s
+  and returned state2 at 112.53s. Healthy Home/Compass also returned2.
+  One normal recovery boot verified baseline mappings/RO/Home; original autostart
+  undo/hold cleanup and bench-profile setup passed, all handles closed.
+  Spent generation: /tmp/mnt/data_persist/oc-boot-fc5f3dd50c374dc53a4fe848b677a0e7.
+  No power/ACC commands. Interrupted host DATA upload and separate reconciliation
+  preserved; it did not publish or execute the trial. No health policy installed.
 - runs/selected-feature-v2/result.json: real native bypass and JS cleanup selected
   together, then baseline omitted both without feature-file restoration. Exact
   mappings, actual JS execution, IntroAnimation->HomeScreen and post-display

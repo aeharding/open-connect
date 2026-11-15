@@ -197,6 +197,56 @@ The corrected adapter splits the parent and relative library path within both
 limits. See the [feature builder](https://github.com/aeharding/open-connect/blob/main/experiments/boot-selection/feature.py).
 Private failed trial, diagnosis and recovery: `runs/selected-feature/result.json`.
 
+### Normal does not mean the GUI initialized
+
+**Mazda's SYSTEM state returned Normal during a startup stuck on the logo.**
+A deliberate missing-system-UIA trial reproduced the earlier loader failure
+without changing the installed native or GUI files.
+
+| Observation | GetCurrentSystemState |
+| --- | --- |
+| Working Home | 2 — Normal |
+| Working Compass screen | 2 — Normal |
+| System UIA absent; MMUI and Opera alive; logo still visible | 2 — Normal |
+
+The failed startup entered Normal at uptime 45.410 s; the read-only query still
+returned Normal at 112.53 s. The copied loader reported the missing library,
+and fresh process mappings confirmed its absence. No automatic reset occurred
+before our explicit recovery request after uptime 132.85 s.
+
+This rules out process existence **and SYSTEM Normal alone** as startup-health
+checks. The GUI's InitializeGuiComplete and native HMIReady are earlier
+initialization milestones, not proof that the final app or optional feature works.
+Neither should replenish the finite attempt budget.
+
+The next normal reboot restored baseline mappings and Home. Independent undo
+removed the trial hook and its holds; root was read-only and bench audio was
+re-enabled. The earlier host upload interruption is preserved separately from
+the successful fault/recovery pair.
+
+<details>
+<summary>Read-only API and evidence</summary>
+
+On this firmware, resolve com.jci.blm.system on
+unix:path=/tmp/dbus_service_socket, then query its unique owner at
+/com/jci/blm/system with
+com.jci.blmsystem.Interface.GetCurrentSystemState. Bind owner and boot before
+and after the call. It returns a uint32 state and int32 status; the observed
+status 100 is not a health score. Do not substitute the similarly named HMI-bus
+service or invoke ReportGuiAvailable, which changes readiness state.
+
+The exact SYSTEM constructor maps 1 to Init and 2 to Normal. BaseApp sends
+InitializeGuiComplete after its first displayed template, even after catching
+a displayed-callback exception. Native OnFinishIntroAnimation sends HMIReady
+before setting the next context.
+
+Private evidence: runs/startup-health-research/state-classification.json,
+state-enum.json, and runs/startup-health-trial/ (query, mappings, closed video
+and subsequent recovery). This tests one missing-UIA case, not every partial
+startup, display-off/ACC route, or later GUI hang.
+
+</details>
+
 ### What causes a reset?
 
 ~~~mermaid

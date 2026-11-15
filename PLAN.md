@@ -16,6 +16,19 @@ those different execution points rather than only the disclaimer's UI process.
 See the [feature map and architecture](docs/extension-architecture.md#product-scope).
 The bench and reverse engineering serve this product, not a separate platform.
 
+The motivating outcome is reliable native wireless CarPlay after a long parked,
+cold start. The user's mod works well once running but lags during startup.
+[#8](https://github.com/aeharding/open-connect/issues/8) diagnoses that symptom;
+[#9](https://github.com/aeharding/open-connect/issues/9) measures whether resource
+changes help. Disclaimer and recovery work enable delivery; they are not a
+substitute for that outcome. Research these now; live CarPlay comparisons require
+the appropriate firmware and hardware.
+
+For optional online updates, explore an explicit switch between wireless CarPlay
+and a phone/home hotspot, then a reliable return to CarPlay. Wired CarPlay plus
+hotspot is a fallback option. OEM Wi-Fi controls and an Open Connect settings
+entry remain research in [#54](https://github.com/aeharding/open-connect/issues/54).
+
 ## Support contract
 
 Required today: **55.00.750B NA / cmu150_NA**, with exact original-file/API guards.
@@ -104,8 +117,12 @@ claim follows from installing a loader. No new general plugin framework is neede
    measurable handoff improvement. Keep normal continuation and cleanup. If another
    visual intervention has no demonstrated benefit, record that result and proceed
    with the best supported design; no endless transition tuning.
-4. **#5/#7/#10, next:** repeatable startup batch, a small shared USB lifecycle and
-   a fresh-checkout contribution path. Reuse working components.
+4. **#8/#9, current research:** identify the user's native wireless mod and compare
+   configuration spoofing with direct enablement. Define cold-start CarPlay
+   readiness and lag measurements before choosing a performance change; do not
+   assume spoofing or memory pressure caused the symptom.
+5. **#5/#7/#10:** repeatable startup batches and the USB lifecycle support those
+   experiments. Reuse the delivered fresh-checkout contribution path.
 
 One active implementation at a time. Independent source investigation may fill
 hardware waits; it does not imply a standing subagent team. Review a substantive
@@ -137,6 +154,9 @@ to replace; defer frameworks and broad compatibility.
 - **Startup experience:** warning presence, visible gap/fade, time to usable target
   screen and preservation of intended last-app/display-off behavior. Distinguish
   camera sampling limits from no-flash proof.
+- **CarPlay startup:** time to usable projection, early control/audio responsiveness
+  and time until stable. Correlate CPU, RAM, I/O and Wi-Fi/Bluetooth/service readiness;
+  separate long-parked cold starts from software reboot and resume.
 - **Reliability:** successful starts/connections divided by actual attempts, time
   to ready and failure categories under declared warm/cold/phone conditions.
   Report tails when sample size supports them, not success-only averages.

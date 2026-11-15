@@ -236,7 +236,31 @@ def private_credentials(path):
     return result
 
 
-def main(argv=None):
+def execute_checks(session, commands, deadline=None):
+    # Frame short complete shell programs separately so startup log pressure
+    # cannot leave a large quoted command buffered in the interactive shell.
+    outputs = []
+    for command in commands:
+        if deadline is not None:
+            session.timeout = min(20, deadline - time.monotonic())
+            if session.timeout <= 1:
+                raise TimeoutError("no time for post-startup checks")
+        rc, raw = session.execute(command)
+        outputs.append(raw)
+        if rc:
+            return rc, b"\n".join(outputs)
+    return 0, b"\n".join(outputs)
+
+
+def main(argv=None, *, check_script=None, check_commands=None, check_result=None, source_kind="O",
+         success_outcome="stock_restart_access_O_RO_verified"):
+    # Explicit verification injection lets developer trials reuse the one-request
+    # boot loop without replacing module globals or duplicating its login logic.
+    script = CHECK if check_script is None else check_script
+    commands = [script] if check_commands is None else list(check_commands)
+    if not commands or len(commands) > 24 or any(not isinstance(c, str) or not c for c in commands):
+        raise ValueError("bounded nonempty verification commands required")
+    checker = checked_output if check_result is None else check_result
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--live', action='store_true')
     p.add_argument('--bundle', type=Path)
@@ -265,6 +289,7 @@ def main(argv=None):
     username, password = private_credentials(args.credentials)
     bundle = Bundle(args.bundle, 'ONE stock warm software restart', args.owner, mode='live')
     bundle.meta['profile'] = profile
+    bundle.meta['source_kind'] = source_kind
     video = Video(bundle, args.camera_index)
     outcome, error, port, requested = 'failed_before_request', None, None, False
     with AdapterLock(owner=args.owner, purpose='ONE stock warm restart'):
@@ -273,7 +298,7 @@ def main(argv=None):
             session = Session(port, bundle, timeout=20, output_cap=MAX_RX)
             session.observe_prompt(solicit=args.solicit_prompt)
             session.identify()
-            before = checked_output(*session.execute(CHECK))
+            before = checker(*execute_checks(session, commands))
             bundle.save('before.json', (json.dumps(before, indent=2)+'\n').encode())
             video.start()
             # One absolute observation deadline includes request TX, boot and postchecks.
@@ -311,10 +336,11 @@ def main(argv=None):
                         raise TimeoutError('no time for bounded fresh identity')
                     session.identify()
                     session.timeout = min(20, deadline-time.monotonic())
-                    after = checked_output(*session.execute(CHECK), before=before)
+                    after = checker(*execute_checks(session, commands, deadline), before=before)
                     bundle.save('after.json', (json.dumps(after, indent=2)+'\n').encode())
                     bundle.event('post_restart_verified', elapsed_s=time.monotonic()-start,
-                                 root_identity=session.identity, source_O=True, physical_root_RO=True)
+                                 root_identity=session.identity, source_O=source_kind == "O",
+                                 source_kind=source_kind, physical_root_RO=True)
                     # Retain visual settling after readiness; never exceed overall deadline.
                     tail = min(deadline, time.monotonic()+20)
                     while time.monotonic() < tail:
@@ -323,7 +349,7 @@ def main(argv=None):
                             gate.raw.extend(extra)
                             if len(list(KERNEL_BANNER.finditer(ANSI.sub(b'', bytes(gate.raw))))) > 1:
                                 raise RuntimeError('second kernel during settling; stop')
-                    outcome = 'stock_restart_access_O_RO_verified'
+                    outcome = success_outcome
                     break
             else:
                 raise TimeoutError('180s restart readiness deadline; no retry/recovery')
@@ -335,8 +361,9 @@ def main(argv=None):
                 video.stop()
             except BaseException as exc:
                 error = (error or '') + '; camera cleanup: ' + str(exc)
-                if outcome == 'stock_restart_access_O_RO_verified':
-                    outcome = 'access_O_RO_verified_video_failed'
+                if outcome == success_outcome:
+                    outcome = ('access_O_RO_verified_video_failed' if source_kind == "O"
+                               else success_outcome + '_video_failed')
                 elif requested:
                     outcome = 'unknown_after_request'
             if port is not None:
@@ -344,7 +371,7 @@ def main(argv=None):
                 bundle.meta['port_closed'] = True
             bundle.finish(outcome, error)
     print(json.dumps(dict(outcome=outcome, error=error, bundle=str(args.bundle))))
-    return 0 if outcome == 'stock_restart_access_O_RO_verified' else 2
+    return 0 if outcome == success_outcome else 2
 
 if __name__ == '__main__':
     raise SystemExit(main())

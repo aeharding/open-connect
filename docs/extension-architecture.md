@@ -98,7 +98,9 @@ explain the evidence and limits.
 ## Next proof
 
 - **Health:** detect incomplete initialization outside the optional component.
-  A failed library load left MMUI alive; process existence alone was insufficient.
+  A failed library load left MMUI alive and SYSTEM reporting Normal while the
+  screen stayed on the logo. Neither alone is a health check.
+  [Measured counterexample](reverse-engineering.md#normal-does-not-mean-the-gui-initialized).
 - **Renewal:** test actual ACC OFF → ON before allowing automatic retries.
   This physical test is deferred until controlled ACC is available.
 - **Durability:** qualify interrupted record updates, beyond completed-flush cuts.

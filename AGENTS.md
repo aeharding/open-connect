@@ -14,7 +14,9 @@ Build the smallest complete experiment. Avoid duplicated audits, tooling and log
 Apply the experiment discipline in STEERING.md: outcome first, early prior art,
 one decision per experiment, and separate device failures from tooling failures.
 
-Run program/file operations through Herdr hc. Keep UART/camera ownership serialized
+Run program/file operations through Herdr hc. Give multi-operation uploads and
+boot observers an explicit host timeout (hc exec --timeout 600); its default
+60-second deadline can kill an upload mid-command. Keep UART/camera ownership serialized
 and close owned resources. Match process identity before termination.
 The user supplies physical resources; agents handle software operation. Do not
 ask the user to press buttons, dismiss dialogs or rewire things to complete agent work.

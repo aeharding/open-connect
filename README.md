@@ -15,6 +15,7 @@ wiring, development guides and CMU reverse engineering.
 
 - **Build a bench:** [power, display and UART wiring](docs/bench-setup.md).
 - **Use a connected bench:** [CLI commands](docs/cli.md).
+- **Try the first feature:** [build, trial and disable](docs/cli.md#developer-feature-trial).
 - **Change the code:** install the host tools and run the offline tests below.
 - **Understand the Mazda behavior:** [findings](docs/reverse-engineering.md).
 - **Choose work:** [roadmap](PLAN.md) and [issues](https://github.com/aeharding/open-connect/issues).
@@ -34,14 +35,15 @@ Prototype-specific checks are separate and may need private OEM inputs.
 
 | Path | Purpose | Runs where? |
 | --- | --- | --- |
-| [src/open_connect/](src/open_connect/) | Python CLI, UART transport, file transfer and runtime bench profile | Your computer |
+| [src/open_connect/](src/open_connect/) | Host CLI, UART, feature workflow and runtime bench profile | Your computer |
 | [cmu/adapters/](cmu/adapters/) | Firmware-specific target integration; currently a host-built native loader probe | CMU when explicitly installed; no automatic deployment |
 | [tests/](tests/) | Offline tests for that host package | Your computer; fake transport or local PTYs |
 | [experiments/](experiments/) | Prototype mods, builders and bench trials; see its index before running anything | Builders run on the host; generated payloads may change the CMU |
 | [docs/](docs/index.md) | Setup, usage and Mazda findings | Documentation |
 
 There is no automatic deployment step. Installing the Python package installs
-**only host tools**. Product patches are still experiments, not bundled into the CLI.
+**only host tools**. Feature builders remain in the source checkout; `oc feature` runs them against
+your private firmware originals. Generated patches are not bundled in the package.
 The Python import name uses an underscore (open_connect); the project/command
 names are Open Connect and oc.
 

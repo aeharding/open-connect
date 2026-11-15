@@ -82,6 +82,7 @@ This cannot rescue a broken kernel, baseline or bootstrap.
 
 | Test | Result |
 | --- | --- |
+| Developer CLI cycle | Build/prepare/trial/status/disable completed; selected state reconciled after a console-check failure, baseline return automatic |
 | Paired disclaimer feature | Selected native bypass and JS cleanup ran together; next boot omitted both without feature-file restoration |
 | Home acknowledgement | Real browser delivered a generation/current-boot signal to an independent receiver; camera confirmed Home |
 | Missing native module, responsive GUI loop | Independent deadline requested a normal reboot; spent trial selected baseline and Home returned |
@@ -105,9 +106,9 @@ explain the evidence and limits.
 
 ## Next proof
 
-- **Repeatability:** consolidate build, trial, status and disable into the semantic
-  CLI. Repeat healthy starts and qualify last-app/display-off before treating
-  this Home-specific signal as a broader health policy.
+- **Repeatability:** use the [developer CLI](cli.md#developer-feature-trial) for
+  further measured trials. Repeated healthy starts and last-app/display-off
+  qualification are needed before treating Home as a broader health policy.
   [Actual signal and limits](reverse-engineering.md#a-home-specific-acknowledgement).
 - **Renewal:** test actual ACC OFF → ON before allowing automatic retries.
   This physical test is deferred until controlled ACC is available.

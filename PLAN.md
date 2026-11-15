@@ -33,7 +33,7 @@ entry remain research in [#54](https://github.com/aeharding/open-connect/issues/
 
 Required today: **55.00.750B NA / cmu150_NA**, with exact original-file/API guards.
 One supported firmware at a time. The planned successor is the latest officially
-applicable NA release; **74.00.324(A) remains an unverified candidate**.
+applicable NA release; **74.00.324A NA is now available for offline analysis from a verified Mazda-hosted package**. Its applicability and the upgrade procedure remain unresolved.
 [#2](https://github.com/aeharding/open-connect/issues/2) resolves exact package,
 variant, intermediates, development access and power/media procedure before flashing.
 Move the required baseline together and requalify features; do not maintain a
@@ -111,7 +111,8 @@ claim follows from installing a loader. No new general plugin framework is neede
    Persistent startup still needs a verified hook/readiness boundary; it does not
    gate feature work. No per-helper public controls or force-enable daemon.
 2. **#2, active research:** resolve the exact supported latest-NA package and upgrade
-   route/access implications. Existing source leads are not a current-release proof.
+   route/access implications. The exact 74.00.324A NA package has been downloaded
+   and hashed; this is not permission or a recipe to flash it.
    Produce a concrete recipe and named remaining physical inputs.
 3. **#3, next feature experiment:** use saved menu/surface/lifecycle code to test one
    measurable handoff improvement. Keep normal continuation and cleanup. If another
@@ -120,7 +121,11 @@ claim follows from installing a loader. No new general plugin framework is neede
 4. **#8/#9, current research:** identify the user's native wireless mod and compare
    configuration spoofing with direct enablement. Define cold-start CarPlay
    readiness and lag measurements before choosing a performance change; do not
-   assume spoofing or memory pressure caused the symptom.
+   assume spoofing or memory pressure caused the symptom. See the
+   [v74 source findings](docs/cmu/wireless-carplay.md) and
+   [measurement plan](docs/carplay-testing.md).
+   [#56 Factory Reset](https://github.com/aeharding/open-connect/issues/56) traces
+   settings deletion and retained installation state before defining reset behavior.
 5. **#5/#7/#10:** repeatable startup batches and the USB lifecycle support those
    experiments. Reuse the delivered fresh-checkout contribution path.
 

@@ -20,6 +20,7 @@ nav = [
     { "Wire a bench" = "bench-setup.md" },
     { "Use the CLI" = "cli.md" },
     { "Test the disclaimer bypass" = "disclaimer-development.md" },
+    { "Measure CarPlay" = "carplay-testing.md" },
     { "Architecture" = "extension-architecture.md" },
     { "Uninstall direction" = "uninstall.md" },
     { "Edit these docs" = "documentation.md" },
@@ -27,6 +28,8 @@ nav = [
   { "CMU research" = [
     { "System overview" = "cmu/index.md" },
     { "Findings" = "reverse-engineering.md" },
+    { "Wireless CarPlay" = "cmu/wireless-carplay.md" },
+    { "Factory Reset" = "cmu/factory-reset.md" },
   ] },
 ]
 

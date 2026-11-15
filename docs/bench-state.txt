@@ -40,7 +40,8 @@ Latest cycle: runs/disclaimer-preview-reproduction/result.json.
 
 Earlier experiments and failure qualifications are in docs/reverse-engineering.md\nand the private result records linked there. Git preserves earlier handoffs.\n
 DPS150 connected via USB; output ON, voltage/current settings unchanged.
-Do not change voltage. Notify the user before any power cut so they can watch.
+Do not change voltage. The user permits autonomous power cuts; advance notice
+is not required (clarified 2026-11-15). Keep cuts tied to a concrete experiment.
 Ethernet/SSH and ACC control were last reported in transit.
 
 Inactive trial data/backups/undo remain under /tmp/mnt/data_persist/oc-boot-*;

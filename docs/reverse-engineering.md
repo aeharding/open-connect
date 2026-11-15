@@ -215,8 +215,8 @@ and fresh process mappings confirmed its absence. No automatic reset occurred
 before our explicit recovery request after uptime 132.85 s.
 
 This rules out process existence **and SYSTEM Normal alone** as startup-health
-checks. The GUI's InitializeGuiComplete and native HMIReady are earlier
-initialization milestones, not proof that the final app or optional feature works.
+checks. The [notification tests below](#ready-signals-are-not-equivalent) also reject
+InitializeGuiComplete and native HMIReady as general readiness verdicts.
 Neither should replenish the finite attempt budget.
 
 The next normal reboot restored baseline mappings and Home. Independent undo
@@ -247,12 +247,69 @@ startup, display-off/ACC route, or later GUI hang.
 
 </details>
 
+### Ready signals are not equivalent
+
+**Neither promising OEM notification is a reliable GUI-health verdict on
+55.00.750B.** We traced the exact code and tested both native and JS failures.
+
+| Mechanism | What it actually establishes |
+| --- | --- |
+| SYSTEM Normal | Startup policy advanced; a timeout can produce it |
+| InitializeGuiComplete | First-template callback ran; this firmware's native event parser does **not** recognize it |
+| ReportGuiAvailable / HMIReady | Native FinishIntroAnimation action ran; it also appeared during the failed JS startup |
+| JavaScript heartbeat | Event loop is servicing callbacks; not proof that an app loaded |
+
+In the missing-system-UIA test, no ReportGuiAvailable call appeared and the logo
+remained. The healthy comparison produced one call, bound to MMUI, and Home.
+Read-only bus-ID canaries bracketed both captures and established coverage.
+That distinction alone was insufficient: the following JS failure also produced
+the notification before Opera exited.
+
+The JS trial threw before defining systemApp. Mazda's saved error log records
+the exception at **21.971 s**, a **loadingApp state timeout at 29.982 s**, and
+forceExit at **31.020 s**. SM stopped watchdog feeding at 31.301 s; the automatic
+reset selected baseline. Fresh mappings, root RO, Home and independent undo
+passed. The original serial observer remains incomplete; it checked during
+early fallback startup. This did not become the intended sustained, responsive
+but stuck UI case—Mazda's own state timeout recovered first.
+
+**Direction:** preserve Mazda's heartbeat and state-timeout recovery. A small
+acknowledgment at a verified rendering boundary remains a candidate for cases
+Mazda leaves stuck. Do not use the names above as proof, and never let readiness
+refund attempts. No production health detector was installed.
+
+<details>
+<summary>Source and capture details</summary>
+
+The exact native event-name parser lacks InitializeGuiComplete and returns its
+unknown value 1486; the healthy log records that event being ignored immediately
+after BaseApp sends it. FinishIntroAnimation is event 1404, routed through A23
+to OnFinishIntroAnimation and ReportGuiAvailable. These are separate paths.
+
+The passive monitor observed com.jci.blmsystem.Interface.ReportGuiAvailable at
+/com/jci/blm/system on unix:path=/tmp/dbus_service_socket. Do not invoke the
+method to query readiness: it changes state. An interrupted capture cannot
+establish absence. The JS trial's capture contains the call but ends at reset;
+its sender was not resolved before that process exited.
+
+The Opera guimanager plugin initially arms 30 seconds, then each framework
+heartbeat rearms 10 seconds. Its expiry closes Opera. The separate framework
+state timer also closes Opera when loading or transition progress stalls.
+
+Private evidence: runs/gui-ready-research/notification-contract.json,
+runs/gui-ready-missing/result.json, and runs/gui-ready-js/result.json.
+OEM sources, full logs and generated fault payloads remain private.
+
+</details>
+
 ### What causes a reset?
 
 ~~~mermaid
 flowchart TD
     JS["JavaScript event-loop hang"] --> Miss["Native monitor misses JS heartbeat"]
     Miss --> Close["Opera closes"]
+    Init["App load / transition stalls"] --> Timer["Framework state timeout"]
+    Timer --> Close
     Native["Critical native process exits"] --> SM["Service Manager stops watchdog feeding"]
     Close --> SM
     SM --> Reset["Watchdog resets CMU"]

@@ -333,6 +333,24 @@ the boot-selection experiment's `readiness.py`. Private evidence:
 `runs/independent-ready-feature/result.json`. Earlier log-only observations are
 preserved separately in `runs/render-ack-feature/` and `runs/render-ack-missing/`.
 
+### The developer CLI completed the feature/recovery cycle
+
+`oc feature` now builds the private payload, prepares independent undo, selects
+one startup and returns to baseline through `disable`. In the measured FW55 run,
+the native/JS feature reached Home and acknowledged at CMU log time **29.324 s**.
+The one-shot record was spent; fresh checks confirmed selected mappings and rootRO.
+
+The selected observer originally returned UNKNOWN: its 9.5 KB console check
+never produced a complete begin/end frame during startup logging. Fresh read-only
+reconciliation verified the feature; the failure was not relabeled an automated
+pass. Startup checks now use short, separately framed commands. The subsequent
+baseline boot passed automatically, followed by exact hook restoration/hold cleanup.
+
+Both closed videos showed Home. CPU/RAM/I/O samples were captured, but different
+boot ages and audio-profile conditions prevent a performance comparison.
+[Reproduce the developer workflow](cli.md#developer-feature-trial).
+Private evidence: `runs/feature-cli-trial/result.json`.
+
 ### What causes a reset?
 
 ~~~mermaid

@@ -207,6 +207,14 @@ bundles, confirmation and independent undo. A host import refusal before opening
 UART is preserved separately.
 
 
+## Developer entry point
+
+Use [`oc feature build/prepare/trial/status/disable`](../../docs/cli.md#developer-feature-trial)
+for the complete checked workflow. The CLI reuses the builders below; generated
+OEM inputs/payloads remain private. A completed bench cycle verified selected
+Home through reconciliation, then an automatic baseline return and independent
+hook cleanup. Original UNKNOWN evidence remains in `runs/feature-cli-trial/result.json`.
+
 ## Select the paired disclaimer feature
 
 One corrected bench trial ran the native bypass and JS cleanup together:

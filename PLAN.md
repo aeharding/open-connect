@@ -69,6 +69,14 @@ universal health qualification. Freeze that prototype's scope. Next: consolidate
 the useful feature's build/trial/status/disable workflow into the semantic CLI,
 with timing/resource records and independent undo. Defer automatic everyday
 renewal until real ACC control is available.
+**Current delivery**
+The developer CLI now builds, prepares, trials, observes and disables one real
+feature. The selected startup needed independent reconciliation after a console
+verification failure; disable/baseline startup passed automatically. Timing and
+CPU/RAM/I/O samples are retained without a performance claim. The
+[reproduction workflow](docs/cli.md#developer-feature-trial) is the developer entry point.
+Recovery prototype PR #49 is merged. Automatic ACC renewal remains deferred.
+
 A private file view remains an option, but this composition used OEM environment
 and launch settings without a whole-service mount namespace.
 The bootloader reports the same reset word for a tested normal reboot and

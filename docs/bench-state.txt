@@ -1,4 +1,4 @@
-CURRENT LAB STATE — last verified 2026-11-14
+CURRENT LAB STATE — last verified 2026-11-15 UTC
 
 Firmware: 55.00.750B NA, cmu150_NA. Physical root /dev/ffx01p1 is RO.
 Primary owns software operation. Owned UART/camera/supply handles are closed.
@@ -13,17 +13,29 @@ Installed:
   latest postboot MD5 c8d0aceb75ad216aa548ada2989abd7c.
 - Original /usr/bin/autostart restored and independently verified:
   64785:7113:1380015098:3039:775:1018:3015:1. No trial hook installed.
-- silent-ui-v1 runtime profile ON/active/owned after automatic fallback.
-  Receipt .bench-state/profile.json; runs/independent-ready-missing/bench-ready.
+- silent-ui-v1 runtime profile ON/active/owned after CLI baseline recovery.
+  Receipt .bench-state/profile.json; runs/feature-cli-trial/bench-ready.
   No persistent audio hook.
 
-Latest verified boot: 98161a30-0834-4efd-8f02-252607874fc3
-Running SM used /jci/sm/sm.conf; Opera used /jci/gui/index.html.
-Original native mappings returned; autostart was independently restored/verified
-and its hardlink holds removed afterward. No extra boot after that restoration.
-Latest viewed Home: runs/independent-ready-missing/baseline-home.jpg.
-All owned camera/UART handles closed; no further live operation queued.
-Next work: consolidate the proven trial workflow into the semantic CLI.
+Latest verified boot: 3421e85a-1ee7-40e4-82a6-2f19ccd04cc5
+Running SM uses /jci/sm/sm.conf; Opera uses /jci/gui/index.html.
+Original native mappings returned. The CLI restored autostart, booted baseline,
+then independently cleaned holds and verified its original nlink1 identity.
+Latest viewed Home: runs/feature-cli-trial/baseline-home.jpg.
+All owned UART/camera handles closed. Bench profile ON after measurement.
+No further live operation queued.
+
+Latest cycle: runs/feature-cli-trial/result.json.
+- One selected feature startup, followed by one independent disable/baseline boot.
+- Selected Home appeared and acknowledged at CMU log time 29.324s.
+  Original observer UNKNOWN was a console verification failure; separate fresh
+  status proved selected mappings, spent attempt, current Home acknowledgement
+  and physical rootRO. No selected reboot or failed command resend.
+- Baseline observer passed automatically with 22 completed checks. Original
+  native/JS entry paths returned; optional effects omitted; rootRO.
+- CPU/RAM/I/O two-point samples retained, not comparable performance evidence.
+- Temporary generation retained spent/inactive:
+  /tmp/mnt/data_persist/oc-boot-0434751b0db29fb1a28596a39ce33574
 
 Closed experiments:
 - runs/independent-ready-missing/result.json: missing selected system UIA left

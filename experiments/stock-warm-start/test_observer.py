@@ -112,21 +112,41 @@ class Tests(unittest.TestCase):
                 def observe_prompt(self,**kw):pass
                 def identify(self):self.identity={'uid':0,'installed':'55.00.750B'}
                 def execute(self,command):
+                    if custom and command == "custom prefix":
+                        sent.append("check_prefix")
+                        return 0,b""
                     self.checks+=1
+                    if custom:assert command == "custom verification"
                     return 0,check_output() if self.checks==1 else check_output('22222222-2222-2222-2222-222222222222',30)
                 def _send(self,data,**kw):sent.append(data)
                 def _read(self,*a,**kw):return next(self.chunks,b'')
-            for camera_fail in (False,True):
+            for camera_fail, custom in ((False,False),(True,False),(False,True)):
                 sent.clear();closed.clear()
-                ticks=iter(range(0,10000,2));bundle=root/('camera_failed' if camera_fail else 'bundle')
+                ticks=iter(range(0,10000,2));bundle=root/('custom' if custom else 'camera_failed' if camera_fail else 'bundle')
                 with patch.object(m,'AdapterLock',Lock),patch.object(m,'open_adapter',lambda b:Port()),patch.object(m,'Video',Video),patch.object(m,'Session',Session),patch.object(m.time,'monotonic',lambda:next(ticks)):
-                    rc=m.main(['--live','--bundle',str(bundle),'--credentials',str(cred),'--profile',str(profile),'--camera-index','0'])
+                    kwargs = dict(check_commands=["custom prefix","custom verification"], check_result=m.checked_output,
+                                  source_kind="selected", success_outcome="selected_verified") if custom else {}
+                    rc=m.main(['--live','--bundle',str(bundle),'--credentials',str(cred),'--profile',str(profile),'--camera-index','0'], **kwargs)
                 self.assertEqual(rc,2 if camera_fail else 0)
-                self.assertEqual(sent,['video_started',b'/sbin/reboot\r',b'root\r',b'synthetic\r','video_stopped'])
+                self.assertEqual(sent,(['check_prefix'] if custom else []) + ['video_started',b'/sbin/reboot\r',b'root\r',b'synthetic\r'] + (['check_prefix'] if custom else []) + ['video_stopped'])
                 manifest=json.loads((bundle/'manifest.json').read_text())
-                self.assertEqual(manifest['outcome'],'access_O_RO_verified_video_failed' if camera_fail else 'stock_restart_access_O_RO_verified')
+                self.assertEqual(manifest['outcome'],'selected_verified' if custom else
+                                 'access_O_RO_verified_video_failed' if camera_fail else 'stock_restart_access_O_RO_verified')
+                self.assertEqual(manifest['source_kind'], 'selected' if custom else 'O')
                 self.assertTrue(closed)
                 self.assertNotIn(b'BEGIN',m.REBOOT)
+
+    def test_short_checks_stop_on_failure_and_share_absolute_deadline(self):
+        from unittest.mock import Mock
+        session=Mock()
+        session.execute.side_effect=[(0,b"first"),(73,b"refusal"),(0,b"must not run")]
+        self.assertEqual(m.execute_checks(session,["a","b","c"]),(73,b"first\nrefusal"))
+        self.assertEqual(session.execute.call_count,2)
+        session.reset_mock()
+        with patch.object(m.time,"monotonic",return_value=100):
+            with self.assertRaises(TimeoutError):
+                m.execute_checks(session,["a"],deadline=100.5)
+        session.execute.assert_not_called()
 
     def test_streamable_video_stops_decodes_with_inherited_INT_ignored_NO_camera(self):
         actual_popen=subprocess.Popen

@@ -251,3 +251,28 @@ JSON file containing absolute paths named `plugin`, `mmui_xml`, `index`,
 `utility`, `framework` and `pair`. The last three are the original
 `Utility.js`, `GuiFramework.js` and the passing pair directory. Missing private
 inputs are reported as skipped checks.
+
+## Observe Home readiness
+
+Add `--home-ready-probe` to the feature build command to include the original
+`cmu/adapters/fw55/home-ready.js` probe. It delegates Mazda's transition callback,
+then checks the same Home context, attached visible DOM and two later event-loop
+turns. It emits one generation-specific log marker; it never renews attempts or
+requests a reboot.
+
+This is a **Home-only observation**, not a production health detector. The camera
+must confirm the screen, and captured OEM callback errors invalidate the result:
+Mazda catches some callback exceptions internally. A native overlay or broken
+child control can escape a DOM check. The log channel is currently evidence
+transport, not an adopted recovery interface.
+
+The explicit-private-input test above runs the real OEM transition callback.
+It covers ordering, one acknowledgement, intro/disclaimer exclusion, hidden or
+detached nodes, context replacement/sequence changes, loading and thrown paths.
+
+One selected-feature warm startup emitted Home at uptime 28.214 s and showed
+Communication Home; the next boot omitted the feature. In the missing-native-module
+trial, the probe loaded and its later event-loop canary ran at 83.848 s with
+framework `idle`, but no Home marker appeared and the camera showed the Mazda logo.
+Private evidence: `runs/render-ack-feature/result.json` and
+`runs/render-ack-missing/result.json`. Neither trial installed automatic recovery.

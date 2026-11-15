@@ -81,6 +81,11 @@ class PrivateFeatureTests(unittest.TestCase):
     def read(self, key):
         return Path(self.inputs[key]).read_bytes()
 
+    def test_actual_transition_home_probe(self):
+        subprocess.run(["node", str(Path(__file__).with_name("test_home_ready.js")),
+                        self.inputs["framework"], str(feature.HOME_READY)],
+                       check=True, timeout=10)
+
     def test_actual_plugin_xml_and_index(self):
         original = self.read("plugin")
         changed = feature.mmui_plugin(original, self.d)

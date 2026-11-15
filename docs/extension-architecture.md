@@ -77,6 +77,7 @@ This cannot rescue a broken kernel, baseline or bootstrap.
 | Test | Result |
 | --- | --- |
 | Paired disclaimer feature | Selected native bypass and JS cleanup ran together; next boot omitted both without feature-file restoration |
+| Home acknowledgement | Emitted after the working feature transition; absent with missing native module/logo despite a responsive, idle framework |
 | Combined service/logging/native/JS trial | All four effects selected; following baseline omitted all four |
 | Two ordinary warm boots | Trial selected once; baseline selected next |
 | Native MMUI process crash | Mazda watchdog reset; baseline selected next |
@@ -97,12 +98,11 @@ explain the evidence and limits.
 
 ## Next proof
 
-- **Health:** use a verified rendering boundary, not a promising status name.
-  Normal and HMIReady can occur without a working UI; firmware55 ignores
-  InitializeGuiComplete. Mazda's state timeout recovered the injected JS app
-  failure, but not the missing native module. A small rendering acknowledgment
-  and independent deadline remain proposals.
-  [Actual signal and failure tests](reverse-engineering.md#ready-signals-are-not-equivalent).
+- **Health:** the Home-only acknowledgement distinguished a working feature from
+  the stuck-logo trial. Connect it to an independent deadline and test recovery;
+  the current probe only observes. Other apps, display-off and transport failure
+  still need qualification. Keep Mazda's watchdogs and finite retry accounting.
+  [Actual probe and limits](reverse-engineering.md#a-home-specific-acknowledgement).
 - **Renewal:** test actual ACC OFF → ON before allowing automatic retries.
   This physical test is deferred until controlled ACC is available.
 - **Durability:** qualify interrupted record updates, beyond completed-flush cuts.

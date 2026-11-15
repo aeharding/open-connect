@@ -1,4 +1,5 @@
 import json
+import shutil
 import signal
 import subprocess
 import sys
@@ -276,6 +277,9 @@ class Tests(unittest.TestCase):
                 m.execute_checks(session, ["a"], deadline=100.5)
         session.execute.assert_not_called()
 
+    @unittest.skipUnless(
+        shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg/ffprobe required"
+    )
     def test_streamable_video_stops_decodes_with_inherited_INT_ignored_NO_camera(self):
         actual_popen = subprocess.Popen
 
@@ -296,7 +300,10 @@ class Tests(unittest.TestCase):
             previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
             try:
                 with patch.object(m.subprocess, "Popen", side_effect=synthetic_input):
-                    v.start()
+                    try:
+                        v.start()
+                    except RuntimeError as exc:
+                        self.fail(str(exc) + "\n" + (b.path / "camera.stderr.txt").read_text())
                     time.sleep(0.7)
                     v.stop()
                 result = json.loads((b.path / "camera-result.json").read_text())

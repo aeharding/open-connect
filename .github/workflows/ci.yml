@@ -33,10 +33,10 @@ jobs:
         run: ruff check --output-format=github tooling tests
       - name: Format
         run: ruff format --check tooling tests
-      - name: Install ELF linker for the loader probe
+      - name: Install native and media test tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends clang lld
+          sudo apt-get install -y --no-install-recommends clang lld ffmpeg
       - name: Offline host tests
         run: python tests/run_offline.py
       - name: Optional loader probe (public inputs only)

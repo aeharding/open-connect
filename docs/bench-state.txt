@@ -13,18 +13,34 @@ Installed:
   latest postboot MD5 c8d0aceb75ad216aa548ada2989abd7c.
 - Original /usr/bin/autostart restored and independently verified:
   64785:7113:1380015098:3039:775:1018:3015:1. No trial hook installed.
-- silent-ui-v1 runtime bench profile ON/active/owned after the final boot.
-  Receipt .bench-state/profile.json; runs/render-ack-missing/bench-ready.
-  It expires on reboot/service replacement; no persistent audio hook.
+- silent-ui-v1 runtime profile ON/active/owned after automatic fallback.
+  Receipt .bench-state/profile.json; runs/independent-ready-missing/bench-ready.
+  No persistent audio hook.
 
-Latest verified boot: dc101fd7-874c-4db6-a27b-5c6f86b2849d
+Latest verified boot: 98161a30-0834-4efd-8f02-252607874fc3
 Running SM used /jci/sm/sm.conf; Opera used /jci/gui/index.html.
-Latest post-recovery still runs/render-ack-missing/baseline-home.jpg shows Communication
-Home; bench profile was re-enabled afterward. Existing comparison remains installed.
-Original autostart was independently restored/verified after this boot; no extra
-boot was performed after removing the shell hook.
+Original native mappings returned; autostart was independently restored/verified
+and its hardlink holds removed afterward. No extra boot after that restoration.
+Latest viewed Home: runs/independent-ready-missing/baseline-home.jpg.
+All owned camera/UART handles closed; no further live operation queued.
+Next work: consolidate the proven trial workflow into the semantic CLI.
 
 Closed experiments:
+- runs/independent-ready-missing/result.json: missing selected system UIA left
+  the logo; independent receiver timed out (75), normal on-device reboot and
+  baseline selection passed automatically. Exactly one host reboot request,
+  two kernels, login only after fallback. Persisted failed receipt binds the
+  intervening trial boot. Camera Home, fresh root55/RO/original mappings,
+  independent autostart undo/VERIFY/CLEAN and bench profile setup passed.
+- runs/independent-ready-feature-v2/result.json: real feature boot, current-boot
+  loopback Home acknowledgement and independent ready|0 receipt passed. Camera
+  Home verified. Next baseline omitted selected native/JS files; autostart
+  undo/VERIFY/CLEAN and rootRO passed. Recovery was OFF for this positive test.
+- runs/independent-ready-feature/result.json: selected real feature reached visible
+  Home and passed access/maps/rootRO checks, but the independent receiver timed
+  out without a Home log marker. Automatic recovery stayed OFF. Explicit next
+  baseline startup and independent autostart undo/VERIFY/CLEAN passed. This is
+  a readiness false negative, not a demonstrated CMU startup failure.
 - runs/render-ack-feature/result.json: selected native/JS bypass, one Home-only
   acknowledgement at uptime28.214, visible Home and no captured OEM callback
   errors. Next boot omitted both selected files. Two-point raw CPU/RAM/I/O

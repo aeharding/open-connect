@@ -62,9 +62,13 @@ with all four effects omitted. The limit is a test parameter, not product policy
 A useful native/JS bypass now ran through selected configurations, followed by
 baseline omission without restoring installed feature files. The first attempt
 also exposed a partial-startup failure: a truncated library path left MMUI alive
-without its system UIA. Next: a bounded health check outside optional code,
-then automatic renewal when physical ACC control is available. Explicit trials
-can support feature development now; production retry/health policy remains open.
+without its system UIA. The Home-specific independent supervisor now received
+a healthy browser acknowledgement and recovered one missing-UIA startup by normal
+reboot into baseline. Its initial false negative remains evidence; this is not
+universal health qualification. Freeze that prototype's scope. Next: consolidate
+the useful feature's build/trial/status/disable workflow into the semantic CLI,
+with timing/resource records and independent undo. Defer automatic everyday
+renewal until real ACC control is available.
 A private file view remains an option, but this composition used OEM environment
 and launch settings without a whole-service mount namespace.
 The bootloader reports the same reset word for a tested normal reboot and

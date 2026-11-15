@@ -197,6 +197,13 @@ handling than previously confirmed ones. Any automatic retry policy must have a
 persistent finite limit; a startup-ready signal must not erase later-fault
 protection. Retry counts and reset classification remain proposed until qualified.
 
+Keep recovery proportional to the delivered feature. The Home-only supervisor
+is now a bounded developer prototype; freeze its scope while consolidating the
+working trial/status/disable path. Do not expand into reset-cause classification
+or every-screen health detection before useful feature development resumes.
+Intentional button resets must not silently replenish attempts or be blamed on
+a mod. Automatic everyday renewal waits for qualified ACC evidence.
+
 The user-preferred layout remains tooling/ for host code, cmu/ for bootstrap,
 adapters and features. Move complete components with their tests; avoid empty
 scaffolding or another history folder. Current paths remain until that migration.

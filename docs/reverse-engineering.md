@@ -304,27 +304,34 @@ OEM sources, full logs and generated fault payloads remain private.
 
 ### A Home-specific acknowledgement
 
-**The new probe distinguished a working feature startup from the stuck-logo case.**
-It preserves Mazda's transition callback, checks the same Home context and visible
-DOM, then checks again on two later event-loop turns.
+**A real browser acknowledgement and an independent deadline now work on the bench.**
+The adapter preserves Mazda's transition callback, then requires the same Home
+context and visible DOM on two consecutive samples. The loopback request carries
+the generation and current boot ID; logs are diagnostic, not the transport.
 
-| Bench startup | Probe | Camera |
-| --- | --- | --- |
-| Selected native/JS disclaimer bypass | One Home acknowledgement at uptime 28.214 s; no captured OEM callback errors | Communication Home |
-| Missing native system module | Probe loaded; later callback ran at 83.848 s and framework was `idle`; no Home acknowledgement | Mazda logo |
+| Bench startup | Observed outcome |
+| --- | --- |
+| Selected native/JS disclaimer bypass | Home signal at uptime 30.201 s; independent `ready|0` receipt and camera Home |
+| Missing native system module | No Home signal; independent timeout requested a normal reboot; next boot selected baseline with original mappings and Home |
 
-The useful feature followed `IntroAnimation → HomeScreen`. Its next boot omitted
-both selected components. These are scoped warm-start observations, not a general
-health guarantee: DOM state cannot prove compositor pixels, callback errors can
-be caught internally, and last-app/display-off paths remain unqualified.
+The attempt stays spent even after a healthy acknowledgement. The receiver and
+supervisor exit after their decision; no permanent HTTP service is installed.
+Recovery does not require optional native code or a functioning GUI. It preserves
+Mazda's own watchdogs and cannot rescue a broken kernel, baseline or bootstrap.
 
-The probe currently **only logs evidence**. It does not reset the CMU or renew
-attempts. Next is a bounded independent recovery consumer and a repeatable
-feature/status/disable workflow, while preserving Mazda's own watchdogs.
+An initial healthy trial missed readiness. The revised adapter allows the fade
+to settle instead of requiring visibility immediately at transition completion.
+Its successful follow-up does not fully explain the first miss or establish a
+general health guarantee. DOM checks cannot prove compositor pixels; caught
+callback errors, child controls, native overlays and last-app/display-off paths
+remain unqualified. This is a scoped Home trial, not production retry policy.
 
-Code: `cmu/adapters/fw55/home-ready.js`; build with the boot-selection
-experiment's `--home-ready-probe`. Private evidence:
-`runs/render-ack-feature/result.json` and `runs/render-ack-missing/result.json`.
+Code: `cmu/adapters/fw55/home-ready.js`, `cmu/startup/ready-receiver.c` and
+the boot-selection experiment's `readiness.py`. Private evidence:
+`runs/independent-ready-feature-v2/result.json` and
+`runs/independent-ready-missing/result.json`; the initial miss remains in
+`runs/independent-ready-feature/result.json`. Earlier log-only observations are
+preserved separately in `runs/render-ack-feature/` and `runs/render-ack-missing/`.
 
 ### What causes a reset?
 

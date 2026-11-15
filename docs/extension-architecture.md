@@ -4,7 +4,8 @@
 Service policy, logging and native/JS code worked under one selection.
 A real native/JS feature now ran from selected files, then was omitted on the
 next boot without restoring installed feature files. Fault tests support finite
-fallback; partial-startup health detection and automatic renewal remain open.
+fallback. A Home-only independent deadline now recovered one stuck-logo startup;
+other startup paths and automatic renewal remain open.
 
 ## The idea
 
@@ -18,7 +19,11 @@ flowchart TD
     Select -->|Yes| Consume["Reserve attempt + verify flush"]
     Consume -->|Failure or timeout| Baseline
     Consume -->|Success| Trial["Start selected configuration"]
-    Trial -->|Fault causes reset| Boot
+    Trial --> Watch{"Home acknowledgement?"}
+    Watch -->|Received| Ready["Finish startup observation; keep attempt spent"]
+    Watch -->|Deadline expires| Restart["Request normal reboot"]
+    Restart --> Boot
+    Trial -->|Mazda watchdog reset| Boot
 ~~~
 
 An attempt is spent before optional code starts. A new configuration gets one
@@ -68,8 +73,9 @@ The prototype charges every selected boot. Its **two-attempt limit is a test
 parameter, not the product policy**. An explicit maintenance operation can renew
 a confirmed generation's budget; its stale-command checks have host coverage.
 Automatic renewal still needs a proven event, such as a real ACC cycle. A cached
-ACC value is insufficient. A partial startup can leave processes alive without a
-working UI: fallback chooses the next boot, but does not itself cause that boot.
+ACC value is insufficient. The Home-specific supervisor can request a reboot
+when processes stay alive without a usable Home screen. Other intended screens
+and display-off behavior need their own evidence before enabling that policy.
 This cannot rescue a broken kernel, baseline or bootstrap.
 
 ## Evidence so far
@@ -77,7 +83,8 @@ This cannot rescue a broken kernel, baseline or bootstrap.
 | Test | Result |
 | --- | --- |
 | Paired disclaimer feature | Selected native bypass and JS cleanup ran together; next boot omitted both without feature-file restoration |
-| Home acknowledgement | Emitted after the working feature transition; absent with missing native module/logo despite a responsive, idle framework |
+| Home acknowledgement | Real browser delivered a generation/current-boot signal to an independent receiver; camera confirmed Home |
+| Missing native module, responsive GUI loop | Independent deadline requested a normal reboot; spent trial selected baseline and Home returned |
 | Combined service/logging/native/JS trial | All four effects selected; following baseline omitted all four |
 | Two ordinary warm boots | Trial selected once; baseline selected next |
 | Native MMUI process crash | Mazda watchdog reset; baseline selected next |
@@ -98,11 +105,10 @@ explain the evidence and limits.
 
 ## Next proof
 
-- **Health:** the Home-only acknowledgement distinguished a working feature from
-  the stuck-logo trial. Connect it to an independent deadline and test recovery;
-  the current probe only observes. Other apps, display-off and transport failure
-  still need qualification. Keep Mazda's watchdogs and finite retry accounting.
-  [Actual probe and limits](reverse-engineering.md#a-home-specific-acknowledgement).
+- **Repeatability:** consolidate build, trial, status and disable into the semantic
+  CLI. Repeat healthy starts and qualify last-app/display-off before treating
+  this Home-specific signal as a broader health policy.
+  [Actual signal and limits](reverse-engineering.md#a-home-specific-acknowledgement).
 - **Renewal:** test actual ACC OFF → ON before allowing automatic retries.
   This physical test is deferred until controlled ACC is available.
 - **Durability:** qualify interrupted record updates, beyond completed-flush cuts.

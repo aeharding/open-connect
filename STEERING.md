@@ -1,6 +1,6 @@
 # Open Connect — living steering agreement
 
-Last updated: 2026-11-14, from the user's explicit direction.
+Last updated: 2026-11-15, from the user's explicit direction.
 
 Read this first when starting or resuming work. It records product intent and how
 we work; it is not a run log or an approval checklist. New user direction takes
@@ -48,6 +48,19 @@ OEM menu/input conveniences, and phone/audio reliability. Preserve Mazda's look
 and feel; do not turn this into themes, replacement dashboards or a launcher.
 The disclaimer is the first experiment, not the architecture's scope.
 
+The motivating problem is the user's native wireless CarPlay mod: it lags after
+a long parked, cold start but is stable once running. Performance work should
+target that experience. The user reports the mod spoofs vehicle configuration
+and its developer plans direct wireless-setting enablement; neither the cause
+of lag nor the replacement implementation is established.
+
+Prefer native wireless CarPlay for everyday use, with explicit switching to an
+internet connection through a phone/home hotspot when needed. Wired CarPlay plus
+hotspot is an alternative, not the preferred experience. Investigate Mazda's
+existing Wi-Fi modes and returning to CarPlay before adding network machinery.
+Concurrent modes are not a requirement; online updates must not silently take
+over the connection. An in-car version/settings page remains a proposal.
+
 Unused Aha/Pandora/Stitcher, TV and other service choices, logging levels and
 performance settings are first-class feature candidates. Their dependencies,
 benefits and hardware applicability need evidence; reducing process counts or
@@ -59,7 +72,9 @@ timing trials. Define the timed operation and conditions before the change, run
 repeated trials, and retain failures as well as successes. Report the spread and
 any regressions; do not call a change faster without measured evidence.
 Pair timings with relevant CPU, RAM and I/O measurements under the same workload
-and startup phase. Name the memory metric; lower RSS alone is not proof of a
+and startup phase. For CarPlay, measure time to usable projection and early-session
+responsiveness, alongside connection/service readiness; Home appearing is not
+CarPlay readiness. Separate cold, warm and resume conditions. Name the memory metric; lower RSS alone is not proof of a
 useful improvement. Keep the baseline, feature set and measurement method explicit.
 
 The autonomous bench and published reverse-engineering knowledge enable the

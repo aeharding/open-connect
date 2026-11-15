@@ -30,6 +30,9 @@ Entertainment screens without one; that does not establish working playback.
 The [Open Connect architecture](../extension-architecture.md) proposes how to use
 these boundaries. A proposed recovery policy is not an observed Mazda guarantee.
 
+- [How does v74 enable wireless CarPlay and select Wi-Fi modes?](wireless-carplay.md)
+- [What does Mazda Factory Reset delete?](factory-reset.md)
+
 ## What is still open
 
 We have not demonstrated a complete automatic fallback after a modified boot

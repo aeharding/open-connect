@@ -82,6 +82,8 @@ product and help contributors. Build them when they unblock a concrete experimen
 or remove repeated effort. A 24/7 autonomous bench is an aspiration, not a
 prerequisite for the first usable release or an active background schedule.
 The user supplies physical resources; the primary owns software execution.
+The bench supply may be power-cycled autonomously for experiments, without advance
+notice. Its voltage setting must remain unchanged.
 
 Bench helpers are managed as one development profile: setup, status and teardown.
 No per-helper manual activation, new CMU menu or graphical UI is needed. A thin
@@ -97,8 +99,9 @@ A generic v55 label is not permission to apply patches to other v55 builds.
 
 Move the required baseline to the latest officially applicable North American
 release after package, upgrade sequence and development access are established.
-**74.00.324(A) is a candidate, not a verified latest version or upgrade instruction.**
-Determine its exact variant; do not treat 324 and 324A as interchangeable by assumption.
+The Mazda-hosted **74.00.324A NA** package is now hash-verified for offline
+analysis. Applicability, upgrade sequence and access remain unqualified; this is
+not an upgrade instruction. The user reports 74.00.324 in the real car.
 The user wants modern firmware as the eventual requirement, not a growing
 multi-firmware support matrix. Historical experiments remain evidence after the move.
 Reject unsupported version/region/base before writes; do not auto-port offsets.

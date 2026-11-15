@@ -11,19 +11,20 @@ extra_css = ["stylesheets/bench.css"]
 copyright = "Open Connect contributors · AGPL-3.0-or-later"
 exclude_docs = "/bench-state.txt"
 nav = [
-  { "Start here" = [
+  { "Using Open Connect" = [
     { "Overview" = "index.md" },
-    { "Wire a bench" = "bench-setup.md" },
-    { "Use the CLI" = "cli.md" },
-    { "Try the disclaimer bypass" = "disclaimer-preview.md" },
+    { "Disclaimer bypass" = "disclaimer-preview.md" },
   ] },
   { "Development" = [
     { "Contribute" = "development.md" },
+    { "Wire a bench" = "bench-setup.md" },
+    { "Use the CLI" = "cli.md" },
+    { "Test the disclaimer bypass" = "disclaimer-development.md" },
     { "Architecture" = "extension-architecture.md" },
     { "Uninstall direction" = "uninstall.md" },
     { "Edit these docs" = "documentation.md" },
   ] },
-  { "CMU reverse engineering" = [
+  { "CMU research" = [
     { "System overview" = "cmu/index.md" },
     { "Findings" = "reverse-engineering.md" },
   ] },

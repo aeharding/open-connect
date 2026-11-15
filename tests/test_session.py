@@ -96,6 +96,13 @@ class MasterTransport:
 
 class SessionTests(unittest.TestCase):
     def setUp(self):
+        # Fixture ports and child-process locks must not inherit a user's adapter.
+        identity = patch.object(module, "IDENTITY", (0x0403, 0x6001, "A9048JM0"))
+        environment = patch.dict(os.environ, {"OC_UART_SERIAL": "A9048JM0"})
+        identity.start()
+        environment.start()
+        self.addCleanup(identity.stop)
+        self.addCleanup(environment.stop)
         self.tmp = tempfile.TemporaryDirectory()
         self.bundle = Bundle(Path(self.tmp.name) / "bundle", "offline unittest", "test")
 

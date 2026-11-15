@@ -14,6 +14,8 @@ the consumed attempt makes the next boot use your previous configuration.
 ## Before you start
 
 - A wired, working bench with an idle **root shell**, then close your serial terminal.
+- Start at Mazda Home. This preview qualifies a warm software restart to Home;
+  last-app, display-off and ACC/resume startup remain unqualified.
 - Exactly **55.00.750B NA/cmu150_NA** and its private original files listed below.
 - macOS for live UART/camera operation; an FT232R **0403:6001** adapter and webcam.
   Linux runs the public host tests; the live camera currently uses AVFoundation.
@@ -57,6 +59,9 @@ firmware55/
   --output runs/preview-build --recover-on-timeout
 .venv/bin/oc feature inspect --build runs/preview-build
 ~~~
+
+The clean-checkout reproduction used Python 3.13.7, Node 26.7.0,
+Apple clang/LLVM 21.0.0, LLD 23.1.5 and ffmpeg 7.1.1.
 
 Build checks the supported originals and compiles/tests the changes locally.
 It does not contact the CMU. OEM files, generated patches, credentials and
@@ -102,10 +107,10 @@ automatically renewed. This is not a persistent installation or USB installer.
 ## What has actually been tested?
 
 The native/JS feature reached Home; a deliberately missing native component
-triggered independent fallback to baseline. The CLI cycle also returned to
-baseline and removed its hook. Its first selected observer needed separate
-reconciliation after a console-check failure; that failure remains recorded.
-Short startup checks replaced the oversized command.
+triggered independent fallback to baseline. A fresh clone and fresh virtual environment then built the preview from eight
+private originals and passed selected startup and independent Disable/baseline
+startup automatically. Both recordings showed Home; no reboot retry or manual
+reconciliation was needed. The earlier CLI console-check failure remains recorded.
 
 Home acknowledgement is a scoped test signal, not proof of every screen or
 control. ACC/resume, automatic everyday renewal and production installation remain

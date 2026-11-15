@@ -1,6 +1,6 @@
 # Open Connect — roadmap
 
-Updated 2026-11-13. Primary developer owns delivery. This is the working roadmap,
+Updated 2026-11-15. Primary developer owns delivery. This is the working roadmap,
 refined as experiments change the evidence; dates are not promised.
 [STEERING.md](STEERING.md) defines intent. GitHub issues track execution.
 
@@ -65,17 +65,20 @@ also exposed a partial-startup failure: a truncated library path left MMUI alive
 without its system UIA. The Home-specific independent supervisor now received
 a healthy browser acknowledgement and recovered one missing-UIA startup by normal
 reboot into baseline. Its initial false negative remains evidence; this is not
-universal health qualification. Freeze that prototype's scope. Next: consolidate
-the useful feature's build/trial/status/disable workflow into the semantic CLI,
-with timing/resource records and independent undo. Defer automatic everyday
-renewal until real ACC control is available.
+universal health qualification. Freeze that prototype's scope. The useful
+feature now has a CLI build/trial/status/disable workflow with timing/resource
+records and independent undo. Defer automatic everyday renewal until real ACC
+control is available.
 **Current delivery**
 The developer CLI now builds, prepares, trials, observes and disables one real
-feature. The selected startup needed independent reconciliation after a console
-verification failure; disable/baseline startup passed automatically. Timing and
+feature. A clean checkout and fresh virtual environment now reproduced the build,
+selected startup and independent disable/baseline startup automatically. The
+earlier console-check failure remains recorded separately. Timing and
 CPU/RAM/I/O samples are retained without a performance claim. The
 [reproduction workflow](docs/cli.md#developer-feature-trial) is the developer entry point.
-Recovery prototype PR #49 is merged. Automatic ACC renewal remains deferred.
+The [source-only developer preview](docs/disclaimer-preview.md) is one selected
+boot on the exact supported firmware. USB installation and automatic ACC renewal
+remain separate hardware-dependent work.
 
 A private file view remains an option, but this composition used OEM environment
 and launch settings without a whole-service mount namespace.

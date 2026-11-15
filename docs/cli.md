@@ -33,7 +33,8 @@ tuner or establish working playback.
 
 Before live use, establish an idle root shell on **55.00.750B NA**, then close
 your serial terminal. Bench-profile commands do not log in or reset the device. Our current
-runner is pinned to FTDI 0403:6001/A9048JM0; another adapter needs configuration.
+runner accepts FT232R 0403:6001 adapters. Set `OC_UART_SERIAL` to your exact serial
+number before launching commands; the project bench defaults to A9048JM0.
 
 Choose one operation; use a fresh bundle directory each time:
 
@@ -54,6 +55,8 @@ different receipt explicitly. Only one program should own UART at a time.
 --solicit-prompt sends one CR: use it only when the shell is known to be idle.
 
 ## Developer feature trial
+
+For the pinned release and complete walkthrough, see [Try the disclaimer bypass](disclaimer-preview.md).
 
 This is the **FW55 Home-only prototype**, not a USB installer. Use a source
 checkout; the installed CLI locates the prototype builders through `--workspace`.

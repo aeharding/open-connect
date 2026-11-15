@@ -349,7 +349,12 @@ baseline boot passed automatically, followed by exact hook restoration/hold clea
 Both closed videos showed Home. CPU/RAM/I/O samples were captured, but different
 boot ages and audio-profile conditions prevent a performance comparison.
 [Reproduce the developer workflow](cli.md#developer-feature-trial).
-Private evidence: `runs/feature-cli-trial/result.json`.
+A later clean-checkout preview run passed both selected startup and independent
+Disable/baseline startup automatically, without reconciliation or reboot retry.
+This confirms the short-command workflow on the bench; it does not broaden the
+Home-only warm-start scope. [Try the preview](disclaimer-preview.md).
+Private evidence: `runs/feature-cli-trial/result.json` and
+`runs/disclaimer-preview-reproduction/result.json`.
 
 ### What causes a reset?
 

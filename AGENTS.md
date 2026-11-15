@@ -41,7 +41,9 @@ Do not change historical manifests to claim old evidence used new code.
 Current supported firmware is exactly 55.00.750B NA/cmu150_NA.
 Confirm actual identity before operations; remembered paths/PIDs/inodes are not authority.
 UART is 115200/8N1, no flow control, RTS/DTR inactive. The adapter is presently
-pinned to FT232R VID:PID 0403:6001, serial A9048JM0. Re-enumerate before opening.
+pinned to FT232R VID:PID 0403:6001, serial A9048JM0 by default. Other benches
+explicitly set OC_UART_SERIAL before launching a process; that same identity binds
+the lock and every re-enumeration. Re-enumerate before opening.
 A shell can persist after port closure; establish its actual state before commands.
 
 Use finite operations, exact-base checks, preserved originals and independent undo.

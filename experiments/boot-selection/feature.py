@@ -13,6 +13,7 @@ from compose import INDEX_SHA, loader, replace_once
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 ROUTE = ROOT / "cmu/adapters/fw55/system-app-path.js"
+HOME_READY = ROOT / "cmu/adapters/fw55/home-ready.js"
 NATIVE_FILE = "uia.so"
 MMUI_XML_SHA = "c94446b8c6e5bde79607514d3eb41036a3f56914d2d3f418605110bc250be0d0"
 
@@ -111,12 +112,16 @@ def checked_pair(pair):
     return data, pins, native["manager_dependency"]
 
 
-def build(original, config, flush, plugin, mmui_xml, gui_index, pair, directory, output):
+def build(original, config, flush, plugin, mmui_xml, gui_index, pair, directory, output, *, home_ready=False):
     directory_guard(directory)
     output = loader.elf.private_output(output)
     selected_plugin = mmui_plugin(plugin, directory)
     selected_xml = mmui_config(mmui_xml, directory)
     selected_index = index(gui_index, directory)
+    if home_ready:
+        probe = HOME_READY.read_text().replace("@GENERATION@", directory.rsplit("-", 1)[1])
+        anchor = b"var framework = new GuiFramework();"
+        selected_index = replace_once(selected_index, anchor, probe.encode() + b"\n" + anchor)
     if hashlib.sha256(config).hexdigest() != prototype.CONFIG_SHA:
         raise ValueError("unsupported service configuration")
     selected_config = replace_once(config,
@@ -140,7 +145,12 @@ def build(original, config, flush, plugin, mmui_xml, gui_index, pair, directory,
                         "selected-file checks do not prove both processes initialized successfully",
                         "baseline is existing bench software, not factory original"])
     plan["source_pins"].update(pins)
-    for p in (Path(__file__), ROUTE):
+    if home_ready:
+        plan["home_ready_probe"] = dict(
+            marker="OCRENDER|" + nonce + "|HomeScreen",
+            scope="Home-only OEM transition and delayed visible DOM acknowledgement",
+            camera_required=True, renews_attempts=False, automatic_recovery=False)
+    for p in (Path(__file__), ROUTE, *((HOME_READY,) if home_ready else ())):
         plan["source_pins"][str(p.relative_to(ROOT))] = hashlib.sha256(p.read_bytes()).hexdigest()
     (output / "plan.json").write_text(json.dumps(plan, indent=2) + "\n")
     return plan
@@ -151,11 +161,12 @@ if __name__ == "__main__":
     for name in ("original", "config", "flush", "plugin", "mmui-xml", "index", "pair", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--directory", required=True)
+    parser.add_argument("--home-ready-probe", action="store_true", help="observe Home transition; no health policy or retry renewal")
     args = parser.parse_args()
     try:
         plan = build(args.original.read_bytes(), args.config.read_bytes(), args.flush.read_bytes(),
                      args.plugin.read_bytes(), args.mmui_xml.read_bytes(), args.index.read_bytes(),
-                     args.pair, args.directory, args.output)
+                     args.pair, args.directory, args.output, home_ready=args.home_ready_probe)
     except (OSError, ValueError, KeyError) as error:
         parser.exit(2, "feature generation not built: " + str(error) + "\n")
     print(json.dumps(plan, indent=2))

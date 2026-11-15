@@ -14,17 +14,27 @@ Installed:
 - Original /usr/bin/autostart restored and independently verified:
   64785:7113:1380015098:3039:775:1018:3015:1. No trial hook installed.
 - silent-ui-v1 runtime bench profile ON/active/owned after the final boot.
-  Receipt .bench-state/profile.json; runs/gui-ready-js/bench-ready.
+  Receipt .bench-state/profile.json; runs/render-ack-missing/bench-ready.
   It expires on reboot/service replacement; no persistent audio hook.
 
-Latest verified boot: af97f0c0-40b4-47b0-988a-171c7fecdb64
+Latest verified boot: dc101fd7-874c-4db6-a27b-5c6f86b2849d
 Running SM used /jci/sm/sm.conf; Opera used /jci/gui/index.html.
-Latest post-recovery still runs/gui-ready-js/final-home.jpg shows Communication
+Latest post-recovery still runs/render-ack-missing/baseline-home.jpg shows Communication
 Home; bench profile was re-enabled afterward. Existing comparison remains installed.
 Original autostart was independently restored/verified after this boot; no extra
 boot was performed after removing the shell hook.
 
 Closed experiments:
+- runs/render-ack-feature/result.json: selected native/JS bypass, one Home-only
+  acknowledgement at uptime28.214, visible Home and no captured OEM callback
+  errors. Next boot omitted both selected files. Two-point raw CPU/RAM/I/O
+  observations saved, not a repeated matched performance result. Autostart
+  independent undo/VERIFY/CLEAN passed; installed native/comparison JS unchanged.
+- runs/render-ack-missing/result.json: missing native system UIA left the logo.
+  Probe-loaded18.751 and later event-loop canary83.848/idle, no Home ack; actual
+  maps confirmed absent UIA. Explicit normal baseline reboot restored original
+  mappings/Home. Independent autostart undo/VERIFY/CLEAN and runtime bench setup
+  passed. RootRO, UART/camera closed. No health policy or supply action.
 - runs/gui-ready-missing/result.json: passive ReportGuiAvailable capture absent
   with missing system UIA/logo, present with baseline/Home. Start/end bus-ID
   canaries established coverage; original autostart undo and holds cleaned.

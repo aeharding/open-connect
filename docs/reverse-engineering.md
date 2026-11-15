@@ -302,6 +302,30 @@ OEM sources, full logs and generated fault payloads remain private.
 
 </details>
 
+### A Home-specific acknowledgement
+
+**The new probe distinguished a working feature startup from the stuck-logo case.**
+It preserves Mazda's transition callback, checks the same Home context and visible
+DOM, then checks again on two later event-loop turns.
+
+| Bench startup | Probe | Camera |
+| --- | --- | --- |
+| Selected native/JS disclaimer bypass | One Home acknowledgement at uptime 28.214 s; no captured OEM callback errors | Communication Home |
+| Missing native system module | Probe loaded; later callback ran at 83.848 s and framework was `idle`; no Home acknowledgement | Mazda logo |
+
+The useful feature followed `IntroAnimation → HomeScreen`. Its next boot omitted
+both selected components. These are scoped warm-start observations, not a general
+health guarantee: DOM state cannot prove compositor pixels, callback errors can
+be caught internally, and last-app/display-off paths remain unqualified.
+
+The probe currently **only logs evidence**. It does not reset the CMU or renew
+attempts. Next is a bounded independent recovery consumer and a repeatable
+feature/status/disable workflow, while preserving Mazda's own watchdogs.
+
+Code: `cmu/adapters/fw55/home-ready.js`; build with the boot-selection
+experiment's `--home-ready-probe`. Private evidence:
+`runs/render-ack-feature/result.json` and `runs/render-ack-missing/result.json`.
+
 ### What causes a reset?
 
 ~~~mermaid

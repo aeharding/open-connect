@@ -252,27 +252,53 @@ JSON file containing absolute paths named `plugin`, `mmui_xml`, `index`,
 `Utility.js`, `GuiFramework.js` and the passing pair directory. Missing private
 inputs are reported as skipped checks.
 
-## Observe Home readiness
+## Independent Home readiness
 
-Add `--home-ready-probe` to the feature build command to include the original
-`cmu/adapters/fw55/home-ready.js` probe. It delegates Mazda's transition callback,
-then checks the same Home context, attached visible DOM and two later event-loop
-turns. It emits one generation-specific log marker; it never renews attempts or
-requests a reboot.
+Build the feature with `--home-ready-probe`. The firmware55 adapter preserves
+Mazda's callback and checks the same Home context and visible DOM on two
+consecutive samples. It allows up to 40 samples, nominally 50 ms apart, for the
+transition to settle. It never renews an attempt.
 
-This is a **Home-only observation**, not a production health detector. The camera
-must confirm the screen, and captured OEM callback errors invalidate the result:
-Mazda catches some callback exceptions internally. A native overlay or broken
-child control can escape a DOM check. The log channel is currently evidence
-transport, not an adopted recovery interface.
+Add the independent receiver and supervisor:
 
-The explicit-private-input test above runs the real OEM transition callback.
-It covers ordering, one acknowledgement, intro/disclaimer exclusion, hidden or
-detached nodes, context replacement/sequence changes, loading and thrown paths.
+~~~sh
+python experiments/boot-selection/build_receiver.py --output runs/ready-build
+python experiments/boot-selection/readiness.py \
+  --source runs/selected-feature-payload \
+  --receiver runs/ready-build/ready-receiver-arm \
+  --output runs/health-payload
+~~~
 
-One selected-feature warm startup emitted Home at uptime 28.214 s and showed
-Communication Home; the next boot omitted the feature. In the missing-native-module
-trial, the probe loaded and its later event-loop canary ran at 83.848 s with
-framework `idle`, but no Home marker appeared and the camera showed the Mazda logo.
-Private evidence: `runs/render-ack-feature/result.json` and
-`runs/render-ack-missing/result.json`. Neither trial installed automatic recovery.
+Both commands build only. Observation is the default. `--recover-on-timeout`
+permits one normal reboot after a selected startup fails its deadline
+(default 90 seconds). This is a **Home-specific bench prototype**, not a general
+production health policy.
+
+The tiny ARM receiver accepts one loopback HTTP acknowledgement bound to the
+generation and current boot. The startup parent commits selection; a separate
+supervisor handles receiver failure or timeout. Cancellation and that decision
+are serialized. Diagnostic persistence failure cannot veto recovery. The attempt
+was already consumed before optional services started.
+
+The actual browser delivered a matching acknowledgement with the useful feature
+and visible Home. A separate missing-native-module trial timed out, automatically
+rebooted and returned to baseline. Independent undo removed the startup hook.
+An earlier healthy trial missed the signal; its false negative remains recorded.
+The revised sampling passed, but one success does not establish general reliability.
+
+The camera still establishes pixels. Caught callback exceptions, broken child
+controls, native overlays, other apps and display-off remain limitations. Keep
+Mazda's watchdogs and finite retry accounting.
+
+Host checks (no hardware or OEM inputs):
+
+~~~sh
+python -m unittest discover -s experiments/boot-selection -p test_receiver.py -v
+python -m unittest discover -s experiments/boot-selection -p test_readiness.py -v
+~~~
+
+The explicit-private-input test above also exercises the actual OEM transition
+callback, fading/hidden/replaced contexts and transport exceptions.
+Private evidence: `runs/independent-ready-feature-v2/result.json`,
+`runs/independent-ready-missing/result.json`; the initial false negative is in
+`runs/independent-ready-feature/result.json`.

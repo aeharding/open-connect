@@ -1,0 +1,105 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# One selected startup only. No attempt renewal or GUI/native feature dependency.
+set -fu
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+umask 077
+D=@DIRECTORY@
+GEN=@GENERATION@
+PORT=@PORT@
+SECONDS_LIMIT=@DEADLINE@
+RECOVERY=@RECOVERY@
+W=/tmp/oc-health-$GEN
+BOOT=$(cat /proc/sys/kernel/random/boot_id) || exit 70
+case "$BOOT" in ????????-????-????-????-????????????) :;; *) exit 70;; esac
+case "$BOOT" in *[!0-9a-f-]*) exit 70;; esac
+TOKEN=$GEN.$BOOT
+SELF=$D/ready-watch.sh
+file() {
+ test -f "$1" && test ! -L "$1" && test "$(readlink -f "$1")" = "$1" || return 1
+ test "$(stat -c '%a:%u:%g:%h:%s' "$1")" = "$2:0:0:1:$3" || return 1
+ test "$(md5sum < "$1")" = "$4  -" || return 1
+}
+work() {
+ test -d "$W" && test ! -L "$W" && test "$(readlink -f "$W")" = "$W" || return 1
+ test "$(stat -c '%a:%u:%g' "$W")" = 700:0:0 || return 1
+ test "$(cat "$W/boot")" = "$BOOT" || return 1
+}
+case "${1-}" in
+ prepare)
+  test ! -e "$W" && test ! -L "$W" || exit 71
+  file "$D/ready-receiver" 600 @RECEIVER_SIZE@ @RECEIVER_MD5@ || exit 72
+  mkdir -m 700 "$W" || exit 73
+  printf '%s\n' "$BOOT" > "$W/boot" || exit 74
+  cp "$D/ready-receiver" "$W/receiver" && chmod 700 "$W/receiver" || exit 75
+  file "$W/receiver" 700 @RECEIVER_SIZE@ @RECEIVER_MD5@ || exit 76
+  printf 'window.openConnectStartupSession={port:%s,token:"%s"};\n' "$PORT" "$TOKEN" > "$W/session.next" || exit 77
+  mv "$W/session.next" "$W/session.js" || exit 78
+  /bin/sh "$SELF" watch </dev/null > "$W/watch.log" 2>&1 &
+  worker=$!
+  printf '%s\n' "$worker" > "$W/worker" || exit 79
+  i=0
+  while test "$i" -lt 3;do
+   if test -f "$W/events" && test "$(head -n 1 "$W/events")" = 'OCHEALTH|listening' &&
+      kill -0 "$worker" 2>/dev/null && test ! -e "$W/result";then
+    echo "OCHEALTH|prepared|$GEN|$BOOT"
+    exit 0
+   fi
+   i=$((i+1))
+   sleep 1
+  done
+  : > "$W/cancelled"
+  exit 80
+  ;;
+ cancel)
+  work || exit 81
+  mkdir -m 700 "$W/decision.lock" || exit 82
+  trap 'rmdir "$W/decision.lock" 2>/dev/null' EXIT
+  test ! -e "$W/reboot-requested" || exit 83
+  : > "$W/cancelled" || exit 84
+  echo "OCHEALTH|cancelled|$GEN|$BOOT"
+  ;;
+ watch)
+  work || exit 87
+  mkdir -m 700 "$W/watching" || exit 87
+  owns_lock=no
+  trap 'if test "$owns_lock" = yes;then rmdir "$W/decision.lock" 2>/dev/null;fi; : > "$W/watch-finished"' EXIT
+  # A shutdown cancellation cannot enter the recovery branch.
+  trap ': > "$W/cancelled"; exit 0' HUP INT TERM
+  "$W/receiver" "$PORT" "$TOKEN" "$SECONDS_LIMIT" > "$W/events" 2> "$W/error"
+  rc=$?
+  if test "$rc" = 0 && test "$(cat "$W/events")" = "$(printf 'OCHEALTH|listening\nOCHEALTH|ready')";then
+   state=ready
+  else
+   state=failed
+  fi
+  printf '%s|%s\n' "$state" "$rc" > "$W/result"
+  # Serializes the last recovery decision with explicit cancellation.
+  tries=0
+  until mkdir -m 700 "$W/decision.lock" 2>/dev/null;do
+   test ! -e "$W/cancelled" || exit 0
+   tries=$((tries+1));test "$tries" -lt 3 || exit 88
+   sleep 1
+  done
+  owns_lock=yes
+  test ! -e "$W/cancelled" || exit 0
+  test "$(cat /proc/sys/kernel/random/boot_id)" = "$BOOT" || exit 89
+  test -f "$W/selected" && test "$(cat "$W/selected")" = "$TOKEN" || exit 0
+  # Evidence cannot veto recovery: selection was already durably consumed.
+  evidence() {
+   test ! -e "$D/health.result" && test ! -L "$D/health.result" || return 90
+   (set -C; printf 'OC_HEALTH_1|%s|%s|%s|%s\n' "$GEN" "$BOOT" "$state" "$rc" > "$D/health.result") || return 91
+   timeout -t 5 "$D/flush" f "$D/health.result" || return 92
+   timeout -t 5 "$D/flush" d "$D" || return 93
+  }
+  evidence || echo "OCHEALTH|evidence-failed|$?"
+  if test "$state" = failed && test "$RECOVERY" = yes;then
+   test "$(cat /proc/sys/kernel/random/boot_id)" = "$BOOT" && test ! -e "$W/cancelled" || exit 94
+   printf '%s\n' "$TOKEN" > "$W/reboot-requested" || exit 95
+   echo "OCHEALTH|reboot-requested|$GEN|$BOOT|$rc"
+   /sbin/reboot
+  fi
+  ;;
+ *) exit 64;;
+esac

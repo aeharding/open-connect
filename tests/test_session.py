@@ -12,7 +12,9 @@ import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
+import open_connect.session as module
 from open_connect.session import (
     AdapterLock,
     BenchError,
@@ -256,6 +258,52 @@ class SessionTests(unittest.TestCase):
         for ports in ([], [port(), port()], [port(serial="other")], [port(device="/dev/ttys999")]):
             with self.assertRaises(BenchError):
                 resolve_adapter(lambda: ports)
+
+    def test_explicit_adapter_serial_binds_resolution_and_lock(self):
+        port = SimpleNamespace(
+            vid=0x0403,
+            pid=0x6001,
+            serial_number="DEV123",
+            device="/dev/cu.usbserial-DEV123",
+            location="test",
+        )
+        directory = Path(self.tmp.name) / "locks"
+        default_path = AdapterLock(directory).path
+        with patch.object(module, "IDENTITY", (0x0403, 0x6001, "DEV123")):
+            self.assertEqual(resolve_adapter(lambda: [port])["serial_number"], "DEV123")
+            with AdapterLock(directory) as lock:
+                self.assertNotEqual(lock.path, default_path)
+                self.assertEqual(json.loads(lock.path.read_text())["identity"][2], "DEV123")
+            for changes in (
+                dict(vid=0x1A86),
+                dict(serial_number="other"),
+                dict(device="/dev/ttys999"),
+            ):
+                wrong = SimpleNamespace(**(vars(port) | changes))
+                with self.assertRaises(BenchError):
+                    resolve_adapter(lambda: [wrong])
+            with self.assertRaises(BenchError):
+                resolve_adapter(lambda: [port, port])
+        for serial in ("", "../adapter", "bad\nserial", "x" * 65):
+            with patch.object(module, "IDENTITY", (0x0403, 0x6001, serial)):
+                with self.assertRaises(BenchError):
+                    resolve_adapter(lambda: self.fail("invalid serial enumerated ports"))
+                with self.assertRaises(BenchError):
+                    AdapterLock(directory)
+        child = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import os; from open_connect.session import IDENTITY, AdapterLock; "
+                "os.environ['OC_UART_SERIAL']='CHANGED'; "
+                "assert IDENTITY==(0x0403,0x6001,'DEV123'); print(IDENTITY[2])",
+            ],
+            env=dict(os.environ, OC_UART_SERIAL="DEV123"),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(child.stdout.strip(), "DEV123")
 
     def test_real_pty_shell_exit_and_identity(self):
         master, slave = pty.openpty()

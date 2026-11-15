@@ -14,7 +14,8 @@ import stat
 import time
 from pathlib import Path
 
-IDENTITY = (0x0403, 0x6001, "A9048JM0")
+# Read once: the lock and all re-enumerations must bind the same adapter.
+IDENTITY = (0x0403, 0x6001, os.environ.get("OC_UART_SERIAL", "A9048JM0"))
 TX_CHUNK_BYTES = 64
 TX_GAP_SECONDS = 0.020
 SETTINGS = dict(
@@ -70,6 +71,7 @@ class AdapterLock:
     """Persistent inode, flock held until close; never unlink a lock file."""
 
     def __init__(self, directory=None, owner="unspecified", purpose="capture"):
+        validate_adapter_identity()
         self.directory = Path(directory or (Path("/tmp") / f"cmu-bench-locks-{os.getuid()}"))
         self.owner, self.purpose, self.fd = owner, purpose, None
         self.path = self.directory / (digest(repr(IDENTITY).encode()) + ".lock")
@@ -109,14 +111,22 @@ class AdapterLock:
             self.fd = None
 
 
+def validate_adapter_identity():
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", IDENTITY[2]):
+        raise BenchError(
+            "OC_UART_SERIAL must be the exact FTDI serial number (1–64 letters/digits/_/-)"
+        )
+
+
 def resolve_adapter(enumerator=None):
+    validate_adapter_identity()
     if enumerator is None:
         from serial.tools import list_ports
 
         enumerator = list_ports.comports
     found = [p for p in enumerator() if (p.vid, p.pid, p.serial_number) == IDENTITY]
     if len(found) != 1:
-        raise BenchError("FTDI 0403:6001/A9048JM0 must enumerate uniquely")
+        raise BenchError(f"FTDI 0403:6001/{IDENTITY[2]} must enumerate uniquely")
     port = found[0]
     # This production entry point has no PTY/device override.
     if not port.device.startswith("/dev/cu.usbserial-"):

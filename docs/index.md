@@ -46,3 +46,5 @@ Original project code and documentation are
 [AGPL-3.0-or-later](https://github.com/aeharding/open-connect/blob/main/LICENSE).
 OEM firmware, raw captures and credentials are not distributed. See the
 [third-party boundaries](https://github.com/aeharding/open-connect/blob/main/THIRD_PARTY.md).
+
+[Try the disclaimer bypass developer preview](disclaimer-preview.md) with a supported bench.

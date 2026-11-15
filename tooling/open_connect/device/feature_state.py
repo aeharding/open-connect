@@ -333,7 +333,7 @@ def configure(args):
     F = build / "payload"
     P = json.loads((F / "plan.json").read_text())
     D = P["directory"]
-    from feature import directory_guard
+    from open_connect.firmware55.generation import directory_guard
 
     directory_guard(D)
     OWNER = args.owner
@@ -377,7 +377,7 @@ def load_existing(state, owner):
     global R, D, OWNER, SOURCE_PINS, F, P
     import re
 
-    from feature import directory_guard
+    from open_connect.firmware55.generation import directory_guard
 
     R = state.resolve()
     OWNER = owner

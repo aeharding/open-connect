@@ -14,9 +14,10 @@ from open_connect.device import feature_workflow as w
 class WorkflowTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.generation = "/tmp/mnt/data_persist/oc-boot-" + "a" * 32
         self.oldR, self.oldD = d.R, d.D
+        self.saved_globals = {k: getattr(d, k) for k in ("F", "P", "OWNER", "SOURCE_PINS")}
         d.R, d.D = self.root, self.generation
         self.addCleanup(self.temp.cleanup)
         self.addCleanup(self.restore)
@@ -38,6 +39,61 @@ class WorkflowTests(unittest.TestCase):
 
     def restore(self):
         d.R, d.D = self.oldR, self.oldD
+        for key, value in self.saved_globals.items():
+            setattr(d, key, value)
+
+    def test_prepare_configuration_and_saved_state_load_without_legacy_imports(self):
+        from open_connect import feature
+
+        from tests.test_feature import FeatureCLI
+
+        FeatureCLI().fixture(self.root)
+        build = self.root / "runs/build"
+        payload = build / "payload"
+        payload.mkdir(parents=True)
+        inputs = {}
+        for key in ("plugin", "mmui_xml", "index", "system_app"):
+            path = self.root / "private" / feature.INPUTS[key]
+            inputs[key] = {"path": str(path), "sha256": feature.sha(path)}
+        record = dict(
+            workspace=str(self.root), source_sha256=feature.sources(self.root), inputs=inputs
+        )
+        (build / "build.json").write_text(json.dumps(record))
+        (payload / "plan.json").write_text(
+            json.dumps(dict(directory=self.generation, original_config={"md5": "a" * 32}))
+        )
+        state = self.root / "runs/state"
+        args = SimpleNamespace(build=build, state=state, owner="test", baseline_system_app=None)
+        # Build validation has separate real-build coverage; exercise both device
+        # entry points here with their real package imports and state validation.
+        with patch.object(d, "ROOT", self.root), patch.object(feature, "inspect_build"):
+            d.configure(args)
+            state.mkdir()
+            prefix = "/usr/bin/.autostart.oc-" + "a" * 32
+            body = b"exit 0\n"
+            d.save("run.json", dict(directory=d.D, source_pins=d.SOURCE_PINS, payload=str(payload)))
+            d.save(
+                "publication.json",
+                dict(
+                    target=d.TARGET,
+                    directory=d.D,
+                    hold_o=prefix + "-O",
+                    hold_c=prefix + "-C",
+                    stage=prefix + "-stage",
+                    body=d.rt.fp(body),
+                ),
+            )
+            d.save(
+                "code.json",
+                dict(identity=f"45826:30:1:{len(body)}:600:0:0:1", directory="45826:29:700:0:0"),
+            )
+            (state / "recovery.sh").write_bytes(body)
+            loaded = d.load_existing(state, "test")
+            self.assertEqual(loaded["directory"], self.generation)
+            self.assertEqual(d.F, payload)
+            (state / "recovery.sh").write_bytes(b"changed")
+            with self.assertRaisesRegex(ValueError, "recovery body changed"):
+                d.load_existing(state, "test")
 
     def raw(self, selected=False, hook=True, health_boot=None):
         boot = "11111111-1111-1111-1111-111111111111"

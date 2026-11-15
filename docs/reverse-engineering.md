@@ -11,7 +11,7 @@ The Lua handler owns audio enable state; SYSTEM startup policy can subsequently
 turn it off when the TAU is absent. Service availability alone is therefore not
 a sufficient startup activation boundary.
 
-The [bench helper](https://github.com/aeharding/open-connect/blob/main/src/open_connect/bench.py) uses that API. Live setup,
+The [bench helper](https://github.com/aeharding/open-connect/blob/main/tooling/open_connect/bench.py) uses that API. Live setup,
 repeat setup, teardown and setup passed; FM Now Playing and the source list opened
 without a TAU. This proves UI access, not sound output or playback. Runtime state
 and ownership expire on reboot/service replacement; no persistent hook is verified.
@@ -29,9 +29,9 @@ The native prototype reuses the ordered continuation rather than forcing Home.
 Rule granted/denied actions are alternatives; actions precede the old context's
 exit hook. Cleanup and pending-warning behavior must be preserved.
 
-The [native prototype](https://github.com/aeharding/open-connect/tree/main/experiments/disclaimer-native/) bypassed the observed
+The [native prototype](https://github.com/aeharding/open-connect/tree/492fe06/experiments/disclaimer-native/) bypassed the observed
 warm Intro route. Early intro-player disposal caused a black interval. The
-[paired renderer hook](https://github.com/aeharding/open-connect/tree/main/experiments/intro-handoff/) defers DisposeIntroVideo
+[paired renderer hook](https://github.com/aeharding/open-connect/tree/492fe06/experiments/intro-handoff/) defers DisposeIntroVideo
 until renderer completion; the sampled long gap disappeared, but a dim transition
 remained. Independent undo and restored-original startup passed. This does not
 establish cold ACC, every resume branch or a seamless sub-frame transition.
@@ -46,7 +46,7 @@ Replacing a still-mapped native library caused an EBUSY read-only remount failur
 Keeping same-filesystem hardlink holds through apply, undo and loaded-module
 lifetime resolved the observed case. Restoring the file on disk does not unload
 modified code: verify a restored-original startup and mapping before releasing
-its holds. See [mapped publication](https://github.com/aeharding/open-connect/blob/main/experiments/mapped-publication/README.md).
+its holds. See [mapped publication](https://github.com/aeharding/open-connect/blob/492fe06/experiments/mapped-publication/README.md).
 
 ## Spinner and frontend lifecycle
 
@@ -130,7 +130,7 @@ reboot occurred. Source ordering is not proof of runtime fallback or cold startu
 optional runtime. Mazda's existing watchdog performs the reset; Open Connect
 must choose what runs afterward.
 
-The [one-shot selector](https://github.com/aeharding/open-connect/tree/main/experiments/boot-selection)
+The [one-shot selector](https://github.com/aeharding/open-connect/blob/main/tooling/open_connect/firmware55/selection.py)
 runs in /usr/bin/autostart before normal-mode setup, the Logger and Service
 Manager (SM). It consumes and flushes a trial record before choosing a fixed
 configuration. A spent record selects Mazda's original service configuration.
@@ -177,7 +177,7 @@ This proves feature selection and omission, not a new timing/no-flash result
 or qualification of every last-app/display-off route.
 
 Private evidence: `runs/selected-feature-v2/result.json`.
-The [reproduction guide](https://github.com/aeharding/open-connect/tree/main/experiments/boot-selection#select-the-paired-disclaimer-feature)
+The [reproduction guide](https://aeharding.github.io/open-connect/disclaimer-development/)
 builds from explicitly supplied private originals; none are published.
 
 ### A live process is not proof of a working UI
@@ -194,7 +194,7 @@ will cause a reboot. Automatic recovery from this kind of partial startup still
 needs a bounded health check outside the optional component.
 
 The corrected adapter splits the parent and relative library path within both
-limits. See the [feature builder](https://github.com/aeharding/open-connect/blob/main/experiments/boot-selection/feature.py).
+limits. See the [feature builder](https://github.com/aeharding/open-connect/blob/main/tooling/open_connect/firmware55/generation.py).
 Private failed trial, diagnosis and recovery: `runs/selected-feature/result.json`.
 
 ### Normal does not mean the GUI initialized

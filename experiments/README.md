@@ -1,40 +1,16 @@
-# Prototype mods and bench trials
+# Research probes
 
-These are development experiments, **not an installer or the host Python package**.
-Nothing here is deployed by pip install or by importing open_connect.
+These are unfinished investigations, not the supported feature commands.
 
-## Start with the relevant prototype
+| Directory | Question |
+| --- | --- |
+| [boot-selection/](boot-selection/README.md) | Finite attempt policy, service/logging composition and isolated file views |
+| [optional-loader/](optional-loader/README.md) | Optional native loading through the OEM plugin |
+| [tau-bypass/](tau-bypass/README.md) | Audio Manager behavior without a TAU |
+| tmpfs-probe/ | Temporary-storage capabilities |
 
-| Directory | What it contains | Deployment boundary |
-| --- | --- | --- |
-| [boot-selection](boot-selection/) | One-shot early configuration selector and checked flush helper | Warm boots and controlled faults verified one-shot fallback; not an installer |
-| [optional-loader](optional-loader/) | Native loader probe and public checks | Host build only; target adapter under cmu/; no live profile |
-| [disclaimer-native](disclaimer-native/) | ARM C bypass and host ELF patch builder | native.c is compiled into a CMU library candidate; Python stays on the host |
-| [intro-handoff](intro-handoff/) | Paired GUI completion hook and host trial runner | Generated JavaScript modifies systemApp.js; Python stays on the host |
-| [mapped-publication](mapped-publication/) | Library apply/undo with hardlink holds | Host orchestrator sends guarded shell payloads |
-| [staged-delivery](staged-delivery/) | Checked payload transfer | Transfers data; does not execute it |
-| [tau-bypass](tau-bypass/) | Earlier Audio Manager investigation | Maintained helper is now src/open_connect/bench.py |
-
-All other directories are earlier prototypes or supporting trial machinery.
-They remain here because some of the later trials still import them. They are
-not independent supported products. Consolidate a shared helper when working
-on its actual consumer; do not copy another experiment to make a new framework.
-
-For the complete paired feature, start with the [fresh-checkout build](intro-handoff/README.md).
-
-## Running checks
-
-Read the directory's instructions first. The mapped-publication suite and
-intro-handoff boot/publication checks run from a public checkout and are in CI;
-their READMEs give exact commands. Other checks require private exact OEM files,
-Node.js or an ARM toolchain. A public checkout contains no captured firmware or
-run records.
-
-Saved ready/freeze/check manifests describe the source at the time of that trial.
-Repository reorganization changes source paths and hashes; these old live profiles
-are historical and must not be replayed as current authorization. Fresh target
-identity, current checked code and independent undo remain necessary for live work.
-
-Current limitations: live trial plans and some older prototypes still refer to local capture
-paths, and shared publication/startup code crosses experiment directories. These
-are unfinished extraction work, not a stable public mod API.
+The working disclaimer build/trial/disable path lives in
+[host tooling](../tooling/README.md), with target sources under [cmu/](../cmu/README.md)
+and maintained tests under [tests/](../tests/).
+Superseded direct-install prototypes are available in Git history. Private captures
+and generated firmware stay under ignored runs/.

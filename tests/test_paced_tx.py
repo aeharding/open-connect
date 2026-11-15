@@ -11,9 +11,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from test_cli import LockStub, cli
-
 from open_connect.session import TX_GAP_SECONDS, Bundle, Session, UnknownOutcome
+from test_cli import LockStub, cli
 
 
 class StreamingTransport:

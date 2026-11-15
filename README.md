@@ -2,7 +2,7 @@
 
 Improve first-generation Mazda Connect while preserving Mazda's look and feel:
 startup behavior, unused services, logging/performance, controls and connectivity.
-The first experiment is a clean disclaimer bypass; the
+The first feature is a disclaimer bypass; the
 [architecture](docs/extension-architecture.md) covers the broader feature scope.
 
 **Development project, not an end-user installer.**
@@ -33,19 +33,17 @@ Prototype-specific checks are separate and may need private OEM inputs.
 
 ## Where things live
 
-| Path | Purpose | Runs where? |
-| --- | --- | --- |
-| [src/open_connect/](src/open_connect/) | Host CLI, UART, feature workflow and runtime bench profile | Your computer |
-| [cmu/adapters/](cmu/adapters/) | Firmware-specific target integration; currently a host-built native loader probe | CMU when explicitly installed; no automatic deployment |
-| [tests/](tests/) | Offline tests for that host package | Your computer; fake transport or local PTYs |
-| [experiments/](experiments/) | Prototype mods, builders and bench trials; see its index before running anything | Builders run on the host; generated payloads may change the CMU |
-| [docs/](docs/index.md) | Setup, usage and Mazda findings | Documentation |
+| Path | Purpose |
+| --- | --- |
+| [tooling/open_connect/](tooling/open_connect/) | Host CLI, firmware builders and device operations |
+| [cmu/](cmu/) | Code and templates that run on the CMU |
+| [tests/](tests/) | Maintained host, shell and build checks |
+| [experiments/](experiments/README.md) | Unfinished research probes, outside the feature workflow |
+| [docs/](docs/index.md) | User guides, development instructions and CMU research |
 
-There is no automatic deployment step. Installing the Python package installs
-**only host tools**. Feature builders remain in the source checkout; `oc feature` runs them against
-your private firmware originals. Generated patches are not bundled in the package.
-The Python import name uses an underscore (open_connect); the project/command
-names are Open Connect and oc.
+Installing the Python package installs host tools only. Building a feature uses
+the checkout's target sources and your private OEM inputs; it does not install it.
+Generated firmware files are never included in the package.
 
 [Contributing](CONTRIBUTING.md) · [Roadmap](PLAN.md) · [Working agreement](STEERING.md)
 

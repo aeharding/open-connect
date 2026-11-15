@@ -3,8 +3,8 @@ import subprocess
 import unittest
 
 import budget
-import prototype
-import test_selector
+from open_connect.firmware55 import selection as prototype
+from tests import test_selection as test_selector
 
 
 class BudgetTests(unittest.TestCase):

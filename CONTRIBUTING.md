@@ -26,33 +26,30 @@ Keep this proportional: one focused review, not a standing review team.
 ~~~sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
-.venv/bin/ruff check src tests
-.venv/bin/ruff format --check src tests
+.venv/bin/ruff check tooling tests
+.venv/bin/ruff format --check tooling tests
 .venv/bin/python tests/run_offline.py
 ~~~
 
-Host code lives in src/open_connect/, with tests in tests/.
+Host code lives in tooling/open_connect/, with tests in tests/.
 The offline runner includes the CLI and bench profile and opens no physical device.
 The installed entry point is oc; python -m open_connect is equivalent.
 
 CI runs those host checks on Linux with Python 3.13 for every PR and main push,
 then checks the installed CLI from outside the checkout. Require the Host checks
 job to pass alongside adversarial review before merging. To apply formatting
-locally, run .venv/bin/ruff format src tests.
+locally, run .venv/bin/ruff format tooling tests.
 
-Ruff covers src/ and tests/. CI also runs the public mapped-publication suite
-and intro-handoff boot/publication checks. These use synthetic records, fake
-transports, local PTYs and temporary files, not hardware, OEM files or credentials:
+Ruff covers tooling/ and tests/. The offline suite includes the public CLI,
+publication/undo with real local files and mappings, simulated boot observation,
+and startup selection with local sockets and shell processes. It uses no physical
+device, credentials or OEM files. Install Clang for its host C checks; optional
+Node.js and ffmpeg checks report skips if those tools are absent.
 
-~~~sh
-.venv/bin/python -m unittest discover -s experiments/mapped-publication -v
-.venv/bin/python -m unittest discover -s experiments/intro-handoff -p test_boot.py -v
-.venv/bin/python -m unittest discover -s experiments/intro-handoff -p test_publication.py -v
-~~~
-
-This covers the import regression from #21 and keeps historical execution-profile
-validation at the live boundary. Other prototype checks may still require private
-firmware inputs. CI does not prove firmware behavior, visual results or CMU recovery.
+CI also builds the small ARM helpers and checks the remaining research probes.
+Private native/JS input checks run through oc feature build; an absent private
+fixture is an explicit skip in the public suite. Host tests do not establish
+firmware behavior or successful recovery on a CMU.
 
 Actions are pinned to commit hashes, validation jobs have read-only permissions, and
 Dependabot proposes monthly grouped updates. Dependency PRs require the same
@@ -76,8 +73,9 @@ See [documentation guidance](docs/documentation.md) for content and publication 
 
 ## Mods and device work
 
-Choose a prototype from [experiments/](experiments/README.md). Its own checks may
-need private OEM inputs; report missing inputs rather than claiming success.
+Use the [developer feature workflow](docs/disclaimer-development.md) for the maintained
+feature. Unfinished probes stay in [experiments/](experiments/README.md). Report
+missing private OEM inputs rather than claiming their checks passed.
 Read [bench setup](docs/bench-setup.md), [CLI usage](docs/cli.md) and the current
 [lab state](docs/bench-state.txt) before operating the project's bench.
 One operator owns UART and cleanup.

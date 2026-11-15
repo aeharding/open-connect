@@ -18,6 +18,8 @@ jobs:
     name: Host checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      OC_WORKSPACE: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -28,20 +30,15 @@ jobs:
       - name: Install package and development tools
         run: python -m pip install ".[dev]"
       - name: Lint
-        run: ruff check --output-format=github src tests
+        run: ruff check --output-format=github tooling tests
       - name: Format
-        run: ruff format --check src tests
-      - name: Offline host tests
-        run: python tests/run_offline.py
-      - name: Public publication and observer regressions
-        run: |
-          python -m unittest discover -s experiments/mapped-publication -v
-          python -m unittest discover -s experiments/intro-handoff -p test_boot.py -v
-          python -m unittest discover -s experiments/intro-handoff -p test_publication.py -v
+        run: ruff format --check tooling tests
       - name: Install ELF linker for the loader probe
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends clang lld
+      - name: Offline host tests
+        run: python tests/run_offline.py
       - name: Optional loader probe (public inputs only)
         env:
           OC_LLD: /usr/bin/ld.lld
@@ -49,8 +46,8 @@ jobs:
       - name: Boot selection (host checks and ARM build only)
         run: |
           python -m unittest discover -s experiments/boot-selection -v
-          python experiments/boot-selection/build_flush.py --output runs/selector-ci
-          python experiments/boot-selection/build_receiver.py --output runs/receiver-ci
+          python -m open_connect.firmware55.build_flush --output runs/selector-ci
+          python -m open_connect.firmware55.build_receiver --output runs/receiver-ci
           python experiments/boot-selection/build_namespace.py --output runs/namespace-ci
       - name: Installed CLI outside checkout
         shell: bash

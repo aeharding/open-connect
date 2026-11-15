@@ -80,3 +80,14 @@ private/
 
 # Generated documentation website.
 /site/
+
+/experiments/disclaimer/
+/experiments/disclaimer-native/
+/experiments/disclaimer-recovery-inspection/
+/experiments/disclaimer-warm-roundtrip/
+/experiments/intro-handoff/
+/experiments/mapped-publication/
+/experiments/native-disclaimer-runtime/
+/experiments/restored-stock-startup/
+/experiments/staged-delivery/
+/experiments/stock-warm-start/

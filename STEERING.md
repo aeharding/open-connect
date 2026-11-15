@@ -204,9 +204,10 @@ or every-screen health detection before useful feature development resumes.
 Intentional button resets must not silently replenish attempts or be blamed on
 a mod. Automatic everyday renewal waits for qualified ACC evidence.
 
-The user-preferred layout remains tooling/ for host code, cmu/ for bootstrap,
-adapters and features. Move complete components with their tests; avoid empty
-scaffolding or another history folder. Current paths remain until that migration.
+Use tooling/ for host code, cmu/ for bootstrap, adapters and features, and tests/
+for maintained checks. Experiments hold unfinished research, not dependencies of
+the feature CLI. Delete superseded code; Git preserves it. Move complete components
+with their tests; avoid empty scaffolding or another history folder.
 
 ## Development home and license
 
@@ -238,5 +239,5 @@ in GitHub issues. Git preserves superseded plans.
 Maintain this document when goals or working agreements change, not after every
 command. Keep it short enough to read at the start of a session.
 
-Current repository layout (before the planned tooling/cmu split): src/open_connect is host code; tests covers it; experiments
+Current repository layout (before the planned tooling/cmu split): tooling/open_connect is host code; tests covers it; experiments
 contains prototype mods; docs contains setup, usage and findings. Retired records belong in Git history. Keep one starting README and one current lab-state file.

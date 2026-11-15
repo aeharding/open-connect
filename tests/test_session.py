@@ -346,7 +346,6 @@ class SessionTests(unittest.TestCase):
 
     def test_pyserial35_receive_only_over_explicit_test_pty(self):
         import serial
-
         from open_connect.session import SETTINGS
 
         master, slave = pty.openpty()

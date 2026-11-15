@@ -9,11 +9,7 @@ import subprocess
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-spec = importlib.util.spec_from_file_location(
-    "_oc_native_elf", HERE.parent / "disclaimer-native/build.py"
-)
-elf = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(elf)
+from open_connect.firmware55 import native as elf
 BASE_SHA = "2c2c0494817b13a38c36a8276a39899b4096efc217e82568fe3842f8b34bb025"
 SITE, START, LIMIT = 0x31AC, 0x3F38, 0x4000
 EXTERNAL = {"oc_dlopen": 0x10FC, "oc_dlsym": 0xF94}

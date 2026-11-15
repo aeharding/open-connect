@@ -1,6 +1,5 @@
 """Public build entry points: no OEM inputs, toolchain or hardware required."""
 
-import importlib.util
 import subprocess
 import sys
 import tempfile
@@ -8,16 +7,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from open_connect.firmware55 import javascript, native
+
 ROOT = Path(__file__).resolve().parents[1]
-NATIVE = ROOT / "experiments/disclaimer-native"
-INTRO = ROOT / "experiments/intro-handoff"
-
-
-def load(name, path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 class FeatureBuild(unittest.TestCase):
@@ -27,11 +19,11 @@ class FeatureBuild(unittest.TestCase):
             output = ROOT / "runs" / "must-not-be-created-by-missing-input"
             self.assertFalse(output.exists())
             commands = [
-                [NATIVE / "build.py", "--original", absent],
-                [NATIVE / "check.py", "--original", absent],
-                [INTRO / "patch.py", "--original", absent],
+                ["open_connect.firmware55.native", "--original", absent],
+                ["open_connect.firmware55.check_native", "--original", absent],
+                ["open_connect.firmware55.javascript", "--original", absent],
                 [
-                    INTRO / "check.py",
+                    "open_connect.firmware55.build_pair",
                     "--native-original",
                     absent,
                     "--system-app",
@@ -43,7 +35,7 @@ class FeatureBuild(unittest.TestCase):
             for command in commands:
                 with self.subTest(command=command):
                     result = subprocess.run(
-                        [sys.executable, *map(str, command), "--output", str(output)],
+                        [sys.executable, "-m", *map(str, command), "--output", str(output)],
                         capture_output=True,
                         text=True,
                         timeout=10,
@@ -54,7 +46,7 @@ class FeatureBuild(unittest.TestCase):
                     self.assertFalse(output.exists())
 
     def test_tool_override_and_linux_discovery_do_not_require_xcode(self):
-        builder = load("_test_native_builder", NATIVE / "build.py")
+        builder = native
         with (
             patch.object(builder.sys, "platform", "linux"),
             patch.object(builder.subprocess, "run") as run,
@@ -72,7 +64,7 @@ class FeatureBuild(unittest.TestCase):
             run.assert_not_called()
 
     def test_unknown_js_input_and_public_output_refused_before_writes(self):
-        builder = load("_test_intro_builder", INTRO / "patch.py")
+        builder = javascript
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "systemApp.js"
             source.write_bytes(b"unknown firmware")

@@ -14,12 +14,13 @@ import serial
 
 ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
+os.environ["OC_WORKSPACE"] = str(ROOT)
 stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
 path = ROOT / "runs/tests" / stamp
 path.mkdir(parents=True, mode=0o700)
 source = {}
 copies = {}
-for pattern in ("src/open_connect/*.py", "tests/*.py"):
+for pattern in ("tooling/open_connect/**/*.py", "tests/*.py"):
     for p in ROOT.glob(pattern):
         data = p.read_bytes()
         name = str(p.relative_to(ROOT))

@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import xml.etree.ElementTree as ET
 
-import prototype
+from open_connect.firmware55 import selection as prototype
 
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("_oc_composed_loader", HERE.parent / "optional-loader/build.py")

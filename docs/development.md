@@ -5,7 +5,7 @@ without a CMU or private firmware files.
 
 ## Install and test
 
-Use Python 3.13, matching Linux CI:
+Use Python 3.13, matching Linux CI, and Clang for the host C checks:
 
 ~~~sh
 git clone https://github.com/aeharding/open-connect.git
@@ -14,8 +14,8 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
 .venv/bin/oc --help
 .venv/bin/oc bench setup
-.venv/bin/ruff check src tests
-.venv/bin/ruff format --check src tests
+.venv/bin/ruff check tooling tests
+.venv/bin/ruff format --check tooling tests
 .venv/bin/python tests/run_offline.py
 ~~~
 
@@ -26,15 +26,15 @@ local PTYs and temporary files; they do not open the physical bench.
 
 | Location | Purpose |
 | --- | --- |
-| [src/open_connect/](https://github.com/aeharding/open-connect/tree/main/src/open_connect) | Host CLI, UART transport, file transfer and bench profile |
+| [tooling/open_connect/](https://github.com/aeharding/open-connect/tree/main/tooling/open_connect) | Host CLI, firmware builders, device operations and bench profile |
 | [tests/](https://github.com/aeharding/open-connect/tree/main/tests) | Maintained offline tests for the host tools |
-| [cmu/](https://github.com/aeharding/open-connect/tree/main/cmu) | Target integration code; currently a host-built loader probe |
-| [experiments/](https://github.com/aeharding/open-connect/tree/main/experiments) | Prototype patches and bench trials, each with its own instructions |
+| [cmu/](https://github.com/aeharding/open-connect/tree/main/cmu) | Target startup code, firmware adapters and feature sources |
+| [experiments/](https://github.com/aeharding/open-connect/tree/main/experiments) | Unfinished research probes; not dependencies of the feature CLI |
 | [docs/](https://github.com/aeharding/open-connect/tree/main/docs) | This website's Markdown sources |
 
-Some prototype checks require privately obtained, exact firmware files. Their
-absence is not a test pass. Follow the selected experiment's README and keep
-generated OEM-derived payloads out of commits.
+The public suite reports explicit skips for tests needing private OEM inputs.
+[The developer feature guide](disclaimer-development.md) covers the real build
+and its private checks. Keep generated firmware files out of commits.
 
 ## Make one complete change
 

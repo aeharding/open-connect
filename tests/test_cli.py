@@ -9,10 +9,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from test_session import FakeTransport
-
 from open_connect import uart as cli
 from open_connect.session import BenchError
+from test_session import FakeTransport
 
 
 class LockStub:

@@ -23,10 +23,10 @@ ask the user to press buttons, dismiss dialogs or rewire things to complete agen
 
 ## Code and documentation
 
-- src/open_connect/: host Python; nothing here is installed on the CMU.
+- tooling/open_connect/: host Python; nothing here is installed on the CMU.
 - cmu/: target integration code, including firmware adapters and probes.
 - tests/: maintained host tests, including the semantic CLI and bench profile.
-- experiments/: prototype mods and trial tooling; generated payloads may affect the CMU.
+- experiments/: unfinished research probes. The maintained feature workflow lives in tooling/open_connect/.
 - docs/: Markdown sources for the GitHub Pages site: setup, usage and CMU findings.
   Navigation and site settings are in zensical.toml. Use Git for historical records.
 - GitHub issues/PRs: work queue and review. No separate progress-dashboard requirement.

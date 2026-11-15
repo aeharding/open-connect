@@ -56,7 +56,7 @@ different receipt explicitly. Only one program should own UART at a time.
 
 ## Developer feature trial
 
-For the pinned release and complete walkthrough, see [Try the disclaimer bypass](disclaimer-preview.md).
+For the pinned release and complete walkthrough, see [Try the disclaimer bypass](disclaimer-development.md).
 
 This is the **FW55 Home-only prototype**, not a USB installer. Use a source
 checkout; the installed CLI locates the prototype builders through `--workspace`.

@@ -11,7 +11,7 @@ import re
 import shlex
 import subprocess
 
-import prototype
+from open_connect.firmware55 import selection as prototype
 
 HERE = Path(__file__).resolve().parent
 
@@ -94,7 +94,7 @@ def build(source, output, limit):
                 policy=dict(initial_phase="trial", confirm_refunds_attempts=False,
                             automatic_renewal=False, acc_qualified=False,
                             boot_field="fences the latest reservation or renewal boot"))
-    for p in (Path(__file__), HERE / "budget.sh.in", HERE / "prototype.py"):
+    for p in (Path(__file__), HERE / "budget.sh.in", Path(prototype.__file__)):
         plan["source_pins"][str(p.relative_to(HERE.parents[1]))] = hashlib.sha256(p.read_bytes()).hexdigest()
     (output / "plan.json").write_text(json.dumps(plan, indent=2) + "\n")
     return plan

@@ -17,7 +17,11 @@ class FeatureCLI(unittest.TestCase):
         for name in ("pyproject.toml", *feature.SOURCE_FILES):
             p = root / name
             p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text("fixture")
+            p.write_bytes(
+                (Path(__file__).resolve().parents[1] / name).read_bytes()
+                if name.startswith("tooling/open_connect/")
+                else b"fixture"
+            )
         firmware = root / "private"
         for name in feature.INPUTS.values():
             p = firmware / name
@@ -30,6 +34,26 @@ class FeatureCLI(unittest.TestCase):
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(io.StringIO()):
             rc = cli.main(["feature", *map(str, args)])
         return rc, json.loads(stdout.getvalue())
+
+    def test_installed_checkout_mismatch_refuses_before_execution(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            firmware = self.fixture(root)
+            (root / "tooling/open_connect/session.py").write_text("different installed code")
+            with patch.object(feature.subprocess, "run") as run:
+                rc, result = self.invoke(
+                    "build",
+                    "--workspace",
+                    root,
+                    "--firmware",
+                    firmware,
+                    "--output",
+                    root / "runs/build",
+                )
+            self.assertNotEqual(rc, 0)
+            self.assertIn("installed host package differs", result["error"])
+            run.assert_not_called()
+            self.assertFalse((root / "runs").exists())
 
     def test_dry_run_no_output_or_device_and_explicit_workspace(self):
         with tempfile.TemporaryDirectory() as temp:

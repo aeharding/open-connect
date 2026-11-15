@@ -128,9 +128,8 @@ class FileTests(unittest.TestCase):
     def test_fresh_identity_to_verified_artifact_and_reject_bad_export(self):
         import re
 
-        from test_session import IDENTITY_OUTPUT, FakeTransport, response
-
         from open_connect.session import Bundle, Session
+        from test_session import IDENTITY_OUTPUT, FakeTransport, response
 
         for corrupted in (False, True):
             with tempfile.TemporaryDirectory() as temp:

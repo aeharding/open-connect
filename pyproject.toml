@@ -18,7 +18,7 @@ docs = ["zensical==0.1.1"]
 oc = "open_connect.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["tooling"]
 
 [tool.ruff]
 target-version = "py310"

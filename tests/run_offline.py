@@ -14,12 +14,13 @@ import serial
 
 ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
+os.environ["OC_WORKSPACE"] = str(ROOT)
 stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
 path = ROOT / "runs/tests" / stamp
 path.mkdir(parents=True, mode=0o700)
 source = {}
 copies = {}
-for pattern in ("src/open_connect/*.py", "tests/*.py"):
+for pattern in ("tooling/open_connect/**/*.py", "tests/*.py"):
     for p in ROOT.glob(pattern):
         data = p.read_bytes()
         name = str(p.relative_to(ROOT))
@@ -30,7 +31,7 @@ for pattern in ("src/open_connect/*.py", "tests/*.py"):
         source[name] = h
         copies[name] = dict(bytes=len(data), sha256=h, snapshot=str(target.relative_to(path)))
 log = io.StringIO()
-suite = unittest.defaultTestLoader.discover(str(ROOT / "tests"))
+suite = unittest.defaultTestLoader.discover(str(ROOT / "tests"), top_level_dir=str(ROOT))
 result = unittest.TextTestRunner(stream=log, verbosity=2).run(suite)
 (path / "tests.txt").write_text(log.getvalue())
 stable = all(hashlib.sha256((ROOT / p).read_bytes()).hexdigest() == h for p, h in source.items())

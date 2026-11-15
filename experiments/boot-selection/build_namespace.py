@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from build_flush import build
+from open_connect.firmware55.build_flush import build
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

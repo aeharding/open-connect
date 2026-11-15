@@ -38,100 +38,7 @@ Latest cycle: runs/disclaimer-preview-reproduction/result.json.
 - Prior runs/feature-cli-trial/result.json remains separate: its selected observer
   UNKNOWN needed fresh reconciliation; it was not relabeled an automated pass.
 
-Closed experiments:
-- runs/independent-ready-missing/result.json: missing selected system UIA left
-  the logo; independent receiver timed out (75), normal on-device reboot and
-  baseline selection passed automatically. Exactly one host reboot request,
-  two kernels, login only after fallback. Persisted failed receipt binds the
-  intervening trial boot. Camera Home, fresh root55/RO/original mappings,
-  independent autostart undo/VERIFY/CLEAN and bench profile setup passed.
-- runs/independent-ready-feature-v2/result.json: real feature boot, current-boot
-  loopback Home acknowledgement and independent ready|0 receipt passed. Camera
-  Home verified. Next baseline omitted selected native/JS files; autostart
-  undo/VERIFY/CLEAN and rootRO passed. Recovery was OFF for this positive test.
-- runs/independent-ready-feature/result.json: selected real feature reached visible
-  Home and passed access/maps/rootRO checks, but the independent receiver timed
-  out without a Home log marker. Automatic recovery stayed OFF. Explicit next
-  baseline startup and independent autostart undo/VERIFY/CLEAN passed. This is
-  a readiness false negative, not a demonstrated CMU startup failure.
-- runs/render-ack-feature/result.json: selected native/JS bypass, one Home-only
-  acknowledgement at uptime28.214, visible Home and no captured OEM callback
-  errors. Next boot omitted both selected files. Two-point raw CPU/RAM/I/O
-  observations saved, not a repeated matched performance result. Autostart
-  independent undo/VERIFY/CLEAN passed; installed native/comparison JS unchanged.
-- runs/render-ack-missing/result.json: missing native system UIA left the logo.
-  Probe-loaded18.751 and later event-loop canary83.848/idle, no Home ack; actual
-  maps confirmed absent UIA. Explicit normal baseline reboot restored original
-  mappings/Home. Independent autostart undo/VERIFY/CLEAN and runtime bench setup
-  passed. RootRO, UART/camera closed. No health policy or supply action.
-- runs/gui-ready-missing/result.json: passive ReportGuiAvailable capture absent
-  with missing system UIA/logo, present with baseline/Home. Start/end bus-ID
-  canaries established coverage; original autostart undo and holds cleaned.
-- runs/gui-ready-js/result.json: selected system-app throw at21.971; OEM
-  loadingApp timeout29.982/forceExit31.020/SM watchdog stop31.301, automatic
-  baseline boot. Trial bus capture contained ReportGuiAvailable despite failure.
-  Original observer UNKNOWN preserved; fresh reconciliation proves original
-  MMUI/native/Opera, rootRO/Home. Original autostart restored/verified/cleaned.
-  No on-target health policy; draft host conditional recovery was not executed.
-  No power/ACC action. UART/camera closed, runtime bench profile on.
-  Spent generation: /tmp/mnt/data_persist/oc-boot-fffa51aaa438bea938cf1bd0f9cf8122.
-- runs/startup-health-trial/result.json: deliberately absent system UIA left
-  MMUI/Opera alive and the logo visible, yet SYSTEM entered Normal at 45.410s
-  and returned state2 at 112.53s. Healthy Home/Compass also returned2.
-  One normal recovery boot verified baseline mappings/RO/Home; original autostart
-  undo/hold cleanup and bench-profile setup passed, all handles closed.
-  Spent generation: /tmp/mnt/data_persist/oc-boot-fc5f3dd50c374dc53a4fe848b677a0e7.
-  No power/ACC commands. Interrupted host DATA upload and separate reconciliation
-  preserved; it did not publish or execute the trial. No health policy installed.
-- runs/selected-feature-v2/result.json: real native bypass and JS cleanup selected
-  together, then baseline omitted both without feature-file restoration. Exact
-  mappings, actual JS execution, IntroAnimation->HomeScreen and post-display
-  intro disposal passed. Both Home videos verified. Independent autostart undo,
-  hold cleanup, rootRO and bench-profile setup passed; all handles closed.
-  Spent generation: /tmp/mnt/data_persist/oc-boot-9d483d7db90189aba2f330f0eaa8f792.
-  No power/ACC commands. No new timing/no-flash claim.
-- runs/selected-feature/result.json: first feature trial failed because OEM XML
-  libpath truncated at 49 bytes. System UIA was absent while MMUI stayed alive;
-  explicit normal recovery boot and independent autostart undo/cleanup passed.
-  Original UNKNOWN preserved. Corrected v2 uses parent/relative path fields.
-- runs/attempt-budget/result.json: two selected startups using a two-attempt
-  ledger; explicit confirmation kept the first charge. One late MMUI SIGSEGV
-  caused Mazda's reset and a baseline boot with all four effects omitted.
-  Ledger remains confirmed/epoch0/used2, fenced to the second selected boot;
-  automatic renewal is not implemented. Fresh baseline mappings/rootRO/Home,
-  original-autostart undo/hold cleanup and bench-profile restoration passed.
-  Inactive generation: /tmp/mnt/data_persist/oc-boot-9ecfc769d6a4fb7f1a296a8fef06016b.
-  Host import refusal occurred before device open and is separately preserved.
-- runs/persistent-policy-research/result.json: one bound stock-MMUI SIGSEGV,
-  automatic watchdog reset, one login and fresh baseline/native-map/rootRO
-  verification. New MMUI PID746/PPID207/start1659. Original autostart unchanged;
-  no hook installed. Both the preceding normal reboot and this fault reset
-  returned IBC reset word 0x00000001 (Power-up sequence).
-  Read-only SYSTEM/ibclog/boot-diagnostic capture; no supply commands.
-  Observer/video closed; cleanup.json confirms owned UART/camera handles closed.
-- runs/composed-generation/result.json: one selected service/logging/native/JS
-  configuration, then one baseline boot omitting all four effects. Stitcher
-  returned, Warn environment was absent, native Info logs returned, original
-  MMUI/Opera paths were restored, and the optional module/markers were absent.
-  Both Home frames verified; original autostart undo/hold cleanup/rootRO passed.
-  Prepared generation remains spent/inactive at:
-  /tmp/mnt/data_persist/oc-boot-27ef418b5ef3c409a5bab3a8de805a87.
-  Initial host timeout/partial quoted upload and its reconciliation are preserved.
-- runs/early-selector/result.json: two warm boots, trial then baseline.
-- runs/native-fault-trial/result.json: one MMUI SIGSEGV, watchdog reset, baseline.
-- runs/js-hang-trial-v2/result.json: one actual JS hang, heartbeat failure, Opera
-  exit, watchdog reset and baseline. Original observer UNKNOWN preserved;
-  saved crash archive and fresh postboot access independently reconciled it.
-  Earlier runs/js-hang-trial/ probe failed to inject the hang; retained separately.
-- runs/power-cut-trial/result.json: consumed record survived one 6.964s supply
-  interruption after a completed runtime flush. Scratch files cleaned.
-  No cut during rename/fsync; no voltage-setting commands.
-- runs/early-power-cut/result.json: one actual 6.920s supply cut after the early
-  record flush, before service selection; spent record survived and OEM SM
-  configuration returned. Original autostart independently restored/cleaned.
-  First observer refused before any power command; original UNKNOWN preserved
-  with separate access reconciliation and explicit rearm for the fresh attempt.
-
+Earlier experiments and failure qualifications are in docs/reverse-engineering.md\nand the private result records linked there. Git preserves earlier handoffs.\n
 DPS150 connected via USB; output ON, voltage/current settings unchanged.
 Do not change voltage. Notify the user before any power cut so they can watch.
 Ethernet/SSH and ACC control were last reported in transit.
@@ -140,7 +47,7 @@ Inactive trial data/backups/undo remain under /tmp/mnt/data_persist/oc-boot-*;
 their host plans are in the experiment directories above. No active holds remain
 for autostart. Original comparison recovery remains:
  /tmp/mnt/data_persist/oc-intro-hook-2c89d86213ff5f278a639696d1759380
-Host plan: runs/open-connect-snap55/trial/plan/plan.json.
+Host plan: runs/open-connect-snap55/trial/plan/plan.json.\nHistorical trial commands require their matching tagged checkout, not current\nmodule paths. No old trial should be rearmed during repository cleanup.
 
 Guide: docs/bench-setup.md and docs/cli.md.
 Next work: PLAN.md and issue #25. Findings: docs/reverse-engineering.md.

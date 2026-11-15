@@ -38,6 +38,11 @@ The lab handoff, bench-state.txt, is deliberately excluded from the website.
 
 ## Keep the direction readable
 
+Write feature introductions for people deciding whether they can use the feature:
+what changes, whether it is available, and where to go next. Put commands and
+test evidence in developer guides. Describe visible behavior in everyday language,
+such as “the screen may briefly go black.” Keep release notes just as approachable.
+
 Lead with the current answer, its evidence and the unresolved question. Keep
 overviews short; use a diagram when it explains the decision more clearly.
 Label proposals as proposals and match detail to implementation maturity.

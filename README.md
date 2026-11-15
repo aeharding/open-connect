@@ -15,7 +15,7 @@ wiring, development guides and CMU reverse engineering.
 
 - **Build a bench:** [power, display and UART wiring](docs/bench-setup.md).
 - **Use a connected bench:** [CLI commands](docs/cli.md).
-- **Try the first feature:** [developer preview: build, try and disable](docs/disclaimer-preview.md).
+- **Follow the first feature:** [disclaimer bypass and availability](docs/disclaimer-preview.md).
 - **Change the code:** install the host tools and run the offline tests below.
 - **Understand the Mazda behavior:** [findings](docs/reverse-engineering.md).
 - **Choose work:** [roadmap](PLAN.md) and [issues](https://github.com/aeharding/open-connect/issues).

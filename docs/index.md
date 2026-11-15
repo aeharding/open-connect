@@ -47,4 +47,4 @@ Original project code and documentation are
 OEM firmware, raw captures and credentials are not distributed. See the
 [third-party boundaries](https://github.com/aeharding/open-connect/blob/main/THIRD_PARTY.md).
 
-[Try the disclaimer bypass developer preview](disclaimer-preview.md) with a supported bench.
+[Disclaimer bypass: what it does and when you can use it](disclaimer-preview.md).

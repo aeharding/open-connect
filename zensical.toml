@@ -15,10 +15,11 @@ nav = [
     { "Overview" = "index.md" },
     { "Wire a bench" = "bench-setup.md" },
     { "Use the CLI" = "cli.md" },
-    { "Try the disclaimer bypass" = "disclaimer-preview.md" },
+    { "Disclaimer bypass" = "disclaimer-preview.md" },
   ] },
   { "Development" = [
     { "Contribute" = "development.md" },
+    { "Test the disclaimer bypass" = "disclaimer-development.md" },
     { "Architecture" = "extension-architecture.md" },
     { "Uninstall direction" = "uninstall.md" },
     { "Edit these docs" = "documentation.md" },

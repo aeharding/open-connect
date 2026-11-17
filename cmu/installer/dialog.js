@@ -63,6 +63,9 @@ var OpenConnectInstaller = (function () {
                 return;
             }
             switch (event) {
+            case "leftStart": case "rightStart": case "upStart": case "downStart":
+                // The Mazda dialog moves focus on release.
+                return;
             case "touchActive": case "controllerActive":
             case "cw": case "ccw": case "select": case "selectStart":
             case "left": case "right": case "up": case "down": case "lostFocus":

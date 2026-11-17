@@ -34,6 +34,11 @@ assert.equal(choose(fw, false, decision), false);
 assert.deepEqual(Object.values(control.props.buttonConfig).map(b=>b.appData), ["cancel","install"]);
 assert.equal(control.props.initialFocus, 0);
 assert.equal(control.props.titleStyle,"titleStyle01");
+for (const tilt of ["left","right","up","down"]) {
+    common.handleControllerEvent(tilt+"Start",false);
+    common.handleControllerEvent(tilt,false);
+}
+assert.deepEqual(control.events.splice(1), ["left","right","up","down"]);
 common.handleControllerEvent("cw",true);
 common.handleControllerEvent("controllerActive",false);
 common.handleControllerEvent("cw",false);

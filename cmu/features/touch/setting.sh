@@ -56,7 +56,9 @@ if [ "$3" != "$value" ]; then
            fi ;;
     esac
     [ "$(read_value)" = "$3" ] || exit 74
-    printf '\n' > "$store/commit"
 fi
+# A prior write may have reached sysfs before its commit completed.
+# An explicit change also commits a matching value; read stays write-free.
+printf '\n' > "$store/commit"
 [ "$(read_value)" = "$3" ] || exit 74
 printf '%s\n' "$3"

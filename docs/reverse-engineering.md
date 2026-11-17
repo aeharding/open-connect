@@ -1,8 +1,33 @@
 # Mazda Connect findings
 
-Evidence is for **55.00.750B North America**. These are current engineering
-findings, not a recipe to replay old trial payloads. Detailed original records
+Findings apply to **55.00.750B North America** unless another version is named. Detailed original records
 remain in [Git history](https://github.com/aeharding/open-connect/tree/1e8efdfea264e4b31704d9e378da1f1b3be0ced6/docs/history).
+
+## Touch input and CarPlay on v74
+
+The 74.00.324A NA firmware has two places to test. Mazda’s LVDS display service
+checks a restriction before forwarding physical touch events. It has a
+display-specific setting in nonvolatile memory. CarPlay also receives a
+restriction signal and sets the phone’s limited-UI mode. The firmware alone
+doesn’t tell us what a user will see when only the display setting changes.
+
+On the stationary replacement bench, first verify that stock touch works in
+Mazda’s menus and CarPlay. Then establish a controlled condition that reproduces
+the stock restriction. Compare both screens under that same condition before
+the change, with the display-specific change active and after undo. Record
+the original setting, including whether it was unset. [Touch investigation](https://github.com/aeharding/open-connect/issues/60)
+
+## USB detection at Home
+
+Stock v55 mounted a SanDisk drive read-only through the retrofit hub within
+2.2 seconds of software reattachment at Home. Mazda’s update and media
+services both saw the device. The test used an ordinary drive and required
+no media-menu interaction. The next test is whether Open Connect opens its
+intended screen on the release firmware.
+
+Kenatia documents the user-visible precedent on 74.00.324. Inserting the drive
+opens a dialog automatically. The user then chooses install or uninstall.
+[Project instructions](https://github.com/Kenatia/mazda-cmu150-wcp-mod#installation--uninstallation)
 
 ## Silent Entertainment without a TAU
 

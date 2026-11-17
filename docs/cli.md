@@ -133,5 +133,23 @@ Raw UART evidence is private under the requested runs/ bundle.
 
 [Host tests](https://github.com/aeharding/open-connect/blob/main/CONTRIBUTING.md) cover these operations without hardware.
 [Audio Manager findings](reverse-engineering.md#silent-entertainment-without-a-tau) summarize the bench result.
-SSH is not implemented; [issue #15](https://github.com/aeharding/open-connect/issues/15)
-tracks it. UART works without networking.
+
+## Capture the CMU screen over SSH
+
+With authenticated SSH on the v55 bench, Mazda’s Wayland screenshot utility
+returns the current 800 × 480 display as a PNG. Replace `my-cmu` with your
+verified SSH host alias. Pick a fresh output filename on your computer.
+
+~~~sh
+ssh -T my-cmu 'sh -s' > home.png <<'CMU'
+set -eu
+d=$(mktemp -d /tmp/oc-screen-XXXXXX)
+trap 'rm -f "$d/wayland-screenshot.png"; rmdir "$d"' EXIT
+cd "$d"
+XDG_RUNTIME_DIR=/tmp WAYLAND_DISPLAY=wayland-0 timeout -t 8 /usr/bin/screenshot >/dev/null
+cat wayland-screenshot.png
+CMU
+~~~
+
+This uses the system SSH client. A built-in SSH transport for `oc` is tracked
+in [issue #15](https://github.com/aeharding/open-connect/issues/15).

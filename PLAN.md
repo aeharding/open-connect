@@ -61,9 +61,13 @@ A developer preview is not a general end-user car release.
 
 ## Execution order now
 
-Start with stock touch on the replacement CMU. Record the unit’s firmware and
-region and use the same display and cable. Once touch works, qualify the release
-firmware and compare stock, modified and restored behavior for both features.
+Build and qualify the first two-feature installer on **55.00.750B NA**.
+Both features have shared a bench boot and undo driven by Mazda dialog choices
+and a Mac over SSH. Move the transaction onto the CMU and exercise USB install,
+uninstall and conflict recovery without a host computer.
+The replacement supplies the physical touch comparison. Record its firmware
+and check stock touch with the same display and cable. Port to 74.00.324
+separately before installing on the owner’s car.
 
 **Whole-startup architecture before another loader increment:** [#25](https://github.com/aeharding/open-connect/issues/25)
 now covers service/configuration features as well as optional native/JS code.

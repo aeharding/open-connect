@@ -3,6 +3,25 @@
 Findings apply to **55.00.750B North America** unless another version is named. Detailed original records
 remain in [Git history](https://github.com/aeharding/open-connect/tree/1e8efdfea264e4b31704d9e378da1f1b3be0ced6/docs/history).
 
+## Installer screen and touch setting on v55
+
+Mazda’s `Dialog3Ctrl` rendered an Open Connect dialog over Home. Virtual
+keyboard events sent through Mazda’s commander input path selected Install
+and Cancel. We captured the actual 800 × 480 Wayland display with Mazda’s
+`screenshot` utility and copied the PNG over SSH. Switching the active Opera
+browser to a second document had produced a black screen and a reset.
+The successful trial used the original startup page and its optional GUI script.
+
+On the same startup, the native disclaimer bypass went directly from Intro to
+Home and the display service reported its touch restriction disabled. The trial
+changed only the display-specific NVRAM key. Undo removed the key because it
+was originally absent. After reboot the display service reported its default
+restriction enabled and the stock disclaimer returned.
+
+The bench launched the changes over SSH. The dialog reported choices to the
+harness. USB launch, a transaction started by the dialog, and finger input on a
+working display still need end-to-end testing. [Installer](https://github.com/aeharding/open-connect/issues/7) · [Touch](https://github.com/aeharding/open-connect/issues/60)
+
 ## Touch input and CarPlay on v74
 
 The 74.00.324A NA firmware has two places to test. Mazda’s LVDS display service

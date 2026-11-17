@@ -1,7 +1,6 @@
 # Mazda Connect findings
 
-Bench measurements use **55.00.750B North America**. Firmware-image findings
-identify their version separately. Detailed original records
+Findings apply to **55.00.750B North America** unless another version is named. Detailed original records
 remain in [Git history](https://github.com/aeharding/open-connect/tree/1e8efdfea264e4b31704d9e378da1f1b3be0ced6/docs/history).
 
 ## Touch input and CarPlay on v74

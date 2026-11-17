@@ -33,8 +33,11 @@ entry remain research in [#54](https://github.com/aeharding/open-connect/issues/
 ## Support contract
 
 Required today: **55.00.750B NA / cmu150_NA**, with exact original-file/API guards.
-One supported firmware at a time. The planned successor is the latest officially
-applicable NA release; **74.00.324A NA is now available for offline analysis from a verified Mazda-hosted package**. Its applicability and the upgrade procedure remain unresolved.
+The release target for the owner's 2016 Mazda3 is **74.00.324 NA**. We have
+the Mazda-hosted 74.00.324A NA package. Mazda lists the 2014–2018 Mazda3
+and says the update cannot be rolled back. The exact route from our v55
+version still needs verification against the Mazda Connect Update Instructions.
+[Mazda bulletin 09-018/22](https://static.nhtsa.gov/odi/tsbs/2022/MC-10226834-0001.pdf)
 [#2](https://github.com/aeharding/open-connect/issues/2) resolves exact package,
 variant, intermediates, development access and power/media procedure before flashing.
 Move the required baseline together and requalify features; do not maintain a
@@ -110,7 +113,7 @@ claim follows from installing a loader. No new general plugin framework is neede
 
 1. **#1, first increment delivered:** one `oc bench setup/status/teardown`
    manages the whole current runtime profile. Host and command-only agent checks,
-   live setup/repeat/teardown/setup passed; the bench is intentionally enabled.
+   live setup, repeat setup and teardown passed.
    [CLI operations](docs/cli.md) and [Audio Manager findings](docs/reverse-engineering.md#silent-entertainment-without-a-tau).
    Persistent startup still needs a verified hook/readiness boundary; it does not
    gate feature work. No per-helper public controls or force-enable daemon.
@@ -184,19 +187,19 @@ before running. Findings can justify closing a proposed feature without shipping
 ## Current evidence and dependencies
 
 Firmware55 native bypass/paired renderer handoff and independent restoration have
-been demonstrated. The later local upstream-derived Snap JS comparison is installed
-with stock native; it still shows a brief handoff. See
+been demonstrated. The later Snap comparison showed a brief handoff. The
+outgoing CMU subsequently booted its original JS and native library. See
 [handoff findings](docs/reverse-engineering.md#disclaimer-and-intro-handoff) and
 [current state](docs/bench-state.txt). This is not a release candidate.
 
 The existing audio-manager API opened FM Now Playing and the source list without
-a TAU. The CLI then verified setup/teardown and left the runtime profile enabled for
-development. No permanent startup hook is installed;
+a TAU. The CLI verified setup and teardown of the runtime profile. No permanent
+startup hook is installed;
 actual playback remains unverified.
 See [TAU experiment](experiments/tau-bypass/README.md).
 
 The DPS150 now provides tested full-output power control; voltage settings must
-remain unchanged. The ACC relay now reproduces both [quick resume and fresh startup](docs/reverse-engineering.md#acc-must-be-a-real-transition) on the v55 bench. Vehicle behavior and SSH remain unverified. Continue local source analysis and UART work. An audio readiness override must be off
+remain unchanged. The ACC relay now reproduces both [quick resume and fresh startup](docs/reverse-engineering.md#acc-must-be-a-real-transition) on the v55 bench. The Mac also authenticated over USB Ethernet on this CMU. Recheck access on the replacement. An audio readiness override must be off
 for measurements where it would hide the behavior under investigation.
 
 ## Deliberately deferred

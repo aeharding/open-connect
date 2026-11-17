@@ -72,8 +72,8 @@ a ready screen or a shutdown request must not grant fresh attempts.
 The prototype charges every selected boot. Its **two-attempt limit is a test
 parameter, not the product policy**. An explicit maintenance operation can renew
 a confirmed generation's budget; its stale-command checks have host coverage.
-Automatic renewal still needs a proven event, such as a real ACC cycle. A cached
-ACC value is insufficient. The Home-specific supervisor can request a reboot
+Keep the current budget on a same-boot ACC resume. On v55 a brief interruption
+produced both ignition events and returned to Home within the same boot. The Home-specific supervisor can request a reboot
 when processes stay alive without a usable Home screen. Other intended screens
 and display-off behavior need their own evidence before enabling that policy.
 This cannot rescue a broken kernel, baseline or bootstrap.
@@ -110,8 +110,9 @@ explain the evidence and limits.
   further measured trials. Repeated healthy starts and last-app/display-off
   qualification are needed before treating Home as a broader health policy.
   [Actual signal and limits](reverse-engineering.md#a-home-specific-acknowledgement).
-- **Renewal:** test actual ACC OFF → ON before allowing automatic retries.
-  This physical test is deferred until controlled ACC is available.
+- **Renewal:** identify what evidence of a completed ignition shutdown is available
+  on the next boot. Replay a quick resume and a watchdog reset as negative cases.
+  [Bench comparison](reverse-engineering.md#acc-must-be-a-real-transition).
 - **Durability:** qualify interrupted record updates, beyond completed-flush cuts.
 
 Continue useful feature development with explicit trials while those production

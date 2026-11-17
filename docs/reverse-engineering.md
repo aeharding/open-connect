@@ -451,14 +451,20 @@ device open remains separate from the successful fault run.
 
 ### ACC must be a real transition
 
-The saved firmware55 SYSTEM code monitors `/sys/class/gpio/ACC_Sense`.
-Its initial sample can also reach the ACC-on notification path, so receiving
-“ACC on” is not proof of a new drive. Automatic budget renewal must distinguish
-an actual OFF → ON transition from startup or a restarted service.
+**A brief ignition interruption can take the driver back to Home within the same boot.**
+On the 55.00.750B NA bench we switched only ACC from a running Home screen.
+B+ stayed on at 12.02 V. Relay timing, supply current and receive-only UART agreed on two distinct outcomes.
 
-Physical ACC/resume testing is deferred until controlled ACC is available.
-The GPIO helper also configures direction and edges; do not invoke it as a
-read-only query. Private source trace: `runs/acc-renewal-research/result.json`.
+| Time with ACC off | What the CMU did |
+| --- | --- |
+| 1.06 s | The same SYSTEM process reported OFF and ON. The GUI entered `QuickStartLoop` and completed Home 0.37 s after the logged ON event. The lowest sampled bench current was 0.531 A. |
+| 17.29 s | Mazda started saving settings. Bench current fell to about 0.002 A. Switching ACC on started a fresh Linux kernel and the GUI reached Home. |
+
+Each row is one observation with the bench comparison JS installed. The interval at which the CMU commits to shutdown is still unknown. The Home timing comes from GUI logs, without a display measurement.
+
+**Recovery policy:** keep the remaining startup attempts through a quick resume. The firmware's SYSTEM service reads `/sys/class/gpio/ACC_Sense`; even its first sample can emit an ACC-on notification. A production rule still needs a signal that distinguishes a new drive across boots from a quick resume or a watchdog restart. Automatic renewal remains unimplemented.
+
+Private evidence: `runs/acc-relay/short-1794948646590/result.json`, `runs/acc-relay/verified-cycle-1794948131443/result.json` and `runs/acc-renewal-research/result.json`.
 
 ### Implications for recovery
 
@@ -475,7 +481,7 @@ read-only query. Private source trace: `runs/acc-renewal-research/result.json`.
   inherited stdout pipe. Host tests cover invalid control, failed flushes and a
   surviving child. Uninterruptible filesystem I/O remains outside that guarantee.
 
-Still open: interrupted early-boot writes, repeated power cuts, ACC/resume and
+Still open: interrupted early-boot writes, repeated power cuts, vehicle ACC behavior and
 production retry/health policy and automatic renewal. Service/logging/native/JS composition is now
 [demonstrated together](#optional-extension-loading).
 These results do not establish recovery from a broken baseline, kernel or selector.

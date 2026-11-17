@@ -85,8 +85,7 @@ a healthy browser acknowledgement and recovered one missing-UIA startup by norma
 reboot into baseline. Its initial false negative remains evidence; this is not
 universal health qualification. Freeze that prototype's scope. The useful
 feature now has a CLI build/trial/status/disable workflow with timing/resource
-records and independent undo. Defer automatic everyday renewal until real ACC
-control is available.
+records and independent undo. Keep retry renewal explicit while we qualify a new-drive signal across boots.
 **Current delivery**
 The developer CLI now builds, prepares, trials, observes and disables one real
 feature. A clean checkout and fresh virtual environment now reproduced the build,
@@ -96,14 +95,14 @@ CPU/RAM/I/O samples are retained without a performance claim. The
 [reproduction workflow](docs/cli.md#developer-feature-trial) is the developer entry point.
 The [source-only developer preview](docs/disclaimer-preview.md) is one selected
 boot on the exact supported firmware. USB installation and automatic ACC renewal
-remain separate hardware-dependent work.
+remain separate work.
 
 A private file view remains an option, but this composition used OEM environment
 and launch settings without a whole-service mount namespace.
 The bootloader reports the same reset word for a tested normal reboot and
 MMUI-fault/watchdog reset. Shutdown notifications precede the actual shutdown.
 Persistent retry policy therefore needs a separately qualified rearm event,
-such as a real ACC cycle. Explicit maintenance renewal now has a host-tested
+that survives a full ignition shutdown. A brief ACC interruption can return to Home in the same boot. Explicit maintenance renewal now has a host-tested
 prototype; automatic ACC renewal remains unimplemented.
 See [the revised proposal](docs/extension-architecture.md#next-proof).
 Persistent mode needs explicit health/failure semantics; no automatic-recovery
@@ -193,13 +192,11 @@ with stock native; it still shows a brief handoff. See
 The existing audio-manager API opened FM Now Playing and the source list without
 a TAU. The CLI then verified setup/teardown and left the runtime profile enabled for
 development. No permanent startup hook is installed;
-actual playback, ACC/resume behavior and vehicle equivalence are unproved.
+actual playback remains unverified.
 See [TAU experiment](experiments/tau-bypass/README.md).
 
 The DPS150 now provides tested full-output power control; voltage settings must
-remain unchanged. Ethernet/SSH and controlled ACC hardware were last reported in
-transit. Full supply loss and software reboot do not establish vehicle ACC/resume
-behavior. Continue local source analysis and UART work. An audio readiness override must be off
+remain unchanged. The ACC relay now reproduces both [quick resume and fresh startup](docs/reverse-engineering.md#acc-must-be-a-real-transition) on the v55 bench. Vehicle behavior and SSH remain unverified. Continue local source analysis and UART work. An audio readiness override must be off
 for measurements where it would hide the behavior under investigation.
 
 ## Deliberately deferred

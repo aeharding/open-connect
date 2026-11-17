@@ -1,6 +1,6 @@
 # Open Connect — living steering agreement
 
-Last updated: 2026-11-15, from the user's explicit direction.
+Last updated: 2026-11-17, from the user's explicit direction.
 
 Read this first when starting or resuming work. It records product intent and how
 we work; it is not a run log or an approval checklist. New user direction takes
@@ -23,8 +23,10 @@ Mazda experience. Success is a better everyday startup, connection or interactio
 with the normal controls and behavior retained. The number of mods, experiments,
 tooling components or agent-hours is not a measure of product progress.
 
-Start with one feature and two user-facing actions: **Install/update** and
-**Uninstall**. Running Install again reinstalls it using verified originals;
+Ship always-enabled touchscreen input and the startup disclaimer bypass together
+in the first production release. The owner plans the first real-car installation
+after bench validation on matching firmware. Cold-start CarPlay reliability follows.
+Keep the two user-facing actions **Install/update** and **Uninstall**. Running Install again reinstalls it using verified originals;
 interrupted-operation recovery is internal behavior, not a separate Repair option.
 No Change options screen is needed until multiple worthwhile features exist.
 For conflicting edits, Uninstall saves the current affected files/state before

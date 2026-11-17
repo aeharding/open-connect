@@ -1,6 +1,6 @@
 # Open Connect — roadmap
 
-Updated 2026-11-15. Primary developer owns delivery. This is the working roadmap,
+Updated 2026-11-17. Primary developer owns delivery. This is the working roadmap,
 refined as experiments change the evidence; dates are not promised.
 [STEERING.md](STEERING.md) defines intent. GitHub issues track execution.
 
@@ -16,13 +16,14 @@ those different execution points rather than only the disclaimer's UI process.
 See the [feature map and architecture](docs/extension-architecture.md#product-scope).
 The bench and reverse engineering serve this product, not a separate platform.
 
-The motivating outcome is reliable native wireless CarPlay after a long parked,
-cold start. The user's mod works well once running but lags during startup.
-[#8](https://github.com/aeharding/open-connect/issues/8) diagnoses that symptom;
-[#9](https://github.com/aeharding/open-connect/issues/9) measures whether resource
-changes help. Disclaimer and recovery work enable delivery; they are not a
-substitute for that outcome. Research these now; live CarPlay comparisons require
-the appropriate firmware and hardware.
+The first production release keeps the touchscreen enabled and skips the startup
+disclaimer. The owner plans to install it on their Mazda after both features
+and uninstall pass together on matching bench firmware. The car reports 74.00.324.
+Confirm its build and region against the release target.
+
+Reliable native wireless CarPlay after a cold start is the next product milestone.
+[#8](https://github.com/aeharding/open-connect/issues/8) tracks the lag and
+[#9](https://github.com/aeharding/open-connect/issues/9) tracks measurements.
 
 For optional online updates, explore an explicit switch between wireless CarPlay
 and a phone/home hotspot, then a reliable return to CarPlay. Wired CarPlay plus
@@ -46,7 +47,7 @@ A future firmware switch supersedes current product support, not historical evid
 | --- | --- | --- | --- |
 | **M1: Reproducible first feature** | Develop against a declared bench profile; demonstrate a clean OEM-feeling bypass | Small audio helper with explicit disable; measured bypass behavior, independent undo and original startup; independently distributable approach selected | [#1 bench profile](https://github.com/aeharding/open-connect/issues/1), [#3 handoff](https://github.com/aeharding/open-connect/issues/3) |
 | **M2: Supported firmware and repeatable starts** | One modern baseline and comparable startup experiments | Verified upgrade/access/stock baseline; warm/cold capabilities distinguished; a useful repeated measurement batch retains failures | [#2 firmware](https://github.com/aeharding/open-connect/issues/2), [#5 starts](https://github.com/aeharding/open-connect/issues/5) |
-| **M3: Maintainable USB developer preview** | Install and maintain one optional feature without the original stick | Selected-firmware feature qualification; real install/update/reinstall/uninstall and replacement-USB test; scoped interruption evidence; reproducible public build/test instructions | [#6 qualification](https://github.com/aeharding/open-connect/issues/6), [#7 USB preview](https://github.com/aeharding/open-connect/issues/7), [#10 contributors](https://github.com/aeharding/open-connect/issues/10) |
+| **M3: First production release** | Always-enabled touchscreen and startup disclaimer bypass in one release | Verify stock touch on the replacement bench, reproduce the motion restriction, test both features after restart, then uninstall and verify stock touch and warning behavior. Publish the qualified package on GitHub Releases for the owner’s real-car install. | [#60 touch](https://github.com/aeharding/open-connect/issues/60), [#6 bypass](https://github.com/aeharding/open-connect/issues/6), [#7 delivery](https://github.com/aeharding/open-connect/issues/7) |
 | **M4: Measured everyday reliability** | More dependable CarPlay and responsive interaction | Comparable stock/modified connection success and timing; source-backed diagnosis; real-car confirmation of relevant claims; ship only improvements supported by results | [#8 CarPlay](https://github.com/aeharding/open-connect/issues/8), [#9 resources](https://github.com/aeharding/open-connect/issues/9) |
 
 Milestones overlap where useful: firmware research starts now; USB host design
@@ -55,6 +56,10 @@ Hardware dependencies gate only experiments that actually need them.
 A developer preview is not a general end-user car release.
 
 ## Execution order now
+
+Start with stock touch on the replacement CMU. Record the unit’s firmware and
+region and use the same display and cable. Once touch works, qualify the release
+firmware and compare stock, modified and restored behavior for both features.
 
 **Whole-startup architecture before another loader increment:** [#25](https://github.com/aeharding/open-connect/issues/25)
 now covers service/configuration features as well as optional native/JS code.
@@ -114,7 +119,7 @@ claim follows from installing a loader. No new general plugin framework is neede
    route/access implications. The exact 74.00.324A NA package has been downloaded
    and hashed; this is not permission or a recipe to flash it.
    Produce a concrete recipe and named remaining physical inputs.
-3. **#3, next feature experiment:** use saved menu/surface/lifecycle code to test one
+3. **#3, disclaimer work:** use saved menu/surface/lifecycle code to test one
    measurable handoff improvement. Keep normal continuation and cleanup. If another
    visual intervention has no demonstrated benefit, record that result and proceed
    with the best supported design; no endless transition tuning.
@@ -137,7 +142,7 @@ A planning PR does not close implementation work.
 
 ## Keep the first release small
 
-One feature, one firmware, **Install/update** and **Uninstall**. Installing again
+Two features on one firmware, with **Install/update** and **Uninstall**. Installing again
 performs a reinstall; interrupted transactions are handled internally. No separate
 Repair or Change options UI. Add feature selection only when multiple useful
 features exist.

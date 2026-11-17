@@ -2,8 +2,8 @@
 
 Improve first-generation Mazda Connect while preserving Mazda's look and feel:
 startup behavior, unused services, logging/performance, controls and connectivity.
-The first feature is a disclaimer bypass; the
-[architecture](docs/extension-architecture.md) covers the broader feature scope.
+The first production release is planned to keep the touchscreen enabled and
+skip the startup disclaimer.
 
 **Development project, not an end-user installer.**
 The supported bench firmware is **55.00.750B North America**.

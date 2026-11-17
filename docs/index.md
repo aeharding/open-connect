@@ -5,8 +5,8 @@ and feel.
 
 ## Can I install it?
 
-**Not in your car yet.** We're developing and testing on a bench. The first
-feature skips the startup warning and opens Mazda's normal home screen.
+**Not in your car yet.** We're developing and testing on a bench. The first production
+release is planned to keep the touchscreen enabled and skip the startup warning.
 
 [See the disclaimer bypass](disclaimer-preview.md) ·
 [Follow releases](https://github.com/aeharding/open-connect/releases)

@@ -71,13 +71,13 @@ hide:
 <div class="connector-view"><span class="latch"><svg class="wire-entry-icon" viewBox="0 0 48 38" aria-hidden="true" focusable="false"><rect x="7" y="4" width="34" height="21" rx="3"/><path d="M19 4V1h10v3"/><circle cx="15" cy="14" r="2"/><circle cx="24" cy="14" r="2"/><circle cx="33" cy="14" r="2"/><path class="entry-wires" d="M15 14v10c0 6-5 7-8 11M24 14v21M33 14v10c0 6 5 7 8 11"/></svg>WIRE ENTRY · LATCH UP ↑</span>
 <table class="pin-map" aria-label="USB hub: wire-entry side, latch up"><tbody>
 <tr><td class="pin acc">1K</td><td class="pin unused">1I</td><td class="pin unused">1G</td><td class="pin unused">1E</td><td class="pin unused">1C</td><td class="pin ground">1A</td></tr>
-<tr><td class="pin batt">1L</td><td class="pin ground">1J</td><td class="pin unused">1H</td><td class="pin unused">1F</td><td class="pin unused">1D</td><td class="pin unused">1B</td></tr>
+<tr><td class="pin batt">1L</td><td class="pin unused">1J</td><td class="pin unused">1H</td><td class="pin unused">1F</td><td class="pin unused">1D</td><td class="pin unused">1B</td></tr>
 </tbody></table></div>
 <dl class="pin-connections">
 <div><dt class="batt">B+</dt><dd>1L</dd></div>
 <div><dt class="acc">ACC</dt><dd>1K</dd></div>
-<div><dt class="ground">GND</dt><dd>1A · 1J</dd></div>
-</dl><p class="card-note">Keep the matching pigtail. Do not add contacts to factory-empty cavities.</p></section>
+<div><dt class="ground">GND</dt><dd>1A</dd></div>
+</dl><p class="card-note">1J is the legacy iPod-video signal ground, not the hub power ground. Leave it and the other gray pins disconnected for this USB-only bench. Keep the matching pigtail; do not add contacts to factory-empty cavities.</p></section>
 <section class="connector-card"><header><h3>Commander</h3><p>8-way · rotary controller</p></header>
 <div class="connector-view"><span class="latch"><svg class="wire-entry-icon" viewBox="0 0 48 38" aria-hidden="true" focusable="false"><rect x="7" y="4" width="34" height="21" rx="3"/><path d="M19 4V1h10v3"/><circle cx="15" cy="14" r="2"/><circle cx="24" cy="14" r="2"/><circle cx="33" cy="14" r="2"/><path class="entry-wires" d="M15 14v10c0 6-5 7-8 11M24 14v21M33 14v10c0 6 5 7 8 11"/></svg>WIRE ENTRY · LATCH UP ↑</span>
 <table class="pin-map" aria-label="Commander: wire-entry side, latch up"><tbody>
@@ -178,7 +178,7 @@ python -m serial.tools.miniterm --rts 0 --dtr 0 --eol CR UART_PORT 115200</code>
 <ul>
 <li><a href="https://mazda3.neocities.org/esicont/srvc/html/id0902n7103100">CMU / commander / LIN</a> · <a href="https://mazda3.neocities.org/esicont/srvc/html/id0902n7103400">Display power</a> · <a href="https://mazda3.neocities.org/esicont/srvc/html/id0902n7103500">Display data</a> · <a href="https://mazda3.neocities.org/esicont/srvc/html/id0902n7106800">CMU ACC</a></li>
 <li><a href="https://www.scribd.com/document/796872875/New-Model-Mazda3-Bm">Mazda3 TN-M3-1311 terminal tables</a>, sections 09-33, 09-83, 09-89 and 09-93.</li>
-<li><a href="https://www.mx5manual.com/assets/service_manuals/en_us/2016/MX5/pdf/0920_2b.pdf">Hub connector 0920-206A</a>, PDF page 2: shared connector cross-check from Mazda's 2016 MX-5 manual. Aftermarket internal wiring remains unverified.</li>
+<li><a href="https://www.mx5manual.com/assets/service_manuals/en_us/2016/MX5/pdf/0920_2b.pdf">Hub connector 0920-206A</a>, PDF pages 1–2: 1A is chassis ground; 1J runs to CMU 1L, the <a href="https://github.com/silverchris/mazda-cmu-documentation/blob/gh-pages/hardware.md#audio-connector">iPod-video signal ground</a>. Shared connector cross-check from Mazda's 2016 MX-5 manual. Aftermarket internal wiring remains unverified.</li>
 <li><a href="https://mazdaparts.org/content/MAZDA3SCREENMIRRORC922V6605.pdf">Mazda C922 V6 605 retrofit instructions</a>, Common-4: cable routing. <a href="https://mazda3.neocities.org/esicont/srvc/html/id0902n7105300">Stock USB data</a> · <a href="https://mazda3.neocities.org/esicont/srvc/html/id0902n7105100">Stock USB power</a>.</li>
 <li><a href="https://github.com/silverchris/mazda-cmu-documentation/blob/gh-pages/hardware.md#connectors">UART terminal functions</a>, also established on our bench; <a href="https://ftdichip.com/wp-content/uploads/2020/08/DS_FT232R.pdf">FTDI I/O levels</a>.</li>
 <li><a href="https://www.100y.com.tw/pdf_file/57-LCUS-1.pdf">LC Technology LCUS-1 manual</a>: isolated relay contacts and USB serial control. The linked <a href="https://ae01.alicdn.com/kf/S61b00d8484144b179c33e457e19f6f16l.pdf">USB-C product sheet</a> describes a CH340 variant; use the actual board labels.</li>

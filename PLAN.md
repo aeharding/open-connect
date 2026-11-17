@@ -62,8 +62,9 @@ A developer preview is not a general end-user car release.
 ## Execution order now
 
 Build and qualify the first two-feature installer on **55.00.750B NA**.
-Both features have now shared a bench boot and undo. Wire the Mazda dialog to
-the install transaction and exercise USB install, uninstall and conflict recovery.
+Both features have shared a bench boot and undo driven by Mazda dialog choices
+and a Mac over SSH. Move the transaction onto the CMU and exercise USB install,
+uninstall and conflict recovery without a host computer.
 The replacement supplies the physical touch comparison. Record its firmware
 and check stock touch with the same display and cable. Port to 74.00.324
 separately before installing on the owner’s car.

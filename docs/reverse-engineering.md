@@ -18,9 +18,11 @@ changed only the display-specific NVRAM key. Undo removed the key because it
 was originally absent. After reboot the display service reported its default
 restriction enabled and the stock disclaimer returned.
 
-The bench launched the changes over SSH. The dialog reported choices to the
-harness. USB launch, a transaction started by the dialog, and finger input on a
-working display still need end-to-end testing. [Installer](https://github.com/aeharding/open-connect/issues/7) · [Touch](https://github.com/aeharding/open-connect/issues/60)
+In a second trial the Install choice triggered the paired bench change.
+After the selected boot, choosing Uninstall triggered undo. An authenticated Mac
+bench runner carried out both operations over SSH. The restored boot reached Home.
+A standalone USB transaction without that Mac and finger input on a working
+display still need end-to-end testing. [Installer](https://github.com/aeharding/open-connect/issues/7) · [Touch](https://github.com/aeharding/open-connect/issues/60)
 
 ## Touch input and CarPlay on v74
 

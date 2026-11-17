@@ -12,10 +12,11 @@ display-specific setting in nonvolatile memory. CarPlay also receives a
 restriction signal and sets the phone’s limited-UI mode. The firmware alone
 doesn’t tell us what a user will see when only the display setting changes.
 
-On the replacement CMU, first check stock touch while stationary in Mazda’s
-menus and in CarPlay. Test the display-specific control first and check both
-surfaces again. A persistent setting needs its own undo, including the case
-where it was originally unset. [Touch investigation](https://github.com/aeharding/open-connect/issues/60)
+On the stationary replacement bench, first verify that stock touch works in
+Mazda’s menus and CarPlay. Then establish a controlled condition that reproduces
+the stock restriction. Compare both screens under that same condition before
+the change, with the display-specific change active and after undo. Record
+the original setting, including whether it was unset. [Touch investigation](https://github.com/aeharding/open-connect/issues/60)
 
 ## USB detection at Home
 

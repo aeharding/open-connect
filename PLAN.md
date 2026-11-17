@@ -34,9 +34,10 @@ entry remain research in [#54](https://github.com/aeharding/open-connect/issues/
 
 Required today: **55.00.750B NA / cmu150_NA**, with exact original-file/API guards.
 The release target for the owner's 2016 Mazda3 is **74.00.324 NA**. We have
-the Mazda-hosted 74.00.324A NA package. Mazda lists the 2014–2018 Mazda3
-and says the update cannot be rolled back. The exact route from our v55
-version still needs verification against the Mazda Connect Update Instructions.
+the Mazda-hosted 74.00.324A NA package. For the 2014–2018 Mazda3, Mazda
+specifies 74.00.324 or later and says the update cannot be rolled back. The
+bulletin directs technicians to the Mazda Connect Update Instructions for the
+procedure. The exact route from 55.00.750B NA still needs verification.
 [Mazda bulletin 09-018/22](https://static.nhtsa.gov/odi/tsbs/2022/MC-10226834-0001.pdf)
 [#2](https://github.com/aeharding/open-connect/issues/2) resolves exact package,
 variant, intermediates, development access and power/media procedure before flashing.

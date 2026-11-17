@@ -125,7 +125,7 @@ hide:
 <h3>Computer-controlled ACC</h3>
 <p>For automated testing, use a USB serial relay such as a <a href="https://ae01.alicdn.com/kf/S61b00d8484144b179c33e457e19f6f16l.pdf">USB-C LCUS-1</a> in the switch position above.</p>
 <p><strong>Fused B+ → COM</strong> · <strong>NO → ACC rail</strong> · <strong>NC → leave unused</strong><br>Computer USB → relay USB-C for power and control.</p>
-<span>Follow the board's terminal labels; COM carries +12 V here, not ground. The relay switches ACC while B+ stays on. This option is not yet bench-tested; verify its power-up behavior before unattended use.</span>
+<span>Follow the board's terminal labels; COM carries +12 V here, not ground. The relay switches ACC while B+ stays on. The v55 bench verified commanded OFF and ON. Verify your relay’s default state at USB power-up before unattended use.</span>
 </div>
 <div class="short-notes"><p><strong>Before connecting:</strong> power off; verify nominal 12 V with modules disconnected; fit an inline fuse sized for the harness.</p><p><strong>Normal shutdown:</strong> ACC off first, with B+ retained. Turning the supply output off is a full power cut.</p></div>
 </section>
@@ -156,7 +156,7 @@ hide:
 <li><strong>Stock hub:</strong> use its original keyed USB cable instead of the two retrofit cables. Keep the power plug.</li>
 <li><strong>CarPlay hub:</strong> requires compatible CMU firmware before installation. Our v55 bench has not qualified the incoming aftermarket hub or Ethernet adapter.</li>
 <li><strong>DPS150 input:</strong> it is step-down only. Use a supported PD/QC or DC source above 12 V; an ordinary 5 V USB supply is insufficient. Use one power input at a time.</li>
-<li><strong>Existing lab:</strong> leave its verified DPS150 voltage setting unchanged. ACC switching is planned; full-output power control is already working.</li>
+<li><strong>Existing lab:</strong> leave its verified DPS150 voltage setting unchanged. Use the relay to cycle ACC while the supply keeps B+ on.</li>
 </ul>
 </details>
 </section>

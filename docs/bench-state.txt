@@ -1,8 +1,16 @@
-CURRENT LAB STATE — last verified 2026-11-15 UTC
+BENCH HARDWARE — checked 2026-11-17 UTC. Software inventory below last verified 2026-11-15 UTC.
 
 Firmware: 55.00.750B NA, cmu150_NA. Physical root /dev/ffx01p1 is RO.
 Primary owns software operation. Owned UART/camera/supply handles are closed.
 Revalidate identities before operations; these records are not future authority.
+
+Planned CMU swap (reported November 17)
+- Replacement expected Thursday, November 19. The current CMU will be returned.
+- Before return, restore and verify this unit's saved original systemApp.js and
+  account for remaining bench-owned files. The Snap comparison is still installed.
+- On arrival, record the replacement's part number, firmware and region, then
+  test touch with the same display and cable. Touch functionality is unconfirmed.
+  Use the replacement's own baseline and backups for future work.
 
 Installed:
 - Native ORIGINAL /jci/mmui/uia/libjciuiasystem.so.
@@ -39,10 +47,25 @@ Latest cycle: runs/disclaimer-preview-reproduction/result.json.
   UNKNOWN needed fresh reconciliation; it was not relabeled an automated pass.
 
 Earlier experiments and failure qualifications are in docs/reverse-engineering.md\nand the private result records linked there. Git preserves earlier handoffs.\n
-DPS150 connected via USB; output ON, voltage/current settings unchanged.
+DPS150 output OFF by explicit user request 2026-11-16; readback verified.
+Voltage/current settings unchanged. Per subsequent user clarification, keep the CMU
+off while idle and power it on as needed for bench work.
+Evidence: runs/power-control/user-off-20261116T070629Z/result.json.
+Prior boot/process/runtime-profile observations above are historical after power-off.
 Do not change voltage. The user permits autonomous power cuts; advance notice
 is not required (clarified 2026-11-15). Keep cuts tied to a concrete experiment.
-Ethernet/SSH and ACC control were last reported in transit.
+November 17 ACC/USB: the owner authorizes programmatic ACC switching. With
+DPS output on at 12.02 V, LCUS-1 OFF produced Mazda's ACC OFF notification and
+settings save. Bench draw fell from ~0.60 A to ~0.002 A. ON after 17.3 seconds
+started a new kernel and the GUI completed the Home transition. The kernel
+identified the SanDisk Dual Drive via the retrofit hub on this v55 unit.
+This confirms USB mass-storage enumeration only. No CarPlay or SSH test.
+Final relay command ON; supply output ON. UART was receive-only; handles closed.
+Evidence: runs/acc-relay/verified-cycle-1794948131443/result.json, uart/, measurements.jsonl.
+Relay adapter 1a86:7523 at USB location 8-3.4 (re-enumerate before use).
+A later 1.06 s ACC interruption kept the same SYSTEM and GUI running. Mazda
+observed both edges, selected QuickStartLoop and returned to Home. Output stayed
+on at 12.02 V and ACC was left on. Evidence: runs/acc-relay/short-1794948646590/result.json.
 
 Inactive trial data/backups/undo remain under /tmp/mnt/data_persist/oc-boot-*;
 their host plans are in the experiment directories above. No active holds remain

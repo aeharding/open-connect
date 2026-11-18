@@ -22,15 +22,20 @@ to real bench operations. Screenshots and boot evidence are under
 runs/fw55-installer-flow-20261117/ and runs/fw55-installer-ui-20261117/.
 Native Settings readbacks and screen captures are in runs/fw55-radio-20261118004338-v2/.
 
-USB bootstrap preview completed
-The final package opened the native Cancel-only Open Connect dialog from USB
-on this v55 CMU. Cancel, immediate reinsertion, duplicate suppression, removal
-and the one-minute deadline passed. No features were installed. The original
-Home document continued in the same boot; physical root stayed read-only,
-the developer GUI script and display-setting key remained absent. All preview
-RAM files and the test files on the thumb drive were removed. The drive retains
-only its pre-existing .Trash-1000 folder. Evidence, the tested ZIP, failed early
-attempts and final receipts are in runs/usb-bootstrap-20261118/.
+USB bootstrap verified after the static-file refactor
+The Make-built package opened the native Cancel-only dialog. Cancel, reinsertion,
+removal and the one-minute deadline passed. A bench guard initially stopped
+reinsertion because USB reauthorization changed the SCSI host number; fresh
+enumeration reconciled it before proceeding. The CI-built bundle from run
+44243108343 then passed automatic USB launch and Cancel cleanup on this v55 CMU.
+No features were installed. Original file hashes and native mappings matched;
+the same boot and Opera process continued with physical root read-only. The
+developer GUI script and display-setting key remained absent. All preview RAM
+and USB files were removed; the drive retains only its pre-existing .Trash-1000.
+Current verification, tested ZIPs and the retained guard failure are under
+runs/usb-installer-20261118/bench/ and runs/usb-installer-20261118/ci-artifact/.
+Earlier insertion, duplicate suppression and bootstrap research remain in
+runs/usb-bootstrap-20261118/.
 
 Bench connections
 The retrofit hub enumerates the SanDisk thumb drive and the Apple Ethernet
@@ -44,7 +49,7 @@ Do not change the DPS150 voltage. The owner permits software control of ACC
 and supply output for bench tests. Leave ACC off when the unit is idle.
 After the USB bootstrap trial, ACC was switched off. Draw settled to 0.002 A on
 the meter. B+ stayed on at 12.02 V. The park record and closed UART capture
-are in runs/usb-bootstrap-20261118/park/.
+are in runs/usb-installer-20261118/bench/park/.
 The normally-open LCUS-1 relay uses the CH340 at 8-3.4; re-enumerate first.
 With B+ maintained, a 1.06 s ACC interruption resumed through QuickStartLoop.
 A longer interruption with standby draw observed produced a fresh kernel.

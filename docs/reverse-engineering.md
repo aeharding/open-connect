@@ -87,7 +87,14 @@ and a bounded loopback reply receiver; the payload owns the dialog. Firmware,
 frontend and staged-payload checks precede execution. There are no root remounts,
 watchdog changes, NVRAM writes or startup hooks in this preview.
 
-Private evidence: `runs/usb-bootstrap-20261118/`, including the `build-v6` file
+The static-file refactor also passed launch, Cancel, reinsertion, removal and
+deadline cleanup. The separately loaded dialog and UI need no generated JavaScript.
+The [CI-built Make/shell bundle](https://github.com/aeharding/open-connect/actions/runs/44243108343)
+passed automatic USB launch and Cancel cleanup on the same stock v55 baseline.
+Refactor evidence is in `runs/usb-installer-20261118/`; the independent installer
+backend remains unfinished.
+
+Earlier private evidence: `runs/usb-bootstrap-20261118/`, including the `build-v6` file
 manifest, insertion/cancellation/removal receipts and screen captures. This
 establishes the bootstrap at Home only. Cold insertion, v74, the autonomous
 install/uninstall transaction and release qualification remain separate work.

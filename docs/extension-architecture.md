@@ -124,9 +124,10 @@ explain the evidence and limits.
   [Bench comparison](reverse-engineering.md#acc-must-be-a-real-transition).
 - **Durability:** qualify interrupted record updates, beyond completed-flush cuts.
 
-First finish the standalone USB installer development prerelease with its limited
-startup behavior explicit. Immediately afterward, qualify the persistent startup
-policy above for the same installed features. Stop expanding standalone loader
-and supervisor prototypes; integrate necessary findings into the release path.
+The standalone USB installer development prerelease includes persistent startup
+for the installed features. Qualify repeated starts and bounded recovery together
+with install/uninstall; the bench's limited trial policy is not the delivered
+installer behavior. Stop expanding standalone loader and supervisor prototypes;
+integrate necessary findings into the release path.
 No general plugin framework is needed.
 Track the work in [#25](https://github.com/aeharding/open-connect/issues/25).

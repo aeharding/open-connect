@@ -71,17 +71,17 @@ startup prototypes are inputs to this work, not the delivered installer.
    manifests only. `oc` remains bench instrumentation. Verify reinstall,
    interruption recovery, conflicting edits, undo and compatible replacement-USB
    maintenance using one authoritative transaction record and preserved originals.
-   Test the actual CI artifact on the bench and publish it as a development
-   prerelease with the limited startup behavior stated plainly.
-2. **Persistent startup qualification — immediately next, [#25](https://github.com/aeharding/open-connect/issues/25).**
-   Qualify everyday repeated starts and finite failure recovery for the same
-   installed features. Establish when a completed ignition shutdown can renew
+   The prerelease must retain features after USB removal and ordinary restarts.
+   Include [#25 persistent startup](https://github.com/aeharding/open-connect/issues/25)
+   and finite failure recovery in this delivery. Establish when a completed ignition shutdown can renew
    attempts; quick ACC resume, intentional reset and watchdog reset must not
    accidentally replenish them. Test interrupted durable updates, late faults,
    last-app and display-off behavior where they affect the delivered features.
-   Reaching Home alone is not proof of recovery. Finish this before claiming a
-   normal owner release; do not start another unrelated prototype track.
-3. **Replacement touch qualification and the separate firmware move.**
+   Reaching Home alone is not proof of recovery. Test the actual CI artifact on
+   the bench and publish a development prerelease with remaining qualification
+   limits stated plainly. Do not deliver the bench's limited trial boots as the
+   installer outcome or start another unrelated prototype track.
+2. **Replacement touch qualification and the separate firmware move.**
    On the replacement CMU, confirm its identity and compare stock touch with the
    same display and cable. Complete [#60](https://github.com/aeharding/open-connect/issues/60)
    and the [#6](https://github.com/aeharding/open-connect/issues/6) feature checks.
@@ -89,7 +89,7 @@ startup prototypes are inputs to this work, not the delivered installer.
    [#2](https://github.com/aeharding/open-connect/issues/2), then port and requalify
    on the selected modern baseline before the owner's real-car installation.
    Physical dependencies gate only the checks that actually need them.
-4. **Measured CarPlay reliability — [#8](https://github.com/aeharding/open-connect/issues/8)
+3. **Measured CarPlay reliability — [#8](https://github.com/aeharding/open-connect/issues/8)
    and [#9](https://github.com/aeharding/open-connect/issues/9).**
    Define cold-start connection/readiness measurements and investigate the actual
    wireless implementation before choosing a performance change. Keep the

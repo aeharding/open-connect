@@ -96,8 +96,9 @@ assert.ok(Object.hasOwn(common,"handleControllerEvent"));
 control.props.defaultSelectCallback(control,"settings");
 assert.equal(calls.pop(),"settings");
 assert.throws(()=>choose(fw,false,decision,"USB?"));
-assert.equal(typeof ctx.OpenConnectInstaller.preview(fw,decision),"function");
-assert.match(control.props.text1,/No changes will be made/);
+assert.equal(typeof ctx.OpenConnectInstaller.message(fw,"Open Connect","Changes saved.",
+    {button1:{label:"Cancel",appData:"cancel"}},decision),"function");
+assert.equal(control.props.text1,"Changes saved.");
 assert.deepEqual(Object.values(control.props.buttonConfig).map(b=>b.appData),["cancel"]);
 common.handleControllerEvent("goBack",false);
 assert.equal(calls.pop(),"cancel");

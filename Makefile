@@ -19,7 +19,7 @@ NATIVE_FLAGS = --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard \
     -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector
 
 .PHONY: release native
-release: native $(OUT)/receiver
+release: native $(OUT)/api $(OUT)/flush $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin)
 	sh tooling/package-usb.sh "$(OUT)"
 
 native: $(OUT)/native.bin $(OUT)/branch.bin $(OUT)/sizes.bin
@@ -29,6 +29,18 @@ $(OUT):
 
 $(OUT)/receiver: cmu/startup/ready-receiver.c | $(OUT)
 	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
+
+$(OUT)/api: cmu/installer/api.c | $(OUT)
+	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
+
+$(OUT)/flush: cmu/startup/flush.c | $(OUT)
+	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
+
+$(OUT)/mmui.o: cmu/installer/mmui.S | $(OUT)
+	$(CLANG) --target=armv7-none-eabi -marm -c "$<" -o "$@"
+
+$(OUT)/mmui-%.bin: $(OUT)/mmui.o
+	$(OBJCOPY) -O binary --only-section=.mmui_$* "$<" "$@"
 
 $(OUT)/native.o: $(NATIVE_DIR)/native.c | $(OUT)
 	$(CLANG) $(NATIVE_FLAGS) -c "$<" -o "$@"

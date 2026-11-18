@@ -1,4 +1,30 @@
-2016 Mazda3 bench handoff — November 17, 2026
+2016 Mazda3 bench handoff — November 18, 2026
+
+Active standalone installer qualification
+The bench is ON, ACC on; supply voltage settings have not been changed. The
+first local installer bundle (runs/installer-20261118/build-3/) installed from
+the stock USB prompt and restarted into its RAM native/JS configuration. Boot
+b9865a2f-c1a0-4f52-afc8-3cf0e855be48 reached Home. Physical root is read-only;
+autostart MD5 is 8f50cb4d7d252e685a5aac4730e58051 with original metadata
+775:1018:3015. Original native/JS files remain unchanged on root. Reverify all
+identities before operating; this is a handoff, not a guard.
+The USB and current RAM API/UI are local build-4; the persisted backend is still
+build-3. Open settings worked; selecting factory touchscreen behavior committed
+touch=0, warning=1 and removed the previously absent NVRAM key. It requires a
+restart to change the already-running display service. The current snapshot is
+acf119a5ac1d1b1c76fb4f9b079f6272811204a830a1d508678bb21c2dea4729.
+The independent restore script is
+/tmp/mnt/data_persist/oc-installer-rescue-20261118/restore.sh; originals and its
+checked flush helper are alongside it. Restoration requires another boot to
+unload the native RAM files. This qualification has not finished uninstall,
+persistent ignition cycles, conflict/undo or the actual CI artifact.
+UART and camera are closed. After restart the Mac's ARP entry was incomplete;
+a CMU ping to the Mac's freshly verified address restored SSH access. The first
+startup UI showed a transient error while the backend was reachable. Build-4
+reduces ignition-watcher lock contention and retries busy status reads; its
+completion dialog and Settings entry worked. Startup qualification remains open.
+Evidence and preserved failures are under runs/installer-20261118/. The earlier
+parked baseline below describes the completed bootstrap trial, not current state.
 
 Outgoing CMU
 55.00.750B NA (cmu150_NA). Touch is unreliable on this unit. The replacement

@@ -1,6 +1,8 @@
 import hashlib
+import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -36,7 +38,15 @@ class InstallerControls(unittest.TestCase):
         # Ordinary files model reads, conflicts and commits to an existing key.
         # Only the actual target implements the kernel add/remove attributes.
         with tempfile.TemporaryDirectory() as temp:
-            base = Path(temp)
+            base = Path(temp).resolve()
+            tools = base / "tools"
+            tools.mkdir()
+            if not shutil.which("flock"):
+                (tools / "flock").write_text(
+                    f"#!{sys.executable}\nimport fcntl,sys\n"
+                    "fcntl.flock(int(sys.argv[-1]), fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
+                )
+                (tools / "flock").chmod(0o700)
             keys = base / "keys"
             keys.mkdir()
             key = keys / "lvds_speed_restriction"
@@ -60,7 +70,10 @@ class InstallerControls(unittest.TestCase):
             # BSD md5sum can label stdin differently; on the CMU it labels it '-'.
             def run(*args):
                 return subprocess.run(
-                    ["/bin/sh", "-c", script, "touch", *args], capture_output=True, text=True
+                    ["/bin/sh", "-c", script, "touch", *args],
+                    capture_output=True,
+                    text=True,
+                    env={**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]},
                 )
 
             self.assertEqual(run("read").stdout, "absent\n")

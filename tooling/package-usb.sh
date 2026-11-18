@@ -3,33 +3,39 @@
 # Copy authored files verbatim. The only generated text is checksum data.
 set -eu
 out=$1
-case "$out" in /*) ;; *) out=$PWD/$out ;; esac
-test -f "$out/receiver" || { echo 'Build with make release.' >&2; exit 1; }
+case "$out" in /*) ;; *) out=$PWD/$out;; esac
+test -f "$out/api" || { echo 'Build with make release.' >&2; exit 1; }
 test ! -e "$out/usb" && test ! -L "$out/usb" || { echo 'Choose a fresh OUT directory.' >&2; exit 1; }
 mkdir "$out/usb"
-# Select only the two authored triggers, never editor files or local captures.
 set -- cmu/installer/usb-root/*.up
 test "$#" -eq 1 && test -f "$1" && test ! -L "$1"
 cp "$1" cmu/installer/usb-root/jci-autoupdate "$out/usb/"
 package=$out/usb/open-connect
 mkdir "$package"
-for file in run.sh session.sh loader.js dialog.js usb-preview.js; do
+for file in run.sh session.sh service.sh loader.js runtime.js dialog.js settings.js \
+    backend.sh state.sh transaction.sh firmware.sh boot.sh startup-hook.sh ignition.sh \
+    intro.js system-route.js VERSION KENATIA-LICENSE; do
     cp "cmu/installer/$file" "$package/$file"
 done
-cp "$out/receiver" "$package/receiver"
+cp cmu/features/touch/setting.sh "$package/touch.sh"
+for file in api flush native.bin branch.bin sizes.bin mmui-path.bin mmui-sizes.bin mmui-length.bin mmui-pointer.bin; do
+    cp "$out/$file" "$package/$file"
+done
 cp LICENSE "$package/LICENSE"
-cp cmu/installer/KENATIA-LICENSE "$package/KENATIA-LICENSE"
 (
     cd "$package"
-    for file in session.sh loader.js dialog.js usb-preview.js receiver; do
+    for file in *; do
+        test "$file" != files.sha256 || continue
         digest=$(openssl dgst -sha256 < "$file")
         printf '%s  %s\n' "${digest##* }" "$file"
-    done > payload.sha256
+    done > files.sha256
 )
-# ZIP receives literal paths. In particular, never evaluate the .up filename.
-archive=$out/open-connect-usb-preview.zip
+version=$(cat "$package/VERSION")
+case "$version" in ''|*[!a-zA-Z0-9.-]*) exit 1;; esac
+name=open-connect-$version-usb.zip
+archive=$out/$name
 test ! -e "$archive" && test ! -L "$archive"
 (cd "$out/usb" && zip -q -X -r "$archive" .)
 digest=$(openssl dgst -sha256 < "$archive")
-printf '%s  %s\n' "${digest##* }" open-connect-usb-preview.zip > "$out/SHA256SUMS"
+printf '%s  %s\n' "${digest##* }" "$name" > "$out/SHA256SUMS"
 printf '%s\n' "$archive"

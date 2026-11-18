@@ -11,8 +11,9 @@ release is planned to keep the touchscreen enabled and skip the startup warning.
 [See the disclaimer bypass](disclaimer.md) ·
 [Follow releases](https://github.com/aeharding/open-connect/releases)
 
-A simple USB installer is planned. Today's release is source code for developers
-working with **55.00.750B North America**.
+The [standalone USB installer](usb-installer.md) is under bench qualification for
+exactly **55.00.750B North America**. It includes persistent startup, native
+Settings, uninstall and a retained Undo checkpoint.
 
 ## Want to help build it?
 

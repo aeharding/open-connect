@@ -107,32 +107,19 @@ automatic recovery. Even with it, this is one Home-specific experiment.
 CPU/RAM/I/O snapshots accompany the trial and baseline. They are observations,
 not repeated performance evidence. Camera footage still establishes visible behavior.
 
-## USB bootstrap preview
+## USB installer build
 
-This developer experiment opens a Cancel-only Open Connect dialog automatically
-from USB on **55.00.750B NA**. It does not install features or enable Settings.
-The generic loader stages a verified payload in RAM and runs it inside Mazda's
-existing page. Cancel, USB removal and a one-minute deadline close the preview.
-
-Build from the source checkout with Make, Clang, LLD, llvm-objcopy, OpenSSL and zip installed.
-Packaging copies the checked-in scripts unchanged and writes a checksum manifest;
-it does not require Python or an installed `oc` command.
+The owner installer is separate from `oc`. Build its complete USB bundle with
+Make, Clang, LLD, llvm-objcopy, OpenSSL and zip:
 
 ~~~sh
-make release OUT=runs/my-usb-preview
+make release OUT=runs/my-release
 ~~~
 
-Extract `open-connect-usb-preview.zip` directly into an otherwise empty FAT32
-drive. The two empty trigger files, including the unusually named `.up` file,
-must be at the drive root beside the `open-connect` folder. Preserve their names;
-do not leave them inside a `run_triggers` directory. Insert the drive with the
-CMU at Home. CI provides the same ZIP as `fw55-usb-bootstrap-preview`.
-
-The preview checks firmware, region and frontend hashes before staging. It does
-not remount the root filesystem, disable the watchdog, change NVRAM or reboot.
-Its hashes detect damaged payloads; they are not a package-signing scheme.
-Other firmware, cold insertion and the actual install/uninstall transaction
-remain unqualified. [Bench findings](reverse-engineering.md#usb-bootstrap-preview)
+This does not require Python, an installed `oc`, private OEM inputs or a connected
+CMU. CI provides the ZIP and `SHA256SUMS` as `fw55-usb-installer`. See the
+[USB installer guide](usb-installer.md) for installation and qualification limits.
+Checksums detect damaged payloads; they are not a package-signing scheme.
 
 ## Low-level UART
 

@@ -91,15 +91,37 @@ The static-file refactor also passed launch, Cancel, reinsertion, removal and
 deadline cleanup. The separately loaded dialog and UI need no generated JavaScript.
 The [CI-built Make/shell bundle](https://github.com/aeharding/open-connect/actions/runs/44243108343)
 passed automatic USB launch and Cancel cleanup on the same stock v55 baseline.
-Refactor evidence is in `runs/usb-installer-20261118/`; the independent installer
-backend remains unfinished.
+Refactor evidence is in `runs/usb-installer-20261118/`. That Cancel-only payload
+has since been replaced by the standalone installer.
 
 Earlier private evidence: `runs/usb-bootstrap-20261118/`, including the `build-v6` file
 manifest, insertion/cancellation/removal receipts and screen captures. This
 establishes the bootstrap at Home only. Cold insertion, v74, the autonomous
 install/uninstall transaction and release qualification remain separate work.
-[Build the preview](cli.md#usb-bootstrap-preview) ·
+[Build the current installer](usb-installer.md) ·
 [Installer work](https://github.com/aeharding/open-connect/issues/7)
+
+## Standalone installer backend
+
+Stock v55 BusyBox includes `tcpsvd` and `flock`. Its `httpd` has no CGI support
+and rejects POST with 501. Opera successfully sent a plain-text POST to a
+loopback `tcpsvd` worker and read its JSON response with the CORS response header.
+The maintained installer uses one small compiled request parser and static shell
+backend, replacing the preview's image acknowledgement and short-lived receiver.
+
+The local release bundle installed from the USB dialog, restarted into privately
+composed RAM native/JS files, reached Home and opened native Settings. A
+touchscreen preference change committed through the local backend. Root remained
+read-only after publication. The startup file's original metadata is
+`775:1018:3015`; retaining only its bytes or assuming root ownership is insufficient.
+The composed feature bytes matched the previously checked native/JS pair.
+
+The display service reads its restriction before the Open Connect startup hook.
+Restoring that NVRAM value during automatic fallback affects the next boot;
+ordinary uninstall restores it before requesting its restart. Remaining
+qualification is listed in the [USB guide](usb-installer.md). Private evidence,
+including transport failures and the retained independent restore, is under
+`runs/installer-20261118/`.
 
 ## USB detection at Home
 

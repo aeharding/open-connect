@@ -13,7 +13,7 @@ function fixture(start = true) {
         utility: {loadScript(url, attrs, loaded) {
             nodes[attrs.id] = {...attrs, parentNode: parent};
             pending.push({url, loaded});
-        }}, OpenConnectPreview(...args) { calls.push(args); }};
+        }}, OpenConnect: {start(...args) { calls.push(args); }}};
     const run = () => vm.runInNewContext(source, ctx);
     if (start) run();
     return {window, nodes, pending, calls, run, cleanup() { vm.runInNewContext(cleanup, ctx); }};
@@ -21,15 +21,13 @@ function fixture(start = true) {
 let f = fixture();
 f.run();
 assert.equal(f.pending.length, 1);
-assert.equal(f.pending[0].url, "file://localhost/tmp/oc-usb-abc/dialog.js");
-f.pending[0].loaded();
-assert.equal(f.pending[1].url, "file://localhost/tmp/oc-usb-abc/usb-preview.js");
+assert.equal(f.pending[0].url, "file://localhost/tmp/oc-usb-abc/runtime.js");
 assert.equal(f.calls.length, 0);
-f.pending[1].loaded();
-assert.deepEqual(f.calls, [["token", 20001]]);
+f.pending[0].loaded();
+assert.deepEqual(f.calls, [["token", true]]);
 assert.deepEqual(Object.keys(f.nodes), []);
 assert.equal(f.window.__ocUSBLoading, undefined);
-for (const stage of [0, 1]) {
+for (const stage of [0]) {
     f = fixture();
     if (stage) f.pending[0].loaded();
     f.cleanup();

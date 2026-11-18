@@ -16,9 +16,8 @@ Release builds belong to the root [Makefile](../Makefile), invoked with
 and install/uninstall backend belong in `cmu/` and run on the head unit. The
 release must work without `oc`, host Python, SSH or a connected computer.
 
-The current bundle validates USB entry and dialog cleanup only. Connecting the
-install/uninstall backend remains unfinished; it is not an installable feature
-release yet.
+The [USB guide](../docs/usb-installer.md) describes the standalone installer and
+its current qualification limits.
 
 - feature.py: bench prepare, trial, status and disable operations. Its module
   entry prepares and inspects private bench fixtures, outside the `oc` CLI.

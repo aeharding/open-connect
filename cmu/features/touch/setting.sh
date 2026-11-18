@@ -38,9 +38,12 @@ awk '
 if [ "$1" = change ]; then
     # Serialize Open Connect operations. Other services may also own NVRAM.
     lock=/tmp/oc-lvds-setting.lock
-    mkdir -m 700 "$lock" || exit 75
-    trap 'rmdir "$lock"' EXIT
-    trap 'exit 1' HUP INT TERM
+    if [ ! -e "$lock" ] && [ ! -L "$lock" ]; then
+        (umask 077; set -C; : > "$lock") || exit 75
+    fi
+    [ -f "$lock" ] && [ ! -L "$lock" ] && [ "$(readlink -f "$lock")" = "$lock" ] || exit 75
+    exec 8<>"$lock"
+    flock -n -x 8 || exit 75
 fi
 value=$(read_value) || exit 74
 valid "$value" || exit 65

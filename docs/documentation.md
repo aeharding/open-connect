@@ -44,6 +44,11 @@ direct CMU screenshots and simple diagrams. Explain what to do and what happens
 next. Keep the firmware/prerelease limit visible; move build commands, backend
 mechanics and qualification evidence to Development or CMU research.
 
+**Features has one page and menu item per feature.** Explain what it changes,
+its default, the available choices and any qualification limits. Keep Settings
+focused on finding Open Connect in Mazda's menus and saving preferences; link
+to feature pages for detail.
+
 Write feature introductions for people deciding whether they can use the feature:
 what changes, whether it is available, and where to go next. Put commands and
 test evidence in developer guides. Describe visible behavior in everyday language,

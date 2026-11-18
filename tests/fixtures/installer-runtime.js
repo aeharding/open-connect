@@ -26,7 +26,7 @@ function fixture(previous, loadingUSB) {
             this.abort = () => {};
         },
         OpenConnectInstaller: {
-            choose(fw, installed, done) { choices.push({installed, done}); return () => {}; },
+            choose(fw, installed, done, version, retained) { choices.push({installed, retained, done}); return () => {}; },
             message(fw, title, text, buttons, done) { messages.push({title, text, buttons, done}); return () => {}; },
             complete(fw, version, done) { choices.push({complete: true, done}); return () => {}; }
         },
@@ -41,7 +41,7 @@ function fixture(previous, loadingUSB) {
         request.onreadystatechange();
     }
     function state(extra = {}) {
-        return {ok: true, revision, installed: false, undo: false, conflict: false,
+        return {ok: true, revision, installed: false, retained: false, conflict: false,
             restart: false, pending: false, touch: 0, warning: 0, notice: "-", version: "0.2.0-dev.1", ...extra};
     }
     return {ctx, requests, choices, messages, reply, state,
@@ -166,3 +166,13 @@ f.ctx.OpenConnect.reopenUSB(token);
 f.reply(f.requests[3], f.state({pending: true}));
 assert.equal(f.requests[4].body, token + "|" + revision + "|recover|-|-|-");
 console.log("Installer POST contract, recovery and uncertain-acknowledgement behavior passed");
+
+f = fixture();
+f.ctx.OpenConnect.start(token, true);
+f.reply(f.requests[0], f.state({retained: true}));
+f.tick();
+assert.equal(f.choices[0].retained, true);
+f.choices[0].done("uninstall");
+assert.equal(f.requests[1].body, token + "|" + revision + "|uninstall|-|-|-");
+f.reply(f.requests[1], f.state({revision: "-", restart: true}));
+assert.equal(f.requests[2].body, token + "|-|restart|-|-|-");

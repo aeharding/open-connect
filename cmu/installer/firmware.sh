@@ -122,19 +122,46 @@ root_mode() {
     awk '$1=="/dev/ffx01p1"&&$2=="/"&&$3=="relfs"{n++;m=$4}
          END{if(n!=1)exit 1;print m}' /proc/mounts
 }
+cleanup_mount_guard() {
+    awk -v dir="$D" '$2==dir || index($2,dir "/")==1 {exit 1}' /proc/mounts
+}
+startup_staging_guard() {
+    local path
+    # Random staging names from an older release are not evidence of ownership.
+    # Refuse cleanup rather than erase unknown files or report complete removal.
+    for path in /usr/bin/.open-connect-*; do absent "$path" || return 1; done
+}
 remount() {
     timeout -t 8 -s TERM /bin/busybox mount -i -n -t relfs -o "remount,$1,noatime" /dev/ffx01p1 / &&
         test "$(root_mode)" = "$1,noatime"
 }
 startup_publish() (
     set -eu
-    local source=$1 mode=$2 expected=$3 expected_mode=$4 work=
+    # BusyBox ash unwinds function locals before this subshell's EXIT trap.
+    # Keep trap inputs in the subshell scope so cleanup can still read them.
+    source=$1; mode=$2; expected=$3; expected_mode=$4; identity=
+    hex "$R_REV" 32 && file "$source" || fail invalid_startup_plan
+    # The durable pending revision names this exact staging file across retries.
+    work=/usr/bin/.open-connect-$R_REV
     case "$(root_mode)" in ro,noatime|rw,noatime) ;; *) fail root_mount_changed;; esac
+    stage_matches() {
+        local size prefix
+        file "$work" || return 1
+        size=$(stat -c %s "$work") || return 1
+        test "$size" -le "$(stat -c %s "$source")" || return 1
+        prefix=$(head -c "$size" "$source" | openssl dgst -sha256) || return 1
+        test "$(sha "$work")" = "${prefix##* }"
+    }
     # An already-written target still needs the directory flush and read-only
     # restoration if a preceding process was killed between those steps.
     finish() {
         local result=$?
         trap - EXIT HUP INT TERM
+        if ! absent "$work" && test -n "$identity"; then
+            if test "$(stat -c '%d:%i' "$work")" = "$identity" && stage_matches; then
+                remount rw && rm "$work" && "$P/flush" d /usr/bin || result=1
+            else result=1; fi
+        fi
         remount ro || result=1
         exit "$result"
     }
@@ -142,11 +169,20 @@ startup_publish() (
     trap 'exit 1' HUP INT TERM
     file "$AUTOSTART" && test "$(sha "$AUTOSTART")" = "$expected" &&
         test "$(stat -c '%a:%u:%g' "$AUTOSTART")" = "$expected_mode" || fail startup_changed
+    if ! absent "$work"; then
+        stage_matches || fail startup_stage_changed
+        identity=$(stat -c '%d:%i' "$work") || fail startup_stage_changed
+    fi
     if test "$expected" != "$(sha "$source")" || test "$expected_mode" != "$mode"; then
         remount rw || fail remount_failed
-        work=$(mktemp /usr/bin/.open-connect-XXXXXX) || fail startup_stage_failed
+        if absent "$work"; then
+            (set -C; : > "$work") || fail startup_stage_failed
+            identity=$(stat -c '%d:%i' "$work") || fail startup_stage_failed
+        fi
         metadata "$mode" || fail invalid_startup_metadata
-        cp "$source" "$work" && chown "$S_UID:$S_GID" "$work" && chmod "$S_MODE" "$work" || fail startup_copy_failed
+        # BusyBox cp replaces an existing inode. Preserve the exclusively
+        # created stage's identity so the failure handler can remove it.
+        cat "$source" > "$work" && chown "$S_UID:$S_GID" "$work" && chmod "$S_MODE" "$work" || fail startup_copy_failed
         test "$(sha "$work")" = "$(sha "$source")" || fail startup_copy_changed
         flush f "$work"
         file "$AUTOSTART" && test "$(sha "$AUTOSTART")" = "$expected" &&
@@ -188,8 +224,7 @@ dependencies_capture() {
     for folder in package composed; do
         case "$folder" in package) path=$D/packages/$package;; composed) path=$D/composed/$package;; esac
         private_dir "$path" || return 1
-        # Preserve hashes as found, including a conflicting edit. These immutable
-        # directories stay intact through uninstall; undo checks them again.
+        # Pin the private package and composed bytes until the transaction ends.
         for target in "$path"/*; do
             name=${target##*/}
             case "$name" in .|..|*[!a-zA-Z0-9.-]*) return 1;; esac

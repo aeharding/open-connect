@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 552" fill="none">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <!-- Decorative display bezel; the unaltered 800x480 capture sits at (40, 32). -->
+  <defs>
+    <linearGradient id="bezel" x1="440" y1="6" x2="440" y2="546" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#303236"/>
+      <stop offset=".25" stop-color="#191b1e"/>
+      <stop offset="1" stop-color="#101113"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="868" height="540" rx="34" fill="url(#bezel)" stroke="#56595d" stroke-width="2"/>
+  <rect x="24" y="18" width="832" height="508" rx="12" fill="#070809" stroke="#050607" stroke-width="2"/>
+  <rect x="40" y="32" width="800" height="480" fill="#000"/>
+  <path d="M40 536H840" stroke="#3c3f43" stroke-width="2" stroke-linecap="round"/>
+</svg>

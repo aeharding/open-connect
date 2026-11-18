@@ -73,6 +73,8 @@ class InstallerApi(unittest.TestCase):
             valid.replace(b"text/plain;charset=UTF-8", b"application/json"),
             valid + b"x",
             valid.replace(b"status", b"reboot"),
+            self.request((TOKEN + "|-|undo|-|-|-").encode()),
+            self.request((TOKEN + "|-|uninstall|confirm|-|-").encode()),
             valid.replace(b"status", b"sta\x00us"),
             self.request((TOKEN + "|-|status|-|-|-|extra").encode()),
             self.request((TOKEN + "|-|set|unrelated|0|1").encode()),

@@ -46,6 +46,7 @@ jobs:
           command -v clang >/dev/null || missing+=(clang)
           command -v ld.lld >/dev/null || missing+=(lld)
           command -v llvm-objcopy >/dev/null || missing+=(llvm)
+          command -v busybox >/dev/null || missing+=(busybox)
           if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
             missing+=(ffmpeg)
           fi

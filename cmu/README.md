@@ -14,7 +14,7 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | `run.sh`, `session.sh`, `loader.js` | Validate and stage USB files in RAM, then launch the authored UI in Mazda's existing browser |
 | `api.c`, `service.sh` | A bounded local POST parser under BusyBox `tcpsvd`; session-token validation and service ownership |
 | `runtime.js`, `dialog.js`, `settings.js` | One command contract, Mazda dialogs and native Settings pages |
-| `backend.sh`, `transaction.sh`, `state.sh` | Install, preferences, uninstall, undo and interrupted-operation reconciliation |
+| `backend.sh`, `transaction.sh`, `state.sh` | Install, preferences, complete uninstall and interrupted-operation reconciliation |
 | `firmware.sh`, `mmui.S`, `intro.js`, `system-route.js` | Exact v55 guards and composition from this unit's saved originals |
 | `startup-hook.sh`, `boot.sh`, `ignition.sh` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
 
@@ -23,7 +23,7 @@ text/plain` and body `token|revision|operation|arg0|arg1|arg2`. Missing argument
 are `-`. Responses are JSON. The 32-character session token is data supplied by
 the loader or a meta element in the privately composed index. The revision binds
 the current snapshot; pending recovery uses its unique transaction revision.
-Allowed operations are `status`, `install`, `set`, `uninstall`, `undo`, `recover`,
+Allowed operations are `status`, `install`, `set`, `uninstall`, `recover`,
 `restart` and `dismiss`. No shell commands or paths come from browser input.
 
 The only authoritative durable operation/startup record is
@@ -31,6 +31,14 @@ The only authoritative durable operation/startup record is
 packages and before/after snapshots. A prepared record is flushed before target
 writes. Recovery accepts only the prepared before/after values; unknown later
 changes stop the operation. Checked file and directory flushes precede commit.
+
+After verified restoration, the record enters `purge`. The RAM backend deletes
+the persistent tree, retaining that record until every other entry is gone.
+USB recovery can finish a partial purge or remove its final empty directory.
+No installer files or backups remain after successful uninstall. The retired
+checkpoint slot and an always-false `undo` response field only allow handoff
+from v0.2.0-dev.1; there is no Undo command. Its already-removed installations
+offer Uninstall on a new USB to discard their retained files.
 
 Only the startup integration and Mazda's touchscreen NVRAM value change in place.
 The native libraries, service configuration, index and paired JavaScript are

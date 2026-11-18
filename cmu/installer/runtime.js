@@ -12,7 +12,7 @@ var OpenConnect = (function (previous) {
     }
     function valid(s) {
         return s && s.ok === true && /^(?:-|[a-f0-9]{32}|[a-f0-9]{64})$/.test(s.revision) &&
-            typeof s.installed === "boolean" && typeof s.undo === "boolean" &&
+            typeof s.installed === "boolean" && typeof s.retained === "boolean" &&
             typeof s.restart === "boolean" && typeof s.conflict === "boolean" && typeof s.pending === "boolean" &&
             (s.touch === 0 || s.touch === 1) && (s.warning === 0 || s.warning === 1) &&
             /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(s.version);
@@ -83,15 +83,8 @@ var OpenConnect = (function (previous) {
             busy = false;
             queued = null;
             closeDialog();
-            if (answer && answer.error === "conflict_confirmation_required") {
-                message("Uninstall?", "Changed files will be saved before your previous settings are restored.", {
-                    button1: {label: "Cancel", appData: "cancel"},
-                    button2: {label: "Uninstall", appData: "uninstall"}
-                }, function (action) { if (action === "uninstall") { run("uninstall", ["confirm", "-", "-"]); } });
-                return;
-            }
             if (!valid(answer)) { error(answer); return; }
-            if (answer.restart || operation === "uninstall" || operation === "undo") {
+            if (answer.restart || operation === "uninstall") {
                 message("Open Connect", "Changes saved. Mazda Connect is restarting.",
                     {button1: {label: "Close", appData: "close"}}, function () {});
                 request("restart", null, function (reply) {
@@ -118,21 +111,13 @@ var OpenConnect = (function (previous) {
     };
     function choose() {
         usb = false;
-        if (state.undo && !state.installed) {
-            message("Open Connect", "Open Connect is uninstalled.", {
-                button1: {label: "Done", appData: "done"},
-                button2: {label: "Install", appData: "install"},
-                button3: {label: "Undo uninstall", appData: "undo"}
-            }, function (action) { if (action === "install" || action === "undo") { run(action); } else { dismiss(); } });
-        } else {
-            queued = function () {
-                return installer.choose(framework, state.installed, function (action) {
-                    dialog = null;
-                    if (action === "install" || action === "uninstall") { run(action); }
-                    else { dismiss(); }
-                }, state.version);
-            };
-        }
+        queued = function () {
+            return installer.choose(framework, state.installed, function (action) {
+                dialog = null;
+                if (action === "install" || action === "uninstall") { run(action); }
+                else { dismiss(); }
+            }, state.version, state.retained);
+        };
     }
     function tick() {
         if (stopped || !window.framework || !framework._browserShown) { return; }

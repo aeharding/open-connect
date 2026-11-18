@@ -8,14 +8,25 @@ touchscreen access while moving and whether to show the startup disclaimer.
 > This release is for bench testing. Physical touch while moving is still being
 > qualified. **Firmware 74 is not supported yet.**
 
-<p><a class="md-button md-button--primary" href="https://github.com/aeharding/open-connect/releases/download/v0.2.0-dev.1/open-connect-0.2.0-dev.1-usb.zip">Download USB installer</a> <a class="md-button" href="https://github.com/aeharding/open-connect/releases/tag/v0.2.0-dev.1">Release notes</a></p>
+<p><a class="md-button md-button--primary" href="https://github.com/aeharding/open-connect/releases/download/v0.2.0-dev.2/open-connect-0.2.0-dev.2-usb.zip">Download USB installer</a> <a class="md-button" href="https://github.com/aeharding/open-connect/releases/tag/v0.2.0-dev.2">Release notes</a></p>
 
-```mermaid
-flowchart TB
-    A[Download ZIP] --> B[Copy to USB]
-    B --> C[Choose Install]
-    C --> D[Restart · Done]
-```
+<ol class="oc-install-flow" aria-label="Installation overview">
+  <li>
+    <img src="assets/guide/prepare-usb.svg" alt="" width="160" height="112">
+    <strong><span>1</span> Prepare the USB</strong>
+    <p>Extract every file onto a FAT32 drive.</p>
+  </li>
+  <li>
+    <img src="assets/guide/insert-usb.svg" alt="" width="160" height="112">
+    <strong><span>2</span> Plug in at Home</strong>
+    <p>Wait for Mazda Connect’s Home screen, then insert the drive.</p>
+  </li>
+  <li>
+    <img src="assets/guide/install-restart.svg" alt="" width="160" height="112">
+    <strong><span>3</span> Install and restart</strong>
+    <p>Choose Install. Leave the power on until you see Done.</p>
+  </li>
+</ol>
 
 ## 1. Prepare the USB drive
 
@@ -32,7 +43,7 @@ Wait for Mazda Connect's **Home** screen, then insert the USB drive.
 Choose **Install** when the prompt appears.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect 0.2.0-dev.1? The dialog says Mazda Connect will restart once and offers Cancel and Install." width="800" height="480"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect 0.2.0-dev.2? The dialog says Mazda Connect will restart once and offers Cancel and Install." width="800" height="480"></div>
   <figcaption>Choose Install. Mazda Connect handles the restart.</figcaption>
 </figure>
 
@@ -45,7 +56,7 @@ After the restart, choose **Done** or **Open settings**. You can now remove the
 USB drive. Open Connect stays installed for future starts.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect 0.2.0-dev.1 installed. Installation complete, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect 0.2.0-dev.2 installed. Installation complete, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
   <figcaption>Choose Open settings to change either preference.</figcaption>
 </figure>
 

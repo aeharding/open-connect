@@ -61,8 +61,11 @@ baseline. A development prerelease is not a general end-user car release.
 ## Execution order now
 
 The v55 standalone development installer now has the maintained CI-to-USB path,
-persistent startup and native Settings/uninstall. Bench checks covered reinstall,
-one interrupted transaction, conflicting edits, Undo, ACC renewal and finite
+persistent startup and native Settings/uninstall. The v0.2.0-dev.2 CI bundle passed
+fresh installation and complete removal through Settings without USB. Original
+startup/NVRAM and loaded paths were restored, with no product directory or startup
+staging left behind. Earlier prerelease checks covered reinstall, one interrupted
+transaction, conflicting edits, the retired Undo behavior, ACC renewal and finite
 late-fault recovery. See the [installer development guide](docs/installer-development.md) for evidence and
 limits. This completes the installer prerelease step; it does not complete the
 production-release qualification in [#7](https://github.com/aeharding/open-connect/issues/7).
@@ -102,10 +105,11 @@ performs a reinstall; interrupted transactions are handled internally. No separa
 Repair or Change options UI. Add feature selection only when multiple useful
 features exist.
 
-Uninstall saves current affected state before restoring pre-install originals.
-One checkpoint allows that uninstall to be reversed; later relevant edits make
-Undo stop and preserve everything. The installer uses one authoritative durable
-record with verified originals and snapshots. See [uninstall behavior](docs/uninstall.md).
+Uninstall restores pre-install behavior and removes Open Connect's files and
+backups. Reinstallation uses USB; there is no Undo uninstall option. Conflicting
+later edits stop removal without being overwritten. Keep the authoritative
+record and verified originals until restoration succeeds, then finish cleanup
+without leaving a retained installation. See [uninstall behavior](docs/uninstall.md).
 
 Necessary infrastructure: exact-base validation, verified original backups,
 repeatable execution, one clear UI/backend command contract and independent undo.

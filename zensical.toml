@@ -17,6 +17,10 @@ nav = [
     { "Settings" = "settings.md" },
     { "Uninstall" = "uninstall.md" },
   ] },
+  { "Features" = [
+    { "Touchscreen While Driving" = "touchscreen.md" },
+    { "Startup disclaimer" = "disclaimer.md" },
+  ] },
   { "Development" = [
     { "Contribute" = "development.md" },
     { "Wire a bench" = "bench-setup.md" },

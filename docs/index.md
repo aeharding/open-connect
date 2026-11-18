@@ -2,8 +2,8 @@
 
 Two optional improvements, inside Mazda's own interface:
 
-- **Touchscreen While Driving** — choose whether to keep Mazda's touch restriction.
-- **Startup disclaimer** — choose whether to show or skip the warning.
+- [**Touchscreen While Driving**](touchscreen.md) — choose whether to keep Mazda's touch restriction.
+- [**Startup disclaimer**](disclaimer.md) — choose whether to show or skip the warning.
 
 Install from USB, change your choices in Mazda Settings, and uninstall there
 whenever you want to restore your previous setup.

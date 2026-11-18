@@ -50,8 +50,23 @@ state_capture() (
     printf '%s\n' "$result"
 )
 
+uninstall_owned() (
+    # Legacy Undo could adopt external edits into the current snapshot. Check
+    # the saved before-state too: recovery may already have restored a target.
+    local current_mode current_touch current_nvram snapshot=$1
+    snapshot_read "$snapshot" || return 1
+    hex "$S_PACKAGE" 64 && file "$D/composed/$S_PACKAGE/autostart" &&
+        test "$(sha "$D/snapshots/$snapshot/autostart")" = "$(sha "$D/composed/$S_PACKAGE/autostart")" || return 1
+    current_mode=$S_META; current_touch=$S_TOUCH; current_nvram=$S_NVRAM
+    snapshot_read "$R_BASE" || return 1
+    test "$current_mode" = "$S_META" || return 1
+    # Exhausted startup recovery may restore the baseline while touch remains
+    # selected. Otherwise, only our enabled-touch value belongs to this package.
+    test "$current_nvram" = "$S_NVRAM" || test "$current_touch:$current_nvram" = 1:disable
+)
+
 transaction_prepare() {
-    # phase, before, after; preserve originals and the uninstall checkpoint.
+    # phase, before, after; preserve originals until restoration is verified.
     settled || fail operation_pending
     snapshot_read "$2" && snapshot_read "$3" || fail invalid_plan
     targets_match "$2" && dependencies_pair_match "$2" "$3" || fail state_changed
@@ -64,6 +79,12 @@ transaction_reconcile() {
     settled && return
     local before_hash after_hash before_mode after_mode before_nv after_nv actual_hash actual_mode actual_nv phase
     phase=$R_PHASE
+    # An old prerelease could prepare a conflicted uninstall with a promise to
+    # retain Undo. Do not turn that operation into deletion of its saved edits.
+    if test "$phase" = uninstall; then
+        test "$R_BEFORE" = "$R_CURRENT" || fail state_changed
+        uninstall_owned "$R_BEFORE" || fail state_changed
+    fi
     snapshot_read "$R_BEFORE" || fail invalid_before
     before_hash=$(sha "$D/snapshots/$R_BEFORE/autostart"); before_mode=$S_META; before_nv=$S_NVRAM
     snapshot_read "$R_AFTER" || fail invalid_after
@@ -89,9 +110,8 @@ transaction_reconcile() {
     targets_match "$R_AFTER" && dependencies_match "$R_AFTER" || fail final_verification_failed
     R_CURRENT=$R_AFTER
     case "$phase" in
-        uninstall) R_PHASE=removed; R_UNDO=$R_BEFORE; R_NOTICE=removed; R_BUDGET=0;;
-        undo) R_PHASE=active; R_UNDO=-; R_NOTICE=undone; R_BUDGET=3;;
-        install) R_PHASE=active; R_UNDO=-; R_NOTICE=installed; R_BUDGET=3;;
+        uninstall) R_PHASE=removed; R_NOTICE=removed; R_BUDGET=0;;
+        install) R_PHASE=active; R_NOTICE=installed; R_BUDGET=3;;
         set) R_PHASE=active; R_NOTICE=restart; R_BUDGET=3;;
         apply) R_PHASE=active;;
     esac
@@ -100,11 +120,40 @@ transaction_reconcile() {
     record_write
 }
 
-undo_prepare() {
-    test "$R_PHASE" = removed && hex "$R_UNDO" 64 || fail undo_unavailable
-    # This also checks the retained package and composed bytes. Unknown later
-    # changes are never overwritten or merged by undo.
-    targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" &&
-        dependencies_match "$R_UNDO" || fail state_changed
-    transaction_prepare undo "$R_CURRENT" "$R_UNDO"
+uninstall_cleanup() {
+    # The caller holds the operation lock and runs from its verified RAM copy.
+    private_dir "$D" || fail invalid_state_directory
+    case "$P" in "$D"|"$D"/*) fail cleanup_requires_ram;; esac
+    test "$(root_mode)" = ro,noatime || fail root_mount_changed
+    # Do not cross a mounted filesystem while removing the owned state tree.
+    cleanup_mount_guard || fail cleanup_mount_present
+    if absent "$D/record"; then
+        # A cut after the final unlink can leave only the empty directory.
+        rmdir "$D" || fail invalid_cleanup_state
+        flush d "${D%/*}"
+        return
+    fi
+    record_read || fail invalid_record
+    case "$R_PHASE" in
+        removed)
+            targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
+            startup_staging_guard || fail startup_stage_changed
+            R_PHASE=purge
+            record_write;;
+        purge) ;; # Restoration was durably verified before this phase began.
+        *) fail not_removed;;
+    esac
+    # Keep the authoritative record until every other entry is gone. USB
+    # recovery can resume partial cleanup without snapshots already deleted.
+    local path
+    for path in "$D"/* "$D"/.[!.]* "$D"/..?*; do
+        absent "$path" && continue
+        test "${path##*/}" != record || continue
+        rm -rf "$path" || fail cleanup_failed
+    done
+    flush d "$D"
+    rm "$D/record" || fail cleanup_failed
+    flush d "$D"
+    rmdir "$D" || fail cleanup_failed
+    flush d "${D%/*}"
 }

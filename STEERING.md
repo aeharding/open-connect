@@ -30,10 +30,11 @@ Keep the two user-facing actions **Install/update** and **Uninstall**. Running I
 interrupted-operation recovery is internal behavior, not a separate Repair option.
 Keep the USB install prompt short. Offer Done and Open settings after install.
 Use Mazda’s own Settings list and a separate radio-choice page for each preference.
-For conflicting edits, Uninstall saves the current affected files/state before
-restoring pre-install originals. A single Undo this uninstall checkpoint restores
-that previous modified state. If relevant state changed after uninstall, undo
-stops without writes or force/merge fallback. See docs/uninstall.md.
+Uninstall restores the pre-install startup and touchscreen behavior, then removes
+Open Connect's installed files, backups and transaction state. There is no Undo
+uninstall option; installing it again uses USB. Preserve backups until restoration
+is durably verified, and let a compatible USB finish interrupted cleanup. If other
+modifications conflict, stop without overwriting them. See docs/uninstall.md.
 Maintenance uses a compatible replacement USB stick; the original stick is not
 required. Arbitrary old-package compatibility is not promised.
 Original-backup restoration is as-found restoration, not a factory reset.
@@ -119,7 +120,7 @@ and allowed commands understandable; do not build another orchestration framewor
 
 The backend owns install, reinstall, uninstall and interruption recovery. Use
 one authoritative transaction record with explicit states and durable updates,
-plus verified original backups and the single uninstall checkpoint. Avoid
+plus verified original backups and before/after snapshots. Avoid
 scattered flags or receipts that independently claim operation state. Preserve
 unknown later edits and reconcile uncertain outcomes before further writes.
 

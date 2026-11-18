@@ -29,3 +29,8 @@ Source that runs on the device when a feature is explicitly tried.
 
 Host builders live in tooling/open_connect/firmware55. They compose these sources
 with privately supplied OEM files; this directory contains no OEM firmware.
+
+CI builds both installer views into `installer.js` and runs their interaction tests
+against that file. The `fw55-installer-controls` workflow artifact contains the
+tested UI, its checksum and license. Standalone USB packaging is tracked in
+[issue 7](https://github.com/aeharding/open-connect/issues/7).

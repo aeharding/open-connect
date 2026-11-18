@@ -99,3 +99,11 @@ settings.open(fw,store); pick(1); pick(1); reply(null);
 assert.match(pages.at(-1).ctrl.title.text1,/could not be confirmed/);
 assert.equal(pages.at(-1).ctrl.dataList.items[0].text1,"Return to Mazda Settings");
 back(); assert.equal(host.divElt.style.display,"");
+
+settings.open(fw,store); pick(1); pick(1);
+fw.common._vuiHelpDialog = {};
+reply({touch:0,warning:1});
+delete fw.common._vuiHelpDialog;
+assert.equal(host.divElt.style.display,"");
+assert.equal(host.handleControllerEvent,input);
+assert.equal(fw.sendEventToMmui,send);

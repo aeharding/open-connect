@@ -115,7 +115,7 @@ var OpenConnectSettings = (function () {
                 if (replied) { return; }
                 replied = true;
                 pending = false;
-                if (!current()) { return; }
+                if (!current()) { close(); return; }
                 if (!valid(actual)) { render("unknown", 0); return; }
                 values = actual;
                 if (actual[key] === item) { render(null, index); }

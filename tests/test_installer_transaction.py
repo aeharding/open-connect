@@ -21,6 +21,7 @@ AUTOSTART=$D-target
 uuid() { openssl rand -hex 16; }
 root_mode() { printf 'ro,noatime\n'; }
 cleanup_mount_guard() { test "$CUT" != mount; }
+startup_staging_guard() { test "$CUT" != staging; }
 dependency_path() { test "$1" = relevant && printf '%s\n' "$D-relevant"; }
 dependencies_capture() { printf '%s  relevant\n' "$(sha "$D-relevant")"; }
 nvram_read() { cat "$D-nvram"; }
@@ -81,6 +82,12 @@ uninstall)
     before=$(state_capture "$S_PACKAGE" "$S_TOUCH" "$S_WARNING")
     after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 absent "755:$(id -u):$(id -g)" "$D/snapshots/$before/dependencies")
     transaction_prepare uninstall "$before" "$after";;
+legacy-current)
+    snapshot_read "$R_CURRENT"
+    R_CURRENT=$(state_capture "$S_PACKAGE" "$S_TOUCH" "$S_WARNING")
+    R_NOTICE=undone
+    record_write
+    exit;;
 *) exit 64;;
 esac
 test "$CUT" != prepared || kill -KILL $$
@@ -265,6 +272,16 @@ class InstallerTransaction(unittest.TestCase):
         self.assertIn("cleanup_mount_present", result.stderr)
         self.assertEqual((data / "record").read_bytes(), before)
 
+    def test_cleanup_refuses_unknown_startup_staging_before_discarding_backups(self):
+        data = self.create("staging")
+        self.run_ok(data, "install")
+        self.run_ok(data, "uninstall")
+        result = self.run_command(data, "cleanup", "staging")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("startup_stage_changed", result.stderr)
+        self.assertEqual((data / "record").read_text().split("|")[1], "removed")
+        self.assertTrue((data / "snapshots").is_dir())
+
     def test_backend_uninstall_removes_state_and_can_request_restart_without_a_record(self):
         data = self.create("backend")
         self.run_ok(data, "install")
@@ -318,3 +335,26 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(data.exists())
         self.assertTrue(reply["restart"])
+
+    def test_legacy_adopted_nvram_edit_is_refused_but_baseline_fallback_is_allowed(self):
+        for value, allowed in (("enable", False), ("absent", True)):
+            with self.subTest(value=value):
+                data = self.create("legacy-nvram-" + value)
+                self.run_ok(data, "install")
+                # Model a value adopted by v0.2.0-dev.1 Undo. Its current record
+                # matches the device, so targets_match alone cannot catch it.
+                self.target(data, "nvram").write_text(value + "\n")
+                self.run_ok(data, "legacy-current")
+                self.backend_fixture(data)
+                _, state = self.api("status")
+                before = (data / "record").read_bytes()
+                result, reply = self.api("uninstall", state["revision"])
+                if allowed:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertFalse(data.exists())
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(reply["error"], "state_changed")
+                    self.assertEqual((data / "record").read_bytes(), before)
+                    self.assertEqual(self.target(data, "nvram").read_text(), "enable\n")
+                shutil.rmtree(self.root / "runtime")

@@ -52,6 +52,11 @@ After interruption, reinserting a compatible USB lets it reconcile each target
 against those states. An unknown third state is preserved. An unconfirmed response
 does not cause the UI to repeat a write automatically.
 
+Startup publication uses one staging path named by the pending record revision.
+Recovery accepts a partial copy only when its bytes match the planned prefix;
+handled failures remove the owned stage and restore root read-only. Unknown
+staging files from older releases are preserved and block complete removal.
+
 After restoration is verified and flushed, the record enters `purge`. The backend
 runs from RAM and removes the persistent packages, composed files, originals and
 snapshots. It deletes the record last, then the empty state directory, flushing

@@ -1,5 +1,17 @@
 2016 Mazda3 bench handoff — November 18, 2026
 
+Complete-uninstall qualification in progress
+ACC is ON; B+ and supply settings are unchanged. CI candidate 4637283 removed
+the old retained product state through its USB UI. Fresh stock boot
+501a3c8d-1ec7-45d3-895a-258308b57045 has no product record/directory or startup
+staging files. Original startup/native/JS hashes and root RO match the baseline.
+The candidate USB files remain on the SanDisk; a revised candidate will replace
+them before fresh installation. Ethernet eth1 came up at 192.168.42.1 instead
+of the bench LAN address; software network bringup is in progress over UART.
+Observers under runs/owner-guide-polish/bench/ close their own UART handles.
+No camera is used. The remainder below is previous evidence, not retained state
+now. Park ACC OFF and close all resources when finished.
+
 Direct documentation capture completed
 The published v0.2.0-dev.1 bundle was installed on this outgoing v55 CMU to
 capture six direct Wayland screenshots for the owner guide. No camera was used.

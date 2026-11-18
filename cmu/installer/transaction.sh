@@ -121,6 +121,7 @@ uninstall_cleanup() {
     case "$R_PHASE" in
         removed)
             targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
+            startup_staging_guard || fail startup_stage_changed
             R_PHASE=purge
             record_write;;
         purge) ;; # Restoration was durably verified before this phase began.

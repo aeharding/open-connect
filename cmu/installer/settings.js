@@ -67,6 +67,9 @@ var OpenConnectSettings = (function () {
                     rows.push({text1: row.title, label1: row.key === "touch" ? ["Default", "Always"][values.touch] : row.choices[values[row.key]],
                         itemStyle: "style06", hasCaret: true, appData: i});
                 }
+            } else if (index === "saving") {
+                title = "Open Connect";
+                rows.push({text1: "Saving setting…", itemStyle: "style01", disabled: true, hasCaret: false});
             } else if (index === "unknown") {
                 title = "Change could not be confirmed";
                 rows.push({text1: "Return to Mazda Settings", itemStyle: "style01", hasCaret: false, appData: 0});
@@ -103,7 +106,10 @@ var OpenConnectSettings = (function () {
             }
             var index = choice, key = entries[index].key, from = values[key];
             if (from === item) { render(null, index); return; }
+            // List2 changes its own radio before invoking selectCallback.
+            // Replace that list in the same turn so an unconfirmed value cannot linger.
             pending = true;
+            if (!render("saving", 0)) { close(); return; }
             var replied = false;
             function reply(actual) {
                 if (replied) { return; }
@@ -146,46 +152,65 @@ var OpenConnectSettings = (function () {
     // retain their original callbacks and indices.
     function attach(fw, app, store) {
         var entry = app._contextTable.SystemTab;
-        var original = entry.readyFunction, currentList = null, undoRow = null, undoSelect = null;
-        function add() {
-            var tmpl = app._currentContextTemplate;
-            if (!tmpl || !tmpl.list2Ctrl) { return; }
-            var list = tmpl.list2Ctrl, data = list.dataList, rows = data.items.slice(0, data.itemCount);
-            var id = "open-connect-settings";
-            if (rows.some(function (r) { return r.appData === id; })) { return; }
-            if (currentList === list) { undoSelect(); }
-            var select = list.properties.selectCallback;
-            currentList = list;
-            rows.push({text1: "Open Connect", itemStyle: "style01", hasCaret: true, appData: id});
-            undoSelect = replace(list.properties, "selectCallback", function (control, value) {
-                if (value === id && control === list) { open(fw, store); return; }
+        var original = entry.readyFunction;
+        var list = null, release = null;
+        var id = "open-connect-settings";
+        function bind() {
+            var host = app._currentContextTemplate;
+            if (!host || !host.list2Ctrl || host.list2Ctrl === list) { return; }
+            if (release) { release(false); }
+            list = host.list2Ctrl;
+            var ctrl = list, set = ctrl.setDataList, select = ctrl.properties.selectCallback;
+            var undoSelect = replace(ctrl.properties, "selectCallback", function (control, value) {
+                if (control === ctrl && value === id) { open(fw, store); return; }
                 return select.apply(this, arguments);
             });
-            function fill(items) {
-                var next = {itemCountKnown: true, itemCount: items.length, items: items};
-                if (typeof data.vuiSupport === "boolean") { next.vuiSupport = data.vuiSupport; }
-                list.setDataList(next);
-                if (items.length) { list.updateItems(0, items.length - 1); }
+            function withEntry(data) {
+                var count = data && data.itemCount, items = data && data.items;
+                if (!items || !count || items.length < count || items[count - 1].appData !== "SelectAbout" ||
+                        items.some(function (r) { return r && r.appData === id; })) {
+                    return set.apply(this, arguments);
+                }
+                // v55 addresses About as itemCount - 1 when updating its restrictions.
+                // Keep About last and all preceding OEM indices stable on every refresh.
+                var copy = {}, key;
+                for (key in data) { if (own.call(data, key)) { copy[key] = data[key]; } }
+                copy.items = items.slice(0, count);
+                copy.items.splice(count - 1, 0, {text1: "Open Connect", itemStyle: "style01",
+                    hasCaret: true, appData: id});
+                copy.itemCount = count + 1;
+                return set.call(ctrl, copy);
             }
-            undoRow = function () {
+            var undoSet = replace(ctrl, "setDataList", withEntry);
+            release = function (visible) {
                 undoSelect();
-                var currentRows = list.dataList.items.filter(function (r) { return r.appData !== id; });
-                if (currentRows.length !== list.dataList.itemCount) { fill(currentRows); }
+                undoSet();
+                if (!visible) { return; }
+                var data = ctrl.dataList, rows = data.items.filter(function (r) { return r.appData !== id; });
+                if (rows.length !== data.itemCount) {
+                    set.call(ctrl, {itemCountKnown: true, itemCount: rows.length, items: rows,
+                        vuiSupport: data.vuiSupport});
+                    if (rows.length) { ctrl.updateItems(0, rows.length - 1); }
+                }
             };
-            fill(rows);
         }
-        if (inTab(fw) && fw.getCurrCtxtId() === "SystemTab") { add(); }
+        function repaint() {
+            if (list && list.dataList.itemCount) { list.updateItems(0, list.dataList.itemCount - 1); }
+        }
+        if (inTab(fw) && fw.getCurrCtxtId() === "SystemTab") {
+            bind();
+            if (list) { list.setDataList(list.dataList); repaint(); }
+        }
         var undoReady = replace(entry, "readyFunction", function () {
+            bind();
             var result = original.apply(this, arguments);
-            add();
+            repaint();
             return result;
         });
         return function detach() {
             undoReady();
-            if (currentList && app._currentContextTemplate && app._currentContextTemplate.list2Ctrl === currentList) {
-                undoRow();
-            }
-            currentList = undoRow = undoSelect = null;
+            if (release) { release(app._currentContextTemplate && app._currentContextTemplate.list2Ctrl === list); }
+            list = release = null;
         };
     }
     // The stock Home action enters Settings and chooses the initial tab. Wait

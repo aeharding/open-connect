@@ -34,7 +34,10 @@ let page = pages.at(-1);
 assert.deepEqual(Array.from(page.ctrl.dataList.items, r => [r.image1,r.checked]), [["radio",false],["radio",true]]);
 assert.equal(host.handleControllerEvent("ccw"), "consumed");
 assert.deepEqual(writes, []);
-pick(0); pick(0);
+pick(0);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].text1,"Saving setting…");
+assert.ok(page.cleaned);
+page.ctrl.selectCallback(page.ctrl,1); pick(0);
 assert.deepEqual(writes, [["touch",1,0]]);
 values = {touch: 0, warning: 0}; reply(values);
 assert.equal(pages.at(-1).ctrl.dataList.items[0].label1,"Default");
@@ -53,8 +56,8 @@ assert.equal(settings.open(fw,{read:()=>({touch:2,warning:1})}),false);
 console.log("Mazda settings menu, single-choice pages, confirmed save, back and interrupted context passed");
 
 const baseSelect = (c, value) => "stock:" + value;
-const stockRows = [{appData: "language"}];
-const list = {dataList: {items: stockRows, itemCount: 1}, properties: {selectCallback: baseSelect},
+const stockRows = [{appData: "language"}, {appData: "SelectAbout"}];
+const list = {dataList: {items: stockRows, itemCount: 2}, properties: {selectCallback: baseSelect},
     setDataList(data) { this.dataList = data; this.rendered = 0; },
     updateItems(first,last) { assert.equal(first,0); this.rendered = last + 1; }};
 host.list2Ctrl = list;
@@ -62,16 +65,22 @@ let readyCalls = 0;
 const stockReady = () => { readyCalls++; };
 const app = {_contextTable: {SystemTab: {readyFunction: stockReady}}, _currentContextTemplate: host};
 const detach = settings.attach(fw,app,store);
-assert.equal(list.dataList.items.length, 2);
-assert.equal(stockRows.length, 1); assert.equal(list.rendered, 2);
+assert.equal(list.dataList.items.length, 3);
+assert.equal(stockRows.length, 2); assert.equal(list.rendered, 3);
+const refreshed = [{appData:"language"},{appData:"distance"},{appData:"SelectAbout"}];
+list.setDataList({items:refreshed, itemCount:3, vuiSupport:false});
+assert.deepEqual(Array.from(list.dataList.items,r=>r.appData),["language","distance","open-connect-settings","SelectAbout"]);
+assert.equal(list.dataList.vuiSupport,false);
+list.dataList.items[list.dataList.itemCount-1].disabled=true;
+assert.equal(refreshed[2].disabled,true);
 assert.equal(list.properties.selectCallback(list,"language"),"stock:language");
 app._contextTable.SystemTab.readyFunction();
-assert.equal(list.dataList.itemCount,2);
+assert.equal(list.dataList.itemCount,4);
 list.properties.selectCallback(list,"open-connect-settings");
 assert.equal(host.divElt.style.display,"none");
 back();
 detach(); assert.equal(app._contextTable.SystemTab.readyFunction,stockReady);
-assert.equal(readyCalls,1); assert.equal(list.rendered,1); assert.equal(list.properties.selectCallback,baseSelect);
+assert.equal(readyCalls,1); assert.equal(list.rendered,3); assert.equal(list.properties.selectCallback,baseSelect);
 
 let appName="system", context="HomeScreen", tick, success;
 ctx.setInterval = fn => { tick = fn; return 42; };

@@ -54,98 +54,57 @@ A future firmware switch supersedes current product support, not historical evid
 | **M3: First production release** | Always-enabled touchscreen and startup disclaimer bypass in one release | Verify stock touch on the replacement bench, reproduce the motion restriction, test both features after restart, then uninstall and verify stock touch and warning behavior. Qualify update, reinstall, interrupted installation and replacement-USB maintenance under #7 before publishing on GitHub Releases for the owner’s real-car install. | [#60 touch](https://github.com/aeharding/open-connect/issues/60), [#6 bypass](https://github.com/aeharding/open-connect/issues/6), [#7 delivery](https://github.com/aeharding/open-connect/issues/7) |
 | **M4: Measured everyday reliability** | More dependable CarPlay and responsive interaction | Comparable stock/modified connection success and timing; source-backed diagnosis; real-car confirmation of relevant claims; ship only improvements supported by results | [#8 CarPlay](https://github.com/aeharding/open-connect/issues/8), [#9 resources](https://github.com/aeharding/open-connect/issues/9) |
 
-Milestones overlap where useful: firmware research starts now; USB host design
-does not wait for the upgrade. Live qualification uses the finally selected baseline.
-Hardware dependencies gate only experiments that actually need them.
-A developer preview is not a general end-user car release.
+The delivery order below governs current work. Read-only firmware investigation
+may fill hardware waits without displacing it. Live qualification uses the declared
+baseline. A development prerelease is not a general end-user car release.
 
 ## Execution order now
 
-Build and qualify the first two-feature installer on **55.00.750B NA**.
-Both features have shared a bench boot and undo driven by Mazda dialog choices
-and a Mac over SSH. Move the transaction onto the CMU and exercise USB install,
-uninstall and conflict recovery without a host computer.
-The replacement supplies the physical touch comparison. Record its firmware
-and check stock touch with the same display and cable. Port to 74.00.324
-separately before installing on the owner’s car.
+Complete the maintained release implementation. The USB bootstrap and native
+Settings controls have bench evidence; the existing host-driven transaction and
+startup prototypes are inputs to this work, not the delivered installer.
 
-**Whole-startup architecture before another loader increment:** [#25](https://github.com/aeharding/open-connect/issues/25)
-now covers service/configuration features as well as optional native/JS code.
-The MMUI loader cannot select earlier service startup. The tested early boundary
-is the normal branch of /usr/bin/autostart, before normal-mode setup, the Logger
-and SM. One-shot selection and subsequent
-baseline startup now passed ordinary warm boots, an MMUI crash and a deliberate
-JS hang. Full supply cuts preserved consumed records in normal runtime and
-after early commit, before services. Cuts during rename/fsync remain untested.
-Hooks were removed after each trial.
-One combined selected/baseline pair now passed: Stitcher startup policy, native
-logging override, native entry and JS entry were selected together, then omitted
-on the next boot without restoring their prepared files. Both reached Home;
-the temporary startup hook was independently removed afterward.
-A finite two-attempt prototype now passed two selected startups and a late MMUI
-fault: confirmation did not refund attempts, and the reset selected baseline
-with all four effects omitted. The limit is a test parameter, not product policy.
-A useful native/JS bypass now ran through selected configurations, followed by
-baseline omission without restoring installed feature files. The first attempt
-also exposed a partial-startup failure: a truncated library path left MMUI alive
-without its system UIA. The Home-specific independent supervisor now received
-a healthy browser acknowledgement and recovered one missing-UIA startup by normal
-reboot into baseline. Its initial false negative remains evidence; this is not
-universal health qualification. Freeze that prototype's scope. The useful
-feature now has a CLI build/trial/status/disable workflow with timing/resource
-records and independent undo. Keep retry renewal explicit while we qualify a new-drive signal across boots.
-**Current delivery**
-The developer CLI now builds, prepares, trials, observes and disables one real
-feature. A clean checkout and fresh virtual environment now reproduced the build,
-selected startup and independent disable/baseline startup automatically. The
-earlier console-check failure remains recorded separately. Timing and
-CPU/RAM/I/O samples are retained without a performance claim. The
-[reproduction workflow](docs/cli.md#developer-feature-trial) is the developer entry point.
-The [source-only developer preview](docs/disclaimer-preview.md) is one selected
-boot on the exact supported firmware. USB installation and automatic ACC renewal
-remain separate work.
+1. **Standalone installer prerelease — [#7](https://github.com/aeharding/open-connect/issues/7).**
+   CI produces one USB bundle for **55.00.750B NA**. Static loader, installer UI
+   and CMU-local backend perform install, restart, Settings and uninstall without
+   a host computer. Use Make/shell and standard native tools, with generated data
+   manifests only. `oc` remains bench instrumentation. Verify reinstall,
+   interruption recovery, conflicting edits, undo and compatible replacement-USB
+   maintenance using one authoritative transaction record and preserved originals.
+   Test the actual CI artifact on the bench and publish it as a development
+   prerelease with the limited startup behavior stated plainly.
+2. **Persistent startup qualification — immediately next, [#25](https://github.com/aeharding/open-connect/issues/25).**
+   Qualify everyday repeated starts and finite failure recovery for the same
+   installed features. Establish when a completed ignition shutdown can renew
+   attempts; quick ACC resume, intentional reset and watchdog reset must not
+   accidentally replenish them. Test interrupted durable updates, late faults,
+   last-app and display-off behavior where they affect the delivered features.
+   Reaching Home alone is not proof of recovery. Finish this before claiming a
+   normal owner release; do not start another unrelated prototype track.
+3. **Replacement touch qualification and the separate firmware move.**
+   On the replacement CMU, confirm its identity and compare stock touch with the
+   same display and cable. Complete [#60](https://github.com/aeharding/open-connect/issues/60)
+   and the [#6](https://github.com/aeharding/open-connect/issues/6) feature checks.
+   Resolve the supported upgrade route and access under
+   [#2](https://github.com/aeharding/open-connect/issues/2), then port and requalify
+   on the selected modern baseline before the owner's real-car installation.
+   Physical dependencies gate only the checks that actually need them.
+4. **Measured CarPlay reliability — [#8](https://github.com/aeharding/open-connect/issues/8)
+   and [#9](https://github.com/aeharding/open-connect/issues/9).**
+   Define cold-start connection/readiness measurements and investigate the actual
+   wireless implementation before choosing a performance change. Keep the
+   [v74 findings](docs/cmu/wireless-carplay.md) and
+   [measurement plan](docs/carplay-testing.md) as inputs to that later work.
 
-A private file view remains an option, but this composition used OEM environment
-and launch settings without a whole-service mount namespace.
-The bootloader reports the same reset word for a tested normal reboot and
-MMUI-fault/watchdog reset. Shutdown notifications precede the actual shutdown.
-Persistent retry policy therefore needs a separately qualified rearm event,
-that survives a full ignition shutdown. A brief ACC interruption can return to Home in the same boot. Explicit maintenance renewal now has a host-tested
-prototype; automatic ACC renewal remains unimplemented.
-See [the revised proposal](docs/extension-architecture.md#next-proof).
-Persistent mode needs explicit health/failure semantics; no automatic-recovery
-claim follows from installing a loader. No new general plugin framework is needed.
+Reuse the [bench workflow](docs/cli.md#developer-feature-trial) for instrumentation
+and observation. Existing one-shot composition, fault and power-cut results are
+summarized in the [architecture evidence](docs/extension-architecture.md#evidence-so-far).
+They establish useful mechanisms, not production persistence. Keep experiments
+only when they resolve a named release blocker, then integrate the result.
 
-1. **#1, first increment delivered:** one `oc bench setup/status/teardown`
-   manages the whole current runtime profile. Host and command-only agent checks,
-   live setup, repeat setup and teardown passed.
-   [CLI operations](docs/cli.md) and [Audio Manager findings](docs/reverse-engineering.md#silent-entertainment-without-a-tau).
-   Persistent startup still needs a verified hook/readiness boundary; it does not
-   gate feature work. No per-helper public controls or force-enable daemon.
-2. **#2, active research:** resolve the exact supported latest-NA package and upgrade
-   route/access implications. The exact 74.00.324A NA package has been downloaded
-   and hashed; this is not permission or a recipe to flash it.
-   Produce a concrete recipe and named remaining physical inputs.
-3. **#3, disclaimer work:** use saved menu/surface/lifecycle code to test one
-   measurable handoff improvement. Keep normal continuation and cleanup. If another
-   visual intervention has no demonstrated benefit, record that result and proceed
-   with the best supported design; no endless transition tuning.
-4. **#8/#9, current research:** identify the user's native wireless mod and compare
-   configuration spoofing with direct enablement. Define cold-start CarPlay
-   readiness and lag measurements before choosing a performance change; do not
-   assume spoofing or memory pressure caused the symptom. See the
-   [v74 source findings](docs/cmu/wireless-carplay.md) and
-   [measurement plan](docs/carplay-testing.md).
-   [#56 Factory Reset](https://github.com/aeharding/open-connect/issues/56) traces
-   settings deletion and retained installation state before defining reset behavior.
-5. **#5/#7/#10:** repeatable startup batches and the USB lifecycle support those
-   experiments. Reuse the delivered fresh-checkout contribution path.
-
-One active implementation at a time. Independent source investigation may fill
-hardware waits; it does not imply a standing subagent team. Review a substantive
-plan once against real Mazda code, then review the actual diff and result.
-Use short-lived branches/PRs and close issues only when their outcome is achieved.
-A planning PR does not close implementation work.
+One primary owns one implementation path, bench qualification and integration.
+Use short-lived branches/PRs and the required independent final review. Close
+issues only when their user-visible outcomes are achieved.
 
 ## Keep the first release small
 
@@ -156,15 +115,15 @@ features exist.
 
 Intended conflict behavior: save current state before restoring pre-install
 originals, and allow that uninstall to be reversed. Later relevant edits mean
-stop and preserve everything. Storage, transaction and recovery mechanics are
-still to be designed against the actual installer.
+stop and preserve everything. Implement one authoritative durable transaction
+record with verified original backups and one uninstall checkpoint. The exact
+record format and interruption handling must be tested against the actual installer.
 See [the working uninstall direction](docs/uninstall.md).
 
-Necessary infrastructure now: exact-base validation, verified original backups,
-repeatable execution and independent undo, plus the small audio helper that
-unblocks real UI testing. Reuse existing tools. Require a concrete current consumer
-or demonstrated repeated task before adding infrastructure. Keep components easy
-to replace; defer frameworks and broad compatibility.
+Necessary infrastructure: exact-base validation, verified original backups,
+repeatable execution, one clear UI/backend command contract and independent undo.
+Reuse existing bench tools for observations. Keep installer logic static and the
+build conventional; defer frameworks and broad compatibility.
 
 ## What we measure
 

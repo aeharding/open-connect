@@ -10,9 +10,10 @@ One primary owns implementation, tests, bench operation, recovery and integratio
 No standing specialist agents. Use ephemeral reviewers only when explicitly
 requested or required by the contribution workflow, for one concrete question.
 Answer the user promptly; status questions do not cancel ongoing work.
-Build the smallest complete experiment. Avoid duplicated audits, tooling and logs.
-Apply the experiment discipline in STEERING.md: outcome first, early prior art,
-one decision per experiment, and separate device failures from tooling failures.
+Complete the release path; do not deliver another standalone prototype increment.
+Use targeted experiments only for concrete release blockers, then integrate their
+results. Avoid duplicated audits, tooling and logs. Apply STEERING.md: outcome first,
+early prior art, one decision per experiment, and separate device/tooling failures.
 
 Run program/file operations through Herdr hc. Give multi-operation uploads and
 boot observers an explicit host timeout (hc exec --timeout 600); its default
@@ -31,8 +32,14 @@ ask the user to press buttons, dismiss dialogs or rewire things to complete agen
   Navigation and site settings are in zensical.toml. Use Git for historical records.
 - GitHub issues/PRs: work queue and review. No separate progress-dashboard requirement.
 
-Use the installed oc command or python -m open_connect. Low-level UART operations
-are oc uart; profile operations are oc bench. See docs/cli.md.
+The installed oc command (or python -m open_connect) is only for bench
+instrumentation: oc uart for low-level UART and oc bench for the profile.
+Release builds use Make/shell and standard native compiler/linker tools directly.
+Keep installer logic in static files; generate compiled assets and data manifests
+only. Do not add Python packaging/code generation or custom ELF linking.
+Use one simple UI/backend command contract and one authoritative durable
+transaction record. See STEERING.md for the release implementation direction.
+See docs/cli.md for bench operations.
 Run tests/run_offline.py for host changes, then only relevant experiment checks.
 Do not change historical manifests to claim old evidence used new code.
 

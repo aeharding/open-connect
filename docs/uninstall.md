@@ -13,6 +13,15 @@ The broad intent below reflects our discussions. The mechanics remain open.
 - If relevant state changes again before recovery, stop and preserve it.
   Do not force an overwrite or attempt another merge/recovery layer.
 
+## Implementation direction
+
+The CMU-local backend owns the transaction. Use one authoritative record with
+explicit states and durable updates, alongside verified original backups and the
+single uninstall checkpoint. Other files must not independently claim operation
+status. After interruption or a lost acknowledgement, reconcile actual affected
+state against the record before continuing; do not blindly resend writes.
+Compatible replacement-USB maintenance uses the same backend and retained state.
+
 ## Still to design
 
 What belongs in the saved state, where it lives, how interruption is handled,

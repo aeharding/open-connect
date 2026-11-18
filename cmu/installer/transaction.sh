@@ -50,6 +50,21 @@ state_capture() (
     printf '%s\n' "$result"
 )
 
+uninstall_owned() (
+    # Legacy Undo could adopt external edits into the current snapshot. Check
+    # the saved before-state too: recovery may already have restored a target.
+    local current_mode current_touch current_nvram snapshot=$1
+    snapshot_read "$snapshot" || return 1
+    hex "$S_PACKAGE" 64 && file "$D/composed/$S_PACKAGE/autostart" &&
+        test "$(sha "$D/snapshots/$snapshot/autostart")" = "$(sha "$D/composed/$S_PACKAGE/autostart")" || return 1
+    current_mode=$S_META; current_touch=$S_TOUCH; current_nvram=$S_NVRAM
+    snapshot_read "$R_BASE" || return 1
+    test "$current_mode" = "$S_META" || return 1
+    # Exhausted startup recovery may restore the baseline while touch remains
+    # selected. Otherwise, only our enabled-touch value belongs to this package.
+    test "$current_nvram" = "$S_NVRAM" || test "$current_touch:$current_nvram" = 1:disable
+)
+
 transaction_prepare() {
     # phase, before, after; preserve originals until restoration is verified.
     settled || fail operation_pending
@@ -68,6 +83,7 @@ transaction_reconcile() {
     # retain Undo. Do not turn that operation into deletion of its saved edits.
     if test "$phase" = uninstall; then
         test "$R_BEFORE" = "$R_CURRENT" || fail state_changed
+        uninstall_owned "$R_BEFORE" || fail state_changed
     fi
     snapshot_read "$R_BEFORE" || fail invalid_before
     before_hash=$(sha "$D/snapshots/$R_BEFORE/autostart"); before_mode=$S_META; before_nv=$S_NVRAM

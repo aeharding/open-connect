@@ -358,3 +358,41 @@ class InstallerTransaction(unittest.TestCase):
                     self.assertEqual((data / "record").read_bytes(), before)
                     self.assertEqual(self.target(data, "nvram").read_text(), "enable\n")
                 shutil.rmtree(self.root / "runtime")
+
+    def test_pending_legacy_uninstall_refuses_adopted_edits_even_after_restoration(self):
+        for edit in ("nvram", "startup", "mode"):
+            for restored in (False, True):
+                with self.subTest(edit=edit, restored=restored):
+                    data = self.create(f"legacy-pending-{edit}-{restored}")
+                    self.run_ok(data, "install")
+                    if edit == "nvram":
+                        self.target(data, "nvram").write_text("enable\n")
+                    elif edit == "startup":
+                        self.target(data, "target").write_text("external startup\n")
+                    else:
+                        self.target(data, "target").chmod(0o700)
+                    self.run_ok(data, "legacy-current")
+                    # Legacy preparation accepts its adopted current snapshot.
+                    # Stop before the new reconciliation ownership check runs.
+                    self.assertNotEqual(
+                        self.run_command(data, "uninstall", "prepared").returncode, 0
+                    )
+                    if restored:
+                        self.target(data, "target").write_text("stock\n")
+                        self.target(data, "target").chmod(0o755)
+                        self.target(data, "nvram").write_text("absent\n")
+                    before = (data / "record").read_bytes()
+                    startup = self.target(data, "target").read_bytes()
+                    mode = self.target(data, "target").stat().st_mode
+                    nvram = self.target(data, "nvram").read_bytes()
+                    self.backend_fixture(data)
+                    _, state = self.api("status")
+                    self.assertTrue(state["pending"])
+                    result, reply = self.api("recover", state["revision"])
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(reply["error"], "state_changed")
+                    self.assertEqual((data / "record").read_bytes(), before)
+                    self.assertEqual(self.target(data, "target").read_bytes(), startup)
+                    self.assertEqual(self.target(data, "target").stat().st_mode, mode)
+                    self.assertEqual(self.target(data, "nvram").read_bytes(), nvram)
+                    shutil.rmtree(self.root / "runtime")

@@ -106,6 +106,7 @@ startup_publish() {
 printf 'stock\n' > "$D/stock"; chmod 755 "$D/stock"
 R_BASE=$(snapshot_create "$D/stock" - 0 0 absent "755:$(id -u):$(id -g)")
 printf 'installed\n' > "$D-target"; chmod 755 "$D-target"
+cp "$D-target" "$D/composed/$R_BACKEND/autostart"
 printf 'disable\n' > "$D-nvram"
 R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "755:$(id -u):$(id -g)")
 R_PHASE=active; R_BEFORE=-; R_AFTER=-; R_UNDO=-; R_BUDGET=3; R_OFF=-; R_BOOT=-; R_NOTICE=installed

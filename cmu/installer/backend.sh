@@ -157,22 +157,10 @@ uninstall)
     if test "$R_PHASE" = removed; then finish_removal; status; exit; fi
     test "$R_PHASE" = active || fail not_installed
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
+    uninstall_owned "$R_CURRENT" || fail state_changed
     snapshot_read "$R_CURRENT" || fail invalid_snapshot
-    # A legacy Undo could make someone else's startup edits the recorded current
-    # state. Only remove the startup integration that our package actually built.
-    hex "$S_PACKAGE" 64 && file "$D/composed/$S_PACKAGE/autostart" &&
-        test "$(sha "$AUTOSTART")" = "$(sha "$D/composed/$S_PACKAGE/autostart")" || fail state_changed
-    current_mode=$S_META
-    current_touch=$S_TOUCH; current_nvram=$S_NVRAM
     before=$(state_capture "$S_PACKAGE" "$S_TOUCH" "$S_WARNING") || fail checkpoint_failed
     snapshot_read "$R_BASE" || fail originals_changed
-    test "$current_mode" = "$S_META" || fail state_changed
-    # An exhausted startup budget may legitimately restore the baseline value
-    # while keeping touch enabled in preferences. Other legacy-Undo values are
-    # external edits, even when the old record adopted them as current.
-    if test "$current_nvram" != "$S_NVRAM"; then
-        test "$current_touch:$current_nvram" = 1:disable || fail state_changed
-    fi
     after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 "$S_NVRAM" "$S_META" "$D/snapshots/$before/dependencies") || fail plan_failed
     transaction_prepare uninstall "$before" "$after"
     transaction_reconcile

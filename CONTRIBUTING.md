@@ -21,6 +21,23 @@ blocking findings before merge. After changes, have the reviewer check the
 affected delta; a review of an earlier revision is not approval of new code.
 Keep this proportional: one focused review, not a standing review team.
 
+## Release implementation
+
+Complete the maintained USB install/restart/Settings/uninstall path. Targeted
+experiments resolve concrete blockers; another standalone preview is not delivery.
+Keep loader, UI and backend logic in static files. Make/shell invokes standard
+native compiler/linker tools and packages the bundle; build-generated content is
+compiled code and data manifests. `oc` is bench instrumentation, not a release
+build or product dependency. Python remains appropriate for existing host bench
+tools and tests; any release-build exception must meet STEERING.md's narrow
+native-compilation rule.
+
+Use one explicit UI/backend command contract and one authoritative durable
+transaction record with verified backups. Review interruption recovery and actual
+state reconciliation, not just the successful install path. Validate the actual
+CI bundle on the supported CMU. Installation and maintenance must work without
+SSH or a host computer. See [the steering agreement](STEERING.md#release-implementation).
+
 ## Host code
 
 ~~~sh
@@ -85,8 +102,9 @@ question this experiment answers, and evidence that would count as success.
 Check relevant existing implementations early and compare them with actual Mazda
 behavior. Label partial improvements and unproved proposals explicitly.
 
-Write a short approach and use one focused review. Reuse working orchestration,
-check its real entry point, then run the smallest useful bench experiment and undo.
+Write a short approach and use one focused review. Reuse working instrumentation,
+check the real release entry point, then qualify the complete flow and undo. Use
+a separate experiment only when a specific unknown blocks that qualification.
 Record firmware, bench profile, installed versus loaded code, and whether a
 failure occurred in the CMU or our tooling. Unknown outcomes stay unknown until
 reconciled. Tests and infrastructure must support the concrete question; avoid

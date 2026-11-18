@@ -88,11 +88,46 @@ The user supplies physical resources; the primary owns software execution.
 The bench supply may be power-cycled autonomously for experiments, without advance
 notice. Its voltage setting must remain unchanged.
 
+The `oc` CLI is only for bench instrumentation. Release packaging belongs in
+repository build scripts, invoked directly by CI and local developers, not in `oc`.
 Bench helpers are managed as one development profile: setup, status and teardown.
 No per-helper manual activation, new CMU menu or graphical UI is needed. A thin
 semantic CLI reuses working tools; Python on the host and POSIX sh on the CMU are
 the initial implementation. Extend it only for concrete tasks. See docs/cli.md. Command-only ephemeral agents can test usability, while the primary
 retains ownership of live state and the complete outcome.
+
+## Release implementation
+
+Deliver one CI-built bundle that an owner extracts onto USB and installs on the
+supported stock CMU. The small generic loader launches the installer payload.
+The UI and install/uninstall backend run on the CMU without a host computer,
+SSH, network access or `oc`. Preserve the runtime pieces needed for Settings and
+uninstall on the CMU; a compatible replacement USB must also support maintenance.
+
+Keep loader, UI and backend logic in checked-in static files. Runtime tokens,
+ports and paths are data. Build output should be compiled native code and
+checksum/version manifests, not generated shell or JavaScript application logic.
+Use Make/shell and standard compiler/linker tools directly. Do not write a Python
+packager or custom ELF linker. Python in the release build is allowed only if a
+specific native compilation need cannot reasonably use standard tools; this does
+not restrict existing Python bench instrumentation or host tests.
+
+Use one small, explicit UI/backend command contract, chosen against actual CMU
+capabilities. Do not carry image-request, short-lived receiver and D-Bus callback
+chains into the product merely because a preview used them. Keep the transport
+and allowed commands understandable; do not build another orchestration framework.
+
+The backend owns install, reinstall, uninstall and interruption recovery. Use
+one authoritative transaction record with explicit states and durable updates,
+plus verified original backups and the single uninstall checkpoint. Avoid
+scattered flags or receipts that independently claim operation state. Preserve
+unknown later edits and reconcile uncertain outcomes before further writes.
+
+Complete and bench-test the standalone installer as a clearly labeled development
+prerelease first. Qualify persistent everyday startup **immediately afterward**,
+including bounded failure recovery and ACC renewal. Limited trial boots are not a
+normal owner release. These are consecutive delivery steps, not parallel prototype
+tracks or an indefinite deferral of persistence.
 
 ## One required firmware baseline
 
@@ -110,11 +145,13 @@ multi-firmware support matrix. Historical experiments remain evidence after the 
 Reject unsupported version/region/base before writes; do not auto-port offsets.
 Additional regions, hardware generations and legacy release support are deferred.
 
-## Working style: hackathon
+## Working style: deliver the product
 
-**“Elaborate is failure.”** Prefer a working, understandable experiment over
-elaborate preparation. Build the smallest complete path from a useful question
-to a patch, an actual bench result and undo.
+**“Elaborate is failure.”** Stop delivering successive standalone prototypes.
+Complete the maintained release path: CI bundle, USB insertion, installation,
+restart, Settings and uninstall. Reuse proven feature behavior, while removing
+bench scaffolding from the product. A targeted experiment is justified only by
+a concrete unresolved blocker; integrate its result and retire the temporary path.
 
 Reverse engineering and code analysis are core work. Understand how the CMU makes
 decisions, manages resources and moves through its lifecycle so patches change
@@ -128,12 +165,11 @@ including native changes; it is separate from the user's real car. Backups and
 recovery enable experiments, rather than becoming an endless prerequisite project.
 Bench success does not automatically establish end-user release safety.
 
-Keep scope small enough to pivot. Infrastructure must unblock the current
-experiment or remove demonstrated repetition. Get exact-base checks, preserved
-originals, repeatable execution and independent undo right now. Reuse those pieces.
-Defer generalized plugin/configuration systems, broad compatibility and speculative
-workflows until a real second use requires them. Prefer a small replaceable helper
-over committing the project to an architecture early.
+Infrastructure must serve the current release or remove demonstrated repetition.
+Keep exact-base checks, preserved originals, repeatable execution and independent
+undo. Defer generalized plugin/configuration systems, broad compatibility and
+speculative workflows. Judge progress by the complete user flow, not another
+loader, harness or preview increment.
 
 Before choosing an implementation, define the user-visible outcome and the
 evidence that would establish it. A partial improvement may be a useful experiment;
@@ -189,10 +225,11 @@ the first AGPL release needs an independently distributable implementation.
 A clean bypass is the outcome; visual masking or timer reduction alone is not it.
 Do not indefinitely tune an unmeasured frame at the expense of a usable product.
 
-[PLAN.md](PLAN.md) orders the work and defines milestone exits. Firmware upgrade
-scoping is active now, alongside the next small bench helper. Native install/undo
-must account for loaded-module lifetime: restoring disk bytes does not unload it.
-Reuse the working hardlink-hold recovery instead of rebuilding tooling.
+[PLAN.md](PLAN.md) orders delivery: standalone installer, then persistent startup
+qualification, then the separate firmware move for the owner's car. Native
+install/undo must account for loaded-module lifetime: restoring disk bytes does
+not unload it. Reuse the working hardlink-hold recovery where native replacement
+requires it.
 
 ## Extension architecture direction
 
@@ -218,12 +255,12 @@ handling than previously confirmed ones. Any automatic retry policy must have a
 persistent finite limit; a startup-ready signal must not erase later-fault
 protection. Retry counts and reset classification remain proposed until qualified.
 
-Keep recovery proportional to the delivered feature. The Home-only supervisor
-is now a bounded developer prototype; freeze its scope while consolidating the
-working trial/status/disable path. Do not expand into reset-cause classification
-or every-screen health detection before useful feature development resumes.
-Intentional button resets must not silently replenish attempts or be blamed on
-a mod. Automatic everyday renewal waits for qualified ACC evidence.
+Keep recovery proportional to the delivered feature. Freeze expansion of the
+Home-only supervisor prototype. Immediately after the standalone installer
+prerelease, qualify the persistent startup and renewal policy needed for everyday
+use; avoid a universal health-detection project. Intentional button resets must
+not silently replenish attempts or be blamed on a mod. Automatic everyday renewal
+requires qualified ACC evidence.
 
 Use tooling/ for host code, cmu/ for bootstrap, adapters and features, and tests/
 for maintained checks. Experiments hold unfinished research, not dependencies of
@@ -259,6 +296,3 @@ in GitHub issues. Git preserves superseded plans.
 
 Maintain this document when goals or working agreements change, not after every
 command. Keep it short enough to read at the start of a session.
-
-Current repository layout (before the planned tooling/cmu split): tooling/open_connect is host code; tests covers it; experiments
-contains prototype mods; docs contains setup, usage and findings. Retired records belong in Git history. Keep one starting README and one current lab-state file.

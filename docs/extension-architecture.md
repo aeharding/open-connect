@@ -34,17 +34,26 @@ the previous startup reached Home before failing.
 “Baseline” means Open Connect features are off. The small installed integration
 point remains; this is different from uninstalling it.
 
-## Three responsibilities
+## Release responsibilities
 
 | Part | Job |
 | --- | --- |
-| Host tools | Build the selected features together from verified originals; install and recover them |
+| Build tools | Compile original native code with standard tools and package static installer files plus data manifests into one USB bundle |
+| CMU installer | Verify the unit's own originals, compose feature files, and own install/uninstall/recovery through one durable transaction record |
 | Early selector | Choose baseline or one configuration before affected services start |
 | Firmware adapters | Connect each feature to the Mazda component that owns its behavior |
+| Bench tools | Instrument and verify the device; installation must not depend on them |
 
-Use generated startup settings or temporary file views where possible. Add
-native or JS code where the behavior needs it. A runtime loader alone starts too
-late to control earlier services.
+The product path is a small static USB loader, static installer UI and a CMU-local
+backend. Use one explicit UI/backend command contract. Experimental image-request,
+receiver and D-Bus callback chains are evidence, not the default product design.
+Keep runtime tokens, paths and ports as data; avoid generated application scripts.
+The build uses Make/shell and standard compiler/linker tools, not a Python packager
+or custom ELF linker. Full OEM files stay on the head unit or in private research.
+
+Compose startup configuration from verified on-device originals where needed.
+Add native or JS code where the behavior needs it. A runtime loader alone starts
+too late to control earlier services.
 
 ## Product scope
 
@@ -115,6 +124,9 @@ explain the evidence and limits.
   [Bench comparison](reverse-engineering.md#acc-must-be-a-real-transition).
 - **Durability:** qualify interrupted record updates, beyond completed-flush cuts.
 
-Continue useful feature development with explicit trials while those production
-policies remain open. No general plugin framework is needed.
+First finish the standalone USB installer development prerelease with its limited
+startup behavior explicit. Immediately afterward, qualify the persistent startup
+policy above for the same installed features. Stop expanding standalone loader
+and supervisor prototypes; integrate necessary findings into the release path.
+No general plugin framework is needed.
 Track the work in [#25](https://github.com/aeharding/open-connect/issues/25).

@@ -17,7 +17,7 @@ jobs:
   host:
     name: Host checks
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       OC_WORKSPACE: ${{ github.workspace }}
     steps:
@@ -44,7 +44,7 @@ jobs:
           fi
           if (( ${#missing[@]} )); then
             sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 update -qq
-            sudo apt-get -y --no-install-recommends install "${missing[@]}"
+            sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -y --no-install-recommends install "${missing[@]}"
           fi
           echo "OC_LLD=$(command -v ld.lld)" >> "$GITHUB_ENV"
       - name: Offline host tests

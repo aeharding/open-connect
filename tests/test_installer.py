@@ -20,6 +20,17 @@ class InstallerControls(unittest.TestCase):
             check=True,
         )
 
+    @unittest.skipUnless(shutil.which("node"), "Node.js required")
+    def test_oem_settings_pages(self):
+        subprocess.run(
+            [
+                "node",
+                str(ROOT / "tests/fixtures/installer-settings.js"),
+                str(ROOT / "cmu/installer/settings.js"),
+            ],
+            check=True,
+        )
+
     def test_setting_compares_before_write_and_preserves_unknowns(self):
         # Ordinary files model reads, conflicts and commits to an existing key.
         # Only the actual target implements the kernel add/remove attributes.

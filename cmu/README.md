@@ -9,7 +9,16 @@ Source that runs on the device when a feature is explicitly tried.
 - installer/dialog.js: `OpenConnectInstaller.choose(framework, installed, onChoice)`
   opens Mazda’s dialog at Home. It reports `install`, `uninstall` or `cancel`
   once. A successful call returns a cancel function for USB removal. A busy GUI
-  returns false. The caller owns the device transaction.
+  returns false. Pass the package version as the fourth argument. After the
+  backend verifies installation, call `complete(framework, version, onChoice)`
+  for **Done** or **Open settings**.
+- installer/settings.js: `OpenConnectSettings.fromHome(framework, store, result)`
+  opens Mazda Settings and presents the Open Connect list. Register
+  `attach(framework, syssettingsApp, store)` once per app instance for the
+  System tab entry. The v55 adapter uses Mazda’s List2 template for both pages.
+  The owner supplies `read()` and `write(key, expected, requested, reply)`.
+  Values are 0 (Mazda default) or 1 (always enable touch or skip the warning).
+  Reply with the verified values, or null if readback failed.
 - adapters/fw55/: frontend and native integration for 55.00.750B NA.
 - startup/: one-shot selection, readiness, checked flush and file-publication templates.
 

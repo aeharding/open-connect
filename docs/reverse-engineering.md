@@ -3,7 +3,22 @@
 Findings apply to **55.00.750B North America** unless another version is named. Detailed original records
 remain in [Git history](https://github.com/aeharding/open-connect/tree/1e8efdfea264e4b31704d9e378da1f1b3be0ced6/docs/history).
 
-## Installer screen and touch setting on v55
+## Native installer and Settings on v55
+
+Open Connect uses Mazda’s `Dialog3Ctrl` for install and completion. **Open settings**
+takes the same route as the Home gear. **Settings → System → Open Connect** returns
+to the same list. Both the summary and the single-choice pages use `List2Tmplt`.
+Mazda’s time-zone picker supplies the radio-row pattern. After adding a System
+row, call `updateItems` following `setDataList` so the existing rows repaint.
+
+On 55.00.750B NA, commander-path input selected Install, opened Settings, and
+changed Touchscreen back to Mazda default. Independent NVRAM readback confirmed
+the change. Selecting **Show** for the disclaimer restored stock startup. The
+bench harness missed that save acknowledgement in the GUI. A fresh boot
+confirmed stock startup and the warning appeared. The bench Mac handled the
+writes over SSH. An autonomous USB installer and physical touch input remain untested.
+
+## Earlier installer and touch trials
 
 Mazda’s `Dialog3Ctrl` rendered an Open Connect dialog over Home. Virtual
 keyboard events sent through Mazda’s commander input path selected Install

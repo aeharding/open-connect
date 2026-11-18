@@ -8,8 +8,8 @@ check stock touch using the same display and cable before changing anything.
 Return preparation completed
 The outgoing unit booted its original systemApp.js, showed the stock disclaimer
 and reached Home. Its native MMUI library and autostart also match the saved
-originals. The physical root was read-only after restoration. The last observed
-boot ID was ac3abcc3-e152-46a3-9811-2a6c3268664c. The runtime-only audio profile
+originals. The physical root was read-only after restoration. The original boot was independently verified again in the
+November 17 native Settings trial. The runtime-only audio profile
 has no startup hook. An earlier setup receipt belongs to an earlier boot.
 All 32 identified trial directories (298 files) were archived, verified and
 removed. This restored the files touched by the trials. Firmware remains v55.
@@ -20,6 +20,7 @@ restored the originally absent display setting and removed their temporary GUI
 scripts and trial directories. The last run tied the Install and Uninstall choices
 to real bench operations. Screenshots and boot evidence are under
 runs/fw55-installer-flow-20261117/ and runs/fw55-installer-ui-20261117/.
+Native Settings readbacks and screen captures are in runs/fw55-radio-20261118004338-v2/.
 
 Bench connections
 The retrofit hub enumerates the SanDisk thumb drive and the Apple Ethernet

@@ -117,3 +117,10 @@ reply(null);
 delete fw.common._vuiHelpDialog;
 assert.equal(host.divElt.style.display,"");
 assert.equal(host.handleControllerEvent,input); assert.equal(fw.sendEventToMmui,send);
+
+settings.open(fw,store); back(); // dismiss the earlier interrupted failure
+settings.open(fw,store); pick(1); pick(0); idle();
+const originalRead = store.read; store.read=()=>{ throw Error("readback offline"); };
+assert.doesNotThrow(()=>reply(null));
+assert.match(pages.at(-1).ctrl.title.text1,/could not be confirmed/);
+store.read=originalRead; back();

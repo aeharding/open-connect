@@ -36,13 +36,16 @@ var OpenConnectSettings = (function () {
     // when the driver backs out while a prior write is still completing.
     function preferences(store) {
         if (session && session.owner === store) { return session; }
-        var saved = store.read();
+        function read() {
+            try { return store.read(); } catch (error) { return null; }
+        }
+        var saved = read();
         if (!valid(saved)) { return null; }
         var wanted = {}, busy = false, timer = null;
         var prefs = {owner: store, failure: null, changed: null};
         prefs.values = function () {
             if (!busy && !Object.keys(wanted).length) {
-                var current = store.read();
+                var current = read();
                 if (!valid(current)) { return null; }
                 saved = current;
             }
@@ -62,9 +65,7 @@ var OpenConnectSettings = (function () {
                 busy = false;
                 // A lost acknowledgement need not mean a failed write. Read
                 // once before reporting it. Never resend the same request.
-                if (!valid(actual)) {
-                    try { actual = store.read(); } catch (error) { actual = null; }
-                }
+                if (!valid(actual)) { actual = read(); }
                 if (valid(actual)) { saved = actual; }
                 if (!valid(actual) || (actual[key] !== requested && wanted[key] === requested)) {
                     delete wanted[key];
@@ -115,8 +116,8 @@ var OpenConnectSettings = (function () {
             active = false;
         }
         function render(index, focus) {
-            var values = prefs.values();
-            if (!values || prefs.failure) { index = "unknown"; focus = 0; }
+            var values = prefs.failure ? null : prefs.values();
+            if (!values) { index = "unknown"; focus = 0; }
             var rows = [], title = "Open Connect", i, row;
             if (index === null) {
                 for (i = 0; i < entries.length; i++) {

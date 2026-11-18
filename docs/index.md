@@ -1,28 +1,24 @@
 # Mazda Open Connect
 
-Optional improvements for first-generation Mazda Connect, keeping Mazda's look
-and feel.
+Two optional improvements, inside Mazda's own interface:
 
-## Can I install it?
+- **Touchscreen While Driving** — choose whether to keep Mazda's touch restriction.
+- **Startup disclaimer** — choose whether to show or skip the warning.
 
-A [USB development prerelease](usb-installer.md) supports exactly
-**55.00.750B North America**. It installs the touchscreen preference and startup
-disclaimer bypass, with persistent startup, native Settings, uninstall and Undo.
-The CI-built bundle has passed the documented bench lifecycle checks.
+Install from USB, change your choices in Mazda Settings, and uninstall there
+whenever you want to restore your previous setup.
 
-This is for development testing. Physical touch/motion qualification and the
-modern-firmware port remain before a normal owner release; v74 is unsupported.
+> **Available now: a development prerelease for 55.00.750B North America.**
+>
+> Bench testing continues; physical touch while moving is not yet qualified.
+> Firmware 74 support is in progress.
 
-[Installation and limits](usb-installer.md) ·
-[Download releases](https://github.com/aeharding/open-connect/releases)
+[Quick start](usb-installer.md){ .md-button .md-button--primary }
+[Settings](settings.md){ .md-button }
+[Uninstall](uninstall.md){ .md-button }
 
-## Want to help build it?
+## Building Open Connect?
 
-The **Development** section covers [bench wiring](bench-setup.md),
-[tools](cli.md), and [contributing](development.md).
-**CMU research** explains [how Mazda's system works](cmu/index.md) and
-[what we've tested](reverse-engineering.md).
-
-[Roadmap](https://github.com/aeharding/open-connect/blob/main/PLAN.md) ·
-[GitHub](https://github.com/aeharding/open-connect) ·
-[AGPL-3.0-or-later](https://github.com/aeharding/open-connect/blob/main/LICENSE)
+Start with [contributing](development.md), [bench setup](bench-setup.md) or
+[the installer development guide](installer-development.md).
+The [CMU research](cmu/index.md) section explains Mazda's system and our findings.

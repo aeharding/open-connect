@@ -1,0 +1,21 @@
+.oc-screen {
+  max-width: 40rem;
+  margin: 1.25rem 0 1.75rem;
+}
+.oc-screen-frame {
+  overflow: hidden;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: .4rem;
+  background: #000;
+}
+.oc-screen-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.oc-screen figcaption {
+  margin-top: .5rem;
+  color: var(--md-default-fg-color--light);
+  font-size: .8rem;
+  text-align: left;
+}

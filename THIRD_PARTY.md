@@ -5,10 +5,24 @@ Original Open Connect code and documentation are licensed under
 otherwise. See [LICENSE](LICENSE). Copyright 2026 Open Connect contributors.
 
 Mazda firmware, binaries, extracted full JavaScript files, device backups,
-credentials and raw captures are not distributed here. Local evidence paths and
+credentials and raw capture collections are not distributed here. Local evidence paths and
 hashes document research; they are not downloads or grants of rights to OEM code.
 Some integration tests require privately obtained exact firmware files and cannot
 run from a public checkout alone.
+
+## Documentation screenshots
+
+The six images in `docs/assets/guide/` show Open Connect **0.2.0-dev.1** running
+on Mazda firmware **55.00.750B NA**. They were captured directly from the CMU's
+Wayland display on November 18, 2026, without cropping or other image edits.
+Each was reviewed for personal data, credentials and diagnostic overlays.
+The published USB bundle used for capture has SHA-256
+`9555de935513672e2363898ff8d611d868d421501b399a6865587e6ec86eb8d1`.
+
+The images illustrate installation, completion, Settings, the two preferences
+and uninstall. Mazda's interface appears alongside Open Connect's additions;
+this documentation does not grant rights to Mazda's underlying interface or
+redistribute its source files or asset packages.
 
 ## USB bootstrap
 

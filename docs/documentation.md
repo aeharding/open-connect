@@ -38,6 +38,12 @@ The lab handoff, bench-state.txt, is deliberately excluded from the website.
 
 ## Keep the direction readable
 
+**Using Open Connect is for owners.** Organize it around Quick start, Settings
+and Uninstall. Use short numbered steps, the exact on-screen labels, current
+direct CMU screenshots and simple diagrams. Explain what to do and what happens
+next. Keep the firmware/prerelease limit visible; move build commands, backend
+mechanics and qualification evidence to Development or CMU research.
+
 Write feature introductions for people deciding whether they can use the feature:
 what changes, whether it is available, and where to go next. Put commands and
 test evidence in developer guides. Describe visible behavior in everyday language,
@@ -62,8 +68,11 @@ State what would disprove a hypothesis and what the next useful check is. Keep
 the prose concise. Put a new subsystem topic under **docs/cmu/** when it merits
 its own page; use the existing findings page for smaller results.
 
-Publish original explanations and sanitized evidence references. Do not add OEM
-source files, binaries, credentials, raw captures or incompatible comparison code.
+Publish original explanations and sanitized evidence references. Reviewed direct
+screenshots of the current Open Connect UI are allowed in owner guides; exclude
+personal data, credentials and diagnostic overlays. Keep their version/provenance
+with the asset notes. Do not publish raw capture collections, OEM source files,
+binaries, credentials or incompatible comparison code.
 Private evidence paths are provenance, not public downloads. Follow
 [THIRD_PARTY.md](https://github.com/aeharding/open-connect/blob/main/THIRD_PARTY.md).
 

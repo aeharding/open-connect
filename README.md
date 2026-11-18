@@ -7,7 +7,8 @@ disclaimer, with preferences and uninstall in Mazda Settings.
 
 **Bench-tested development prerelease.**
 The supported firmware is exactly **55.00.750B North America**.
-See the [USB installer guide](docs/usb-installer.md) for build, installation and limits.
+See [Quick start](docs/usb-installer.md) for installation and availability, or
+[Build and test the installer](docs/installer-development.md) for development.
 
 ## Start here
 
@@ -17,7 +18,7 @@ wiring, development guides and CMU reverse engineering.
 - **Build a bench:** [power, display and UART wiring](docs/bench-setup.md).
 - **Use a connected bench:** [CLI commands](docs/cli.md).
 - **Build the USB installer:** `make release`; no Python or `oc` is required.
-- **Follow the first feature:** [disclaimer bypass and availability](docs/disclaimer.md).
+- **Choose your preferences:** [Open Connect settings](docs/settings.md).
 - **Change the code:** install the host tools and run the offline tests below.
 - **Understand the Mazda behavior:** [findings](docs/reverse-engineering.md).
 - **Choose work:** [roadmap](PLAN.md) and [issues](https://github.com/aeharding/open-connect/issues).

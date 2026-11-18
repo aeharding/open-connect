@@ -3,8 +3,8 @@
 (function () {
     "use strict";
     var entry = document.getElementById("oc-usb-loader");
-    if (!entry || window.__ocUSBLoading || window.__ocUSB) { return; }
-    var token = entry.ocToken, port = entry.ocPort;
+    if (!entry || window.__ocUSBLoading) { return; }
+    var token = entry.ocToken;
     var base = entry.src.slice(0, entry.src.lastIndexOf("/") + 1);
     var stopped = false, nodes = [entry];
     var state = {token: token, cancel: finish};
@@ -18,15 +18,14 @@
     }
     function load(file, id, next) {
         if (stopped) { return; }
-        utility.loadScript(base + file, {id: id, ocToken: token, ocPort: port}, function () {
+        utility.loadScript(base + file, {id: id, ocToken: token}, function () {
             if (!stopped) { next(); }
         });
         nodes.push(document.getElementById(id));
     }
-    load("dialog.js", "oc-usb-dialog", function () {
-        load("usb-preview.js", "oc-usb-ui", function () {
-            OpenConnectPreview(token, port);
-            finish();
-        });
+    if (window.OpenConnect && OpenConnect.reopenUSB && OpenConnect.reopenUSB(token)) { finish(); return; }
+    load("runtime.js", "oc-usb-ui", function () {
+        OpenConnect.start(token, true);
+        finish();
     });
 }());

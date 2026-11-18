@@ -5,14 +5,16 @@ and feel.
 
 ## Can I install it?
 
-**Not in your car yet.** We're developing and testing on a bench. The first production
-release is planned to keep the touchscreen enabled and skip the startup warning.
+A [USB development prerelease](usb-installer.md) supports exactly
+**55.00.750B North America**. It installs the touchscreen preference and startup
+disclaimer bypass, with persistent startup, native Settings, uninstall and Undo.
+The CI-built bundle has passed the documented bench lifecycle checks.
 
-[See the disclaimer bypass](disclaimer.md) ·
-[Follow releases](https://github.com/aeharding/open-connect/releases)
+This is for development testing. Physical touch/motion qualification and the
+modern-firmware port remain before a normal owner release; v74 is unsupported.
 
-A simple USB installer is planned. Today's release is source code for developers
-working with **55.00.750B North America**.
+[Installation and limits](usb-installer.md) ·
+[Download releases](https://github.com/aeharding/open-connect/releases)
 
 ## Want to help build it?
 

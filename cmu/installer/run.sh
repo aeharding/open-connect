@@ -1,53 +1,45 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# USB preview only: validate before staging in RAM. Never remount or install.
+# Generic USB entry: validate, copy the entire payload into RAM, launch it.
 set -eu
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 LC_ALL=C
 export LC_ALL
 umask 077
-
-refuse() { logger -t open-connect "USB preview refused: $1"; exit 1; }
+refuse() { logger -t open-connect "USB refused: $1"; exit 1; }
 test "$(id -u)" = 0 || refuse privileges
 test "$(grep '^JCI_SW_VER=' /jci/version.ini)" = 'JCI_SW_VER="MAZ_CMU-150_55.00.750"' || refuse firmware
 test "$(grep '^JCI_SW_VER_PATCH=' /jci/version.ini)" = 'JCI_SW_VER_PATCH="B"' || refuse patch
 test "$(grep '^JCI_SW_FLAVOR=' /jci/version.ini)" = 'JCI_SW_FLAVOR="cmu150_NA"' || refuse region
-test "$(md5sum < /jci/gui/index.html)" = '0ad187b787e242953a9a7612f55bfcfb  -' || refuse frontend
-test "$(md5sum < /jci/gui/framework/js/GuiFramework.js)" = 'e90530cdb9b05922bdcaade8757ea1f9  -' || refuse framework
-
 source=$(dirname "$(readlink -f "$0")")
-case "$source" in /tmp/mnt/sd[a-d]1/open-connect) ;; *) refuse location ;; esac
+case "$source" in /tmp/mnt/sd[a-d]1/open-connect) ;; *) refuse location;; esac
 lock=/tmp/open-connect-usb.lock
-mkdir "$lock" 2>/dev/null || exit 0
-work=
-cleanup() {
-    if test -n "$work"; then
-        rm -f "$work/loader.js" "$work/dialog.js" "$work/usb-preview.js" "$work/session.sh" "$work/receiver" "$work/receiver.log" "$work/payload.sha256"
-        rmdir "$work"
-    fi
-    rmdir "$lock"
-}
+if test ! -e "$lock" && test ! -L "$lock"; then (set -C; : > "$lock") || exit 1; fi
+test -f "$lock" && test ! -L "$lock" && test "$(readlink -f "$lock")" = "$lock" || refuse lock
+exec 8<>"$lock"
+flock -n -x 8 || exit 0
+work=$(mktemp -d /tmp/oc-usb-XXXXXX)
+cleanup() { rm -f "$work"/*; rmdir "$work"; }
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
-work=$(mktemp -d /tmp/oc-usb-XXXXXX)
-test -f "$source/payload.sha256" && test ! -L "$source/payload.sha256" || refuse manifest
-cp "$source/payload.sha256" "$work/payload.sha256"
-test "$(wc -l < "$work/payload.sha256")" -eq 5 || refuse manifest
-for file in loader.js dialog.js usb-preview.js session.sh receiver; do
-    test -f "$source/$file" && test ! -L "$source/$file" || refuse payload
-    cp "$source/$file" "$work/$file"
-    expected=$(awk -v name="$file" '$2==name && NF==2 {n++; hash=$1} END {if(n!=1)exit 1;print hash}' "$work/payload.sha256") || refuse manifest
-    test "${#expected}" -eq 64 || refuse manifest
-    case "$expected" in *[!a-f0-9]*) refuse manifest ;; esac
-    # Hash the staged bytes, not a file that could disappear with the USB drive.
-    actual=$(openssl dgst -sha256 < "$work/$file") || refuse checksum
-    test "${actual##* }" = "$expected" || refuse checksum
-done
-chmod 700 "$work/receiver"
-token=$(tr -d '-' < /proc/sys/kernel/random/uuid).$(cat /proc/sys/kernel/random/boot_id)
-logger -t open-connect "OCUSB|$token|start"
-# Release Mazda's update scanner immediately; the staged session owns cleanup.
-cd "$work"
-sh "$work/session.sh" "$work" "$source" "$token" </dev/null >/dev/null 2>&1 &
+test -f "$source/files.sha256" && test ! -L "$source/files.sha256" || refuse manifest
+cp "$source/files.sha256" "$work/files.sha256"
+count=0
+while read -r digest name extra; do
+    test "${#digest}" -eq 64 && test -n "$name" && test -z "$extra" || refuse manifest
+    case "$digest" in *[!a-f0-9]*) refuse manifest;; esac
+    case "$name" in .|..|*[!a-zA-Z0-9.-]*) refuse manifest;; esac
+    test ! -e "$work/$name" && test ! -L "$work/$name" || refuse duplicate
+    test -f "$source/$name" && test ! -L "$source/$name" || refuse payload
+    test "$(stat -c %s "$source/$name")" -lt 2097152 || refuse payload_size
+    cp "$source/$name" "$work/$name"
+    actual=$(openssl dgst -sha256 < "$work/$name") || refuse checksum
+    test "${actual##* }" = "$digest" || refuse checksum
+    count=$((count+1)); test "$count" -le 64 || refuse payload_count
+done < "$work/files.sha256"
+test -f "$work/session.sh" && test -f "$work/api" && test -f "$work/flush" || refuse payload
+chmod 700 "$work/api" "$work/flush"
+# Release Mazda's update scanner; the session owns the staged files and lock.
+sh "$work/session.sh" "$work" "$source" </dev/null >/dev/null 2>&1 &
 trap - EXIT

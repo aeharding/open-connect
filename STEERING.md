@@ -1,6 +1,6 @@
 # Open Connect — living steering agreement
 
-Last updated: 2026-11-17, from the user's explicit direction.
+Last updated: 2026-11-18, from the user's explicit direction.
 
 Read this first when starting or resuming work. It records product intent and how
 we work; it is not a run log or an approval checklist. New user direction takes
@@ -123,11 +123,12 @@ plus verified original backups and the single uninstall checkpoint. Avoid
 scattered flags or receipts that independently claim operation state. Preserve
 unknown later edits and reconcile uncertain outcomes before further writes.
 
-Complete and bench-test the standalone installer as a clearly labeled development
-prerelease first. Qualify persistent everyday startup **immediately afterward**,
-including bounded failure recovery and ACC renewal. Limited trial boots are not a
-normal owner release. These are consecutive delivery steps, not parallel prototype
-tracks or an indefinite deferral of persistence.
+The first standalone installer development prerelease includes persistent startup:
+install once, remove the USB, and retain the features across ordinary ignition
+cycles and reboots. Verify repeated starts, bounded failure recovery and the
+renewal policy as part of that same delivery. Do not ship the bench's limited
+trial-boot policy as the installer outcome. Label remaining qualification limits
+plainly without making persistence a separate later milestone.
 
 ## One required firmware baseline
 
@@ -225,8 +226,8 @@ the first AGPL release needs an independently distributable implementation.
 A clean bypass is the outcome; visual masking or timer reduction alone is not it.
 Do not indefinitely tune an unmeasured frame at the expense of a usable product.
 
-[PLAN.md](PLAN.md) orders delivery: standalone installer, then persistent startup
-qualification, then the separate firmware move for the owner's car. Native
+[PLAN.md](PLAN.md) orders delivery: standalone installer with persistent startup,
+then the separate firmware move for the owner's car. Native
 install/undo must account for loaded-module lifetime: restoring disk bytes does
 not unload it. Reuse the working hardlink-hold recovery where native replacement
 requires it.
@@ -242,8 +243,8 @@ persistent edits that need repair before stock startup can resume.
 The revised [architecture proposal](docs/extension-architecture.md) recommends a
 small pre-consumer selector, immutable composed configurations and per-feature
 adapters. The early boundary has one-shot warm-boot and controlled native/JS fault evidence.
-Power cuts after completed record flushes passed; interrupted writes and persistent
-feature policy remain unqualified.
+The standalone installer now implements persistent startup; its bounded recovery
+and interruption evidence and remaining limits belong in the USB guide.
 Keep requested disable, verified baseline startup, automatic failed-start detection
 and full uninstall distinct. No hot-unload or universal crash-recovery promise.
 
@@ -256,11 +257,16 @@ persistent finite limit; a startup-ready signal must not erase later-fault
 protection. Retry counts and reset classification remain proposed until qualified.
 
 Keep recovery proportional to the delivered feature. Freeze expansion of the
-Home-only supervisor prototype. Immediately after the standalone installer
-prerelease, qualify the persistent startup and renewal policy needed for everyday
-use; avoid a universal health-detection project. Intentional button resets must
+Home-only supervisor prototype. Include persistent startup and its renewal policy
+in the standalone installer prerelease; avoid a universal health-detection
+project. Intentional button resets must
 not silently replenish attempts or be blamed on a mod. Automatic everyday renewal
 requires qualified ACC evidence.
+
+Recovery disables the disclaimer bypass for the fallback boot and restores the
+pre-install touchscreen setting. Mazda reads that setting before our hook, so
+the restored value takes effect on the next boot. Do not add a forced recovery
+restart solely to apply it; this is the user's accepted prerelease behavior.
 
 Use tooling/ for host code, cmu/ for bootstrap, adapters and features, and tests/
 for maintained checks. Remove superseded research probes and their separate CI

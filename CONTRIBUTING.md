@@ -25,6 +25,8 @@ Keep this proportional: one focused review, not a standing review team.
 
 Complete the maintained USB install/restart/Settings/uninstall path. Targeted
 experiments resolve concrete blockers; another standalone preview is not delivery.
+The installer prerelease includes persistent features after USB removal and
+ordinary restarts, with repeated-start and bounded-recovery checks.
 Keep loader, UI and backend logic in static files. Make/shell invokes standard
 native compiler/linker tools and packages the bundle; build-generated content is
 compiled code and data manifests. `oc` is bench instrumentation, not a release

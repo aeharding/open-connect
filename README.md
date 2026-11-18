@@ -2,11 +2,12 @@
 
 Improve first-generation Mazda Connect while preserving Mazda's look and feel:
 startup behavior, unused services, logging/performance, controls and connectivity.
-The first production release is planned to keep the touchscreen enabled and
-skip the startup disclaimer.
+The first USB installer keeps the touchscreen enabled and skips the startup
+disclaimer, with preferences and uninstall in Mazda Settings.
 
-**Development project, not an end-user installer.**
-The supported bench firmware is **55.00.750B North America**.
+**Bench-tested development prerelease.**
+The supported firmware is exactly **55.00.750B North America**.
+See the [USB installer guide](docs/usb-installer.md) for build, installation and limits.
 
 ## Start here
 
@@ -15,6 +16,7 @@ wiring, development guides and CMU reverse engineering.
 
 - **Build a bench:** [power, display and UART wiring](docs/bench-setup.md).
 - **Use a connected bench:** [CLI commands](docs/cli.md).
+- **Build the USB installer:** `make release`; no Python or `oc` is required.
 - **Follow the first feature:** [disclaimer bypass and availability](docs/disclaimer.md).
 - **Change the code:** install the host tools and run the offline tests below.
 - **Understand the Mazda behavior:** [findings](docs/reverse-engineering.md).

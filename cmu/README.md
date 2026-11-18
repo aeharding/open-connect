@@ -1,44 +1,46 @@
 # CMU code
 
-Source that runs on the device when a feature is explicitly tried.
+This directory contains the code installed or run on the head unit. Host bench
+instrumentation lives in `tooling/open_connect/` and is never installed here.
 
-- features/disclaimer/: the native startup change.
-- features/touch/setting.sh: read the v55 display restriction or change it from a
-  known value. The installer must save the value before install. Uninstall can
-  restore `absent`, `enable` or `disable`. The display service reads it at startup.
-- installer/dialog.js: `OpenConnectInstaller.choose(framework, installed, onChoice)`
-  opens Mazda’s dialog at Home. It reports `install`, `uninstall` or `cancel`
-  once. A successful call returns a cancel function for USB removal. A busy GUI
-  returns false. Pass the package version as the fourth argument. After the
-  backend verifies installation, call `complete(framework, version, onChoice)`
-  for **Done** or **Open settings**.
-- installer/run.sh, session.sh and loader.js: the bounded, RAM-only USB
-  bootstrap for v55. Validate and stage a payload, then return immediately to
-  Mazda's updater. A short deferred browser call loads the payload in the existing
-  document. The payload owns the UI; the bootstrap supplies a session token and
-  a bounded loopback reply receiver. usb-preview.js currently shows only Cancel.
-  This preview installs no features and leaves no startup hook.
-- installer/settings.js: `OpenConnectSettings.fromHome(framework, store, result)`
-  opens Mazda Settings and presents the Open Connect list. Register
-  `attach(framework, syssettingsApp, store)` once per app instance for the
-  System tab entry. The v55 adapter uses Mazda’s List2 template for both pages.
-  The owner supplies `read()` and `write(key, expected, requested, reply)`.
-  Values are 0 (Mazda default) or 1 (always enable touch or skip the warning).
-  The radio changes immediately. Writes run in the background and survive
-  leaving the page. Reply with verified values, or null on an uncertain write.
-  A fresh read can reconcile an acknowledgement that went missing.
-  Load `dialog.js` alongside `settings.js`. About reads `store.version` from the
-  installed package. Supply the installer's removal callback as `store.uninstall`
-  to enable Uninstall. The view calls it once after confirmation.
-- adapters/fw55/: frontend and native integration for 55.00.750B NA.
-- startup/: one-shot selection, readiness, checked flush and file-publication templates.
+## Standalone installer
 
-`make release` compiles native code with Clang/LLD and packages static files with
-Make/shell. The USB scripts and JavaScript are copied byte for byte; only checksum
-data is generated. This directory contains no OEM firmware.
+| Files in `installer/` | Responsibility |
+| --- | --- |
+| `run.sh`, `session.sh`, `loader.js` | Validate and stage USB files in RAM, then launch the authored UI in Mazda's existing browser |
+| `api.c`, `service.sh` | A bounded local POST parser under BusyBox `tcpsvd`; session-token validation and service ownership |
+| `runtime.js`, `dialog.js`, `settings.js` | One command contract, Mazda dialogs and native Settings pages |
+| `backend.sh`, `transaction.sh`, `state.sh` | Install, preferences, uninstall, undo and interrupted-operation reconciliation |
+| `firmware.sh`, `mmui.S`, `intro.js`, `system-route.js` | Exact v55 guards and composition from this unit's saved originals |
+| `startup-hook.sh`, `boot.sh`, `ignition.sh` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
 
-Host bench tooling in tooling/open_connect/firmware55 prepares private firmware
-copies for controlled verification. The maintained tests exercise the installer
-views directly. There is no separate controls-only distribution or research-probe
-build. Connecting the standalone install/uninstall backend remains tracked in
-[issue 7](https://github.com/aeharding/open-connect/issues/7).
+The browser sends `POST /control` to `127.0.0.1:35555`, with `Content-Type:
+text/plain` and body `token|revision|operation|arg0|arg1|arg2`. Missing arguments
+are `-`. Responses are JSON. The 32-character session token is data supplied by
+the loader or a meta element in the privately composed index. The revision binds
+the current snapshot; pending recovery uses its unique transaction revision.
+Allowed operations are `status`, `install`, `set`, `uninstall`, `undo`, `recover`,
+`restart` and `dismiss`. No shell commands or paths come from browser input.
+
+The only authoritative durable operation/startup record is
+`/tmp/mnt/data_persist/open-connect/record`. It references immutable originals,
+packages and before/after snapshots. A prepared record is flushed before target
+writes. Recovery accepts only the prepared before/after values; unknown later
+changes stop the operation. Checked file and directory flushes precede commit.
+
+Only the startup integration and Mazda's touchscreen NVRAM value change in place.
+The native libraries, service configuration, index and paired JavaScript are
+composed privately and copied into a fixed RAM directory for the selected boot.
+Update and uninstall leave that boot's mapped native bytes intact until restart.
+The root filesystem is returned to read-only after startup-file publication.
+
+`features/touch/setting.sh` compares the expected NVRAM value before changing and
+committing it. It preserves the distinction between absent, enable and disable.
+`features/disclaimer/` contains the independently authored native bypass.
+`startup/` also contains the existing host-driven trial helpers; they are bench
+instrumentation, not the product's persistence policy.
+
+`make release` uses standard Clang/LLD/llvm-objcopy and Make/shell packaging.
+Authored shell and JavaScript files are copied unchanged; only compiled assets
+and data manifests are generated. No OEM firmware or host Python is bundled.
+See the [USB guide](../docs/usb-installer.md) and [uninstall behavior](../docs/uninstall.md).

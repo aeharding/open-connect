@@ -13,6 +13,8 @@ exclude_docs = "/bench-state.txt"
 nav = [
   { "Using Open Connect" = [
     { "Overview" = "index.md" },
+    { "USB installer" = "usb-installer.md" },
+    { "Uninstall and Undo" = "uninstall.md" },
     { "Disclaimer bypass" = "disclaimer.md" },
   ] },
   { "Development" = [
@@ -22,7 +24,6 @@ nav = [
     { "Test the disclaimer bypass" = "disclaimer-development.md" },
     { "Measure CarPlay" = "carplay-testing.md" },
     { "Architecture" = "extension-architecture.md" },
-    { "Uninstall direction" = "uninstall.md" },
     { "Edit these docs" = "documentation.md" },
   ] },
   { "CMU research" = [

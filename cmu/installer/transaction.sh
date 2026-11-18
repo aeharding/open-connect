@@ -1,0 +1,110 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# The record is committed before any target is changed. Recovery completes that
+# exact transaction, accepting only the prepared before/after state of each target.
+# The caller holds the operation lock and supplies the firmware-specific adapters.
+
+settled() { case "$R_PHASE" in active|removed) true;; *) false;; esac; }
+
+dependencies_match() {
+    local digest name extra target expected= actual snapshot=$1
+    snapshot_verify "$1" || return 1
+    set --
+    while read -r digest name extra; do
+        hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1
+        target=$(dependency_path "$name") || return 1
+        file "$target" || return 1
+        set -- "$@" "$target"
+        expected="$expected$digest *$target
+"
+    done < "$D/snapshots/$snapshot/dependencies"
+    test "$#" -gt 0 || return 0
+    actual=$(openssl dgst -sha256 -r "$@") || return 1
+    test "$actual" = "${expected%?}"
+}
+
+dependencies_pair_match() {
+    dependencies_match "$1" || return 1
+    # Settings and uninstall keep the same dependency bytes. Check them once.
+    if cmp -s "$D/snapshots/$1/dependencies" "$D/snapshots/$2/dependencies"; then
+        snapshot_verify "$2"
+    else
+        dependencies_match "$2"
+    fi
+}
+
+targets_match() {
+    snapshot_read "$1" && file "$AUTOSTART" &&
+        test "$(sha "$AUTOSTART")" = "$(sha "$D/snapshots/$1/autostart")" &&
+        test "$(stat -c '%a:%u:%g' "$AUTOSTART")" = "$S_META" &&
+        test "$(nvram_read)" = "$S_NVRAM"
+}
+
+state_capture() (
+    set -eu
+    local deps result
+    deps=$(mktemp "$D/.dependencies-XXXXXX") || fail checkpoint_create_failed
+    dependencies_capture "$1" > "$deps" || fail checkpoint_dependencies_failed
+    result=$(snapshot_create "$AUTOSTART" "$1" "$2" "$3" "$(nvram_read)" "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$deps") || fail checkpoint_failed
+    rm "$deps"
+    printf '%s\n' "$result"
+)
+
+transaction_prepare() {
+    # phase, before, after; preserve originals and the uninstall checkpoint.
+    settled || fail operation_pending
+    snapshot_read "$2" && snapshot_read "$3" || fail invalid_plan
+    targets_match "$2" && dependencies_pair_match "$2" "$3" || fail state_changed
+    R_PHASE=$1; R_BEFORE=$2; R_AFTER=$3
+    record_write
+    PREPARED_REV=$R_REV
+}
+
+transaction_reconcile() {
+    settled && return
+    local before_hash after_hash before_mode after_mode before_nv after_nv actual_hash actual_mode actual_nv phase
+    phase=$R_PHASE
+    snapshot_read "$R_BEFORE" || fail invalid_before
+    before_hash=$(sha "$D/snapshots/$R_BEFORE/autostart"); before_mode=$S_META; before_nv=$S_NVRAM
+    snapshot_read "$R_AFTER" || fail invalid_after
+    after_hash=$(sha "$D/snapshots/$R_AFTER/autostart"); after_mode=$S_META; after_nv=$S_NVRAM
+    # A fresh process recovering a pending record must verify both sets again.
+    # The immediate caller just did this before committing the same record.
+    if test "${PREPARED_REV:-}" != "$R_REV"; then
+        dependencies_pair_match "$R_BEFORE" "$R_AFTER" || fail dependencies_changed
+    fi
+    file "$AUTOSTART" || fail startup_changed
+    actual_hash=$(sha "$AUTOSTART"); actual_mode=$(stat -c '%a:%u:%g' "$AUTOSTART"); actual_nv=$(nvram_read) || fail nvram_unreadable
+    case "$actual_hash:$actual_mode" in "$before_hash:$before_mode"|"$after_hash:$after_mode") ;; *) fail startup_changed;; esac
+    case "$actual_nv" in "$before_nv"|"$after_nv") ;; *) fail nvram_changed;; esac
+    # Install the recovery entry before changing NVRAM. Remove it last on
+    # uninstall. Re-committing a matching NVRAM value repairs an interrupted commit.
+    if test "$phase" != uninstall; then
+        startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
+    fi
+    nvram_change "$actual_nv" "$after_nv" || fail nvram_commit_failed
+    if test "$phase" = uninstall; then
+        startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
+    fi
+    targets_match "$R_AFTER" && dependencies_match "$R_AFTER" || fail final_verification_failed
+    R_CURRENT=$R_AFTER
+    case "$phase" in
+        uninstall) R_PHASE=removed; R_UNDO=$R_BEFORE; R_NOTICE=removed; R_BUDGET=0;;
+        undo) R_PHASE=active; R_UNDO=-; R_NOTICE=undone; R_BUDGET=3;;
+        install) R_PHASE=active; R_UNDO=-; R_NOTICE=installed; R_BUDGET=3;;
+        set) R_PHASE=active; R_NOTICE=restart; R_BUDGET=3;;
+        apply) R_PHASE=active;;
+    esac
+    R_BEFORE=-; R_AFTER=-
+    if test "$phase" != apply; then R_OFF=-; R_BOOT=-; fi
+    record_write
+}
+
+undo_prepare() {
+    test "$R_PHASE" = removed && hex "$R_UNDO" 64 || fail undo_unavailable
+    # This also checks the retained package and composed bytes. Unknown later
+    # changes are never overwritten or merged by undo.
+    targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" &&
+        dependencies_match "$R_UNDO" || fail state_changed
+    transaction_prepare undo "$R_CURRENT" "$R_UNDO"
+}

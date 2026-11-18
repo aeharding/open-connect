@@ -1,6 +1,6 @@
 # Open Connect — roadmap
 
-Updated 2026-11-17. Primary developer owns delivery. This is the working roadmap,
+Updated 2026-11-18. Primary developer owns delivery. This is the working roadmap,
 refined as experiments change the evidence; dates are not promised.
 [STEERING.md](STEERING.md) defines intent. GitHub issues track execution.
 
@@ -60,28 +60,14 @@ baseline. A development prerelease is not a general end-user car release.
 
 ## Execution order now
 
-Complete the maintained release implementation. The USB bootstrap and native
-Settings controls have bench evidence; the existing host-driven transaction and
-startup prototypes are inputs to this work, not the delivered installer.
+The v55 standalone development installer now has the maintained CI-to-USB path,
+persistent startup and native Settings/uninstall. Bench checks covered reinstall,
+one interrupted transaction, conflicting edits, Undo, ACC renewal and finite
+late-fault recovery. See the [USB guide](docs/usb-installer.md) for evidence and
+limits. This completes the installer prerelease step; it does not complete the
+production-release qualification in [#7](https://github.com/aeharding/open-connect/issues/7).
 
-1. **Standalone installer prerelease — [#7](https://github.com/aeharding/open-connect/issues/7).**
-   CI produces one USB bundle for **55.00.750B NA**. Static loader, installer UI
-   and CMU-local backend perform install, restart, Settings and uninstall without
-   a host computer. Use Make/shell and standard native tools, with generated data
-   manifests only. `oc` remains bench instrumentation. Verify reinstall,
-   interruption recovery, conflicting edits, undo and compatible replacement-USB
-   maintenance using one authoritative transaction record and preserved originals.
-   Test the actual CI artifact on the bench and publish it as a development
-   prerelease with the limited startup behavior stated plainly.
-2. **Persistent startup qualification — immediately next, [#25](https://github.com/aeharding/open-connect/issues/25).**
-   Qualify everyday repeated starts and finite failure recovery for the same
-   installed features. Establish when a completed ignition shutdown can renew
-   attempts; quick ACC resume, intentional reset and watchdog reset must not
-   accidentally replenish them. Test interrupted durable updates, late faults,
-   last-app and display-off behavior where they affect the delivered features.
-   Reaching Home alone is not proof of recovery. Finish this before claiming a
-   normal owner release; do not start another unrelated prototype track.
-3. **Replacement touch qualification and the separate firmware move.**
+1. **Replacement touch qualification and the separate firmware move.**
    On the replacement CMU, confirm its identity and compare stock touch with the
    same display and cable. Complete [#60](https://github.com/aeharding/open-connect/issues/60)
    and the [#6](https://github.com/aeharding/open-connect/issues/6) feature checks.
@@ -89,7 +75,7 @@ startup prototypes are inputs to this work, not the delivered installer.
    [#2](https://github.com/aeharding/open-connect/issues/2), then port and requalify
    on the selected modern baseline before the owner's real-car installation.
    Physical dependencies gate only the checks that actually need them.
-4. **Measured CarPlay reliability — [#8](https://github.com/aeharding/open-connect/issues/8)
+2. **Measured CarPlay reliability — [#8](https://github.com/aeharding/open-connect/issues/8)
    and [#9](https://github.com/aeharding/open-connect/issues/9).**
    Define cold-start connection/readiness measurements and investigate the actual
    wireless implementation before choosing a performance change. Keep the
@@ -99,7 +85,7 @@ startup prototypes are inputs to this work, not the delivered installer.
 Reuse the [bench workflow](docs/cli.md#developer-feature-trial) for instrumentation
 and observation. Existing one-shot composition, fault and power-cut results are
 summarized in the [architecture evidence](docs/extension-architecture.md#evidence-so-far).
-They establish useful mechanisms, not production persistence. Keep experiments
+The installer uses the qualified mechanisms described in its guide. Keep experiments
 only when they resolve a named release blocker, then integrate the result.
 
 One primary owns one implementation path, bench qualification and integration.
@@ -113,12 +99,10 @@ performs a reinstall; interrupted transactions are handled internally. No separa
 Repair or Change options UI. Add feature selection only when multiple useful
 features exist.
 
-Intended conflict behavior: save current state before restoring pre-install
-originals, and allow that uninstall to be reversed. Later relevant edits mean
-stop and preserve everything. Implement one authoritative durable transaction
-record with verified original backups and one uninstall checkpoint. The exact
-record format and interruption handling must be tested against the actual installer.
-See [the working uninstall direction](docs/uninstall.md).
+Uninstall saves current affected state before restoring pre-install originals.
+One checkpoint allows that uninstall to be reversed; later relevant edits make
+Undo stop and preserve everything. The installer uses one authoritative durable
+record with verified originals and snapshots. See [uninstall behavior](docs/uninstall.md).
 
 Necessary infrastructure: exact-base validation, verified original backups,
 repeatable execution, one clear UI/backend command contract and independent undo.

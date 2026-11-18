@@ -1,13 +1,17 @@
 # Architecture direction
 
-**Working proposal, backed by composition and fault tests on 55.00.750B NA.**
+**Architecture research on 55.00.750B NA.** The maintained
+[USB installer](usb-installer.md) now implements persistent startup with a finite
+attempt budget and ACC-based renewal. Its [qualification evidence](reverse-engineering.md#standalone-installer-backend)
+supersedes the trial-only renewal limits below.
+
 Service policy, logging and native/JS code worked under one selection.
 A real native/JS feature now ran from selected files, then was omitted on the
 next boot without restoring installed feature files. Fault tests support finite
 fallback. A Home-only independent deadline now recovered one stuck-logo startup;
-other startup paths and automatic renewal remain open.
+other startup paths remain outside that Home-specific experiment.
 
-## The idea
+## Earlier trial mechanism
 
 Select one complete Open Connect configuration **before Mazda's services start**.
 On a fallback boot, skip its changes and let Mazda start normally.
@@ -119,14 +123,13 @@ explain the evidence and limits.
   further measured trials. Repeated healthy starts and last-app/display-off
   qualification are needed before treating Home as a broader health policy.
   [Actual signal and limits](reverse-engineering.md#a-home-specific-acknowledgement).
-- **Renewal:** identify what evidence of a completed ignition shutdown is available
-  on the next boot. Replay a quick resume and a watchdog reset as negative cases.
-  [Bench comparison](reverse-engineering.md#acc-must-be-a-real-transition).
+- **Renewal:** the installer now uses sustained ACC off followed by a different
+  kernel boot with ACC on. Full shutdown, quick resume, software reset and a late
+  watchdog fault were checked. Broader vehicle conditions remain unqualified.
 - **Durability:** qualify interrupted record updates, beyond completed-flush cuts.
 
-First finish the standalone USB installer development prerelease with its limited
-startup behavior explicit. Immediately afterward, qualify the persistent startup
-policy above for the same installed features. Stop expanding standalone loader
-and supervisor prototypes; integrate necessary findings into the release path.
+The standalone USB installer development prerelease includes persistent startup
+for the installed features. Its transaction and lifecycle checks are described
+in the USB guide. The bench's limited trial policy remains instrumentation.
 No general plugin framework is needed.
 Track the work in [#25](https://github.com/aeharding/open-connect/issues/25).

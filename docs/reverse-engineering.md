@@ -20,7 +20,8 @@ changed Touchscreen back to Mazda default. Independent NVRAM readback confirmed
 the change. Selecting **Show** for the disclaimer restored stock startup. The
 bench harness missed that save acknowledgement in the GUI. A fresh boot
 confirmed stock startup and the warning appeared. The bench Mac handled the
-writes over SSH. An autonomous USB installer and physical touch input remain untested.
+writes over SSH. At that stage, autonomous USB installation and physical touch
+input were untested; the standalone installer evidence below supersedes the USB limit.
 
 ## Earlier installer and touch trials
 
@@ -91,15 +92,70 @@ The static-file refactor also passed launch, Cancel, reinsertion, removal and
 deadline cleanup. The separately loaded dialog and UI need no generated JavaScript.
 The [CI-built Make/shell bundle](https://github.com/aeharding/open-connect/actions/runs/44243108343)
 passed automatic USB launch and Cancel cleanup on the same stock v55 baseline.
-Refactor evidence is in `runs/usb-installer-20261118/`; the independent installer
-backend remains unfinished.
+Refactor evidence is in `runs/usb-installer-20261118/`. That Cancel-only payload
+has since been replaced by the standalone installer.
 
 Earlier private evidence: `runs/usb-bootstrap-20261118/`, including the `build-v6` file
 manifest, insertion/cancellation/removal receipts and screen captures. This
 establishes the bootstrap at Home only. Cold insertion, v74, the autonomous
 install/uninstall transaction and release qualification remain separate work.
-[Build the preview](cli.md#usb-bootstrap-preview) ·
+[Build the current installer](usb-installer.md) ·
 [Installer work](https://github.com/aeharding/open-connect/issues/7)
+
+## Standalone installer backend
+
+Stock v55 BusyBox includes `tcpsvd` and `flock`. Its `httpd` has no CGI support
+and rejects POST with 501. Opera successfully sent a plain-text POST to a
+loopback `tcpsvd` worker and read its JSON response with the CORS response header.
+The maintained installer uses one small compiled request parser and static shell
+backend, replacing the preview's image acknowledgement and short-lived receiver.
+
+The bundle from [CI run 44267661925](https://github.com/aeharding/open-connect/actions/runs/44267661925)
+(`8370d73`) installed from empty installer state through the native USB dialog,
+restarted into privately composed RAM native/JS files, reached Home and opened
+native Settings. With USB removed, Settings uninstall restored original startup,
+NVRAM and mappings. Earlier qualification revisions exercised reinstall with
+preferences retained and the lifecycle/fault cases below; the final bundle change
+only corrected failed-composition error output.
+
+The startup file's original metadata is `775:1018:3015`;
+retaining only its bytes or assuming root ownership is insufficient. Original
+native/JS files on root stay unchanged; the selected RAM files live until reboot.
+
+The installed policy starts with three attempts. A full ACC-off shutdown reached
+0.002 A standby; the next kernel boot renewed the allowance and consumed one.
+A 1.426-second ACC interruption resumed the same kernel without changing the
+record. Two software resets consumed the remaining attempts. An Opera fault
+after Home then caused watchdog recovery, rather than earning fresh attempts.
+
+The first exhausted-budget trial restored the stock native configuration but
+hit the hook's 25-second deadline before restoring touchscreen NVRAM. Repeated
+OpenSSL startup dominated verification. Batching the same package/dependency
+checks reduced three paired measurements from 4.90–5.03 s to 2.39–2.45 s and CPU
+time from 1.96–1.97 s to 0.43–0.45 s. Reported maximum resident set was 5,552 KiB
+before and 5,600 KiB after; filesystem input/output counters were zero in both.
+These repeated post-boot checks reused cached files and measure verification,
+not total boot time or cold-storage performance.
+With that fix, a separately prepared exhausted budget and late Opera fault
+produced one watchdog reboot, stock mappings, restored NVRAM and read-only root.
+There was no forced second restart. The display service reads its restriction
+before our hook, so the restored touchscreen value applies on the next boot.
+
+A controlled B+ interruption tested one real pending preference transaction.
+After its prepared record was flushed and NVRAM changed, the owned backend was
+paused and supply output cycled without changing voltage. The next boot completed
+the recorded transaction, selected the requested configuration and left root
+read-only. This tests that interruption point, not every possible storage failure.
+Host tests separately inject failed writes and ambiguous target states.
+
+Uninstall with a deliberately changed startup file saved its exact bytes,
+metadata and preferences, restored the pre-install startup/NVRAM and restarted
+with original native mappings. A later edit made Undo refuse without changing
+that file or the transaction record. After removing only that test edit, Undo
+restored the saved modified startup, metadata, preferences and actual NVRAM;
+its restart selected that exact snapshot. Qualification limits are in the
+[USB guide](usb-installer.md). Private evidence, including the deadline failure,
+observer failures and independent restore, is under `runs/installer-20261118/`.
 
 ## USB detection at Home
 
@@ -548,11 +604,11 @@ Fresh checks confirmed OEM SM/Opera paths, no optional native mapping or logging
 override, Stitcher running again, root RO and Home. The original autostart was
 then independently restored and its holds removed. Existing comparison JS stayed.
 
-This proves the finite-budget mechanism in one late-fault case. It does not
-choose a production attempt count or an automatic renewal event. Every selected
-boot currently spends an attempt; ordinary restarts are not distinguished.
-Explicit maintenance renewal has host checks only. Power loss during record
-updates and automatic ACC renewal remain untested.
+This earlier experiment proved the finite-budget mechanism in one late-fault
+case without choosing an automatic renewal event. Its selected boots all spent
+an attempt. The [standalone installer](#standalone-installer-backend) subsequently
+qualified its own ACC renewal and one interrupted transaction; arbitrary power
+loss during storage writes remains unqualified.
 
 Private evidence: `runs/attempt-budget/result.json`, confirmation, all three
 closed observer/video bundles and independent undo. A host import refusal before
@@ -571,7 +627,11 @@ B+ stayed on at 12.02 V. Relay timing, supply current and receive-only UART agre
 
 Each row is one observation with the bench comparison JS installed. The interval at which the CMU commits to shutdown is still unknown. The Home timing comes from GUI logs, without a display measurement.
 
-**Recovery policy:** keep the remaining startup attempts through a quick resume. The firmware's SYSTEM service reads `/sys/class/gpio/ACC_Sense`; even its first sample can emit an ACC-on notification. A production rule still needs a signal that distinguishes a new drive across boots from a quick resume or a watchdog restart. Automatic renewal remains unimplemented.
+**Recovery policy:** keep the remaining startup attempts through a quick resume.
+The firmware's SYSTEM service reads `/sys/class/gpio/ACC_Sense`; even its first
+sample can emit an ACC-on notification. The later installer requires a sustained
+off observation followed by a different kernel boot with ACC on, rather than
+renewing from that initial notification alone. See its qualification above.
 
 Private evidence: `runs/acc-relay/short-1794948646590/result.json`, `runs/acc-relay/verified-cycle-1794948131443/result.json` and `runs/acc-renewal-research/result.json`.
 

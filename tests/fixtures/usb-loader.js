@@ -4,7 +4,7 @@ const vm = require("node:vm");
 const source = fs.readFileSync(process.argv[2], "utf8");
 const session = fs.readFileSync(require("node:path").join(require("node:path").dirname(process.argv[2]), "session.sh"), "utf8");
 const cleanup = session.match(/navigate "javascript:([^"\n]+)" \|\| :/)[1].replaceAll("$token", "token");
-function fixture(start = true) {
+function fixture(start = true, installed = false) {
     const nodes = {}, pending = [], calls = [], window = {};
     const parent = {removeChild(n) { delete nodes[n.id]; n.parentNode = null; }};
     nodes["oc-usb-loader"] = {id: "oc-usb-loader", ocToken: "token", ocPort: 20001,
@@ -13,7 +13,11 @@ function fixture(start = true) {
         utility: {loadScript(url, attrs, loaded) {
             nodes[attrs.id] = {...attrs, parentNode: parent};
             pending.push({url, loaded});
-        }}, OpenConnectPreview(...args) { calls.push(args); }};
+        }}, OpenConnect: {start(...args) { calls.push(args); }}};
+    if (installed) {
+        ctx.OpenConnect.reopenUSB = value => { calls.push(["reopen", value]); return true; };
+        window.OpenConnect = ctx.OpenConnect;
+    }
     const run = () => vm.runInNewContext(source, ctx);
     if (start) run();
     return {window, nodes, pending, calls, run, cleanup() { vm.runInNewContext(cleanup, ctx); }};
@@ -21,15 +25,13 @@ function fixture(start = true) {
 let f = fixture();
 f.run();
 assert.equal(f.pending.length, 1);
-assert.equal(f.pending[0].url, "file://localhost/tmp/oc-usb-abc/dialog.js");
-f.pending[0].loaded();
-assert.equal(f.pending[1].url, "file://localhost/tmp/oc-usb-abc/usb-preview.js");
+assert.equal(f.pending[0].url, "file://localhost/tmp/oc-usb-abc/runtime.js");
 assert.equal(f.calls.length, 0);
-f.pending[1].loaded();
-assert.deepEqual(f.calls, [["token", 20001]]);
+f.pending[0].loaded();
+assert.deepEqual(f.calls, [["token", true]]);
 assert.deepEqual(Object.keys(f.nodes), []);
 assert.equal(f.window.__ocUSBLoading, undefined);
-for (const stage of [0, 1]) {
+for (const stage of [0]) {
     f = fixture();
     if (stage) f.pending[0].loaded();
     f.cleanup();
@@ -50,3 +52,7 @@ f = fixture(false);
 f.nodes["oc-usb-loader"].ocToken = "later-token";
 f.cleanup();
 assert.equal(f.nodes["oc-usb-loader"].ocToken, "later-token");
+f = fixture(true, true);
+assert.deepEqual(f.calls, [["reopen", "token"]]);
+assert.deepEqual(f.pending, []); // Installed Settings needs no replacement scripts.
+assert.deepEqual(Object.keys(f.nodes), []);

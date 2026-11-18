@@ -2,7 +2,14 @@
   <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
   <rect x="12" y="11" width="136" height="67" rx="9" fill="#20242a" stroke="#78818d" stroke-width="2"/>
   <rect x="19" y="18" width="122" height="53" rx="3" fill="#101317"/>
-  <path d="m65 40 15-13 15 13m-25-4v23h20V36M77 59V47h7v12" stroke="#e3e7ed" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <g stroke="#e3e7ed" stroke-width="2">
+    <circle cx="34" cy="44" r="6"/>
+    <circle cx="57" cy="44" r="6"/>
+    <circle cx="103" cy="44" r="6"/>
+    <circle cx="126" cy="44" r="6"/>
+  </g>
+  <circle cx="80" cy="44" r="9" fill="#d85747"/>
+  <path d="m78 40 5 4-5 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M22 67h116" stroke="#d85747" stroke-width="2"/>
   <path d="M29 87h37" stroke="#78818d" stroke-width="2" stroke-linecap="round"/>
   <rect x="39" y="84" width="17" height="7" rx="1" fill="#101317" stroke="#78818d" stroke-width="2"/>

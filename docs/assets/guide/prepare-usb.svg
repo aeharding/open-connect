@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 112" fill="none">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <path d="M18 22a6 6 0 0 1 6-6h34l18 18v54a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6Z" fill="#e3e7ed" stroke="#78818d" stroke-width="2"/>
+  <path d="M58 16v18h18" fill="#b9c1cb" stroke="#78818d" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M43 20v32" stroke="#7a8491" stroke-width="7" stroke-dasharray="3 3"/>
+  <rect x="38" y="51" width="10" height="14" rx="3" fill="#7a8491"/>
+  <rect x="41" y="55" width="4" height="6" rx="1" fill="#e3e7ed"/>
+  <path d="M32 77h30M32 83h22" stroke="#8f98a4" stroke-width="3" stroke-linecap="round"/>
+  <path d="M86 57h25m-7-7 7 7-7 7" stroke="#d85747" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="125" y="17" width="20" height="28" rx="2" fill="#b9c1cb" stroke="#78818d" stroke-width="2"/>
+  <path d="M131 24v7m8-7v7" stroke="#525b67" stroke-width="3"/>
+  <rect x="120" y="40" width="30" height="54" rx="9" fill="#30353d" stroke="#78818d" stroke-width="2"/>
+  <rect x="127" y="49" width="16" height="4" rx="2" fill="#d85747"/>
+  <circle cx="135" cy="83" r="3" fill="#8b94a1"/>
+</svg>

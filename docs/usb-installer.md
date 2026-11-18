@@ -10,12 +10,23 @@ touchscreen access while moving and whether to show the startup disclaimer.
 
 <p><a class="md-button md-button--primary" href="https://github.com/aeharding/open-connect/releases/download/v0.2.0-dev.2/open-connect-0.2.0-dev.2-usb.zip">Download USB installer</a> <a class="md-button" href="https://github.com/aeharding/open-connect/releases/tag/v0.2.0-dev.2">Release notes</a></p>
 
-```mermaid
-flowchart TB
-    A[Download ZIP] --> B[Copy to USB]
-    B --> C[Choose Install]
-    C --> D[Restart · Done]
-```
+<ol class="oc-install-flow" aria-label="Installation overview">
+  <li>
+    <img src="assets/guide/prepare-usb.svg" alt="" width="160" height="112">
+    <strong><span>1</span> Prepare the USB</strong>
+    <p>Extract every file onto a FAT32 drive.</p>
+  </li>
+  <li>
+    <img src="assets/guide/insert-usb.svg" alt="" width="160" height="112">
+    <strong><span>2</span> Plug in at Home</strong>
+    <p>Wait for Mazda Connect’s Home screen, then insert the drive.</p>
+  </li>
+  <li>
+    <img src="assets/guide/install-restart.svg" alt="" width="160" height="112">
+    <strong><span>3</span> Install and restart</strong>
+    <p>Choose Install. Leave the power on until you see Done.</p>
+  </li>
+</ol>
 
 ## 1. Prepare the USB drive
 

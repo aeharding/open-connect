@@ -2,6 +2,9 @@
 
 Open **Mazda Settings → System → Open Connect**.
 
+Fresh installations select **Allow** for the touchscreen and **Skip** for the
+startup disclaimer. Updating keeps your choices.
+
 Select a preference, then select the choice you want. **Your choice saves
 automatically** and takes effect at the next full Mazda Connect restart.
 Use Back to return to the list.

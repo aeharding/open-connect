@@ -57,13 +57,50 @@ the stock restriction. Compare both screens under that same condition before
 the change, with the display-specific change active and after undo. Record
 the original setting, including whether it was unset. [Touch investigation](https://github.com/aeharding/open-connect/issues/60)
 
+## USB bootstrap preview
+
+On **55.00.750B NA**, an Open Connect USB package now opens Mazda's native
+`Dialog3Ctrl` over the existing Home screen. The preview offers only Cancel;
+it performs no feature installation. Cancel through the commander input path,
+immediate reinsertion, duplicate-launch suppression, USB removal and the
+one-minute dialog deadline passed.
+The same kernel and Opera instance continued running, with the physical root
+read-only and no developer startup script installed. Insertion/removal used
+software reauthorization of the identified thumb drive; physical touch was not
+tested. SSH prepared the drive and observed the result, but did not launch the UI.
+
+Kenatia's `jci-autoupdate` marker and shell-expression `.up` filename must be
+placed **at the USB root**. Keeping them in the upstream source directory
+`run_triggers` did not launch anything. The adapted filename selects only
+`open-connect/run.sh`. Mazda's package parser evaluates it; the empty `.up`
+then fails ordinary firmware validation. This is a script entry point, not a
+firmware update. The launcher returns immediately after handing off its verified
+RAM copy, avoiding the updater's request timeout during a dialog session.
+
+Opera's D-Bus `Navigate` method accepts a void `javascript:` URL in its existing
+document. A short **deferred** call to `utility.loadScript` loads the payload
+without replacing the document or disrupting its heartbeat. The working loader
+uses a relative path preserving the `file://localhost` origin. A whole-script
+URL and synchronous file-loading probes did not execute the payload; their
+failures remain in the private evidence. The bootstrap supplies a session token
+and a bounded loopback reply receiver; the payload owns the dialog. Firmware,
+frontend and staged-payload checks precede execution. There are no root remounts,
+watchdog changes, NVRAM writes or startup hooks in this preview.
+
+Private evidence: `runs/usb-bootstrap-20261118/`, including the `build-v6` file
+manifest, insertion/cancellation/removal receipts and screen captures. This
+establishes the bootstrap at Home only. Cold insertion, v74, the autonomous
+install/uninstall transaction and release qualification remain separate work.
+[Build the preview](cli.md#usb-bootstrap-preview) ·
+[Installer work](https://github.com/aeharding/open-connect/issues/7)
+
 ## USB detection at Home
 
 Stock v55 mounted a SanDisk drive read-only through the retrofit hub within
 2.2 seconds of software reattachment at Home. Mazda’s update and media
 services both saw the device. The test used an ordinary drive and required
-no media-menu interaction. The next test is whether Open Connect opens its
-intended screen on the release firmware.
+no media-menu interaction. The [bootstrap preview](#usb-bootstrap-preview)
+extends that result to Open Connect's native prompt on v55.
 
 Kenatia documents the user-visible precedent on 74.00.324. Inserting the drive
 opens a dialog automatically. The user then chooses install or uninstall.

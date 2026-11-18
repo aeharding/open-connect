@@ -139,5 +139,12 @@ var OpenConnectInstaller = (function () {
         }, done, true);
     }
 
-    return {choose: choose, complete: complete, about: about, confirmUninstall: confirmUninstall};
+    function preview(fw, done) {
+        return show(fw, "Open Connect", "USB installer preview. No changes will be made.", {
+            button1: {label: "Cancel", appData: "cancel"}
+        }, done);
+    }
+
+    return {choose: choose, complete: complete, about: about, confirmUninstall: confirmUninstall,
+        preview: preview};
 }());

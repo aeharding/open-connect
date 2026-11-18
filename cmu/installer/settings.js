@@ -219,7 +219,7 @@ var OpenConnectSettings = (function () {
     function attach(fw, app, store) {
         var entry = app._contextTable.SystemTab;
         var original = entry.readyFunction;
-        var list = null, release = null;
+        var list = null, release = null, closePage = null;
         var id = "open-connect-settings";
         function bind() {
             var host = app._currentContextTemplate;
@@ -228,7 +228,11 @@ var OpenConnectSettings = (function () {
             list = host.list2Ctrl;
             var ctrl = list, set = ctrl.setDataList, select = ctrl.properties.selectCallback;
             var undoSelect = replace(ctrl.properties, "selectCallback", function (control, value) {
-                if (control === ctrl && value === id) { open(fw, store); return; }
+                if (control === ctrl && value === id) {
+                    var opened = open(fw, store);
+                    if (opened) { closePage = opened; }
+                    return;
+                }
                 return select.apply(this, arguments);
             });
             function withEntry(data) {
@@ -249,6 +253,7 @@ var OpenConnectSettings = (function () {
             }
             var undoSet = replace(ctrl, "setDataList", withEntry);
             release = function (visible) {
+                if (closePage) { closePage(); closePage = null; }
                 undoSelect();
                 undoSet();
                 if (!visible) { return; }

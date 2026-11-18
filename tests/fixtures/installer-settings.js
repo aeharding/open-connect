@@ -167,3 +167,14 @@ confirmed.props.defaultSelectCallback(confirmed, "uninstall");
 assert.equal(removals, 1); assert.equal(modal, null); assert.equal(host.divElt.style.display, "");
 assert.equal(fw.common.handleControllerEvent, input);
 assert.equal(fw.common.getCommonTransitionData, transition);
+
+appName = "syssettings"; context = "SystemTab";
+const detachWithModal = settings.attach(fw, app, store);
+list.properties.selectCallback(list, "open-connect-settings");
+pick(2);
+const detached = modal;
+detachWithModal();
+assert.equal(modal, null);
+detached.props.defaultSelectCallback(detached, "uninstall");
+assert.equal(removals, 1);
+assert.equal(host.divElt.style.display, "");

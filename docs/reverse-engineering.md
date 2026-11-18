@@ -46,6 +46,12 @@ display still need end-to-end testing. [Installer](https://github.com/aeharding/
 
 ## Touch input and CarPlay on v74
 
+The [v74 porting record](cmu/firmware74.md) pins the analyzed files and maps the
+startup, disclaimer and renderer changes needed for the single-baseline move.
+It also provides the replacement's read-only intake and qualification sequence.
+The v55 native payload cannot be reused: v74 changes the state machine and has
+no file padding between its executable and writable system-UI segments.
+
 The 74.00.324A NA firmware has two places to test. Mazda’s LVDS display service
 checks a restriction before forwarding physical touch events. It has a
 display-specific setting in nonvolatile memory. CarPlay also receives a

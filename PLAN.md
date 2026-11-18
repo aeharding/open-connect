@@ -68,6 +68,9 @@ limits. This completes the installer prerelease step; it does not complete the
 production-release qualification in [#7](https://github.com/aeharding/open-connect/issues/7).
 
 1. **Replacement touch qualification and the separate firmware move.**
+   The [offline v74 porting record](docs/cmu/firmware74.md) identifies changed
+   startup branches, native tables and code-placement constraints, and supplies
+   a read-only intake. Use it before adapting the replacement's actual firmware.
    On the replacement CMU, confirm its identity and compare stock touch with the
    same display and cable. Complete [#60](https://github.com/aeharding/open-connect/issues/60)
    and the [#6](https://github.com/aeharding/open-connect/issues/6) feature checks.

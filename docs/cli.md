@@ -17,7 +17,6 @@ python3 -m venv .venv
 
 The last command is a **dry run**: no device opens, changes or receipt writes.
 All commands below can also use python -m open_connect.
-When operating through Herdr, prefix the command with hc exec --cwd "$PWD".
 
 ## Bench profile
 

@@ -180,7 +180,7 @@ restoration; this was a candidate failure, not a successful install cycle.
 
 The publisher now keeps trap inputs in subshell scope and writes through the
 exclusively created staging inode. An isolated RAM fixture on the actual CMU
-reproduced the old failure and verified successful and failed-copy cleanup with
+reproduced the old failure and verified successful and publication-failure cleanup with
 the fix. CI also runs the publisher under BusyBox ash, and host tests simulate
 the target's inode-replacing copy behavior. Private failure, restoration and
 fixture evidence is under `runs/owner-guide-polish/bench/`.

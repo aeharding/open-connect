@@ -12,7 +12,7 @@ run from a public checkout alone.
 
 ## Documentation screenshots
 
-The six PNG images in `docs/assets/guide/` show Open Connect **0.2.0-dev.2** running
+The seven PNG images in `docs/assets/guide/` show Open Connect **0.2.0-dev.2** running
 on Mazda firmware **55.00.750B NA**. They were captured directly from the CMU's
 Wayland display on November 18, 2026, without cropping or other image edits.
 Each was reviewed for personal data, credentials and diagnostic overlays.
@@ -22,8 +22,8 @@ The USB bundle used for capture came from [CI run 44350948917](https://github.co
 (source `2f30ead`), with SHA-256
 `98e7e09fdfb8ca87545e481d1276de0a6db28e6a62648f346a5e71b575a300a9`.
 
-The images illustrate installation, completion, Settings, the two preferences
-and uninstall. Mazda's interface appears alongside Open Connect's additions;
+The images illustrate installation, completion, the Mazda System menu entry,
+Open Connect Settings, the two preferences and uninstall. Mazda's interface appears alongside Open Connect's additions;
 this documentation does not grant rights to Mazda's underlying interface or
 redistribute its source files or asset packages.
 

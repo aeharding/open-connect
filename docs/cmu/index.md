@@ -35,11 +35,17 @@ these boundaries. A proposed recovery policy is not an observed Mazda guarantee.
 
 ## What is still open
 
-We have not demonstrated a complete automatic fallback after a modified boot
-fails. Reset-cause classification, a trustworthy normal-session-end signal,
-cold/ACC behavior, and the effects of different JS and native faults still need
-qualification. Existing source traces and bench results identify parts of that
-chain; they do not prove the whole recovery lifecycle.
+On **55.00.750B NA**, a controlled Opera fault with an exhausted retry budget
+triggered watchdog restart and automatic stock fallback. Readback verified
+original native/JavaScript startup, read-only root and restoration of the saved
+touchscreen setting. Mazda reads that setting before our hook, so it takes effect
+on the following boot. Full ACC shutdown/startup and quick resume were also tested.
+See the [installer qualification](../installer-development.md#qualification).
+
+Reliable reset-cause and clean-shutdown classification, comprehensive cold-start
+and battery-loss behavior, and coverage of different JavaScript/native faults
+remain open. These bounded bench results do not establish recovery from every
+failure, long-term vehicle reliability or firmware 74 compatibility.
 
 ## Contribute a finding
 

@@ -4,13 +4,13 @@ Complete-uninstall qualification finished
 The outgoing CMU is on stock configuration after the 0.2.0-dev.2 CI bundle
 (source 2f30ead, run 44350948917) installed from empty product state, restarted,
 opened completion/native Settings, and uninstalled through Settings with USB
-detached. Final stock boot: 8c4003e2-c124-48d2-a57c-a8b96d2c3f57.
+detached. Final stock boot: d35a8b9d-a00d-4f2d-8b87-4384c9f01202.
 
 /tmp/mnt/data_persist/open-connect is absent: no retained product record,
 packages, originals, snapshots or Undo checkpoint. No /usr/bin/.open-connect-*
 staging files remain. No startup hook points to Open Connect. Fresh readback
 verified original native mappings, Opera using /jci/gui/index.html, physical root
-RO, and no product runtime/listener/selection. Six direct Wayland captures from
+RO, and no product runtime/listener/selection. Seven direct Wayland captures from
 the passing CI bundle are published in docs/assets/guide/; no camera was used.
 
 ACC is OFF; standby current is below 25 mA. B+ remains ON at unchanged
@@ -34,6 +34,9 @@ Evidence and independent rescue
 Private evidence is under runs/owner-guide-polish/bench/. Key records:
 verify-install.out, remove-installed-usb-driver.out, uninstall-boot/,
 stock-intake/, verify-stock.out and park/. All owned observer handles are closed.
+A later menu-context capture reused the same CI bundle, then verified complete
+removal and stock mappings again. Its latest intake, verification and park
+records are under menu-context/; the final boot above belongs to that session.
 The corrected candidate's code and target-shell findings are recorded in
 docs/reverse-engineering.md; the earlier failed candidate is not qualified.
 

@@ -67,9 +67,6 @@ var OpenConnectSettings = (function () {
                     rows.push({text1: row.title, label1: row.key === "touch" ? ["Default", "Always"][values.touch] : row.choices[values[row.key]],
                         itemStyle: "style06", hasCaret: true, appData: i});
                 }
-            } else if (index === "saving") {
-                title = "Open Connect";
-                rows.push({text1: "Saving setting…", itemStyle: "style01", disabled: true, hasCaret: false});
             } else if (index === "unknown") {
                 title = "Change could not be confirmed";
                 rows.push({text1: "Return to Mazda Settings", itemStyle: "style01", hasCaret: false, appData: 0});
@@ -97,7 +94,7 @@ var OpenConnectSettings = (function () {
             return true;
         }
         function select(control, item) {
-            if (!current() || !page || control !== page.list2Ctrl || pending ||
+            if (!current() || !page || control !== page.list2Ctrl ||
                     (item !== 0 && item !== 1)) { return; }
             if (choice === "unknown") { close(); return; }
             if (choice === null) {
@@ -105,11 +102,17 @@ var OpenConnectSettings = (function () {
                 return;
             }
             var index = choice, key = entries[index].key, from = values[key];
+            // Mazda checks the tapped radio before calling us. Keep focus on
+            // the requested item and the dot on the confirmed value until reply.
+            var rows = control.dataList.items;
+            if (!rows[from].checked || rows[1 - from].checked) {
+                rows[from].checked = true;
+                rows[1 - from].checked = false;
+                control.updateItems(0, 1);
+            }
+            if (pending) { return; }
             if (from === item) { render(null, index); return; }
-            // List2 changes its own radio before invoking selectCallback.
-            // Replace that list in the same turn so an unconfirmed value cannot linger.
             pending = true;
-            if (!render("saving", 0)) { close(); return; }
             var replied = false;
             function reply(actual) {
                 if (replied) { return; }

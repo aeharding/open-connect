@@ -17,6 +17,7 @@ const fw = {getCurrentApp: () => "syssettings", getCurrCtxtId: () => "SystemTab"
     instantiateTemplate(app, container, type, props) {
         assert.equal(type, "List2Tmplt"); assert.equal(app, "syssettings"); assert.equal(container, parent);
         const ctrl = props.List2Ctrl;
+        ctrl.updateItems = (first,last) => { assert.equal(first,0); assert.equal(last,1); };
         pages.push({ctrl, list2Ctrl: ctrl, divElt: {parentNode: parent}, events: [],
             cleanUp() { this.cleaned = true; }, handleControllerEvent(e) { this.events.push(e); return "consumed"; }});
         return pages.at(-1);
@@ -24,7 +25,11 @@ const fw = {getCurrentApp: () => "syssettings", getCurrCtxtId: () => "SystemTab"
 let values = {touch: 1, warning: 0}, reply;
 const writes = [];
 const store = {read: () => values, write(...args) { reply = args.pop(); writes.push(args); }};
-const pick = i => { const p = pages.at(-1); return p.ctrl.selectCallback(p.ctrl, p.ctrl.dataList.items[i].appData); };
+const pick = i => {
+    const ctrl = pages.at(-1).ctrl, rows = ctrl.dataList.items;
+    if (rows[i].image1 === "radio") { rows.forEach((row,index) => { row.checked = index === i; }); }
+    return ctrl.selectCallback(ctrl, rows[i].appData);
+};
 const back = () => fw.sendEventToMmui("common", "Global.GoBack");
 assert.equal(typeof settings.open(fw, store), "function");
 assert.equal(settings.open(fw, store), false);
@@ -35,9 +40,10 @@ assert.deepEqual(Array.from(page.ctrl.dataList.items, r => [r.image1,r.checked])
 assert.equal(host.handleControllerEvent("ccw"), "consumed");
 assert.deepEqual(writes, []);
 pick(0);
-assert.equal(pages.at(-1).ctrl.dataList.items[0].text1,"Saving setting…");
-assert.ok(page.cleaned);
-page.ctrl.selectCallback(page.ctrl,1); pick(0);
+assert.equal(pages.at(-1),page);
+assert.deepEqual(Array.from(page.ctrl.dataList.items,r=>r.checked),[false,true]);
+pick(1); pick(0);
+assert.deepEqual(Array.from(page.ctrl.dataList.items,r=>r.checked),[false,true]);
 assert.deepEqual(writes, [["touch",1,0]]);
 values = {touch: 0, warning: 0}; reply(values);
 assert.equal(pages.at(-1).ctrl.dataList.items[0].label1,"Default");

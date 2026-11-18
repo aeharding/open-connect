@@ -5,7 +5,7 @@ var OpenConnect = (function (previous) {
     var entry = document.getElementById("oc-usb-loader");
     var stopped = false, started = false, token = entry && entry.ocToken, state = null, busy = false;
     var timer = null, dialog = null, detach = null, app = null, usb = false;
-    var nodes = [], queued = null, completionShown = false, ready = false;
+    var nodes = [], queued = null, completionShown = false, ready = false, usbRequest = 0;
     var installer, settings, loading = null;
     function values() {
         return state && state.installed ? {touch: state.touch, warning: state.warning} : null;
@@ -205,17 +205,23 @@ var OpenConnect = (function (previous) {
     }
     function cancelUSB(value) {
         if (value !== token || busy) { return; }
+        usbRequest++;
         if (!ready && previous) { abandon(); return; }
         usb = false; queued = null; closeDialog();
     }
     function reopenUSB(value) {
         if (stopped || !ready || value !== token) { return false; }
-        usb = true;
-        if (!busy) {
+        if (busy) { usb = true; return true; }
+        var current = ++usbRequest;
+        usb = false;
+        queued = null; closeDialog();
+        readStatus(function (answer) {
+            if (current !== usbRequest) { return; }
+            if (!valid(answer)) { error(answer); return; }
             completionShown = false;
-            queued = null; closeDialog();
-            readStatus(function (answer) { if (!valid(answer)) { error(answer); } });
-        }
+            if (answer.pending) { run("recover"); }
+            else { usb = true; }
+        });
         return true;
     }
     function abandon() {

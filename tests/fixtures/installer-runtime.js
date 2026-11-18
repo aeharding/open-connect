@@ -146,4 +146,23 @@ f.ctx.OpenConnect.cancelUSB(token);
 assert.equal(f.ctx.OpenConnect, installedClient);
 f.store.write("touch", 0, 1, () => {});
 assert.equal(f.requests[2].body, token + "|" + revision + "|set|touch|0|1");
+
+f = fixture();
+f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true, notice: "installed"}));
+f.tick();
+assert.equal(f.choices[0].complete, true);
+f.ctx.OpenConnect.reopenUSB(token);
+f.tick(); // Old cached notice cannot decide this insertion before fresh status.
+f.reply(f.requests[1], f.state({installed: true, restart: true, notice: "restart"}));
+f.tick();
+assert.equal(f.choices[1].installed, true);
+f.ctx.OpenConnect.reopenUSB(token);
+f.ctx.OpenConnect.cancelUSB(token);
+f.reply(f.requests[2], f.state({installed: true}));
+f.tick();
+assert.equal(f.choices.length, 2); // Cancellation also covers a pending status read.
+f.ctx.OpenConnect.reopenUSB(token);
+f.reply(f.requests[3], f.state({pending: true}));
+assert.equal(f.requests[4].body, token + "|" + revision + "|recover|-|-|-");
 console.log("Installer POST contract, recovery and uncertain-acknowledgement behavior passed");

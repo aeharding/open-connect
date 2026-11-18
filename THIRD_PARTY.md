@@ -10,6 +10,15 @@ hashes document research; they are not downloads or grants of rights to OEM code
 Some integration tests require privately obtained exact firmware files and cannot
 run from a public checkout alone.
 
+## USB bootstrap
+
+The USB trigger filename in `tooling/open_connect/usb.py` is adapted from
+[Kenatia/mazda-cmu150-wcp-mod](https://github.com/Kenatia/mazda-cmu150-wcp-mod/tree/2069d1e6de20a37ef17654cb5a2fcfa9a4ffdddf),
+under MIT, copyright 2026 Loc Le Van. The full notice is preserved in
+`cmu/installer/KENATIA-LICENSE` and included in generated preview packages.
+The Open Connect launcher and UI payload are original AGPL-3.0-or-later code.
+No CarPlay patches or reconstructed OEM files are included.
+
 ## Comparison research
 
 The inspected [piotrmocko/mzd-v74-tweaks](https://github.com/piotrmocko/mzd-v74-tweaks)

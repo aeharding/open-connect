@@ -22,6 +22,16 @@ to real bench operations. Screenshots and boot evidence are under
 runs/fw55-installer-flow-20261117/ and runs/fw55-installer-ui-20261117/.
 Native Settings readbacks and screen captures are in runs/fw55-radio-20261118004338-v2/.
 
+USB bootstrap preview completed
+The final package opened the native Cancel-only Open Connect dialog from USB
+on this v55 CMU. Cancel, immediate reinsertion, duplicate suppression, removal
+and the one-minute deadline passed. No features were installed. The original
+Home document continued in the same boot; physical root stayed read-only,
+the developer GUI script and display-setting key remained absent. All preview
+RAM files and the test files on the thumb drive were removed. The drive retains
+only its pre-existing .Trash-1000 folder. Evidence, the tested ZIP, failed early
+attempts and final receipts are in runs/usb-bootstrap-20261118/.
+
 Bench connections
 The retrofit hub enumerates the SanDisk thumb drive and the Apple Ethernet
 adapter at the same time. On this v55 unit eth1 uses asix at 100 Mbps full
@@ -32,9 +42,9 @@ Private connection evidence is in runs/ethernet-bringup/connected-1794949841855/
 Power and ACC
 Do not change the DPS150 voltage. The owner permits software control of ACC
 and supply output for bench tests. Leave ACC off when the unit is idle.
-After the return checks, ACC was switched off. Draw settled to 0.000 A on
+After the USB bootstrap trial, ACC was switched off. Draw settled to 0.002 A on
 the meter. B+ stayed on at 12.02 V. The park record and closed UART capture
-are in runs/fw55-installer-flow-20261117/park/.
+are in runs/usb-bootstrap-20261118/park/.
 The normally-open LCUS-1 relay uses the CH340 at 8-3.4; re-enumerate first.
 With B+ maintained, a 1.06 s ACC interruption resumed through QuickStartLoop.
 A longer interruption with standby draw observed produced a fresh kernel.

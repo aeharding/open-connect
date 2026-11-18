@@ -56,6 +56,7 @@ SOURCE_FILES = (
     "tooling/open_connect/session.py",
     "tooling/open_connect/startup.py",
     "tooling/open_connect/uart.py",
+    "tooling/open_connect/usb.py",
     "cmu/features/disclaimer/native.c",
     "cmu/startup/flush.c",
     "cmu/startup/selector.sh.in",

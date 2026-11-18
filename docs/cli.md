@@ -107,6 +107,31 @@ automatic recovery. Even with it, this is one Home-specific experiment.
 CPU/RAM/I/O snapshots accompany the trial and baseline. They are observations,
 not repeated performance evidence. Camera footage still establishes visible behavior.
 
+## USB bootstrap preview
+
+This developer experiment opens a Cancel-only Open Connect dialog automatically
+from USB on **55.00.750B NA**. It does not install features or enable Settings.
+The generic loader stages a verified payload in RAM and runs it inside Mazda's
+existing page. Cancel, USB removal and a one-minute deadline close the preview.
+
+Build from a matching source checkout with clang and ld.lld installed:
+
+~~~sh
+oc usb build-preview --workspace . --output runs/my-usb-preview
+~~~
+
+Extract `open-connect-usb-preview.zip` directly into an otherwise empty FAT32
+drive. The two empty trigger files, including the unusually named `.up` file,
+must be at the drive root beside the `open-connect` folder. Preserve their names;
+do not leave them inside a `run_triggers` directory. Insert the drive with the
+CMU at Home. CI provides the same ZIP as `fw55-usb-bootstrap-preview`.
+
+The preview checks firmware, region and frontend hashes before staging. It does
+not remount the root filesystem, disable the watchdog, change NVRAM or reboot.
+Its hashes detect damaged payloads; they are not a package-signing scheme.
+Other firmware, cold insertion and the actual install/uninstall transaction
+remain unqualified. [Bench findings](reverse-engineering.md#usb-bootstrap-preview)
+
 ## Low-level UART
 
 ~~~sh

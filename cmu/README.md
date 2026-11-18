@@ -12,6 +12,12 @@ Source that runs on the device when a feature is explicitly tried.
   returns false. Pass the package version as the fourth argument. After the
   backend verifies installation, call `complete(framework, version, onChoice)`
   for **Done** or **Open settings**.
+- installer/usb-launch.sh.in and usb-session.sh: the bounded, RAM-only USB
+  bootstrap for v55. Validate and stage a payload, then return immediately to
+  Mazda's updater. A short deferred browser call loads the payload in the existing
+  document. The payload owns the UI; the bootstrap supplies a session token and
+  a bounded loopback reply receiver. usb-preview.js currently shows only Cancel.
+  This preview installs no features and leaves no startup hook.
 - installer/settings.js: `OpenConnectSettings.fromHome(framework, store, result)`
   opens Mazda Settings and presents the Open Connect list. Register
   `attach(framework, syssettingsApp, store)` once per app instance for the

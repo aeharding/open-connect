@@ -65,8 +65,10 @@ services both saw the device. The test used an ordinary drive and required
 no media-menu interaction. The next test is whether Open Connect opens its
 intended screen on the release firmware.
 
-Kenatia documents the user-visible precedent on 74.00.324. Inserting the drive
-opens a dialog automatically. The user then chooses install or uninstall.
+The owner inserted Kenatia’s release drive into the v55 bench and saw its
+“unsupported firmware” popup. Its USB bootstrap therefore reached the version
+check and displayed a result on v55. Kenatia documents its CarPlay modification
+for 74.00.324. Open Connect still needs its own complete install/uninstall test.
 [Project instructions](https://github.com/Kenatia/mazda-cmu150-wcp-mod#installation--uninstallation)
 
 ## Silent Entertainment without a TAU

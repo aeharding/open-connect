@@ -1,19 +1,22 @@
-.oc-screen {
-  max-width: 40rem;
+.md-typeset .oc-screen {
+  width: 100%;
+  max-width: 26rem;
   margin: 1.25rem 0 1.75rem;
 }
 .oc-screen-frame {
-  overflow: hidden;
-  border: 1px solid var(--md-default-fg-color--lightest);
-  border-radius: .4rem;
-  background: #000;
+  position: relative;
+  aspect-ratio: 880 / 552;
+  background: url("../assets/guide/cmu-frame.svg") center / contain no-repeat;
 }
-.oc-screen-frame img {
+.md-typeset .oc-screen-frame img {
+  position: absolute;
+  top: 5.7971%;
+  left: 4.5455%;
   display: block;
-  width: 100%;
+  width: 90.9091%;
   height: auto;
 }
-.oc-screen figcaption {
+.md-typeset .oc-screen figcaption {
   margin-top: .5rem;
   color: var(--md-default-fg-color--light);
   font-size: .8rem;

@@ -102,10 +102,11 @@ performs a reinstall; interrupted transactions are handled internally. No separa
 Repair or Change options UI. Add feature selection only when multiple useful
 features exist.
 
-Uninstall saves current affected state before restoring pre-install originals.
-One checkpoint allows that uninstall to be reversed; later relevant edits make
-Undo stop and preserve everything. The installer uses one authoritative durable
-record with verified originals and snapshots. See [uninstall behavior](docs/uninstall.md).
+Uninstall restores pre-install behavior and removes Open Connect's files and
+backups. Reinstallation uses USB; there is no Undo uninstall option. Conflicting
+later edits stop removal without being overwritten. Keep the authoritative
+record and verified originals until restoration succeeds, then finish cleanup
+without leaving a retained installation. See [uninstall behavior](docs/uninstall.md).
 
 Necessary infrastructure: exact-base validation, verified original backups,
 repeatable execution, one clear UI/backend command contract and independent undo.

@@ -18,7 +18,15 @@ runtime=$(sh "$P/service.sh") || fail service_failed
 exec 9<>/tmp/open-connect/lock
 flock -n -x 9 || fail busy
 record_read || fail invalid_record
-transaction_reconcile
+if test "$R_PHASE" != purge; then transaction_reconcile; fi
+case "$R_PHASE" in
+    removed|purge)
+        # Recovery restored startup. Finish from the already-verified RAM copy
+        # before allowing Mazda's original configuration to start.
+        P=$runtime
+        uninstall_cleanup
+        exit 1;;
+esac
 test "$R_PHASE" = active || exit 1
 targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
 snapshot_read "$R_CURRENT" || fail invalid_snapshot

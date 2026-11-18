@@ -105,14 +105,14 @@ var OpenConnectInstaller = (function () {
         return "Open Connect " + version;
     }
 
-    function choose(fw, installed, onChoice, version) {
+    function choose(fw, installed, onChoice, version, retained) {
         if (typeof installed !== "boolean") { throw new TypeError("Expected verified install state"); }
         var buttons = {
             button1: {label: "Cancel", appData: "cancel"},
             button2: {label: installed ? "Install/update" : "Install", appData: "install"}
         };
-        if (installed) { buttons.button3 = {label: "Uninstall", appData: "uninstall"}; }
-        return show(fw, installed ? "Open Connect" : "Install " + name(version) + "?",
+        if (installed || retained) { buttons.button3 = {label: "Uninstall", appData: "uninstall"}; }
+        return show(fw, installed || retained ? "Open Connect" : "Install " + name(version) + "?",
             installed ? "Open Connect is installed." : "Mazda Connect will restart once.", buttons, onChoice);
     }
 
@@ -133,7 +133,7 @@ var OpenConnectInstaller = (function () {
             return show(fw, "Uninstall", "Finishing your settings change. Try again in a moment.",
                 {button1: {label: "OK", appData: "cancel"}}, done, true);
         }
-        return show(fw, "Uninstall?", "Your previous settings will be restored.", {
+        return show(fw, "Uninstall?", "Open Connect will be removed. Mazda Connect will restart.", {
             button1: {label: "Cancel", appData: "cancel"},
             button2: {label: "Uninstall", appData: "uninstall"}
         }, done, true);

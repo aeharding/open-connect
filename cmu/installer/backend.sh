@@ -22,31 +22,53 @@ test "${1:-}" = api && test "$#" -eq 6 || fail invalid_request
 revision=$2; operation=$3; argument=$4; expected=$5; desired=$6
 
 exists=false
+empty_state=false
+removed_now=false
 if ! absent "$D"; then
     private_dir "$D" || fail invalid_state_directory
-    if ! absent "$D/record"; then record_read || fail invalid_record; exists=true; fi
+    if ! absent "$D/record"; then
+        record_read || fail invalid_record; exists=true
+    else
+        empty_state=true
+        for path in "$D"/* "$D"/.[!.]* "$D"/..?*; do
+            absent "$path" || empty_state=false
+        done
+    fi
 fi
 
 status() {
-    local installed=false undo=false conflict=false touch=0 warning=0 notice=- rev=- restart=false pending=false
+    local installed=false retained=false conflict=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
+    if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
+    if test "$empty_state" = true; then pending=true; fi
     if test "$exists" = true; then
         record_read || fail invalid_record
         rev=$R_CURRENT; notice=$R_NOTICE
-        snapshot_read "$R_CURRENT" || fail invalid_snapshot
-        touch=$S_TOUCH; warning=$S_WARNING
-        if test "$R_PHASE" = active; then installed=true; fi
-        if test "$R_PHASE" = removed && test "$R_UNDO" != -; then undo=true; fi
-        if ! targets_match "$R_CURRENT" || ! dependencies_match "$R_CURRENT"; then conflict=true; fi
-        if test "$R_PHASE" = active; then
-            if ! file /tmp/open-connect/selected || test "$(cat /tmp/open-connect/selected)" != "$R_CURRENT"; then restart=true; fi
-        elif test -e /tmp/open-connect/selected; then restart=true; fi
-        if ! settled; then restart=true; pending=true; rev=$R_REV; fi
+        if test "$R_PHASE" = purge; then
+            rev=$R_REV; restart=true; pending=true
+        else
+            snapshot_read "$R_CURRENT" || fail invalid_snapshot
+            touch=$S_TOUCH; warning=$S_WARNING
+            if test "$R_PHASE" = active; then installed=true; fi
+            if test "$R_PHASE" = removed; then retained=true; fi
+            if ! targets_match "$R_CURRENT" || ! dependencies_match "$R_CURRENT"; then conflict=true; fi
+            if test "$R_PHASE" = active; then
+                if ! file /tmp/open-connect/selected || test "$(cat /tmp/open-connect/selected)" != "$R_CURRENT"; then restart=true; fi
+            elif test -e /tmp/open-connect/selected; then restart=true; fi
+            if ! settled; then restart=true; pending=true; rev=$R_REV; fi
+        fi
     fi
     local version
     version=$(cat "$P/VERSION")
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
-    printf '{"ok":true,"revision":"%s","installed":%s,"undo":%s,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s"}\n' \
-        "$rev" "$installed" "$undo" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version"
+    # Keep the retired boolean false for an installed v0.2.0-dev.1 client during
+    # USB handoff. No endpoint or UI offers Undo.
+    printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s"}\n' \
+        "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version"
+}
+
+finish_removal() {
+    uninstall_cleanup
+    exists=false; empty_state=false; removed_now=true
 }
 
 if test "$operation" = status; then status; exit; fi
@@ -59,17 +81,21 @@ if test "$exists" = true; then
     test "$revision" = "$current_revision" || fail stale_state
     if ! settled; then
         test "$operation" = recover || fail operation_pending
-        transaction_reconcile; status; exit
+        if test "$R_PHASE" != purge; then transaction_reconcile; fi
+        case "$R_PHASE" in removed|purge) finish_removal;; esac
+        status; exit
     fi
 else
     test "$revision" = - || fail stale_state
 fi
 case "$operation" in
-    install|set|uninstall|undo) test "$(root_mode)" = ro,noatime || fail root_mount_changed;;
+    install|set|uninstall) test "$(root_mode)" = ro,noatime || fail root_mount_changed;;
 esac
 
 case "$operation" in
-recover) ;;
+recover)
+    if test "$empty_state" = true; then finish_removal; fi
+    ;;
 install)
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
     stock_dependencies || fail unsupported_original
@@ -101,7 +127,7 @@ install)
     rm "$deps"
     R_BACKEND=$package
     if test "$exists" = false; then
-        R_PHASE=removed; R_CURRENT=$before; R_BEFORE=-; R_AFTER=-; R_UNDO=-
+        R_PHASE=removed; R_CURRENT=$before; R_BEFORE=-; R_AFTER=-
         R_BUDGET=0; R_OFF=-; R_BOOT=-; R_NOTICE=-
         record_write; exists=true
     fi
@@ -126,29 +152,37 @@ set)
     transaction_reconcile
     ;;
 uninstall)
-    test "$exists" = true && test "$R_PHASE" = active || fail not_installed
-    if ! targets_match "$R_CURRENT" || ! dependencies_match "$R_CURRENT"; then
-        test "$argument" = confirm || fail conflict_confirmation_required
-    fi
+    test "$exists" = true || fail not_installed
+    # Removed v0.2.0-dev.1 installations can discard their retained files too.
+    if test "$R_PHASE" = removed; then finish_removal; status; exit; fi
+    test "$R_PHASE" = active || fail not_installed
+    targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
     snapshot_read "$R_CURRENT" || fail invalid_snapshot
+    # A legacy Undo could make someone else's startup edits the recorded current
+    # state. Only remove the startup integration that our package actually built.
+    hex "$S_PACKAGE" 64 && file "$D/composed/$S_PACKAGE/autostart" &&
+        test "$(sha "$AUTOSTART")" = "$(sha "$D/composed/$S_PACKAGE/autostart")" || fail state_changed
+    current_mode=$S_META
     before=$(state_capture "$S_PACKAGE" "$S_TOUCH" "$S_WARNING") || fail checkpoint_failed
     snapshot_read "$R_BASE" || fail originals_changed
+    test "$current_mode" = "$S_META" || fail state_changed
     after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 "$S_NVRAM" "$S_META" "$D/snapshots/$before/dependencies") || fail plan_failed
     transaction_prepare uninstall "$before" "$after"
     transaction_reconcile
-    ;;
-undo)
-    test "$exists" = true || fail undo_unavailable
-    undo_prepare
-    transaction_reconcile
+    finish_removal
     ;;
 dismiss)
     if test "$exists" = true; then R_NOTICE=-; record_write; fi
     : > "$P/closed"
     ;;
 restart)
-    test "$exists" = true && settled || fail operation_pending
-    targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
+    if test "$exists" = true; then
+        settled || fail operation_pending
+        targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
+    else
+        # A completed uninstall has removed its record along with all backups.
+        absent "$D" || fail operation_pending
+    fi
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
     # A restart explicitly requested for this newly committed configuration is
     # already covered by its finite budget. This endpoint never replenishes it.

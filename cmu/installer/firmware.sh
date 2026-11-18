@@ -122,6 +122,9 @@ root_mode() {
     awk '$1=="/dev/ffx01p1"&&$2=="/"&&$3=="relfs"{n++;m=$4}
          END{if(n!=1)exit 1;print m}' /proc/mounts
 }
+cleanup_mount_guard() {
+    awk -v dir="$D" '$2==dir || index($2,dir "/")==1 {exit 1}' /proc/mounts
+}
 remount() {
     timeout -t 8 -s TERM /bin/busybox mount -i -n -t relfs -o "remount,$1,noatime" /dev/ffx01p1 / &&
         test "$(root_mode)" = "$1,noatime"
@@ -188,8 +191,7 @@ dependencies_capture() {
     for folder in package composed; do
         case "$folder" in package) path=$D/packages/$package;; composed) path=$D/composed/$package;; esac
         private_dir "$path" || return 1
-        # Preserve hashes as found, including a conflicting edit. These immutable
-        # directories stay intact through uninstall; undo checks them again.
+        # Pin the private package and composed bytes until the transaction ends.
         for target in "$path"/*; do
             name=${target##*/}
             case "$name" in .|..|*[!a-zA-Z0-9.-]*) return 1;; esac

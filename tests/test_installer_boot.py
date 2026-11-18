@@ -36,6 +36,8 @@ class InstallerBoot(unittest.TestCase):
             ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.source / "flush"],
             check=True,
         )
+        shutil.copyfile(self.source / "flush", self.runtime / "flush")
+        (self.runtime / "flush").chmod(0o700)
         (self.runtime / "lock").touch()
         (self.runtime / "token").write_text("a" * 32 + "\n")
         (self.runtime / "ignition.sh").write_text("exit 0\n")
@@ -53,10 +55,12 @@ class InstallerBoot(unittest.TestCase):
         (self.source / "firmware.sh").write_text(r"""
 firmware_guard() { :; }
 native_guard() { :; }
-nvram_read() { cat "$D/nvram"; }
+root_mode() { printf 'ro,noatime\n'; }
+cleanup_mount_guard() { :; }
+nvram_read() { cat "$D-nvram"; }
 nvram_change() {
-    test "$(cat "$D/nvram")" = "$1" || return 1
-    printf '%s\n' "$2" > "$D/nvram"
+    test "$(cat "$D-nvram")" = "$1" || return 1
+    printf '%s\n' "$2" > "$D-nvram"
 }
 startup_publish() {
     test "$(sha "$AUTOSTART")" = "$3" || return 1
@@ -71,7 +75,7 @@ startup_publish() {
         for old, new in {
             "/tmp/mnt/data_persist/open-connect": str(self.data),
             "/tmp/open-connect": str(self.runtime),
-            "/usr/bin/autostart": str(self.data / "target"),
+            "/usr/bin/autostart": str(self.root / "data-target"),
             "/proc/sys/kernel/random/boot_id": str(self.root / "boot-id"),
             "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
         }.items():
@@ -100,9 +104,9 @@ startup_publish() {
         self.shell(r"""
 printf 'stock\n' > "$D/stock"; chmod 755 "$D/stock"
 R_BASE=$(snapshot_create "$D/stock" - 0 0 absent "755:$(id -u):$(id -g)")
-printf 'installed\n' > "$D/target"; chmod 755 "$D/target"
-printf 'disable\n' > "$D/nvram"
-R_CURRENT=$(snapshot_create "$D/target" "$R_BACKEND" 1 1 disable "755:$(id -u):$(id -g)")
+printf 'installed\n' > "$D-target"; chmod 755 "$D-target"
+printf 'disable\n' > "$D-nvram"
+R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "755:$(id -u):$(id -g)")
 R_PHASE=active; R_BEFORE=-; R_AFTER=-; R_UNDO=-; R_BUDGET=3; R_OFF=-; R_BOOT=-; R_NOTICE=installed
 record_write
 """)
@@ -150,12 +154,12 @@ record_write
         result = self.boot(4)
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.runtime / "selected").exists())
-        self.assertEqual((self.data / "nvram").read_text(), "absent\n")
+        self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
         self.assertEqual(self.record()[9], "0")
         config = (self.data / "snapshots" / self.record()[5] / "config").read_text().split("|")
         self.assertEqual(config[1:4], ["1", "1", "absent"])
         self.assertNotEqual(self.boot(5).returncode, 0)
-        self.assertEqual((self.data / "nvram").read_text(), "absent\n")
+        self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
 
     def test_only_off_then_new_kernel_and_on_renews_attempts(self):
         self.assertEqual(self.boot(1).returncode, 0)
@@ -208,3 +212,19 @@ record_write
             (self.root / "observed").read_text().splitlines(), ["-", "-", "-", "-", "-", boot, "-"]
         )
         self.assertEqual(self.record()[9:11], ["2", "-"])
+
+    def test_boot_finishes_interrupted_uninstall_from_ram_and_starts_stock(self):
+        self.shell(r"""
+. "$P/firmware.sh"
+. "$P/transaction.sh"
+AUTOSTART=$D-target
+record_read
+transaction_prepare uninstall "$R_CURRENT" "$R_BASE"
+""")
+        result = self.boot(1)
+        # The hook uses Mazda's original configuration on a nonzero exit.
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertFalse(self.data.exists())
+        self.assertEqual((self.root / "data-target").read_text(), "stock\n")
+        self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
+        self.assertFalse((self.runtime / "selected").exists())

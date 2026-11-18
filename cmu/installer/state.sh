@@ -42,16 +42,18 @@ verify_manifest() {
 }
 
 record_read() {
-    local format extra
+    local format extra legacy_undo
     file "$D/record" && test "$(wc -l < "$D/record")" -eq 1 || return 1
     test "$(awk -F '|' '{print NF}' "$D/record")" = 13 || return 1
-    IFS='|' read -r format R_PHASE R_REV R_BACKEND R_BASE R_CURRENT R_BEFORE R_AFTER R_UNDO R_BUDGET R_OFF R_BOOT R_NOTICE extra < "$D/record" || return 1
+    IFS='|' read -r format R_PHASE R_REV R_BACKEND R_BASE R_CURRENT R_BEFORE R_AFTER legacy_undo R_BUDGET R_OFF R_BOOT R_NOTICE extra < "$D/record" || return 1
     test "$format" = OC1 && hex "$R_REV" 32 && hex "$R_BACKEND" 64 || return 1
     hex "$R_BASE" 64 && hex "$R_CURRENT" 64 || return 1
-    for extra in "$R_BEFORE" "$R_AFTER" "$R_UNDO"; do test "$extra" = - || hex "$extra" 64 || return 1; done
+    # Read the retired checkpoint field for v0.2.0-dev.1 compatibility. New
+    # records clear it; it never authorizes restoring an old installation.
+    for extra in "$R_BEFORE" "$R_AFTER" "$legacy_undo"; do test "$extra" = - || hex "$extra" 64 || return 1; done
     case "$R_PHASE" in
-        active|removed) test "$R_BEFORE:$R_AFTER" = -:- || return 1;;
-        install|set|uninstall|undo|apply) hex "$R_BEFORE" 64 && hex "$R_AFTER" 64 || return 1;;
+        active|removed|purge) test "$R_BEFORE:$R_AFTER" = -:- || return 1;;
+        install|set|uninstall|apply) hex "$R_BEFORE" 64 && hex "$R_AFTER" 64 || return 1;;
         *) return 1;;
     esac
     case "$R_BUDGET" in 0|1|2|3) ;; *) return 1;; esac
@@ -66,7 +68,7 @@ record_write() {
     next=$(mktemp "$D/record.XXXXXX") || fail record_create_failed
     printf 'OC1|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
         "$R_PHASE" "$R_REV" "$R_BACKEND" "$R_BASE" "$R_CURRENT" "$R_BEFORE" \
-        "$R_AFTER" "$R_UNDO" "$R_BUDGET" "$R_OFF" "$R_BOOT" "$R_NOTICE" > "$next" || fail record_write_failed
+        "$R_AFTER" - "$R_BUDGET" "$R_OFF" "$R_BOOT" "$R_NOTICE" > "$next" || fail record_write_failed
     chmod 600 "$next" || fail record_mode_failed
     flush f "$next"
     mv -f "$next" "$D/record" || fail record_rename_failed

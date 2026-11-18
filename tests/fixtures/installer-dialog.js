@@ -51,6 +51,11 @@ select(control,"install");
 select(control,"install");
 assert.deepEqual(calls, ["closed","install"]);
 assert.equal(common.handleControllerEvent,baseInput);
+
+const dismissRetained=choose(fw,false,decision,"0.2.0-dev.2",true);
+assert.equal(control.props.title,"Open Connect");
+assert.deepEqual(Object.values(control.props.buttonConfig).map(b=>b.label),["Cancel","Install","Uninstall"]);
+dismissRetained();
 assert.equal(common.getCommonTransitionData,baseTransition);
 
 assert.equal(typeof choose(fw, true, decision), "function");

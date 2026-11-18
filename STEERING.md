@@ -28,7 +28,8 @@ in the first production release. The owner plans the first real-car installation
 after bench validation on matching firmware. Cold-start CarPlay reliability follows.
 Keep the two user-facing actions **Install/update** and **Uninstall**. Running Install again reinstalls it using verified originals;
 interrupted-operation recovery is internal behavior, not a separate Repair option.
-No Change options screen is needed until multiple worthwhile features exist.
+Keep the USB install prompt short. Offer Done and Open settings after install.
+Use Mazda’s own Settings list and a separate radio-choice page for each preference.
 For conflicting edits, Uninstall saves the current affected files/state before
 restoring pre-install originals. A single Undo this uninstall checkpoint restores
 that previous modified state. If relevant state changed after uninstall, undo

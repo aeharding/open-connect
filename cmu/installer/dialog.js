@@ -4,10 +4,8 @@ var OpenConnectInstaller = (function () {
     "use strict";
     var active = null;
 
-    function choose(fw, installed, onChoice) {
-        if (typeof installed !== "boolean" || typeof onChoice !== "function") {
-            throw new TypeError("Expected verified install state and a choice handler");
-        }
+    function show(fw, title, message, buttons, onChoice) {
+        if (typeof onChoice !== "function") { throw new TypeError("Expected a choice handler"); }
         var home = fw._currTmpltInstance;
         var common = fw.common;
         if (active || !home || !common || fw._frameworkState !== fw._FWK_STATE_IDLE ||
@@ -21,14 +19,6 @@ var OpenConnectInstaller = (function () {
         var ownedTransition = own.call(common, "getCommonTransitionData");
         var previousInput = common.handleControllerEvent;
         var previousTransition = common.getCommonTransitionData;
-        var buttons = {
-            button1: {label: "Cancel", appData: "cancel"},
-            button2: {label: installed ? "Install/update" : "Install", appData: "install"}
-        };
-        if (installed) {
-            buttons.button3 = {label: "Uninstall", appData: "uninstall"};
-        }
-
         function stillHome() {
             return fw._currTmpltInstance === home && fw._frameworkState === fw._FWK_STATE_IDLE &&
                 fw.getCurrentApp() === "system" && fw.getCurrCtxtId() === "HomeScreen";
@@ -84,17 +74,17 @@ var OpenConnectInstaller = (function () {
 
         var dialog = fw.instantiateControl("system", document.body, "Dialog3Ctrl", {
             titleStyle: "titleStyle01",
-            title: "Open Connect",
+            title: title,
             contentStyle: "style02",
-            text1: installed ? "Open Connect is installed." :
-                "Keep touch enabled and skip the startup disclaimer?",
+            text1: message,
             initialFocus: 0,
             buttonConfig: buttons,
             defaultSelectCallback: function (control, action) {
                 if (control !== dialog) { return; }
                 if (!stillHome() || common._vuiHelpDialog) { finish("cancel"); return; }
-                if (action === "cancel" || action === "install" ||
-                        (installed && action === "uninstall")) { finish(action); }
+                for (var key in buttons) {
+                    if (own.call(buttons, key) && buttons[key].appData === action) { finish(action); return; }
+                }
             }
         });
         if (!dialog) { return false; }
@@ -106,5 +96,31 @@ var OpenConnectInstaller = (function () {
         return function cancel() { finish("cancel"); };
     }
 
-    return {choose: choose};
+    function name(version) {
+        if (version === undefined) { return "Open Connect"; }
+        if (typeof version !== "string" || !/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(version)) {
+            throw new TypeError("Expected a package version");
+        }
+        return "Open Connect " + version;
+    }
+
+    function choose(fw, installed, onChoice, version) {
+        if (typeof installed !== "boolean") { throw new TypeError("Expected verified install state"); }
+        var buttons = {
+            button1: {label: "Cancel", appData: "cancel"},
+            button2: {label: installed ? "Install/update" : "Install", appData: "install"}
+        };
+        if (installed) { buttons.button3 = {label: "Uninstall", appData: "uninstall"}; }
+        return show(fw, installed ? "Open Connect" : "Install " + name(version) + "?",
+            installed ? "Open Connect is installed." : "Mazda Connect will restart once.", buttons, onChoice);
+    }
+
+    // The installation owner calls this only after verifying the installed build.
+    function complete(fw, version, onChoice) {
+        return show(fw, name(version) + " installed", "Installation complete.", {
+            button1: {label: "Done", appData: "done"},
+            button2: {label: "Open settings", appData: "settings"}
+        }, onChoice);
+    }
+    return {choose: choose, complete: complete};
 }());

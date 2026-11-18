@@ -86,3 +86,13 @@ assert.equal(common.handleControllerEvent("unrelated-hardkey",false),common);
 cancelNew();
 assert.equal(Object.hasOwn(common,"handleControllerEvent"),false);
 assert.equal(Object.hasOwn(common,"getCommonTransitionData"),false);
+
+const complete=ctx.OpenConnectInstaller.complete;
+assert.equal(typeof complete(fw,"0.1.0-dev.1",decision),"function");
+assert.equal(control.props.title,"Open Connect 0.1.0-dev.1 installed");
+assert.deepEqual(Object.values(control.props.buttonConfig).map(b=>b.label),["Done","Open settings"]);
+control.props.defaultSelectCallback(control,"install");
+assert.ok(Object.hasOwn(common,"handleControllerEvent"));
+control.props.defaultSelectCallback(control,"settings");
+assert.equal(calls.pop(),"settings");
+assert.throws(()=>choose(fw,false,decision,"USB?"));

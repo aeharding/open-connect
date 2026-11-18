@@ -1,6 +1,7 @@
 """Composition must stop at a failed native write, even in an OR-list caller."""
 
 import hashlib
+import json
 import os
 import shlex
 import shutil
@@ -43,12 +44,20 @@ class InstallerComposition(unittest.TestCase):
                 + ' "$@"\n'
             )
             wrapper.chmod(0o700)
+            backend = (ASSETS / "backend.sh").read_text().splitlines()
+            error_handler = next(line for line in backend if line.startswith("fail()"))
+            invocation = next(
+                line for line in backend if line.lstrip().startswith('compose "$package"')
+            )
             driver = (
                 'set -eu\numask 077\nD=$1; . "$2/state.sh"; . "$2/firmware.sh"\n'
                 # Synthetic fixtures enter immediately after input verification;
                 # every composition write and its real caller context are intact.
                 "verify_manifest() { :; }; originals_verify() { :; }\n"
-                'compose "$3" || fail composition_failed\n'
+                + error_handler
+                + "\npackage=$3\n"
+                + invocation
+                + "\n"
             )
             for fail_at in range(1, 8):
                 with self.subTest(write=fail_at):
@@ -66,7 +75,9 @@ class InstallerComposition(unittest.TestCase):
                         timeout=10,
                     )
                     self.assertNotEqual(result.returncode, 0)
-                    self.assertIn("compose_patch_failed", result.stderr)
+                    self.assertEqual(
+                        json.loads(result.stdout), {"ok": False, "error": "composition_failed"}
+                    )
                     self.assertEqual((root / "count").read_text().strip(), str(fail_at))
                     self.assertFalse((root / "composed" / package).exists())
 

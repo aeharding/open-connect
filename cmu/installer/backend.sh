@@ -91,7 +91,7 @@ install)
         R_BASE=$before
     fi
     package=$(package_save) || fail package_failed
-    compose "$package" || fail composition_failed
+    compose "$package" >/dev/null || fail composition_failed
     snapshot_read "$R_BASE" || fail originals_changed
     nvram=$S_NVRAM; mode=$S_META
     test "$touch" = 0 || nvram=disable

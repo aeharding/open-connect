@@ -3,9 +3,11 @@
 Source that runs on the device when a feature is explicitly tried.
 
 - features/disclaimer/: the native startup change.
-- features/touch/setting.sh: read the v55 display restriction or change it from a
-  known value. The installer must save the value before install. Uninstall can
-  restore `absent`, `enable` or `disable`. The display service reads it at startup.
+- features/touch/setting.sh: `install` saves the current v55 display preference
+  before changing it. `uninstall` restores and commits the saved value. If commit
+  fails, the record remains available for retry. The installer supplies the
+  verified `flush-arm` helper next to the script with execute permission.
+  `read` and checked `change` also work independently.
 - installer/dialog.js: `OpenConnectInstaller.choose(framework, installed, onChoice)`
   opens Mazda’s dialog at Home. It reports `install`, `uninstall` or `cancel`
   once. A successful call returns a cancel function for USB removal. A busy GUI

@@ -12,8 +12,8 @@ Mazda’s time-zone picker supplies the radio-row pattern. Keep About last on th
 System tab because v55 addresses it by position when updating speed restrictions.
 Mazda can rebuild that list while it is open. Preserve the extra row on refresh
 and repaint the list. Mazda’s time-zone handler caches the chosen index and sends SetTimeZone from
-the radio list. Open Connect keeps that page visible while waiting for verified
-readback. Focus tracks the requested row and the dot tracks the confirmed value.
+the radio list. Open Connect follows that interaction. The dot moves on selection and the bench
+owner saves in the background. Back remains available.
 
 On 55.00.750B NA, commander-path input selected Install, opened Settings, and
 changed Touchscreen back to Mazda default. Independent NVRAM readback confirmed

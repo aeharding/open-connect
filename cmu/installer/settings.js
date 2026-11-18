@@ -2,7 +2,7 @@
 /* Firmware 55.00.750B. Present our pages inside the current Mazda Settings tab. */
 var OpenConnectSettings = (function () {
     "use strict";
-    var active = false, waiting = null;
+    var active = false, waiting = null, session = null;
     var entries = [
         {key: "touch", title: "Touchscreen", choices: ["Mazda default", "Always enabled"]},
         {key: "warning", title: "Startup disclaimer", choices: ["Show", "Skip"]}
@@ -32,14 +32,68 @@ var OpenConnectSettings = (function () {
             fw._frameworkState === fw._FWK_STATE_IDLE && !fw.common._vuiHelpDialog;
     }
 
+    // One preference session outlives its pages. The last tap wins, even
+    // when the driver backs out while a prior write is still completing.
+    function preferences(store) {
+        if (session && session.owner === store) { return session; }
+        var saved = store.read();
+        if (!valid(saved)) { return null; }
+        var wanted = {}, busy = false, timer = null;
+        var prefs = {owner: store, failure: null, changed: null};
+        prefs.values = function () {
+            if (!busy && !Object.keys(wanted).length) {
+                var current = store.read();
+                if (!valid(current)) { return null; }
+                saved = current;
+            }
+            return {touch: own.call(wanted, "touch") ? wanted.touch : saved.touch,
+                warning: own.call(wanted, "warning") ? wanted.warning : saved.warning};
+        };
+        function flush() {
+            var keys = Object.keys(wanted);
+            if (busy || !keys.length) { return; }
+            var key = keys[0], requested = wanted[key];
+            if (saved[key] === requested) { delete wanted[key]; flush(); return; }
+            busy = true;
+            var answered = false;
+            function finish(actual) {
+                if (answered) { return; }
+                answered = true;
+                busy = false;
+                // A lost acknowledgement need not mean a failed write. Read
+                // once before reporting it. Never resend the same request.
+                if (!valid(actual)) {
+                    try { actual = store.read(); } catch (error) { actual = null; }
+                }
+                if (valid(actual)) { saved = actual; }
+                if (!valid(actual) || (actual[key] !== requested && wanted[key] === requested)) {
+                    delete wanted[key];
+                    prefs.failure = key;
+                    if (prefs.changed) { prefs.changed(); }
+                } else if (wanted[key] === requested) { delete wanted[key]; }
+                flush();
+            }
+            try { store.write(key, saved[key], requested, finish); }
+            catch (error) { finish(null); }
+        }
+        prefs.select = function (key, value) {
+            prefs.failure = null;
+            wanted[key] = value;
+            clearTimeout(timer);
+            timer = setTimeout(flush, 250);
+        };
+        session = prefs;
+        return prefs;
+    }
+
     // read() returns verified values (zero = Mazda default). write(key, from, to,
     // reply) compares against 'from', commits, and returns fresh values to reply.
     function open(fw, store) {
         var host = fw._currTmpltInstance;
         if (active || !inTab(fw) || !host || !host.list2Ctrl) { return false; }
-        var values = store.read();
-        if (!valid(values)) { return false; }
-        var page, choice, pending = false, closed = false, restorers = [];
+        var prefs = preferences(store);
+        if (!prefs) { return false; }
+        var page, choice, closed = false, restorers = [];
         var oldDisplay = host.divElt.style.display;
         var tab = fw.getCurrCtxtId();
         function current() {
@@ -54,12 +108,15 @@ var OpenConnectSettings = (function () {
         function close() {
             if (closed) { return; }
             closed = true;
+            prefs.changed = null;
             while (restorers.length) { restorers.pop()(); }
             discard(page);
             host.divElt.style.display = oldDisplay;
             active = false;
         }
-        function render(index, focus, message) {
+        function render(index, focus) {
+            var values = prefs.values();
+            if (!values || prefs.failure) { index = "unknown"; focus = 0; }
             var rows = [], title = "Open Connect", i, row;
             if (index === null) {
                 for (i = 0; i < entries.length; i++) {
@@ -79,10 +136,8 @@ var OpenConnectSettings = (function () {
                 }
             }
             var listProps = {dataList: {itemCountKnown: true, itemCount: rows.length, items: rows},
-                titleConfiguration: "listTitle", title: {text1: message || title, titleStyle: "style02"},
+                titleConfiguration: "listTitle", title: {text1: title, titleStyle: "style02"},
                 smallItemText: true, focussedItem: focus, selectCallback: select};
-            // List2 normally delays duplicate callbacks after it changes the dot.
-            // Our pending-write guard coalesces presses and needs each callback immediately.
             if (index === 0 || index === 1) { listProps.checkMinChangeInterval = 0; }
             var next = fw.instantiateTemplate("syssettings", host.divElt.parentNode, "List2Tmplt",
                 {List2Ctrl: listProps});
@@ -99,39 +154,21 @@ var OpenConnectSettings = (function () {
         function select(control, item) {
             if (!current() || !page || control !== page.list2Ctrl ||
                     (item !== 0 && item !== 1)) { return; }
-            if (choice === "unknown") { close(); return; }
+            if (choice === "unknown") { prefs.failure = null; close(); return; }
             if (choice === null) {
-                render(item, values[entries[item].key]);
+                var values = prefs.values();
+                render(item, values ? values[entries[item].key] : 0);
                 return;
             }
-            var index = choice, key = entries[index].key, from = values[key];
-            // Mazda checks the tapped radio before calling us. Keep focus on
-            // the requested item and the dot on the confirmed value until reply.
-            var rows = control.dataList.items;
-            if (!rows[from].checked || rows[1 - from].checked) {
-                rows[from].checked = true;
-                rows[1 - from].checked = false;
-                control.updateItems(0, 1);
-            }
-            if (pending) { return; }
-            if (from === item) { render(null, index); return; }
-            pending = true;
-            var replied = false;
-            function reply(actual) {
-                if (replied) { return; }
-                replied = true;
-                pending = false;
-                if (!current()) { close(); return; }
-                if (!valid(actual)) { render("unknown", 0); return; }
-                values = actual;
-                if (actual[key] === item) { render(null, index); }
-                else { render(index, actual[key], "Change could not be confirmed"); }
-            }
-            try { store.write(key, from, item, reply); }
-            catch (error) { reply(null); }
+            // List2 has already moved the radio dot. Saving does not change
+            // focus, push a page or interfere with the Back button.
+            prefs.select(entries[choice].key, item);
         }
         if (!render(null, 0)) { return false; }
         active = true;
+        prefs.changed = function () {
+            if (current()) { render("unknown", 0); } else { close(); }
+        };
         var transition = fw.common.getCommonTransitionData;
         restorers.push(replace(fw.common, "getCommonTransitionData", function () {
             close();
@@ -146,7 +183,8 @@ var OpenConnectSettings = (function () {
         var send = fw.sendEventToMmui;
         restorers.push(replace(fw, "sendEventToMmui", function (app, event) {
             if (current() && app === "common" && (event === "Global.GoBack" || event === "Global.MenuUp")) {
-                if (choice !== null && choice !== "unknown" && !pending) { render(null, choice); } else { close(); }
+                if (choice !== null && choice !== "unknown") { render(null, choice); }
+                else { if (choice === "unknown") { prefs.failure = null; } close(); }
                 return;
             }
             return send.apply(this, arguments);

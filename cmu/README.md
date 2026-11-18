@@ -18,7 +18,9 @@ Source that runs on the device when a feature is explicitly tried.
   System tab entry. The v55 adapter uses Mazda’s List2 template for both pages.
   The owner supplies `read()` and `write(key, expected, requested, reply)`.
   Values are 0 (Mazda default) or 1 (always enable touch or skip the warning).
-  Reply with the verified values, or null if readback failed.
+  The radio changes immediately. Writes run in the background and survive
+  leaving the page. Reply with verified values, or null on an uncertain write.
+  A fresh read can reconcile an acknowledgement that went missing.
 - adapters/fw55/: frontend and native integration for 55.00.750B NA.
 - startup/: one-shot selection, readiness, checked flush and file-publication templates.
 

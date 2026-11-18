@@ -2,7 +2,7 @@
 
 Parked after standalone installer qualification
 ACC is OFF; B+ remains ON at the unchanged 12.02 V setting and 2.0 A limit.
-The final meter samples were 0.002 A standby. UART, camera, relay and supply
+The final meter samples were 0.002–0.003 A standby. UART, camera, relay and supply
 handles are closed. Re-enumerate and establish fresh identity before operating.
 Last verified running boot: 9908bdb9-5cb9-4d8e-9db9-67879fed71b0.
 

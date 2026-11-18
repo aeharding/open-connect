@@ -13,8 +13,9 @@ The analyzed input is Mazda's
 `ffd04e2c8cfaf77388aacde0f9c1cddc17cb6b7f02d7caa2fe6ad39c0f40e787`.
 The download matched the server's `x-amz-meta-sha256`. The extracted
 `/jci/version.ini` identifies `MAZ_CMU-150_74.00.324`, patch `A`, flavor `cmu150_NA`.
-Analysis reads files and disassembles ARM instructions; it does not execute OEM
-programs or update a CMU. Full extracted files and disassembly stay private.
+Analysis reads files and disassembles ARM instructions; it does not execute native
+OEM programs or update a CMU. The renderer check runs extracted JavaScript in Node
+with mocked dependencies. Full extracted files and disassembly stay private.
 
 These SHA-256 values identify the principal porting inputs. Matching them is
 necessary evidence for a future exact-base adapter, not a supported-device verdict.

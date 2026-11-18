@@ -74,6 +74,7 @@ invalid_links = true
 invalid_link_anchors = true
 
 [project.markdown_extensions]
+attr_list = {}
 pymdownx.superfences.custom_fences = [
   { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
 ]

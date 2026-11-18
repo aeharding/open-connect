@@ -41,7 +41,10 @@ def main():
     out.mkdir(mode=0o700, parents=True)
     (out / "sources").mkdir()
     names = [
+        "Makefile",
         "cmu/features/disclaimer/native.c",
+        "cmu/features/disclaimer/native.S",
+        "cmu/features/disclaimer/native.ld",
         "tooling/open_connect/firmware55/native.py",
         "tests/fixtures/native-contract.c",
         "tests/test_native.py",

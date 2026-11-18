@@ -12,7 +12,7 @@ Source that runs on the device when a feature is explicitly tried.
   returns false. Pass the package version as the fourth argument. After the
   backend verifies installation, call `complete(framework, version, onChoice)`
   for **Done** or **Open settings**.
-- installer/usb-launch.sh.in and usb-session.sh: the bounded, RAM-only USB
+- installer/run.sh, session.sh and loader.js: the bounded, RAM-only USB
   bootstrap for v55. Validate and stage a payload, then return immediately to
   Mazda's updater. A short deferred browser call loads the payload in the existing
   document. The payload owns the UI; the bootstrap supplies a session token and
@@ -33,10 +33,12 @@ Source that runs on the device when a feature is explicitly tried.
 - adapters/fw55/: frontend and native integration for 55.00.750B NA.
 - startup/: one-shot selection, readiness, checked flush and file-publication templates.
 
-Host builders live in tooling/open_connect/firmware55. They compose these sources
-with privately supplied OEM files; this directory contains no OEM firmware.
+`make release` compiles native code with Clang/LLD and packages static files with
+Make/shell. The USB scripts and JavaScript are copied byte for byte; only checksum
+data is generated. This directory contains no OEM firmware.
 
-CI builds both installer views into `installer.js` and runs their interaction tests
-against that file. The `fw55-installer-controls` workflow artifact contains the
-tested UI, its checksum and license. Standalone USB packaging is tracked in
+Host bench tooling in tooling/open_connect/firmware55 prepares private firmware
+copies for controlled verification. The maintained tests exercise the installer
+views directly. There is no separate controls-only distribution or research-probe
+build. Connecting the standalone install/uninstall backend remains tracked in
 [issue 7](https://github.com/aeharding/open-connect/issues/7).

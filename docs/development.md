@@ -29,7 +29,7 @@ local PTYs and temporary files; they do not open the physical bench.
 | [tooling/open_connect/](https://github.com/aeharding/open-connect/tree/main/tooling/open_connect) | Host CLI, firmware builders, device operations and bench profile |
 | [tests/](https://github.com/aeharding/open-connect/tree/main/tests) | Maintained offline tests for the host tools |
 | [cmu/](https://github.com/aeharding/open-connect/tree/main/cmu) | Target startup code, firmware adapters and feature sources |
-| [experiments/](https://github.com/aeharding/open-connect/tree/main/experiments) | Unfinished research probes; not dependencies of the feature CLI |
+| [Makefile](https://github.com/aeharding/open-connect/blob/main/Makefile) | Native compilation and USB packaging with standard tools |
 | [docs/](https://github.com/aeharding/open-connect/tree/main/docs) | This website's Markdown sources |
 
 The public suite reports explicit skips for tests needing private OEM inputs.

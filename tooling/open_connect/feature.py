@@ -28,6 +28,7 @@ INPUTS = {
 }
 # Runtime/build implementation dependencies; test-only edits do not invalidate a payload.
 SOURCE_FILES = (
+    "Makefile",
     "tooling/open_connect/__init__.py",
     "tooling/open_connect/__main__.py",
     "tooling/open_connect/bench.py",
@@ -56,8 +57,9 @@ SOURCE_FILES = (
     "tooling/open_connect/session.py",
     "tooling/open_connect/startup.py",
     "tooling/open_connect/uart.py",
-    "tooling/open_connect/usb.py",
     "cmu/features/disclaimer/native.c",
+    "cmu/features/disclaimer/native.S",
+    "cmu/features/disclaimer/native.ld",
     "cmu/startup/flush.c",
     "cmu/startup/selector.sh.in",
     "cmu/startup/ready-watch.sh.in",
@@ -68,7 +70,9 @@ SOURCE_FILES = (
 )
 
 PAYLOAD_SOURCES = tuple(
-    name for name in SOURCE_FILES if name.startswith(("tooling/open_connect/firmware55/", "cmu/"))
+    name
+    for name in SOURCE_FILES
+    if name == "Makefile" or name.startswith(("tooling/open_connect/firmware55/", "cmu/"))
 )
 
 
@@ -414,51 +418,61 @@ def device_action(args):
     return run_device(command, root, bundle, args.action, "completed")
 
 
-def main(argv=None):
+def main(argv=None, *, build_tools=False):
     parser = argparse.ArgumentParser(
-        prog="oc feature",
-        description="Build and prepare the FW55 developer feature. Device operations require --live.",
+        prog="python -m open_connect.feature" if build_tools else "oc feature",
+        description="Private bench fixture tools"
+        if build_tools
+        else "Prepare, observe and restore a controlled bench trial.",
     )
     sub = parser.add_subparsers(dest="action", required=True)
-    p = sub.add_parser("build", help="compile, check and compose the disclaimer trial")
-    p.add_argument("--workspace", type=Path, default=Path.cwd(), help="Open Connect checkout")
-    p.add_argument("--firmware", type=Path, required=True, help="private original filesystem tree")
-    p.add_argument(
-        "--output", type=Path, required=True, help="fresh directory under WORKSPACE/runs/"
-    )
-    p.add_argument(
-        "--recover-on-timeout",
-        action="store_true",
-        help="build with one failed-Home normal reboot; otherwise observe only",
-    )
-    p.add_argument("--dry-run", action="store_true", help="show build commands; write nothing")
-    p = sub.add_parser("inspect", help="verify local build files; does not query the CMU")
-    p.add_argument("--build", type=Path, required=True)
-    p = sub.add_parser("prepare", help="stage generation and independent undo; no root publication")
-    p.add_argument("--build", type=Path, required=True)
-    p.add_argument("--state", type=Path, required=True, help="fresh private operation directory")
-    p.add_argument("--owner", default=os.environ.get("USER", "oc-feature"))
-    p.add_argument(
-        "--baseline-system-app",
-        type=Path,
-        help="explicit private as-found JS if bench already differs from original",
-    )
-    p.add_argument("--live", action="store_true", help="stage verified files on the CMU")
-    for action, help_text in (
-        ("trial", "publish once, reboot and verify selected feature with video"),
-        ("status", "read current hook, loaded code and Home acknowledgement"),
-        ("disable", "restore startup hook, boot baseline and verify it"),
-    ):
-        p = sub.add_parser(action, help=help_text)
-        p.add_argument("--state", type=Path, required=True)
+    if build_tools:
+        p = sub.add_parser("build", help="compile, check and compose the disclaimer trial")
+        p.add_argument("--workspace", type=Path, default=Path.cwd(), help="Open Connect checkout")
         p.add_argument(
-            "--bundle", type=Path, required=True, help="fresh private evidence directory"
+            "--firmware", type=Path, required=True, help="private original filesystem tree"
+        )
+        p.add_argument(
+            "--output", type=Path, required=True, help="fresh directory under WORKSPACE/runs/"
+        )
+        p.add_argument(
+            "--recover-on-timeout",
+            action="store_true",
+            help="build with one failed-Home normal reboot; otherwise observe only",
+        )
+        p.add_argument("--dry-run", action="store_true", help="show build commands; write nothing")
+        p = sub.add_parser("inspect", help="verify local build files; does not query the CMU")
+        p.add_argument("--build", type=Path, required=True)
+    else:
+        p = sub.add_parser(
+            "prepare", help="stage generation and independent undo; no root publication"
+        )
+        p.add_argument("--build", type=Path, required=True)
+        p.add_argument(
+            "--state", type=Path, required=True, help="fresh private operation directory"
         )
         p.add_argument("--owner", default=os.environ.get("USER", "oc-feature"))
-        p.add_argument("--live", action="store_true")
-        if action != "status":
-            p.add_argument("--credentials", type=Path, help="private root credentials JSON")
-            p.add_argument("--camera-index", type=int)
+        p.add_argument(
+            "--baseline-system-app",
+            type=Path,
+            help="explicit private as-found JS if bench already differs from original",
+        )
+        p.add_argument("--live", action="store_true", help="stage verified files on the CMU")
+        for action, help_text in (
+            ("trial", "publish once, reboot and verify selected feature with video"),
+            ("status", "read current hook, loaded code and Home acknowledgement"),
+            ("disable", "restore startup hook, boot baseline and verify it"),
+        ):
+            p = sub.add_parser(action, help=help_text)
+            p.add_argument("--state", type=Path, required=True)
+            p.add_argument(
+                "--bundle", type=Path, required=True, help="fresh private evidence directory"
+            )
+            p.add_argument("--owner", default=os.environ.get("USER", "oc-feature"))
+            p.add_argument("--live", action="store_true")
+            if action != "status":
+                p.add_argument("--credentials", type=Path, help="private root credentials JSON")
+                p.add_argument("--camera-index", type=int)
     args = parser.parse_args(argv)
     try:
         if args.action == "build":
@@ -473,3 +487,7 @@ def main(argv=None):
         result, code = dict(outcome="refused", error=str(exc), device_operations=False), 2
     print(json.dumps(result, indent=2))
     return code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(build_tools=True))

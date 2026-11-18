@@ -32,8 +32,19 @@ class FeatureCLI(unittest.TestCase):
     def invoke(self, *args):
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(io.StringIO()):
-            rc = cli.main(["feature", *map(str, args)])
+            if args[0] in ("build", "inspect"):
+                rc = feature.main(list(map(str, args)), build_tools=True)
+            else:
+                rc = cli.main(["feature", *map(str, args)])
         return rc, json.loads(stdout.getvalue())
+
+    def test_bench_cli_does_not_expose_build_or_packaging(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            for action in ("build", "inspect"):
+                with self.assertRaises(SystemExit) as error:
+                    cli.main(["feature", action])
+                self.assertEqual(error.exception.code, 2)
+            self.assertEqual(cli.main(["usb"]), 2)
 
     def test_installed_checkout_mismatch_refuses_before_execution(self):
         with tempfile.TemporaryDirectory() as temp:

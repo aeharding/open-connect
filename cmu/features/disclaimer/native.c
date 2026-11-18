@@ -1,4 +1,4 @@
-/* Independent Intro-only native prototype. No OEM source bytes. */
+/* Independent Intro-only native feature. No OEM source bytes. */
 typedef __UINT32_TYPE__ u32;
 typedef __INT32_TYPE__ s32;
 typedef __UINTPTR_TYPE__ word;

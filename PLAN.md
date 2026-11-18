@@ -160,7 +160,7 @@ The existing audio-manager API opened FM Now Playing and the source list without
 a TAU. The CLI verified setup and teardown of the runtime profile. No permanent
 startup hook is installed;
 actual playback remains unverified.
-See [TAU experiment](experiments/tau-bypass/README.md).
+See the [maintained Audio Manager findings](docs/reverse-engineering.md#silent-entertainment-without-a-tau).
 
 The DPS150 now provides tested full-output power control; voltage settings must
 remain unchanged. The ACC relay now reproduces both [quick resume and fresh startup](docs/reverse-engineering.md#acc-must-be-a-real-transition) on the v55 bench. The Mac also authenticated over USB Ethernet on this CMU. Recheck access on the replacement. An audio readiness override must be off

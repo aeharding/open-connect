@@ -1,12 +1,12 @@
 # Test the disclaimer bypass on a bench
 
-**Developer preview · 55.00.750B North America only · one selected boot**
+**Bench verification · 55.00.750B North America only · one selected boot**
 
 This skips the warning through Mazda's native startup decisions and keeps its
 normal Home transition and intro cleanup. It preserves the OEM appearance.
 The screen may briefly fade or go black before Home appears.
 
-The preview selects private copies of the native and JavaScript changes for one
+The bench workflow selects private copies of the native and JavaScript changes for one
 boot. It leaves the installed feature files alone. If Home does not acknowledge
 startup within 90 seconds, the independent supervisor requests a normal reboot;
 the consumed attempt makes the next boot use your previous configuration.
@@ -14,12 +14,12 @@ the consumed attempt makes the next boot use your previous configuration.
 ## Before you start
 
 - A wired, working bench with an idle **root shell**, then close your serial terminal.
-- Start at Mazda Home. This preview qualifies a warm software restart to Home;
+- Start at Mazda Home. This workflow verifies a warm software restart to Home;
   last-app, display-off and ACC/resume startup remain unqualified.
 - Exactly **55.00.750B NA/cmu150_NA** and its private original files listed below.
 - macOS for live UART/camera operation; an FT232R **0403:6001** adapter and webcam.
   Linux runs the public host tests; the live camera currently uses AVFoundation.
-- Python 3.13, Node.js, clang, llvm-objdump, ld.lld and ffmpeg on your host.
+- Python 3.13, Node.js, Make, clang, llvm-objcopy, llvm-objdump, ld.lld and ffmpeg on your host.
 - Private root credentials JSON: `{"username":"root","password":"YOUR_PASSWORD"}`,
   in an owner-only file (`chmod 600 /private/root.json`).
 
@@ -27,10 +27,10 @@ Find your UART adapter's serial number with
 `python -m serial.tools.list_ports -v` after installing below. Set it explicitly;
 this identifies the FTDI, not the power supply.
 
-## Build from the release
+## Build from the current source
 
 ~~~sh
-git clone --branch v0.1.0-dev.1 https://github.com/aeharding/open-connect.git
+git clone https://github.com/aeharding/open-connect.git
 cd open-connect
 python3.13 -m venv .venv
 .venv/bin/python -m pip install -e .
@@ -55,17 +55,14 @@ firmware55/
 ~~~
 
 ~~~sh
-.venv/bin/oc feature build --workspace . --firmware /private/firmware55 \
+.venv/bin/python -m open_connect.feature build --workspace . --firmware /private/firmware55 \
   --output runs/preview-build --recover-on-timeout
-.venv/bin/oc feature inspect --build runs/preview-build
+.venv/bin/python -m open_connect.feature inspect --build runs/preview-build
 ~~~
-
-The clean-checkout reproduction used Python 3.13.7, Node 26.7.0,
-Apple clang/LLVM 21.0.0, LLD 23.1.5 and ffmpeg 7.1.1.
 
 Build checks the supported originals and compiles/tests the changes locally.
 It does not contact the CMU. OEM files, generated patches, credentials and
-recordings stay private; the release contains source code only.
+recordings stay private; the public repository contains no OEM files.
 
 ## Try once, then return to baseline
 
@@ -111,6 +108,9 @@ triggered independent fallback to baseline. A fresh clone and fresh virtual envi
 private originals and passed selected startup and independent Disable/baseline
 startup automatically. Both recordings showed Home; no reboot retry or manual
 reconciliation was needed. The earlier CLI console-check failure remains recorded.
+That historical reproduction used `v0.1.0-dev.1`, Python 3.13.7, Node 26.7.0,
+Apple clang/LLVM 21.0.0, LLD 23.1.5 and ffmpeg 7.1.1. The commands above use the
+current source and build entry point.
 
 Home acknowledgement is a scoped test signal, not proof of every screen or
 control. ACC/resume, automatic everyday renewal and production installation remain

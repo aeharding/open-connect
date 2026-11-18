@@ -16,8 +16,8 @@ python3 -m venv .venv
 ~~~
 
 The last command is a **dry run**: no device opens, changes or receipt writes.
-All commands below can also use python -m open_connect.
-When operating through Herdr, prefix the command with hc exec --cwd "$PWD".
+Bench commands below can also use python -m open_connect. Run commands directly;
+Herdr is used for agent communication.
 
 ## Bench profile
 
@@ -56,17 +56,17 @@ different receipt explicitly. Only one program should own UART at a time.
 
 ## Developer feature trial
 
-For the pinned release and complete walkthrough, see [Try the disclaimer bypass](disclaimer-development.md).
+For the current source and complete walkthrough, see [Test the disclaimer bypass](disclaimer-development.md).
 
-This is the **FW55 Home-only prototype**, not a USB installer. Use a source
-checkout; the installed CLI locates the prototype builders through `--workspace`.
+This is **FW55 Home-only bench verification**, not the USB installer. Use a source
+checkout; the bench tools locate private fixture builders through `--workspace`.
 Supply private original files in a filesystem-shaped directory. They are never
 downloaded or included in the package.
 
 ~~~sh
-oc feature build --workspace . --firmware /private/firmware55 \
+python -m open_connect.feature build --workspace . --firmware /private/firmware55 \
   --output runs/my-feature --recover-on-timeout
-oc feature inspect --build runs/my-feature
+python -m open_connect.feature inspect --build runs/my-feature
 oc feature prepare --build runs/my-feature --state runs/my-trial
 ~~~
 
@@ -80,7 +80,7 @@ The input tree needs:
 `jci/mmui/mmui_config.xml`, `jci/mmui/uia/libjciuiasystem.so`,
 `jci/gui/index.html`, and `jci/gui/framework/js/BaseApp.js` plus
 `jci/gui/apps/system/js/systemApp.js`. Exact supported originals are checked.
-Build tools: Python, Node.js, clang, llvm-objdump and ld.lld.
+Build tools: Python, Node.js, Make, clang, llvm-objcopy, llvm-objdump and ld.lld.
 
 ~~~sh
 oc feature trial --state runs/my-trial --bundle runs/my-start \
@@ -114,10 +114,12 @@ from USB on **55.00.750B NA**. It does not install features or enable Settings.
 The generic loader stages a verified payload in RAM and runs it inside Mazda's
 existing page. Cancel, USB removal and a one-minute deadline close the preview.
 
-Build from a matching source checkout with clang and ld.lld installed:
+Build from the source checkout with Make, Clang, LLD, llvm-objcopy, OpenSSL and zip installed.
+Packaging copies the checked-in scripts unchanged and writes a checksum manifest;
+it does not require Python or an installed `oc` command.
 
 ~~~sh
-oc usb build-preview --workspace . --output runs/my-usb-preview
+make release OUT=runs/my-usb-preview
 ~~~
 
 Extract `open-connect-usb-preview.zip` directly into an otherwise empty FAT32

@@ -87,7 +87,14 @@ and a bounded loopback reply receiver; the payload owns the dialog. Firmware,
 frontend and staged-payload checks precede execution. There are no root remounts,
 watchdog changes, NVRAM writes or startup hooks in this preview.
 
-Private evidence: `runs/usb-bootstrap-20261118/`, including the `build-v6` file
+The static-file refactor also passed launch, Cancel, reinsertion, removal and
+deadline cleanup. The separately loaded dialog and UI need no generated JavaScript.
+The [CI-built Make/shell bundle](https://github.com/aeharding/open-connect/actions/runs/44243108343)
+passed automatic USB launch and Cancel cleanup on the same stock v55 baseline.
+Refactor evidence is in `runs/usb-installer-20261118/`; the independent installer
+backend remains unfinished.
+
+Earlier private evidence: `runs/usb-bootstrap-20261118/`, including the `build-v6` file
 manifest, insertion/cancellation/removal receipts and screen captures. This
 establishes the bootstrap at Home only. Cold insertion, v74, the autonomous
 install/uninstall transaction and release qualification remain separate work.
@@ -198,7 +205,7 @@ Current source findings:
   Current availability does not establish availability at an earlier boot hook.
 - svcjcimmui.so constructs UIA priority/context records before invoking loaders
   (0x2e08–0x2f50). It is not a neutral plugin registry. The
-  [probe](https://github.com/aeharding/open-connect/blob/main/experiments/optional-loader/README.md) hooks its final return at
+  [historical probe](https://github.com/aeharding/open-connect/blob/ab4752b/experiments/optional-loader/README.md) hooks its final return at
   0x31ac, before ServiceInit calls AppsLoadingFinish at 0x1914. This cannot select
   services that have already started.
 - Websockets.js:507–551 constructs/sends events on an open MMUI socket.
@@ -454,7 +461,7 @@ boot ages and audio-profile conditions prevent a performance comparison.
 A later clean-checkout preview run passed both selected startup and independent
 Disable/baseline startup automatically, without reconciliation or reboot retry.
 This confirms the short-command workflow on the bench; it does not broaden the
-Home-only warm-start scope. [Try the preview](disclaimer-preview.md).
+Home-only warm-start scope. [Try the preview](disclaimer.md).
 Private evidence: `runs/feature-cli-trial/result.json` and
 `runs/disclaimer-preview-reproduction/result.json`.
 
@@ -636,7 +643,7 @@ shutdown visibility must be checked before adopting it for service startup.
 Mount isolation is not a sandbox for root code and does not make ordinary writes
 inside the namespace temporary.
 
-The [probe source and checks](https://github.com/aeharding/open-connect/tree/main/experiments/boot-selection)
+The [historical probe source and checks](https://github.com/aeharding/open-connect/tree/ab4752b/experiments/boot-selection)
 are public; exact private evidence is `runs/combined-startup/namespace-result.json`.
 
 ### Normal persistent writes

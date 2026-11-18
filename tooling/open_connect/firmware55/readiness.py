@@ -11,7 +11,7 @@ from pathlib import Path
 from open_connect.paths import ROOT, source_name
 
 from . import generation as feature
-from . import selection as prototype
+from . import selection
 
 HERE = ROOT / "cmu/startup"
 RECEIVER = HERE / "ready-receiver.c"
@@ -83,7 +83,7 @@ oc_commit_selection() {
 
 
 def hook(directory, selector):
-    text = prototype.hook(directory, selector)
+    text = selection.hook(directory, selector)
     prepare = (
         "/bin/busybox timeout -t 5 /bin/sh "
         + shlex.quote(directory + "/ready-watch.sh")
@@ -127,10 +127,10 @@ def build(source, receiver, output, *, recover=False, deadline=90):
         if not re.fullmatch(r"[a-z][a-z0-9.-]*", name):
             raise ValueError("artifact name")
         content = (source / name).read_bytes()
-        if prototype.fingerprint(content) != expected:
+        if selection.fingerprint(content) != expected:
             raise ValueError("changed generation artifact: " + name)
         data[name] = content
-    if hashlib.sha256(data["autostart.original"]).hexdigest() != prototype.AUTOSTART_SHA:
+    if hashlib.sha256(data["autostart.original"]).hexdigest() != selection.AUTOSTART_SHA:
         raise ValueError("original autostart")
     binary = receiver.read_bytes()
     record = json.loads(receiver.with_name("build.json").read_text())
@@ -147,7 +147,7 @@ def build(source, receiver, output, *, recover=False, deadline=90):
     data["ready-receiver"] = binary
     data["ready-watch.sh"] = watch(directory, binary, recover=recover, deadline=deadline)
     deps = {n: data[n] for n in (*plan["dependencies"], "ready-receiver", "ready-watch.sh")}
-    data["select.sh"] = prototype.selector(
+    data["select.sh"] = selection.selector(
         directory, data["generation.conf"], data["flush"], data["armed"], deps
     ).encode()
     data["autostart.candidate"] = feature.replace_once(
@@ -161,7 +161,7 @@ def build(source, receiver, output, *, recover=False, deadline=90):
     for name, content in data.items():
         (output / name).write_bytes(content)
     plan.update(
-        artifacts={n: prototype.fingerprint(b) for n, b in data.items()},
+        artifacts={n: selection.fingerprint(b) for n, b in data.items()},
         dependencies=sorted(deps),
         health=dict(
             port=48637,

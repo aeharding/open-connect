@@ -15,9 +15,9 @@ Use targeted experiments only for concrete release blockers, then integrate thei
 results. Avoid duplicated audits, tooling and logs. Apply STEERING.md: outcome first,
 early prior art, one decision per experiment, and separate device/tooling failures.
 
-Run program/file operations through Herdr hc. Give multi-operation uploads and
-boot observers an explicit host timeout (hc exec --timeout 600); its default
-60-second deadline can kill an upload mid-command. Keep UART/camera ownership serialized
+Run commands and file operations directly, including Git, builds and tests.
+Use Herdr hc only for agent communication. Give uploads and boot observers
+explicit deadlines long enough to complete. Keep UART/camera ownership serialized
 and close owned resources. Match process identity before termination.
 The user supplies physical resources; agents handle software operation. Do not
 ask the user to press buttons, dismiss dialogs or rewire things to complete agent work.
@@ -27,7 +27,7 @@ ask the user to press buttons, dismiss dialogs or rewire things to complete agen
 - tooling/open_connect/: host Python; nothing here is installed on the CMU.
 - cmu/: target integration code, including firmware adapters and probes.
 - tests/: maintained host tests, including the semantic CLI and bench profile.
-- experiments/: unfinished research probes. The maintained feature workflow lives in tooling/open_connect/.
+- Superseded research probes live in Git history; do not keep a parallel prototype tree.
 - docs/: Markdown sources for the GitHub Pages site: setup, usage and CMU findings.
   Navigation and site settings are in zensical.toml. Use Git for historical records.
 - GitHub issues/PRs: work queue and review. No separate progress-dashboard requirement.

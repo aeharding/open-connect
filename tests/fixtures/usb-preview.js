@@ -16,7 +16,10 @@ function session(available) {
             return function () { closed++; done("cancel"); };
         }}
     };
-    function run() { vm.runInNewContext("(function(){" + source + "}())", ctx); }
+    function run() {
+        vm.runInNewContext(source, ctx);
+        ctx.OpenConnectPreview("session-token", 39877);
+    }
     run();
     return {window, requests, events, run,
         tick() { interval(); }, expire() { deadline(); },

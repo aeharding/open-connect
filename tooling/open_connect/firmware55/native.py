@@ -129,36 +129,28 @@ def branch_target(word, place):
     return place + 8 + (n << 2)
 
 
-def branch_word(original, place, target):
-    if original >> 24 not in (0xEA, 0xEB):
-        raise Rejected("not an unconditional ARM B/BL")
-    delta = target - place - 8
-    if delta % 4 or not -(1 << 25) <= delta < (1 << 25):
-        raise Rejected("ARM branch range/alignment")
-    return (original & 0xFF000000) | ((delta >> 2) & 0xFFFFFF)
-
-
-def link_object(obj, external):
+def inspect_link(obj, linked_image, external):
+    """Check LLD's output against the object relocations; never link or emit code."""
     elf = ELF(obj)
+    linked = ELF(linked_image)
     text_i, text = elf.section(".text")
     textdata = elf.section_data(".text")
     ro_i, ro = elf.section(".rodata.str1.1")
     roaddr = STUB + ((len(textdata) + 3) & ~3)
     locations = {text_i: STUB, ro_i: roaddr}
-    blob = bytearray(
-        textdata + bytes(roaddr - STUB - len(textdata)) + elf.section_data(".rodata.str1.1")
-    )
+    unlinked = textdata + bytes(roaddr - STUB - len(textdata)) + elf.section_data(".rodata.str1.1")
+    payload_i, payload = linked.section(".payload")
+    blob = linked.section_data(".payload")
+    if payload[3] != STUB or len(blob) != len(unlinked):
+        raise Rejected("unexpected linked payload layout")
     if len(blob) > END - STUB:
         raise Rejected(f"compiled PIC stub {len(blob)} exceeds verified1024B padding")
-    symbols = {}
-
-    def address(sym):
-        if sym["section"] in locations:
-            return locations[sym["section"]] + sym["value"]
-        if sym["section"] == 0 and sym["name"] in external:
-            return external[sym["name"]]
-        raise Rejected("unsupported/undefined symbol " + sym["name"])
-
+    for name, address in external.items():
+        if linked.symbols.get(name, {}).get("value") != address:
+            raise Rejected("linker map does not match verified OEM symbol " + name)
+    symbols = {
+        name: sym["value"] for name, sym in linked.symbols.items() if sym["section"] == payload_i
+    }
     relocations = []
     for i, s in enumerate(elf.sections):
         if s[1] != 9:
@@ -170,10 +162,16 @@ def link_object(obj, external):
             offset, info = struct.unpack_from("<II", obj, at)
             kind = info & 255
             sym = elf.by_table[s[6]][info >> 8]
-            target = address(sym)
+            if sym["section"] in locations:
+                target = locations[sym["section"]] + sym["value"]
+            elif sym["section"] == 0 and sym["name"] in external:
+                target = external[sym["name"]]
+            else:
+                raise Rejected("unsupported/undefined symbol " + sym["name"])
             place = locations[s[7]] + offset
             index = place - STUB
-            old = struct.unpack_from("<I", blob, index)[0]
+            old = struct.unpack_from("<I", unlinked, index)[0]
+            new = struct.unpack_from("<I", blob, index)[0]
             if kind in (28, 29):
                 if (kind == 28 and old >> 24 != 0xEB) or (kind == 29 and old >> 24 != 0xEA):
                     raise Rejected("unexpected compiler ARM branch relocation form")
@@ -182,26 +180,25 @@ def link_object(obj, external):
                 delta = target + addend - place
                 if delta % 4 or not -(1 << 25) <= delta < (1 << 25):
                     raise Rejected("relocation branch range")
-                new = (old & 0xFF000000) | ((delta >> 2) & 0xFFFFFF)
+                if new >> 24 != old >> 24 or branch_target(new, place) != target + addend + 8:
+                    raise Rejected("LLD ARM branch does not resolve to the expected symbol")
             elif (
                 kind == 3
             ):  # R_ARM_REL32 S+A-P; runtime load base cancels for PC-relative references.
-                new = (target + old - place) & 0xFFFFFFFF
+                if (new + place) & 0xFFFFFFFF != (target + old) & 0xFFFFFFFF:
+                    raise Rejected("LLD REL32 does not resolve to the expected symbol")
             else:
                 raise Rejected("unsupported relocation " + str(kind))
-            struct.pack_into("<I", blob, index, new)
             relocations.append(
                 dict(place=place, kind=kind, symbol=sym["name"], target=target, old=old, new=new)
             )
-    for name, sym in elf.symbols.items():
-        if sym["section"] in locations:
-            symbols[name] = address(sym)
-    return bytes(blob), symbols, relocations
+    return blob, symbols, relocations
 
 
-def patch(original, obj, external, firmware=FIRMWARE):
+def patch(original, obj, linked_image, external, firmware=FIRMWARE):
     elf = guard(original, firmware)
-    stub, symbols, relocs = link_object(obj, external)
+    stub, symbols, relocs = inspect_link(obj, linked_image, external)
+    linked = ELF(linked_image)
     entry = symbols["cmu_native_process"]
     if (
         branch_target(struct.unpack_from("<I", original, SITE)[0], SITE)
@@ -210,10 +207,19 @@ def patch(original, obj, external, firmware=FIRMWARE):
         raise Rejected("stock helper PLT mismatch")
     candidate = bytearray(original)
     candidate[STUB : STUB + len(stub)] = stub
-    # Extend only the original RX LOAD's declared tail into existing zero file padding.
-    for offset in (16, 20):
-        struct.pack_into("<I", candidate, elf.h[5] + offset, STUB + len(stub))
-    struct.pack_into("<I", candidate, SITE, branch_word(0xEB000000, SITE, entry))
+    sizes = linked.section_data(".sizes")
+    branch = linked.section_data(".branch")
+    if (
+        linked.section(".sizes")[1][3] != elf.h[5] + 16
+        or sizes != struct.pack("<II", STUB + len(stub), STUB + len(stub))
+        or linked.section(".branch")[1][3] != SITE
+        or len(branch) != 4
+        or branch_target(struct.unpack("<I", branch)[0], SITE) != entry
+        or branch[3] != 0xEB
+    ):
+        raise Rejected("invalid linker-generated replacement words")
+    candidate[elf.h[5] + 16 : elf.h[5] + 24] = sizes
+    candidate[SITE : SITE + 4] = branch
     return bytes(candidate), dict(
         entry=entry, stub_start=STUB, stub_bytes=len(stub), symbols=symbols, relocations=relocs
     )
@@ -226,34 +232,22 @@ def rollback(current, original, expected_candidate):
     return original
 
 
-def build(output, original_path, *, clang=None, objdump=None):
-    output = private_output(output)
-    original_path = Path(original_path).resolve()
-    original = original_path.read_bytes()
-    guard(original)
+def compile_native(output, *, clang=None):
+    """The bench builder uses the same Make/LLVM path as the public build."""
     clang = tool("clang", clang)
-    objdump = tool("llvm-objdump", objdump)
     output.mkdir(mode=0o700, parents=True, exist_ok=False)
-    (output / "native.c").write_bytes((ROOT / "cmu/features/disclaimer/native.c").read_bytes())
+    for name in ("native.c", "native.S", "native.ld"):
+        (output / name).write_bytes((ROOT / "cmu/features/disclaimer" / name).read_bytes())
+    (output / "Makefile").write_bytes((ROOT / "Makefile").read_bytes())
     (output / "build.py").write_bytes(Path(__file__).read_bytes())
     cmd = [
-        clang,
-        "--target=armv7-none-eabi",
-        "-march=armv7-a",
-        "-marm",
-        "-mfloat-abi=hard",
-        "-mfpu=vfpv3",
-        "-Oz",
-        "-ffreestanding",
-        "-fPIC",
-        "-fvisibility=hidden",
-        "-fno-unwind-tables",
-        "-fno-asynchronous-unwind-tables",
-        "-fno-stack-protector",
-        "-c",
-        str(output / "native.c"),
-        "-o",
-        str(output / "native.o"),
+        tool("make"),
+        "-f",
+        str(output / "Makefile"),
+        "native",
+        "OUT=" + str(output),
+        "NATIVE_DIR=" + str(output),
+        "CLANG=" + clang,
     ]
     r = subprocess.run(cmd, capture_output=True)
     (output / "compile.stdout").write_bytes(r.stdout)
@@ -263,6 +257,17 @@ def build(output, original_path, *, clang=None, objdump=None):
     )
     if r.returncode:
         raise Rejected("ARM compiler failed; see retained compile evidence")
+    return (output / "native.o").read_bytes(), (output / "patch.elf").read_bytes()
+
+
+def build(output, original_path, *, clang=None, objdump=None):
+    output = private_output(output)
+    original_path = Path(original_path).resolve()
+    original = original_path.read_bytes()
+    guard(original)
+    objdump = tool("llvm-objdump", objdump)
+    obj, linked_image = compile_native(output, clang=clang)
+    clang = tool("clang", clang)
     p = subprocess.run([objdump, "-d", "-j", ".plt", str(original_path)], capture_output=True)
     (output / "original-plt.txt").write_bytes(p.stdout)
     if p.returncode:
@@ -282,8 +287,7 @@ def build(output, original_path, *, clang=None, objdump=None):
         "cmu_stop_service": 0x187D4,
         "cmu_image_base": 0,
     }
-    obj = (output / "native.o").read_bytes()
-    candidate, linked = patch(original, obj, external)
+    candidate, linked = patch(original, obj, linked_image, external)
     (output / "original.bin").write_bytes(original)
     (output / "candidate.bin").write_bytes(candidate)
     blocks = [0, 7, 72]
@@ -318,7 +322,13 @@ def build(output, original_path, *, clang=None, objdump=None):
         ),
         source_pins={
             source_name(p): metadata(p.read_bytes())["sha256"]
-            for p in [ROOT / "cmu/features/disclaimer/native.c", Path(__file__)]
+            for p in [
+                ROOT / "Makefile",
+                ROOT / "cmu/features/disclaimer/native.c",
+                ROOT / "cmu/features/disclaimer/native.S",
+                ROOT / "cmu/features/disclaimer/native.ld",
+                Path(__file__),
+            ]
         },
         scope=dict(
             event=1470,

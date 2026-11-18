@@ -13,7 +13,7 @@ navigate() {
         /com/jci/OPERA_IHU_PRIMARY com.jci.opera_IHU_PRIMARY.Navigate "string:$1" >/dev/null
 }
 cleanup() {
-    navigate "javascript:void((function(){if(window.__ocUSB&&window.__ocUSB.token==='$token')window.__ocUSB.cancel();if(window.__ocUSBLoading&&window.__ocUSBLoading.token==='$token')window.__ocUSBLoading.cancel();}()))" || :
+    navigate "javascript:void((function(){if(window.__ocUSB&&window.__ocUSB.token==='$token')window.__ocUSB.cancel();if(window.__ocUSBLoading&&window.__ocUSBLoading.token==='$token')window.__ocUSBLoading.cancel();var s=document.getElementById('oc-usb-loader');if(s&&s.ocToken==='$token')s.parentNode.removeChild(s);}()))" || :
     if test -n "$receiver"; then
         # Re-enumerate the executable before signalling our child.
         if test "$(readlink /proc/$receiver/exe 2>/dev/null)" = "$work/receiver"; then kill "$receiver" 2>/dev/null || :; fi

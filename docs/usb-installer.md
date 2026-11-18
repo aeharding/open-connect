@@ -1,81 +1,65 @@
-# USB installer
+# Quick start
 
-The development prerelease supports **55.00.750B NA (cmu150_NA)** only. It installs
-always-enabled touchscreen input and the startup disclaimer bypass, with
-preferences in Mazda Settings. Other firmware, including v74, is unsupported.
+Install Open Connect from a USB drive. It adds two choices to Mazda Settings:
+touchscreen access while moving and whether to show the startup disclaimer.
 
-## Install or update
+> **Development prerelease · 55.00.750B North America only**
+>
+> This release is for bench testing. Physical touch while moving is still being
+> qualified. **Firmware 74 is not supported yet.**
 
-1. Download the USB ZIP and `SHA256SUMS` from the matching
-   [GitHub release](https://github.com/aeharding/open-connect/releases).
-2. Extract the ZIP into the root of a FAT32 USB drive. Keep the two trigger files
-   beside the `open-connect` folder. Preserve the unusually named `.up` file.
-3. With Mazda Connect at Home, insert the drive and choose **Install** or
-   **Install/update**. Leave power on while the operation finishes.
-4. Mazda Connect restarts. Choose **Done** or **Open settings**. The USB drive can
-   then be removed; the installed features persist across ignition cycles.
+<p><a class="md-button md-button--primary" href="https://github.com/aeharding/open-connect/releases/download/v0.2.0-dev.1/open-connect-0.2.0-dev.1-usb.zip">Download USB installer</a> <a class="md-button" href="https://github.com/aeharding/open-connect/releases/tag/v0.2.0-dev.1">Release notes</a></p>
 
-The head unit runs the complete installer locally. No computer, SSH, internet
-connection, Python or `oc` command is involved. Running Install/update again uses
-saved originals and retains your Open Connect preferences.
-
-## Preferences and removal
-
-Find **Open Connect** in the System tab of Mazda Settings. Each preference has a
-separate radio-choice page. The choice updates immediately; its behavior takes
-effect after restarting Mazda Connect.
-
-Choose **Uninstall** there or from a compatible replacement USB. It restores the
-saved startup file and pre-install touchscreen setting, then restarts. Saved
-originals and one uninstall checkpoint remain for **Undo uninstall** from USB.
-See [uninstall and conflicts](uninstall.md).
-
-After an interruption, reinsert a compatible USB. The backend reconciles the
-prepared operation with actual files and settings before continuing. An
-unconfirmed response does not cause the UI to repeat a write automatically.
-
-## Startup recovery
-
-A durable attempt budget limits repeated boots of the disclaimer bypass. A
-sustained ACC-off transition followed by a different kernel boot can renew it.
-Reaching Home, quick ACC resume and repeated software resets do not renew it.
-
-When attempts run out, startup uses Mazda's original native/JavaScript path and
-restores the saved touchscreen setting. The display service reads that setting
-before our hook, so its restored value takes effect on the **next boot**. Recovery
-does not force an additional restart or erase your feature preferences.
-
-This is a finite retry policy, not a diagnosis of which component caused a reset.
-A battery interruption or unrelated firmware fault can consume an attempt.
-
-## Development and qualification
-
-Build with Clang, LLD, llvm-objcopy, OpenSSL and zip:
-
-```sh
-make release OUT=runs/my-release
+```mermaid
+flowchart TB
+    A[Download ZIP] --> B[Copy to USB]
+    B --> C[Choose Install]
+    C --> D[Restart · Done]
 ```
 
-The output is `open-connect-<version>-usb.zip` plus `SHA256SUMS`. CI uploads the
-same files as `fw55-usb-installer`. A `v<version>` development tag matching
-`cmu/installer/VERSION` on reviewed main history prepares a draft prerelease after
-host checks. Publish it after qualifying that CI artifact on the bench.
-Build scripts copy authored files and compile native assets; OEM
-files are read and composed privately on the CMU.
+## 1. Prepare the USB drive
 
-Bench qualification covered the actual CI bundle and these behaviors:
+Use a drive formatted as **FAT32**. Extract the downloaded ZIP and copy **all of
+its contents** directly onto the drive, outside any extra folder.
 
-- Fresh install, reinstall with preferences retained, restart, completion and
-  native Settings; uninstall from the installed backend after USB removal.
-- Full ignition shutdown/startup, quick resume, software resets and an exhausted
-  attempt budget followed by a fault after Home.
-- Recovery after one controlled power cut with a prepared preference transaction.
-- Conflicted uninstall, exact Undo and refusal after a later edit; original
-  startup, NVRAM and native mappings verified after removal, with root read-only.
+The drive should contain the `open-connect` folder and **two small files beside
+it**. Keep their original names, including the unusually named `.up` file.
+Copy the extracted files, not the ZIP itself. Safely eject the drive.
 
-See the [firmware-scoped evidence](reverse-engineering.md#standalone-installer-backend).
-These are bounded bench checks, not long-term vehicle reliability qualification.
-The outgoing CMU has unreliable touch hardware. Physical touch/motion behavior,
-broader last-app/display-off cases and the modern-firmware port remain before a
-normal owner release. Power loss at arbitrary storage-write points is also
-unqualified; the host suite covers additional injected failures.
+## 2. Choose Install
+
+Wait for Mazda Connect's **Home** screen, then insert the USB drive.
+Choose **Install** when the prompt appears.
+
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect 0.2.0-dev.1? The dialog says Mazda Connect will restart once and offers Cancel and Install." width="800" height="480"></div>
+  <figcaption>Choose Install. Mazda Connect handles the restart.</figcaption>
+</figure>
+
+**Leave the power on and the USB drive connected** while installation completes.
+Mazda Connect restarts automatically.
+
+## 3. Finish
+
+After the restart, choose **Done** or **Open settings**. You can now remove the
+USB drive. Open Connect stays installed for future starts.
+
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect 0.2.0-dev.1 installed. Installation complete, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
+  <figcaption>Choose Open settings to change either preference.</figcaption>
+</figure>
+
+[Change your settings →](settings.md) · [Uninstall →](uninstall.md)
+
+## Updating an existing installation
+
+Prepare a USB drive from the new release in the same way. Insert it at Home and
+choose **Install/update**. Your Open Connect preferences are kept.
+
+## No prompt?
+
+Check that you're at Home, the drive is FAT32, and the extracted folder and two
+files are directly on the drive. Check the firmware limit above, then reinsert
+the drive. If it still does not open,
+[report the problem](https://github.com/aeharding/open-connect/issues) with your
+firmware version and what appeared on screen.

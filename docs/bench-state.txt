@@ -1,10 +1,17 @@
 2016 Mazda3 bench handoff — November 18, 2026
 
-Parked after standalone installer qualification
-ACC is OFF; B+ remains ON at the unchanged 12.02 V setting and 2.0 A limit.
-The final meter samples were 0.002–0.003 A standby. UART, camera, relay and supply
-handles are closed. Re-enumerate and establish fresh identity before operating.
-Last verified running boot: 9908bdb9-5cb9-4d8e-9db9-67879fed71b0.
+Direct documentation capture completed
+The published v0.2.0-dev.1 bundle was installed on this outgoing v55 CMU to
+capture six direct Wayland screenshots for the owner guide. No camera was used.
+Settings Uninstall then restored the original startup and touchscreen state;
+fresh boot f9b1e036-f850-4c68-9e08-932512b2efe7 verified original native mappings,
+Opera's stock index, physical root RO and no Open Connect runtime or listener.
+The exact prior removed record and Undo checkpoint below were restored and
+verified. The documentation session's inactive state is retained at
+/tmp/mnt/data_persist/oc-installer-rescue-20261118/docs-capture-after.
+ACC is OFF; standby current was below 25 mA. B+ remains ON with the unchanged
+12.02 V setting and 2.0 A limit. UART, relay and supply handles are closed.
+Evidence: runs/owner-docs/verify-restored.out, stock-intake/ and park/.
 
 The actual CI bundle (run 44267661925, source 8370d73) installed from empty
 installer state, restarted, showed completion and opened native Settings.
@@ -56,7 +63,7 @@ Host tests passed 156 tests with 7 explicit private-input skips.
 
 Next hardware work
 This outgoing CMU is 55.00.750B NA (cmu150_NA), with unreliable touch. The
-replacement is expected November 19. Confirm its part number, region and
+replacement is expected today, November 18. Confirm its part number, region and
 firmware, then compare stock touch using the same display/cable. The development
 prerelease does not qualify physical touch/motion or the owner's v74 car.
 The separate firmware move remains the next software work in PLAN.md.

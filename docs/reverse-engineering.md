@@ -105,7 +105,7 @@ Earlier private evidence: `runs/usb-bootstrap-20261118/`, including the `build-v
 manifest, insertion/cancellation/removal receipts and screen captures. This
 establishes the bootstrap at Home only. Cold insertion, v74, the autonomous
 install/uninstall transaction and release qualification remain separate work.
-[Build the current installer](usb-installer.md) ·
+[Build the current installer](installer-development.md) ·
 [Installer work](https://github.com/aeharding/open-connect/issues/7)
 
 ## Standalone installer backend

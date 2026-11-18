@@ -72,6 +72,7 @@ Before merging any PR, obtain an independent adversarial review of the final
 revision and resolve blockers. This includes docs-only changes and deletions.
 Follow CONTRIBUTING.md; ephemeral review agents are explicitly authorized for this.
 Never publish ignored OEM files, credentials, raw captures or incompatible comparison
-adaptations. Stage an explicit reviewed file set; see THIRD_PARTY.md.
+adaptations. Reviewed direct UI screenshots for the owner guide are allowed;
+see docs/documentation.md. Stage an explicit reviewed file set; see THIRD_PARTY.md.
 Current state belongs only in docs/bench-state.txt; new knowledge belongs in
 docs/reverse-engineering.md with a concise supporting record when needed.

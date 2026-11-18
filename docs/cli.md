@@ -118,7 +118,8 @@ make release OUT=runs/my-release
 
 This does not require Python, an installed `oc`, private OEM inputs or a connected
 CMU. CI provides the ZIP and `SHA256SUMS` as `fw55-usb-installer`. See the
-[USB installer guide](usb-installer.md) for installation and qualification limits.
+[installer development guide](installer-development.md) for builds and qualification limits
+and [Quick start](usb-installer.md) for installation.
 Checksums detect damaged payloads; they are not a package-signing scheme.
 
 ## Low-level UART

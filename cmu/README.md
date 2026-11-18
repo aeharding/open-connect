@@ -47,4 +47,5 @@ instrumentation, not the product's persistence policy.
 `make release` uses standard Clang/LLD/llvm-objcopy and Make/shell packaging.
 Authored shell and JavaScript files are copied unchanged; only compiled assets
 and data manifests are generated. No OEM firmware or host Python is bundled.
-See the [USB guide](../docs/usb-installer.md) and [uninstall behavior](../docs/uninstall.md).
+See [Quick start](../docs/usb-installer.md) for owner instructions and
+[Build and test the installer](../docs/installer-development.md) for backend behavior.

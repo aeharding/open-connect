@@ -1,25 +1,31 @@
-# Uninstall and Undo
+# Uninstall
 
-Uninstall restores the saved pre-install startup file, including its mode and
-owner, and the previous touchscreen NVRAM value. A restart unloads the selected
-RAM native/JavaScript files. This restores the affected state; it is not a
-factory reset or removal of every unrelated modification.
+1. Open **Mazda Settings → System → Open Connect**.
+2. Choose **Uninstall**, then confirm **Uninstall**.
+3. Leave the power on. Mazda Connect restores your previous startup and
+   touchscreen behavior, then restarts automatically.
 
-Choose **Uninstall** in Open Connect's Mazda Settings page or from a compatible
-replacement USB. If relevant files changed, the installer asks before saving
-that state and restoring the originals.
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/uninstall.png" alt="Uninstall? Your previous settings will be restored. Cancel and Uninstall buttons." width="800" height="480"></div>
+  <figcaption>Choose Uninstall to restore your previous settings.</figcaption>
+</figure>
 
-The single **Undo uninstall** checkpoint retains the startup bytes and metadata,
-feature preferences, actual NVRAM value, and hashes of retained package/composed
-files and known firmware dependencies. Those retained files are left intact.
-Undo checks the post-uninstall state and retained dependencies again. If they
-changed later, it stops without overwriting or merging them.
+The USB drive is not needed for removal through Settings.
 
-The backend records the before/after snapshots durably before changing targets.
-After interruption it reconciles each target against those two states. An
-unknown third state is preserved. The record, originals and checkpoint remain
-on the CMU, so the original USB stick is not required.
+## Remove it using USB
 
-This applies to the supported firmware and compatible installer format. It does
-not promise arbitrary old-USB compatibility or recovery of unrelated files.
-See the [USB guide](usb-installer.md) for current qualification limits.
+Prepare a drive using [Quick start](usb-installer.md), insert it at Mazda's Home
+screen, and choose **Uninstall**. A replacement drive is fine; you do not need
+the original one. Leave it connected until the restart finishes.
+
+If prompted about changed files, **Uninstall** saves those changes before
+restoring your previous settings. Choose **Cancel** to leave things as they are.
+
+## Changed your mind?
+
+Insert a compatible installer USB and choose **Undo uninstall**. Mazda Connect
+restarts with the Open Connect setup you had just before removal.
+
+Undo can restore the most recent uninstall. It may refuse if other software has
+changed the affected files or settings since removal. If that happens, it leaves
+those later changes alone.

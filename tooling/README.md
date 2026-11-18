@@ -16,7 +16,7 @@ Release builds belong to the root [Makefile](../Makefile), invoked with
 and install/uninstall backend belong in `cmu/` and run on the head unit. The
 release must work without `oc`, host Python, SSH or a connected computer.
 
-The [USB guide](../docs/usb-installer.md) describes the standalone installer and
+The [installer development guide](../docs/installer-development.md) describes the standalone installer and
 its current qualification limits.
 
 - feature.py: bench prepare, trial, status and disable operations. Its module

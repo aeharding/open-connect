@@ -78,11 +78,14 @@ var OpenConnectSettings = (function () {
                         itemStyle: "style03", hasCaret: false, appData: i});
                 }
             }
-            var next = fw.instantiateTemplate("syssettings", host.divElt.parentNode, "List2Tmplt", {
-                List2Ctrl: {dataList: {itemCountKnown: true, itemCount: rows.length, items: rows},
-                    titleConfiguration: "listTitle", title: {text1: message || title, titleStyle: "style02"},
-                    smallItemText: true, focussedItem: focus, selectCallback: select}
-            });
+            var listProps = {dataList: {itemCountKnown: true, itemCount: rows.length, items: rows},
+                titleConfiguration: "listTitle", title: {text1: message || title, titleStyle: "style02"},
+                smallItemText: true, focussedItem: focus, selectCallback: select};
+            // List2 normally delays duplicate callbacks after it changes the dot.
+            // Our pending-write guard coalesces presses and needs each callback immediately.
+            if (index === 0 || index === 1) { listProps.checkMinChangeInterval = 0; }
+            var next = fw.instantiateTemplate("syssettings", host.divElt.parentNode, "List2Tmplt",
+                {List2Ctrl: listProps});
             if (!next) { return false; }
             var old = page;
             page = next;

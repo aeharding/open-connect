@@ -1,5 +1,6 @@
 """Durable record and immutable backup checks on real local files."""
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -108,3 +109,55 @@ class InstallerState(unittest.TestCase):
             self.assertIn("flush_failed", result.stderr)
             self.assertEqual(self.run_command("read").returncode, 0)
             self.assertEqual(record.read_text().split("|")[9], expected_budget)
+
+    def test_service_replacement_preserves_token_and_refuses_corruption(self):
+        runtime = self.root / "runtime"
+        source = self.root / "package"
+        source.mkdir()
+        state = (ROOT / "cmu/installer/state.sh").read_text()
+        state = state.replace(
+            "uuid() { tr -d '-' < /proc/sys/kernel/random/uuid; }",
+            "uuid() { openssl rand -hex 16; }",
+        )
+        (source / "state.sh").write_text(state)
+        for name in ("api", "flush"):
+            (source / name).write_bytes(b"staging fixture\n")
+        (source / "files.sha256").write_text(
+            "".join(
+                hashlib.sha256((source / name).read_bytes()).hexdigest() + "  " + name + "\n"
+                for name in ("state.sh", "api", "flush")
+            )
+        )
+        script = (ROOT / "cmu/installer/service.sh").read_text()
+        script = script.replace("R=/tmp/open-connect", "R=" + str(runtime))
+        # Exercise the real locked staging/token path, stopping before process
+        # replacement (the CMU BusyBox listener is qualified on the bench).
+        script = script.replace("\nstop_listener\nif ", "\nexit 0\nstop_listener\nif ")
+        (source / "service.sh").write_text(script)
+        if not shutil.which("flock"):
+            (self.tools / "flock").write_text("#!/bin/sh\nexit 0\n")
+            (self.tools / "flock").chmod(0o700)
+
+        def run():
+            return subprocess.run(
+                ["sh", source / "service.sh"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+            )
+
+        first = run()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        token = (runtime / "token").read_bytes()
+        second = run()
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual((runtime / "token").read_bytes(), token)
+        self.assertEqual(len(list((runtime / "sessions").iterdir())), 2)
+        for session in (runtime / "sessions").iterdir():
+            self.assertEqual((session / "token").read_bytes(), token)
+        (runtime / "token").write_bytes(b"corrupt\n")
+        failed = run()
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn("token_failed", failed.stderr)
+        self.assertEqual((runtime / "token").read_bytes(), b"corrupt\n")

@@ -4,7 +4,7 @@ const vm = require("node:vm");
 const source = fs.readFileSync(process.argv[2], "utf8");
 const session = fs.readFileSync(require("node:path").join(require("node:path").dirname(process.argv[2]), "session.sh"), "utf8");
 const cleanup = session.match(/navigate "javascript:([^"\n]+)" \|\| :/)[1].replaceAll("$token", "token");
-function fixture(start = true) {
+function fixture(start = true, installed = false) {
     const nodes = {}, pending = [], calls = [], window = {};
     const parent = {removeChild(n) { delete nodes[n.id]; n.parentNode = null; }};
     nodes["oc-usb-loader"] = {id: "oc-usb-loader", ocToken: "token", ocPort: 20001,
@@ -14,6 +14,10 @@ function fixture(start = true) {
             nodes[attrs.id] = {...attrs, parentNode: parent};
             pending.push({url, loaded});
         }}, OpenConnect: {start(...args) { calls.push(args); }}};
+    if (installed) {
+        ctx.OpenConnect.reopenUSB = value => { calls.push(["reopen", value]); return true; };
+        window.OpenConnect = ctx.OpenConnect;
+    }
     const run = () => vm.runInNewContext(source, ctx);
     if (start) run();
     return {window, nodes, pending, calls, run, cleanup() { vm.runInNewContext(cleanup, ctx); }};
@@ -48,3 +52,7 @@ f = fixture(false);
 f.nodes["oc-usb-loader"].ocToken = "later-token";
 f.cleanup();
 assert.equal(f.nodes["oc-usb-loader"].ocToken, "later-token");
+f = fixture(true, true);
+assert.deepEqual(f.calls, [["reopen", "token"]]);
+assert.deepEqual(f.pending, []); // Installed Settings needs no replacement scripts.
+assert.deepEqual(Object.keys(f.nodes), []);

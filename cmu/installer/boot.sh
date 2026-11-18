@@ -11,6 +11,7 @@ AUTOSTART=/usr/bin/autostart
 . "$P/firmware.sh"
 . "$P/transaction.sh"
 firmware_guard
+native_guard
 private_dir "$D" && record_read || fail invalid_state
 test "$(sha "$P/files.sha256")" = "$R_BACKEND" && verify_manifest "$P" || fail damaged_package
 runtime=$(sh "$P/service.sh") || fail service_failed
@@ -22,7 +23,9 @@ test "$R_PHASE" = active || exit 1
 targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
 snapshot_read "$R_CURRENT" || fail invalid_snapshot
 package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; mode=$S_META
-hex "$package" 64 && verify_manifest "$D/packages/$package" && verify_manifest "$D/composed/$package" || fail damaged_feature
+# The current snapshot pins every package/composed file, including manifests;
+# dependencies_match above has just checked those exact bytes.
+hex "$package" 64 && private_dir "$D/packages/$package" && private_dir "$D/composed/$package" || fail damaged_feature
 test "$(sha "$D/packages/$package/files.sha256")" = "$package" || fail damaged_feature
 boot=$(cat /proc/sys/kernel/random/boot_id)
 boot_id "$boot" || fail invalid_boot

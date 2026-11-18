@@ -16,6 +16,11 @@ b0e116b941f29078ced19b864a1b888cf76d8bc3e4974af081efca4693e5c420 index.html /jci
 ORIGINALS
 }
 
+firmware_dependencies() {
+    original_files
+    printf '%s\n' '0c32ab6dc6833d287d363c3ff63998450cce97121ace994930276c4adb28474b manager.so /jci/lib/libjciuiamgr.so'
+}
+
 firmware_guard() {
     test "$(id -u)" = 0 || fail root_required
     awk '$0=="JCI_SW_VER=\"MAZ_CMU-150_55.00.750\""{v++}
@@ -27,6 +32,10 @@ firmware_guard() {
     awk '$1=="/dev/mmcblk0p2"&&$2=="/tmp/mnt/data_persist"&&$3=="relfs"{
         n++;split($4,a,",");for(i in a)if(a[i]=="rw")rw++} END{exit !(n==1&&rw==1)}' /proc/mounts || fail persistence_unavailable
     for path in /tmp /tmp/mnt /tmp/mnt/data_persist; do directory "$path" || fail invalid_persistence_path; done
+}
+
+native_guard() {
+    test "$(md5sum < /jci/lib/libjciuiamgr.so)" = '8ce49f8bc9833c48a3a89e5c4c683ddc  -' || fail unsupported_manager
 }
 
 originals_verify() {
@@ -56,51 +65,54 @@ originals_save() {
 compose() (
     set -eu
     # $1 is the public package's content ID. Original bytes stay on this unit.
-    local package=$D/packages/$1 work name
+    local package=$D/packages/$1 work name digest
     hex "$1" 64 && verify_manifest "$package" && originals_verify || fail compose_inputs_invalid
     if ! absent "$D/composed/$1"; then verify_manifest "$D/composed/$1" || fail composed_files_changed; return; fi
     work=$(mktemp -d "$D/composed/.new-XXXXXX") || fail compose_create_failed
-    cp "$D/originals/uia.so" "$work/uia.so"
-    dd if="$package/native.bin" of="$work/uia.so" bs=1 seek=297984 conv=notrunc 2>/dev/null
-    dd if="$package/branch.bin" of="$work/uia.so" bs=1 seek=32468 conv=notrunc 2>/dev/null
-    dd if="$package/sizes.bin" of="$work/uia.so" bs=1 seek=68 conv=notrunc 2>/dev/null
-    cp "$D/originals/mmui.so" "$work/mmui.so"
-    dd if="$package/mmui-path.bin" of="$work/mmui.so" bs=1 seek=16184 conv=notrunc 2>/dev/null
-    dd if="$package/mmui-sizes.bin" of="$work/mmui.so" bs=1 seek=68 conv=notrunc 2>/dev/null
-    dd if="$package/mmui-length.bin" of="$work/mmui.so" bs=1 seek=10860 conv=notrunc 2>/dev/null
-    dd if="$package/mmui-pointer.bin" of="$work/mmui.so" bs=1 seek=12796 conv=notrunc 2>/dev/null
+    cp "$D/originals/uia.so" "$work/uia.so" || fail compose_copy_failed
+    dd if="$package/native.bin" of="$work/uia.so" bs=1 seek=297984 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    dd if="$package/branch.bin" of="$work/uia.so" bs=1 seek=32468 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    dd if="$package/sizes.bin" of="$work/uia.so" bs=1 seek=68 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    cp "$D/originals/mmui.so" "$work/mmui.so" || fail compose_copy_failed
+    dd if="$package/mmui-path.bin" of="$work/mmui.so" bs=1 seek=16184 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    dd if="$package/mmui-sizes.bin" of="$work/mmui.so" bs=1 seek=68 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    dd if="$package/mmui-length.bin" of="$work/mmui.so" bs=1 seek=10860 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    dd if="$package/mmui-pointer.bin" of="$work/mmui.so" bs=1 seek=12796 conv=notrunc 2>/dev/null || fail compose_patch_failed
     sed 's@name="system" libpath="/jci/mmui/uia/" lib="libjciuiasystem.so"@name="system" libpath="/tmp/open-connect/feature/" lib="uia.so"@' \
-        "$D/originals/mmui.xml" > "$work/mmui.xml"
+        "$D/originals/mmui.xml" > "$work/mmui.xml" || fail compose_xml_failed
     # The supported original has CRLF line endings. Insert authored JS bytes.
-    dd if="$D/originals/system-app.js" bs=1 count=16132 2>/dev/null > "$work/system-app.js"
-    test "$(sed 's/$/\r/' "$package/intro.js" | wc -c)" -eq 602 || fail javascript_fragment_changed
-    sed 's/$/\r/' "$package/intro.js" | head -c 600 >> "$work/system-app.js"
-    dd if="$D/originals/system-app.js" bs=1 skip=16132 2>/dev/null >> "$work/system-app.js"
+    dd if="$D/originals/system-app.js" bs=1 count=16132 2>/dev/null > "$work/system-app.js" || fail compose_javascript_failed
+    sed 's/$/\r/' "$package/intro.js" > "$work/intro" || fail compose_javascript_failed
+    test "$(wc -c < "$work/intro")" -eq 602 || fail javascript_fragment_changed
+    head -c 600 "$work/intro" >> "$work/system-app.js" || fail compose_javascript_failed
+    rm "$work/intro" || fail compose_cleanup_failed
+    dd if="$D/originals/system-app.js" bs=1 skip=16132 2>/dev/null >> "$work/system-app.js" || fail compose_javascript_failed
     test "$(sha "$work/system-app.js")" = 28413b8bbdfc21bf1e63dd8c4a25f8229f688f6a3f6d62c3ad651c039f00f3cc || fail javascript_composition_failed
     for setting in on off; do
         awk -v route="$package/system-route.js" -v selected="$setting" '
             /<head>/{print;print "        <base href=\"file:///jci/gui/\" />";print "        <meta name=\"open-connect-token\" content=\"@TOKEN@\" />";next}
-            /var utility = new Utility\(\);/{print;if(selected=="on")while((getline line < route)>0)print line;close(route);next}
+            /var utility = new Utility\(\);/{print;if(selected=="on"){while((r=getline line < route)>0)print line;if(r<0)exit 1;close(route)};next}
             /<\/body>/{print "        <script src=\"file:///tmp/open-connect/runtime/runtime.js\" type=\"text/javascript\"></script>"}
             {print}
-        ' "$D/originals/index.html" > "$work/index-$setting.html"
-        sed 's@args="-u /jci/gui/index.html"@args="-u /tmp/open-connect/feature/index.html"@' "$D/originals/sm.conf" > "$work/sm-$setting.conf"
+        ' "$D/originals/index.html" > "$work/index-$setting.html" || fail compose_index_failed
+        sed 's@args="-u /jci/gui/index.html"@args="-u /tmp/open-connect/feature/index.html"@' "$D/originals/sm.conf" > "$work/sm-$setting.conf" || fail compose_config_failed
     done
     sed 's@name="jciMMUI" path="/jci/mmui/svcjcimmui.so"@name="jciMMUI" path="/tmp/open-connect/feature/mmui.so"@' \
-        "$work/sm-on.conf" > "$work/sm-on.next"
-    mv "$work/sm-on.next" "$work/sm-on.conf"
+        "$work/sm-on.conf" > "$work/sm-on.next" || fail compose_config_failed
+    mv "$work/sm-on.next" "$work/sm-on.conf" || fail compose_config_failed
     awk -v hook="$package/startup-hook.sh" '
         {print}
-        $0=="        echo $MESSAGE_NORMALMODE" {while((getline line < hook)>0)print line;close(hook);n++}
+        $0=="        echo $MESSAGE_NORMALMODE" {while((r=getline line < hook)>0)print line;if(r<0)exit 1;close(hook);n++}
         END{if(n!=1)exit 1}
     ' "$D/originals/autostart" > "$work/autostart" || fail startup_anchor_missing
     sh -n "$work/autostart" || fail startup_syntax
     for name in autostart uia.so mmui.so mmui.xml system-app.js index-on.html index-off.html sm-on.conf sm-off.conf; do
-        chmod 600 "$work/$name"
-        printf '%s  %s\n' "$(sha "$work/$name")" "$name"
+        chmod 600 "$work/$name" || fail compose_mode_failed
+        digest=$(sha "$work/$name") && hex "$digest" 64 || fail compose_hash_failed
+        printf '%s  %s\n' "$digest" "$name" || fail compose_manifest_failed
         flush f "$work/$name"
-    done > "$work/files.sha256"
-    chmod 600 "$work/files.sha256"
+    done > "$work/files.sha256" || fail compose_manifest_failed
+    chmod 600 "$work/files.sha256" || fail compose_mode_failed
     flush f "$work/files.sha256"; flush d "$work"
     mv "$work" "$D/composed/$1" || fail compose_publish_failed
     flush d "$D/composed"
@@ -153,7 +165,7 @@ dependency_path() {
     test "$scope/$name" = "$1" && test -n "$name" || return 1
     case "$name" in .|..|*[!a-zA-Z0-9.-]*) return 1;; esac
     case "$scope" in
-        root) original_files | awk -v n="$name" '$2==n && n!="autostart"{print $3;found++} END{if(found!=1)exit 1}';;
+        root) firmware_dependencies | awk -v n="$name" '$2==n && n!="autostart"{print $3;found++} END{if(found!=1)exit 1}';;
         package-*) id=${scope#package-}; folder=packages;;
         composed-*) id=${scope#composed-}; folder=composed;;
         *) return 1;;
@@ -165,10 +177,11 @@ dependency_path() {
 
 dependencies_capture() {
     local package=$1 digest name target folder path
-    original_files | while read -r digest name target; do
+    firmware_dependencies | while read -r digest name target; do
         test "$name" != autostart || continue
         file "$target" || exit 1
-        printf '%s  root/%s\n' "$(sha "$target")" "$name"
+        digest=$(sha "$target") && hex "$digest" 64 || exit 1
+        printf '%s  root/%s\n' "$digest" "$name" || exit 1
     done || return 1
     test "$package" != - || return 0
     hex "$package" 64 || return 1
@@ -181,13 +194,14 @@ dependencies_capture() {
             name=${target##*/}
             case "$name" in .|..|*[!a-zA-Z0-9.-]*) return 1;; esac
             file "$target" || return 1
-            printf '%s  %s-%s/%s\n' "$(sha "$target")" "$folder" "$package" "$name"
+            digest=$(sha "$target") && hex "$digest" 64 || return 1
+            printf '%s  %s-%s/%s\n' "$digest" "$folder" "$package" "$name" || return 1
         done
     done
 }
 
 stock_dependencies() {
-    original_files | while read -r digest name target; do
+    firmware_dependencies | while read -r digest name target; do
         test "$name" != autostart || continue
         file "$target" && test "$(sha "$target")" = "$digest" || exit 1
     done
@@ -202,16 +216,17 @@ package_save() (
         # INSTANCE is private data added below, never supplied by a USB package.
         test "$name" != INSTANCE || continue
         cp "$P/$name" "$work/$name" || fail package_copy_failed
-        chmod 600 "$work/$name"
-        case "$name" in api|flush) chmod 700 "$work/$name";; esac
+        chmod 600 "$work/$name" || fail package_mode_failed
+        case "$name" in api|flush) chmod 700 "$work/$name" || fail package_mode_failed;; esac
         test "$(sha "$work/$name")" = "$digest" || fail package_copy_changed
-        printf '%s  %s\n' "$digest" "$name"
+        printf '%s  %s\n' "$digest" "$name" || fail package_manifest_failed
         flush f "$work/$name"
-    done < "$P/files.sha256" > "$work/files.sha256"
-    uuid > "$work/INSTANCE"
-    printf '%s  INSTANCE\n' "$(sha "$work/INSTANCE")" >> "$work/files.sha256"
+    done < "$P/files.sha256" > "$work/files.sha256" || fail package_manifest_failed
+    uuid > "$work/INSTANCE" || fail package_instance_failed
+    digest=$(sha "$work/INSTANCE") && hex "$digest" 64 || fail package_hash_failed
+    printf '%s  INSTANCE\n' "$digest" >> "$work/files.sha256" || fail package_manifest_failed
     flush f "$work/INSTANCE"; flush f "$work/files.sha256"; flush d "$work"
-    id=$(sha "$work/files.sha256")
+    id=$(sha "$work/files.sha256") && hex "$id" 64 || fail package_hash_failed
     absent "$D/packages/$id" || fail package_collision
     mv "$work" "$D/packages/$id" || fail package_publish_failed
     flush d "$D/packages"

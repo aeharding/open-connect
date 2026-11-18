@@ -17,7 +17,8 @@ until flock -n -x 9; do
     count=$((count+1)); test "$count" -le 5 || fail busy
     sleep 1
 done
-verify_manifest "$P" || fail damaged_package
+# Both callers run from a verified package. Validate the copied bytes below;
+# hashing the source again here would duplicate the early boot check.
 stop_listener() {
 if ! absent "$R/listener"; then
     file "$R/listener" || fail invalid_listener
@@ -40,6 +41,7 @@ fi
 }
 case "${1:-start}" in
     stop)
+        verify_manifest "$P" || fail damaged_package
         test "$(readlink -f "$R/runtime")" = "$P" || exit 0
         absent "$R/selected" || exit 0
         D=/tmp/mnt/data_persist/open-connect
@@ -57,6 +59,9 @@ if absent "$R/sessions"; then mkdir -m 700 "$R/sessions"; fi
 private_dir "$R/sessions" || fail invalid_sessions
 work=$(mktemp -d "$R/sessions/session-XXXXXX")
 while read -r digest name extra; do
+    hex "$digest" 64 && test -n "$name" && test -z "$extra" || fail invalid_manifest
+    case "$name" in .|..|*[!a-zA-Z0-9.-]*) fail invalid_manifest;; esac
+    file "$P/$name" || fail invalid_source
     cp "$P/$name" "$work/$name"
     chmod 600 "$work/$name"
 done < "$P/files.sha256"
@@ -64,8 +69,15 @@ cp "$P/files.sha256" "$work/files.sha256"
 chmod 600 "$work/files.sha256"
 chmod 700 "$work/api" "$work/flush"
 verify_manifest "$work" || fail damaged_runtime
-uuid > "$work/token"
-test "$(wc -c < "$work/token")" -eq 33 || fail token_failed
+# One capability per boot keeps the installed Settings client usable while a
+# replacement USB service is staged, even if its UI loading is cancelled.
+if absent "$R/token"; then
+    uuid > "$R/token.next"
+    mv "$R/token.next" "$R/token"
+fi
+file "$R/token" && test "$(wc -c < "$R/token")" -eq 33 || fail token_failed
+token=$(cat "$R/token"); hex "$token" 32 || fail token_failed
+cp "$R/token" "$work/token"
 stop_listener
 if ! absent "$R/runtime"; then test -L "$R/runtime" || fail invalid_runtime_pointer; fi
 # This RAM pointer is protected by the operation lock. A missing pointer during

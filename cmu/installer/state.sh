@@ -98,17 +98,20 @@ snapshot_create() (
     # source autostart, package, touch, warning, nvram, original mode
     set -eu
     file "$1" && { test "$2" = - || hex "$2" 64; } && bit "$3" && bit "$4" && touch_value "$5" && metadata "$6" || fail invalid_snapshot
-    local work id
+    local work id name digest
     work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail snapshot_create_failed
     cp "$1" "$work/autostart" || fail snapshot_copy_failed
-    if test "$#" -eq 7; then cp "$7" "$work/dependencies"; else : > "$work/dependencies"; fi
-    printf '%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" > "$work/config"
-    chmod 600 "$work/autostart" "$work/config" "$work/dependencies"
-    for name in autostart config dependencies; do printf '%s  %s\n' "$(sha "$work/$name")" "$name"; done > "$work/files.sha256"
-    chmod 600 "$work/files.sha256"
+    if test "$#" -eq 7; then cp "$7" "$work/dependencies"; else : > "$work/dependencies"; fi || fail snapshot_copy_failed
+    printf '%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" > "$work/config" || fail snapshot_config_failed
+    chmod 600 "$work/autostart" "$work/config" "$work/dependencies" || fail snapshot_mode_failed
+    for name in autostart config dependencies; do
+        digest=$(sha "$work/$name") && hex "$digest" 64 || fail snapshot_hash_failed
+        printf '%s  %s\n' "$digest" "$name" || fail snapshot_manifest_failed
+    done > "$work/files.sha256" || fail snapshot_manifest_failed
+    chmod 600 "$work/files.sha256" || fail snapshot_mode_failed
     for name in autostart config dependencies files.sha256; do flush f "$work/$name"; done
     flush d "$work"
-    id=$(sha "$work/files.sha256")
+    id=$(sha "$work/files.sha256") && hex "$id" 64 || fail snapshot_hash_failed
     if absent "$D/snapshots/$id"; then
         mv "$work" "$D/snapshots/$id" || fail snapshot_publish_failed
         flush d "$D/snapshots"

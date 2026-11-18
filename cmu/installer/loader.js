@@ -23,6 +23,7 @@
         });
         nodes.push(document.getElementById(id));
     }
+    if (window.OpenConnect && OpenConnect.reopenUSB && OpenConnect.reopenUSB(token)) { finish(); return; }
     load("runtime.js", "oc-usb-ui", function () {
         OpenConnect.start(token, true);
         finish();

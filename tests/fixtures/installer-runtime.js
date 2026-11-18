@@ -3,12 +3,14 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const source = fs.readFileSync(process.argv[2], "utf8");
 const token = "a".repeat(32), revision = "b".repeat(32);
-function fixture() {
+function fixture(previous, loadingUSB) {
     const requests = [], intervals = [], timeouts = [], choices = [], messages = [];
     const fw = {_browserShown: true, getAppInstance() { return app; }};
     const app = {}, nodes = {};
+    if (loadingUSB) { nodes["oc-usb-loader"] = {ocToken: token}; }
     let store;
     const ctx = {
+        OpenConnect: previous,
         document: {querySelector() { return null; }, getElementById(id) { return nodes[id]; }},
         framework: fw,
         utility: {loadScript(url, attrs, done) {
@@ -104,8 +106,44 @@ assert.equal(f.requests[1].body, token + "|-|status|-|-|-");
 f.reply(f.requests[1], f.state({installed: true, notice: "installed"}));
 f.tick();
 assert.equal(f.choices[0].complete, true); // Leaving USB inserted preserves completion.
+assert.equal(f.ctx.OpenConnect.reopenUSB(token), true);
+f.reply(f.requests[2], f.state({installed: true, notice: "installed"}));
+f.tick();
+assert.equal(f.choices[1].complete, true); // Cold USB handoff preserves that notice too.
 f.ctx.OpenConnect.dispose();
 const count = f.requests.length;
 f.choices[0].done("cancel"); // Teardown never dismisses a durable completion notice.
 assert.equal(f.requests.length, count);
+
+// Loading, cancellation and failed status must leave the installed client alive.
+let disposed = 0;
+const previous = {dispose() { disposed++; }};
+f = fixture(previous, true);
+f.ctx.OpenConnect.cancelUSB(token); // Script evaluated, loader onload has not run.
+assert.equal(f.ctx.OpenConnect, previous);
+assert.equal(disposed, 0);
+f = fixture(previous);
+assert.equal(disposed, 0);
+f.ctx.OpenConnect.start(token, true);
+f.ctx.OpenConnect.cancelUSB(token);
+assert.equal(f.ctx.OpenConnect, previous);
+f.reply(f.requests[0], f.state({installed: true}));
+assert.equal(disposed, 0); // Late response cannot take over after cancellation.
+f = fixture(previous);
+f.ctx.OpenConnect.start(token, true);
+f.reply(f.requests[0], null);
+assert.equal(f.ctx.OpenConnect, previous);
+assert.equal(disposed, 0);
+f = fixture(previous);
+f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true}));
+assert.equal(disposed, 1);
+f.tick();
+const installedClient = f.ctx.OpenConnect;
+assert.equal(installedClient.reopenUSB(token), true);
+f.reply(f.requests[1], f.state({installed: true}));
+f.ctx.OpenConnect.cancelUSB(token);
+assert.equal(f.ctx.OpenConnect, installedClient);
+f.store.write("touch", 0, 1, () => {});
+assert.equal(f.requests[2].body, token + "|" + revision + "|set|touch|0|1");
 console.log("Installer POST contract, recovery and uncertain-acknowledgement behavior passed");

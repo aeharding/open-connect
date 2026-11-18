@@ -2,10 +2,11 @@
 /* One local POST/JSON contract for USB maintenance and installed Settings. */
 var OpenConnect = (function (previous) {
     "use strict";
-    if (previous && previous.dispose) { previous.dispose(); }
-    var stopped = false, started = false, token, state = null, busy = false;
+    var entry = document.getElementById("oc-usb-loader");
+    var stopped = false, started = false, token = entry && entry.ocToken, state = null, busy = false;
     var timer = null, dialog = null, detach = null, app = null, usb = false;
-    var nodes = [], queued = null, completionShown = false;
+    var nodes = [], queued = null, completionShown = false, ready = false;
+    var installer, settings, loading = null;
     function values() {
         return state && state.installed ? {touch: state.touch, warning: state.warning} : null;
     }
@@ -54,7 +55,7 @@ var OpenConnect = (function (previous) {
     }
     function message(title, text, buttons, chosen) {
         queued = function () {
-            return OpenConnectInstaller.message(framework, title, text, buttons, function (action) {
+            return installer.message(framework, title, text, buttons, function (action) {
                 dialog = null;
                 chosen(action);
             });
@@ -125,7 +126,7 @@ var OpenConnect = (function (previous) {
             }, function (action) { if (action === "install" || action === "undo") { run(action); } else { dismiss(); } });
         } else {
             queued = function () {
-                return OpenConnectInstaller.choose(framework, state.installed, function (action) {
+                return installer.choose(framework, state.installed, function (action) {
                     dialog = null;
                     if (action === "install" || action === "uninstall") { run(action); }
                     else { dismiss(); }
@@ -147,17 +148,17 @@ var OpenConnect = (function (previous) {
             if (current && current !== app) {
                 if (detach) { detach(); }
                 app = current;
-                detach = OpenConnectSettings.attach(framework, app, store);
+                detach = settings.attach(framework, app, store);
             }
         }
         if (state.installed && !state.restart && state.notice === "installed") { usb = false; }
         if (usb && !busy && !dialog && !queued) { choose(); }
         if (!usb && !completionShown && !queued && !dialog && state.installed && !state.restart && state.notice === "installed") {
             queued = function () {
-                return OpenConnectInstaller.complete(framework, state.version, function (action) {
+                return installer.complete(framework, state.version, function (action) {
                     dialog = null;
                     if (action === "done" || action === "settings") { dismiss(); }
-                    if (action === "settings") { OpenConnectSettings.fromHome(framework, store, function () {}); }
+                    if (action === "settings") { settings.fromHome(framework, store, function () {}); }
                 });
             };
             completionShown = true;
@@ -178,14 +179,25 @@ var OpenConnect = (function (previous) {
     function start(value, fromUSB) {
         if (started || stopped || !/^[a-f0-9]{32}$/.test(value)) { return; }
         started = true; token = value; usb = fromUSB;
+        clearTimeout(loading);
+        loading = setTimeout(abandon, 65000);
         load("dialog", function () {
+            installer = OpenConnectInstaller;
             load("settings", function () {
+                settings = OpenConnectSettings;
                 readStatus(function (answer) {
+                    clearTimeout(loading);
                     if (!valid(answer)) {
+                        if (previous) { abandon(); return; }
                         message("Open Connect", "The installer could not be reached. Reinsert the USB to try again.",
                             {button1: {label: "OK", appData: "done"}}, function () {});
                     }
-                    else if (answer.pending) { usb = false; run("recover"); }
+                    else {
+                        ready = true;
+                        if (previous && previous.dispose) { previous.dispose(); }
+                        previous = null;
+                        if (answer.pending) { usb = false; run("recover"); }
+                    }
                     timer = setInterval(tick, 500);
                 });
             });
@@ -193,10 +205,27 @@ var OpenConnect = (function (previous) {
     }
     function cancelUSB(value) {
         if (value !== token || busy) { return; }
+        if (!ready && previous) { abandon(); return; }
         usb = false; queued = null; closeDialog();
+    }
+    function reopenUSB(value) {
+        if (stopped || !ready || value !== token) { return false; }
+        usb = true;
+        if (!busy) {
+            completionShown = false;
+            queued = null; closeDialog();
+            readStatus(function (answer) { if (!valid(answer)) { error(answer); } });
+        }
+        return true;
+    }
+    function abandon() {
+        if (ready || stopped) { return; }
+        dispose();
+        if (window.OpenConnect === client) { window.OpenConnect = previous; }
     }
     function dispose() {
         stopped = true;
+        clearTimeout(loading);
         clearInterval(timer);
         queued = null;
         closeDialog();
@@ -205,7 +234,9 @@ var OpenConnect = (function (previous) {
             if (nodes[i] && nodes[i].parentNode) { nodes[i].parentNode.removeChild(nodes[i]); }
         }
     }
+    var client = {start: start, reopenUSB: reopenUSB, cancelUSB: cancelUSB, dispose: dispose};
+    if (entry) { loading = setTimeout(abandon, 65000); }
     var meta = document.querySelector('meta[name="open-connect-token"]');
     if (meta && !document.getElementById("oc-usb-loader")) { start(meta.getAttribute("content"), false); }
-    return {start: start, cancelUSB: cancelUSB, dispose: dispose};
+    return client;
 }(window.OpenConnect));

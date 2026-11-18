@@ -56,6 +56,9 @@ cat() {
         head -c 11 "$1"; sh -c 'kill -KILL "$PPID"'
     else command cat "$@"; fi
 }
+# The target BusyBox cp replaces an existing destination inode. A future
+# regression to cp must not pass just because the host cp preserves it.
+cp() { command rm -f "$2" && command cp "$@"; }
 mv() {
     command mv "$@" || return
     test "$CUT" != renamed || sh -c 'kill -KILL "$PPID"' 

@@ -3,6 +3,10 @@
 This directory contains the code installed or run on the head unit. Host bench
 instrumentation lives in `tooling/open_connect/` and is never installed here.
 
+`bench/intake.sh` collects read-only observations from an authenticated replacement
+CMU. It is bench instrumentation and is excluded from the release bundle. See the
+[v74 porting and intake record](../docs/cmu/firmware74.md) for its use and limits.
+
 ## Standalone installer
 
 | Files in `installer/` | Responsibility |

@@ -61,8 +61,11 @@ baseline. A development prerelease is not a general end-user car release.
 ## Execution order now
 
 The v55 standalone development installer now has the maintained CI-to-USB path,
-persistent startup and native Settings/uninstall. Bench checks covered reinstall,
-one interrupted transaction, conflicting edits, Undo, ACC renewal and finite
+persistent startup and native Settings/uninstall. The v0.2.0-dev.2 CI bundle passed
+fresh installation and complete removal through Settings without USB. Original
+startup/NVRAM and loaded paths were restored, with no product directory or startup
+staging left behind. Earlier prerelease checks covered reinstall, one interrupted
+transaction, conflicting edits, the retired Undo behavior, ACC renewal and finite
 late-fault recovery. See the [installer development guide](docs/installer-development.md) for evidence and
 limits. This completes the installer prerelease step; it does not complete the
 production-release qualification in [#7](https://github.com/aeharding/open-connect/issues/7).

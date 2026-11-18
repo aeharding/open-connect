@@ -1,89 +1,70 @@
 2016 Mazda3 bench handoff — November 18, 2026
 
-Complete-uninstall qualification in progress
-ACC is ON; B+ and supply settings are unchanged. CI candidate 4637283 removed
-the old retained product state through its USB UI. Fresh stock boot
-501a3c8d-1ec7-45d3-895a-258308b57045 has no product record/directory or startup
-staging files. Original startup/native/JS hashes and root RO match the baseline.
-The candidate USB files remain on the SanDisk; a revised candidate will replace
-them before fresh installation. Ethernet eth1 came up at 192.168.42.1 instead
-of the bench LAN address; software network bringup is in progress over UART.
-Observers under runs/owner-guide-polish/bench/ close their own UART handles.
-No camera is used. The remainder below is previous evidence, not retained state
-now. Park ACC OFF and close all resources when finished.
+Complete-uninstall qualification finished
+The outgoing CMU is on stock configuration after the 0.2.0-dev.2 CI bundle
+(source 2f30ead, run 44350948917) installed from empty product state, restarted,
+opened completion/native Settings, and uninstalled through Settings with USB
+detached. Final stock boot: 8c4003e2-c124-48d2-a57c-a8b96d2c3f57.
 
-Direct documentation capture completed
-The published v0.2.0-dev.1 bundle was installed on this outgoing v55 CMU to
-capture six direct Wayland screenshots for the owner guide. No camera was used.
-Settings Uninstall then restored the original startup and touchscreen state;
-fresh boot f9b1e036-f850-4c68-9e08-932512b2efe7 verified original native mappings,
-Opera's stock index, physical root RO and no Open Connect runtime or listener.
-The exact prior removed record and Undo checkpoint below were restored and
-verified. The documentation session's inactive state is retained at
-/tmp/mnt/data_persist/oc-installer-rescue-20261118/docs-capture-after.
-ACC is OFF; standby current was below 25 mA. B+ remains ON with the unchanged
-12.02 V setting and 2.0 A limit. UART, relay and supply handles are closed.
-Evidence: runs/owner-docs/verify-restored.out, stock-intake/ and park/.
+/tmp/mnt/data_persist/open-connect is absent: no retained product record,
+packages, originals, snapshots or Undo checkpoint. No /usr/bin/.open-connect-*
+staging files remain. No startup hook points to Open Connect. Fresh readback
+verified original native mappings, Opera using /jci/gui/index.html, physical root
+RO, and no product runtime/listener/selection. Six direct Wayland captures from
+the passing CI bundle are published in docs/assets/guide/; no camera was used.
 
-The actual CI bundle (run 44267661925, source 8370d73) installed from empty
-installer state, restarted, showed completion and opened native Settings.
-After removing the release USB files and detaching the drive in software,
-Settings Uninstall restored the original system and restarted without the USB
-installer. Final readback verified physical root RO, original native mappings,
-Opera using /jci/gui/index.html, and no Open Connect runtime/listener/selection.
+ACC is OFF; standby current is below 25 mA. B+ remains ON at unchanged
+12.02 V / 2 A. UART, relay and supply handles are closed.
 
-Restored files and settings
+Restored baseline
 - /usr/bin/autostart MD5 6ba9d4d9e01449aee587823218159d95, mode/uid/gid 775:1018:3015.
 - /jci/mmui/uia/libjciuiasystem.so MD5 b9ff5edc632163f88cda04686c118591.
 - /jci/gui/apps/system/js/systemApp.js MD5 584c67f7186ada6bae9aae1be59b5cd0.
-- The lvds_speed_restriction NVRAM key is absent, as before installation.
-- All other exact firmware dependencies matched. Original native/JS files on
-  root were never overwritten by this installer; selected RAM mappings ended
-  with the final restart.
-
-Retained installer state
-/tmp/mnt/data_persist/open-connect/record is settled in phase removed, revision
-697be640385643cb83e931ec2d0c5fe1. Its current snapshot is
-f1caead2ffeb4d223ac92cfed451e7ee51ab03ad6f48dfc1cfea12931dd62787.
-The single Undo checkpoint is
-c347923359b1f855128b6d43f722991c823aadc123b0da91ff9ed8f3b1aca0a3.
-Originals and immutable packages remain intentionally for USB Undo; they are
-inactive. The retained backend package is
-0b769ee1b3d5f064a5e9cfe4a7eb8b189f11f3d14cb8574d14148497e23c50a5.
-
-The independent rescue remains at
-/tmp/mnt/data_persist/oc-installer-rescue-20261118/restore-v3.sh, with verified
-original startup and flush helper. Older inactive qualification state was moved
-into that directory's qualification-history subdirectory before the fresh CI
-installation. It includes the deliberate conflict/Undo trials; do not mistake
-that archive for current state. No startup hook points to it.
+- lvds_speed_restriction NVRAM key absent, as before installation.
+Original native/JS root files were never overwritten by the installer. Selected
+RAM mappings ended with the final restart.
 
 USB
-The SanDisk 0781:55a9, filesystem UUID 58A0-2325, retains only its pre-existing
-.Trash-1000. All manifest-verified release files and the two empty trigger files
-were removed. Software USB deauthorization does not persist across kernel boots;
-the empty drive re-enumerated on the final original-system boot.
+SanDisk 0781:55a9, UUID 58A0-2325, retains only pre-existing .Trash-1000.
+All manifest-verified release files and both empty trigger files were removed
+before Settings Uninstall. Software deauthorization expired at reboot; the empty
+drive re-enumerated normally. Re-enumerate before using a remembered block path.
 
-Evidence
-Private records, closed observers, videos and preserved failures are under
-runs/installer-20261118/. Final checks: bench/verify-final-install.out,
-bench/verify-final-stock.out, bench/final-uninstall-start/ and bench/park/.
-The earlier fallback deadline failure, fixed batched verification, ACC cycles,
-late-fault fallback, controlled interrupted preference, conflicting uninstall,
-refused Undo and exact successful Undo are described in docs/reverse-engineering.md.
-Host tests passed 156 tests with 7 explicit private-input skips.
+Evidence and independent rescue
+Private evidence is under runs/owner-guide-polish/bench/. Key records:
+verify-install.out, remove-installed-usb-driver.out, uninstall-boot/,
+stock-intake/, verify-stock.out and park/. All owned observer handles are closed.
+The corrected candidate's code and target-shell findings are recorded in
+docs/reverse-engineering.md; the earlier failed candidate is not qualified.
+
+The a0e2999 candidate exposed BusyBox ash EXIT-trap scope and cp inode behavior.
+It wrote the installed state but left root RW; restart was refused. Fresh
+record/target checks preceded RO restoration and independent stock restoration.
+Its inactive record is preserved as bench evidence in
+/tmp/mnt/data_persist/oc-installer-rescue-20261118/failed-ash-publication.
+An isolated RAM probe reproduced old failure and verified fixed cleanup; no
+modified feature mapping was loaded during that failed candidate trial.
+
+The independent rescue restore-v3.sh, original startup and flush helper remain
+in /tmp/mnt/data_persist/oc-installer-rescue-20261118/. Its historical
+qualification-history and docs-capture-after directories are inactive lab
+evidence, not product state or owner-installation leftovers. Do not restore the
+retired removed record or Undo checkpoint to the product path.
 
 Next hardware work
-This outgoing CMU is 55.00.750B NA (cmu150_NA), with unreliable touch. The
-replacement is expected today, November 18. Confirm its part number, region and
-firmware, then compare stock touch using the same display/cable. The development
-prerelease does not qualify physical touch/motion or the owner's v74 car.
-The separate firmware move remains the next software work in PLAN.md.
+The replacement CMU is expected today. Confirm its part number, region, actual
+firmware and SSH host keys before adapting anything. Compare stock touch using
+the same display/cable; this outgoing 55.00.750B NA/cmu150_NA unit has unreliable
+touch. Physical touch/motion and the owner's v74 car are not qualified. The
+separate firmware move remains next in PLAN.md.
 
 Connections
-UART is the FT232R 0403:6001 serial A9048JM0. ACC relay is the normally-open
-LCUS-1 on CH340 1a86:7523 location 8-3.4; re-enumerate. Do not change DPS150
-voltage. The retrofit hub supports the SanDisk and Apple Ethernet adapter
-simultaneously. After a fresh boot, a CMU ping to the Mac's freshly verified
-address resolves the observed ARP issue before SSH. SSH keys were independently
-verified over UART; obtain the replacement unit's own identity and keys.
+UART: FT232R 0403:6001 serial A9048JM0, 115200/8N1, RTS/DTR inactive.
+ACC: normally-open LCUS-1 on CH340 1a86:7523 location 8-3.4; re-enumerate.
+DPS150: 2e3c:5740 serial 14110CF82565; do not change voltage.
+The retrofit hub supports SanDisk and Apple Ethernet together. Ethernet eth1,
+MAC 08:6d:41:e5:64:af, USB 05ac:1402, can boot at Mazda's 192.168.42.1 default.
+After fresh interface/USB identity checks, finite udhcpc restores the reserved
+192.168.1.17 bench address. Ping the Mac's freshly verified address before SSH.
+The current board's host keys were independently verified over UART; they do
+not authorize trusting the replacement board.

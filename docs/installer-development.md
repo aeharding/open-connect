@@ -71,7 +71,11 @@ The new USB can finish removal of v0.2.0-dev.1's retained state by choosing
 Uninstall. It accepts that release's record layout and keeps an always-false
 legacy `undo` response field during service handoff; no Undo command is accepted.
 An old pending conflicted uninstall is refused because it promised to preserve
-the conflicting edits. Arbitrary old-package compatibility remains unqualified.
+the conflicting edits. Fresh and pending removal also check that the saved
+startup and touchscreen state belong to Open Connect; a legacy Undo could have
+adopted someone else's edits into its current snapshot. Recovery preserves those
+edits even if some targets have already been restored. Arbitrary old-package
+compatibility remains unqualified.
 
 ## Qualification
 
@@ -86,9 +90,19 @@ The v0.2.0-dev.1 bench qualification covered its actual CI bundle and these beha
 - Conflicted uninstall, exact Undo and refusal after a later edit; original
   startup, NVRAM and native mappings verified after removal, with root read-only.
 
-Those Undo/conflict results describe the earlier prerelease. Complete removal in
-v0.2.0-dev.2 has host coverage for interrupted deletion, refusal of conflicts and
-cleanup of legacy retained state; its actual CI bundle still needs bench qualification.
+Those Undo/conflict results describe the earlier prerelease. For v0.2.0-dev.2,
+the [CI bundle from source 2f30ead](https://github.com/aeharding/open-connect/actions/runs/44350948917)
+installed from empty product state, restarted into both selected features, and
+opened completion and native Settings. After removing the USB files and detaching
+the drive, Settings Uninstall restored the saved startup/metadata and NVRAM,
+deleted the product directory, and restarted into original native/JavaScript
+paths with root read-only. No startup staging or product runtime remained.
+
+Legacy retained-state cleanup also passed on an earlier candidate. Host tests
+cover interrupted deletion, conflicting edits adopted by legacy Undo, and
+publication failures under BusyBox ash. The final CI suite passed 172 tests with
+seven private-input skips. The [BusyBox findings](reverse-engineering.md#complete-uninstall-and-busybox-publication)
+record the failed first candidate, independent restoration and corrected trial.
 
 See the [firmware-scoped evidence](reverse-engineering.md#standalone-installer-backend).
 These are bounded bench checks, not long-term vehicle reliability qualification.

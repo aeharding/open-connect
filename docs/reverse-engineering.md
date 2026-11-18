@@ -163,6 +163,42 @@ its restart selected that exact snapshot. Qualification limits are in the
 [USB guide](usb-installer.md). Private evidence, including the deadline failure,
 observer failures and independent restore, is under `runs/installer-20261118/`.
 
+### Complete uninstall and BusyBox publication
+
+The complete-removal change retires Undo and keeps the restoration record until
+persistent packages, originals and snapshots have been deleted. Recovery checks
+saved ownership as well as current targets, because the older Undo implementation
+could adopt an unrelated modification into its current snapshot. Those conflicts
+must not become permission to overwrite and discard the saved edit.
+
+The first candidate exposed two differences in Mazda's BusyBox 1.19.2. Its ash
+unwinds function locals before a subshell EXIT trap runs, and its `cp` replaces
+an existing destination inode. The candidate installed its targets but failed
+cleanup with `work: parameter not set`, left root writable, and refused restart.
+Fresh record/target verification preceded independent read-only and stock
+restoration; this was a candidate failure, not a successful install cycle.
+
+The publisher now keeps trap inputs in subshell scope and writes through the
+exclusively created staging inode. An isolated RAM fixture on the actual CMU
+reproduced the old failure and verified successful and failed-copy cleanup with
+the fix. CI also runs the publisher under BusyBox ash, and host tests simulate
+the target's inode-replacing copy behavior. Private failure, restoration and
+fixture evidence is under `runs/owner-guide-polish/bench/`.
+
+The corrected [CI bundle 44350948917](https://github.com/aeharding/open-connect/actions/runs/44350948917)
+(source `2f30ead`, version 0.2.0-dev.2) then completed a fresh USB installation,
+restart, completion and native Settings. The installed package manifest matched
+the CI payload, both preferences were selected, native mappings used the private
+RAM files, and root was read-only. Six direct Wayland captures document this UI.
+
+With release files removed and USB detached, Settings Uninstall deleted the
+persistent product directory and restarted. Fresh readback verified original
+startup bytes and `775:1018:3015` metadata, absent touchscreen NVRAM, original
+native mappings and Opera's stock index, physical root read-only, and no startup
+staging, product runtime or listener. Evidence: `verify-install.out`,
+`remove-installed-usb-driver.out`, `uninstall-boot/`, `stock-intake/` and
+`verify-stock.out` beneath that private evidence directory.
+
 ## USB detection at Home
 
 Stock v55 mounted a SanDisk drive read-only through the retrofit hub within

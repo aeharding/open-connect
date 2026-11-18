@@ -6,7 +6,7 @@
    behavior from before you installed Open Connect, then restarts automatically.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/uninstall.png" alt="Uninstall? Your previous settings will be restored. Cancel and Uninstall buttons." width="800" height="480"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/uninstall.png" alt="Uninstall? Open Connect will be removed. Mazda Connect will restart. Cancel and Uninstall buttons." width="800" height="480"></div>
   <figcaption>Choose Uninstall. Mazda Connect restarts automatically.</figcaption>
 </figure>
 

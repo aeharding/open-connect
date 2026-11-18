@@ -8,7 +8,7 @@ touchscreen access while moving and whether to show the startup disclaimer.
 > This release is for bench testing. Physical touch while moving is still being
 > qualified. **Firmware 74 is not supported yet.**
 
-<p><a class="md-button md-button--primary" href="https://github.com/aeharding/open-connect/releases/download/v0.2.0-dev.1/open-connect-0.2.0-dev.1-usb.zip">Download USB installer</a> <a class="md-button" href="https://github.com/aeharding/open-connect/releases/tag/v0.2.0-dev.1">Release notes</a></p>
+<p><a class="md-button md-button--primary" href="https://github.com/aeharding/open-connect/releases/download/v0.2.0-dev.2/open-connect-0.2.0-dev.2-usb.zip">Download USB installer</a> <a class="md-button" href="https://github.com/aeharding/open-connect/releases/tag/v0.2.0-dev.2">Release notes</a></p>
 
 ```mermaid
 flowchart TB
@@ -32,7 +32,7 @@ Wait for Mazda Connect's **Home** screen, then insert the USB drive.
 Choose **Install** when the prompt appears.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect 0.2.0-dev.1? The dialog says Mazda Connect will restart once and offers Cancel and Install." width="800" height="480"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect 0.2.0-dev.2? The dialog says Mazda Connect will restart once and offers Cancel and Install." width="800" height="480"></div>
   <figcaption>Choose Install. Mazda Connect handles the restart.</figcaption>
 </figure>
 
@@ -45,7 +45,7 @@ After the restart, choose **Done** or **Open settings**. You can now remove the
 USB drive. Open Connect stays installed for future starts.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect 0.2.0-dev.1 installed. Installation complete, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect 0.2.0-dev.2 installed. Installation complete, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
   <figcaption>Choose Open settings to change either preference.</figcaption>
 </figure>
 

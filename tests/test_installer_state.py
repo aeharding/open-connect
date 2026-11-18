@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -47,11 +48,12 @@ class InstallerState(unittest.TestCase):
             "record_write;;\n"
             'read) record_read && snapshot_read "$R_CURRENT";;\n'
             "change) record_read; R_BUDGET=3; record_write;;\n"
+            'manifest) verify_manifest "$5";;\n'
             "esac\n"
         )
         self.assertEqual(self.run_command("create").returncode, 0)
 
-    def run_command(self, action):
+    def run_command(self, action, path=None):
         return subprocess.run(
             [
                 "sh",
@@ -60,7 +62,7 @@ class InstallerState(unittest.TestCase):
                 self.tools,
                 ROOT / "cmu/installer/state.sh",
                 action,
-                self.root / "autostart",
+                path or self.root / "autostart",
             ],
             capture_output=True,
             text=True,
@@ -74,6 +76,37 @@ class InstallerState(unittest.TestCase):
         (snapshot / "autostart").write_text("later change\n")
         self.assertNotEqual(self.run_command("read").returncode, 0)
         self.assertEqual((snapshot / "autostart").read_text(), "later change\n")
+
+    def test_batched_manifest_rejects_changed_bytes_symlinks_and_traversal(self):
+        folder = self.root / "manifest"
+        folder.mkdir(mode=0o700)
+        content = b"verified bytes\n"
+        digest = hashlib.sha256(content).hexdigest()
+        for name in ("one", "two"):
+            (folder / name).write_bytes(content)
+        manifest = folder / "files.sha256"
+        manifest.write_text(f"{digest}  one\n{digest}  two\n")
+        self.assertEqual(self.run_command("manifest", folder).returncode, 0)
+        (folder / "two").write_bytes(b"changed\n")
+        self.assertNotEqual(self.run_command("manifest", folder).returncode, 0)
+        (folder / "two").unlink()
+        (folder / "two").symlink_to(folder / "one")
+        self.assertNotEqual(self.run_command("manifest", folder).returncode, 0)
+        (self.root / "outside").write_bytes(content)
+        manifest.write_text(f"{digest}  ../outside\n")
+        self.assertNotEqual(self.run_command("manifest", folder).returncode, 0)
+
+    def test_matching_hash_output_cannot_hide_failed_hash_process(self):
+        openssl = shlex.quote(shutil.which("openssl"))
+        (self.tools / "openssl").write_text(
+            '#!/bin/sh\ncase " $* " in *" -r "*)\n'
+            + openssl
+            + ' "$@"\nexit 19;;\n*) exec '
+            + openssl
+            + ' "$@";; esac\n'
+        )
+        (self.tools / "openssl").chmod(0o700)
+        self.assertNotEqual(self.run_command("read").returncode, 0)
 
     def test_missing_or_invalid_record_never_selects_state(self):
         record = self.data / "record"

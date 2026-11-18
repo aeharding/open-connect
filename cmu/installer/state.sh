@@ -23,15 +23,22 @@ boot_id() {
 }
 
 verify_manifest() {
-    local folder=$1 digest name extra count=0
+    local folder=$1 digest name extra expected= actual
     directory "$folder" && file "$folder/files.sha256" || return 1
+    set --
     while read -r digest name extra; do
         hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1
         case "$name" in .|..|*[!a-zA-Z0-9.-]*) return 1;; esac
-        file "$folder/$name" && test "$(sha "$folder/$name")" = "$digest" || return 1
-        count=$((count+1))
+        # The parent is already canonical, and names cannot contain a slash.
+        test -f "$folder/$name" && test ! -L "$folder/$name" || return 1
+        set -- "$@" "$folder/$name"
+        expected="$expected$digest *$folder/$name
+"
     done < "$folder/files.sha256"
-    test "$count" -gt 0
+    test "$#" -gt 0 || return 1
+    # One process checks all bytes; repeated OpenSSL startup dominated early boot.
+    actual=$(openssl dgst -sha256 -r "$@") || return 1
+    test "$actual" = "${expected%?}"
 }
 
 record_read() {

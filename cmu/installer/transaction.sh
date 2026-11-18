@@ -7,13 +7,20 @@
 settled() { case "$R_PHASE" in active|removed) true;; *) false;; esac; }
 
 dependencies_match() {
-    local digest name extra target
+    local digest name extra target expected= actual snapshot=$1
     snapshot_verify "$1" || return 1
+    set --
     while read -r digest name extra; do
         hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1
         target=$(dependency_path "$name") || return 1
-        file "$target" && test "$(sha "$target")" = "$digest" || return 1
-    done < "$D/snapshots/$1/dependencies"
+        file "$target" || return 1
+        set -- "$@" "$target"
+        expected="$expected$digest *$target
+"
+    done < "$D/snapshots/$snapshot/dependencies"
+    test "$#" -gt 0 || return 0
+    actual=$(openssl dgst -sha256 -r "$@") || return 1
+    test "$actual" = "${expected%?}"
 }
 
 dependencies_pair_match() {

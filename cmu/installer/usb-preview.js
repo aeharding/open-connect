@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Appended inside a function(token, port) alongside dialog.js by the USB builder. */
+/* Static module; loading it has no UI side effects. */
+var OpenConnectPreview = function (token, port) {
+"use strict";
 if (window.__ocUSB) { return; }
 var cancelDialog = null, ticks = 0, finished = false;
 var state = {token: token, cancel: function () { finish("cancel"); }};
@@ -31,3 +33,4 @@ var timer = setInterval(function () {
         finish("error");
     }
 }, 250);
+};

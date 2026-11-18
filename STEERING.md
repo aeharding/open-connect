@@ -263,9 +263,9 @@ not silently replenish attempts or be blamed on a mod. Automatic everyday renewa
 requires qualified ACC evidence.
 
 Use tooling/ for host code, cmu/ for bootstrap, adapters and features, and tests/
-for maintained checks. Experiments hold unfinished research, not dependencies of
-the feature CLI. Delete superseded code; Git preserves it. Move complete components
-with their tests; avoid empty scaffolding or another history folder.
+for maintained checks. Remove superseded research probes and their separate CI
+targets; Git preserves them. Keep useful components with their maintained callers
+and tests. Do not keep a parallel prototype tree or another history folder.
 
 ## Development home and license
 

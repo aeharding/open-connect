@@ -15,7 +15,7 @@ wiring, development guides and CMU reverse engineering.
 
 - **Build a bench:** [power, display and UART wiring](docs/bench-setup.md).
 - **Use a connected bench:** [CLI commands](docs/cli.md).
-- **Follow the first feature:** [disclaimer bypass and availability](docs/disclaimer-preview.md).
+- **Follow the first feature:** [disclaimer bypass and availability](docs/disclaimer.md).
 - **Change the code:** install the host tools and run the offline tests below.
 - **Understand the Mazda behavior:** [findings](docs/reverse-engineering.md).
 - **Choose work:** [roadmap](PLAN.md) and [issues](https://github.com/aeharding/open-connect/issues).
@@ -29,7 +29,7 @@ python3 -m venv .venv
 
 Installation and offline tests do not connect to or change the CMU.
 The host tests include the CLI, bench profile, UART protocol and file transfers.
-Prototype-specific checks are separate and may need private OEM inputs.
+Exact firmware checks use private OEM inputs and report explicit skips without them.
 
 ## Where things live
 
@@ -38,7 +38,7 @@ Prototype-specific checks are separate and may need private OEM inputs.
 | [tooling/open_connect/](tooling/open_connect/) | Host CLI, firmware builders and device operations |
 | [cmu/](cmu/) | Code and templates that run on the CMU |
 | [tests/](tests/) | Maintained host, shell and build checks |
-| [experiments/](experiments/README.md) | Unfinished research probes, outside the feature workflow |
+| [Makefile](Makefile) | Standard native build and USB packaging, without Python or OEM inputs |
 | [docs/](docs/index.md) | User guides, development instructions and CMU research |
 
 Installing the Python package installs host tools only. Building a feature uses

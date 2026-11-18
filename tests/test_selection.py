@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from open_connect.firmware55 import selection as prototype
+from open_connect.firmware55 import selection
 
 
 class SelectorTests(unittest.TestCase):
@@ -25,7 +25,7 @@ class SelectorTests(unittest.TestCase):
             [
                 shutil.which("clang") or "cc",
                 "-DOC_HOST",
-                str(prototype.HERE / "flush.c"),
+                str(selection.HERE / "flush.c"),
                 "-o",
                 str(self.real),
             ],
@@ -87,14 +87,14 @@ else:raise ValueError(name)
         self.install_selector()
 
     def install_selector(self, dependencies=None, log_level=None):
-        text = prototype.selector(
+        text = selection.selector(
             str(self.d),
             b"stock\n",
             (self.d / "flush").read_bytes(),
             b"OC_TRIAL_1|test\n",
             dependencies,
         )
-        text = text.replace(prototype.MOUNT_GUARD, ": # mounted-volume boundary stub")
+        text = text.replace(selection.MOUNT_GUARD, ": # mounted-volume boundary stub")
         text = text.replace(
             'for p in /tmp /tmp/mnt /tmp/mnt/data_persist "$D"; do', 'for p in "$D"; do'
         )
@@ -105,7 +105,7 @@ else:raise ValueError(name)
         self.parent = self.r / "parent.sh"
         self.parent.write_text(
             "SMCFG_NORMALMODE=/jci/sm/sm.conf\n"
-            + prototype.hook(str(self.d), self.s.read_bytes(), log_level).replace(
+            + selection.hook(str(self.d), self.s.read_bytes(), log_level).replace(
                 "/bin/busybox", str(self.bin / "busybox")
             )
             + 'printf "CHOSEN|%s\\n" "$SMCFG_NORMALMODE"\n'
@@ -172,7 +172,7 @@ else:raise ValueError(name)
             self.s.write_text(body)
             self.parent.write_text(
                 "SMCFG_NORMALMODE=/jci/sm/sm.conf\n"
-                + prototype.hook(str(self.d), body.encode()).replace(
+                + selection.hook(str(self.d), body.encode()).replace(
                     "/bin/busybox", str(self.bin / "busybox")
                 )
                 + 'printf "CHOSEN|%s\\n" "$SMCFG_NORMALMODE"\n'

@@ -5,8 +5,9 @@ The screen may still briefly fade or go black during startup.
 
 **It works on our test bench. There isn't a USB installer for your car yet.**
 
-The current release is for developers testing **55.00.750B North America**.
-It can try the change for one startup, then return to the previous setup.
+The maintained bench workflow verifies the feature on **55.00.750B North America**
+for one startup, then returns to the previous setup. That is development
+instrumentation, not a persistent owner installation.
 
 - **Following the project?** See [GitHub Releases](https://github.com/aeharding/open-connect/releases) for updates.
 - **Have a development bench?** Follow the [bench testing guide](disclaimer-development.md).

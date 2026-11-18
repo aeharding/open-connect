@@ -63,8 +63,8 @@ and startup selection with local sockets and shell processes. It uses no physica
 device, credentials or OEM files. Install Clang for its host C checks; optional
 Node.js and ffmpeg checks report skips if those tools are absent.
 
-CI also builds the small ARM helpers and checks the remaining research probes.
-Private native/JS input checks run through oc feature build; an absent private
+CI also builds the maintained ARM helpers and public USB bundle with standard tools.
+Private native/JS input checks run through python -m open_connect.feature build; an absent private
 fixture is an explicit skip in the public suite. Host tests do not establish
 firmware behavior or successful recovery on a CMU.
 
@@ -90,9 +90,9 @@ See [documentation guidance](docs/documentation.md) for content and publication 
 
 ## Mods and device work
 
-Use the [developer feature workflow](docs/disclaimer-development.md) for the maintained
-feature. Unfinished probes stay in [experiments/](experiments/README.md). Report
-missing private OEM inputs rather than claiming their checks passed.
+Use the [developer feature workflow](docs/disclaimer-development.md) for bench
+verification. Superseded probes are in Git history. Report missing private OEM
+inputs rather than claiming their checks passed.
 Read [bench setup](docs/bench-setup.md), [CLI usage](docs/cli.md) and the current
 [lab state](docs/bench-state.txt) before operating the project's bench.
 One operator owns UART and cleanup.
@@ -112,8 +112,9 @@ repeated review gates and success claims based only on command completion.
 
 ## Keep it small
 
-Keep host code in the package, target-specific prototypes in experiments and
-human documentation in docs. Delete superseded documents; Git preserves them. Do not create another top-level notes, research,
+Keep host bench code in the package, maintained target code in cmu and human
+documentation in docs. Delete superseded probes and documents; Git preserves them.
+Do not create another top-level notes, research,
 examples or dashboard system. Prefer consolidating already-shared code over
 inventing a general framework. Git history preserves retired implementations.
 

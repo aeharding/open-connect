@@ -13,7 +13,7 @@ exclude_docs = "/bench-state.txt"
 nav = [
   { "Using Open Connect" = [
     { "Overview" = "index.md" },
-    { "Disclaimer bypass" = "disclaimer-preview.md" },
+    { "Disclaimer bypass" = "disclaimer.md" },
   ] },
   { "Development" = [
     { "Contribute" = "development.md" },

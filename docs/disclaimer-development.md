@@ -1,12 +1,12 @@
 # Test the disclaimer bypass on a bench
 
-**Developer preview · 55.00.750B North America only · one selected boot**
+**Bench verification · 55.00.750B North America only · one selected boot**
 
 This skips the warning through Mazda's native startup decisions and keeps its
 normal Home transition and intro cleanup. It preserves the OEM appearance.
 The screen may briefly fade or go black before Home appears.
 
-The preview selects private copies of the native and JavaScript changes for one
+The bench workflow selects private copies of the native and JavaScript changes for one
 boot. It leaves the installed feature files alone. If Home does not acknowledge
 startup within 90 seconds, the independent supervisor requests a normal reboot;
 the consumed attempt makes the next boot use your previous configuration.
@@ -14,7 +14,7 @@ the consumed attempt makes the next boot use your previous configuration.
 ## Before you start
 
 - A wired, working bench with an idle **root shell**, then close your serial terminal.
-- Start at Mazda Home. This preview qualifies a warm software restart to Home;
+- Start at Mazda Home. This workflow verifies a warm software restart to Home;
   last-app, display-off and ACC/resume startup remain unqualified.
 - Exactly **55.00.750B NA/cmu150_NA** and its private original files listed below.
 - macOS for live UART/camera operation; an FT232R **0403:6001** adapter and webcam.
@@ -55,9 +55,9 @@ firmware55/
 ~~~
 
 ~~~sh
-.venv/bin/oc feature build --workspace . --firmware /private/firmware55 \
+.venv/bin/python -m open_connect.feature build --workspace . --firmware /private/firmware55 \
   --output runs/preview-build --recover-on-timeout
-.venv/bin/oc feature inspect --build runs/preview-build
+.venv/bin/python -m open_connect.feature inspect --build runs/preview-build
 ~~~
 
 The clean-checkout reproduction used Python 3.13.7, Node 26.7.0,

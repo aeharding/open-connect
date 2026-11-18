@@ -10,7 +10,9 @@ from pathlib import Path
 from open_connect.firmware55 import native as b
 
 if not os.environ.get("CMU_NATIVE_CHECK_DIR"):
-    raise unittest.SkipTest("private native build required; run oc feature build")
+    raise unittest.SkipTest(
+        "private native build required; run python -m open_connect.feature build"
+    )
 OUT = Path(os.environ["CMU_NATIVE_CHECK_DIR"])
 PROFILE = json.loads((OUT / "candidate/profile.json").read_text())
 ORIGINAL = (OUT / "candidate/original.bin").read_bytes()

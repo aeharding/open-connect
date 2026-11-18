@@ -10,8 +10,7 @@ from pathlib import Path
 
 from open_connect.paths import ROOT, source_name
 
-from . import native
-from . import selection as prototype
+from . import native, selection
 from .anchors import INDEX_SHA, PLUGIN_SHA, replace_once
 
 HERE = Path(__file__).resolve().parent
@@ -105,11 +104,14 @@ def checked_pair(pair):
     pins = dict(result["source_sha256"], **manifest["source_sha256"])
     for name, expected in pins.items():
         if name not in {
+            "Makefile",
             "tooling/open_connect/firmware55/javascript.py",
             "tooling/open_connect/firmware55/build_pair.py",
             "tooling/open_connect/firmware55/native.py",
             "tooling/open_connect/firmware55/check_native.py",
             "cmu/features/disclaimer/native.c",
+            "cmu/features/disclaimer/native.S",
+            "cmu/features/disclaimer/native.ld",
             "tests/test_native.py",
             "tests/test_javascript.py",
             "tests/fixtures/native-contract.c",
@@ -124,7 +126,7 @@ def checked_pair(pair):
         ("system-app.js", "js/candidate.js", result["js_profile"]["candidate"]),
     ):
         content = (pair / relative).read_bytes()
-        if prototype.fingerprint(content) != expected:
+        if selection.fingerprint(content) != expected:
             raise ValueError("checked feature candidate changed: " + name)
         data[name] = content
     return data, pins, native["manager_dependency"]
@@ -152,7 +154,7 @@ def build(
         probe = HOME_READY.read_text().replace("@GENERATION@", directory.rsplit("-", 1)[1])
         anchor = b"var framework = new GuiFramework();"
         selected_index = replace_once(selected_index, anchor, probe.encode() + b"\n" + anchor)
-    if hashlib.sha256(config).hexdigest() != prototype.CONFIG_SHA:
+    if hashlib.sha256(config).hexdigest() != selection.CONFIG_SHA:
         raise ValueError("unsupported service configuration")
     selected_config = replace_once(
         config,
@@ -174,7 +176,7 @@ def build(
     dependencies.update(
         {"mmui.so": selected_plugin, "mmui.xml": selected_xml, "index.html": selected_index}
     )
-    plan = prototype.build(
+    plan = selection.build(
         original,
         config,
         flush,

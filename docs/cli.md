@@ -56,7 +56,7 @@ different receipt explicitly. Only one program should own UART at a time.
 
 ## Developer feature trial
 
-For the pinned release and complete walkthrough, see [Try the disclaimer bypass](disclaimer-development.md).
+For the current source and complete walkthrough, see [Test the disclaimer bypass](disclaimer-development.md).
 
 This is **FW55 Home-only bench verification**, not the USB installer. Use a source
 checkout; the bench tools locate private fixture builders through `--workspace`.

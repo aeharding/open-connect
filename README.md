@@ -5,7 +5,7 @@ startup behavior, unused services, logging/performance, controls and connectivit
 The first USB installer keeps the touchscreen enabled and skips the startup
 disclaimer, with preferences and uninstall in Mazda Settings.
 
-**Development prerelease under bench qualification.**
+**Bench-tested development prerelease.**
 The supported firmware is exactly **55.00.750B North America**.
 See the [USB installer guide](docs/usb-installer.md) for build, installation and limits.
 

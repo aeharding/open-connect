@@ -1,82 +1,70 @@
 2016 Mazda3 bench handoff — November 18, 2026
 
-Active standalone installer qualification
-The bench is ON, ACC on; supply voltage settings have not been changed. The
-first local installer bundle (runs/installer-20261118/build-3/) installed from
-the stock USB prompt and restarted into its RAM native/JS configuration. Boot
-b9865a2f-c1a0-4f52-afc8-3cf0e855be48 reached Home. Physical root is read-only;
-autostart MD5 is 8f50cb4d7d252e685a5aac4730e58051 with original metadata
-775:1018:3015. Original native/JS files remain unchanged on root. Reverify all
-identities before operating; this is a handoff, not a guard.
-The USB and current RAM API/UI are local build-4; the persisted backend is still
-build-3. Open settings worked; selecting factory touchscreen behavior committed
-touch=0, warning=1 and removed the previously absent NVRAM key. It requires a
-restart to change the already-running display service. The current snapshot is
-acf119a5ac1d1b1c76fb4f9b079f6272811204a830a1d508678bb21c2dea4729.
-The independent restore script is
-/tmp/mnt/data_persist/oc-installer-rescue-20261118/restore.sh; originals and its
-checked flush helper are alongside it. Restoration requires another boot to
-unload the native RAM files. This qualification has not finished uninstall,
-persistent ignition cycles, conflict/undo or the actual CI artifact.
-UART and camera are closed. After restart the Mac's ARP entry was incomplete;
-a CMU ping to the Mac's freshly verified address restored SSH access. The first
-startup UI showed a transient error while the backend was reachable. Build-4
-reduces ignition-watcher lock contention and retries busy status reads; its
-completion dialog and Settings entry worked. Startup qualification remains open.
-Evidence and preserved failures are under runs/installer-20261118/. The earlier
-parked baseline below describes the completed bootstrap trial, not current state.
+Parked after standalone installer qualification
+ACC is OFF; B+ remains ON at the unchanged 12.02 V setting and 2.0 A limit.
+The final meter samples were 0.002 A standby. UART, camera, relay and supply
+handles are closed. Re-enumerate and establish fresh identity before operating.
+Last verified running boot: 9908bdb9-5cb9-4d8e-9db9-67879fed71b0.
 
-Outgoing CMU
-55.00.750B NA (cmu150_NA). Touch is unreliable on this unit. The replacement
-is expected November 19. Record its part number, region and firmware, then
-check stock touch using the same display and cable before changing anything.
+The actual CI bundle (run 44267661925, source 8370d73) installed from empty
+installer state, restarted, showed completion and opened native Settings.
+After removing the release USB files and detaching the drive in software,
+Settings Uninstall restored the original system and restarted without the USB
+installer. Final readback verified physical root RO, original native mappings,
+Opera using /jci/gui/index.html, and no Open Connect runtime/listener/selection.
 
-Return preparation completed
-The outgoing unit booted its original systemApp.js, showed the stock disclaimer
-and reached Home. Its native MMUI library and autostart also match the saved
-originals. The physical root was read-only after restoration. The original boot was independently verified again in the
-November 17 native Settings trial. The runtime-only audio profile
-has no startup hook. An earlier setup receipt belongs to an earlier boot.
-All 32 identified trial directories (298 files) were archived, verified and
-removed. This restored the files touched by the trials. Firmware remains v55.
-Private records are in runs/touch-release-20261117/, including finish-restoration.out,
-archive-receipt.json and remove-owned.out.
-Two subsequent v55 installer trials completed undo and stock boot. Both
-restored the originally absent display setting and removed their temporary GUI
-scripts and trial directories. The last run tied the Install and Uninstall choices
-to real bench operations. Screenshots and boot evidence are under
-runs/fw55-installer-flow-20261117/ and runs/fw55-installer-ui-20261117/.
-Native Settings readbacks and screen captures are in runs/fw55-radio-20261118004338-v2/.
+Restored files and settings
+- /usr/bin/autostart MD5 6ba9d4d9e01449aee587823218159d95, mode/uid/gid 775:1018:3015.
+- /jci/mmui/uia/libjciuiasystem.so MD5 b9ff5edc632163f88cda04686c118591.
+- /jci/gui/apps/system/js/systemApp.js MD5 584c67f7186ada6bae9aae1be59b5cd0.
+- The lvds_speed_restriction NVRAM key is absent, as before installation.
+- All other exact firmware dependencies matched. Original native/JS files on
+  root were never overwritten by this installer; selected RAM mappings ended
+  with the final restart.
 
-USB bootstrap verified after the static-file refactor
-The Make-built package opened the native Cancel-only dialog. Cancel, reinsertion,
-removal and the one-minute deadline passed. A bench guard initially stopped
-reinsertion because USB reauthorization changed the SCSI host number; fresh
-enumeration reconciled it before proceeding. The CI-built bundle from run
-44243108343 then passed automatic USB launch and Cancel cleanup on this v55 CMU.
-No features were installed. Original file hashes and native mappings matched;
-the same boot and Opera process continued with physical root read-only. The
-developer GUI script and display-setting key remained absent. All preview RAM
-and USB files were removed; the drive retains only its pre-existing .Trash-1000.
-Current verification, tested ZIPs and the retained guard failure are under
-runs/usb-installer-20261118/bench/ and runs/usb-installer-20261118/ci-artifact/.
-Earlier insertion, duplicate suppression and bootstrap research remain in
-runs/usb-bootstrap-20261118/.
+Retained installer state
+/tmp/mnt/data_persist/open-connect/record is settled in phase removed, revision
+697be640385643cb83e931ec2d0c5fe1. Its current snapshot is
+f1caead2ffeb4d223ac92cfed451e7ee51ab03ad6f48dfc1cfea12931dd62787.
+The single Undo checkpoint is
+c347923359b1f855128b6d43f722991c823aadc123b0da91ff9ed8f3b1aca0a3.
+Originals and immutable packages remain intentionally for USB Undo; they are
+inactive. The retained backend package is
+0b769ee1b3d5f064a5e9cfe4a7eb8b189f11f3d14cb8574d14148497e23c50a5.
 
-Bench connections
-The retrofit hub enumerates the SanDisk thumb drive and the Apple Ethernet
-adapter at the same time. On this v55 unit eth1 uses asix at 100 Mbps full
-duplex. SSH host keys matched an independent UART reading; the bench account
-authenticated. Obtain the replacement's own keys and software baseline.
-Private connection evidence is in runs/ethernet-bringup/connected-1794949841855/.
+The independent rescue remains at
+/tmp/mnt/data_persist/oc-installer-rescue-20261118/restore-v3.sh, with verified
+original startup and flush helper. Older inactive qualification state was moved
+into that directory's qualification-history subdirectory before the fresh CI
+installation. It includes the deliberate conflict/Undo trials; do not mistake
+that archive for current state. No startup hook points to it.
 
-Power and ACC
-Do not change the DPS150 voltage. The owner permits software control of ACC
-and supply output for bench tests. Leave ACC off when the unit is idle.
-After the USB bootstrap trial, ACC was switched off. Draw settled to 0.002 A on
-the meter. B+ stayed on at 12.02 V. The park record and closed UART capture
-are in runs/usb-installer-20261118/bench/park/.
-The normally-open LCUS-1 relay uses the CH340 at 8-3.4; re-enumerate first.
-With B+ maintained, a 1.06 s ACC interruption resumed through QuickStartLoop.
-A longer interruption with standby draw observed produced a fresh kernel.
-See runs/acc-relay/ and the bench setup guide.
+USB
+The SanDisk 0781:55a9, filesystem UUID 58A0-2325, retains only its pre-existing
+.Trash-1000. All manifest-verified release files and the two empty trigger files
+were removed. Software USB deauthorization does not persist across kernel boots;
+the empty drive re-enumerated on the final original-system boot.
+
+Evidence
+Private records, closed observers, videos and preserved failures are under
+runs/installer-20261118/. Final checks: bench/verify-final-install.out,
+bench/verify-final-stock.out, bench/final-uninstall-start/ and bench/park/.
+The earlier fallback deadline failure, fixed batched verification, ACC cycles,
+late-fault fallback, controlled interrupted preference, conflicting uninstall,
+refused Undo and exact successful Undo are described in docs/reverse-engineering.md.
+Host tests passed 156 tests with 7 explicit private-input skips.
+
+Next hardware work
+This outgoing CMU is 55.00.750B NA (cmu150_NA), with unreliable touch. The
+replacement is expected November 19. Confirm its part number, region and
+firmware, then compare stock touch using the same display/cable. The development
+prerelease does not qualify physical touch/motion or the owner's v74 car.
+The separate firmware move remains the next software work in PLAN.md.
+
+Connections
+UART is the FT232R 0403:6001 serial A9048JM0. ACC relay is the normally-open
+LCUS-1 on CH340 1a86:7523 location 8-3.4; re-enumerate. Do not change DPS150
+voltage. The retrofit hub supports the SanDisk and Apple Ethernet adapter
+simultaneously. After a fresh boot, a CMU ping to the Mac's freshly verified
+address resolves the observed ARP issue before SSH. SSH keys were independently
+verified over UART; obtain the replacement unit's own identity and keys.

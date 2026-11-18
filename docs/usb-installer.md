@@ -63,9 +63,19 @@ host checks. Publish it after qualifying that CI artifact on the bench.
 Build scripts copy authored files and compile native assets; OEM
 files are read and composed privately on the CMU.
 
-Full lifecycle qualification is in progress. The local bundle has installed,
-restarted into the selected native/JS files, opened Settings and changed the
-saved touchscreen preference. The actual CI artifact, uninstall/undo,
-interruption and ignition-cycle checks must finish before publication. The
-outgoing bench has unreliable touch hardware; replacement-unit motion/touch
-qualification and the firmware move for the owner's car remain separate.
+Bench qualification covered the actual CI bundle and these behaviors:
+
+- Fresh install, reinstall with preferences retained, restart, completion and
+  native Settings; uninstall from the installed backend after USB removal.
+- Full ignition shutdown/startup, quick resume, software resets and an exhausted
+  attempt budget followed by a fault after Home.
+- Recovery after one controlled power cut with a prepared preference transaction.
+- Conflicted uninstall, exact Undo and refusal after a later edit; original
+  startup, NVRAM and native mappings verified after removal, with root read-only.
+
+See the [firmware-scoped evidence](reverse-engineering.md#standalone-installer-backend).
+These are bounded bench checks, not long-term vehicle reliability qualification.
+The outgoing CMU has unreliable touch hardware. Physical touch/motion behavior,
+broader last-app/display-off cases and the modern-firmware port remain before a
+normal owner release. Power loss at arbitrary storage-write points is also
+unqualified; the host suite covers additional injected failures.

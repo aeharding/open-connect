@@ -1,6 +1,6 @@
 # Open Connect — living steering agreement
 
-Last updated: 2026-11-17, from the user's explicit direction.
+Last updated: 2026-11-18, from the user's explicit direction.
 
 Read this first when starting or resuming work. It records product intent and how
 we work; it is not a run log or an approval checklist. New user direction takes
@@ -243,8 +243,8 @@ persistent edits that need repair before stock startup can resume.
 The revised [architecture proposal](docs/extension-architecture.md) recommends a
 small pre-consumer selector, immutable composed configurations and per-feature
 adapters. The early boundary has one-shot warm-boot and controlled native/JS fault evidence.
-Power cuts after completed record flushes passed; interrupted writes and persistent
-feature policy remain unqualified.
+The standalone installer now implements persistent startup; its bounded recovery
+and interruption evidence and remaining limits belong in the USB guide.
 Keep requested disable, verified baseline startup, automatic failed-start detection
 and full uninstall distinct. No hot-unload or universal crash-recovery promise.
 

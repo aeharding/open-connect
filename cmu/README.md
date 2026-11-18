@@ -21,8 +21,16 @@ Source that runs on the device when a feature is explicitly tried.
   The radio changes immediately. Writes run in the background and survive
   leaving the page. Reply with verified values, or null on an uncertain write.
   A fresh read can reconcile an acknowledgement that went missing.
+  Load `dialog.js` alongside `settings.js`. About reads `store.version` from the
+  installed package. Supply the installer's removal callback as `store.uninstall`
+  to enable Uninstall. The view calls it once after confirmation.
 - adapters/fw55/: frontend and native integration for 55.00.750B NA.
 - startup/: one-shot selection, readiness, checked flush and file-publication templates.
 
 Host builders live in tooling/open_connect/firmware55. They compose these sources
 with privately supplied OEM files; this directory contains no OEM firmware.
+
+CI builds both installer views into `installer.js` and runs their interaction tests
+against that file. The `fw55-installer-controls` workflow artifact contains the
+tested UI, its checksum and license. Standalone USB packaging is tracked in
+[issue 7](https://github.com/aeharding/open-connect/issues/7).

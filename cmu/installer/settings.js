@@ -77,6 +77,7 @@ var OpenConnectSettings = (function () {
             try { store.write(key, saved[key], requested, finish); }
             catch (error) { finish(null); }
         }
+        prefs.pending = function () { return busy || Object.keys(wanted).length > 0; };
         prefs.select = function (key, value) {
             prefs.failure = null;
             wanted[key] = value;
@@ -94,7 +95,7 @@ var OpenConnectSettings = (function () {
         if (active || !inTab(fw) || !host || !host.list2Ctrl) { return false; }
         var prefs = preferences(store);
         if (!prefs) { return false; }
-        var page, choice, closed = false, restorers = [];
+        var page, choice, dismiss = null, closed = false, restorers = [];
         var oldDisplay = host.divElt.style.display;
         var tab = fw.getCurrCtxtId();
         function current() {
@@ -109,6 +110,7 @@ var OpenConnectSettings = (function () {
         function close() {
             if (closed) { return; }
             closed = true;
+            if (dismiss) { dismiss(); }
             prefs.changed = null;
             while (restorers.length) { restorers.pop()(); }
             discard(page);
@@ -125,6 +127,9 @@ var OpenConnectSettings = (function () {
                     rows.push({text1: row.title, label1: row.key === "touch" ? ["Default", "Allow"][values.touch] : row.choices[values[row.key]],
                         itemStyle: "style06", hasCaret: true, appData: i});
                 }
+                rows.push({text1: "Uninstall", itemStyle: "style01", appData: "uninstall",
+                    disabled: typeof store.uninstall !== "function"});
+                rows.push({text1: "About", itemStyle: "style01", appData: "about"});
             } else if (index === "unknown") {
                 title = "Change could not be confirmed";
                 rows.push({text1: "Return to Mazda Settings", itemStyle: "style01", hasCaret: false, appData: 0});
@@ -153,8 +158,22 @@ var OpenConnectSettings = (function () {
             return true;
         }
         function select(control, item) {
-            if (!current() || !page || control !== page.list2Ctrl ||
-                    (item !== 0 && item !== 1)) { return; }
+            if (!current() || dismiss || !page || control !== page.list2Ctrl) { return; }
+            if (choice === null && item === "about") {
+                dismiss = OpenConnectInstaller.about(fw, store.version, function () { dismiss = null; });
+                return;
+            }
+            if (choice === null && item === "uninstall" && typeof store.uninstall === "function") {
+                dismiss = OpenConnectInstaller.confirmUninstall(fw, prefs.pending(), function (action) {
+                    dismiss = null;
+                    if (action === "uninstall" && current() && !prefs.pending()) {
+                        close();
+                        store.uninstall();
+                    }
+                });
+                return;
+            }
+            if (item !== 0 && item !== 1) { return; }
             if (choice === "unknown") { prefs.failure = null; close(); return; }
             if (choice === null) {
                 var values = prefs.values();
@@ -168,6 +187,7 @@ var OpenConnectSettings = (function () {
         if (!render(null, 0)) { return false; }
         active = true;
         prefs.changed = function () {
+            if (dismiss) { dismiss(); }
             if (current()) { render("unknown", 0); } else { close(); }
         };
         var transition = fw.common.getCommonTransitionData;
@@ -184,7 +204,8 @@ var OpenConnectSettings = (function () {
         var send = fw.sendEventToMmui;
         restorers.push(replace(fw, "sendEventToMmui", function (app, event) {
             if (current() && app === "common" && (event === "Global.GoBack" || event === "Global.MenuUp")) {
-                if (choice !== null && choice !== "unknown") { render(null, choice); }
+                if (dismiss) { dismiss(); }
+                else if (choice !== null && choice !== "unknown") { render(null, choice); }
                 else { if (choice === "unknown") { prefs.failure = null; } close(); }
                 return;
             }
@@ -198,7 +219,7 @@ var OpenConnectSettings = (function () {
     function attach(fw, app, store) {
         var entry = app._contextTable.SystemTab;
         var original = entry.readyFunction;
-        var list = null, release = null;
+        var list = null, release = null, closePage = null;
         var id = "open-connect-settings";
         function bind() {
             var host = app._currentContextTemplate;
@@ -207,7 +228,11 @@ var OpenConnectSettings = (function () {
             list = host.list2Ctrl;
             var ctrl = list, set = ctrl.setDataList, select = ctrl.properties.selectCallback;
             var undoSelect = replace(ctrl.properties, "selectCallback", function (control, value) {
-                if (control === ctrl && value === id) { open(fw, store); return; }
+                if (control === ctrl && value === id) {
+                    var opened = open(fw, store);
+                    if (opened) { closePage = opened; }
+                    return;
+                }
                 return select.apply(this, arguments);
             });
             function withEntry(data) {
@@ -228,6 +253,7 @@ var OpenConnectSettings = (function () {
             }
             var undoSet = replace(ctrl, "setDataList", withEntry);
             release = function (visible) {
+                if (closePage) { closePage(); closePage = null; }
                 undoSelect();
                 undoSet();
                 if (!visible) { return; }

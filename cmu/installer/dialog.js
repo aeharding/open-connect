@@ -4,12 +4,13 @@ var OpenConnectInstaller = (function () {
     "use strict";
     var active = null;
 
-    function show(fw, title, message, buttons, onChoice) {
+    function show(fw, title, message, buttons, onChoice, settings) {
         if (typeof onChoice !== "function") { throw new TypeError("Expected a choice handler"); }
-        var home = fw._currTmpltInstance;
+        var host = fw._currTmpltInstance, app = fw.getCurrentApp(), context = fw.getCurrCtxtId();
         var common = fw.common;
-        if (active || !home || !common || fw._frameworkState !== fw._FWK_STATE_IDLE ||
-                fw.getCurrentApp() !== "system" || fw.getCurrCtxtId() !== "HomeScreen" ||
+        if (active || !host || !common || fw._frameworkState !== fw._FWK_STATE_IDLE ||
+                (settings ? !/^(syssettings|audiosettings|vehsettings)$/.test(app) || !/Tab$/.test(context) :
+                    app !== "system" || context !== "HomeScreen") ||
                 common._vuiHelpDialog) {
             return false;
         }
@@ -19,9 +20,9 @@ var OpenConnectInstaller = (function () {
         var ownedTransition = own.call(common, "getCommonTransitionData");
         var previousInput = common.handleControllerEvent;
         var previousTransition = common.getCommonTransitionData;
-        function stillHome() {
-            return fw._currTmpltInstance === home && fw._frameworkState === fw._FWK_STATE_IDLE &&
-                fw.getCurrentApp() === "system" && fw.getCurrCtxtId() === "HomeScreen";
+        function sameContext() {
+            return fw._currTmpltInstance === host && fw._frameworkState === fw._FWK_STATE_IDLE &&
+                fw.getCurrentApp() === app && fw.getCurrCtxtId() === context;
         }
 
         function finish(action) {
@@ -44,7 +45,7 @@ var OpenConnectInstaller = (function () {
         }
 
         function input(event, first) {
-            if (!stillHome() || common._vuiHelpDialog) {
+            if (!sameContext() || common._vuiHelpDialog) {
                 finish("cancel");
                 return previousInput.apply(this, arguments);
             }
@@ -81,7 +82,7 @@ var OpenConnectInstaller = (function () {
             buttonConfig: buttons,
             defaultSelectCallback: function (control, action) {
                 if (control !== dialog) { return; }
-                if (!stillHome() || common._vuiHelpDialog) { finish("cancel"); return; }
+                if (!sameContext() || common._vuiHelpDialog) { finish("cancel"); return; }
                 for (var key in buttons) {
                     if (own.call(buttons, key) && buttons[key].appData === action) { finish(action); return; }
                 }
@@ -122,5 +123,21 @@ var OpenConnectInstaller = (function () {
             button2: {label: "Open settings", appData: "settings"}
         }, onChoice);
     }
-    return {choose: choose, complete: complete};
+    function about(fw, version, done) {
+        var text = version === undefined ? "Installed version unavailable." : name(version);
+        return show(fw, "About", text, {button1: {label: "OK", appData: "done"}}, done, true);
+    }
+
+    function confirmUninstall(fw, pending, done) {
+        if (pending) {
+            return show(fw, "Uninstall", "Finishing your settings change. Try again in a moment.",
+                {button1: {label: "OK", appData: "cancel"}}, done, true);
+        }
+        return show(fw, "Uninstall?", "Your previous settings will be restored.", {
+            button1: {label: "Cancel", appData: "cancel"},
+            button2: {label: "Uninstall", appData: "uninstall"}
+        }, done, true);
+    }
+
+    return {choose: choose, complete: complete, about: about, confirmUninstall: confirmUninstall};
 }());

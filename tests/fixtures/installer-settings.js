@@ -2,9 +2,9 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 let queued;
-const ctx = {setTimeout(fn) { queued=fn; return 1; }, clearTimeout() { queued=null; }};
+const ctx = {document: {body: {}}, log: {error(e) { throw Error(e); }}, setTimeout(fn) { queued=fn; return 1; }, clearTimeout() { queued=null; }};
 function idle() { const fn=queued; queued=null; if (fn) { fn(); } }
-vm.runInNewContext(fs.readFileSync(process.argv[2], "utf8"), ctx);
+for (const path of process.argv.slice(2)) { vm.runInNewContext(fs.readFileSync(path, "utf8"), ctx); }
 const settings = ctx.OpenConnectSettings;
 const pages = [], calls = [];
 const parent = {removeChild(node) { node.parentNode = null; }};
@@ -125,3 +125,56 @@ const originalRead = store.read; store.read=()=>{ throw Error("readback offline"
 assert.doesNotThrow(()=>reply(null));
 assert.match(pages.at(-1).ctrl.title.text1,/could not be confirmed/);
 store.read=originalRead; back();
+
+// The actual settings and dialog modules share one OEM input and transition owner.
+let modal, removals = 0;
+fw.instantiateControl = (app, parent, type, props) => {
+    assert.equal(type, "Dialog3Ctrl");
+    assert.equal(parent, ctx.document.body);
+    modal = {props, divElt: {classList: {add() {}}}, handleControllerEvent() {}};
+    return modal;
+};
+fw.destroyControl = control => { assert.equal(control, modal); modal = null; };
+fw.common.handleControllerEvent = input;
+settings.open(fw, store);
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items, r => r.text1),
+    ["Touchscreen While Driving", "Startup disclaimer", "Uninstall", "About"]);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, true);
+pick(2); assert.equal(modal, undefined);
+pick(3); assert.equal(modal.props.text1, "Installed version unavailable.");
+back(); back();
+store.version = "0.2.1";
+store.uninstall = () => { removals++; };
+settings.open(fw, store);
+pick(3); assert.equal(modal.props.title, "About"); assert.equal(modal.props.text1, "Open Connect 0.2.1");
+pick(2); assert.equal(modal.props.title, "About"); // background list cannot steal the modal
+back(); assert.equal(modal, null);
+pick(2); assert.equal(modal.props.buttonConfig.button1.label, "Cancel");
+assert.equal(modal.props.initialFocus, 0);
+const stale = modal;
+back(); stale.props.defaultSelectCallback(stale, "uninstall"); assert.equal(removals, 0);
+pick(2); assert.equal(fw.common.getCommonTransitionData(), "stock transition");
+assert.equal(removals, 0); assert.equal(host.divElt.style.display, "");
+
+settings.open(fw, store); pick(0); pick(0); back(); pick(2);
+assert.match(modal.props.text1, /Finishing your settings change/);
+assert.equal(modal.props.buttonConfig.button2, undefined); back();
+idle(); values = {touch: 0, warning: 1}; reply(values);
+pick(2);
+const confirmed = modal;
+confirmed.props.defaultSelectCallback(confirmed, "uninstall");
+confirmed.props.defaultSelectCallback(confirmed, "uninstall");
+assert.equal(removals, 1); assert.equal(modal, null); assert.equal(host.divElt.style.display, "");
+assert.equal(fw.common.handleControllerEvent, input);
+assert.equal(fw.common.getCommonTransitionData, transition);
+
+appName = "syssettings"; context = "SystemTab";
+const detachWithModal = settings.attach(fw, app, store);
+list.properties.selectCallback(list, "open-connect-settings");
+pick(2);
+const detached = modal;
+detachWithModal();
+assert.equal(modal, null);
+detached.props.defaultSelectCallback(detached, "uninstall");
+assert.equal(removals, 1);
+assert.equal(host.divElt.style.display, "");

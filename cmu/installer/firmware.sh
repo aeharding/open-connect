@@ -137,7 +137,9 @@ remount() {
 }
 startup_publish() (
     set -eu
-    local source=$1 mode=$2 expected=$3 expected_mode=$4 work identity=
+    # BusyBox ash unwinds function locals before this subshell's EXIT trap.
+    # Keep trap inputs in the subshell scope so cleanup can still read them.
+    source=$1; mode=$2; expected=$3; expected_mode=$4; identity=
     hex "$R_REV" 32 && file "$source" || fail invalid_startup_plan
     # The durable pending revision names this exact staging file across retries.
     work=/usr/bin/.open-connect-$R_REV
@@ -178,7 +180,9 @@ startup_publish() (
             identity=$(stat -c '%d:%i' "$work") || fail startup_stage_failed
         fi
         metadata "$mode" || fail invalid_startup_metadata
-        cp "$source" "$work" && chown "$S_UID:$S_GID" "$work" && chmod "$S_MODE" "$work" || fail startup_copy_failed
+        # BusyBox cp replaces an existing inode. Preserve the exclusively
+        # created stage's identity so the failure handler can remove it.
+        cat "$source" > "$work" && chown "$S_UID:$S_GID" "$work" && chmod "$S_MODE" "$work" || fail startup_copy_failed
         test "$(sha "$work")" = "$(sha "$source")" || fail startup_copy_changed
         flush f "$work"
         file "$AUTOSTART" && test "$(sha "$AUTOSTART")" = "$expected" &&

@@ -51,9 +51,10 @@ flush() {
         staged:*/.open-connect-*) sh -c 'kill -KILL "$PPID"' ;;
     esac
 }
-cp() {
-    command cp "$@" || return
-    if test "$CUT" = partial; then head -c 11 "$1" > "$2"; sh -c 'kill -KILL "$PPID"' ; fi
+cat() {
+    if test "$CUT:$1" = "partial:$PLAN"; then
+        head -c 11 "$1"; sh -c 'kill -KILL "$PPID"'
+    else command cat "$@"; fi
 }
 mv() {
     command mv "$@" || return
@@ -69,10 +70,10 @@ startup_publish "$PLAN" "755:$(id -u):$(id -g)" "$(sha "$AUTOSTART")" "$(stat -c
         self.target.chmod(0o755)
         self.mount.write_text("ro,noatime\n")
 
-    def run_publish(self, cut="none"):
+    def run_publish(self, cut="none", shell=None):
         return subprocess.run(
-            [
-                "sh",
+            (shell or ["sh"])
+            + [
                 self.driver,
                 cut,
                 self.tools,
@@ -87,6 +88,24 @@ startup_publish "$PLAN" "755:$(id -u):$(id -g)" "$(sha "$AUTOSTART")" "$(stat -c
             timeout=10,
             env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
         )
+
+    @unittest.skipUnless(shutil.which("busybox"), "BusyBox required for ash trap regression")
+    def test_ash_exit_trap_keeps_inputs_after_function_locals_unwind(self):
+        for cut in ("none", "flush", "cleanup-flush"):
+            with self.subTest(cut=cut):
+                self.reset()
+                if cut == "cleanup-flush":
+                    (self.tools / "flush").write_text("#!/bin/sh\nexit 1\n")
+                    (self.tools / "flush").chmod(0o700)
+                result = self.run_publish(cut, [shutil.which("busybox"), "ash"])
+                if cut == "none":
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(self.target.read_bytes(), self.source.read_bytes())
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(self.target.read_text(), "stock startup\n")
+                self.assertFalse(self.stage.exists())
+                self.assertEqual(self.mount.read_text(), "ro,noatime\n")
 
     def test_handled_flush_failure_removes_owned_stage_and_restores_read_only(self):
         result = self.run_publish("flush")

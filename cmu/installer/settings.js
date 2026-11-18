@@ -4,7 +4,7 @@ var OpenConnectSettings = (function () {
     "use strict";
     var active = false, waiting = null, session = null;
     var entries = [
-        {key: "touch", title: "Touchscreen", choices: ["Mazda default", "Always enabled"]},
+        {key: "touch", title: "Touchscreen While Driving", choices: ["Factory Default", "Allow"]},
         {key: "warning", title: "Startup disclaimer", choices: ["Show", "Skip"]}
     ];
     var own = Object.prototype.hasOwnProperty;
@@ -87,7 +87,7 @@ var OpenConnectSettings = (function () {
         return prefs;
     }
 
-    // read() returns verified values (zero = Mazda default). write(key, from, to,
+    // read() returns verified values (zero = factory default). write(key, from, to,
     // reply) compares against 'from', commits, and returns fresh values to reply.
     function open(fw, store) {
         var host = fw._currTmpltInstance;
@@ -122,7 +122,7 @@ var OpenConnectSettings = (function () {
             if (index === null) {
                 for (i = 0; i < entries.length; i++) {
                     row = entries[i];
-                    rows.push({text1: row.title, label1: row.key === "touch" ? ["Default", "Always"][values.touch] : row.choices[values[row.key]],
+                    rows.push({text1: row.title, label1: row.key === "touch" ? ["Default", "Allow"][values.touch] : row.choices[values[row.key]],
                         itemStyle: "style06", hasCaret: true, appData: i});
                 }
             } else if (index === "unknown") {

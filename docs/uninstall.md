@@ -15,8 +15,8 @@ After a successful uninstall, Open Connect's files and backups are deleted.
 
 ## Remove it using USB
 
-Prepare a drive using [Quick start](usb-installer.md), insert it at Mazda's Home
-screen, and choose **Uninstall**. A replacement drive is fine; you do not need
+Prepare a drive using [Quick start](usb-installer.md), insert it while Mazda Connect
+shows its main screen, and choose **Uninstall**. A replacement drive is fine; you do not need
 the original one. Leave it connected until the restart finishes.
 
 If another modification conflicts, Uninstall stops without overwriting it.

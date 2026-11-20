@@ -9,6 +9,7 @@ D=/tmp/mnt/data_persist/open-connect
 AUTOSTART=/usr/bin/autostart
 . "$P/state.sh"
 . "$P/firmware.sh"
+. "$P/access.sh"
 . "$P/transaction.sh"
 firmware_guard
 native_guard
@@ -46,12 +47,13 @@ fi
 R_OFF=-; R_BOOT=$boot
 if test "$R_BUDGET" -gt 0; then R_BUDGET=$((R_BUDGET-1)); selected=true; else selected=false; fi
 record_write
+if test "$S_ACCESS" = true; then printf '%s\n' "$R_CURRENT" > /tmp/open-connect/access-selected; fi
 snapshot_read "$R_BASE" || fail originals_changed
 nvram=$S_NVRAM
 if test "$selected:$touch" = true:1; then nvram=disable; fi
 snapshot_read "$R_CURRENT" || fail invalid_snapshot
 if test "$S_NVRAM" != "$nvram"; then
-    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies") || fail startup_plan_failed
+    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT") || fail startup_plan_failed
     transaction_prepare apply "$R_CURRENT" "$after"
     transaction_reconcile
 fi

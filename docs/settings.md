@@ -32,5 +32,10 @@ down completely before starting again. A quick off/on may resume the old session
 **About** shows the installed Open Connect version.
 To remove both features, choose [**Uninstall**](uninstall.md).
 
+The newer v74 development candidate also has
+[Developer options](developer-options.md) for an optional UART root console and
+owner SSH access. These are separate from the two driving/startup preferences;
+their qualification is in progress.
+
 If a change cannot be confirmed, return to Open Connect and check the selected
 choice before trying again.

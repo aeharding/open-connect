@@ -101,24 +101,43 @@ snapshot_read() {
     IFS='|' read -r S_PACKAGE S_TOUCH S_WARNING S_NVRAM S_META extra < "$D/snapshots/$1/config" || return 1
     test "$S_PACKAGE" = - || hex "$S_PACKAGE" 64 || return 1
     bit "$S_TOUCH" && bit "$S_WARNING" && touch_value "$S_NVRAM" || return 1
-    metadata "$S_META"
+    metadata "$S_META" || return 1
+    S_ACCESS=false; S_UART=0; S_SSH=0; S_KEY=-; S_LOGIN_META=-; S_SSH_META=-
+    if ! absent "$D/snapshots/$1/access"; then
+        local dir=$D/snapshots/$1
+        file "$dir/runlogin" && file "$dir/sshd.conf" && file "$dir/access" || return 1
+        test "$(wc -l < "$dir/access")" -eq 1 &&
+            test "$(awk -F '|' '{print NF}' "$dir/access")" = 5 || return 1
+        IFS='|' read -r S_UART S_SSH S_KEY S_LOGIN_META S_SSH_META extra < "$dir/access" || return 1
+        bit "$S_UART" && bit "$S_SSH" && { test "$S_KEY" = - || hex "$S_KEY" 64; } || return 1
+        test "$S_SSH" = 0 || hex "$S_KEY" 64 || return 1
+        (metadata "$S_LOGIN_META" && metadata "$S_SSH_META") || return 1
+        S_ACCESS=true
+    fi
 }
 snapshot_create() (
-    # source autostart, package, touch, warning, nvram, original mode
+    # autostart, package, touch, warning, nvram, mode, dependencies, access source
     set -eu
     file "$1" && { test "$2" = - || hex "$2" 64; } && bit "$3" && bit "$4" && touch_value "$5" && metadata "$6" || fail invalid_snapshot
     local work id name digest
     work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail snapshot_create_failed
     cp "$1" "$work/autostart" || fail snapshot_copy_failed
-    if test "$#" -eq 7; then cp "$7" "$work/dependencies"; else : > "$work/dependencies"; fi || fail snapshot_copy_failed
+    if test "$#" -ge 7; then cp "$7" "$work/dependencies"; else : > "$work/dependencies"; fi || fail snapshot_copy_failed
     printf '%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" > "$work/config" || fail snapshot_config_failed
     chmod 600 "$work/autostart" "$work/config" "$work/dependencies" || fail snapshot_mode_failed
-    for name in autostart config dependencies; do
+    set -- autostart config dependencies "${8:--}"
+    if test "$4" != - && ! absent "$4/access"; then
+        for name in access runlogin sshd.conf; do
+            file "$4/$name" && cp "$4/$name" "$work/$name" && chmod 600 "$work/$name" || fail snapshot_copy_failed
+        done
+        set -- autostart config dependencies access runlogin sshd.conf
+    else set -- autostart config dependencies; fi
+    for name in "$@"; do
         digest=$(sha "$work/$name") && hex "$digest" 64 || fail snapshot_hash_failed
         printf '%s  %s\n' "$digest" "$name" || fail snapshot_manifest_failed
     done > "$work/files.sha256" || fail snapshot_manifest_failed
     chmod 600 "$work/files.sha256" || fail snapshot_mode_failed
-    for name in autostart config dependencies files.sha256; do flush f "$work/$name"; done
+    for name in "$@" files.sha256; do flush f "$work/$name"; done
     flush d "$work"
     id=$(sha "$work/files.sha256") && hex "$id" 64 || fail snapshot_hash_failed
     if absent "$D/snapshots/$id"; then
@@ -126,7 +145,8 @@ snapshot_create() (
         flush d "$D/snapshots"
     else
         snapshot_verify "$id" || fail snapshot_conflict
-        rm "$work/autostart" "$work/config" "$work/dependencies" "$work/files.sha256" && rmdir "$work" || fail snapshot_cleanup_failed
+        for name in "$@" files.sha256; do rm "$work/$name" || fail snapshot_cleanup_failed; done
+        rmdir "$work" || fail snapshot_cleanup_failed
     fi
     snapshot_read "$id" || fail snapshot_invalid
     printf '%s\n' "$id"

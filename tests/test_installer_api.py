@@ -54,6 +54,9 @@ class InstallerApi(unittest.TestCase):
             (TOKEN + "|-|status|-|-|-", "status", "-"),
             (TOKEN + "|" + "b" * 32 + "|set|touch|0|1", "set", "touch"),
             (TOKEN + "|" + "b" * 64 + "|set|warning|1|0", "set", "warning"),
+            (TOKEN + "|" + "b" * 64 + "|set|ssh|0|1", "set", "ssh"),
+            (TOKEN + "|" + "b" * 64 + "|set|uart|1|0", "set", "uart"),
+            (TOKEN + "|" + "b" * 64 + "|import|-|-|-", "import", "-"),
             (TOKEN + "|" + "b" * 32 + "|recover|-|-|-", "recover", "-"),
         ):
             result = self.invoke(self.request(body.encode()))

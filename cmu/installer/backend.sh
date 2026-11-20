@@ -8,6 +8,7 @@ D=/tmp/mnt/data_persist/open-connect
 AUTOSTART=/usr/bin/autostart
 . "$P/state.sh"
 . "$P/firmware.sh"
+. "$P/access.sh"
 . "$P/transaction.sh"
 
 # Errors are fixed identifiers, never device output or interpolated user text.
@@ -38,6 +39,7 @@ fi
 
 status() {
     local installed=false retained=false conflict=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
+    local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 applied
     if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
     if test "$empty_state" = true; then pending=true; fi
     if test "$exists" = true; then
@@ -48,6 +50,11 @@ status() {
         else
             snapshot_read "$R_CURRENT" || fail invalid_snapshot
             touch=$S_TOUCH; warning=$S_WARNING
+            developer=$S_ACCESS; uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
+            if test "$key" != - && access_key_verify "$key"; then
+                fingerprint=$(/usr/bin/ssh-keygen -l -f "$D/keys/$key.cmu" | awk '{print $2}')
+                case "$fingerprint" in *[!a-f0-9:]|'') fingerprint=-;; esac
+            fi
             if test "$R_PHASE" = active; then installed=true; fi
             if test "$R_PHASE" = removed; then retained=true; fi
             if ! targets_match "$R_CURRENT" || ! dependencies_match "$R_CURRENT"; then conflict=true; fi
@@ -55,6 +62,10 @@ status() {
                 if ! file /tmp/open-connect/selected || test "$(cat /tmp/open-connect/selected)" != "$R_CURRENT"; then restart=true; fi
             elif test -e /tmp/open-connect/selected; then restart=true; fi
             if ! settled; then restart=true; pending=true; rev=$R_REV; fi
+            if file /tmp/open-connect/access-selected; then
+                applied=$(cat /tmp/open-connect/access-selected)
+                if snapshot_read "$applied"; then uart_current=$S_UART; ssh_current=$S_SSH; fi
+            fi
         fi
     fi
     local version
@@ -62,8 +73,9 @@ status() {
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
     # Keep the retired boolean false for an installed v0.2.0-dev.1 client during
     # USB handoff. No endpoint or UI offers Undo.
-    printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s"}\n' \
-        "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version"
+    printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s}\n' \
+        "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version" \
+        "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current"
 }
 
 finish_removal() {
@@ -89,7 +101,7 @@ else
     test "$revision" = - || fail stale_state
 fi
 case "$operation" in
-    install|set|uninstall) test "$(root_mode)" = ro,noatime || fail root_mount_changed;;
+    install|set|import|uninstall) test "$(root_mode)" = ro,noatime || fail root_mount_changed;;
 esac
 
 case "$operation" in
@@ -103,30 +115,44 @@ install)
     fi
     stock_dependencies || fail unsupported_original
     if absent "$D"; then mkdir -m 700 "$D" || fail state_create_failed; flush d /tmp/mnt/data_persist; fi
-    for path in snapshots packages composed; do
+    for path in snapshots packages composed keys; do
         if absent "$D/$path"; then mkdir -m 700 "$D/$path" || fail state_create_failed; fi
         private_dir "$D/$path" || fail invalid_state_directory
     done
     flush d "$D"
     originals_save
-    old_package=-; touch=1; warning=1
+    old_package=-; touch=1; warning=1; uart=0; owner_ssh=0; key=-
+    access_work=$(mktemp -d "$D/.access-XXXXXX") || fail access_plan_failed
+    trap 'rm -rf "$access_work"' EXIT
     if test "$exists" = true && test "$R_PHASE" = active; then
         snapshot_read "$R_CURRENT" || fail invalid_snapshot
         old_package=$S_PACKAGE; touch=$S_TOUCH; warning=$S_WARNING
-        before=$(state_capture "$old_package" "$touch" "$warning") || fail checkpoint_failed
+        uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
+        if test "$S_ACCESS" = false; then
+            test "$(sha /usr/bin/runlogin)" = b77e4dadaa1173578e58d319dd3d37bb24117cb9b3baf73731c401f5a47360b8 || fail unsupported_console
+        fi
+        access_capture "$access_work" "$uart" "$owner_ssh" "$key" || fail access_backup_failed
+        before=$(state_capture "$old_package" "$touch" "$warning" "$access_work") || fail checkpoint_failed
+        snapshot_read "$R_BASE" || fail originals_changed
+        if test "$S_ACCESS" = false; then
+            R_BASE=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 "$S_NVRAM" "$S_META" "$D/snapshots/$R_BASE/dependencies" "$access_work") || fail access_backup_failed
+        fi
     else
         test "$(sha "$AUTOSTART")" = "$(sha "$D/originals/autostart")" || fail unsupported_startup
-        before=$(state_capture - 0 0) || fail checkpoint_failed
+        test "$(sha /usr/bin/runlogin)" = b77e4dadaa1173578e58d319dd3d37bb24117cb9b3baf73731c401f5a47360b8 || fail unsupported_console
+        access_capture "$access_work" 0 0 - || fail access_backup_failed
+        before=$(state_capture - 0 0 "$access_work") || fail checkpoint_failed
         R_BASE=$before
     fi
     package=$(package_save) || fail package_failed
     compose "$package" >/dev/null || fail composition_failed
+    access_compose "$access_work" "$uart" "$owner_ssh" "$key" || fail access_plan_failed
     snapshot_read "$R_BASE" || fail originals_changed
     nvram=$S_NVRAM; mode=$S_META
     test "$touch" = 0 || nvram=disable
     deps=$(mktemp "$D/.dependencies-XXXXXX")
     dependencies_capture "$package" > "$deps" || fail checkpoint_dependencies_failed
-    after=$(snapshot_create "$D/composed/$package/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$deps") || fail plan_failed
+    after=$(snapshot_create "$D/composed/$package/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$deps" "$access_work") || fail plan_failed
     rm "$deps"
     R_BACKEND=$package
     if test "$exists" = false; then
@@ -137,20 +163,40 @@ install)
     transaction_prepare install "$before" "$after"
     transaction_reconcile
     ;;
-set)
+set|import)
     test "$exists" = true && test "$R_PHASE" = active || fail not_installed
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
     snapshot_read "$R_CURRENT" || fail invalid_snapshot
     package=$S_PACKAGE; touch=$S_TOUCH; warning=$S_WARNING; mode=$S_META
-    case "$argument:$expected:$desired" in
-        touch:[01]:[01]) test "$touch" = "$expected" || fail stale_setting; touch=$desired;;
-        warning:[01]:[01]) test "$warning" = "$expected" || fail stale_setting; warning=$desired;;
-        *) fail invalid_setting;;
-    esac
-    if test "$expected" = "$desired"; then status; exit; fi
+    uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
+    access_source=$D/snapshots/$R_CURRENT
+    if test "$operation" = import || test "$argument" = uart || test "$argument" = ssh; then
+        test "$S_ACCESS" = true || fail developer_update_required
+        access_work=$(mktemp -d "$D/.access-XXXXXX") || fail access_plan_failed
+        trap 'rm -rf "$access_work"' EXIT
+        if test "$operation" = import; then
+            test "$argument:$expected:$desired" = -:-:- || fail invalid_request
+            key=$(access_key_import) || fail public_key_import_failed
+        else
+            case "$expected:$desired" in [01]:[01]) ;; *) fail invalid_setting;; esac
+            case "$argument" in
+                uart) test "$uart" = "$expected" || fail stale_setting; uart=$desired;;
+                ssh) test "$owner_ssh" = "$expected" || fail stale_setting; owner_ssh=$desired;;
+            esac
+        fi
+        access_compose "$access_work" "$uart" "$owner_ssh" "$key" || fail access_plan_failed
+        access_source=$access_work
+    else
+        case "$argument:$expected:$desired" in
+            touch:[01]:[01]) test "$touch" = "$expected" || fail stale_setting; touch=$desired;;
+            warning:[01]:[01]) test "$warning" = "$expected" || fail stale_setting; warning=$desired;;
+            *) fail invalid_setting;;
+        esac
+    fi
+    if test "$operation" = set && test "$expected" = "$desired"; then status; exit; fi
     snapshot_read "$R_BASE" || fail originals_changed
     nvram=$S_NVRAM; test "$touch" = 0 || nvram=disable
-    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies") || fail plan_failed
+    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$access_source") || fail plan_failed
     transaction_prepare set "$R_CURRENT" "$after"
     transaction_reconcile
     ;;
@@ -162,9 +208,9 @@ uninstall)
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
     uninstall_owned "$R_CURRENT" || fail state_changed
     snapshot_read "$R_CURRENT" || fail invalid_snapshot
-    before=$(state_capture "$S_PACKAGE" "$S_TOUCH" "$S_WARNING") || fail checkpoint_failed
+    before=$(state_capture "$S_PACKAGE" "$S_TOUCH" "$S_WARNING" "$D/snapshots/$R_CURRENT") || fail checkpoint_failed
     snapshot_read "$R_BASE" || fail originals_changed
-    after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 "$S_NVRAM" "$S_META" "$D/snapshots/$before/dependencies") || fail plan_failed
+    after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 "$S_NVRAM" "$S_META" "$D/snapshots/$before/dependencies" "$D/snapshots/$R_BASE") || fail plan_failed
     transaction_prepare uninstall "$before" "$after"
     transaction_reconcile
     finish_removal

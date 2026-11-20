@@ -14,7 +14,7 @@
             test "${digest##* }" = "$package"
             # Verify the entry and its directly sourced libraries before execution.
             # boot.sh checks the complete package once before any effects.
-            for name in boot.sh state.sh firmware.sh transaction.sh; do
+            for name in boot.sh state.sh firmware.sh access.sh transaction.sh; do
                 digest=$(awk -v name="$name" '\''$2==name && NF==2 {n++;hash=$1} END{if(n!=1)exit 1;print hash}'\'' "$P/files.sha256")
                 test "${#digest}" -eq 64
                 case "$digest" in *[!a-f0-9]*) exit 1;; esac

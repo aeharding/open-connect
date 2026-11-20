@@ -8,13 +8,20 @@ var OpenConnect = (function (previous) {
     var nodes = [], queued = null, completionShown = false, ready = false, usbRequest = 0;
     var installer, settings, loading = null;
     function values() {
-        return state && state.installed ? {touch: state.touch, warning: state.warning} : null;
+        return state && state.installed ? {touch: state.touch, warning: state.warning,
+            developer: state.developer === true, uart: state.uart || 0, ssh: state.ssh || 0,
+            key: state.key || "-", fingerprint: state.fingerprint || "-", restart: state.restart,
+            uartCurrent: state.uartCurrent || 0, sshCurrent: state.sshCurrent || 0} : null;
     }
     function valid(s) {
         return s && s.ok === true && /^(?:-|[a-f0-9]{32}|[a-f0-9]{64})$/.test(s.revision) &&
             typeof s.installed === "boolean" && typeof s.retained === "boolean" &&
             typeof s.restart === "boolean" && typeof s.conflict === "boolean" && typeof s.pending === "boolean" &&
             (s.touch === 0 || s.touch === 1) && (s.warning === 0 || s.warning === 1) &&
+            (s.developer === undefined || (typeof s.developer === "boolean" &&
+                (s.uart === 0 || s.uart === 1) && (s.ssh === 0 || s.ssh === 1) &&
+                (s.uartCurrent === 0 || s.uartCurrent === 1) && (s.sshCurrent === 0 || s.sshCurrent === 1) &&
+                /^(?:-|[a-f0-9]{64})$/.test(s.key) && /^(?:-|[a-f0-9:]{47})$/.test(s.fingerprint))) &&
             /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(s.version);
     }
     function request(operation, args, done) {
@@ -104,6 +111,17 @@ var OpenConnect = (function (previous) {
                 else {
                     state = null;
                     readStatus(function (fresh) { reply(valid(fresh) ? values() : null); });
+                }
+            });
+        },
+        importKey: function (reply) {
+            if (busy || !state) { reply(null); return; }
+            busy = true;
+            request("import", null, function (answer) {
+                busy = false;
+                if (valid(answer)) { reply(values()); }
+                else {
+                    readStatus(function (fresh) { reply(valid(fresh) ? values() : null, true); });
                 }
             });
         },

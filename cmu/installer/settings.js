@@ -49,8 +49,11 @@ var OpenConnectSettings = (function () {
                 if (!valid(current)) { return null; }
                 saved = current;
             }
-            return {touch: own.call(wanted, "touch") ? wanted.touch : saved.touch,
-                warning: own.call(wanted, "warning") ? wanted.warning : saved.warning};
+            var values = {developer: saved.developer, key: saved.key, fingerprint: saved.fingerprint,
+                uartCurrent: saved.uartCurrent, sshCurrent: saved.sshCurrent,
+                restart: saved.restart}, keys = ["touch", "warning", "uart", "ssh"];
+            keys.forEach(function (key) { values[key] = own.call(wanted, key) ? wanted[key] : saved[key]; });
+            return values;
         };
         function flush() {
             var keys = Object.keys(wanted);
@@ -83,6 +86,19 @@ var OpenConnectSettings = (function () {
             wanted[key] = value;
             clearTimeout(timer);
             timer = setTimeout(flush, 250);
+        };
+        prefs.importKey = function (done) {
+            if (prefs.pending() || typeof store.importKey !== "function") { return; }
+            busy = true;
+            var answered = false;
+            function finish(actual, failed) {
+                if (answered) { return; }
+                answered = true; busy = false;
+                if (valid(actual)) { saved = actual; }
+                done(valid(actual) && !failed ? actual : null);
+                flush();
+            }
+            try { store.importKey(finish); } catch (error) { finish(null); }
         };
         session = prefs;
         return prefs;
@@ -127,12 +143,28 @@ var OpenConnectSettings = (function () {
                     rows.push({text1: row.title, label1: row.key === "touch" ? ["Default", "Allow"][values.touch] : row.choices[values[row.key]],
                         itemStyle: "style06", hasCaret: true, appData: i});
                 }
+                if (values.developer) {
+                    rows.push({text1: "Developer options", itemStyle: "style01", hasCaret: true, appData: "developer"});
+                }
                 rows.push({text1: "Uninstall", itemStyle: "style01", appData: "uninstall",
                     disabled: typeof store.uninstall !== "function"});
                 rows.push({text1: "About", itemStyle: "style01", appData: "about"});
             } else if (index === "unknown") {
                 title = "Change could not be confirmed";
                 rows.push({text1: "Return to Mazda Settings", itemStyle: "style01", hasCaret: false, appData: 0});
+            } else if (index === "developer") {
+                title = "Developer options";
+                rows.push({text1: "UART root console", itemStyle: "styleOnOff", value: values.uart ? 1 : 2,
+                    hasCaret: false, appData: "uart"});
+                rows.push({text1: "Owner SSH access", itemStyle: "styleOnOff", value: values.ssh ? 1 : 2,
+                    hasCaret: false, appData: "ssh", disabled: values.key === "-"});
+                rows.push({text1: "Import public key", itemStyle: "style01", appData: "import",
+                    disabled: prefs.pending() || typeof store.importKey !== "function"});
+                rows.push({text1: "Current: UART " + (values.uartCurrent ? "on" : "off") +
+                    ", owner SSH " + (values.sshCurrent ? "on" : "off"), itemStyle: "style01", disabled: true});
+                if (values.restart) {
+                    rows.push({text1: "Restart required to apply changes", itemStyle: "style01", disabled: true});
+                } else { rows.push({text1: "Changes apply after restart", itemStyle: "style01", disabled: true}); }
             } else {
                 row = entries[index];
                 title = row.title;
@@ -145,6 +177,7 @@ var OpenConnectSettings = (function () {
                 titleConfiguration: "listTitle", title: {text1: title, titleStyle: "style02"},
                 smallItemText: true, focussedItem: focus, selectCallback: select};
             if (index === 0 || index === 1) { listProps.checkMinChangeInterval = 0; }
+            if (index === "developer") { listProps.toggleMinChangeInterval = 0; }
             var next = fw.instantiateTemplate("syssettings", host.divElt.parentNode, "List2Tmplt",
                 {List2Ctrl: listProps});
             if (!next) { return false; }
@@ -157,8 +190,45 @@ var OpenConnectSettings = (function () {
             next.handleControllerEvent("acceptFocusInit");
             return true;
         }
-        function select(control, item) {
+        function select(control, item, params) {
             if (!current() || dismiss || !page || control !== page.list2Ctrl) { return; }
+            if (choice === null && item === "developer") { render("developer", 0); return; }
+            if (choice === "developer") {
+                if ((item === "uart" || item === "ssh") && params &&
+                        (params.additionalData === 1 || params.additionalData === 2)) {
+                    var currentValues = prefs.values();
+                    if (item === "ssh" && currentValues.key === "-") { return; }
+                    if (item === "uart" && params.additionalData === 1 && currentValues.uart === 0) {
+                        dismiss = OpenConnectInstaller.message(fw, "Enable UART root console?",
+                            "Anyone connected to the physical serial port will have root access without a password. Restart to apply.",
+                            {button1: {label: "Cancel", appData: "cancel"}, button2: {label: "Enable", appData: "enable"}},
+                            function (action) {
+                                dismiss = null;
+                                if (action === "enable" && current()) { prefs.select("uart", 1); }
+                                if (current() && choice === "developer") { render("developer", 0); }
+                            });
+                        return;
+                    }
+                    prefs.select(item, params.additionalData === 1 ? 1 : 0);
+                } else if (item === "import" && !prefs.pending() && typeof store.importKey === "function") {
+                    dismiss = OpenConnectInstaller.message(fw, "Import public key?",
+                        "Put open-connect.pub on the USB drive. RSA and ECDSA public keys are supported. The imported key will be replaced.",
+                        {button1: {label: "Cancel", appData: "cancel"}, button2: {label: "Import", appData: "import"}},
+                        function (action) {
+                            dismiss = null;
+                            if (action !== "import" || !current()) { return; }
+                            prefs.importKey(function (actual) {
+                                if (!current() || choice !== "developer") { return; }
+                                render("developer", 2);
+                                dismiss = OpenConnectInstaller.message(fw, actual ? "Public key imported" : "Key could not be imported",
+                                    actual ? "Fingerprint (MD5): " + actual.fingerprint + ". Enable Owner SSH access when ready." :
+                                        "Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",
+                                    {button1: {label: "OK", appData: "done"}}, function () { dismiss = null; });
+                            });
+                        });
+                }
+                return;
+            }
             if (choice === null && item === "about") {
                 dismiss = OpenConnectInstaller.about(fw, store.version, function () { dismiss = null; });
                 return;
@@ -205,7 +275,7 @@ var OpenConnectSettings = (function () {
         restorers.push(replace(fw, "sendEventToMmui", function (app, event) {
             if (current() && app === "common" && (event === "Global.GoBack" || event === "Global.MenuUp")) {
                 if (dismiss) { dismiss(); }
-                else if (choice !== null && choice !== "unknown") { render(null, choice); }
+                else if (choice !== null && choice !== "unknown") { render(null, choice === "developer" ? 2 : choice); }
                 else { if (choice === "unknown") { prefs.failure = null; } close(); }
                 return;
             }

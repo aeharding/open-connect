@@ -64,6 +64,50 @@ Original autostart SHA-256:
 a8d019650c2a17a50b5ff39435f916c2cbeb3556af128fd913b9714b380e06bd,
 metadata 775:1000:1000. Do not resend earlier install, input or power requests.
 
+Persistent changes and later undo — read-only inventory verified this boot
+“Restored stock” above means restored feature baseline with bench SSH retained;
+it does not mean pre-upgrade firmware or a byte-for-byte factory data partition.
+- Firmware: owner upgraded this replacement from 59.00.441A NA to 74.00.324A NA.
+  This remains installed. No downgrade/firmware undo is qualified; neither the
+  product uninstall nor the helpers below rolls firmware back.
+- Active bench access: /etc/ssh/sshd_config differs from its saved v74 original
+  only by adding /data_persist/oc-bench-access-fw74/authorized_keys.%u alongside
+  Mazda's existing key path. No custom daemon/startup hook or password change.
+  /tmp/mnt/data_persist/oc-bench-access-fw74 contains that public key, the original
+  config, installed digest and guarded restore.sh. Its --check returns UNDO_READY;
+  actual restoration is restore.sh with no argument, followed by restart. It
+  disables this owner-key path; it retains the backup directory. Retire access
+  last, after feature restoration/cleanup, with a known way to regain access.
+  The restoration operation itself remains unexercised.
+- Inactive old access files: /tmp/mnt/data_persist/oc-bench-access contains the
+  pre-upgrade v59 config/key/restore script. The active v74 config does not refer
+  to it. Do not run its v59 restore on v74. Archive/verify those owned files before
+  removing this inactive directory; it has no startup hook to undo.
+- Independent feature recovery: /tmp/mnt/data_persist/oc-bench-v74-20261120T064850Z
+  contains original autostart, touch.sh, flush and restore.sh, with no automatic
+  startup hook. Keep it until feature testing ends; archive/verify and remove
+  only this directory after confirming no installed product needs recovery.
+  Emergency --restore and its mandatory restart are distinct from normal uninstall.
+- Product: normal Settings Uninstall already removed Open Connect's durable
+  directory, runtime and startup staging; all 19 intake hashes/metadata and
+  absent touchscreen NVRAM are verified. Original native/frontend paths are loaded.
+- SD: owner-formatted FAT32 card UUID 213E-C5B2 retains /open-connect, copied from
+  the reviewed CI bundle. Remove that owned folder to undo our SD payload copy;
+  formatting was the owner's action, with no pre-format card-content backup.
+  Temporary bind alias /tmp/mnt/sda1 cleared on reboot; no SD launch marker/service.
+- Original SanDisk stick: its prepared Open Connect bundle/root launch markers
+  remain; it is physically disconnected. Reidentify it before later cleanup;
+  remove only the owned bundle/markers, preserving unrelated files.
+- Host: private owner-key/known-host/config files remain under .bench-state/;
+  captures/backups remain in ignored runs/. Keep these until bench access is
+  retired. .bench-state/profile.json is an old runtime-only silent-UI receipt
+  bound to boot fbd3caa6-e4a8-4f90-8827-ae275a9f6540, not a current v74 setup.
+  Runtime silent-UI state and the temporary mount alias do not survive reboot.
+Evidence: current run persistent-inventory/read.out and detail.out. No cleanup or
+access restoration was performed by the inventory. Originals/credentials/raw
+captures remain private. Retain the restored-original verification before deleting
+recovery files; clean up access last rather than locking out ongoing bench work.
+
 Independent recovery and access
 Feature emergency preflight (not normal uninstall):
 /tmp/mnt/data_persist/oc-bench-v74-20261120T064850Z/restore.sh --check

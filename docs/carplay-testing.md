@@ -4,9 +4,12 @@
 startup, followed by delayed or bunched touch/commander inputs. A faster Home
 screen or lower idle RAM is not enough.
 
-This is the next experiment plan. Live CarPlay measurements await the compatible
-hub, phone and a qualified modern-firmware bench. Existing v55 results do not
-establish CarPlay performance.
+This plan belongs to the final CarPlay phase of the
+[roadmap](https://github.com/aeharding/open-connect/blob/main/PLAN.md), after the
+first v74 release, Developer options, general performance baselines and the
+Services menu. Reuse those baseline methods, then add actual projection and
+phone observations. CarPlay measurements require a compatible hub, phone and
+qualified firmware baseline. Existing v55 results do not establish CarPlay performance.
 
 ## Start with comparable runs
 

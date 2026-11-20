@@ -1,179 +1,168 @@
 # Open Connect — roadmap
 
-Updated 2026-11-18. Primary developer owns delivery. This is the working roadmap,
-refined as experiments change the evidence; dates are not promised.
-[STEERING.md](STEERING.md) defines intent. GitHub issues track execution.
+Updated 2026-11-20. [STEERING.md](STEERING.md) defines product intent; GitHub
+issues track implementation. This roadmap sets delivery order and completion
+criteria, without calendar promises. One primary owns each complete release.
 
-## North star
+## Product direction
 
 **Make Mazda Connect feel factory-original, work more reliably, and be easy to
 maintain—with optional improvements people can install and undo.**
 
-The intended feature scope spans Miatafy/ScreenTune-style startup, service,
-logging/performance, input and connectivity improvements while retaining OEM
-appearance. The first release remains small, but its architecture must cover
-those different execution points rather than only the disclaimer's UI process.
-See the [feature map and architecture](docs/extension-architecture.md#product-scope).
-The bench and reverse engineering serve this product, not a separate platform.
+Keep Mazda’s interface and normal controls. The first production release combines
+always-enabled touchscreen input and the startup disclaimer bypass on one exact
+firmware. A small developer menu follows that release. Then establish performance
+baselines and ship qualified controls in a dedicated Services menu. Cold-start native
+wireless CarPlay reliability is last in the agreed sequence.
 
-The first production release keeps the touchscreen enabled and skips the startup
-disclaimer. The owner plans to install it on their Mazda after both features
-and uninstall pass together on matching bench firmware. The car reports 74.00.324.
-Confirm its build and region against the release target.
+## Delivery order
 
-Reliable native wireless CarPlay after a cold start is the next product milestone.
-[#8](https://github.com/aeharding/open-connect/issues/8) tracks the lag and
-[#9](https://github.com/aeharding/open-connect/issues/9) tracks measurements.
+The owner chose the five phases below. Later candidates remain backlog with no
+fixed delivery slot. Each performance claim needs comparable measurements.
 
-For optional online updates, explore an explicit switch between wireless CarPlay
-and a phone/home hotspot, then a reliable return to CarPlay. Wired CarPlay plus
-hotspot is a fallback option. OEM Wi-Fi controls and an Open Connect settings
-entry remain research in [#54](https://github.com/aeharding/open-connect/issues/54).
-
-## Support contract
-
-Required today: **55.00.750B NA / cmu150_NA**, with exact original-file/API guards.
-The release target for the owner's 2016 Mazda3 is **74.00.324 NA**. We have
-the Mazda-hosted 74.00.324A NA package. For the 2014–2018 Mazda3, Mazda
-specifies 74.00.324 or later and says the update cannot be rolled back. The
-bulletin directs technicians to the Mazda Connect Update Instructions for the
-procedure. The exact route from 55.00.750B NA still needs verification.
-[Mazda bulletin 09-018/22](https://static.nhtsa.gov/odi/tsbs/2022/MC-10226834-0001.pdf)
-[#2](https://github.com/aeharding/open-connect/issues/2) resolves exact package,
-variant, intermediates, development access and power/media procedure before flashing.
-Move the required baseline together and requalify features; do not maintain a
-v55/v74 compatibility matrix or replay old offsets. Unknown versions are refused.
-A future firmware switch supersedes current product support, not historical evidence.
-
-## Milestones and exit criteria
-
-| Milestone | User/developer outcome | Exit evidence | Work |
+| Phase | Outcome | Done when | Work |
 | --- | --- | --- | --- |
-| **M1: Reproducible first feature** | Develop against a declared bench profile; demonstrate a clean OEM-feeling bypass | Small audio helper with explicit disable; measured bypass behavior, independent undo and original startup; independently distributable approach selected | [#1 bench profile](https://github.com/aeharding/open-connect/issues/1), [#3 handoff](https://github.com/aeharding/open-connect/issues/3) |
-| **M2: Supported firmware and repeatable starts** | One modern baseline and comparable startup experiments | Verified upgrade/access/stock baseline; warm/cold capabilities distinguished; a useful repeated measurement batch retains failures | [#2 firmware](https://github.com/aeharding/open-connect/issues/2), [#5 starts](https://github.com/aeharding/open-connect/issues/5) |
-| **M3: First production release** | Always-enabled touchscreen and startup disclaimer bypass in one release | Verify stock touch on the replacement bench, reproduce the motion restriction, test both features after restart, then uninstall and verify stock touch and warning behavior. Qualify update, reinstall, interrupted installation and replacement-USB maintenance under #7 before publishing on GitHub Releases for the owner’s real-car install. | [#60 touch](https://github.com/aeharding/open-connect/issues/60), [#6 bypass](https://github.com/aeharding/open-connect/issues/6), [#7 delivery](https://github.com/aeharding/open-connect/issues/7) |
-| **M4: Measured everyday reliability** | More dependable CarPlay and responsive interaction | Comparable stock/modified connection success and timing; source-backed diagnosis; real-car confirmation of relevant claims; ship only improvements supported by results | [#8 CarPlay](https://github.com/aeharding/open-connect/issues/8), [#9 resources](https://github.com/aeharding/open-connect/issues/9) |
+| **1. First v74 release** | Install the two initial features on the owner’s car using a normal USB bundle | Both features, startup recovery and the complete maintenance flow pass on the matching bench; the first car installation confirms the intended behavior | [#2 firmware](https://github.com/aeharding/open-connect/issues/2), [#60 touch](https://github.com/aeharding/open-connect/issues/60), [#6 bypass](https://github.com/aeharding/open-connect/issues/6), [#7 delivery](https://github.com/aeharding/open-connect/issues/7) |
+| **2. Developer options** | Control development access from Open Connect Settings | UART console-login checkbox and SSH enable/disable with public-key import work, show actual state and restart requirements, and restore pre-install configuration on uninstall | [#85](https://github.com/aeharding/open-connect/issues/85) |
+| **3. Performance baselines** | Know where startup time and resource pressure go before changing services | Repeatable stock/Open Connect timing, CPU, RAM and I/O batches; compare relevant Miatafy milestones and explain matches or differences | [#5 starts](https://github.com/aeharding/open-connect/issues/5), [#9 measurements](https://github.com/aeharding/open-connect/issues/9) |
+| **4. Services menu and measured improvements** | Let owners disable qualified unused services in a dedicated Settings page | Dependencies and effects are documented, each change is compared against baseline, and controls, restart, regressions and undo are qualified | [#86 Services](https://github.com/aeharding/open-connect/issues/86), [#9 measurements](https://github.com/aeharding/open-connect/issues/9) |
+| **5. Reliable wireless CarPlay — last** | Get usable projection and responsive controls after a long parked start | Reproduce the lag, identify its cause, compare baseline and modified runs, and confirm a useful improvement in the real car | [#8 reliability](https://github.com/aeharding/open-connect/issues/8) |
 
-The delivery order below governs current work. Read-only firmware investigation
-may fill hardware waits without displacing it. Live qualification uses the declared
-baseline. A development prerelease is not a general end-user car release.
+These phases describe release outcomes. Existing GitHub milestones retain their
+historical names; they do not override this delivery order. Bench tooling supports
+specific release blockers rather than becoming a separate product milestone.
 
-## Execution order now
+## Phase 1: finish the v74 release
 
-The v55 standalone development installer now has the maintained CI-to-USB path,
-persistent startup and native Settings/uninstall. The v0.2.0-dev.2 CI bundle passed
-fresh installation and complete removal through Settings without USB. Original
-startup/NVRAM and loaded paths were restored, with no product directory or startup
-staging left behind. Earlier prerelease checks covered reinstall, one interrupted
-transaction, conflicting edits, the retired Undo behavior, ACC renewal and finite
-late-fault recovery. See the [installer development guide](docs/installer-development.md) for evidence and
-limits. This completes the installer prerelease step; it does not complete the
-production-release qualification in [#7](https://github.com/aeharding/open-connect/issues/7).
+The published development installer still supports exactly **55.00.750B North
+America / cmu150_NA**. The next release target is **74.00.324A NA / cmu150_NA**.
+The verified Mazda package and demonstrated [v74 development access](docs/reverse-engineering.md#owner-key-access-after-the-replacements-v74-upgrade)
+make the port possible; they do not qualify the features or a general upgrade
+procedure. Confirm the owner’s actual car build and region before installation.
+Move support to v74 together once qualified; do not build a v55/v74 support matrix
+or reuse old patch offsets.
 
-1. **Replacement touch qualification and the separate firmware move.**
-   The [offline v74 porting record](docs/cmu/firmware74.md) identifies changed
-   startup branches, native tables and code-placement constraints, and supplies
-   a read-only intake. Use it before adapting the replacement's actual firmware.
-   On the replacement CMU, confirm its identity and compare stock touch with the
-   same display and cable. Complete [#60](https://github.com/aeharding/open-connect/issues/60)
-   and the [#6](https://github.com/aeharding/open-connect/issues/6) feature checks.
-   Resolve the supported upgrade route and access under
-   [#2](https://github.com/aeharding/open-connect/issues/2), then port and requalify
-   on the selected modern baseline before the owner's real-car installation.
-   Physical dependencies gate only the checks that actually need them.
-2. **Measured CarPlay reliability — [#8](https://github.com/aeharding/open-connect/issues/8)
-   and [#9](https://github.com/aeharding/open-connect/issues/9).**
-   Define cold-start connection/readiness measurements and investigate the actual
-   wireless implementation before choosing a performance change. Keep the
-   [v74 findings](docs/cmu/wireless-carplay.md) and
-   [measurement plan](docs/carplay-testing.md) as inputs to that later work.
+1. **Establish the stock baseline.** Complete the read-only intake, identify the
+   board and actual startup branch, preserve originals/metadata and touch NVRAM,
+   and verify stock touchscreen and commander operation. Reproduce the motion
+   restriction under a declared condition. See the [v74 porting record](docs/cmu/firmware74.md).
+2. **Port the two features.** Adapt the startup integration, disclaimer bypass,
+   renderer lifecycle, touch setting and Settings pages to exact v74 inputs.
+   Resolve native code placement rather than replaying the v55 layout. Preserve
+   normal initialization, cleanup, last-app/audio and display-off behavior.
+3. **Qualify one CI-built USB bundle.** Exercise install, restart, persistence,
+   Settings, update/reinstall and full uninstall. Test conflicting edits,
+   interrupted transactions, compatible replacement-USB maintenance and finite
+   failed-start recovery. Verify restored originals, NVRAM and loaded code.
+   Resolve the earlier Open settings failure in the maintained flow; a backend-only
+   uninstall is not a substitute for the UI check. See [#7](https://github.com/aeharding/open-connect/issues/7).
+4. **Install on the owner’s matching car.** Bench qualification precedes the first
+   installation. Confirm the two features and normal controls in the real vehicle,
+   document the limits, and publish the supported release and matching owner guide.
 
-Reuse the [bench workflow](docs/cli.md#developer-feature-trial) for instrumentation
-and observation. Existing one-shot composition, fault and power-cut results are
-summarized in the [architecture evidence](docs/extension-architecture.md#evidence-so-far).
-The installer uses the qualified mechanisms described in its guide. Keep experiments
-only when they resolve a named release blocker, then integrate the result.
+The v55 prerelease supplies working installer mechanisms and prior evidence,
+not a fresh v74 qualification. See the [installer development guide](docs/installer-development.md).
+Keep **Install/update** and **Uninstall** as the two maintenance actions. Preserve
+verified originals until restoration succeeds; uninstall removes installed files,
+backups and transaction state. See [uninstall behavior](docs/uninstall.md).
 
-One primary owns one implementation path, bench qualification and integration.
-Use short-lived branches/PRs and the required independent final review. Close
-issues only when their user-visible outcomes are achieved.
+## Phase 2: keep developer access small
 
-## Keep the first release small
+Use Open Connect’s OEM-style Settings entry. The agreed controls are a **UART
+console-login checkbox** and **SSH enable/disable with Import public key**.
+Diagnostic logging is separate from interactive login. The private key stays on
+the owner’s computer. Importing a public-key file from USB is a proposal; defaults,
+the exact import interaction and the stock console-login control still need
+qualification. Preserve Mazda’s existing key authorization and normal service
+behavior. Initial USB access and recovery must work when Settings is unavailable.
 
-Two features on one firmware, with **Install/update** and **Uninstall**. Installing again
-performs a reinstall; interrupted transactions are handled internally. No separate
-Repair or Change options UI. Add feature selection only when multiple useful
-features exist.
+Ship this bounded follow-up before the performance-baseline and Services phases.
+Keep ordinary installation and USB recovery independent of developer access.
+[#85](https://github.com/aeharding/open-connect/issues/85) owns the details.
 
-Uninstall restores pre-install behavior and removes Open Connect's files and
-backups. Reinstallation uses USB; there is no Undo uninstall option. Conflicting
-later edits stop removal without being overwritten. Keep the authoritative
-record and verified originals until restoration succeeds, then finish cleanup
-without leaving a retained installation. See [uninstall behavior](docs/uninstall.md).
+## Phases 3–4: baseline first, then Services
 
-Necessary infrastructure: exact-base validation, verified original backups,
-repeatable execution, one clear UI/backend command contract and independent undo.
-Reuse existing bench tools for observations. Keep installer logic static and the
-build conventional; defer frameworks and broad compatibility.
+Define comparable stock-service and released-Open-Connect configurations before
+changes. Record firmware, board, peripherals, enabled features and instrumentation.
+Measure startup milestones, a concrete input-to-response operation and CPU, named
+memory metrics and I/O over the same workload and startup phase. Separate full
+shutdown, supply loss, warm reboot and quick ACC resume; retain failures and the
+spread across repeated trials. Check collection overhead. Home appearing and an
+input device registering do not by themselves establish usable controls.
 
-## What we measure
+Include [Miatafy’s published ScreenTune boot benchmarks](https://miatafy.com/screentune/boot-benchmarks/)
+as an external reference, checked November 20, 2026. That page reports typical
+touch readiness of about **48 s stock / 32 s ScreenTune** on one v74.00.324A unit,
+with seven stock and six modified captures. Its milestones use `/proc/uptime` and
+an internal profiler; exact detection rules and configuration must be resolved
+before claiming a matched reproduction. Record both kernel-relative and external
+power/ACC timing, and independently check real interaction. Report reproduced,
+different or not comparable results, with the conditions and sample spread.
+Initially compare with published results; a direct product comparison needs an
+identified ScreenTune revision/configuration and an available compatible package.
+CarPlay-specific benchmark reproduction remains in phase 5.
 
-- **Startup experience:** warning presence, visible gap/fade, time to usable target
-  screen and preservation of intended last-app/display-off behavior. Distinguish
-  camera sampling limits from no-flash proof.
-- **CarPlay startup:** time to usable projection, early control/audio responsiveness
-  and time until stable. Correlate CPU, RAM, I/O and Wi-Fi/Bluetooth/service readiness;
-  separate long-parked cold starts from software reboot and resume.
-- **Reliability:** successful starts/connections divided by actual attempts, time
-  to ready and failure categories under declared warm/cold/phone conditions.
-  Report tails when sample size supports them, not success-only averages.
-- **Responsiveness:** one relevant interaction timing and resource observations
-  before/after a change. Resident RSS alone is not reclaimable savings or causality.
-- **Maintenance:** observed lifecycle transitions, conflicts correctly refused,
-  interruption outcomes, exact as-found undo and original boot. Separate installer recovery,
-  UART rescue and unbootable-device recovery.
-- **Reproducibility:** feature revision, exact firmware, enabled bench overrides,
-  available hardware and useful source-backed notes accompany each result.
+Then add a dedicated **Services** page under Open Connect Settings. Inspect each
+candidate’s consumers, test one reversible change at a time, and compare against
+the same baseline. Aha/Pandora/Stitcher, TV and logging policy are candidates,
+not a preset purge. Only expose qualified choices; show actual/pending state and
+restart requirements, preserve normal OEM behavior and verify uninstall restores
+the original selection/configuration. Publish negative results as well as gains;
+reduced process counts or RSS alone are not proof of better responsiveness.
+Use the [boot configuration architecture](docs/extension-architecture.md) for
+service changes. [#86](https://github.com/aeharding/open-connect/issues/86)
+owns the menu, and [#9](https://github.com/aeharding/open-connect/issues/9) owns the measurements.
 
-No universal numerical performance targets are invented before a comparable
-baseline. Each experiment states its expected improvement and success criterion
-before running. Findings can justify closing a proposed feature without shipping it.
+## Phase 5: measure and fix CarPlay
 
-## Current evidence and dependencies
+Investigate Mazda’s actual native wireless enablement and the installed comparison
+mod before choosing a change. The reported configuration spoof and long-parked
+lag are leads, not established causes. Prefer native wireless CarPlay for everyday
+use; wired CarPlay is a useful comparison and fallback.
 
-Firmware55 native bypass/paired renderer handoff and independent restoration have
-been demonstrated. The later Snap comparison showed a brief handoff. The
-outgoing CMU subsequently booted its original JS and native library. See
-[handoff findings](docs/reverse-engineering.md#disclaimer-and-intro-handoff) and
-[current state](docs/bench-state.txt). This is not a release candidate.
+Measure time to usable projection, early input/audio responsiveness, connection
+success and settling, with comparable CPU, RAM and I/O observations. Separate
+software reboot, full supply loss, ACC/resume and a real long-parked car start.
+Keep failures and timing spread; a faster Home screen or lower idle RSS is not
+proof of better CarPlay. Use the [measurement plan](docs/carplay-testing.md) and
+[v74 source findings](docs/cmu/wireless-carplay.md). Ship a change only when its
+claimed benefit and regressions have been measured.
 
-The existing audio-manager API opened FM Now Playing and the source list without
-a TAU. The CLI verified setup and teardown of the runtime profile. No permanent
-startup hook is installed;
-actual playback remains unverified.
-See the [maintained Audio Manager findings](docs/reverse-engineering.md#silent-entertainment-without-a-tau).
+## Backlog without a fixed slot
 
-The DPS150 now provides tested full-output power control; voltage settings must
-remain unchanged. The ACC relay now reproduces both [quick resume and fresh startup](docs/reverse-engineering.md#acc-must-be-a-real-transition) on the v55 bench. The Mac also authenticated over USB Ethernet on this CMU. Recheck access on the replacement. An audio readiness override must be off
-for measurements where it would hide the behavior under investigation.
+**Ghost-touch control — requested.** Extend the normal touchscreen preference to
+**Factory behavior / Always enabled / Disabled (ghost touch)**. The disabled mode
+needs startup and projection coverage, commander-only navigation, restart
+persistence, independent recovery and exact pre-install restoration. Qualify the
+earliest effective firmware control; suppression after Home is not total disable.
+This is a follow-up after the first release with no fixed slot yet. See
+[#87](https://github.com/aeharding/open-connect/issues/87).
 
-## Deliberately deferred
+**Connected maintenance — proposed.** Explore an explicit switch from wireless
+CarPlay to a phone/home hotspot and a reliable return. Concurrent modes are not
+required; checks must not silently take over the connection or trigger a restart.
+Keep USB as the offline maintenance route. Qualify actual network exposure and
+package verification under [#58](https://github.com/aeharding/open-connect/issues/58)
+before shipping online updates; [#54](https://github.com/aeharding/open-connect/issues/54)
+contains the proposal. This backlog does not delay the agreed five phases.
 
-Broad firmware/region/hardware compatibility; themes or non-OEM feature catalogs;
-a web configurator; arbitrary old-USB compatibility; general TAU emulation; app
-removal without measurable benefit; a new installer/agent orchestration framework.
-No impossible-to-brick claim. Real-car rollouts need demonstrated scope beyond the bench.
+Useful OEM menu/input conveniences remain candidates. No themes, launcher or
+replacement dashboard. Factory-reset behavior remains separate work in
+[#56](https://github.com/aeharding/open-connect/issues/56);
+do not promise that Mazda’s reset uninstalls Open Connect. Broad firmware/region
+support, arbitrary old-package compatibility, general TAU emulation, a web
+configurator and universal crash recovery remain deferred.
 
-## Knowledge and release
+## Delivery discipline
 
-AGPL-3.0-or-later original code; [third-party boundaries](THIRD_PARTY.md).
-The CC BY-NC-SA comparison adaptations and full OEM captures stay outside the
-distribution. Each substantive feature PR updates its firmware-scoped how/verify/
-undo findings. Private evidence paths are not a public reproduction recipe.
+Keep one authoritative transaction record and one small UI/backend command
+contract. Build static installer logic and native assets with Make/shell and
+standard compiler/linker tools. Use the existing bench workflow for concrete
+qualification work. Every feature needs applicable firmware, evidence and undo;
+every merged PR needs independent review and passing checks. Publish original
+AGPL-compatible work and sanitized findings; see [THIRD_PARTY.md](THIRD_PARTY.md).
 
-GitHub [issues](https://github.com/aeharding/open-connect/issues) and
-[milestones](https://github.com/aeharding/open-connect/milestones) are the work queue.
-This roadmap holds intent and dependency order; changing device state stays in
-the handoff. Update these after meaningful results, not every command.
-
-Semantic CLI: https://github.com/aeharding/open-connect/issues/14. SSH/network transport: https://github.com/aeharding/open-connect/issues/15.
+Changing device state and the next concrete bench task stay in
+[docs/bench-state.txt](docs/bench-state.txt). Detailed implementation questions
+belong in GitHub issues. Update the roadmap after meaningful results or owner
+priority changes, without accumulating another progress dashboard.

@@ -57,8 +57,10 @@ or reuse old patch offsets.
    normal initialization, cleanup, last-app/audio and display-off behavior.
 3. **Qualify one CI-built USB bundle.** Exercise install, restart, persistence,
    Settings, update/reinstall and full uninstall. Test conflicting edits,
-   interrupted transactions, compatible replacement-USB maintenance and finite
-   failed-start recovery. Verify restored originals, NVRAM and loaded code.
+   interrupted transactions, maintenance from freshly prepared media and
+   finite failed-start recovery. Use the existing SD bench path for maintenance;
+   retain the separate USB-insertion evidence. No spare stick is required.
+   Verify restored originals, NVRAM and loaded code.
    Resolve the earlier Open settings failure in the maintained flow; a backend-only
    uninstall is not a substitute for the UI check. See [#7](https://github.com/aeharding/open-connect/issues/7).
 4. **Install on the owner’s matching car.** Bench qualification precedes the first

@@ -1,70 +1,50 @@
 2016 Mazda3 bench handoff — November 19, 2026
 
-Connected replacement CMU — persistent root SSH verified; powered on
-The replacement identified itself over receive-only UART as MAZ_CMU-150_59.00.441A,
-flavor cmu150_NA. Camera footage shows the Mazda logo, Home and startup warning.
-The diagnostic service reported CMU part number BHP1-669C0-H. The kernel
-registered an LVDS touchscreen and diagnostics received panel version 1.0006.
-Physical touch and commander response still need observation. The bench camera
-faces the screen and the host has no identified actuator for either control.
-For remote menu navigation, both v55 and this v59 boot registered Mazda's
-Virtual Keyboard as input1. The v55 bench used it through an authenticated
-shell. The replacement's normal user / jci UART login is now verified, returning
-UID 1000. Its UID 0 account is named cmu; single root / jci and cmu / jci attempts
-were rejected. Do not repeat those attempts from the older handoff.
-Root SSH now works through the existing server on port 36000. The owner's bench
-key authenticates as cmu, UID 0, after a full supply cycle. A one-line change to
-the compiled server configuration, /etc/ssh/sshd_config, adds a dedicated bench
-key file beside Mazda's existing key file. Passwords, Mazda keys, firewall policy
-and original startup files are unchanged. Password authentication remains off.
-Verified boot: 7e69b0af-a259-4a24-904f-e6b9309fbf18. The physical root is RO;
-Opera uses /jci/gui/index.html. SFTP downloaded the protected original SSH config
-and matched the host backup byte-for-byte. The one-use entry and staging directory
-are removed; persistent access needs no custom startup hook or extra server.
-Remote navigation has not been exercised.
-The physical part label and prior modification history remain unknown.
-No installer attempt or firmware upgrade occurred.
-The published installer requires exactly 55.00.750B NA.
+Connected replacement CMU — v74 root SSH recovered and restart verified
+The owner completed the update from 59.00.441A NA to 74.00.324A NA. Fresh root
+SSH now verifies MAZ_CMU-150_74.00.324, patch A, flavor cmu150_NA. This is the
+replacement bench, not the old supported v55 unit. The public installer still
+requires exactly 55.00.750B NA; no Open Connect feature was installed on v74.
 
-The interrupted access session staged /data_persist/dev/bin/autorun and booted
-a temporary SSH listener on port 36001. Its connection attempt timed out.
-Cleanup matched the file's recorded checksum and metadata, saved a verified
-host backup, removed the hook and synced. A normal ACC shutdown and full supply
-cycle followed. Fresh boot f22b6e29-45ed-4a6c-8d36-9ecdd23da3fa verified:
-- exact 59.00.441A / cmu150_NA and a normal UID 1000 UART login;
-- no autorun or its staging file, no temporary access directory or port 36001 listener;
-- unchanged Mazda startup files, physical /dev/ffx01p1 root RO and Opera using
-  /jci/gui/index.html; camera footage showed stock Home.
-No account password or stock SSH configuration was changed by the temporary hook.
-That cleanup finished with the replacement powered off. The subsequent read-only
-access investigation verified the normal SSH server's host key over UART and
-confirmed that port 36000 is reachable. Its v59 firewall source allows 36000,
-with INPUT default DROP and no allowance for the abandoned listener's 36001.
-The new repair uses the existing server and firewall. Live root inspection now
-also confirms INPUT DROP and the normal 36000 allowance.
+The interrupted session prepared and safely ejected the recovery USB from the
+Mac. The owner inserted it into the CMU during this session. Its one-use payload
+checked the exact v74 baseline and installed the existing owner's bench public
+key beside Mazda's existing key path in /etc/ssh/sshd_config. The normal SSH
+server remains on port 36000 with password authentication off. No password was
+changed. The recovery exited 0, consumed its USB trigger and returned the
+physical /dev/ffx01p1 root to RO.
 
-Repair evidence: runs/replacement-root-ssh-20261119/. Fresh original SSH config:
-sshd_config.original, MD5 64a1e599ce898c36f1a8e4e4a389c299; installed candidate:
-sshd_config.candidate, MD5 ab88c9b2c478ae493a427c75e2efbcd0.
-The CMU keeps its own protected backup and independent restore script under
-/data_persist/oc-bench-access/. restore-ssh-config.sh --check verifies its inputs;
-without --check it restores the exact saved SSH configuration and requires a
-restart. This removes the owner's key authorization after restart; it is not a
-normal setup step. It retains the recovery files and refuses conflicting later
-edits. Its preflight passed; executing restoration was not part of this repair.
-If SSH itself is unavailable, the original normal user UART account and Mazda's
-one-use autorun entry remain the independent route to invoke that protected script.
-The private host profile is .bench-state/replacement-ssh.conf; its credentials
-and pinned host key are under .bench-state/replacement-ssh/. From this checkout:
+Root SSH and SFTP work with the same pinned host identity and owner key:
 ssh -F .bench-state/replacement-ssh.conf cmu-bench
-The bench is intentionally left ready for access: ACC ON and DPS150 output ON.
-Setpoints remain 12.02 V / 2 A; final measured load was about 0.86 A. Owned UART,
-relay, supply and SSH handles are closed; no host operation is running. No UART
-login was performed after the final boot; establish its actual prompt before TX.
-Use conventional SSH on this unit; the released oc profile still requires v55.
-Private evidence: runs/replacement-cleanup-20261119/; interrupted access:
-runs/replacement-v74-20261119/; earlier receive/login evidence:
-runs/replacement-resume-20261119/ and runs/replacement-first-boot-u3TTxh/.
+The normal UART console still emits logs and a login prompt. The pre-recovery
+user / jci attempt was rejected; UART login was not retried or restored. Do not
+infer that UART is disabled. Establish the actual prompt before any UART TX.
+
+ACC was OFF for 30.012 seconds and back ON at 2026-11-20 05:45:23 UTC. No supply
+commands were sent. New kernel boot c11b575f-eb91-4d92-a1a3-94d1a4976e1f accepted
+the same owner key. Camera footage showed Mazda Home. The startup script and
+frontend index match the verified v74 package; Opera uses /jci/gui/index.html.
+The physical root is RO. No custom startup hook or extra SSH server is needed.
+The recovery USB remained mounted RO, with jci-autoupdate absent and its consumed
+marker present. Access did not rerun the USB payload on this restart. The stick
+can now be removed. A full supply-loss trial has not been performed on v74.
+
+The protected original and independent restore script are under
+/data_persist/oc-bench-access-fw74/. restore.sh --check passed before and after
+the restart; restoration itself was not exercised. Running it without --check
+restores the exact original SSH configuration and requires a restart, removing
+this owner-key access. It is not a normal setup step. The host backup matched
+original SHA-256 577e3322b08fb3f0eaea499118444b75562e442ce5a2986ebba27b4a0eac2c56
+and installed SHA-256 9134a9cf6421cf175a289ec1c270d013a348ab1c62940decbed75845ee97c53f.
+Private evidence: runs/access-resume-20261120T053952Z/; the interrupted USB
+preparation is in runs/post-upgrade-20261120T052126Z/. Earlier v59 originals and
+access evidence remain under runs/replacement-root-ssh-20261119/; do not replay
+the v59 repair or its guarded restore on v74.
+
+ACC and supply output are left ON. Supply setpoints were not changed. All owned
+UART, camera, relay and SSH handles are closed; no host bench operation is running.
+Physical touch and commander response on this replacement still need observation.
+The physical part label and prior modification history remain unknown.
 
 Old CMU cleanup complete; powered off
 The user reconnected the outgoing 55.00.750B NA/cmu150_NA unit for cleanup.
@@ -118,27 +98,19 @@ until the reboot is understood and the full flow passes. The docs/handoff work
 is separate so public download links and screenshots match the published bundle.
 
 Next: replacement CMU
-1. Root SSH and SFTP are qualified for this bench. Do not replay the abandoned
-   listener on port 36001 or reinstall the access setup. Next verify one focus
-   movement at stock Home on
-   camera using the named Virtual Keyboard. Record the physical label, board
-   identity and physical commander/touch observations separately when available.
-2. The replacement's own SSH identity is pinned in the private host profile.
-   The bounded root intake is saved as root-intake.out under the repair evidence.
-   It retained one boot ID and ended INTAKE_INCOMPLETE: DI_TP1056 and DI_TP1029
-   GPIO values, get_board_type.sh and sm_WCP.conf are unavailable on this layout.
-   This is not a complete intake or an SSH authentication failure. Resolve the
-   applicable baseline fields and preserve this unit's originals/metadata and
-   touch NVRAM before feature or firmware writes.
-   See docs/cmu/firmware74.md#replacement-bench-sequence. Do not reuse the cleanup
-   intake helper: it deliberately checks the old rescue marker, now removed.
-3. On the supported v55 baseline, resolve why SliderCtrl missed registration
-   and verify the full install, restart, Open settings and uninstall sequence.
-4. Follow PLAN.md for the separate firmware move. Current support is exactly
-   55.00.750B NA. The offline v74 record is preparation, not permission to replay
-   v55 offsets or flash. The local 74.00.324A NA package checksum was reverified.
-   The direct route or required intermediates from 59.00.441A NA still need
-   confirmation against Mazda's sixth-generation MGSS update procedure.
+1. Complete the read-only v74 intake and preserve this unit's originals/metadata
+   and touch NVRAM before feature writes. See
+   docs/cmu/firmware74.md#replacement-bench-sequence. Capture the actual board
+   GPIOs and Service Manager branch; do not reuse v59 or old-CMU cleanup guards.
+2. Qualify physical touch and commander operation, then one camera-observed
+   focus movement through Mazda's named Virtual Keyboard. Input registration
+   alone does not establish these controls work.
+3. Follow PLAN.md for the v74 port and complete release qualification. The owner
+   observed a successful upgrade on this unit; this is not a general upgrade
+   procedure or qualification of the v55 installer on v74. The unresolved old
+   SliderCtrl failure and the v74 native code-placement blocker remain open.
+4. The owner proposed an Open Connect development menu for UART and SSH controls
+   after recovery. This remains a proposal; the recovery added no such menu.
 
 Connections (adapter identities, not replacement-CMU identity)
 UART FT232R 0403:6001 serial A9048JM0, 115200/8N1; RTS/DTR inactive.

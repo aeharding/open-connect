@@ -49,6 +49,38 @@ script's input checks passed; restoration itself was not exercised. This is
 single-unit bench access evidence, not installer qualification or a promise of
 access surviving an upgrade. Private evidence: `runs/replacement-root-ssh-20261119/`.
 
+## Owner-key access after the replacement's v74 upgrade
+
+After the owner completed the update, authenticated root inspection identified
+**74.00.324A / cmu150_NA**. The previous owner SSH key was initially rejected.
+UART continued to show logs and a login prompt, but one previously working
+`user` / `jci` attempt returned `Login incorrect`. This does not establish that
+v74 disables UART, or identify why that login failed.
+
+The maintained USB trigger launched a one-use access-recovery payload on insertion.
+Before writes, it checked the exact firmware and the packaged SSH configuration's
+SHA-256. It preserved the original configuration and an independent guarded
+restore script, then added the owner's key path alongside Mazda's path in
+`/etc/ssh/sshd_config`. The normal server reloaded successfully on port 36000;
+password authentication remained off. Root SSH and SFTP then worked with the
+same pinned host identity. Downloaded original and installed configurations
+matched the expected hashes. The USB trigger was consumed and the physical root
+returned to read-only.
+
+A subsequent 30.012-second ACC-off interval produced a new kernel boot. The same
+owner key authenticated as `cmu`, UID 0; the restore preflight passed again,
+the physical root remained read-only and camera footage showed Mazda Home.
+The startup script and frontend index matched the verified v74 package, and
+Opera used the stock index. The USB remained connected with its trigger absent;
+access persisted without rerunning the payload, a custom startup hook or an extra
+SSH server. No supply commands were sent during this check.
+
+This is single-unit development-access evidence. UART login was not restored,
+the restore operation itself was not exercised, and full supply-loss persistence
+was not tested on v74. It does not qualify Open Connect features or a general
+upgrade route. The installer still requires 55.00.750B NA. Private evidence:
+`runs/post-upgrade-20261120T052126Z/` and `runs/access-resume-20261120T053952Z/`.
+
 ## Native installer and Settings on v55
 
 Open Connect uses Mazda’s `Dialog3Ctrl` for install and completion. **Open settings**

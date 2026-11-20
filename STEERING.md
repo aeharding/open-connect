@@ -28,7 +28,9 @@ in the first production release. The owner plans the first real-car installation
 after bench validation on matching firmware. Cold-start CarPlay reliability follows.
 Keep the two user-facing actions **Install/update** and **Uninstall**. Running Install again reinstalls it using verified originals;
 interrupted-operation recovery is internal behavior, not a separate Repair option.
-Keep the USB install prompt short. Offer Done and Open settings after install.
+Keep the USB install prompt short. During installation and its automatic restart,
+tell users not to remove the USB drive or turn off the car. Show completion after
+restart, say the USB drive can now be removed, and offer Done and Open settings.
 Use Mazda’s own Settings list and a separate radio-choice page for each preference.
 Uninstall restores the pre-install startup and touchscreen behavior, then removes
 Open Connect's installed files, backups and transaction state. There is no Undo

@@ -199,6 +199,29 @@ staging, product runtime or listener. Evidence: `verify-install.out`,
 `remove-installed-usb-driver.out`, `uninstall-boot/`, `stock-intake/` and
 `verify-stock.out` beneath that private evidence directory.
 
+### Installer message trial and old CMU cleanup
+
+The [v0.2.0-dev.3 candidate](https://github.com/aeharding/open-connect/actions/runs/44368399412)
+(source `df7fd03`) displayed the new installation warnings and post-restart
+completion message on 55.00.750B NA. The installed package, selected native
+mapping and physical root read-only state matched expectations. An unexpected
+kernel reboot was subsequently observed after selecting Open settings. Its cause
+is unassigned; the screenshots do not establish a successful Settings transition.
+
+At the later cleanup intake, the attempt budget was zero, selection was absent,
+and the original frontend and baseline touchscreen NVRAM were observed. The
+normal uninstall backend restored original startup metadata and removed the
+product directory. A new boot verified the original native mappings, stock Opera
+index, absent touch override and root read-only. Historical lab/rescue folders
+were then removed after a host archive matched all source file checksums.
+This was backend cleanup, not a repeated UI qualification.
+
+The candidate remains unreleased. Private evidence: `runs/installer-messaging/bench/`
+and `runs/old-cmu-cleanup-20261119/`. The latter includes the saved crash/log
+archives, `backup-verification.json`, `uninstall-driver.out`, `verify-stock.out`
+and `verify-final.out`. Fault attribution and the complete installer/Settings
+flow remain required before publishing it.
+
 ## USB detection at Home
 
 Stock v55 mounted a SanDisk drive read-only through the retrofit hub within

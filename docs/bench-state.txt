@@ -1,73 +1,76 @@
-2016 Mazda3 bench handoff — November 18, 2026
+2016 Mazda3 bench handoff — November 19, 2026
 
-Complete-uninstall qualification finished
-The outgoing CMU is on stock configuration after the 0.2.0-dev.2 CI bundle
-(source 2f30ead, run 44350948917) installed from empty product state, restarted,
-opened completion/native Settings, and uninstalled through Settings with USB
-detached. Final stock boot: d35a8b9d-a00d-4f2d-8b87-4384c9f01202.
+Old CMU cleanup complete; powered off
+The user reconnected the outgoing 55.00.750B NA/cmu150_NA unit for cleanup.
+Fresh UART identity, the unit-specific rescue marker and pinned SSH host key
+matched. The normal uninstall backend restored startup/NVRAM and deleted the
+product directory. A subsequent stock boot verified original native mappings,
+Opera using /jci/gui/index.html, root RO and no product runtime or selection.
+Final verified boot: 53873893-0cf4-43bf-9485-892de26b3be3.
 
-/tmp/mnt/data_persist/open-connect is absent: no retained product record,
-packages, originals, snapshots or Undo checkpoint. No /usr/bin/.open-connect-*
-staging files remain. No startup hook points to Open Connect. Fresh readback
-verified original native mappings, Opera using /jci/gui/index.html, physical root
-RO, and no product runtime/listener/selection. Seven direct Wayland captures from
-the passing CI bundle are published in docs/assets/guide/; no camera was used.
+All three owned persistent lab/rescue directories were archived, verified and
+removed after that stock boot. No Open Connect startup staging remains. Original
+Mazda files and diagnostic logs were preserved; this was not a factory reset.
+The SanDisk installer files and both triggers were removed; only .Trash-1000
+remains. There is no installer payload on that drive now.
 
-ACC is OFF; standby current is below 25 mA. B+ remains ON at unchanged
-12.02 V / 2 A. UART, relay and supply handles are closed.
+ACC is OFF. Standby was measured at about 0.002 A, then DPS150 output was switched
+OFF and verified. Voltage/current settings remain unchanged at 12.02 V / 2 A.
+UART, relay, SSH and supply handles are closed. No device work is running.
+The user may now swap units; re-enumerate and identify whichever is connected.
 
-Restored baseline
-- /usr/bin/autostart MD5 6ba9d4d9e01449aee587823218159d95, mode/uid/gid 775:1018:3015.
+Verified original baseline (old CMU only)
+- /usr/bin/autostart MD5 6ba9d4d9e01449aee587823218159d95; mode/uid/gid 775:1018:3015.
 - /jci/mmui/uia/libjciuiasystem.so MD5 b9ff5edc632163f88cda04686c118591.
 - /jci/gui/apps/system/js/systemApp.js MD5 584c67f7186ada6bae9aae1be59b5cd0.
-- lvds_speed_restriction NVRAM key absent, as before installation.
-Original native/JS root files were never overwritten by the installer. Selected
-RAM mappings ended with the final restart.
+- lvds_speed_restriction NVRAM key absent; physical root /dev/ffx01p1 RO.
 
-USB
-SanDisk 0781:55a9, UUID 58A0-2325, retains only pre-existing .Trash-1000.
-All manifest-verified release files and both empty trigger files were removed
-before Settings Uninstall. Software deauthorization expired at reboot; the empty
-drive re-enumerated normally. Re-enumerate before using a remembered block path.
+Private evidence and backup
+runs/old-cmu-cleanup-20261119/ contains intake, uninstall-driver.out, stock-boot/,
+verify-stock.out, remove-lab-driver.out, verify-final.out, park/ and
+power-off-result.json. backup.out is a tar archive of the former product/lab
+state plus Mazda's saved crash dumps/log archives. All 528 regular files matched
+source checksums; backup-verification.json records the comparison.
+Archive SHA-256: d4213a5d908028ce0bb9ddd30b52a059d1b4e6767817b61f3d0c3889b21be9bd.
+The independent rescue and originals now exist in that host backup, not on the CMU.
+Do not publish the archive or restore its historical product checkpoints.
 
-Evidence and independent rescue
-Private evidence is under runs/owner-guide-polish/bench/. Key records:
-verify-install.out, remove-installed-usb-driver.out, uninstall-boot/,
-stock-intake/, verify-stock.out and park/. All owned observer handles are closed.
-A later menu-context capture reused the same CI bundle, then verified complete
-removal and stock mappings again. Its latest intake, verification and park
-records are under menu-context/; the final boot above belongs to that session.
-The corrected candidate's code and target-shell findings are recorded in
-docs/reverse-engineering.md; the earlier failed candidate is not qualified.
+Unresolved installer trial
+The unreleased v0.2.0-dev.3 candidate from source df7fd03, CI 44368399412, displayed
+the revised warnings and post-restart USB-removal message. An unexpected reboot
+was then observed after choosing Open settings. Cause is unassigned; do not call
+this an uninterrupted install/Settings/uninstall pass. The later cleanup used the
+backend directly and does not qualify that UI transition. Fault evidence is in
+runs/installer-messaging/bench/ and the backup's log/dumps and log/saved_logs.
+On cleanup intake, budget 0, no selection, original frontend and baseline touch
+NVRAM were observed; that does not establish the cause of the earlier reboot.
 
-The a0e2999 candidate exposed BusyBox ash EXIT-trap scope and cp inode behavior.
-It wrote the installed state but left root RW; restart was refused. Fresh
-record/target checks preceded RO restoration and independent stock restoration.
-Its inactive record is preserved as bench evidence in
-/tmp/mnt/data_persist/oc-installer-rescue-20261118/failed-ash-publication.
-An isolated RAM probe reproduced old failure and verified fixed cleanup; no
-modified feature mapping was loaded during that failed candidate trial.
+The published installer remains v0.2.0-dev.2. PR #79 / installer-restart-choice
+holds the new installer copy and direct captures; keep the candidate unreleased
+until the reboot is understood and the full flow passes. The docs/handoff work
+is separate so public download links and screenshots match the published bundle.
 
-The independent rescue restore-v3.sh, original startup and flush helper remain
-in /tmp/mnt/data_persist/oc-installer-rescue-20261118/. Its historical
-qualification-history and docs-capture-after directories are inactive lab
-evidence, not product state or owner-installation leftovers. Do not restore the
-retired removed record or Undo checkpoint to the product path.
+Next: replacement CMU
+1. Identify the replacement before installing anything: physical part label,
+   actual version/patch/region, board identity, stock boot, commander and touch.
+   Compare using the same display/cable. Injected keyboard events do not qualify
+   physical touchscreen hardware. The replacement's firmware/access are unknown.
+2. Establish UART/authentication and SSH identity afresh. Use the read-only
+   cmu/bench/intake.sh through a confirmed transport with a finite host deadline;
+   preserve its report, stock originals/metadata and touch NVRAM before writes.
+   See docs/cmu/firmware74.md#replacement-bench-sequence. Do not reuse the cleanup
+   intake helper: it deliberately checks the old rescue marker, now removed.
+3. Inspect the preserved reboot evidence and qualify the installer/Settings path
+   on the confirmed supported baseline before releasing the pending candidate.
+4. Follow PLAN.md for the separate firmware move. Current support is exactly
+   55.00.750B NA. The offline v74 record is preparation, not permission to replay
+   v55 offsets or flash. Establish the supported upgrade route/access first;
+   a unit already on the selected exact target needs no upgrade.
 
-Next hardware work
-The replacement CMU is expected today. Confirm its part number, region, actual
-firmware and SSH host keys before adapting anything. Compare stock touch using
-the same display/cable; this outgoing 55.00.750B NA/cmu150_NA unit has unreliable
-touch. Physical touch/motion and the owner's v74 car are not qualified. The
-separate firmware move remains next in PLAN.md.
-
-Connections
-UART: FT232R 0403:6001 serial A9048JM0, 115200/8N1, RTS/DTR inactive.
-ACC: normally-open LCUS-1 on CH340 1a86:7523 location 8-3.4; re-enumerate.
-DPS150: 2e3c:5740 serial 14110CF82565; do not change voltage.
-The retrofit hub supports SanDisk and Apple Ethernet together. Ethernet eth1,
-MAC 08:6d:41:e5:64:af, USB 05ac:1402, can boot at Mazda's 192.168.42.1 default.
-After fresh interface/USB identity checks, finite udhcpc restores the reserved
-192.168.1.17 bench address. Ping the Mac's freshly verified address before SSH.
-The current board's host keys were independently verified over UART; they do
-not authorize trusting the replacement board.
+Connections (adapter identities, not replacement-CMU identity)
+UART FT232R 0403:6001 serial A9048JM0, 115200/8N1; RTS/DTR inactive.
+ACC LCUS-1 on CH340 1a86:7523, last location 8-3.4; re-enumerate.
+DPS150 2e3c:5740 serial 14110CF82565; preserve voltage/current settings.
+Apple Ethernet 05ac:1402, MAC 08:6d:41:e5:64:af, was eth1 on the old unit,
+reserved 192.168.1.17. Its old verified SSH host keys do not authenticate the
+replacement. DHCP/paths and credentials must be established from fresh evidence.

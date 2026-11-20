@@ -135,10 +135,11 @@ reviewed fix and its new-artifact results. See the
 [v74 findings](reverse-engineering.md#v74-installer-port-and-native-code-placement)
 for source/artifact identities, failed candidates and qualification limits.
 
-A matched blank display-off check also passed on stock and this CI bundle:
-sustained ACC shutdown retained the dark screen, normal OEM software wake returned
-to unobscured Home, and another normal cycle restored the original saved display
-preference. The clock-display option and physical wake controls remain untested.
+Matched checks of both **Turn Display Off** and **Turn Display Off and Show Clock**
+also passed on stock and this CI bundle. Sustained ACC shutdown retained the blank
+or clock screen respectively, normal OEM software wake returned to unobscured
+Home, and normal UI/ACC operations restored the original saved display state.
+Physical wake controls remain untested.
 The earlier inference of phone disconnection from missing host USB entries was
 incorrect: stock wired CarPlay and input worked while those entries were absent
 and the CMU's USB device-controller interface was UP. See the

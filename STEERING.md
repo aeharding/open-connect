@@ -179,10 +179,12 @@ evidence rather than a second maintained baseline.
 
 The Mazda-hosted **74.00.324A NA** package is hash-verified, and owner-key
 development access has been demonstrated on that exact baseline. The maintained
-port has local install/update/startup/Settings/uninstall evidence; CI-artifact,
-physical-input and broader recovery qualification remain. A general documented
-upgrade route is unresolved; this is not an upgrade instruction. The user reports 74.00.324 in the real car;
-confirm its exact build and region before installation. See the
+port and reviewed CI bundle have install/update/startup/Settings/uninstall
+evidence, including removable USB launch. Physical-input, broader recovery and
+matching-car qualification remain. A general documented
+upgrade route is unresolved; this is not an upgrade instruction. The owner has
+confirmed the real car matches **74.00.324A NA**, the bench baseline. Carry that
+confirmation forward; retain exact firmware/source guards before any writes. See the
 [v74 access evidence](docs/reverse-engineering.md#owner-key-access-after-the-replacements-v74-upgrade).
 The user wants modern firmware as the eventual requirement, not a growing
 multi-firmware support matrix. Historical experiments remain evidence after the move.

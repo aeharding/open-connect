@@ -14,15 +14,22 @@ run from a public checkout alone.
 
 ## Documentation screenshots
 
-The seven PNG images in `docs/assets/guide/` show Open Connect **0.2.0-dev.2** running
-on Mazda firmware **55.00.750B NA**. They were captured directly from the CMU's
-Wayland display on November 18, 2026, without cropping or other image edits.
-Each was reviewed for personal data, credentials and diagnostic overlays.
+The seven PNG images in `docs/assets/guide/` show Open Connect **0.3.0-dev.1**
+running on Mazda firmware **74.00.324A NA / cmu150_NA**. They were captured
+directly from the CMU's Wayland display on November 20, 2026, without cropping
+or other image edits. Each original PNG matches its received SHA-256 and was
+reviewed for personal data, credentials and diagnostic overlays.
 The separately authored `cmu-frame.svg` is a decorative bezel displayed around
 the captures by the website; it is not part of the captured screen.
-The USB bundle used for capture came from [CI run 44350948917](https://github.com/aeharding/open-connect/actions/runs/44350948917)
-(source `2f30ead`), with SHA-256
-`98e7e09fdfb8ca87545e481d1276de0a6db28e6a62648f346a5e71b575a300a9`.
+The payload used for capture came from [CI run 44716935060](https://github.com/aeharding/open-connect/actions/runs/44716935060)
+(source `ba941122b7306136d8f63448085f1e170fcb5afb`); its USB ZIP SHA-256 is
+`dde586b5072ef4d90a985fa91ebaf054db8c056410ff97585c79dc80cd12276d`.
+
+These illustrate the v74 development candidate's UI from a host-staged bench
+session. They do not establish physical USB launch or matching-car qualification;
+no qualified v74 download has been published. Earlier v55 images remain in Git
+history. Raw capture collections and OEM inputs stay private; only these reviewed UI images
+are included in the owner guide.
 
 The images illustrate installation, completion, the Mazda System menu entry,
 Open Connect Settings, the two preferences and uninstall. Mazda's interface appears alongside Open Connect's additions;

@@ -9,6 +9,12 @@ Open Connect wireless feature. The maintained installer targets that exact
 baseline; [release qualification](../installer-development.md#qualification)
 and native wireless enablement are separate work.
 
+The owner will uninstall the existing wireless mod before the first Open Connect
+installation. The installer requires the supported OEM files. The planned Open
+Connect wireless-enable option must preserve actual vehicle/hardware identity;
+it remains in the final roadmap phase, after the initial release, Developer
+options and measured Services work. No implementation is qualified yet.
+
 ## What the existing mods change
 
 We inspected the two implementations the user tried:

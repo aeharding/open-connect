@@ -1,7 +1,17 @@
 2016 Mazda3 bench handoff — November 20, 2026
 
-Compatibility CI regression closed — restored stock with live CarPlay
+Restored stock with live CarPlay — OEM-only source policy
 Current verified boot: 23a26856-b31b-4706-8387-38414ecd9a0d.
+Owner will uninstall the legacy wireless mod before Open Connect. Current source
+requires the supported OEM files; the temporary #98 allowances have been removed.
+Keep the separate reinstall conflict-refusal safeguard. A future Open Connect
+wireless-enable option must preserve actual vehicle/hardware identity and stays
+last in the roadmap. Clarify substantial inferred scope before adding code.
+No CMU or media writes are part of this source-policy correction.
+Host verification: 117 offline tests passed (two explicit skips), private exact
+stock check passed, and current source/backup guards accepted OEM inputs while
+refusing all three retained modified fixtures. Records are under
+runs/stock-only-policy-20261120/. This is not a new live-CMU qualification.
 Normal Settings Uninstall restored all 19 intake hashes/metadata, saved absent
 touch NVRAM and original loaded native/frontend, display 0/3 and root ro,noatime.
 Product state/runtime/startup staging are absent; no Open Connect installation
@@ -44,8 +54,9 @@ first-reinstall-input-reconciliation.json, sd-reentry-reconciliation.json,
 reinstalled-qualification.json,
 uninstall-qualification.json, final-stock-qualification.json and
 capture-validation.json. No preexisting wireless mod was installed on this bench.
-The compatibility allowlist/private host four-profile composition evidence is
-separate from actual wireless/vehicle behavior. Source review is review-source.md.
+The retired allowlist/private host four-profile evidence is historical, not
+current compatibility policy or wireless/vehicle proof. Source review for that
+retired revision is review-source.md.
 
 Earlier USB/SD results remain at
 runs/v74-release-20261120T064850Z/usb-resumed-20261120T162005Z/ and in the knowledge
@@ -53,11 +64,13 @@ docs: CI 44716935060/ba941122 actual removable-USB installation after software
 reauthorization, separate owner physical insertion/cancel with no second install,
 and SD/CarPlay/Ethernet coexistence. Do not relabel those captures as c0cc169.
 The SD alias is bench-only, cleared on reboot; no root trigger/service was added.
-Current SD payload /open-connect is c0cc169, with prior ba941122 retained at
+SD payload /open-connect is superseded c0cc169; refresh it from the OEM-only
+CI before a new trial. Prior ba941122 is retained at
 /open-connect-ba941122. Both manifests verified; current mount is /tmp/mnt/sd_nav.
 
 Owner confirmed exact matching car firmware/region 74.00.324A NA. Do not ask again.
-Use known Kenatia/luxubuok context and exact as-found guards; preserve or refuse.
+After owner removal of the old mod, require the supported OEM inputs. Refuse
+remaining edits; do not add legacy-mod allowances or request firmware again.
 Current source VERSION 0.3.0-dev.1; no qualified v74 download exists. Published
 v0.2.0-dev.2 is historical v55. Earlier v74 port/frame cleanup, bounded recovery,
 blank/clock and matched startup evidence remains in the knowledge docs/Git.

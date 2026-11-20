@@ -101,7 +101,7 @@ install)
     if test "$exists" = true && test "$R_PHASE" = active; then
         targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
     fi
-    supported_dependencies || fail unsupported_original
+    stock_dependencies || fail unsupported_original
     if absent "$D"; then mkdir -m 700 "$D" || fail state_create_failed; flush d /tmp/mnt/data_persist; fi
     for path in snapshots packages composed; do
         if absent "$D/$path"; then mkdir -m 700 "$D/$path" || fail state_create_failed; fi

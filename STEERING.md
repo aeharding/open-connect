@@ -59,9 +59,13 @@ The disclaimer is the first experiment, not the architecture's scope.
 
 The motivating problem is the user's native wireless CarPlay mod: it lags after
 a long parked, cold start but is stable once running. Performance work should
-target that experience. The user reports the mod spoofs vehicle configuration
-and its developer plans direct wireless-setting enablement; neither the cause
-of lag nor the replacement implementation is established.
+target that experience. The owner will uninstall the existing wireless mod
+before the first Open Connect installation. Do not maintain installer allowances
+for its modified startup, board-detection or service files; require the supported
+OEM originals. The owner rejects vehicle-fingerprint spoofing and wants an Open
+Connect option to enable native wireless CarPlay while preserving actual vehicle
+and hardware identity. That feature remains in the final wireless phase; its
+mechanism and the cause of cold-start lag remain unproved.
 Establish stock wired CarPlay early on the v74 bench for release compatibility
 checks and timing/RAM baselines. Keep this fixture separate from changes to
 native wireless enablement and cold-start behavior, which remain last in the
@@ -236,6 +240,12 @@ establish that the feature worked. Report results clearly without requiring the
 user to repeatedly redirect the work.
 
 ## Ownership and execution
+
+Before substantial implementation based on an inferred need, clarify the
+assumption and scope with the owner. This includes compatibility allowances,
+new architecture or extra features that were not requested. The roadmap does
+not authorize speculative extensions. Keep routine work within the agreed scope
+moving without repeated confirmation.
 
 - One primary agent owns the complete outcome directly. No standing specialist
   team or delegation of the main work. Any explicitly requested helper is

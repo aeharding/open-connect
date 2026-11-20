@@ -382,27 +382,20 @@ as a product failure or an uninterrupted observer pass.
 
 ### Preserving recognized wireless-mod inputs
 
-The stock-only source guard refused the existing wireless mods before composing
-the two features: both pinned implementations replace board detection and edit
-the wireless service file, and Kenatia also edits startup. See the inspected
+**Retired approach.** The current installer requires supported OEM inputs. The
+owner will uninstall the legacy wireless mod before Open Connect and wants a
+future native wireless-enable option that preserves actual vehicle/hardware
+identity. Compatibility with the old mod is outside the initial release.
+
+PR #98 briefly recognized four component hashes from the inspected
 [reference revisions](cmu/wireless-carplay.md#what-the-existing-mods-change).
-
-The compatibility change recognizes four additional component hashes derived
-from those exact scripts and verified 74.00.324A NA originals. It backs up the
-as-found inputs and composes only Open Connect's hook and frontend/native paths;
-it does not install either mod or replace their board/GPS/service choices.
-The existing base snapshot pins the saved inputs. Reinstall now checks the
-current targets and dependencies before accepting anything, so even a later
-switch between recognized variants refuses rather than adopting the edit.
-
-Private host composition passed for stock, Kenatia, luxubuok and luxubuok after
-Kenatia's startup edit. Complete byte comparisons found only the intended hook
-and frontend/native path substitutions in the composed startup/service files.
-Offline tests cover changed backup and reinstall inputs. These are host checks,
-not ARM execution, wireless behavior or matching-car qualification; older CI
-captures retain their original source identities. Supporting records:
-runs/v74-car-mod-compat-20261120/derived-source-hashes.json,
-composition-results-final.json and stock-check-final/result.json.
+Its private host comparisons covered stock, Kenatia, luxubuok and luxubuok after
+Kenatia's startup edit. That allowance, its additional backup checks and its
+mod-specific test have been removed; Git preserves the implementation. The
+independent safeguard refusing later edits during reinstall remains maintained.
+Private historical records: runs/v74-car-mod-compat-20261120/derived-source-hashes.json,
+composition-results-final.json and stock-check-final/result.json. No existing
+wireless mod was installed on the CMU during that work.
 
 Actual CI 44785660779 / source `c0cc169` then passed the maintained stock-bench
 install/restart/completion flow, UI reinstall conflict refusal, independent

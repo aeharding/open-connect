@@ -1,19 +1,32 @@
 2016 Mazda3 bench handoff — November 20, 2026
 
-Stock checkpoint after blank/clock display-off qualification
-Current verified boot: 0bbb1826-5011-404a-970e-d0a50c7c1cfd.
-The clock comparison's actual CI 44716935060/source ba941122 installation was
-removed through normal Settings Uninstall. All 19 intake hashes and metadata
-match. Saved touch NVRAM is absent; original native/frontend paths are loaded;
-product persistent state, backups, runtime and startup staging are absent.
-Physical /dev/ffx01p1 root is ro,noatime. Saved display current/last mode is 0/3,
-matching the starting state. Owner access and independent lab recovery remain.
-The final camera shows unobscured Mazda Home with Communication focused. No
-installer prompt or product transaction is pending. ACC and DPS output are ON;
-settings remain 12.02 V / 2 A. Do not resend previous input, power or install requests.
-All 19 clock-trial UART/camera observers completed and closed; all recorded
-artifact hashes/sizes match. ACC observers also closed relay handles. No owned
-bench operation is running. Re-identify actual state before further operation.
+Stock checkpoint after direct v74 owner-guide capture
+Current verified boot: 93d41ff5-8566-43c4-8ecf-b088550457dc.
+The capture installation was removed through normal Settings Uninstall. All 19
+intake hashes and mode/uid/gid triples match. Saved touch NVRAM is absent;
+original native/frontend paths are loaded; product persistent state, backups,
+runtime and startup staging are absent. Physical /dev/ffx01p1 root is ro,noatime.
+Saved display current/last is 0/3, matching the starting state. Final camera shows
+unobscured Mazda Home with Communication focused. No product operation is pending.
+ACC and DPS output are ON at unchanged 12.02 V / 2 A. Owner SSH and independent
+feature/access recovery preflights remain ready. All three UART/camera observers
+completed and closed; recorded artifact hashes/sizes match. All short SSH actions
+finished. No owned bench operation is running. Re-identify before further use.
+
+Seven direct 800x480 Wayland PNGs now illustrate the v74 development UI in the
+guide. Their original/received hashes match; there are no text/EXIF chunks, and
+primary visual privacy review found no personal data, credentials or diagnostic
+overlays. Only those seven reviewed PNGs were copied to docs; intermediate
+candidates, raw observations and OEM inputs remain private. The source was actual
+CI 44716935060/ba941122, with all 32 public payload entries matched plus INSTANCE.
+Capture package a5c4ebd2fcc2df03c111b4783cc1e444285aa6d1a21199159691d40bf9fc8ee7
+is now removed. This was host-staged UI capture, not physical USB-launch proof.
+The owner guide retains its qualification warning; no qualified v74 release exists.
+Evidence: runs/v74-release-20261120T064850Z/guide-captures/, especially
+screens/provenance.json, capture-validation.json and uninstall/qualification.json.
+Original autostart SHA-256:
+a8d019650c2a17a50b5ff39435f916c2cbeb3556af128fd913b9714b380e06bd,
+metadata 775:1000:1000. Do not resend earlier install, input or power requests.
 
 Matched display-off comparisons completed
 Stock and the same actual CI bundle with Allow/Skip retained both display-off

@@ -11,8 +11,8 @@ touchscreen access while moving and whether to show the startup disclaimer.
 
 Earlier v55 development downloads remain in the
 [release archive](https://github.com/aeharding/open-connect/releases).
-The screenshots below illustrate that earlier UI; v74 captures will accompany
-the qualified bundle.
+The screenshots show the **0.3.0-dev.1 v74 development build**. Release
+qualification remains in progress.
 
 <ol class="oc-install-flow" aria-label="Installation overview">
   <li>
@@ -47,7 +47,7 @@ Wait for **Mazda Connect's main screen**, then insert the USB drive.
 Choose **Install** when the prompt appears.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect 0.2.0-dev.2? Cancel and Install buttons on the Mazda Connect main screen." width="800" height="480"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect 0.3.0-dev.1? Cancel and Install buttons on the Mazda Connect main screen." width="800" height="480"></div>
   <figcaption>Choose Install. Keep the USB connected and the car on.</figcaption>
 </figure>
 
@@ -61,7 +61,7 @@ After the restart, wait for **Installation complete**, then choose **Done** or
 for future starts.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect 0.2.0-dev.2 installed. Installation complete, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect 0.3.0-dev.1 installed. Installation complete, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
   <figcaption>You can now remove the USB drive. Choose Open settings to change your preferences.</figcaption>
 </figure>
 

@@ -5,7 +5,7 @@ Fresh installations select **Allow**.
 
 Implemented in the **74.00.324A NA** candidate. See [Quick start](usb-installer.md) for qualification and availability.
 Physical touch while moving and CarPlay behavior are still being qualified.
-Firmware 74 is not supported yet.
+A qualified v74 download is not published yet.
 
 ## Change the setting
 

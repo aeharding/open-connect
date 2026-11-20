@@ -78,7 +78,8 @@ SSH server. No supply commands were sent during this check.
 This is single-unit development-access evidence. UART login was not restored,
 the restore operation itself was not exercised, and full supply-loss persistence
 was not tested on v74. It does not qualify Open Connect features or a general
-upgrade route. The installer still requires 55.00.750B NA. Private evidence:
+upgrade route. At that checkpoint the published installer required 55.00.750B NA;
+the later maintained v74 port is recorded below. Private evidence:
 `runs/post-upgrade-20261120T052126Z/` and `runs/access-resume-20261120T053952Z/`.
 
 ## V74 installer port and native code placement

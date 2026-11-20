@@ -62,6 +62,10 @@ a long parked, cold start but is stable once running. Performance work should
 target that experience. The user reports the mod spoofs vehicle configuration
 and its developer plans direct wireless-setting enablement; neither the cause
 of lag nor the replacement implementation is established.
+Establish stock wired CarPlay early on the v74 bench for release compatibility
+checks and timing/RAM baselines. Keep this fixture separate from changes to
+native wireless enablement and cold-start behavior, which remain last in the
+agreed sequence. Wired results do not reproduce wireless-specific timings.
 
 Prefer native wireless CarPlay for everyday use, with explicit switching to an
 internet connection through a phone/home hotspot when needed. Wired CarPlay plus

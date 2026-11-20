@@ -14,7 +14,7 @@ separately from Open Connect results.
 | Configuration | Purpose |
 | --- | --- |
 | Stock services with declared instrumentation | Establish the baseline on this unit |
-| Released Open Connect, unchanged service selections | Measure the initial features and installed runtime |
+| Released Open Connect, unchanged service selections | Measure the initial features and installed runtime, including the qualified wired CarPlay fixture |
 | Base optimizations off/on, same individual service selections | Measure the proposed bundle as one setting |
 | One service choice changed, other settings fixed | Attribute the effect and detect dependencies |
 
@@ -43,8 +43,9 @@ then increase it when variation or the intended claim requires more evidence.
 
 Publish individual results, attempt/success counts and median/range with the
 conditions. Do not equate a process appearing with the feature becoming usable.
-Use the [CarPlay plan](carplay-testing.md) for projection-specific measurements
-in the final roadmap phase.
+Use the [CarPlay plan](carplay-testing.md) for the early wired baseline and the
+final native-wireless phase. Qualify stock wired projection before collecting
+its timing/RAM batch; wireless implementation changes remain later work.
 
 ## RAM, CPU and I/O
 
@@ -89,7 +90,7 @@ definitions, timing origin, hardware and configuration before claiming
 reproduction. Exact profiler triggers and package configuration remain to be
 established. Report reproduced, different or not comparable outcomes with the
 evidence. A direct product comparison also needs an available compatible package
-and identified revision. CarPlay-specific reproduction waits for that phase;
+and identified revision. Wireless CarPlay reproduction waits for that phase;
 screen and general-resource comparisons can proceed earlier.
 
 ## Publishing a result

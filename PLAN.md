@@ -13,7 +13,8 @@ Keep Mazda’s interface and normal controls. The first production release combi
 always-enabled touchscreen input and the startup disclaimer bypass on one exact
 firmware. A small developer menu follows that release. Then establish performance
 baselines and ship qualified controls in a dedicated Services menu. Cold-start native
-wireless CarPlay reliability is last in the agreed sequence.
+wireless CarPlay reliability is last in the agreed sequence. Establish stock
+wired CarPlay early as a qualification and measurement fixture.
 
 ## Delivery order
 
@@ -26,7 +27,7 @@ fixed delivery slot. Each performance claim needs comparable measurements.
 | **2. Developer options** | Control development access from Open Connect Settings | UART console-login checkbox and SSH enable/disable with public-key import work, show actual state and restart requirements, and restore pre-install configuration on uninstall | [#85](https://github.com/aeharding/open-connect/issues/85) |
 | **3. Performance baselines** | Know where startup time and resource pressure go before changing services | Repeatable stock/Open Connect timing, CPU, RAM and I/O batches; compare relevant Miatafy milestones and explain matches or differences | [#5 starts](https://github.com/aeharding/open-connect/issues/5), [#9 measurements](https://github.com/aeharding/open-connect/issues/9) |
 | **4. Services menu and base optimizations** | Let owners disable qualified unused services in a dedicated Settings page | Dependencies and effects are documented, each change is compared against baseline, and controls, restart, regressions and undo are qualified | [#86 Services](https://github.com/aeharding/open-connect/issues/86), [#9 measurements](https://github.com/aeharding/open-connect/issues/9) |
-| **5. Reliable wireless CarPlay — last** | Get usable projection and responsive controls after a long parked start | Reproduce the lag, identify its cause, compare baseline and modified runs, and confirm a useful improvement in the real car | [#8 reliability](https://github.com/aeharding/open-connect/issues/8) |
+| **5. Native wireless CarPlay improvements — last** | Improve the existing native wireless experience after a long parked start | Reproduce the lag, identify its cause, compare baseline and modified runs, and confirm a useful improvement in the real car | [#8 reliability](https://github.com/aeharding/open-connect/issues/8) |
 
 These phases describe release outcomes. Existing GitHub milestones retain their
 historical names; they do not override this delivery order. Bench tooling supports
@@ -46,6 +47,9 @@ or reuse old patch offsets.
    board and actual startup branch, preserve originals/metadata and touch NVRAM,
    and verify stock touchscreen and commander operation. Reproduce the motion
    restriction under a declared condition. See the [v74 porting record](docs/cmu/firmware74.md).
+   Get stock wired CarPlay working with a compatible hub and phone before
+   projection compatibility checks and timing batches; [#89](https://github.com/aeharding/open-connect/issues/89)
+   tracks this fixture. Hardware waits gate only the checks that need them.
 2. **Port the two features.** Adapt the startup integration, disclaimer bypass,
    renderer lifecycle, touch setting and Settings pages to exact v74 inputs.
    Resolve native code placement rather than replaying the v55 layout. Preserve
@@ -94,7 +98,9 @@ Publish methods, individual timings, RAM values, conditions and failures in the
 [Performance evidence section](docs/performance.md). Include the Miatafy
 comparison there: match milestone definitions and timing origins before claiming
 reproduction, and distinguish external reference numbers from our results.
-CarPlay-specific reproduction stays in phase 5.
+Include usable wired projection in these baselines once the early fixture is
+qualified. Miatafy's wireless CarPlay milestone reproduction stays in phase 5;
+do not compare a wired result directly with its wireless timing.
 
 Then add a dedicated **Services** page under Open Connect Settings. A proposed
 **Base optimizations** on/off setting groups qualified internal changes such as
@@ -110,10 +116,11 @@ Use the [boot configuration architecture](docs/extension-architecture.md) for
 service changes. [#86](https://github.com/aeharding/open-connect/issues/86)
 owns the menu, and [#9](https://github.com/aeharding/open-connect/issues/9) owns the measurements.
 
-## Phase 5: measure and fix CarPlay
+## Phase 5: improve native wireless CarPlay
 
-Investigate Mazda’s actual native wireless enablement and the installed comparison
-mod before choosing a change. The reported configuration spoof and long-parked
+The owner's car already uses a mod enabling Mazda's native wireless CarPlay.
+Investigate that actual enablement and a pinned comparison mod before choosing a
+change. The reported configuration spoof and long-parked
 lag are leads, not established causes. Prefer native wireless CarPlay for everyday
 use; wired CarPlay is a useful comparison and fallback.
 

@@ -5,7 +5,9 @@ Original Open Connect code and documentation are licensed under
 otherwise. See [LICENSE](LICENSE). Copyright 2026 Open Connect contributors.
 
 Mazda firmware, binaries, extracted full JavaScript files, device backups,
-credentials and raw capture collections are not distributed here. Local evidence paths and
+private credentials and raw capture collections are not distributed here. Mazda's
+publicly known default UART login is documented in the bench setup guide.
+Local evidence paths and
 hashes document research; they are not downloads or grants of rights to OEM code.
 Some integration tests require privately obtained exact firmware files and cannot
 run from a public checkout alone.

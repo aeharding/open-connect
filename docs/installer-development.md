@@ -105,8 +105,9 @@ seven private-input skips. The [BusyBox findings](reverse-engineering.md#complet
 record the failed first candidate, independent restoration and corrected trial.
 
 The unreleased v0.2.0-dev.3 candidate rendered its updated installation warnings
-and post-restart USB-removal message, but an unexpected reboot was observed after
-choosing Open settings. Its cause remains unresolved. Later cleanup through the
+and post-restart USB-removal message. After Open settings, Mazda's Display tab
+timed out waiting for its slider control. Opera exited and the watchdog rebooted
+the CMU. Why the control missed registration remains unresolved. Later cleanup through the
 backend restored original startup/NVRAM, removed the product files and passed a
 stock boot check; this does not qualify the failed UI transition. Keep the
 candidate unreleased until that failure is understood and the full flow passes.

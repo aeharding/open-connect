@@ -3,6 +3,17 @@
 Findings apply to **55.00.750B North America** unless another version is named. Detailed original records
 remain in [Git history](https://github.com/aeharding/open-connect/tree/1e8efdfea264e4b31704d9e378da1f1b3be0ced6/docs/history).
 
+## UART access on the replacement v59 unit
+
+The replacement's stock boot reported **59.00.441A / cmu150_NA** and registered
+an LVDS touchscreen plus `Virtual Keyboard` as input1. That registration alone
+does not establish working physical touch or remote navigation. One normal UART
+login using Mazda's public default `root` / `jci` credentials returned
+`Login incorrect`; no retry or shell command followed. The same login was
+previously verified on the outgoing 55.00.750B NA unit. This single-unit result
+does not establish a firmware-wide credential change. Private evidence:
+`runs/replacement-resume-20261119/login-console/`.
+
 ## Native installer and Settings on v55
 
 Open Connect uses Mazda’s `Dialog3Ctrl` for install and completion. **Open settings**
@@ -204,9 +215,19 @@ staging, product runtime or listener. Evidence: `verify-install.out`,
 The [v0.2.0-dev.3 candidate](https://github.com/aeharding/open-connect/actions/runs/44368399412)
 (source `df7fd03`) displayed the new installation warnings and post-restart
 completion message on 55.00.750B NA. The installed package, selected native
-mapping and physical root read-only state matched expectations. An unexpected
-kernel reboot was subsequently observed after selecting Open settings. Its cause
-is unassigned; the screenshots do not establish a successful Settings transition.
+mapping and physical root read-only state matched expectations.
+
+After **Open settings**, the native UI requested the Display tab at 1:39.168
+into the boot. Eight seconds later, the GUI still reported Home and timed out
+loading the list template's controls. Its only outstanding control was
+`SliderCtrl`. Opera exited, and at 1:50.374 the service manager stopped feeding
+the watchdog because Opera had exited. The post-click observation in
+`open-settings.out` matches the timestamp, GUI process and Home context in saved
+log archive 020. The timeout preceded that observation by 54 ms.
+
+The stock v55 framework emits the missing-control warning when registration is
+still pending at the deadline. The underlying reason for the missing registration
+is unknown. The earlier successful Display tab capture provides a comparison.
 
 At the later cleanup intake, the attempt budget was zero, selection was absent,
 and the original frontend and baseline touchscreen NVRAM were observed. The
@@ -219,8 +240,8 @@ This was backend cleanup, not a repeated UI qualification.
 The candidate remains unreleased. Private evidence: `runs/installer-messaging/bench/`
 and `runs/old-cmu-cleanup-20261119/`. The latter includes the saved crash/log
 archives, `backup-verification.json`, `uninstall-driver.out`, `verify-stock.out`
-and `verify-final.out`. Fault attribution and the complete installer/Settings
-flow remain required before publishing it.
+and `verify-final.out`. Resolve the slider-loading failure and verify the
+complete installer/Settings flow before publishing it.
 
 ## USB detection at Home
 

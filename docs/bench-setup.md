@@ -170,6 +170,8 @@ hide:
 python -m serial.tools.miniterm --rts 0 --dtr 0 --eol CR UART_PORT 115200</code></pre>
 <p>Replace UART_PORT with your adapter. Exit with <strong>Ctrl+]</strong> before using <a href="cli.md">oc commands</a>; only one program can own the port.</p>
 </details>
+<p><strong>UART login:</strong> username <code>root</code>, password <code>jci</code>. These are Mazda's publicly known default credentials, verified on the supported 55.00.750B NA bench.</p>
+<p>Wait for startup to finish. At <code>cmu login:</code>, enter <code>root</code>, then enter <code>jci</code> at <code>Password:</code>. The password does not appear as you type. Startup logs can obscure the login prompt; after startup settles, press Enter once to show it again. A successful login gives a root shell prompt. Exit the serial terminal before running <code>oc</code>; closing the terminal leaves the CMU shell logged in.</p>
 <p class="next-link">Once it boots: <a href="cli.md">use the CLI and enable the silent Entertainment profile →</a></p>
 </section>
 

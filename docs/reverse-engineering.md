@@ -14,6 +14,17 @@ previously verified on the outgoing 55.00.750B NA unit. This single-unit result
 does not establish a firmware-wide credential change. Private evidence:
 `runs/replacement-resume-20261119/login-console/`.
 
+Later UART access using the public `user` / `jci` login succeeded with UID 1000.
+This unit's UID 0 account is named `cmu`; a single `cmu` / `jci` attempt was also
+rejected. Its stock SSH configuration uses port 36000 and key authentication.
+An interrupted access trial left a startup hook and temporary SSH listener;
+the attempted connection timed out without establishing authenticated root access.
+Cleanup verified and backed up the hook before removing it, then verified a
+fresh stock boot with the hook, its staging file, runtime directory and temporary
+listener absent. Mazda's startup checksums were unchanged and the physical root
+remained read-only. Private evidence: `runs/replacement-v74-20261119/` and
+`runs/replacement-cleanup-20261119/`. This did not qualify the installer on v59.
+
 ## Native installer and Settings on v55
 
 Open Connect uses Mazda’s `Dialog3Ctrl` for install and completion. **Open settings**

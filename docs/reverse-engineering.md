@@ -471,6 +471,30 @@ bench runner carried out both operations over SSH. The restored boot reached Hom
 A standalone USB transaction without that Mac and finger input on a working
 display still need end-to-end testing. [Installer](https://github.com/aeharding/open-connect/issues/7) · [Touch](https://github.com/aeharding/open-connect/issues/60)
 
+### OEM-only bundle regression
+
+After retiring the wireless-mod allowance, CI **44798623680** / source `14919e1`
+passed fresh install, automatic restart, completion, Open settings and normal UI
+Uninstall through the unchanged loader staged on SD. All 32 public entries
+matched the durable package and runtime; INSTANCE was the sole addition. Both
+preferences were selected, and the native bypass executed. Removal restored all
+19 intake hashes/metadata, absent touch NVRAM, original loaded code and root
+read-only in a new kernel. The ZIP SHA-256 was
+28181c1058ba9c440b015e35339a3459a72753ea78ed078ac172d0e407d4f49a.
+
+Opening Communication before a stock warm restart did not establish another
+saved last-app case: startup still read LastAppType 6 and reached Home. Stock
+logs entered Disclaimer, but the corresponding camera sequence showed the logo
+until Home; a visibly displayed stock disclaimer remains unqualified. The stock
+warm restart also left the projection link inactive. A separate output-only
+reset restored the link, followed by normal long-Home to foreground CarPlay.
+This does not establish a product reliability improvement or an audio result.
+
+Private supporting records are under
+runs/v74-release-20261120T064850Z/oem-last-app/: ci-identity.json,
+installed-qualification.json, uninstall-qualification.json and the raw observers.
+Earlier captures keep their actual source identities.
+
 ## Touch input and CarPlay on v74
 
 The [v74 porting record](cmu/firmware74.md) pins the analyzed files and maps the
@@ -484,6 +508,42 @@ checks a restriction before forwarding physical touch events. It has a
 display-specific setting in nonvolatile memory. CarPlay also receives a
 restriction signal and sets the phone’s limited-UI mode. The firmware alone
 doesn’t tell us what a user will see when only the display setting changes.
+
+On the exact v74 LVDS executable, `LVDS_GetTouchEvents` at `0x37f48` reads and
+validates the controller response before checking the NVRAM-derived
+`g_SpeedRestrictionConfig` and the current speed-restriction state. When both are
+nonzero, it suppresses the press report; it can still send a release. Otherwise,
+it forwards the report. The relevant gate is at `0x38120`–`0x38144`.
+
+Mazda's `TouchSimulation` service takes a different path:
+`LVDS_TouchSimulationEvents` at `0x3a068` writes synthesized reports without
+passing through that gate. Its dispatcher does not add the missing speed check.
+Injecting Linux input events is also downstream of the LVDS filter. These
+interfaces can operate the UI, but successful clicks alone do not qualify the
+touch-enablement feature under restriction. Software qualification needs to feed
+reports before this gate and distinguish press suppression from release cleanup.
+
+An owner-authorized isolated probe then exercised the actual ARM parser/filter
+on the CMU. A private copy had an exit guard in place of service startup; a
+temporary preload substituted the controller response and suppressed logging
+and notifications. The filter, release sender, NVRAM reader and speed
+setter/getter remained byte-equivalent to OEM code. Reports went only to a
+private pipe. Independent native review checked the startup ABI and isolation.
+
+With the actual NVRAM setting absent, unrestricted controls passed and all three
+restricted presses were suppressed. The maintained setting primitive changed
+absent to disable; the real OEM reader returned 0, and all five reports passed,
+including the three restricted presses. The saved independent primitive restored
+the absent setting, and restriction blocked presses again. All **15** samples
+passed. The live LVDS process, configuration and speed state stayed unchanged;
+the temporary executable/helper were removed. All 19 original files/metadata
+still matched, and actual CarPlay remained visible.
+
+This qualifies the software filter under a declared process-local speed
+restriction. It does not establish physical-controller delivery, actual vehicle
+motion, CarPlay's separate limited-UI behavior or performance. Supporting record:
+runs/v74-release-20261120T064850Z/oem-last-app/filter-qualification.json, with
+raw trial output, byte-equivalence checks and independent review beside it.
 
 On the stationary replacement bench, first verify that stock touch works in
 Mazda’s menus and CarPlay. Then establish a controlled condition that reproduces

@@ -129,6 +129,16 @@ compatibility, including cross-firmware maintenance, remains unqualified.
 ## Qualification
 
 Current source targets exactly **74.00.324A NA / cmu150_NA**. The reviewed
+OEM-only bundle from [CI 44798623680](https://github.com/aeharding/open-connect/actions/runs/44798623680),
+source `14919e1`, passed SD-staged install, automatic restart, completion,
+Open settings and normal Settings Uninstall. Both feature preferences were
+selected; all 32 public entries matched the installed package and runtime.
+Uninstall restored all 19 intake files/metadata, absent touch NVRAM and original
+loaded native/frontend code, with root read-only and product state removed.
+This was a manual bench-source launch, not a distinct replacement-USB test.
+See the [OEM-only regression record](reverse-engineering.md#oem-only-bundle-regression).
+
+The earlier reviewed
 incoming-frame correction's [CI bundle](https://github.com/aeharding/open-connect/actions/runs/44716935060)
 passed host-staged fresh install, reinstall with preferences retained, automatic
 restart, completion, Open settings and both preference pages. Its installed

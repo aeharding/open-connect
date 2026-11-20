@@ -6,9 +6,10 @@ Historical plans, ready profiles and assignments are evidence, not current autho
 
 ## Ownership and pace
 
-One primary owns implementation, tests, bench operation, recovery and integration.
-No standing specialist agents. Use ephemeral reviewers only when explicitly
-requested or required by the contribution workflow, for one concrete question.
+The primary coordinates implementation, tests, bench operation, recovery and
+integration. Use subagents through Herdr when helpful; teammates are equals and
+should have room to solve their work. Keep live bench ownership serialized.
+Use ephemeral reviewers for focused independent reviews.
 Answer the user promptly; status questions do not cancel ongoing work.
 Complete the release path; do not deliver another standalone prototype increment.
 Use targeted experiments only for concrete release blockers, then integrate their

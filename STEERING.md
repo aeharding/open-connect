@@ -247,9 +247,9 @@ new architecture or extra features that were not requested. The roadmap does
 not authorize speculative extensions. Keep routine work within the agreed scope
 moving without repeated confirmation.
 
-- One primary agent owns the complete outcome directly. No standing specialist
-  team or delegation of the main work. Any explicitly requested helper is
-  ephemeral, answers one specific question, and exits.
+- The primary coordinates the complete outcome. Use subagents through Herdr
+  when helpful. Teammates are equals: trust their judgment and give them room to
+  solve their assigned work. Keep bench ownership explicit and serialized.
 - Decide routine implementation details and continue authorized work without
   repeated permission gates. Surface a concrete new risk or missing dependency
   when it changes the experiment; do not invent hypothetical approval chains.

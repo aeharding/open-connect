@@ -163,10 +163,10 @@ var OpenConnectSettings = (function () {
                 rows.push({text1: "Import public key", itemStyle: "style01", appData: "import",
                     disabled: prefs.pending() || typeof store.importKey !== "function"});
                 rows.push({text1: "Current: UART " + (values.uartCurrent ? "on" : "off") +
-                    ", owner SSH " + (values.sshCurrent ? "on" : "off"), itemStyle: "style01", disabled: true});
+                    ", owner SSH " + (values.sshCurrent ? "on" : "off"), itemStyle: "style01", hasCaret: false, disabled: true});
                 if (values.restart) {
-                    rows.push({text1: "Restart required to apply changes", itemStyle: "style01", disabled: true});
-                } else { rows.push({text1: "Changes apply after restart", itemStyle: "style01", disabled: true}); }
+                    rows.push({text1: "Restart required to apply changes", itemStyle: "style01", hasCaret: false, disabled: true});
+                } else { rows.push({text1: "Changes apply after restart", itemStyle: "style01", hasCaret: false, disabled: true}); }
             } else {
                 row = entries[index];
                 title = row.title;

@@ -2,6 +2,9 @@
 typedef __UINT32_TYPE__ u32;
 typedef __INT32_TYPE__ s32;
 typedef __UINTPTR_TYPE__ word;
+enum { COLUMNS = 24, ROWS = 166, CELLS = 249,
+       INTRO_COLUMN = 10, INTRO_CONTEXT = 1023, SHOW_DISCLAIMER = 1491,
+       DISCLAIMER_CELL = 88, CONTINUATION_CELL = 238, CONTINUATION_RULES = 13 };
 typedef void (*Hook)(word);
 typedef struct { word label; u32 count; void *rules; } Cell;
 typedef struct {
@@ -13,15 +16,15 @@ typedef struct {
     Column *columns; void *rows; Cell *cells; void *lookup;
 } Machine;
 typedef struct { u32 app, context, f2, bytes; void *data; } Context;
-/* Callback builds outer words at sp+28; manager dereferences +12, then +4.
+/* Ordinary callback builds outer words at sp+52; manager dereferences +12, then +4.
  * Actual libjciuiamgr instructions f56c/f730/f734, not a flattened event ID. */
 typedef struct { u32 app, event; } EventData;
 typedef struct { u32 handle, source, app; EventData *payload; u32 f4; } Event;
 typedef struct {
     Machine *machine; Context *context; Cell *cells; Column *columns;
-    void *rules80, *rules194, *rows, *lookup;
+    void *disclaimer_rules, *continuation_rules, *rows, *lookup;
     volatile u32 *logo_state; Hook intro_exit;
-    const char *intro_command, *quick_name;
+    const char *quick_name;
 } Binding;
 
 #ifdef HOST_TEST
@@ -32,14 +35,14 @@ extern char cmu_image_base __attribute__((visibility("hidden")));
 static Binding cmu_binding(void) {
     word base = (word)&cmu_image_base;
     Binding b;
-    b.machine=(Machine *)(base+0x59a9c); b.context=(Context *)(base+0x5145c);
-    b.cells=(Cell *)(base+0x5daa8); b.columns=(Column *)(base+0x59ab8);
-    b.rules80=(void *)(base+0x5abe8); b.rules194=(void *)(base+0x5d370);
-    b.rows=(void *)(base+0x596ac); b.lookup=(void *)(base+0x514bc);
-    b.logo_state=(volatile u32 *)(base+0x5ee48);
-    b.intro_exit=(Hook)(base+0x13f6c);
-    b.intro_command=(const char *)(base+0x4081c);
-    b.quick_name=(const char *)(base+0x3d3ac);
+    b.machine=(Machine *)(base+0x83dac); b.context=(Context *)(base+0x77d48);
+    b.cells=(Cell *)(base+0x89b0c); b.columns=(Column *)(base+0x83dc8);
+    b.disclaimer_rules=(void *)(base+0x8517c);
+    b.continuation_rules=(void *)(base+0x88f5c);
+    b.rows=(void *)(base+0x8387c); b.lookup=(void *)(base+0x77dbc);
+    b.logo_state=(volatile u32 *)(base+0x8b2b0);
+    b.intro_exit=(Hook)(base+0x1db88);
+    b.quick_name=(const char *)(base+0x5cfe0);
     return b;
 }
 _Static_assert(sizeof(Machine)==28 && sizeof(Cell)==12 && sizeof(Column)==36, "ARM table ABI");
@@ -50,7 +53,6 @@ _Static_assert(__builtin_offsetof(Event,payload)==12 &&
 
 extern word cmu_stock_process(word, Machine *, Event *, Context *, void *, void *);
 extern void *cmu_copy(void *, const void *, word);
-extern int cmu_system(const char *);
 extern word cmu_uia_handle(void);
 extern word cmu_focused_app(word);
 extern int cmu_stop_service(const char *);
@@ -75,13 +77,17 @@ static void cmu_intro_exit(word context) {
 
 static int supported(Machine *m, Event *event, Context *current, Binding *b) {
     return m==b->machine && current==b->context && event &&
-        current->context==1021 && event->payload && event->payload->event==1470 &&
-        m->columns_count==22 && m->rows_count==126 && m->cells_count==203 &&
+        current->context==INTRO_CONTEXT && event->payload &&
+        event->payload->event==SHOW_DISCLAIMER &&
+        m->columns_count==COLUMNS && m->rows_count==ROWS && m->cells_count==CELLS &&
         m->columns==b->columns && m->rows==b->rows &&
         m->cells==b->cells && m->lookup==b->lookup &&
-        m->cells[79].count==1 && m->cells[79].rules==b->rules80 &&
-        m->cells[193].count==9 && m->cells[193].rules==b->rules194 &&
-        m->columns[9].context==1021 && m->columns[9].exit==b->intro_exit;
+        m->cells[DISCLAIMER_CELL].count==1 &&
+        m->cells[DISCLAIMER_CELL].rules==b->disclaimer_rules &&
+        m->cells[CONTINUATION_CELL].count==CONTINUATION_RULES &&
+        m->cells[CONTINUATION_CELL].rules==b->continuation_rules &&
+        m->columns[INTRO_COLUMN].context==INTRO_CONTEXT &&
+        m->columns[INTRO_COLUMN].exit==b->intro_exit;
 }
 
 __attribute__((visibility("hidden")))
@@ -89,8 +95,8 @@ word cmu_native_process(word handle, Machine *machine, Event *event,
                         Context *current, void *a4, void *a5) {
     Binding b=cmu_binding();
     Machine local;
-    Cell cells[203];
-    Column columns[22];
+    Cell cells[CELLS];
+    Column columns[COLUMNS];
     /* No waits, synthetic events, direct context assignment or table writes. */
     if (!supported(machine,event,current,&b) || *b.logo_state!=2 ||
         cmu_focused_app(cmu_uia_handle())!=1)
@@ -102,8 +108,8 @@ word cmu_native_process(word handle, Machine *machine, Event *event,
     cmu_copy(&local,machine,sizeof local);
     cmu_copy(cells,machine->cells,sizeof cells);
     cmu_copy(columns,machine->columns,sizeof columns);
-    cells[79]=cells[193];
-    columns[9].exit=cmu_intro_exit;
+    cells[DISCLAIMER_CELL]=cells[CONTINUATION_CELL];
+    columns[INTRO_COLUMN].exit=cmu_intro_exit;
     local.cells=cells;
     local.columns=columns;
     return cmu_stock_process(handle,&local,event,current,a4,a5);

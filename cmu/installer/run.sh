@@ -9,8 +9,8 @@ export LC_ALL
 umask 077
 refuse() { logger -t open-connect "USB refused: $1"; exit 1; }
 test "$(id -u)" = 0 || refuse privileges
-test "$(grep '^JCI_SW_VER=' /jci/version.ini)" = 'JCI_SW_VER="MAZ_CMU-150_55.00.750"' || refuse firmware
-test "$(grep '^JCI_SW_VER_PATCH=' /jci/version.ini)" = 'JCI_SW_VER_PATCH="B"' || refuse patch
+test "$(grep '^JCI_SW_VER=' /jci/version.ini)" = 'JCI_SW_VER="MAZ_CMU-150_74.00.324"' || refuse firmware
+test "$(grep '^JCI_SW_VER_PATCH=' /jci/version.ini)" = 'JCI_SW_VER_PATCH="A"' || refuse patch
 test "$(grep '^JCI_SW_FLAVOR=' /jci/version.ini)" = 'JCI_SW_FLAVOR="cmu150_NA"' || refuse region
 source=$(dirname "$(readlink -f "$0")")
 case "$source" in /tmp/mnt/sd[a-d]1/open-connect) ;; *) refuse location;; esac

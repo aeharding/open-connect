@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Firmware 55.00.750B. Present our pages inside the current Mazda Settings tab. */
+/* Firmware 74.00.324A. Present our pages inside the current Mazda Settings tab. */
 var OpenConnectSettings = (function () {
     "use strict";
     var active = false, waiting = null, session = null;
@@ -241,7 +241,7 @@ var OpenConnectSettings = (function () {
                         items.some(function (r) { return r && r.appData === id; })) {
                     return set.apply(this, arguments);
                 }
-                // v55 addresses About as itemCount - 1 when updating its restrictions.
+                // Mazda addresses About as itemCount - 1 when updating its restrictions.
                 // Keep About last and all preceding OEM indices stable on every refresh.
                 var copy = {}, key;
                 for (key in data) { if (own.call(data, key)) { copy[key] = data[key]; } }

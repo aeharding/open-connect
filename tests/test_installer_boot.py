@@ -97,10 +97,15 @@ startup_publish() {
             "mmui.so",
             "mmui.xml",
             "system-app.js",
-            "sm-on.conf",
+            "sm-normal-on.conf",
+            "sm-wcp-on.conf",
             "index-on.html",
+            "index-off.html",
         ):
             (composed / name).write_text("synthetic feature @TOKEN@\n")
+        for profile in ("normal", "wcp"):
+            for setting in ("on", "off"):
+                (composed / f"sm-{profile}-{setting}.conf").write_text(f"{profile} {setting}\n")
         self.env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
         self.shell(r"""
 printf 'stock\n' > "$D/stock"; chmod 755 "$D/stock"
@@ -146,6 +151,23 @@ record_write
 
     def record(self):
         return (self.data / "record").read_text().strip().split("|")
+
+    def test_both_board_configurations_follow_selected_warning_preference(self):
+        for warning, number in ((1, 1), (0, 2)):
+            with self.subTest(warning=warning):
+                self.shell(
+                    'record_read; snapshot_read "$R_CURRENT"; '
+                    'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 '
+                    + str(warning)
+                    + ' disable "$S_META"); record_write'
+                )
+                result = self.boot(number)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                setting = "on" if warning else "off"
+                for profile, name in (("normal", "sm.conf"), ("wcp", "sm_WCP.conf")):
+                    self.assertEqual(
+                        (self.runtime / "feature" / name).read_text(), f"{profile} {setting}\n"
+                    )
 
     def test_reset_budget_is_finite_and_fallback_restores_nvram_without_losing_preferences(self):
         for number in range(1, 4):

@@ -25,4 +25,5 @@
             exec sh "$P/boot.sh"
         '; then
             SMCFG_NORMALMODE=/tmp/open-connect/feature/sm.conf
+            SMCFG_WCPMODE=/tmp/open-connect/feature/sm_WCP.conf
         fi

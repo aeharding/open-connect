@@ -18,7 +18,8 @@ for file in run.sh session.sh service.sh loader.js runtime.js dialog.js settings
     cp "cmu/installer/$file" "$package/$file"
 done
 cp cmu/features/touch/setting.sh "$package/touch.sh"
-for file in api flush native.bin branch.bin sizes.bin mmui-path.bin mmui-sizes.bin mmui-length.bin mmui-pointer.bin; do
+cp cmu/features/disclaimer/layout.txt "$package/layout.txt"
+for file in api flush native.bin branch.bin sizes.bin layout.bin mmui-path.bin mmui-sizes.bin mmui-length.bin mmui-pointer.bin mmui-count-pointer.bin; do
     cp "$out/$file" "$package/$file"
 done
 cp LICENSE "$package/LICENSE"

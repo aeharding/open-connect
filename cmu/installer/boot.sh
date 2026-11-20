@@ -62,7 +62,8 @@ absent /tmp/open-connect/feature || fail feature_already_present
 work=$(mktemp -d /tmp/open-connect/.feature-XXXXXX)
 for name in uia.so mmui.so mmui.xml system-app.js; do cp "$D/composed/$package/$name" "$work/$name"; done
 if test "$warning" = 1; then setting=on; else setting=off; fi
-cp "$D/composed/$package/sm-$setting.conf" "$work/sm.conf"
+cp "$D/composed/$package/sm-normal-$setting.conf" "$work/sm.conf"
+cp "$D/composed/$package/sm-wcp-$setting.conf" "$work/sm_WCP.conf"
 token=$(cat "$runtime/token"); hex "$token" 32 || fail invalid_token
 sed "s/@TOKEN@/$token/" "$D/composed/$package/index-$setting.html" > "$work/index.html"
 mv "$work" /tmp/open-connect/feature

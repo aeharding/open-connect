@@ -54,14 +54,14 @@ class InstallerControls(unittest.TestCase):
             commit.write_text("untouched")
             version = base / "version"
             version.write_text(
-                'JCI_SW_VER="MAZ_CMU-150_55.00.750"\nJCI_SW_VER_PATCH="B"\nJCI_SW_FLAVOR="cmu150_NA"\n'
+                'JCI_SW_VER="MAZ_CMU-150_74.00.324"\nJCI_SW_VER_PATCH="A"\nJCI_SW_FLAVOR="cmu150_NA"\n'
             )
             script = (ROOT / "cmu/features/touch/setting.sh").read_text()
             for old, new in [
                 ("/sys/class/nvram/nv-config", str(base)),
                 ("/jci/version.ini", str(version)),
                 ("/jci/lvds/lvds_service", str(version)),
-                ("6bb6b50fb459f3a152b6528efbf5a95c", hashlib.md5(version.read_bytes()).hexdigest()),
+                ("1d3e74362d4a97814a9f0fb316ff583f", hashlib.md5(version.read_bytes()).hexdigest()),
                 ("/tmp/oc-lvds-setting.lock", str(base / "lock")),
             ]:
                 self.assertIn(old, script)

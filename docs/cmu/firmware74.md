@@ -193,10 +193,10 @@ stop on mismatching original hashes rather than overwriting them.
    it. Prepare and verify independent undo through the confirmed access path.
 4. **Qualify the whole selected baseline.** Verify USB insertion, Install,
    restart without USB, both Settings choices, repeated fresh ignition cycles,
-   recovery, replacement-USB maintenance, Uninstall and Undo using the actual CI
+   recovery, replacement-USB maintenance and full Uninstall using the actual CI
    bundle. Compare stock/enabled/restored physical touch under the same reproduced
    restriction. Include last-app, display-off and CarPlay in disclaimer checks.
-   Confirm actual loaded modules and original startup after undo, not just disk
+   Confirm actual loaded modules and original startup after removal, not just disk
    hashes. Recheck touchscreen fallback timing; the v55 recovery intentionally
    restores the preference for the next boot without requesting another restart.
 

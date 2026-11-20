@@ -1,223 +1,118 @@
 2016 Mazda3 bench handoff — November 20, 2026
 
-V74 CI-artifact qualification in progress — product installed
-Maintained v74 port merged in PR #90 as main 3bfb56c, after independent review of
-1850c73 and passing Host checks / Documentation build. Earlier v55 downloads are
-historical. This is not a published or fully qualified v74 release.
-Current boot: 94bab2f7-1ffe-45ec-8863-3e9c72e465e1. Local incoming-frame candidate,
-package 49fff96f6fdcd7f8c817c58d487bf4b1f9d5553fcc39890720c8658ddcb64fcb.
-Normal update/restart/completion/Done passed, with preferences retained. The
-matched prepared touch 1 -> 0 supply-output interruption then passed without
-manual intervention: record active, snapshot
-7c721d38caf59d4567ba90e76e2ac96e620d02e4e84c0b781155417d81d90f90,
-touch=0/warning=1, NVRAM absent, budget=2, selected native code and root RO.
-Both cleanup events appeared and the CarPlay enable dialog is visibly ready,
-with Agree focused. No pending transaction; do not resend prepare.
+Replacement CMU: stock after actual v74 CI qualification
+Current verified boot: 370e5817-7c22-46ba-a7cb-bccfbb6b4ba7.
+Identity: MAZ_CMU-150_74.00.324, patch A, cmu150_NA.
+Open Connect is fully uninstalled. All 19 intake hashes and mode/uid/gid values
+match; startup, native/frontend paths and touch NVRAM are restored. Product files,
+backups, transaction record, runtime and startup staging are absent. Physical
+/dev/ffx01p1 root is ro,noatime. Original autostart SHA-256:
+a8d019650c2a17a50b5ff39435f916c2cbeb3556af128fd913b9714b380e06bd,
+metadata 775:1000:1000. lvds_speed_restriction is absent.
 
-ACC and supply ON, unchanged 12.02 V/2 A. Camera/UART/supply handles closed cleanly.
-Owner-key SSH works. Candidate manifest
-fe76cf850043b2b547e0735d73edd83578d8d6a8007c4466052cc5712bb77a77;
-compiled system App 61cb4085195bcc1ea6f0efdd01ab691a10b9f9cee45d32e8a78b4410c9b07f40.
-116 host tests (2 skips), maintained private checks and strict docs build pass.
-This candidate is not yet independently reviewed or CI-qualified. Source is on
-fix/v74-frame-cleanup. Evidence: incoming-frame-check-final/, frame-local/ and
-frame-local/recovery/. Next: review/CI and remaining recovery qualification.
+ACC and DPS150 output are ON. Setpoints remain 12.02 V / 2 A. All owned UART,
+camera, relay, supply and SSH handles are closed. No pending transaction or
+power/input action exists; do not resend any prior action. Freshly identify the
+actual device and state before operating it.
 
-The old CI cold-start failure is preserved under ci-1850c73/recovery/.
-Its prepared record recovered, but both cleanup events were absent and the logo
-covered an already-ready CarPlay enable dialog. A read-only snapshot verified
-the old hook loaded with the framework idle on carplay.NoteOnUseData. One manual
-pair of OEM cleanup events recovered that UI; it is not a clean startup pass.
-The new candidate observes the completed incoming frame without requiring an
-outgoing Intro template notification. No OEM framework file is replaced.
+The iPhone and CarPlay hub enumerate on the current stock boot. Camera shows the
+normal Enable Apple CarPlay dialog with Agree focused. Projection is not active
+in this checkpoint. No removable USB block device or mounted storage volume was
+found. The previously cleared SanDisk is not currently enumerating; do not write
+to another disk or treat a host-staged payload as physical USB qualification.
 
-Actual CI run 44703590719, source 1850c73, version 0.3.0-dev.1:
-public manifest f8b88d7de32759498b98498f8f6862abe6b06c35370ce0ea063a73af2c6951de.
-Host-staged fresh install, automatic restart, native bypass, both video-cleanup
-events, visible completion, Open settings, touch preference writes/Back, disclaimer
-Show preference persistence and installed System-tab entry passed. Installed
-payload digests matched CI plus per-installation INSTANCE. Package was
-355a912512b8c259a037d0b7459422e01d0753fce36cd124d6cd3b07d751e233. Physical
-USB insertion was not exercised. The initial budget was 2; preference writes
-renewed it to 3. Show startup used original native maps and entered Disclaimer;
-its camera showed the looping logo to Home. The fully uninstalled stock boot
-reproduced that display behavior. No introduced difference is established, and
-visible Show behavior under other startup conditions remains unqualified.
+Maintained source and completed checks
+The v74 port merged in PR #90 (3bfb56c). Its incoming-frame cleanup correction
+merged in PR #91 (455ef61), after independent review of ba941122 and passing Host
+checks / Documentation build. No qualified v74 download has been published.
+Historical published v0.2.0-dev.2 targets v55; current source VERSION is
+0.3.0-dev.1 for exactly 74.00.324A NA.
 
-Private current evidence: runs/v74-release-20261120T064850Z/ci-1850c73/.
-See qualification.json and stock-comparison.json. The second installation is under repeated-starts/ for finite-budget and recovery
-qualification. Its source/input/result evidence stays separate from the first. Observe actual boot/product state before any new action.
-The first read-only installed-intake helper omitted D and failed before writes;
-the corrected helper verified targets/dependencies/package. Startup SSH probes
-before DHCP failed; pinned access returned. These were tooling/startup observations.
+Actual reviewed CI run 44716935060, source ba941122, public payload manifest:
+dc2c88ac78dba5ca9a11f8c453331bb3bfcfd554a1d5667aa5280e52f08cb019.
+Fresh install and reinstall matched all 32 public entries plus private INSTANCE.
+Automatic restart/completion, Open settings, both radio pages and preference
+persistence passed. Reinstall preserved touch 0/warning 1. Show used original
+native maps; its logo-to-Home camera behavior matched the earlier stock case,
+without qualifying a visible warning under other conditions.
 
-Independent guarded emergency restore (not normal uninstall):
+The same CI payload passed a prepared touch 1 -> 0 supply interruption, including
+both renderer cleanup events and a visible CarPlay agreement dialog without
+post-power-on intervention. Three later selected starts with Allow/Skip consumed
+budgets 2, 1 and 0. A 2.014-second ACC resume kept the same kernel and an identical
+record at budget 1. A single guarded TERM to verified Opera after a visible CarPlay
+agreement dialog triggered Mazda's watchdog reset. The following kernel used
+original native/frontend paths, restored absent touch NVRAM and retained both
+preferences at budget 0. A 30.014-second ACC-off interval and new kernel renewed
+selection to budget 2. Wired projection, virtual focus input and long-Home return
+passed with both choices selected. These are correctness checks, not performance,
+physical controls, audio or charging qualification.
+
+Normal Settings Uninstall refused a deliberate external NVRAM edit without
+changing that value, startup or the record. The owned edit was independently
+undone before normal UI Uninstall passed. A compatible CI payload also finished
+retained cleanup after a controlled stop following restoration and a stock reboot.
+Both removal paths verified all 19 originals, no product state and root read-only.
+No physical replacement-USB launch or arbitrary interruption-point claim is made.
+
+Private current evidence: runs/v74-release-20261120T064850Z/ci-ba941122/.
+qualification.json links each trial. Earlier ci-1850c73/recovery/ preserves the
+logo-covered cold failure and manual recovery; frame-local/ is the separate local
+fix evidence. Do not relabel those results as tests of this CI payload.
+Host/private checks passed; original source review is in frame-local/review-ba941122.md.
+
+USB fixture observation remains unresolved
+The phone/hub were absent after some installation/restart checkpoints and returned
+after full supply power or a short ACC interval. After full removal, a stock cold
+boot (8d1f8098) and plain stock software reboot (current boot) both retained them.
+That single comparison did not reproduce the disappearance or establish its cause.
+Stock-cold supply telemetry captured a maximum near 1.18 A below the unchanged
+2 A setting; the voltage range includes the intentional OFF/ON ramp. Buffered
+samples do not measure phone charging current or exclude unsampled transients.
+Evidence: ci-ba941122/stock-usb-comparison/. Keep this separate from the fixed
+startup-logo defect and later native wireless CarPlay work.
+
+Independent recovery and access
+Feature emergency preflight (not normal uninstall):
 /tmp/mnt/data_persist/oc-bench-v74-20261120T064850Z/restore.sh --check
-accepts only this unit's original/composed startup hashes and absent/disable touch
-values. --restore restores startup/NVRAM; restart is required to unload RAM code.
-It preserves the product record. Its preflight passed; restoration is unexercised.
-It is separate from owner SSH recovery below. Never use the access restore without
---check during feature testing: that removes owner-key SSH.
+accepts only this unit's original/composed startup and absent/disable touch values.
+--restore restores those targets and requires restart to unload selected RAM code;
+it preserves the product record. Preflight passes; emergency restoration itself
+remains unexercised. Original files and an independent touch/flush primitive are
+beside it, outside product state.
 
-Prior local candidate build-v74-renderer passed update, clean restart/completion,
-Open settings and full normal Settings Uninstall. Stock boot
-072b92d3-28c6-4f35-af33-070fcf15ffcf verified all 19 original hashes/metadata,
-original native/frontend paths, absent touch NVRAM, no product state and root RO.
-Earlier wrong callback, slow composition, WCP dependency lookup and missing
-second cleanup event are preserved failures. Findings are in
-docs/reverse-engineering.md#v74-installer-port-and-native-code-placement.
-
-The superseded v55 host builder is retired. All 116 retained offline host tests
-passed locally (2 skips) and in CI (see its actual manifest for skips). The private
-maintained checker passed 5 ELF/composition tests, 4 native contract categories and
-the actual v74 BaseApp lifecycle. The independent reviewer reproduced these
-checks and found no merge blockers. No OEM files or raw captures were published.
-Repeated starts/recovery, physical USB launch, physical controls, broader startup
-routes and selected-feature wired CarPlay remain release gates.
-
-Connected replacement CMU — v74 root SSH recovered and restart verified
-The owner completed the update from 59.00.441A NA to 74.00.324A NA. Fresh root
-SSH now verifies MAZ_CMU-150_74.00.324, patch A, flavor cmu150_NA. This is the
-replacement bench, not the old supported v55 unit. The public installer still
-requires exactly 55.00.750B NA. The later local feature trials are described above.
-
-The interrupted session prepared and safely ejected the recovery USB from the
-Mac. The owner inserted it into the CMU during this session. Its one-use payload
-checked the exact v74 baseline and installed the existing owner's bench public
-key beside Mazda's existing key path in /etc/ssh/sshd_config. The normal SSH
-server remains on port 36000 with password authentication off. No password was
-changed. The recovery exited 0, consumed its USB trigger and returned the
-physical /dev/ffx01p1 root to RO.
-
-Root SSH and SFTP work with the same pinned host identity and owner key:
+Owner access preflight:
+/tmp/mnt/data_persist/oc-bench-access-fw74/restore.sh --check
+returns UNDO_READY. Never run that access restore without --check during feature
+work: it removes the owner's bench SSH authorization. Root SSH on port 36000 uses
+the pinned host identity and owner key through:
 ssh -F .bench-state/replacement-ssh.conf cmu-bench
-The normal UART console still emits logs and a login prompt. The pre-recovery
-user / jci attempt was rejected; UART login was not retried or restored. Do not
-infer that UART is disabled. Establish the actual prompt before any UART TX.
+No password was changed. UART still emits logs and a login prompt; the earlier
+user/jci attempt was rejected. UART login is unqualified; do not guess credentials.
 
-ACC was OFF for 30.012 seconds and back ON at 2026-11-20 05:45:23 UTC. No supply
-commands were sent. New kernel boot c11b575f-eb91-4d92-a1a3-94d1a4976e1f accepted
-the same owner key. Camera footage showed Mazda Home. The startup script and
-frontend index match the verified v74 package; Opera uses /jci/gui/index.html.
-The physical root is RO. No custom startup hook or extra SSH server is needed.
-The recovery USB remained mounted RO, with jci-autoupdate absent and its consumed
-marker present. Access did not rerun the USB payload on this restart. A full
-supply-loss trial has not been performed on v74.
+Next release checks
+- Finish stock/selected last-app and display-off comparisons and investigate the
+  intermittent wired fixture without assuming a cause.
+- Physical USB launch/replacement-drive maintenance, physical touch under a
+  declared motion restriction and physical commander response remain unqualified.
+  Virtual events do not establish physical controls.
+- Confirm the car's exact build/region and existing wireless-mod state before
+  installation. Exact-source guards refuse changed board/service dependencies;
+  preserve existing edits. The owner was asked for the mod/version/source link.
+- Follow PLAN.md: first v74 release, Developer options, timing/CPU/RAM/I/O baselines,
+  Services/base optimizations, then native wireless CarPlay reliability.
 
-At the owner's request, the SanDisk USB was then cleared for separate test
-storage and left plugged in. Fresh USB identity, exact firmware/boot and mount
-checks bound the operation to SanDisk Dual Drive 0781:55a9, partition 60086272
-sectors, last mounted at /tmp/mnt/sdb1. All contents, including hidden host files,
-the recovery payload and saved firmware package, were removed. Recovery files
-and the result were backed up and matched; the verified original firmware
-package remains on the host. An actual write/read/delete check passed, the
-volume is empty and 30028416 KiB is free. The USB was synced and returned to
-Mazda's normal RO mount between tests; remount it RW for a bounded test write.
-Root SSH and the protected restore preflight still passed. Evidence and full
-USB serial: runs/usb-test-storage-20261120T055649Z/. Re-enumerate before writes.
+Old v55 CMU — parked separately
+Stock boot 53873893-0cf4-43bf-9485-892de26b3be3 was verified after full uninstall.
+Its product/lab staging was archived and removed; ACC and supply output are OFF.
+All 528 archived regular files matched. Evidence: runs/old-cmu-cleanup-20261119/;
+archive SHA-256 d4213a5d908028ce0bb9ddd30b52a059d1b4e6767817b61f3d0c3889b21be9bd.
+The unreleased v55 PR #79 SliderCtrl/GUI-timeout reset remains historical evidence,
+not a qualification result or the current v74 blocker. Do not replay v55 backups
+or checkpoints onto the replacement. Git preserves the detailed former handoff.
 
-The owner subsequently connected an iPhone SE (iPhone8,4, iOS 15.8.8) to the CMU
-and reported CarPlay up. Its battery was 100%; the brief charging indicator is
-consistent with normal charge completion, not evidence of a supply fault. No
-charging or supply settings were changed. Before the move, the Mac validated
-its existing USB trust; the phone is no longer connected to the Mac by USB.
-Fresh pinned SSH still works. Kernel messages record the iPhone enumerating,
-the expected host-to-gadget transition, iap_ncm configuration and usb0 link ready.
-The Ethernet adapter is now at USB 2-1.3 and no removable USB volume is mounted;
-the empty SanDisk test drive is no longer present in that inventory. The owner
-report and link evidence establish connection, not measured responsiveness,
-audio, repeated-start or charging-current qualification. Evidence:
-runs/wired-carplay-connection-20261120T064405Z/.
-
-The protected original and independent restore script are under
-/data_persist/oc-bench-access-fw74/. restore.sh --check passed before and after
-the restart; restoration itself was not exercised. Running it without --check
-restores the exact original SSH configuration and requires a restart, removing
-this owner-key access. It is not a normal setup step. The host backup matched
-original SHA-256 577e3322b08fb3f0eaea499118444b75562e442ce5a2986ebba27b4a0eac2c56
-and installed SHA-256 9134a9cf6421cf175a289ec1c270d013a348ab1c62940decbed75845ee97c53f.
-Private evidence: runs/access-resume-20261120T053952Z/; the interrupted USB
-preparation is in runs/post-upgrade-20261120T052126Z/. Earlier v59 originals and
-access evidence remain under runs/replacement-root-ssh-20261119/; do not replay
-the v59 repair or its guarded restore on v74.
-
-ACC and supply output are left ON. Supply setpoints were not changed. Access
-recovery closed its owned handles; see the active qualification state above before
-opening bench resources.
-Physical touch and commander response on this replacement still need observation.
-The physical part label and prior modification history remain unknown.
-
-Old CMU cleanup complete; powered off
-The user reconnected the outgoing 55.00.750B NA/cmu150_NA unit for cleanup.
-Fresh UART identity, the unit-specific rescue marker and pinned SSH host key
-matched. The normal uninstall backend restored startup/NVRAM and deleted the
-product directory. A subsequent stock boot verified original native mappings,
-Opera using /jci/gui/index.html, root RO and no product runtime or selection.
-Final verified boot: 53873893-0cf4-43bf-9485-892de26b3be3.
-
-All three owned persistent lab/rescue directories were archived, verified and
-removed after that stock boot. No Open Connect startup staging remains. Original
-Mazda files and diagnostic logs were preserved; this was not a factory reset.
-The SanDisk installer files and both triggers were removed; only .Trash-1000
-remains. There is no installer payload on that drive now.
-
-ACC is OFF. Standby was measured at about 0.002 A, then DPS150 output was switched
-OFF and verified. Voltage/current settings remain unchanged at 12.02 V / 2 A.
-UART, relay, SSH and supply handles are closed. No device work is running.
-
-Verified original baseline (old CMU only)
-- /usr/bin/autostart MD5 6ba9d4d9e01449aee587823218159d95; mode/uid/gid 775:1018:3015.
-- /jci/mmui/uia/libjciuiasystem.so MD5 b9ff5edc632163f88cda04686c118591.
-- /jci/gui/apps/system/js/systemApp.js MD5 584c67f7186ada6bae9aae1be59b5cd0.
-- lvds_speed_restriction NVRAM key absent; physical root /dev/ffx01p1 RO.
-
-Private evidence and backup
-runs/old-cmu-cleanup-20261119/ contains intake, uninstall-driver.out, stock-boot/,
-verify-stock.out, remove-lab-driver.out, verify-final.out, park/ and
-power-off-result.json. backup.out is a tar archive of the former product/lab
-state plus Mazda's saved crash dumps/log archives. All 528 regular files matched
-source checksums; backup-verification.json records the comparison.
-Archive SHA-256: d4213a5d908028ce0bb9ddd30b52a059d1b4e6767817b61f3d0c3889b21be9bd.
-The independent rescue and originals now exist in that host backup, not on the CMU.
-Do not publish the archive or restore its historical product checkpoints.
-
-Unresolved installer trial
-The unreleased v0.2.0-dev.3 candidate from source df7fd03, CI 44368399412, displayed
-the revised warnings and post-restart USB-removal message. An unexpected reboot
-was then observed after choosing Open settings. The saved logs attribute the
-reset to a GUI timeout waiting for SliderCtrl on the Display tab followed by
-Opera exiting and the service manager withholding watchdog pings. The reason
-SliderCtrl missed registration is unresolved. The later cleanup used the
-backend directly and does not qualify that UI transition. Fault evidence is in
-runs/installer-messaging/bench/ and the backup's log/dumps and log/saved_logs.
-On cleanup intake, budget 0, no selection, original frontend and baseline touch
-NVRAM were observed; that does not establish the cause of the earlier reboot.
-
-The published installer remains v0.2.0-dev.2. PR #79 / installer-restart-choice
-holds the new installer copy and direct captures; keep the candidate unreleased
-until the reboot is understood and the full flow passes. The docs/handoff work
-is separate so public download links and screenshots match the published bundle.
-
-Next: finish v74 release qualification
-1. Complete the same CI artifact's repeated-start/fallback and ACC-renewal checks,
-   controlled interruption/conflict recovery and selected-feature wired CarPlay.
-   Fresh install, preference persistence, normal UI uninstall and stock comparison
-   have evidence above. Physical USB launch still needs an available storage path.
-2. Physical touch, a declared motion restriction and physical commander response
-   remain unqualified; virtual input does not establish these work.
-3. Confirm the car's exact build, region and existing modification state before
-   installation. The current exact-source guard refuses changed dependencies;
-   the existing wireless mod changes board/service inputs, so compatibility must
-   be established without overwriting it or treating that as wireless performance
-   work. No generic firmware-upgrade instruction is qualified.
-4. Follow PLAN.md. Developer options (#85) follow the first release: UART login
-   checkbox and SSH enable/disable plus public-key import. Defaults/import details
-   and actual UART login controls remain unqualified.
-
-Connections (adapter identities, not replacement-CMU identity)
-UART FT232R 0403:6001 serial A9048JM0, 115200/8N1; RTS/DTR inactive.
-ACC LCUS-1 on CH340 1a86:7523, last location 8-3.4; re-enumerate.
-DPS150 2e3c:5740 serial 14110CF82565; preserve voltage/current settings.
-Apple Ethernet 05ac:1402, MAC 08:6d:41:e5:64:af, was eth1 on the old unit,
-reserved 192.168.1.17. Its old verified SSH host keys do not authenticate the
-replacement. DHCP/paths and credentials must be established from fresh evidence.
+Connection identities — re-enumerate before opening
+UART FT232R 0403:6001, serial A9048JM0; 115200/8N1, RTS/DTR inactive.
+ACC relay CH340 1a86:7523, bound location 8-3.4; 9600 baud.
+DPS150 2e3c:5740, serial 14110CF82565; preserve voltage/current settings.
+Apple Ethernet 05ac:1402, MAC 08:6d:41:e5:64:af; pinned owner-key SSH alias above.

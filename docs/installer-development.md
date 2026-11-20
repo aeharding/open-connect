@@ -111,23 +111,38 @@ compatibility, including cross-firmware maintenance, remains unqualified.
 
 ## Qualification
 
-Current source targets exactly **74.00.324A NA / cmu150_NA**. The first CI bundle
-passed host-staged fresh install, preferences/Back, restart, completion, Settings
-and normal UI uninstall. Stock startup/NVRAM, all 19 original hashes/metadata,
-native mappings and root read-only matched intake. Repeated selected starts,
-controlled frontend-loss fallback, ACC renewal and a wired CarPlay input/return
-smoke check also have evidence.
+Current source targets exactly **74.00.324A NA / cmu150_NA**. The reviewed
+incoming-frame correction's [CI bundle](https://github.com/aeharding/open-connect/actions/runs/44716935060)
+passed host-staged fresh install, reinstall with preferences retained, automatic
+restart, completion, Open settings and both preference pages. Its installed
+payload matched all 32 public manifest entries, plus a private installation ID.
+Normal Settings Uninstall restored all 19 intake hashes/metadata, original
+native/frontend paths and saved touch NVRAM, with physical root read-only and
+all product files, backups and runtime state removed.
 
-A later supply-output interruption recovered its prepared preference record but
-left the display covered by the startup logo. The current incoming-frame cleanup
-candidate addresses that handoff. Host/private checks, a local update and the
-matched prepared-record interruption pass; final CI qualification is in progress. See the [v74 findings](reverse-engineering.md#v74-installer-port-and-native-code-placement)
-for the failed candidates and fixes. Do not carry results from an earlier payload
-over as final-artifact qualification.
+The same bundle passed a prepared-preference supply interruption, three selected
+software starts, quick ACC resume without budget renewal, controlled frontend-loss
+fallback and sustained-ACC renewal. A deliberate external NVRAM edit made Settings
+Uninstall refuse without changing that value, startup or the record. A compatible
+host-staged payload also finished cleanup after a controlled stop following stock
+restoration and reboot. Wired CarPlay projection, a virtual focus input and return
+to Mazda passed with both features selected. These are bounded correctness checks,
+not timing, RAM, physical-input, audio, charging or long-term reliability results.
 
-The revised reviewed CI bundle, physical USB insertion, conflict/replacement-USB
-recovery, physical touch/motion/commander and broader startup routes remain release
-gates. No qualified v74 download or vehicle-ready claim is made.
+The earlier CI payload recovered its transaction but left the startup logo over
+an already-ready CarPlay dialog. That failure is preserved separately from the
+reviewed fix and its new-artifact results. See the
+[v74 findings](reverse-engineering.md#v74-installer-port-and-native-code-placement)
+for source/artifact identities, failed candidates and qualification limits.
+
+Physical USB insertion and replacement-drive launch, physical touch under a
+declared motion restriction, physical commander response, broader startup routes
+and matching-car installation remain release gates. A visible Show disclaimer is
+unqualified under other startup conditions; the tested warm route matched stock's
+logo-to-Home behavior. One uninstalled stock cold/warm comparison retained the
+phone/hub; it did not reproduce or explain the intermittent missing-device
+observations. Those remain unresolved. No qualified v74 download or vehicle-ready
+claim is made.
 
 ### Historical v55 releases
 

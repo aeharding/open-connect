@@ -53,8 +53,11 @@ access_key_import() (
     flush f "$work"
     if absent "$D/keys/$id.cmu"; then
         mv "$work" "$D/keys/$id.cmu" || fail key_publish_failed
-        flush d "$D/keys"
     else access_key_verify "$id" || fail key_changed; fi
+    # A prior interrupted import may have renamed this same key without
+    # flushing its directory. Make reuse durable before a record can refer to it.
+    flush f "$D/keys/$id.cmu"
+    flush d "$D/keys"
     printf '%s\n' "$id"
 )
 

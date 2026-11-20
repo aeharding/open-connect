@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -118,6 +119,27 @@ class InstallerAccess(unittest.TestCase):
             with self.subTest(prefix=data[:30]):
                 self.assertNotEqual(self.import_key(data).returncode, 0)
                 self.assertEqual(list((self.data / "keys").iterdir()), [])
+
+    def test_reusing_a_key_does_not_accept_a_failed_durability_check(self):
+        imported = self.import_key(self.public)
+        self.assertEqual(imported.returncode, 0, imported.stderr)
+        key = self.data / "keys" / (imported.stdout.strip() + ".cmu")
+        original = key.read_bytes()
+        real = self.tools / "flush-real"
+        (self.tools / "flush").rename(real)
+        (self.tools / "flush").write_text(
+            '#!/bin/sh\nif test "$1:$2" = '
+            + shlex.quote("f:" + str(key))
+            + "; then exit 9; fi\nexec "
+            + shlex.quote(str(real))
+            + ' "$@"\n'
+        )
+        (self.tools / "flush").chmod(0o700)
+        failed = self.import_key(self.public)
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn("flush_failed", failed.stderr)
+        self.assertEqual(key.read_bytes(), original)
+        self.assertEqual(list((self.data / "keys").glob(".new-*")), [])
 
     def test_symlink_and_unmounted_source_are_rejected(self):
         self.target.symlink_to(self.key.with_suffix(".pub"))

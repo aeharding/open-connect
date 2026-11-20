@@ -53,44 +53,22 @@ these checks do not execute ARM code, access a CMU or prove recovery.
 Without explicit private inputs, the public offline suite reports a skip for
 these firmware checks. The superseded v55 one-shot builder is in Git history.
 
-## Existing wireless-CarPlay modifications
+## Existing modifications
 
-The exact firmware requirement remains **74.00.324A NA**. In addition to OEM
-files, the source guard recognizes exact startup, board-detection and wireless
-service-file outputs of the pinned [Kenatia and luxubuok revisions](cmu/wireless-carplay.md#what-the-existing-mods-change).
-It does not enable, update or remove those mods. Unknown edits still refuse
-installation; recognizing a repository name is not enough.
+Fresh installations require the exact supported OEM startup, board-detection,
+service and native files on **74.00.324A NA**. Remove the existing wireless
+CarPlay mod before installing Open Connect; the installer does not recognize or
+adopt its modified files. Remaining conflicting edits cause refusal.
 
-Composition uses the verified as-found startup and service files. It adds the
-Open Connect hook and frontend/native paths while preserving the existing mod's
-other bytes and Mazda's normal configuration selection. The first snapshot pins
-those exact inputs. Reinstall refuses subsequent target or dependency edits,
-including a switch to another recognized modification. Uninstall restores the
-as-found startup and leaves unrelated wireless-mod files untouched.
+Reinstall checks the current targets and dependencies before accepting inputs.
+Later edits are preserved and refused. The future Open Connect wireless-enable
+option must retain actual vehicle/hardware identity and remains in the final
+roadmap phase. See [wireless research](cmu/wireless-carplay.md).
 
-Private host composition covered OEM, each pinned mod and luxubuok following
-Kenatia, where Kenatia's startup edit can remain. These are file-preservation
-checks, not ARM execution, wireless performance or matching-car qualification.
-
-The actual compatibility CI bundle, run 44785660779 / source `c0cc169`, also passed
-fresh install/restart/completion on the stock bench, normal UI reinstall refusal
-after a deliberate touch-setting edit, independent restoration of that edit,
-and a fresh UI reinstall/restart preserving both preferences and the base snapshot.
-Open settings and normal Settings Uninstall passed; removal restored all 19
-intake files/metadata, saved touch NVRAM and original loaded code in a new kernel,
-with root read-only and no product state/runtime. All 32 public files matched in
-both installed packages and runtimes; INSTANCE was the sole durable addition.
-
-A second manual call to the still-present SD loader did not establish a new UI
-entry. The loader intentionally returns success under its existing USB-session
-lock; an actual CMU probe confirmed no second payload/session/runtime is created.
-The subsequent key sequence dismissed the prior refusal dialog. The actual
-reinstall followed an explicit maintained reopen and hardware-camera confirmation.
-This is a bench reentry correction, not an established product-dialog defect or
-physical replacement-USB proof. The restored-stock warm restart also left its
-CarPlay link inactive, separately from file restoration. See the
-[compatibility findings](reverse-engineering.md#preserving-recognized-wireless-mod-inputs).
-No existing wireless mod was installed on the CMU in this stock regression.
+The earlier compatibility allowance and its stock-bench CI trial are
+[historical evidence](reverse-engineering.md#preserving-recognized-wireless-mod-inputs).
+Those captures retain their actual source identity; they are not tests of this
+OEM-only revision.
 
 ## Startup recovery
 

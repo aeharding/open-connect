@@ -27,7 +27,7 @@ fixed delivery slot. Each performance claim needs comparable measurements.
 | **2. Developer options** | Control development access from Open Connect Settings | UART console-login checkbox and SSH enable/disable with public-key import work, show actual state and restart requirements, and restore pre-install configuration on uninstall | [#85](https://github.com/aeharding/open-connect/issues/85) |
 | **3. Performance baselines** | Know where startup time and resource pressure go before changing services | Repeatable stock/Open Connect timing, CPU, RAM and I/O batches; compare relevant Miatafy milestones and explain matches or differences | [#5 starts](https://github.com/aeharding/open-connect/issues/5), [#9 measurements](https://github.com/aeharding/open-connect/issues/9) |
 | **4. Services menu and base optimizations** | Let owners disable qualified unused services in a dedicated Settings page | Dependencies and effects are documented, each change is compared against baseline, and controls, restart, regressions and undo are qualified | [#86 Services](https://github.com/aeharding/open-connect/issues/86), [#9 measurements](https://github.com/aeharding/open-connect/issues/9) |
-| **5. Native wireless CarPlay improvements — last** | Improve the existing native wireless experience after a long parked start | Reproduce the lag, identify its cause, compare baseline and modified runs, and confirm a useful improvement in the real car | [#8 reliability](https://github.com/aeharding/open-connect/issues/8) |
+| **5. Native wireless CarPlay — last** | Enable native wireless CarPlay through Open Connect while preserving vehicle identity, then improve long-parked startup | The enable option works without vehicle-fingerprint spoofing; comparable runs identify and improve cold-start lag, with real-car confirmation | [#8 reliability](https://github.com/aeharding/open-connect/issues/8) |
 
 These phases describe release outcomes. Existing GitHub milestones retain their
 historical names; they do not override this delivery order. Bench tooling supports
@@ -62,9 +62,10 @@ or reuse old patch offsets.
    Resolve the earlier Open settings failure in the maintained flow; a backend-only
    uninstall is not a substitute for the UI check. See [#7](https://github.com/aeharding/open-connect/issues/7).
 4. **Install on the owner’s matching car.** Bench qualification precedes the first
-   installation. Check the existing wireless mod against guarded startup/service
-   inputs; preserve it or refuse conflicting files. This compatibility check is
-   separate from later wireless performance work. Confirm the two features and normal controls in the real vehicle,
+   installation. The owner will uninstall the existing wireless CarPlay mod first;
+   require the exact supported OEM startup/board/service inputs and refuse any
+   remaining conflicting edits. Do not add legacy-mod compatibility. Confirm the
+   two features and normal controls in the real vehicle,
    document the limits, and publish the supported release and matching owner guide.
 
 The v55 prerelease supplies working installer mechanisms and prior evidence,
@@ -121,11 +122,14 @@ owns the menu, and [#9](https://github.com/aeharding/open-connect/issues/9) owns
 
 ## Phase 5: improve native wireless CarPlay
 
-The owner's car already uses a mod enabling Mazda's native wireless CarPlay.
-Investigate that actual enablement and a pinned comparison mod before choosing a
-change. The reported configuration spoof and long-parked
-lag are leads, not established causes. Prefer native wireless CarPlay for everyday
-use; wired CarPlay is a useful comparison and fallback.
+The owner will remove the existing wireless mod before installing Open Connect.
+Implement an Open Connect option to enable Mazda's native wireless CarPlay while
+preserving actual vehicle/hardware identity. The rejected fingerprint-spoofing
+approach is reference research, not an installer compatibility target. Trace the
+narrow firmware capability and startup controls before choosing the mechanism.
+The reported long-parked lag still needs a reproducible diagnosis; rejecting the
+spoofing approach does not establish its cause. Prefer native wireless CarPlay for
+everyday use; wired CarPlay is a useful comparison and fallback.
 
 Measure time to usable projection, early input/audio responsiveness, connection
 success and settling, with comparable CPU, RAM and I/O observations. Separate

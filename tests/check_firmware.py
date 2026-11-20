@@ -178,6 +178,7 @@ def host_contract(output, paths, host_cc, node, composed):
             ROOT / "tests/fixtures/disclaimer-behavior.js",
             composed / "system-app.js",
             paths["base-app.js"],
+            paths["framework"],
         ],
         output,
         "javascript-lifecycle",

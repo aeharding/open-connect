@@ -73,6 +73,12 @@ Prepare a USB drive from the new release in the same way. Insert it while
 Mazda Connect shows its main screen and choose **Install/update**.
 Your Open Connect preferences are kept.
 
+## Existing modifications
+
+Other mods can change files this release needs. Installation refuses conflicting
+files rather than overwriting them. If it stops, include your existing mods when
+[reporting the problem](https://github.com/aeharding/open-connect/issues).
+
 ## No prompt?
 
 Check that Mazda Connect shows its main screen, the drive is FAT32, and the

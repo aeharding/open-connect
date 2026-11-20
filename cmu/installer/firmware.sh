@@ -105,11 +105,11 @@ compose() (
     # The supported original has CRLF line endings. Insert authored JS bytes.
     dd if="$D/originals/system-app.js" bs=1 count=17463 2>/dev/null > "$work/system-app.js" || fail compose_javascript_failed
     sed 's/$/\r/' "$package/intro.js" > "$work/intro" || fail compose_javascript_failed
-    test "$(wc -c < "$work/intro")" -eq 679 || fail javascript_fragment_changed
-    head -c 677 "$work/intro" >> "$work/system-app.js" || fail compose_javascript_failed
+    test "$(wc -c < "$work/intro")" -eq 2150 || fail javascript_fragment_changed
+    head -c 2148 "$work/intro" >> "$work/system-app.js" || fail compose_javascript_failed
     rm "$work/intro" || fail compose_cleanup_failed
     dd if="$D/originals/system-app.js" bs=1 skip=17463 2>/dev/null >> "$work/system-app.js" || fail compose_javascript_failed
-    test "$(sha "$work/system-app.js")" = c88a9b6053b6e1e23ceb3ccc25882281543008f369492c060f1a777357f81da8 || fail javascript_composition_failed
+    test "$(sha "$work/system-app.js")" = 61cb4085195bcc1ea6f0efdd01ab691a10b9f9cee45d32e8a78b4410c9b07f40 || fail javascript_composition_failed
     for setting in on off; do
         awk -v route="$package/system-route.js" -v selected="$setting" '
             /<head>/{print;print "        <base href=\"file:///jci/gui/\" />";print "        <meta name=\"open-connect-token\" content=\"@TOKEN@\" />";next}

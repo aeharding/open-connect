@@ -49,6 +49,16 @@ Fresh host pins after replug: UART FT232R A9048JM0 at 8-3; CH340 relay at 2-1;
 DPS150 serial 14110CF82565 at 1-1; camera 0 VID:1133 PID:2085. Re-enumerate before
 opening. Old relay location 8-3.4 is stale. UART login remains unqualified.
 
+Existing wireless-mod compatibility — host checks, bench trial pending
+Branch fix/v74-existing-wireless-mod adds four exact recognized component hashes
+for the known pinned Kenatia/luxubuok outputs, preserving as-found inputs. It also
+refuses reinstall after later target/dependency edits and pins backups to the
+original snapshot. Host exact-stock/private four-profile composition passed;
+these are not wireless/vehicle behavior claims. No CMU changes have been made for
+this work yet. Next: reviewed actual CI bundle through stock bench install,
+restart, reinstall/conflict refusal and normal uninstall. Preserve prior payload
+identities and undo inventory. Evidence: runs/v74-car-mod-compat-20261120/.
+
 Maintained source and prior qualification
 The v74 port/frame cleanup merged in #90/#91. Reviewed CI run 44716935060,
 source ba941122, public payload manifest:

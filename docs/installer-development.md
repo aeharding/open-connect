@@ -53,6 +53,27 @@ these checks do not execute ARM code, access a CMU or prove recovery.
 Without explicit private inputs, the public offline suite reports a skip for
 these firmware checks. The superseded v55 one-shot builder is in Git history.
 
+## Existing wireless-CarPlay modifications
+
+The exact firmware requirement remains **74.00.324A NA**. In addition to OEM
+files, the source guard recognizes exact startup, board-detection and wireless
+service-file outputs of the pinned [Kenatia and luxubuok revisions](cmu/wireless-carplay.md#what-the-existing-mods-change).
+It does not enable, update or remove those mods. Unknown edits still refuse
+installation; recognizing a repository name is not enough.
+
+Composition uses the verified as-found startup and service files. It adds the
+Open Connect hook and frontend/native paths while preserving the existing mod's
+other bytes and Mazda's normal configuration selection. The first snapshot pins
+those exact inputs. Reinstall refuses subsequent target or dependency edits,
+including a switch to another recognized modification. Uninstall restores the
+as-found startup and leaves unrelated wireless-mod files untouched.
+
+Private host composition covered OEM, each pinned mod and luxubuok following
+Kenatia, where Kenatia's startup edit can remain. These are file-preservation
+checks, not ARM execution, wireless performance or matching-car qualification.
+The existing wired-CarPlay bench evidence used the earlier stock-source bundle;
+it is not relabelled as a test of this compatibility change.
+
 ## Startup recovery
 
 A durable attempt budget limits repeated boots of the disclaimer bypass. A

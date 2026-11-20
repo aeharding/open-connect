@@ -301,6 +301,35 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(reply["ok"])
 
+    def test_backend_reinstall_refuses_later_target_or_dependency_edits(self):
+        data = self.create("reinstall-conflict")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        revision = (data / "record").read_text().split("|")[5]
+        for name in ("target", "nvram", "relevant"):
+            with self.subTest(changed=name):
+                path = self.target(data, name)
+                original = path.read_bytes()
+                path.write_bytes(b"later external edit\n")
+                before = {
+                    str(p): (p.read_bytes(), p.stat().st_mode)
+                    for p in data.rglob("*")
+                    if p.is_file()
+                }
+                result, answer = self.api("install", revision)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(answer, {"ok": False, "error": "state_changed"})
+                self.assertEqual(path.read_bytes(), b"later external edit\n")
+                self.assertEqual(
+                    {
+                        str(p): (p.read_bytes(), p.stat().st_mode)
+                        for p in data.rglob("*")
+                        if p.is_file()
+                    },
+                    before,
+                )
+                path.write_bytes(original)
+
     def test_backend_recovers_after_snapshots_or_record_have_been_deleted(self):
         for cut in ("snapshots", "record"):
             with self.subTest(cut=cut):

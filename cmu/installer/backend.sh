@@ -98,7 +98,10 @@ recover)
     ;;
 install)
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
-    stock_dependencies || fail unsupported_original
+    if test "$exists" = true && test "$R_PHASE" = active; then
+        targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
+    fi
+    supported_dependencies || fail unsupported_original
     if absent "$D"; then mkdir -m 700 "$D" || fail state_create_failed; flush d /tmp/mnt/data_persist; fi
     for path in snapshots packages composed; do
         if absent "$D/$path"; then mkdir -m 700 "$D/$path" || fail state_create_failed; fi

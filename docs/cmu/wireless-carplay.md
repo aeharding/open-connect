@@ -5,7 +5,9 @@ selector.** The research question is how to enable the needed capabilities on
 older hardware without pretending the whole CMU is a different board.
 
 This is source-backed research on **North American 74.00.324A**, not a working
-Open Connect wireless feature. The bench remains on 55.00.750B.
+Open Connect wireless feature. The maintained installer targets that exact
+baseline; [release qualification](../installer-development.md#qualification)
+and native wireless enablement are separate work.
 
 ## What the existing mods change
 
@@ -66,9 +68,11 @@ ffd04e2c8cfaf77388aacde0f9c1cddc17cb6b7f02d7caa2fe6ad39c0f40e787
 ```
 
 The downloaded hash matches its `x-amz-meta-sha256` response metadata.
-Files were extracted for inspection; no firmware scripts were executed and no
-CMU was upgraded. This identifies the analyzed artifact, not an upgrade recipe
-or proof of applicability to every unit.
+The initial package-analysis trial extracted files without executing firmware
+scripts or upgrading a CMU. The later replacement-unit upgrade and owner-key
+access have a [separate record](../reverse-engineering.md#owner-key-access-after-the-replacements-v74-upgrade).
+The package identity is not an upgrade recipe or proof of applicability to every
+unit.
 
 Key anchors: EEM `GetBoardType` at `0xee8c`, configuration writers at
 `0xf3c8` and `0xfd2c`; `/etc/devmgr_config_master.xml`;

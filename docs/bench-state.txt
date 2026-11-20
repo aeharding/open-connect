@@ -1,25 +1,36 @@
 2016 Mazda3 bench handoff — November 20, 2026
 
-Replacement CMU: stock after actual v74 CI qualification
-Current verified boot: 370e5817-7c22-46ba-a7cb-bccfbb6b4ba7.
-Identity: MAZ_CMU-150_74.00.324, patch A, cmu150_NA.
-Open Connect is fully uninstalled. All 19 intake hashes and mode/uid/gid values
-match; startup, native/frontend paths and touch NVRAM are restored. Product files,
-backups, transaction record, runtime and startup staging are absent. Physical
-/dev/ffx01p1 root is ro,noatime. Original autostart SHA-256:
+Stock checkpoint after matched display-off qualification
+Current verified boot: 0b160a72-3c6e-4e3b-883c-55738728f8e9.
+The actual CI 44716935060/source ba941122 installation used for this comparison
+was removed through normal Settings Uninstall. All 19 intake hashes and metadata
+match. Saved touch NVRAM is absent; original native/frontend paths are loaded;
+product persistent state, backups, runtime and startup staging are absent.
+Physical /dev/ffx01p1 root is ro,noatime. Bench owner access/recovery remain.
+The camera shows unobscured Mazda Home, Communication icon focused. No prompt
+or installer action is pending. ACC and DPS output are ON; settings remain
+12.02 V / 2 A. Do not resend previous input, power or install requests.
+All owned UART/camera/relay observers have finished and closed their handles.
+Verify actual identity and state before further operation.
+
+Matched display-off comparison completed
+Stock and the actual CI bundle with Allow/Skip both retained the blank display
+after a sustained ACC interval and new kernel: modes 1/3 -> 1/1. The selected
+boot emitted both video cleanup events. Normal OEM software wake returned each
+to unobscured Home with 3/1. Further normal ACC cycles restored the original saved
+mode 3: current/last 0/3 on both. After the final UI uninstall, stock 0/3 was
+verified again. The clock option, physical controls and audio are not qualified.
+The original OEM Apple CarPlay enabled checkbox was visually restored after a
+bounded role inspection, before the CI installation; it was not changed again.
+Evidence: runs/v74-release-20261120T064850Z/startup-routes/, especially
+stock-display-off.json, ci-display-off.json and ci-uninstall/qualification.json.
+
+The removed display-off trial's package was
+62671ec10faab12e43a0c47274cb284d9b8cd3e137dd59931688acc13afa32bc;
+all 32 public entries plus private INSTANCE matched before its trials.
+Original autostart SHA-256:
 a8d019650c2a17a50b5ff39435f916c2cbeb3556af128fd913b9714b380e06bd,
-metadata 775:1000:1000. lvds_speed_restriction is absent.
-
-ACC and DPS150 output are ON. Setpoints remain 12.02 V / 2 A. All owned UART,
-camera, relay, supply and SSH handles are closed. No pending transaction or
-power/input action exists; do not resend any prior action. Freshly identify the
-actual device and state before operating it.
-
-The iPhone and CarPlay hub enumerate on the current stock boot. Camera shows the
-normal Enable Apple CarPlay dialog with Agree focused. Projection is not active
-in this checkpoint. No removable USB block device or mounted storage volume was
-found. The previously cleared SanDisk is not currently enumerating; do not write
-to another disk or treat a host-staged payload as physical USB qualification.
+metadata 775:1000:1000. No Open Connect installation is currently active.
 
 Maintained source and completed checks
 The v74 port merged in PR #90 (3bfb56c). Its incoming-frame cleanup correction
@@ -61,16 +72,22 @@ logo-covered cold failure and manual recovery; frame-local/ is the separate loca
 fix evidence. Do not relabel those results as tests of this CI payload.
 Host/private checks passed; original source review is in frame-local/review-ba941122.md.
 
-USB fixture observation remains unresolved
-The phone/hub were absent after some installation/restart checkpoints and returned
-after full supply power or a short ACC interval. After full removal, a stock cold
-boot (8d1f8098) and plain stock software reboot (current boot) both retained them.
-That single comparison did not reproduce the disappearance or establish its cause.
-Stock-cold supply telemetry captured a maximum near 1.18 A below the unchanged
-2 A setting; the voltage range includes the intentional OFF/ON ramp. Buffered
-samples do not measure phone charging current or exclude unsampled transients.
-Evidence: ci-ba941122/stock-usb-comparison/. Keep this separate from the fixed
-startup-logo defect and later native wireless CarPlay work.
+USB role correction and storage gate
+Host-tree absence was incorrectly treated as phone disconnection. Fully stock
+wired CarPlay and virtual focus input worked while the host tree omitted the
+phone/bridge; usb0 was UP on fsl-usb2-udc/gadget. Host-tree absence alone does not
+establish disconnection, and interface/cumulative counters alone do not prove a
+working current link. startup-routes/usb-role-reconciliation.json supersedes the
+earlier missing-hub interpretation; preserve the raw inventories.
+Temporary OEM CarPlay disable plus quick ACC resume exposed the host phone/bridge
+interfaces. No SanDisk 0781:55a9, removable block device or mounted removable
+volume was present even in that host-mode view. Original CarPlay ON was restored.
+Physical USB launch remains gated; the owner was asked whether the test flash
+drive is still in the CMU hub. Do not operate internal MMC or the empty SD reader.
+Stock-cold supply telemetry observed a maximum near 1.18 A below the unchanged
+2 A setting; buffered samples include the intentional OFF/ON ramp and do not
+measure phone charging current or exclude unsampled transients. This is separate
+from the fixed startup-logo defect and later native wireless CarPlay work.
 
 Independent recovery and access
 Feature emergency preflight (not normal uninstall):
@@ -91,8 +108,9 @@ No password was changed. UART still emits logs and a login prompt; the earlier
 user/jci attempt was rejected. UART login is unqualified; do not guess credentials.
 
 Next release checks
-- Finish stock/selected last-app and display-off comparisons and investigate the
-  intermittent wired fixture without assuming a cause.
+- Broader last-app, clock-display and audio paths remain unqualified; the blank
+  display-off comparison is complete. Long-Home toggles CarPlay/last Mazda app,
+  not necessarily the main Home screen. Do not replay input from assumed focus.
 - Physical USB launch/replacement-drive maintenance, physical touch under a
   declared motion restriction and physical commander response remain unqualified.
   Virtual events do not establish physical controls.

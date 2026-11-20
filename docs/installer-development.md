@@ -135,14 +135,21 @@ reviewed fix and its new-artifact results. See the
 [v74 findings](reverse-engineering.md#v74-installer-port-and-native-code-placement)
 for source/artifact identities, failed candidates and qualification limits.
 
+A matched blank display-off check also passed on stock and this CI bundle:
+sustained ACC shutdown retained the dark screen, normal OEM software wake returned
+to unobscured Home, and another normal cycle restored the original saved display
+preference. The clock-display option and physical wake controls remain untested.
+The earlier inference of phone disconnection from missing host USB entries was
+incorrect: stock wired CarPlay and input worked while those entries were absent
+and the CMU's USB device-controller interface was UP. See the
+[display and USB-role findings](reverse-engineering.md#display-off-startup-and-usb-role-on-v74).
+
 Physical USB insertion and replacement-drive launch, physical touch under a
 declared motion restriction, physical commander response, broader startup routes
-and matching-car installation remain release gates. A visible Show disclaimer is
+and matching-car installation remain release gates. No removable storage was
+present even in the verified host-mode check. A visible Show disclaimer is
 unqualified under other startup conditions; the tested warm route matched stock's
-logo-to-Home behavior. One uninstalled stock cold/warm comparison retained the
-phone/hub; it did not reproduce or explain the intermittent missing-device
-observations. Those remain unresolved. No qualified v74 download or vehicle-ready
-claim is made.
+logo-to-Home behavior. No qualified v74 download or vehicle-ready claim is made.
 
 ### Historical v55 releases
 

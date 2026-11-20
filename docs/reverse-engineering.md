@@ -78,7 +78,8 @@ SSH server. No supply commands were sent during this check.
 This is single-unit development-access evidence. UART login was not restored,
 the restore operation itself was not exercised, and full supply-loss persistence
 was not tested on v74. It does not qualify Open Connect features or a general
-upgrade route. The installer still requires 55.00.750B NA. Private evidence:
+upgrade route. At that checkpoint the published installer required 55.00.750B NA;
+the later maintained v74 port is recorded below. Private evidence:
 `runs/post-upgrade-20261120T052126Z/` and `runs/access-resume-20261120T053952Z/`.
 
 ## V74 installer port and native code placement
@@ -246,10 +247,11 @@ interruption: active record, no pending operation, touch 0/warning 1, absent
 NVRAM, budget 2, selected native files and physical root read-only. Both cleanup
 events appeared and the camera reached the ordinary CarPlay agreement dialog
 without intervention after power-on. Supply voltage/current setpoint bits were
-unchanged. The phone and CarPlay hub, absent from the preceding software boot's
-USB inventory, enumerated after this full power cycle. That observation does not
-establish why they were absent or qualify charging or USB reliability. New-artifact
-evidence is under runs/v74-release-20261120T064850Z/ci-ba941122/.
+unchanged. The phone and CarPlay hub appeared in the host USB inventory after
+this full power cycle. Their absence from an earlier host inventory was initially
+misclassified as disconnection; the role comparison below supersedes that
+interpretation. Neither inventory qualifies charging or USB reliability.
+New-artifact evidence is under runs/v74-release-20261120T064850Z/ci-ba941122/.
 Agree then opened the wired CarPlay dashboard, a virtual Right input changed
 visible focus, and the normal long-Home event returned to Mazda. These results
 use touch 0/warning 1 after recovery; they do not establish physical controls,
@@ -280,16 +282,51 @@ all product files, backups and runtime state were gone after restart. These are
 results from the reviewed CI payload, separately preserved under its conflict/
 and uninstall/ evidence directories.
 
-The intermittent missing phone/hub observation remains separate. A fully
-uninstalled stock cold boot and following plain software reboot both enumerated
-the phone and bridge and reached the normal CarPlay agreement dialog. This one
-comparison did not reproduce the disappearance and does not establish its cause.
-Preserve the earlier missing-device inventories rather than treating a later
-working connection as proof of continuous USB or charging reliability. The
-stock-usb-comparison/ record retains this limit alongside the supply samples;
-their buffered receipt times are not startup-phase timestamps.
+### Display-off startup and USB role on v74
 
-Private evidence is under
+A matched stock/selected comparison used Settings → Display → Turn Display Off,
+then one sustained ACC-off interval and a new kernel. Stock used 30.018 seconds;
+the same reviewed CI bundle with Allow/Skip used 30.017 seconds. Both retained
+the blank screen after the startup logo. Read-only observations of the exact
+native display-mode globals agreed: current/last mode changed from 1/3 before
+the cycle to 1/1 afterward. The normal OEM `DisplayOffGUIActivity` event woke both
+to unobscured Mazda Home, with mode 3/1. The selected boot retained OEM GUI
+initialization and emitted both `DisposeIntroVideo` and `NotifyDisclaimerEnd`.
+No process memory was written and no post-start cleanup intervention was used.
+
+A further normal ACC cycle from the awake state restored the original
+saved mode 3 in both configurations, confirmed as current/last 0/3 in a new
+kernel. Normal Settings Uninstall after the CI trial again restored all 19 intake
+hashes/metadata, absent touch NVRAM and original native/frontend paths, with no
+product state/runtime and physical root read-only. This qualifies the
+blank display-off option and software wake under these conditions, not the clock
+option, physical controls, audio or every last-app route. Private evidence is
+under runs/v74-release-20261120T064850Z/startup-routes/, including
+stock-display-off.json and ci-display-off.json. These are correctness captures,
+not timing measurements.
+
+The earlier missing-phone interpretation was premature. Fully stock live wired
+CarPlay accepted a virtual Right input while the phone and bridge were absent
+from the host USB tree. At that checkpoint `usb0` was UP, associated with
+`fsl-usb2-udc/gadget`, and had received about 50.8 MB. Together with the live
+projection/input result, this shows that host enumeration alone cannot establish
+phone disconnection. Interface presence or cumulative counters alone would not
+prove a current working connection either. The original inventories remain
+preserved; startup-routes/usb-role-reconciliation.json records the correction.
+This is separate from the earlier demonstrated logo-cleanup defect.
+
+A bounded OEM Settings check temporarily disabled Apple CarPlay and used a quick
+ACC cycle to expose the phone/bridge in host mode. The original enabled checkbox
+was then restored and visually verified before the CI display-off installation.
+Even in that verified host-mode view, the intended SanDisk drive and a removable
+storage volume were absent. Physical USB launch remains untested. The stock
+cold/warm inventory comparison and buffered supply samples remain evidence of
+those conditions only; they do not qualify charging or continuous reliability.
+The normal long-Home event also returned stock CarPlay to its last Mazda app
+(Communication in this check), so it must not be treated as an unconditional
+request for the main Home screen.
+
+The earlier CI trial's private evidence remains under
 runs/v74-release-20261120T064850Z/ci-1850c73/, including source/run identity,
 checksums, guarded actions, camera/UART observations and readback. This is not
 physical USB-insertion qualification or a published release. A first read-only

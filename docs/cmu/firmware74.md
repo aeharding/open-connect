@@ -114,9 +114,18 @@ no early disposal, one completion event, stock Disclaimer cleanup, duplicate
 notification handling and lost-focus cleanup. This is offline lifecycle evidence;
 the subsequent CMU trial found a second cleanup requirement. V74's Disclaimer
 outgoing callback also sends `NotifyDisclaimerEnd`, which stops its separate
-new looping-logo surface. The current paired callback emits both stock events
-after transition completion. Its 677-byte insertion produces SHA-256
+new looping-logo surface. The first paired callback emitted both stock events
+after transition completion. Its 677-byte insertion produced SHA-256
 `c88a9b6053b6e1e23ceb3ccc25882281543008f369492c060f1a777357f81da8`.
+A later supply-output interruption recovered its prepared preference transaction,
+but the outgoing-Intro callback missed cleanup while the framework reached the
+CarPlay enable dialog. The current candidate observes Mazda's completed incoming
+frame instead, delegates the original callback and restores its wrapper after
+handoff. It also handles a missing outgoing Intro template. Its 2148-byte insertion
+produces SHA-256
+61cb4085195bcc1ea6f0efdd01ab691a10b9f9cee45d32e8a78b4410c9b07f40.
+Host regression checks, a local update/restart and the matched prepared-record
+supply interruption pass; reviewed CI qualification remains in progress.
 See the [native and visible failure evidence](../reverse-engineering.md#v74-installer-port-and-native-code-placement).
 Do not reuse the v55 insertion offset or composed-file hash. Settings must
 also be checked against the new `syssettingsApp.js`, including list refresh,

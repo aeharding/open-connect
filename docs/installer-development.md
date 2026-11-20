@@ -45,7 +45,7 @@ stat/readlink are needed. Explicit tool paths can be supplied with --host-cc,
 Checks preserve every original section and symbol address, validate segment
 alignment and PIC relocations, and require the interception point to lie in the
 ordinary event callback. They cover both MMUI XML consumers, both stock board
-configurations, the real v74 BaseApp lifecycle and the native C wrapper with all
+configurations, the real v74 BaseApp/frame-completion lifecycle and the native C wrapper with all
 13 actual continuation rules. Source/input hashes and outputs are retained.
 The host composition stubs durability flushes and the C contract uses fakes:
 these checks do not execute ARM code, access a CMU or prove recovery.
@@ -111,17 +111,23 @@ compatibility, including cross-firmware maintenance, remains unqualified.
 
 ## Qualification
 
-Current source targets exactly **74.00.324A NA / cmu150_NA**. A local
-host-staged candidate installed, updated with preferences retained, restarted
-with the disclaimer bypass and both video-cleanup events, opened Settings and
-uninstalled through its normal UI. Stock startup/NVRAM, all 19 original file
-hashes/metadata, native mappings and root read-only were verified after removal.
-The [v74 findings](reverse-engineering.md#v74-installer-port-and-native-code-placement)
-retain the failed candidates and fixes.
+Current source targets exactly **74.00.324A NA / cmu150_NA**. The first CI bundle
+passed host-staged fresh install, preferences/Back, restart, completion, Settings
+and normal UI uninstall. Stock startup/NVRAM, all 19 original hashes/metadata,
+native mappings and root read-only matched intake. Repeated selected starts,
+controlled frontend-loss fallback, ACC renewal and a wired CarPlay input/return
+smoke check also have evidence.
 
-This is not yet qualification of a reviewed CI artifact or physical USB insertion.
-Fresh final-bundle install, repeated starts, interruption/conflict recovery,
-physical touch/motion/commander and selected-feature wired CarPlay checks remain.
+A later supply-output interruption recovered its prepared preference record but
+left the display covered by the startup logo. The current incoming-frame cleanup
+candidate addresses that handoff. Host/private checks, a local update and the
+matched prepared-record interruption pass; final CI qualification is in progress. See the [v74 findings](reverse-engineering.md#v74-installer-port-and-native-code-placement)
+for the failed candidates and fixes. Do not carry results from an earlier payload
+over as final-artifact qualification.
+
+The revised reviewed CI bundle, physical USB insertion, conflict/replacement-USB
+recovery, physical touch/motion/commander and broader startup routes remain release
+gates. No qualified v74 download or vehicle-ready claim is made.
 
 ### Historical v55 releases
 

@@ -143,6 +143,91 @@ the physical root was read-only and no product runtime or startup stage remained
 Private originals, host checks, compiled ARM assets, failed attempts, camera/UART observations and
 restore preflights remain in `runs/v74-release-20261120T064850Z/`.
 
+### First v74 CI bundle
+
+[CI run 44703590719](https://github.com/aeharding/open-connect/actions/runs/44703590719)
+built version 0.3.0-dev.1 from source 1850c73. The reviewed port merged in
+[PR #90](https://github.com/aeharding/open-connect/pull/90). The public payload
+manifest hashes to
+f8b88d7de32759498b98498f8f6862abe6b06c35370ce0ea063a73af2c6951de.
+Its compiler outputs differ from the local build, so local results were not
+carried over as CI qualification.
+
+Host staging launched this bundle's normal session from empty product state.
+Install, automatic restart, native bypass, both OEM cleanup events, visible
+completion and Open settings passed. All installed payload hashes matched CI;
+the backend adds a per-installation INSTANCE, so the durable package ID differs
+from the public manifest. The selected native mappings used the composed RAM
+files, dependencies and originals verified, and physical root stayed read-only.
+The initial boot budget was 2. Factory Default and Allow in the touchscreen radio
+page committed absent and disable NVRAM respectively. Back returned to the list;
+Show on the disclaimer page committed warning preference 0. A software restart
+preserved the choice and loaded the original native mappings. Its trace entered
+Disclaimer, while the camera showed the looping logo through to Home; this does
+not qualify a visible warning. Normal Settings Uninstall then restored all 19 input hashes/metadata, absent
+touch NVRAM, original mappings and root read-only; product/runtime state was gone.
+That fully uninstalled stock boot also traversed Disclaimer while the camera
+showed the logo through to Home. No introduced display difference was established;
+a visible warning remains unqualified under other startup conditions. Physical touch and commander
+operation are separate unqualified checks.
+
+A second fresh installation of the same CI payload reached completion with both
+features. Done returned to Home. The next software restart kept the same selected
+snapshot and preferences, loaded the composed native files, cleared both startup
+video layers and reached unobscured Home. The durable budget fell from 2 to 1, then to 0 on the next selected start;
+reaching Home did not renew it. After unobscured Home on that last attempt, a
+single guarded TERM to the verified Opera PID/start triggered Mazda's configured
+watchdog reset. The following kernel loaded original native/frontend paths,
+restored the saved absent touchscreen key and kept budget 0 with both choices
+preserved. No selected marker remained and physical root was read-only. The
+camera showed stock Home. This is a controlled frontend-failure case, not a
+spontaneous product failure or proof of every startup failure. A subsequent 30.020-second ACC-off interval and new kernel renewed the exhausted
+budget and selected both saved choices, leaving budget 2 and NVRAM disable with
+physical root read-only. No supply commands were sent. The camera reached Mazda
+Home and the ordinary Enable Apple CarPlay dialog. Selecting Agree through the
+virtual keyboard established a wired session and visible CarPlay dashboard with
+both Open Connect features selected. A deliberate Right input changed visible
+focus; the normal long-Home event returned to Mazda. This is one projection/input
+smoke test, not physical controls, audio, charging, timings or long-term reliability
+qualification. Relay, UART and camera closed cleanly. Transaction-interruption
+tests remain separate checks.
+
+One controlled supply-output interruption then tested a durably prepared touch
+preference transaction before target changes. The new kernel reconciled it to
+active with touch 0, warning 1, absent NVRAM and root read-only. Voltage/current
+setpoint bits were unchanged. Record recovery passed, but startup did not: the
+logo covered the display through the observation, and neither renderer cleanup
+event appeared despite the native Home transition.
+
+A read-only snapshot found the correct hook loaded, with the framework idle on
+CarPlay's enable dialog beneath the logo. Thus file presence and native Home
+were insufficient. The outgoing-Intro notification had not delivered cleanup.
+The new candidate observes the OEM completed incoming-template callback instead,
+delegates it unchanged, waits through startup templates, leaves Disclaimer's
+cleanup to stock code and restores the prior callback after handoff. The private
+regression executes the actual BaseApp/frame-completion code without an outgoing
+Intro template and with CarPlay focus; it rejects the old implementation.
+
+After preserving the failure, one manual pair of OEM cleanup events uncovered
+the enable dialog. Agree and long-Home returned the unit to normal use so the
+maintained update could be tested. This recovery is not a clean startup pass.
+The local incoming-frame candidate then updated with preferences retained and
+reached unassisted completion. Repeating the prepared touch 1-to-0 supply-output
+interruption recovered the record and reached the visible CarPlay enable dialog,
+with both cleanup events and no intervention after power-on. Touch 0, warning 1,
+absent NVRAM, budget 2, selected code and root read-only were verified. This is a
+local-build result under frame-local/; reviewed CI qualification and broader
+release checks remain in progress.
+
+Private evidence is under
+runs/v74-release-20261120T064850Z/ci-1850c73/, including source/run identity,
+checksums, guarded actions, camera/UART observations and readback. This is not
+physical USB-insertion qualification or a published release. A first read-only
+intake helper omitted its D variable and failed before any write; a corrected
+helper completed the checks. Startup SSH probes before network initialization
+failed; the pinned connection returned after DHCP. Neither failure is counted
+as a product failure or an uninterrupted observer pass.
+
 ## Native installer and Settings on v55
 
 Open Connect uses Mazda’s `Dialog3Ctrl` for install and completion. **Open settings**

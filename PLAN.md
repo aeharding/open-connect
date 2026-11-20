@@ -61,7 +61,9 @@ or reuse old patch offsets.
    Resolve the earlier Open settings failure in the maintained flow; a backend-only
    uninstall is not a substitute for the UI check. See [#7](https://github.com/aeharding/open-connect/issues/7).
 4. **Install on the owner’s matching car.** Bench qualification precedes the first
-   installation. Confirm the two features and normal controls in the real vehicle,
+   installation. Check the existing wireless mod against guarded startup/service
+   inputs; preserve it or refuse conflicting files. This compatibility check is
+   separate from later wireless performance work. Confirm the two features and normal controls in the real vehicle,
    document the limits, and publish the supported release and matching owner guide.
 
 The v55 prerelease supplies working installer mechanisms and prior evidence,

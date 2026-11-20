@@ -24,6 +24,20 @@ firmware_dependencies() {
     printf '%s\n' '1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29 manager.so /jci/lib/libjciuiamgr.so'
 }
 
+supported_original() {
+    # Exact v74 outputs of the pinned Kenatia/luxubuok revisions. Preserve
+    # these as-found bytes; this does not install or modify either mod.
+    # All other originals still require the one exact OEM hash.
+    test "$3" = "$1" && return 0
+    case "$2:$3" in
+        autostart:7ef11de99ee4a6ff74ec80d19037b2703bf8b826abdcf7026334cda6056d0ac1|\
+        board.sh:f9f52effa73fa63810aa9bcb76a54835e150c3779dd1a2c649e9c6571ff1ffb1|\
+        board.sh:7f2b8747ee5f85015ce6bc8c128239c7d0bc06cbf6bfdbbcbb1be7bf43e13121|\
+        sm_WCP.conf:3ccd5d16a14993eeadb56628a27cb2f378b39c10564299e93a5b226d1c02165b) return 0;;
+        *) return 1;;
+    esac
+}
+
 firmware_guard() {
     test "$(id -u)" = 0 || fail root_required
     awk '$0=="JCI_SW_VER=\"MAZ_CMU-150_74.00.324\""{v++}
@@ -42,21 +56,36 @@ native_guard() {
 }
 
 originals_verify() {
-    local digest name target
+    local digest name target actual expected
     private_dir "$D/originals" || return 1
+    if test -n "${R_BASE:-}"; then snapshot_verify "$R_BASE" || return 1; fi
     original_files | while read -r digest name target; do
-        file "$D/originals/$name" && test "$(sha "$D/originals/$name")" = "$digest" || exit 1
+        file "$D/originals/$name" || exit 1
+        actual=$(sha "$D/originals/$name") || exit 1
+        supported_original "$digest" "$name" "$actual" || exit 1
+        # Once captured, a different supported mod is still an external edit.
+        # The existing base snapshot pins the exact pre-install inputs.
+        if test -n "${R_BASE:-}"; then
+            if test "$name" = autostart; then
+                expected=$(sha "$D/snapshots/$R_BASE/autostart") || exit 1
+            else
+                expected=$(awk -v n="root/$name" '$2==n && NF==2{d=$1;c++} END{if(c!=1)exit 1;print d}' "$D/snapshots/$R_BASE/dependencies") || exit 1
+            fi
+            test "$actual" = "$expected" || exit 1
+        fi
     done
 }
 
 originals_save() {
-    local work
+    local work actual
     if ! absent "$D/originals"; then originals_verify || fail originals_changed; return; fi
     work=$(mktemp -d "$D/.originals-XXXXXX") || fail backup_create_failed
     original_files | while read -r digest name target; do
-        file "$target" && test "$(sha "$target")" = "$digest" || fail unsupported_original
+        file "$target" || fail unsupported_original
+        actual=$(sha "$target") || fail unsupported_original
+        supported_original "$digest" "$name" "$actual" || fail unsupported_original
         cp "$target" "$work/$name" && chmod 600 "$work/$name" || fail backup_copy_failed
-        test "$(sha "$work/$name")" = "$digest" || fail backup_verification_failed
+        test "$(sha "$work/$name")" = "$actual" || fail backup_verification_failed
         flush f "$work/$name"
     done || fail backup_failed
     flush d "$work"
@@ -263,10 +292,10 @@ dependencies_capture() {
     done
 }
 
-stock_dependencies() {
+supported_dependencies() {
     firmware_dependencies | while read -r digest name target; do
         test "$name" != autostart || continue
-        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+        file "$target" && supported_original "$digest" "$name" "$(sha "$target")" || exit 1
     done
 }
 

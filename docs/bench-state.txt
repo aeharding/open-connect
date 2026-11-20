@@ -1,70 +1,71 @@
 2016 Mazda3 bench handoff — November 20, 2026
 
-USB and SD qualification complete — restored stock with live CarPlay
-Last fully verified stock boot: 474b74c2-bc98-44d6-9a30-c122654044ec.
-Normal Settings Uninstall with the original USB physically absent and a later
-stock restart each verified all 19 intake hashes/metadata, absent touch NVRAM,
-original loaded native/frontend, display 0/3, no product state/runtime and root
-ro,noatime. The owner returned the iPhone; Ethernet and FAT32 SD remain connected.
+Compatibility CI regression closed — restored stock with live CarPlay
+Current verified boot: 23a26856-b31b-4706-8387-38414ecd9a0d.
+Normal Settings Uninstall restored all 19 intake hashes/metadata, saved absent
+touch NVRAM and original loaded native/frontend, display 0/3 and root ro,noatime.
+Product state/runtime/startup staging are absent; no Open Connect installation
+is active. After a separate stock-link recovery and one normal long-Home, actual
+panel shows CarPlay. Fresh projection and Ethernet counters increased during
+three successful SD manifest reads. iPhone, Ethernet and FAT32 SD remain connected.
+All 16 observers are sealed/closed and all 159 artifacts match; UART/camera/
+supply handles are closed. Supply ON at unchanged 12.02 V / 2 A; no relay commands.
 
-The same reviewed CI 44716935060/source ba941122 bundle passed the real removable
-USB install/restart/completion/Open settings flow after software reauthorization.
-A separate owner-performed physical insertion after uninstall opened the correct
-Install prompt automatically; only read-only readiness/observation ran on the host.
-The prompt was cancelled without a second install. No USB bytes were written after
-completion permitted its removal. All 32 public entries matched runtime and the
-durable package; only the durable package added INSTANCE. Removed package:
-fa8708ef36074f86d46c7dcdbfd493cf4bf5b6b0b36b04fb05104f33ea627101.
+Actual CI 44785660779/source c0cc169 passed fresh install/restart/completion,
+normal UI reinstall conflict refusal preserving the owned external NVRAM edit,
+independent edit restoration, fresh UI reinstall/restart preserving preferences
+and original base snapshot, Open settings and normal Settings Uninstall. All 32
+public entries matched both packages/runtimes, with INSTANCE the sole durable
+addition. Removed packages:
+583d4fc4af01d9870e34a9c8ccebba7377f3b5a4f14ed9b1347ccf9933c2cb35
+8c9faeb613bf98aedad985e385e34e76bfc237f64d083c7c542fa79df6468082.
+Public manifest: e3f83d524ab1465fc665b1b6258f09cddab1082001bb3c0254e1b070c9f30a46.
+ZIP SHA-256: 6661f885beb64ae53e49d800fe861365bc90ea0da1aa003b363e126035c6d0cc.
 
-SD bench-source check passed: the owner-formatted card UUID 213E-C5B2 normally
-mounts at /tmp/mnt/sd_nav. A temporary bind alias /tmp/mnt/sda1 plus the unchanged
-loader opened its maintenance prompt from the same verified CI payload. The alias
-cleared on stock restart; the public open-connect payload folder remains on SD.
-No firmware/product changes or SD root launch markers were added. With both
-features selected, actual CarPlay dashboard, three SD reads and Ethernet SSH/data
-traffic worked concurrently. Native SD auto-launch, audio, charging, physical
-input and performance claims remain unqualified.
+Preserved limits/failures: an initial host verifier lacked AUTOSTART; a corrected
+fresh read passed without resending Install. A second manual SD run.sh call on
+the still-present source did not establish a new maintenance UI: its inherited
+fd8 session lock intentionally makes duplicate launches return zero. An actual
+CMU lock probe confirmed no second session/runtime/payload stage and restored its
+temporary alias. The subsequent key sequence dismissed the earlier refusal dialog;
+no reinstall was committed and kernel/package/record stayed unchanged. The initial
+product-dialog interpretation is superseded by sd-reentry-reconciliation.json.
+No product defect is established by this attempt; the isolated JS cleanup replay
+omitted the entry lock. Actual reinstall followed an explicit maintained reopenUSB,
+conflict=false and hardware-camera prompt confirmation.
+An early SSH read during that restart timed out before a fresh read passed.
+After uninstall, restored-stock warm boot 4e6d0118 had projection carrier/RX/TX 0.
+One bounded output-only OFF/ON restored its link; final full19 verification passed
+again. None of these establishes a wireless/performance improvement or reliability.
 
-After the final restored-stock software restart, usb0 remained carrier/RX/TX 0;
-one normal long-Home request did not show projection. One bounded supply-output
-OFF/ON restored the link in a new kernel. All 19 originals and metadata, original
-loaded native/frontend, absent touch NVRAM/product state and root RO were verified
-again. One normal long-Home showed the actual CarPlay dashboard; fresh projection
-and Ethernet counters increased while three SD manifest reads passed. The first
-post-input observer failed because its readback used nonexistent eth0; fresh
-read-only reconciliation verified actual eth1 MAC without repeating input.
-All 20 observers are sealed/closed; all 199 artifacts match. Two incomplete
-captures are preserved: USB OFF guard and incorrect interface-name readback.
-No device failure is inferred from either tooling error. UART/camera/supply handles
-are closed. ACC/supply remain ON at unchanged 12.02 V / 2 A. Final warm-boot link
-failure remains separate from successful coexistence; no reliability claim.
+Evidence: runs/v74-car-mod-compat-20261120/, including bench-plan.json,
+ci-identity.json, installed-qualification.json, conflict-qualification.json,
+first-reinstall-input-reconciliation.json, sd-reentry-reconciliation.json,
+reinstalled-qualification.json,
+uninstall-qualification.json, final-stock-qualification.json and
+capture-validation.json. No preexisting wireless mod was installed on this bench.
+The compatibility allowlist/private host four-profile composition evidence is
+separate from actual wireless/vehicle behavior. Source review is review-source.md.
 
-Owner confirmed the car matches exact 74.00.324A NA. Do not ask for firmware/region
-confirmation again. Use the existing Kenatia/luxubuok wireless-mod context and
-exact as-found source guards for compatibility; preserve existing edits or refuse.
-Remaining release gates: distinct replacement-USB maintenance, physical touch and
-commander/motion behavior, broader startup/audio coverage and first car install.
-Current evidence: runs/v74-release-20261120T064850Z/usb-resumed-20261120T162005Z/.
-Fresh host pins after replug: UART FT232R A9048JM0 at 8-3; CH340 relay at 2-1;
-DPS150 serial 14110CF82565 at 1-1; camera 0 VID:1133 PID:2085. Re-enumerate before
-opening. Old relay location 8-3.4 is stale. UART login remains unqualified.
+Earlier USB/SD results remain at
+runs/v74-release-20261120T064850Z/usb-resumed-20261120T162005Z/ and in the knowledge
+docs: CI 44716935060/ba941122 actual removable-USB installation after software
+reauthorization, separate owner physical insertion/cancel with no second install,
+and SD/CarPlay/Ethernet coexistence. Do not relabel those captures as c0cc169.
+The SD alias is bench-only, cleared on reboot; no root trigger/service was added.
+Current SD payload /open-connect is c0cc169, with prior ba941122 retained at
+/open-connect-ba941122. Both manifests verified; current mount is /tmp/mnt/sd_nav.
 
-Maintained source and prior qualification
-The v74 port/frame cleanup merged in #90/#91. Reviewed CI run 44716935060,
-source ba941122, public payload manifest:
-dc2c88ac78dba5ca9a11f8c453331bb3bfcfd554a1d5667aa5280e52f08cb019.
-Earlier CI install/reinstall, startup budgets/fallback, NVRAM conflict refusal,
-retained-cleanup completion, blank/clock display-off and matched CarPlay-startup
-cases are recorded in docs/installer-development.md and docs/reverse-engineering.md.
-Private supporting roots: runs/v74-release-20261120T064850Z/ci-ba941122/,
-startup-routes/, clock-startup/, guide-captures/ and last-app/ under that run.
-No qualified v74 download exists. Published v0.2.0-dev.2 is historical v55;
-current source VERSION is 0.3.0-dev.1 for exact 74.00.324A NA.
+Owner confirmed exact matching car firmware/region 74.00.324A NA. Do not ask again.
+Use known Kenatia/luxubuok context and exact as-found guards; preserve or refuse.
+Current source VERSION 0.3.0-dev.1; no qualified v74 download exists. Published
+v0.2.0-dev.2 is historical v55. Earlier v74 port/frame cleanup, bounded recovery,
+blank/clock and matched startup evidence remains in the knowledge docs/Git.
 Original autostart SHA-256:
 a8d019650c2a17a50b5ff39435f916c2cbeb3556af128fd913b9714b380e06bd,
 metadata 775:1000:1000. Do not resend earlier install, input or power requests.
 
-Persistent changes and later undo — read-only inventory verified this boot
+Persistent changes and later undo — base inventory plus later SD update
 “Restored stock” above means restored feature baseline with bench SSH retained;
 it does not mean pre-upgrade firmware or a byte-for-byte factory data partition.
 - Firmware: owner upgraded this replacement from 59.00.441A NA to 74.00.324A NA.
@@ -91,8 +92,9 @@ it does not mean pre-upgrade firmware or a byte-for-byte factory data partition.
 - Product: normal Settings Uninstall already removed Open Connect's durable
   directory, runtime and startup staging; all 19 intake hashes/metadata and
   absent touchscreen NVRAM are verified. Original native/frontend paths are loaded.
-- SD: owner-formatted FAT32 card UUID 213E-C5B2 retains /open-connect, copied from
-  the reviewed CI bundle. Remove that owned folder to undo our SD payload copy;
+- SD: owner-formatted FAT32 card UUID 213E-C5B2 retains /open-connect (c0cc169)
+  and /open-connect-ba941122 (prior verified payload). Remove only those owned
+  folders to undo our SD payload copies;
   formatting was the owner's action, with no pre-format card-content backup.
   Temporary bind alias /tmp/mnt/sda1 cleared on reboot; no SD launch marker/service.
 - Original SanDisk stick: its prepared Open Connect bundle/root launch markers
@@ -103,7 +105,10 @@ it does not mean pre-upgrade firmware or a byte-for-byte factory data partition.
   retired. .bench-state/profile.json is an old runtime-only silent-UI receipt
   bound to boot fbd3caa6-e4a8-4f90-8827-ae275a9f6540, not a current v74 setup.
   Runtime silent-UI state and the temporary mount alias do not survive reboot.
-Evidence: current run persistent-inventory/read.out and detail.out. No cleanup or
+Base read-only inventory: prior USB/SD run persistent-inventory/read.out and
+detail.out, taken on stock boot 474b74c2. This trial changed only the retained SD
+payload folders as listed above; final originals/preflights and both SD manifests
+were verified again. No cleanup or
 access restoration was performed by the inventory. Originals/credentials/raw
 captures remain private. Retain the restored-original verification before deleting
 recovery files; clean up access last rather than locking out ongoing bench work.

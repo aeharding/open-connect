@@ -380,6 +380,63 @@ helper completed the checks. Startup SSH probes before network initialization
 failed; the pinned connection returned after DHCP. Neither failure is counted
 as a product failure or an uninterrupted observer pass.
 
+### Preserving recognized wireless-mod inputs
+
+The stock-only source guard refused the existing wireless mods before composing
+the two features: both pinned implementations replace board detection and edit
+the wireless service file, and Kenatia also edits startup. See the inspected
+[reference revisions](cmu/wireless-carplay.md#what-the-existing-mods-change).
+
+The compatibility change recognizes four additional component hashes derived
+from those exact scripts and verified 74.00.324A NA originals. It backs up the
+as-found inputs and composes only Open Connect's hook and frontend/native paths;
+it does not install either mod or replace their board/GPS/service choices.
+The existing base snapshot pins the saved inputs. Reinstall now checks the
+current targets and dependencies before accepting anything, so even a later
+switch between recognized variants refuses rather than adopting the edit.
+
+Private host composition passed for stock, Kenatia, luxubuok and luxubuok after
+Kenatia's startup edit. Complete byte comparisons found only the intended hook
+and frontend/native path substitutions in the composed startup/service files.
+Offline tests cover changed backup and reinstall inputs. These are host checks,
+not ARM execution, wireless behavior or matching-car qualification; older CI
+captures retain their original source identities. Supporting records:
+runs/v74-car-mod-compat-20261120/derived-source-hashes.json,
+composition-results-final.json and stock-check-final/result.json.
+
+Actual CI 44785660779 / source `c0cc169` then passed the maintained stock-bench
+install/restart/completion flow, UI reinstall conflict refusal, independent
+owned-edit restoration, fresh UI reinstall preserving preferences/base snapshot,
+Open settings and normal Settings Uninstall. Both installed packages/runtimes
+matched all 32 public entries plus INSTANCE. Uninstall verified all 19 intake
+hashes/metadata, saved touch NVRAM, original native/frontend and root read-only in
+a new kernel, with no product state/runtime.
+
+The second manual SD-loader call did not establish a fresh maintenance UI. The
+USB entry holds a nonblocking fd8 lock inherited by its session; another call
+returns success before creating a second payload/runtime. An actual CMU probe
+under that lock confirmed this behavior and left stock state unchanged. In the
+trial, the subsequent key sequence dismissed the prior refusal dialog, with
+unchanged kernel/record/package. The earlier interpretation that a product dialog
+had reappeared was not established: the manual call was insufficient to reopen it,
+and the direct screenshot did not establish the current hardware input target.
+An isolated cleanup-JavaScript replay also omitted the entry lock and does not
+prove a reachable session-ownership defect. A later explicit maintained reopen
+reported no conflict; hardware-camera confirmation preceded the actual reinstall.
+An initial host read helper also lacked its
+AUTOSTART variable; correcting that read did not repeat Install. One SSH read
+during the actual reinstall restart timed out before a later read completed.
+These failures remain separate from the successful cases. The final restored-stock
+warm restart left projection carrier/RX/TX zero, matching the previously recorded
+stock fixture issue; a separate bounded supply-output recovery followed without
+changing voltage/current settings. No cause or reliability improvement is claimed.
+The live trial used OEM inputs, not a wireless-mod installation. Supporting
+records in the same private root: ci-identity.json, installed-qualification.json,
+conflict-qualification.json, first-reinstall-input-reconciliation.json,
+reinstalled-qualification.json, uninstall-qualification.json and
+sd-reentry-reconciliation.json. Earlier capture/interpretation records are retained;
+the reconciliation does not relabel the wrong-dialog input as a reinstall.
+
 ## Native installer and Settings on v55
 
 Open Connect uses Mazda’s `Dialog3Ctrl` for install and completion. **Open settings**

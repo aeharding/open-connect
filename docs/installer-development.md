@@ -120,6 +120,16 @@ Normal Settings Uninstall restored all 19 intake hashes/metadata, original
 native/frontend paths and saved touch NVRAM, with physical root read-only and
 all product files, backups and runtime state removed.
 
+The same artifact also passed the removable-USB install/restart/completion/Open
+settings flow after software reauthorization through Mazda's normal detector.
+A separate owner-performed physical insertion opened the correct prompt, which
+was cancelled without reinstalling. Normal Settings Uninstall worked after the
+original USB was physically removed. A temporary SD mount alias also supported
+the unchanged loader for bench tests while SD reads, live CarPlay and Ethernet
+worked together. See [USB and SD findings](reverse-engineering.md#v74-usb-launch-and-sd-bench-storage)
+for source identity, exact launch methods and limits; this is not owner SD-install
+support.
+
 The same bundle passed a prepared-preference supply interruption, three selected
 software starts, quick ACC resume without budget renewal, controlled frontend-loss
 fallback and sustained-ACC renewal. A deliberate external NVRAM edit made Settings
@@ -145,10 +155,9 @@ incorrect: stock wired CarPlay and input worked while those entries were absent
 and the CMU's USB device-controller interface was UP. See the
 [display and USB-role findings](reverse-engineering.md#display-off-startup-and-usb-role-on-v74).
 
-Physical USB insertion and replacement-drive launch, physical touch under a
-declared motion restriction, physical commander response, broader startup routes
-and matching-car installation remain release gates. No removable storage was
-present even in the verified host-mode check. A visible Show disclaimer is
+A distinct replacement-USB launch, physical touch under a declared motion
+restriction, physical commander response, broader startup/audio routes and
+matching-car installation remain release gates. A visible Show disclaimer is
 unqualified under other startup conditions; the tested warm route matched stock's
 logo-to-Home behavior. No qualified v74 download or vehicle-ready claim is made.
 

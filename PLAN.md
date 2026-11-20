@@ -39,7 +39,8 @@ The published development installer still supports exactly **55.00.750B North
 America / cmu150_NA**. Current source targets **74.00.324A NA / cmu150_NA**; qualification is in progress.
 The verified Mazda package and demonstrated [v74 development access](docs/reverse-engineering.md#owner-key-access-after-the-replacements-v74-upgrade)
 make the port possible; they do not qualify the features or a general upgrade
-procedure. Confirm the owner’s actual car build and region before installation.
+procedure. The owner has confirmed the car matches **74.00.324A NA**; retain the
+installer’s exact identity/source checks before writes.
 Move support to v74 together once qualified; do not build a v55/v74 support matrix
 or reuse old patch offsets.
 

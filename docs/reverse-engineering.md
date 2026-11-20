@@ -363,7 +363,8 @@ A bounded OEM Settings check temporarily disabled Apple CarPlay and used a quick
 ACC cycle to expose the phone/bridge in host mode. The original enabled checkbox
 was then restored and visually verified before the CI display-off installation.
 Even in that verified host-mode view, the intended SanDisk drive and a removable
-storage volume were absent. Physical USB launch remains untested. The stock
+storage volume were absent at that checkpoint. The later [USB and SD
+qualification](#v74-usb-launch-and-sd-bench-storage) used the owner-reinserted stick. The stock
 cold/warm inventory comparison and buffered supply samples remain evidence of
 those conditions only; they do not qualify charging or continuous reliability.
 The normal long-Home event also returned stock CarPlay to its last Mazda app
@@ -619,6 +620,62 @@ extends that result to Open Connect's native prompt on v55.
 Kenatia documents the user-visible precedent on 74.00.324. Inserting the drive
 opens a dialog automatically. The user then chooses install or uninstall.
 [Project instructions](https://github.com/Kenatia/mazda-cmu150-wcp-mod#installation--uninstallation)
+
+### V74 USB launch and SD bench storage
+
+The same reviewed CI 44716935060 / source `ba941122` bundle passed a removable-USB
+install, automatic restart, completion and Open settings on exact 74.00.324A NA.
+For that install, software reauthorization of the identified SanDisk caused Mazda's
+normal update scanner to launch `open-connect/run.sh`; SSH did not start the
+installer. A separate owner-performed physical insertion, after full uninstall,
+also opened the correct Install prompt. Its observer sent no UART input and ran
+only a read-only readiness check. The firmware log recorded the mass-storage
+attachment, root auto-update marker and USB session source. The prompt was then
+cancelled without a second installation. These are separate entry checks, not
+USB insertion timing measurements.
+
+After the installed boot with USB present, the active USB runtime held the 32
+public manifest entries. The durable installed package held those same entries
+plus its private INSTANCE; its manifest hash matched the package ID. Treating the
+public USB runtime as that private package caused an initial host-verifier
+assertion, not a payload mismatch. Another runner guard stopped after USB OFF
+because the device hides its serial while unauthorized. Fresh evidence confirmed
+OFF and no ON transmission; a separate guarded ON completed once. Both failures
+are retained without repeating installation or rewriting their captures.
+
+A spare 256 GB SD card initially used exFAT and did not mount. After the owner
+formatted it as FAT32, read-only access passed, and a later boot mounted it at
+`/tmp/mnt/sd_nav`. The current loader accepts USB-style paths and its root trigger
+does not search that navigation path. For **bench testing**, a temporary bind
+mount at `/tmp/mnt/sda1` and a guarded invocation of the unchanged loader opened
+the maintained maintenance dialog from the SD copy. All 32 payload entries
+matched the same CI artifact. No firmware/product changes, root launch markers
+on SD or new automatic service were needed. The mount alias expires on reboot;
+this does not establish native SD auto-launch or a supported owner SD installer.
+
+The owner then replaced the original USB stick with the iPhone. With both
+features still selected, the actual panel showed the CarPlay dashboard while
+three SD manifest reads succeeded and Ethernet SSH remained connected. Fresh
+projection traffic and Ethernet counters increased during those reads. This
+establishes one live CarPlay/SD/Ethernet coexistence case, not physical input,
+audio, charging, timing/RAM or continuous reliability.
+
+Normal Settings Uninstall, with the original USB physically absent, restored
+all 19 intake hashes/metadata, saved absent touch NVRAM and original loaded
+native/frontend in a new kernel, with no product state/runtime and physical
+root read-only. A later restored-stock software restart left the projection link
+inactive; one bounded supply-output reset restored the link. This separate stock
+fixture failure does not establish an Open Connect or SD cause. One normal
+long-Home then showed the dashboard, with fresh projection traffic, successful SD
+reads and Ethernet. Its initial readback used a nonexistent interface name; a
+fresh read-only observer completed without resending input. Voltage/current
+setpoints remained unchanged. Private evidence is under
+runs/v74-release-20261120T064850Z/usb-resumed-20261120T162005Z/:
+plan.json, installed-payload-validation.json, sd/viability.json,
+physical-usb/qualification.json, uninstall/qualification.json and
+stock-link-recovery/qualification.json link the cases.
+Raw observations remain private; the SD bench path is separate from qualification
+of a distinct replacement USB drive.
 
 ## Silent Entertainment without a TAU
 

@@ -299,11 +299,29 @@ saved mode 3 in both configurations, confirmed as current/last 0/3 in a new
 kernel. Normal Settings Uninstall after the CI trial again restored all 19 intake
 hashes/metadata, absent touch NVRAM and original native/frontend paths, with no
 product state/runtime and physical root read-only. This qualifies the
-blank display-off option and software wake under these conditions, not the clock
-option, physical controls, audio or every last-app route. Private evidence is
+blank display-off option and software wake under these conditions, not physical
+controls, audio or every last-app route. Private evidence is
 under runs/v74-release-20261120T064850Z/startup-routes/, including
 stock-display-off.json and ci-display-off.json. These are correctness captures,
 not timing measurements.
+
+A separate matched case tested **Turn Display Off and Show Clock**, using
+30.014-second stock and 30.016-second selected ACC-off intervals. Both retained
+the otherwise dark screen with time in the upper right, without a leftover
+startup logo: native current/last mode changed from 2/3 to 2/2 across the new
+kernel. Normal OEM software wake returned each to unobscured Home at 4/2.
+The original `UIA_SYSTEM_UpdateDisplayModeOnDisplayOffExit` at VA `0x19e54`
+explicitly maps blank-off 1 to 3 and clock-off 2 to 4; the different wake values
+are expected stock behavior. The selected clock boot preserved GUI initialization
+and emitted both video cleanup events. In both configurations, normal blank-off
+and wake followed by another normal ACC cycle restored the original saved mode 3
+(current/last 0/3). Private clock-startup/stock-clock.json and ci-clock.json link
+the raw mode, ACC, camera and UART evidence under the same release evidence root.
+Normal Settings Uninstall after the clock trial again verified all 19 original
+hashes/metadata, saved absent touch NVRAM, original native/frontend paths and
+root read-only, with product state/runtime absent and saved display mode 3 intact.
+This adds the clock option under these conditions; physical wake controls,
+audio, timing and broader last-app coverage remain unqualified.
 
 The earlier missing-phone interpretation was premature. Fully stock live wired
 CarPlay accepted a virtual Right input while the phone and bridge were absent

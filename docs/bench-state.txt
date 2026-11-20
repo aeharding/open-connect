@@ -1,33 +1,38 @@
 2016 Mazda3 bench handoff — November 20, 2026
 
-Stock checkpoint after matched display-off qualification
-Current verified boot: 0b160a72-3c6e-4e3b-883c-55738728f8e9.
-The actual CI 44716935060/source ba941122 installation used for this comparison
-was removed through normal Settings Uninstall. All 19 intake hashes and metadata
+Stock checkpoint after blank/clock display-off qualification
+Current verified boot: 0bbb1826-5011-404a-970e-d0a50c7c1cfd.
+The clock comparison's actual CI 44716935060/source ba941122 installation was
+removed through normal Settings Uninstall. All 19 intake hashes and metadata
 match. Saved touch NVRAM is absent; original native/frontend paths are loaded;
 product persistent state, backups, runtime and startup staging are absent.
-Physical /dev/ffx01p1 root is ro,noatime. Bench owner access/recovery remain.
-The camera shows unobscured Mazda Home, Communication icon focused. No prompt
-or installer action is pending. ACC and DPS output are ON; settings remain
-12.02 V / 2 A. Do not resend previous input, power or install requests.
-All owned UART/camera/relay observers have finished and closed their handles.
-Verify actual identity and state before further operation.
+Physical /dev/ffx01p1 root is ro,noatime. Saved display current/last mode is 0/3,
+matching the starting state. Owner access and independent lab recovery remain.
+The final camera shows unobscured Mazda Home with Communication focused. No
+installer prompt or product transaction is pending. ACC and DPS output are ON;
+settings remain 12.02 V / 2 A. Do not resend previous input, power or install requests.
+All 19 clock-trial UART/camera observers completed and closed; all recorded
+artifact hashes/sizes match. ACC observers also closed relay handles. No owned
+bench operation is running. Re-identify actual state before further operation.
 
-Matched display-off comparison completed
-Stock and the actual CI bundle with Allow/Skip both retained the blank display
-after a sustained ACC interval and new kernel: modes 1/3 -> 1/1. The selected
-boot emitted both video cleanup events. Normal OEM software wake returned each
-to unobscured Home with 3/1. Further normal ACC cycles restored the original saved
-mode 3: current/last 0/3 on both. After the final UI uninstall, stock 0/3 was
-verified again. The clock option, physical controls and audio are not qualified.
-The original OEM Apple CarPlay enabled checkbox was visually restored after a
-bounded role inspection, before the CI installation; it was not changed again.
-Evidence: runs/v74-release-20261120T064850Z/startup-routes/, especially
-stock-display-off.json, ci-display-off.json and ci-uninstall/qualification.json.
-
-The removed display-off trial's package was
-62671ec10faab12e43a0c47274cb284d9b8cd3e137dd59931688acc13afa32bc;
-all 32 public entries plus private INSTANCE matched before its trials.
+Matched display-off comparisons completed
+Stock and the same actual CI bundle with Allow/Skip retained both display-off
+choices across sustained ACC and new kernels. Blank-off modes were 1/3 -> 1/1,
+then 3/1 on normal OEM software wake. Clock-off modes were 2/3 -> 2/2, then 4/2
+on wake. Both woke to unobscured Home. Selected boots emitted both video cleanup
+events. The original native exit function maps 1 -> 3 and 2 -> 4; this difference
+is expected. Normal OEM UI/ACC operations restored the original saved mode 3 in
+both configurations. Final stock after uninstall again reads 0/3.
+Physical wake/touch/commander, audio, timing/RAM and all-last-app coverage remain
+unqualified. The original OEM Apple CarPlay checkbox was restored ON before the
+blank/clock trials and was not changed during the clock comparison.
+Evidence: runs/v74-release-20261120T064850Z/startup-routes/ for blank-off;
+clock-startup/stock-clock.json, ci-clock.json, capture-validation.json and
+ci-uninstall/qualification.json for the clock case. One early SSH read during
+installation restart timed out; later readback completed without repeating Install.
+The removed clock-trial package was
+25d8784be8924d513018598e6f382346298af9e6dd2f609feb86f700e0fe2900;
+its 32 public entries matched, with private INSTANCE the sole addition.
 Original autostart SHA-256:
 a8d019650c2a17a50b5ff39435f916c2cbeb3556af128fd913b9714b380e06bd,
 metadata 775:1000:1000. No Open Connect installation is currently active.
@@ -108,8 +113,8 @@ No password was changed. UART still emits logs and a login prompt; the earlier
 user/jci attempt was rejected. UART login is unqualified; do not guess credentials.
 
 Next release checks
-- Broader last-app, clock-display and audio paths remain unqualified; the blank
-  display-off comparison is complete. Long-Home toggles CarPlay/last Mazda app,
+- Broader last-app and audio paths remain unqualified; matched blank and clock
+  display-off comparisons are complete. Long-Home toggles CarPlay/last Mazda app,
   not necessarily the main Home screen. Do not replay input from assumed focus.
 - Physical USB launch/replacement-drive maintenance, physical touch under a
   declared motion restriction and physical commander response remain unqualified.

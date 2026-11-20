@@ -26,8 +26,20 @@ the same owner key. Camera footage showed Mazda Home. The startup script and
 frontend index match the verified v74 package; Opera uses /jci/gui/index.html.
 The physical root is RO. No custom startup hook or extra SSH server is needed.
 The recovery USB remained mounted RO, with jci-autoupdate absent and its consumed
-marker present. Access did not rerun the USB payload on this restart. The stick
-can now be removed. A full supply-loss trial has not been performed on v74.
+marker present. Access did not rerun the USB payload on this restart. A full
+supply-loss trial has not been performed on v74.
+
+At the owner's request, the SanDisk USB was then cleared for separate test
+storage and left plugged in. Fresh USB identity, exact firmware/boot and mount
+checks bound the operation to SanDisk Dual Drive 0781:55a9, partition 60086272
+sectors, last mounted at /tmp/mnt/sdb1. All contents, including hidden host files,
+the recovery payload and saved firmware package, were removed. Recovery files
+and the result were backed up and matched; the verified original firmware
+package remains on the host. An actual write/read/delete check passed, the
+volume is empty and 30028416 KiB is free. The USB was synced and returned to
+Mazda's normal RO mount between tests; remount it RW for a bounded test write.
+Root SSH and the protected restore preflight still passed. Evidence and full
+USB serial: runs/usb-test-storage-20261120T055649Z/. Re-enumerate before writes.
 
 The protected original and independent restore script are under
 /data_persist/oc-bench-access-fw74/. restore.sh --check passed before and after
@@ -109,8 +121,9 @@ Next: replacement CMU
    observed a successful upgrade on this unit; this is not a general upgrade
    procedure or qualification of the v55 installer on v74. The unresolved old
    SliderCtrl failure and the v74 native code-placement blocker remain open.
-4. The owner proposed an Open Connect development menu for UART and SSH controls
-   after recovery. This remains a proposal; the recovery added no such menu.
+4. Developer options are tracked in issue #85: a UART console-login checkbox and
+   SSH enable/disable with public-key import. The import interaction and firmware
+   controls remain unqualified; the recovery added no such menu.
 
 Connections (adapter identities, not replacement-CMU identity)
 UART FT232R 0403:6001 serial A9048JM0, 115200/8N1; RTS/DTR inactive.

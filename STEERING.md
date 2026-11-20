@@ -1,6 +1,6 @@
 # Open Connect — living steering agreement
 
-Last updated: 2026-11-18, from the user's explicit direction.
+Last updated: 2026-11-20, from the user's explicit direction.
 
 Read this first when starting or resuming work. It records product intent and how
 we work; it is not a run log or an approval checklist. New user direction takes
@@ -25,13 +25,16 @@ tooling components or agent-hours is not a measure of product progress.
 
 Ship always-enabled touchscreen input and the startup disclaimer bypass together
 in the first production release. The owner plans the first real-car installation
-after bench validation on matching firmware. Cold-start CarPlay reliability follows.
+after bench validation on matching firmware. The agreed order is first v74
+release, a small developer menu, performance baselines, a dedicated Services menu
+with measured changes, then cold-start CarPlay reliability last.
 Keep the two user-facing actions **Install/update** and **Uninstall**. Running Install again reinstalls it using verified originals;
 interrupted-operation recovery is internal behavior, not a separate Repair option.
 Keep the USB install prompt short. During installation and its automatic restart,
 tell users not to remove the USB drive or turn off the car. Show completion after
 restart, say the USB drive can now be removed, and offer Done and Open settings.
-Use Mazda’s own Settings list and a separate radio-choice page for each preference.
+Use Mazda’s own Settings list and a separate radio-choice page for each feature
+preference. The developer controls described below use their agreed UI.
 Uninstall restores the pre-install startup and touchscreen behavior, then removes
 Open Connect's installed files, backups and transaction state. There is no Undo
 uninstall option; installing it again uses USB. Preserve backups until restoration
@@ -59,6 +62,10 @@ a long parked, cold start but is stable once running. Performance work should
 target that experience. The user reports the mod spoofs vehicle configuration
 and its developer plans direct wireless-setting enablement; neither the cause
 of lag nor the replacement implementation is established.
+Establish stock wired CarPlay early on the v74 bench for release compatibility
+checks and timing/RAM baselines. Keep this fixture separate from changes to
+native wireless enablement and cold-start behavior, which remain last in the
+agreed sequence. Wired results do not reproduce wireless-specific timings.
 
 Prefer native wireless CarPlay for everyday use, with explicit switching to an
 internet connection through a phone/home hotspot when needed. Wired CarPlay plus
@@ -72,6 +79,24 @@ performance settings are first-class feature candidates. Their dependencies,
 benefits and hardware applicability need evidence; reducing process counts or
 idle memory alone is not proof of a useful improvement. Similar feature scope is
 not a requirement to copy another product's implementation or defaults.
+The owner wants performance testing before service changes and a dedicated
+Services page in Open Connect Settings before CarPlay work. Include Miatafy's
+published timings in the baseline comparison, matching measurement definitions
+and conditions before claiming reproduction. See PLAN.md and issues #9 and #86.
+Maintain a dedicated [Performance evidence](docs/performance.md) section in the
+docs for timings and RAM, with comparable per-run results, methods, failures and
+regressions. RAM measurements during startup and matched workloads are required.
+A single Base optimizations on/off setting is the proposed way to group tested
+internal changes, such as reduced logging, if timing and RAM evidence support
+them. Qualify the complete bundle with individual service selections held fixed;
+contents and defaults remain undecided.
+
+For a future touchscreen follow-up, extend the preference to Factory behavior,
+Always enabled and Disabled (ghost touch). Complete disable must cover startup
+and normal use, including projection, while retaining commander navigation and
+independent recovery. The exact firmware mechanism and delivery slot remain
+unqualified; this does not expand the initial two-feature release. See
+[#87](https://github.com/aeharding/open-connect/issues/87).
 
 Every performance or optimization change needs comparable baseline and modified
 timing trials. Define the timed operation and conditions before the change, run
@@ -98,6 +123,18 @@ No per-helper manual activation, new CMU menu or graphical UI is needed. A thin
 semantic CLI reuses working tools; Python on the host and POSIX sh on the CMU are
 the initial implementation. Extend it only for concrete tasks. See docs/cli.md. Command-only ephemeral agents can test usability, while the primary
 retains ownership of live state and the complete outcome.
+
+After the first v74 release, ship a small **Developer options** page in Open
+Connect Settings before performance-baseline and Services work. The agreed
+controls are a UART console-login checkbox and SSH enable/disable with an Import
+public key option.
+Keep diagnostic logging separate from interactive login. The private key stays
+on the owner's computer. USB public-key import is a proposal; the exact import
+interaction, defaults and firmware login controls still need qualification.
+Show actual state and any restart requirement, preserve the pre-install access
+configuration for uninstall, and retain USB access/recovery when the UI is
+unavailable. This product feature is separate from the bench helper profile.
+See [#85](https://github.com/aeharding/open-connect/issues/85).
 
 ## Release implementation
 
@@ -141,9 +178,12 @@ A generic v55 label is not permission to apply patches to other v55 builds.
 
 Move the required baseline to the latest officially applicable North American
 release after package, upgrade sequence and development access are established.
-The Mazda-hosted **74.00.324A NA** package is now hash-verified for offline
-analysis. Applicability, upgrade sequence and access remain unqualified; this is
-not an upgrade instruction. The user reports 74.00.324 in the real car.
+The Mazda-hosted **74.00.324A NA** package is hash-verified, and owner-key
+development access has been demonstrated on that exact baseline. Feature
+qualification and a general documented upgrade route remain unresolved; this
+is not an upgrade instruction. The user reports 74.00.324 in the real car;
+confirm its exact build and region before installation. See the
+[v74 access evidence](docs/reverse-engineering.md#owner-key-access-after-the-replacements-v74-upgrade).
 The user wants modern firmware as the eventual requirement, not a growing
 multi-firmware support matrix. Historical experiments remain evidence after the move.
 Reject unsupported version/region/base before writes; do not auto-port offsets.

@@ -1,12 +1,22 @@
 # Measure CarPlay startup and lag
 
-**Measure the user's problem before tuning services:** a black screen at cold
-startup, followed by delayed or bunched touch/commander inputs. A faster Home
-screen or lower idle RAM is not enough.
+First qualify **stock wired CarPlay** as an early v74 bench fixture with a
+compatible hub and phone. Use it for release compatibility checks and the
+general [timing and RAM baselines](performance.md). Track setup in
+[#89](https://github.com/aeharding/open-connect/issues/89).
 
-This is the next experiment plan. Live CarPlay measurements await the compatible
-hub, phone and a qualified modern-firmware bench. Existing v55 results do not
-establish CarPlay performance.
+The owner's car already uses a mod enabling Mazda's **native wireless CarPlay**.
+Its long-parked startup can show a black screen and delayed or bunched inputs,
+then settles into reliable operation. Investigating and changing this wireless
+path is the final phase of the
+[roadmap](https://github.com/aeharding/open-connect/blob/main/PLAN.md), after
+Developer options, performance baselines and the Services/base-optimization work.
+
+Wired projection is the earlier measurement fixture; its results do not establish
+wireless reliability or reproduce Miatafy's wireless timings. In the final phase,
+measure the actual reported wireless symptom before choosing a wireless change.
+A faster Home screen or lower idle RAM is not enough. Existing v55 results do
+not establish CarPlay performance.
 
 ## Start with comparable runs
 
@@ -24,7 +34,8 @@ Test these separately:
 | Controlled ACC/resume | Vehicle-like lifecycle once ACC control is available |
 | Real car after a long park | Whether the reported symptom is reproduced |
 
-First compare stock **wired** CarPlay with one pinned **wireless mod**. This
+In the final wireless phase, compare stock **wired** CarPlay with one pinned
+**wireless mod**. This
 characterizes the symptom; it does not isolate the mod from the different
 transport. A later narrower wireless implementation should be compared against
 that same wireless baseline. Change one variable per experiment.

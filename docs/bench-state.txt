@@ -1,6 +1,6 @@
 2016 Mazda3 bench handoff — November 19, 2026
 
-Connected replacement CMU — first observed boot
+Connected replacement CMU — startup cleanup verified
 The replacement identified itself over receive-only UART as MAZ_CMU-150_59.00.441A,
 flavor cmu150_NA. Camera footage shows the Mazda logo, Home and startup warning.
 The diagnostic service reported CMU part number BHP1-669C0-H. The kernel
@@ -9,25 +9,31 @@ Physical touch and commander response still need observation. The bench camera
 faces the screen and the host has no identified actuator for either control.
 For remote menu navigation, both v55 and this v59 boot registered Mazda's
 Virtual Keyboard as input1. The v55 bench used it through an authenticated
-shell. On resume, the approved single root / jci login attempt returned
-"Login incorrect" and a new cmu login prompt. TX was exactly CR, root CR,
-jci CR; no retry or shell command was sent. Remote navigation on this
-replacement has not been exercised. Its shell access remains unresolved.
-The owner requested that the public default UART login be documented for
-onboarding. It is verified on the outgoing v55 unit, not this replacement.
+shell. The replacement's normal user / jci UART login is now verified, returning
+UID 1000. Its UID 0 account is named cmu; single root / jci and cmu / jci attempts
+were rejected. Do not repeat those attempts from the older handoff.
+Stock SSH is configured on port 36000 for key authentication. Authenticated root
+access remains unresolved. Remote navigation has not been exercised.
 The physical part label and prior modification history remain unknown.
-No authenticated shell, SSH login or installer attempt occurred.
+No authenticated root session, installer attempt or firmware upgrade occurred.
 The published installer requires exactly 55.00.750B NA.
 
-The resume boot again reported 59.00.441A / cmu150_NA and camera footage
-showed stock Home. The boot observer missed the login prompt because it
-preceded buffered kernel logs; that observer was stopped with zero UART TX.
-The separate login attempt above used the fresh normal login/password prompts.
-Replacement is now parked: ACC OFF, standby about 0.002 A, DPS150 output OFF
-and verified. Setpoints remain 12.02 V / 2 A. All owned UART, camera, relay
-and supply handles are closed; no device operation is running.
-Private evidence: runs/replacement-resume-20261119/; original first boot:
-runs/replacement-first-boot-u3TTxh/.
+The interrupted access session staged /data_persist/dev/bin/autorun and booted
+a temporary SSH listener on port 36001. Its connection attempt timed out.
+Cleanup matched the file's recorded checksum and metadata, saved a verified
+host backup, removed the hook and synced. A normal ACC shutdown and full supply
+cycle followed. Fresh boot f22b6e29-45ed-4a6c-8d36-9ecdd23da3fa verified:
+- exact 59.00.441A / cmu150_NA and a normal UID 1000 UART login;
+- no autorun or its staging file, no temporary access directory or port 36001 listener;
+- unchanged Mazda startup files, physical /dev/ffx01p1 root RO and Opera using
+  /jci/gui/index.html; camera footage showed stock Home.
+No account password or stock SSH configuration was changed by the temporary hook.
+Replacement is parked: ACC OFF, standby about 0.002 A, DPS150 output OFF and
+verified. Setpoints remain 12.02 V / 2 A. All owned UART, camera, relay and supply
+handles are closed; no device operation is running.
+Private evidence: runs/replacement-cleanup-20261119/; interrupted access:
+runs/replacement-v74-20261119/; earlier receive/login evidence:
+runs/replacement-resume-20261119/ and runs/replacement-first-boot-u3TTxh/.
 
 Old CMU cleanup complete; powered off
 The user reconnected the outgoing 55.00.750B NA/cmu150_NA unit for cleanup.
@@ -81,9 +87,10 @@ until the reboot is understood and the full flow passes. The docs/handoff work
 is separate so public download links and screenshots match the published bundle.
 
 Next: replacement CMU
-1. Resolve authenticated access on the confirmed replacement; the approved
-   root / jci attempt was rejected. Do not repeat it from the old handoff.
-   Once access is established, verify one focus movement at stock Home on
+1. Normal user UART access works; root access remains unresolved. The temporary
+   startup/SSH setup was removed at the owner's request; do not recreate it
+   from the interrupted session's scripts. Once suitable access is established,
+   verify one focus movement at stock Home on
    camera using the named Virtual Keyboard. Record the physical label, board
    identity and physical commander/touch observations separately when available.
 2. Establish the replacement's own SSH identity if SSH is used. Use the read-only

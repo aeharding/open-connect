@@ -124,6 +124,12 @@ Checksums detect damaged payloads; they are not a package-signing scheme.
 
 ## Low-level UART
 
+First [open the serial terminal and log in](bench-setup.md#first-boot) with
+Mazda's public default UART credentials: username `root`, password `jci`.
+This login is verified on the supported 55.00.750B NA bench.
+Close the terminal before running a live `oc` operation. The commands below
+do not log in automatically.
+
 ~~~sh
 .venv/bin/oc uart --help
 .venv/bin/oc uart --action identify

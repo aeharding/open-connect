@@ -70,12 +70,14 @@ var OpenConnectSettings = (function () {
                 // once before reporting it. Never resend the same request.
                 if (!valid(actual)) { actual = read(); }
                 if (valid(actual)) { saved = actual; }
-                if (!valid(actual) || (actual[key] !== requested && wanted[key] === requested)) {
+                var failed = !valid(actual) || (actual[key] !== requested && wanted[key] === requested);
+                if (failed) {
                     delete wanted[key];
                     prefs.failure = key;
-                    if (prefs.changed) { prefs.changed(); }
+                    if (prefs.changed) { prefs.changed(true); }
                 } else if (wanted[key] === requested) { delete wanted[key]; }
                 flush();
+                if (!failed && prefs.changed) { prefs.changed(false); }
             }
             try { store.write(key, saved[key], requested, finish); }
             catch (error) { finish(null); }
@@ -256,7 +258,19 @@ var OpenConnectSettings = (function () {
         }
         if (!render(null, 0)) { return false; }
         active = true;
-        prefs.changed = function () {
+        prefs.changed = function (failed) {
+            if (!failed) {
+                if (current() && choice === "developer" && !dismiss) {
+                    var values = prefs.values(), ctrl = page.list2Ctrl;
+                    if (!values) { return; }
+                    ctrl.dataList.items[2].disabled = prefs.pending() || typeof store.importKey !== "function";
+                    ctrl.dataList.items[3].text1 = "Current: UART " + (values.uartCurrent ? "on" : "off") +
+                        ", owner SSH " + (values.sshCurrent ? "on" : "off");
+                    ctrl.dataList.items[4].text1 = values.restart ? "Restart required to apply changes" : "Changes apply after restart";
+                    ctrl.updateItems(2, 4);
+                }
+                return;
+            }
             if (dismiss) { dismiss(); }
             if (current()) { render("unknown", 0); } else { close(); }
         };

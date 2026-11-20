@@ -19,7 +19,10 @@ const fw = {getCurrentApp: () => "syssettings", getCurrCtxtId: () => "SystemTab"
     instantiateTemplate(app, container, type, props) {
         assert.equal(type, "List2Tmplt"); assert.equal(app, "syssettings"); assert.equal(container, parent);
         const ctrl = props.List2Ctrl;
-        ctrl.updateItems = (first,last) => { assert.equal(first,0); assert.equal(last,1); };
+        ctrl.updateItems = (first,last) => {
+            if (first === 2) { assert.equal(last,4); }
+            else { assert.equal(first,0); assert.equal(last,1); }
+        };
         pages.push({ctrl, list2Ctrl: ctrl, divElt: {parentNode: parent}, events: [],
             cleanUp() { this.cleaned = true; }, handleControllerEvent(e) { this.events.push(e); return "consumed"; }});
         return pages.at(-1);
@@ -207,6 +210,7 @@ developerCtrl.selectCallback(developerCtrl, "ssh", {additionalData: 1});
 idle();
 assert.deepEqual(writes.at(-1), ["ssh", 0, 1]);
 values = {...values, ssh: 1}; reply(values);
+values = {...values, restart: false};
 developerCtrl.selectCallback(developerCtrl, "uart", {additionalData: 1});
 assert.equal(modal.props.title, "Enable UART root console?");
 modal.props.defaultSelectCallback(modal, "cancel");
@@ -214,7 +218,13 @@ assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 2);
 let uartCtrl = pages.at(-1).ctrl;
 uartCtrl.selectCallback(uartCtrl, "uart", {additionalData: 1});
 modal.props.defaultSelectCallback(modal, "enable");
+const savingUartPage = pages.at(-1);
+assert.equal(savingUartPage.ctrl.dataList.items[2].disabled, true);
+assert.equal(savingUartPage.ctrl.dataList.items[4].text1, "Changes apply after restart");
 idle();
 assert.deepEqual(writes.at(-1), ["uart", 0, 1]);
-values = {...values, uart: 1}; reply(values);
+values = {...values, uart: 1, restart: true}; reply(values);
+assert.equal(pages.at(-1), savingUartPage);
+assert.equal(savingUartPage.ctrl.dataList.items[2].disabled, false);
+assert.equal(savingUartPage.ctrl.dataList.items[4].text1, "Restart required to apply changes");
 back(); back();

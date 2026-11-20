@@ -81,6 +81,68 @@ was not tested on v74. It does not qualify Open Connect features or a general
 upgrade route. The installer still requires 55.00.750B NA. Private evidence:
 `runs/post-upgrade-20261120T052126Z/` and `runs/access-resume-20261120T053952Z/`.
 
+## V74 installer port and native code placement
+
+Fresh intake on **74.00.324A / cmu150_NA** matched the extracted originals.
+Both board GPIOs read 0 and the running Service Manager selected `sm.conf`.
+The port preserves Mazda's board decision and composes both `sm.conf` and
+`sm_WCP.conf`, rather than forcing one profile.
+
+The native library has no file padding after its RX segment at `0x6f79c`.
+The port inserts one `0x8000` alignment interval there, moves the original file
+tail, and updates the affected file-offset metadata with static linker-emitted
+words. Original virtual addresses and symbol values stay fixed. Original section
+bytes stay fixed except for the verified call-site word; the authored payload
+extends RX into the available virtual-address gap below
+`0x70000`. Standard Clang/LLD/objcopy produce the code and replacement words;
+the maintained shell composes them with this unit's hash-verified original.
+Independent host comparison checked every original section, symbol and program
+header. On the first installed boot, the loader mapped the composed UIA and MMUI
+libraries at their expected offsets with the physical root read-only.
+
+That first boot still displayed the disclaimer: the initial adapter intercepted
+the helper call at `0x83d4` in `UIA_SYSTEM_FocusChangeCallback`. Ordinary events,
+including ShowDisclaimer, instead reach `UIAHLP_ProcessContextEvent` from
+`UIA_SYSTEM_EventCallback` at **`0xbfb4`**. Its machine/context arguments resolve
+to `0x83dac` and `0x77d48`, and its nested event ABI matches the wrapper.
+The corrected adapter uses this ordinary-event call. On its next boot, the native
+trace went directly from Intro 1023 to Home 1015 and logged successful logo-service
+cleanup. A successful load alone had not established a working bypass.
+
+That correction exposed a separate visible failure: the new looping-logo surface
+still covered Home and the completion dialog. The paired renderer had sent
+`DisposeIntroVideo` after its transition, and the native logo state read 0, but
+v74's separate `NEWLOOPLOGO_SURFACE` was still running. Mazda's Disclaimer outgoing
+callback also sends `NotifyDisclaimerEnd`; its native handler stops the process
+named by `/var/run/newlooplogo.pid`. After checking that PID's actual splashplayer
+identity, sending that OEM event once exposed the completion screen. This was a
+manual mechanism check, not a clean startup pass. The maintained Intro completion
+callback now emits both events, in order, after the replacement screen completes.
+Its next update/restart reached visible completion without intervention: native
+logs recorded the bypass, the renderer emitted both events, and camera footage
+showed the completion dialog without the looping logo. Both preferences were
+retained. This is one startup result; repeated-start and recovery qualification
+remain separate checks.
+
+The first composition attempt exceeded the API response deadline while copying
+the native file one byte at a time. Its orphaned composition finished, but no
+transaction record or target changes followed. Reconciliation verified stock
+startup/metadata, absent touch NVRAM and the same boot. Buffered prefix/tail
+copies removed that bottleneck. The next attempt stopped before writes because
+the dependency-name validator rejected `sm_WCP.conf`'s underscore. The corrected
+lookup keeps the exact known-root-path mapping and rejects unknown names.
+
+Installation, automatic restart, completion, Open settings and the touchscreen
+radio page then ran on v74. The earlier v55 SliderCtrl reset did not recur in
+this check; its original cause remains unresolved. These are local-build,
+host-staged payload trials, not physical USB-insertion or CI-artifact qualification.
+Normal Settings Uninstall on the paired-renderer candidate restored startup and
+touch NVRAM, deleted the product state, and restarted into stock native mappings
+and frontend. All 19 initial file hashes and metadata matched the final intake;
+the physical root was read-only and no product runtime or startup stage remained.
+Private originals, host checks, compiled ARM assets, failed attempts, camera/UART observations and
+restore preflights remain in `runs/v74-release-20261120T064850Z/`.
+
 ## Native installer and Settings on v55
 
 Open Connect uses Mazda’s `Dialog3Ctrl` for install and completion. **Open settings**
@@ -448,7 +510,7 @@ reboot occurred. Source ordering is not proof of runtime fallback or cold startu
 optional runtime. Mazda's existing watchdog performs the reset; Open Connect
 must choose what runs afterward.
 
-The [one-shot selector](https://github.com/aeharding/open-connect/blob/main/tooling/open_connect/firmware55/selection.py)
+The [one-shot selector](https://github.com/aeharding/open-connect/blob/79b5b562086acfb615c50807395c21adae5e1e7c/tooling/open_connect/firmware55/selection.py)
 runs in /usr/bin/autostart before normal-mode setup, the Logger and Service
 Manager (SM). It consumes and flushes a trial record before choosing a fixed
 configuration. A spent record selects Mazda's original service configuration.
@@ -495,7 +557,7 @@ This proves feature selection and omission, not a new timing/no-flash result
 or qualification of every last-app/display-off route.
 
 Private evidence: `runs/selected-feature-v2/result.json`.
-The [reproduction guide](https://aeharding.github.io/open-connect/disclaimer-development/)
+The [reproduction guide](https://github.com/aeharding/open-connect/blob/79b5b562086acfb615c50807395c21adae5e1e7c/docs/disclaimer-development.md)
 builds from explicitly supplied private originals; none are published.
 
 ### A live process is not proof of a working UI
@@ -512,7 +574,7 @@ will cause a reboot. Automatic recovery from this kind of partial startup still
 needs a bounded health check outside the optional component.
 
 The corrected adapter splits the parent and relative library path within both
-limits. See the [feature builder](https://github.com/aeharding/open-connect/blob/main/tooling/open_connect/firmware55/generation.py).
+limits. See the [feature builder](https://github.com/aeharding/open-connect/blob/79b5b562086acfb615c50807395c21adae5e1e7c/tooling/open_connect/firmware55/generation.py).
 Private failed trial, diagnosis and recovery: `runs/selected-feature/result.json`.
 
 ### Normal does not mean the GUI initialized
@@ -666,7 +728,7 @@ baseline boot passed automatically, followed by exact hook restoration/hold clea
 
 Both closed videos showed Home. CPU/RAM/I/O samples were captured, but different
 boot ages and audio-profile conditions prevent a performance comparison.
-[Reproduce the developer workflow](cli.md#developer-feature-trial).
+[Historical developer workflow](https://github.com/aeharding/open-connect/blob/79b5b562086acfb615c50807395c21adae5e1e7c/docs/cli.md#developer-feature-trial).
 A later clean-checkout preview run passed both selected startup and independent
 Disable/baseline startup automatically, without reconciliation or reboot retry.
 This confirms the short-command workflow on the bench; it does not broaden the

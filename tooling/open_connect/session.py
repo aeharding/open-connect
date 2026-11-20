@@ -344,11 +344,14 @@ done < /jci/version.ini"""
 def verify_identity(output):
     lines = output.replace(b"\r\n", b"\n").splitlines()
     ids = [line for line in lines if re.match(rb"uid=[0-9]+\(", line)]
-    if len(ids) != 1 or not re.match(rb"uid=0\(root\)(?: |$)", ids[0]):
+    if len(ids) != 1:
+        raise ProtocolError("fresh unambiguous root id response required")
+    account = re.match(rb"uid=0\((root|cmu)\)(?: |$)", ids[0])
+    if account is None:
         raise ProtocolError("fresh unambiguous root id response required")
     expected = {
-        b"JCI_SW_VER": b"MAZ_CMU-150_55.00.750",
-        b"JCI_SW_VER_PATCH": b"B",
+        b"JCI_SW_VER": b"MAZ_CMU-150_74.00.324",
+        b"JCI_SW_VER_PATCH": b"A",
         b"JCI_SW_FLAVOR": b"cmu150_NA",
     }
     for key, value in expected.items():
@@ -359,7 +362,7 @@ def verify_identity(output):
         ]
         if observed != [value]:
             raise ProtocolError("firmware baseline missing, ambiguous, or changed: " + key.decode())
-    return dict(uid=0, user="root", firmware="55.00.750B", flavor="cmu150_NA")
+    return dict(uid=0, user=account[1].decode(), firmware="74.00.324A", flavor="cmu150_NA")
 
 
 class Session:

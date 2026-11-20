@@ -7,4 +7,5 @@
                 // GuiFramework has completed the incoming transition and hidden
                 // outgoing native surfaces before calling this lifecycle hook.
                 framework.sendEventToMmui("system", "DisposeIntroVideo");
+                framework.sendEventToMmui("system", "NotifyDisclaimerEnd");
             }.bind(this),

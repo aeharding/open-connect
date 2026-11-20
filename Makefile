@@ -19,16 +19,13 @@ NATIVE_FLAGS = --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard \
     -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector
 
 .PHONY: release native
-release: native $(OUT)/api $(OUT)/flush $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin)
+release: native $(OUT)/api $(OUT)/flush $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin count-pointer.bin)
 	sh tooling/package-usb.sh "$(OUT)"
 
-native: $(OUT)/native.bin $(OUT)/branch.bin $(OUT)/sizes.bin
+native: $(OUT)/native.bin $(OUT)/branch.bin $(OUT)/sizes.bin $(OUT)/layout.bin
 
 $(OUT):
 	mkdir -p "$@"
-
-$(OUT)/receiver: cmu/startup/ready-receiver.c | $(OUT)
-	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
 
 $(OUT)/api: cmu/installer/api.c | $(OUT)
 	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
@@ -64,3 +61,6 @@ $(OUT)/branch.bin: $(OUT)/patch.elf
 
 $(OUT)/sizes.bin: $(OUT)/patch.elf
 	$(OBJCOPY) -O binary --only-section=.sizes "$<" "$@"
+
+$(OUT)/layout.bin: $(OUT)/patch.elf
+	$(OBJCOPY) -O binary --only-section=.layout "$<" "$@"

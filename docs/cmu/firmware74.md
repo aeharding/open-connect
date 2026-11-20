@@ -1,9 +1,9 @@
 # Preparing the move to firmware 74
 
-**The installer still supports only 55.00.750B NA.** This is the offline porting
-record for **74.00.324A / cmu150_NA**, plus the replacement-bench intake sequence.
-It does not enable v74 installation or establish an upgrade procedure. Once the
-move is qualified, v74 replaces v55 as the one required baseline.
+**Current source targets exactly 74.00.324A / cmu150_NA; release qualification
+is in progress.** This records the input analysis and local porting evidence.
+It does not establish a general firmware upgrade procedure. Earlier v55 releases
+remain historical; there is one maintained baseline.
 
 ## Verified input
 
@@ -18,7 +18,7 @@ OEM programs or update a CMU. The renderer check runs extracted JavaScript in No
 with mocked dependencies. Full extracted files and disassembly stay private.
 
 These SHA-256 values identify the principal porting inputs. Matching them is
-necessary evidence for a future exact-base adapter, not a supported-device verdict.
+the exact-base inputs used by the adapter, not a supported-device verdict.
 
 | CMU path | SHA-256 |
 | --- | --- |
@@ -42,15 +42,16 @@ necessary evidence for a future exact-base adapter, not a supported-device verdi
 
 The existing normal-mode anchor is still present once in `autostart`. After that
 anchor, v74 runs `get_board_type.sh` and starts the Service Manager with either
-`SMCFG_NORMALMODE` (`sm.conf`) or `SMCFG_WCPMODE` (`sm_WCP.conf`). The current Open
-Connect hook assigns only `SMCFG_NORMALMODE`. Reusing it unchanged can leave the
+`SMCFG_NORMALMODE` (`sm.conf`) or `SMCFG_WCPMODE` (`sm_WCP.conf`). The old v55 Open
+Connect hook assigned only `SMCFG_NORMALMODE`. Reusing it unchanged can leave the
 wireless branch outside our selected configuration.
 
 Preserve the actual board branch and compose from its verified original service
 configuration. Do not force the normal configuration onto a wireless board or
 change board detection as part of installing the two features. Include both
 configuration inputs in original/dependency checks if both branches are supported
-by the selected baseline. The stock board script reads GPIOs `DI_TP1056` and
+by the selected baseline. The port composes both profiles and preserves this
+decision. The stock board script reads GPIOs `DI_TP1056` and
 `DI_TP1029`; an asserted input selects board result 2. Capture those inputs and
 the live Service Manager command line before deciding which path the unit uses.
 The persistent `ublox.txt` marker alone does not establish hardware identity.
@@ -70,28 +71,32 @@ system UI library, symbol and table analysis establishes:
 | Disclaimer Yes continuation | Event **411**, cell index **239**, **12 ordered rules**, VA `0x89198` |
 | Intro exit | `UIA_SYSTEM_CheckForSystemWarning`, VA `0x1db88` |
 | Logo state | `uiaSystem_tranLogoState`, VA `0x8b2b0` |
-| Focus callback call site | VA `0x83d4` calls `UIAHLP_ProcessContextEvent` through PLT `0x6aac` |
+| Ordinary-event callback call site | VA `0xbfb4` calls `UIAHLP_ProcessContextEvent` through PLT `0x6aac`; this carries ShowDisclaimer |
+| Separate focus callback call site | VA `0x83d4` calls the same helper for focus changes |
 
 Indices above are zero-based. The lookup array stores row/column/cell triples;
 its row and column labels are one-based, while the cell index is zero-based.
 The timeout continuation includes display-off restoration and CarPlay-specific
 branches. The Yes continuation omits the display-off rule. Preserve the ordered
 stock continuation rather than hard-coding Home or substituting the Yes path.
-The manager library is a separate changed dependency: its event handling and
-focus-granted/denied behavior must be rechecked before implementing the adapter.
+The manager library is a separate changed dependency. The port binds its exact
+hash, checks the nested event ABI, and tests granted/denied focus in the host C
+contract. Broader real startup paths remain qualification work.
 
-There is also a code-placement blocker. The v74 executable `PT_LOAD` ends at
+The v74 executable `PT_LOAD` ends at
 file offset **`0x6f79c`**, where the writable segment's file bytes immediately
 begin (mapped at VA `0x7779c`). There is no file padding there for the current
 append-and-extend technique. Extending the executable segment and writing our
 payload there would overwrite live data. The old v55 injection offset `0x48c00`
-also falls inside v74 code. Choose and verify a new placement/loading method
-before building a native candidate; neither old offset is usable as a shortcut.
+also falls inside v74 code. The maintained port now inserts an aligned file
+interval while preserving virtual addresses; its first loader check passed.
+See the [port and failure evidence](../reverse-engineering.md#v74-installer-port-and-native-code-placement).
+This does not qualify the complete release.
 
 The MMUI plugin has a different layout too: its executable segment ends at
-`0x3dc4` and its writable segment begins at file offset `0x4000`. The current
-`mmui.S` path, length and pointer words are v55-specific. Locate the v74 XML-path
-consumer and verify any candidate padding and relocations independently.
+`0x3dc4` and its writable segment begins at file offset `0x4000`. The port
+patches both XML-path consumers (counting and loading), using verified padding
+and standard assembler-emitted length/pointer words.
 
 ### Renderer, Settings and touch
 
@@ -99,15 +104,20 @@ consumer and verify any candidate padding and relocations independently.
 framework are not. The v74 `IntroAnimation` still has no
 `noLongerDisplayedFunction`; BaseApp still supplies that lifecycle callback, and
 GuiFramework hides outgoing native surfaces before calling it from
-`_templateTransitionCompleteCallback`. This supports reusing our authored cleanup
-behavior. Inserting the unchanged 600-byte CRLF fragment from `intro.js` at byte
+`_templateTransitionCompleteCallback`. The initial offline check inserted the old
+600-byte CRLF cleanup fragment at byte
 **17463**, immediately after the IntroAnimation opening brace, produces SHA-256
 `d8ee047077e2ae714b57f7e4de94b7801c8d73d490ba9f9e982f1276ae9ae3c9`.
-The candidate passed Node syntax checking and the existing
+That initial candidate passed Node syntax checking and the existing
 `tests/fixtures/disclaimer-behavior.js` against the actual v74 BaseApp dispatcher:
 no early disposal, one completion event, stock Disclaimer cleanup, duplicate
 notification handling and lost-focus cleanup. This is offline lifecycle evidence;
-native surfaces and visible transitions still need a CMU trial.
+the subsequent CMU trial found a second cleanup requirement. V74's Disclaimer
+outgoing callback also sends `NotifyDisclaimerEnd`, which stops its separate
+new looping-logo surface. The current paired callback emits both stock events
+after transition completion. Its 677-byte insertion produces SHA-256
+`c88a9b6053b6e1e23ceb3ccc25882281543008f369492c060f1a777357f81da8`.
+See the [native and visible failure evidence](../reverse-engineering.md#v74-installer-port-and-native-code-placement).
 Do not reuse the v55 insertion offset or composed-file hash. Settings must
 also be checked against the new `syssettingsApp.js`, including list refresh,
 radio selection, Back, and the About row's positional assumptions.

@@ -27,5 +27,6 @@ Keep the displayed message when [reporting the problem](https://github.com/aehar
 Follow [Quick start](usb-installer.md) and choose **Install**. Your old Open Connect
 preferences are not retained.
 
-If you previously uninstalled v0.2.0-dev.1, its files remain for the old Undo
-feature. Insert the current installer USB and choose **Uninstall** to delete them.
+The earlier v55 development releases have their matching maintenance bundles
+in the [release archive](https://github.com/aeharding/open-connect/releases).
+The current source targets v74; cross-firmware maintenance is not promised.

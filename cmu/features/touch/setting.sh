@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Firmware 55.00.750B NA installer primitive. The caller saves the pre-install
+# Firmware 74.00.324A NA installer primitive. The caller saves the pre-install
 # value before calling change and retains it for uninstall.
 set -eu
 export LC_ALL=C
@@ -28,12 +28,12 @@ case "${1:-}:$#" in
     *) exit 64 ;;
 esac
 awk '
-    $0 == "JCI_SW_VER=\"MAZ_CMU-150_55.00.750\"" {v++}
-    $0 == "JCI_SW_VER_PATCH=\"B\"" {p++}
+    $0 == "JCI_SW_VER=\"MAZ_CMU-150_74.00.324\"" {v++}
+    $0 == "JCI_SW_VER_PATCH=\"A\"" {p++}
     $0 == "JCI_SW_FLAVOR=\"cmu150_NA\"" {f++}
     END {exit !(v==1 && p==1 && f==1)}
 ' /jci/version.ini || exit 65
-[ "$(md5sum < /jci/lvds/lvds_service)" = '6bb6b50fb459f3a152b6528efbf5a95c  -' ] || exit 65
+[ "$(md5sum < /jci/lvds/lvds_service)" = '1d3e74362d4a97814a9f0fb316ff583f  -' ] || exit 65
 
 if [ "$1" = change ]; then
     # Serialize Open Connect operations. Other services may also own NVRAM.

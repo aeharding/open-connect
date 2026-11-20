@@ -42,12 +42,14 @@ COMPILED = (
     "native.bin",
     "branch.bin",
     "sizes.bin",
+    "layout.bin",
     "mmui-path.bin",
     "mmui-sizes.bin",
     "mmui-length.bin",
     "mmui-pointer.bin",
+    "mmui-count-pointer.bin",
 )
-PAYLOAD = (*STATIC, *COMPILED, "touch.sh", "LICENSE")
+PAYLOAD = (*STATIC, *COMPILED, "layout.txt", "touch.sh", "LICENSE")
 
 
 class UsbBuild(unittest.TestCase):
@@ -96,6 +98,10 @@ class UsbBuild(unittest.TestCase):
                 self.assertEqual(z.read(TRIGGER), b"")
                 for name in STATIC:
                     self.assertEqual(z.read("open-connect/" + name), (ASSETS / name).read_bytes())
+                self.assertEqual(
+                    z.read("open-connect/layout.txt"),
+                    (ROOT / "cmu/features/disclaimer/layout.txt").read_bytes(),
+                )
                 for name in (n for n in PAYLOAD if n.endswith(".sh")):
                     subprocess.run(["sh", "-n"], input=z.read("open-connect/" + name), check=True)
                 rows = [
@@ -110,9 +116,10 @@ class UsbBuild(unittest.TestCase):
                     )
             self.assertEqual(
                 struct.unpack("<II", (output / "sizes.bin").read_bytes()),
-                (0x48C00 + len((output / "native.bin").read_bytes()),) * 2,
+                (0x6F79C + len((output / "native.bin").read_bytes()),) * 2,
             )
-            self.assertLessEqual(len((output / "native.bin").read_bytes()), 1024)
+            self.assertLessEqual(0x6F79C + len((output / "native.bin").read_bytes()), 0x70000)
+            self.assertEqual(len((output / "layout.bin").read_bytes()), 68)
             self.assertEqual(len((output / "branch.bin").read_bytes()), 4)
             again = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=60)
             self.assertNotEqual(again.returncode, 0)
@@ -126,7 +133,7 @@ class UsbBuild(unittest.TestCase):
             package = root / "tmp/mnt/sda1/open-connect"
             package.mkdir(parents=True)
             (root / "version").write_text(
-                'JCI_SW_VER="MAZ_CMU-150_55.00.750"\nJCI_SW_VER_PATCH="B"\nJCI_SW_FLAVOR="cmu150_NA"\n'
+                'JCI_SW_VER="MAZ_CMU-150_74.00.324"\nJCI_SW_VER_PATCH="A"\nJCI_SW_FLAVOR="cmu150_NA"\n'
             )
             tools = root / "tools"
             tools.mkdir()

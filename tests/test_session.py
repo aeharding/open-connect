@@ -32,8 +32,8 @@ from open_connect.session import (
 TOKEN = "a" * 32
 ROOT = Path(__file__).resolve().parents[1]
 IDENTITY_OUTPUT = (
-    b"uid=0(root) gid=0(root)\nLinux cmu 3.0.35\n"
-    b'JCI_SW_VER="MAZ_CMU-150_55.00.750"\nJCI_SW_VER_PATCH="B"\n'
+    b"uid=0(cmu) gid=0(root)\nLinux cmu 3.0.35\n"
+    b'JCI_SW_VER="MAZ_CMU-150_74.00.324"\nJCI_SW_VER_PATCH="A"\n'
     b'JCI_SW_FLAVOR="cmu150_NA"\n'
 )
 
@@ -208,11 +208,19 @@ class SessionTests(unittest.TestCase):
         self.assertEqual((self.bundle.path / "tx.bin").read_bytes(), bytes(t.tx))
 
     def test_identity_must_be_fresh_root_and_expected_firmware(self):
-        self.assertEqual(verify_identity(IDENTITY_OUTPUT)["firmware"], "55.00.750B")
+        self.assertEqual(verify_identity(IDENTITY_OUTPUT)["firmware"], "74.00.324A")
+        self.assertEqual(verify_identity(IDENTITY_OUTPUT)["user"], "cmu")
+        self.assertEqual(
+            verify_identity(IDENTITY_OUTPUT.replace(b"uid=0(cmu)", b"uid=0(root)"))["user"],
+            "root",
+        )
         for bad in (
-            IDENTITY_OUTPUT.replace(b"uid=0(root)", b"uid=1000(user)"),
-            IDENTITY_OUTPUT + b'JCI_SW_VER_PATCH="B"\n',
-            IDENTITY_OUTPUT.replace(b"55.00.750", b"55.00.800"),
+            IDENTITY_OUTPUT.replace(b"uid=0(cmu)", b"uid=1000(user)"),
+            IDENTITY_OUTPUT + b'JCI_SW_VER_PATCH="A"\n',
+            IDENTITY_OUTPUT.replace(b"74.00.324", b"74.00.325"),
+            IDENTITY_OUTPUT.replace(b"74.00.324", b"55.00.750").replace(
+                b'JCI_SW_VER_PATCH="A"', b'JCI_SW_VER_PATCH="B"'
+            ),
         ):
             with self.assertRaises(ProtocolError):
                 verify_identity(bad)

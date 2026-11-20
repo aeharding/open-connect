@@ -81,7 +81,7 @@ class ShellSession:
 
     def identify(self):
         return verify_identity(
-            b'uid=0(root) gid=0(root)\nJCI_SW_VER="MAZ_CMU-150_55.00.750"\nJCI_SW_VER_PATCH="B"\nJCI_SW_FLAVOR="cmu150_NA"\n'
+            b'uid=0(root) gid=0(root)\nJCI_SW_VER="MAZ_CMU-150_74.00.324"\nJCI_SW_VER_PATCH="A"\nJCI_SW_FLAVOR="cmu150_NA"\n'
         )
 
 

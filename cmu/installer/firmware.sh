@@ -5,37 +5,40 @@
 
 original_files() {
     cat <<'ORIGINALS'
-b91b2c5a5b7d036860321da730ad571dbae9164d2632946f6566238c3cd42e31 autostart /usr/bin/autostart
-52dac9b051ab02a07afdc7bdfac56402420f8230901b5a55a76a7e9c44fb2e08 sm.conf /jci/sm/sm.conf
-2c2c0494817b13a38c36a8276a39899b4096efc217e82568fe3842f8b34bb025 mmui.so /jci/mmui/svcjcimmui.so
-c94446b8c6e5bde79607514d3eb41036a3f56914d2d3f418605110bc250be0d0 mmui.xml /jci/mmui/mmui_config.xml
-acf24ffd3719a29d2b4eefe80855ef6f164852fe3464858d07ca2d956395d302 uia.so /jci/mmui/uia/libjciuiasystem.so
+a8d019650c2a17a50b5ff39435f916c2cbeb3556af128fd913b9714b380e06bd autostart /usr/bin/autostart
+fa3484d7c644393ab6cb083990e483201129a207e7755459296dde8ec82a4d84 sm.conf /jci/sm/sm.conf
+92034449e76689b995fcd369d584f441829a0ee6e8d74c858cd92f4049f7b27d sm_WCP.conf /jci/sm/sm_WCP.conf
+2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da board.sh /jci/scripts/get_board_type.sh
+034d5339116aa2f2da81ec6caaf3426081c452544f3b527af3a2121b7a7e0bca mmui.so /jci/mmui/svcjcimmui.so
+ef9550fa084a34b6a997d2e488c41e50667b409fa2e6ad9c896429c74dc705f0 mmui.xml /jci/mmui/mmui_config.xml
+32431c6b74c8ba531fcc10c50748075416e0f7dc1a3f903f182d816a0f3f5fc2 uia.so /jci/mmui/uia/libjciuiasystem.so
 b0e116b941f29078ced19b864a1b888cf76d8bc3e4974af081efca4693e5c420 index.html /jci/gui/index.html
-985cbcbeb1dedf11b76f61ffa1224e43165f80d8eb9c8d5d853d118d2eec3432 system-app.js /jci/gui/apps/system/js/systemApp.js
-54c1e498bd430a59dccd3e204661d48864d093e6aa51999a5c35bccaa0801690 base-app.js /jci/gui/framework/js/BaseApp.js
+23106b04bd6bad514dd879b217a34a0f0289d58f86a0ae022488be6a022ca8e1 system-app.js /jci/gui/apps/system/js/systemApp.js
+a83dd588b54531475024b7cd048be1d0e11556abd68bbbcc334cc5ede7534cd1 settings-app.js /jci/gui/apps/syssettings/js/syssettingsApp.js
+1489e544e483c878fa000be378a3bbb92dcc9965aadc5029a58f3fc1147337da base-app.js /jci/gui/framework/js/BaseApp.js
 ORIGINALS
 }
 
 firmware_dependencies() {
     original_files
-    printf '%s\n' '0c32ab6dc6833d287d363c3ff63998450cce97121ace994930276c4adb28474b manager.so /jci/lib/libjciuiamgr.so'
+    printf '%s\n' '1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29 manager.so /jci/lib/libjciuiamgr.so'
 }
 
 firmware_guard() {
     test "$(id -u)" = 0 || fail root_required
-    awk '$0=="JCI_SW_VER=\"MAZ_CMU-150_55.00.750\""{v++}
-         $0=="JCI_SW_VER_PATCH=\"B\""{p++}
+    awk '$0=="JCI_SW_VER=\"MAZ_CMU-150_74.00.324\""{v++}
+         $0=="JCI_SW_VER_PATCH=\"A\""{p++}
          $0=="JCI_SW_FLAVOR=\"cmu150_NA\""{f++}
          END{exit !(v==1&&p==1&&f==1)}' /jci/version.ini || fail unsupported_firmware
-    test "$(md5sum < /jci/gui/framework/js/GuiFramework.js)" = 'e90530cdb9b05922bdcaade8757ea1f9  -' || fail unsupported_framework
-    test "$(md5sum < /jci/lvds/lvds_service)" = '6bb6b50fb459f3a152b6528efbf5a95c  -' || fail unsupported_display
+    test "$(md5sum < /jci/gui/framework/js/GuiFramework.js)" = '0228bd6330c544eb500dacd7b00a9e79  -' || fail unsupported_framework
+    test "$(md5sum < /jci/lvds/lvds_service)" = '1d3e74362d4a97814a9f0fb316ff583f  -' || fail unsupported_display
     awk '$1=="/dev/mmcblk0p2"&&$2=="/tmp/mnt/data_persist"&&$3=="relfs"{
         n++;split($4,a,",");for(i in a)if(a[i]=="rw")rw++} END{exit !(n==1&&rw==1)}' /proc/mounts || fail persistence_unavailable
     for path in /tmp /tmp/mnt /tmp/mnt/data_persist; do directory "$path" || fail invalid_persistence_path; done
 }
 
 native_guard() {
-    test "$(md5sum < /jci/lib/libjciuiamgr.so)" = '8ce49f8bc9833c48a3a89e5c4c683ddc  -' || fail unsupported_manager
+    test "$(sha /jci/lib/libjciuiamgr.so)" = 1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29 || fail unsupported_manager
 }
 
 originals_verify() {
@@ -62,6 +65,26 @@ originals_save() {
     originals_verify || fail originals_changed
 }
 
+compose_native() {
+    local package=$1 original=$2 target=$3 destination source extra
+    # Retain all original virtual addresses. The exact v74 ELF has no file
+    # padding after RX: move its complete file tail by one 0x8000 alignment.
+    # LLD emits code/relocations and replacement metadata words; this only
+    # composes those bytes with the unit's already hash-verified original.
+    head -c 456604 "$original" > "$target" || return 1
+    dd if=/dev/zero bs=32768 count=1 2>/dev/null >> "$target" || return 1
+    tail -c 217443 "$original" >> "$target" || return 1
+    dd if="$package/native.bin" of="$target" bs=1 seek=456604 conv=notrunc 2>/dev/null || return 1
+    dd if="$package/branch.bin" of="$target" bs=1 seek=49076 conv=notrunc 2>/dev/null || return 1
+    dd if="$package/sizes.bin" of="$target" bs=1 seek=68 conv=notrunc 2>/dev/null || return 1
+    while read -r destination source extra; do
+        case "$destination" in ''|*[!0-9]*) return 1;; esac
+        case "$source" in ''|*[!0-9]*) return 1;; esac
+        test -z "$extra" || return 1
+        dd if="$package/layout.bin" of="$target" bs=1 skip="$source" seek="$destination" count=4 conv=notrunc 2>/dev/null || return 1
+    done < "$package/layout.txt"
+}
+
 compose() (
     set -eu
     # $1 is the public package's content ID. Original bytes stay on this unit.
@@ -69,25 +92,24 @@ compose() (
     hex "$1" 64 && verify_manifest "$package" && originals_verify || fail compose_inputs_invalid
     if ! absent "$D/composed/$1"; then verify_manifest "$D/composed/$1" || fail composed_files_changed; return; fi
     work=$(mktemp -d "$D/composed/.new-XXXXXX") || fail compose_create_failed
-    cp "$D/originals/uia.so" "$work/uia.so" || fail compose_copy_failed
-    dd if="$package/native.bin" of="$work/uia.so" bs=1 seek=297984 conv=notrunc 2>/dev/null || fail compose_patch_failed
-    dd if="$package/branch.bin" of="$work/uia.so" bs=1 seek=32468 conv=notrunc 2>/dev/null || fail compose_patch_failed
-    dd if="$package/sizes.bin" of="$work/uia.so" bs=1 seek=68 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    compose_native "$package" "$D/originals/uia.so" "$work/uia.so" || fail compose_patch_failed
     cp "$D/originals/mmui.so" "$work/mmui.so" || fail compose_copy_failed
-    dd if="$package/mmui-path.bin" of="$work/mmui.so" bs=1 seek=16184 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    dd if="$package/mmui-path.bin" of="$work/mmui.so" bs=1 seek=15812 conv=notrunc 2>/dev/null || fail compose_patch_failed
     dd if="$package/mmui-sizes.bin" of="$work/mmui.so" bs=1 seek=68 conv=notrunc 2>/dev/null || fail compose_patch_failed
-    dd if="$package/mmui-length.bin" of="$work/mmui.so" bs=1 seek=10860 conv=notrunc 2>/dev/null || fail compose_patch_failed
-    dd if="$package/mmui-pointer.bin" of="$work/mmui.so" bs=1 seek=12796 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    dd if="$package/mmui-length.bin" of="$work/mmui.so" bs=1 seek=7112 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    dd if="$package/mmui-count-pointer.bin" of="$work/mmui.so" bs=1 seek=7368 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    dd if="$package/mmui-length.bin" of="$work/mmui.so" bs=1 seek=10688 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    dd if="$package/mmui-pointer.bin" of="$work/mmui.so" bs=1 seek=12540 conv=notrunc 2>/dev/null || fail compose_patch_failed
     sed 's@name="system" libpath="/jci/mmui/uia/" lib="libjciuiasystem.so"@name="system" libpath="/tmp/open-connect/feature/" lib="uia.so"@' \
         "$D/originals/mmui.xml" > "$work/mmui.xml" || fail compose_xml_failed
     # The supported original has CRLF line endings. Insert authored JS bytes.
-    dd if="$D/originals/system-app.js" bs=1 count=16132 2>/dev/null > "$work/system-app.js" || fail compose_javascript_failed
+    dd if="$D/originals/system-app.js" bs=1 count=17463 2>/dev/null > "$work/system-app.js" || fail compose_javascript_failed
     sed 's/$/\r/' "$package/intro.js" > "$work/intro" || fail compose_javascript_failed
-    test "$(wc -c < "$work/intro")" -eq 602 || fail javascript_fragment_changed
-    head -c 600 "$work/intro" >> "$work/system-app.js" || fail compose_javascript_failed
+    test "$(wc -c < "$work/intro")" -eq 679 || fail javascript_fragment_changed
+    head -c 677 "$work/intro" >> "$work/system-app.js" || fail compose_javascript_failed
     rm "$work/intro" || fail compose_cleanup_failed
-    dd if="$D/originals/system-app.js" bs=1 skip=16132 2>/dev/null >> "$work/system-app.js" || fail compose_javascript_failed
-    test "$(sha "$work/system-app.js")" = 28413b8bbdfc21bf1e63dd8c4a25f8229f688f6a3f6d62c3ad651c039f00f3cc || fail javascript_composition_failed
+    dd if="$D/originals/system-app.js" bs=1 skip=17463 2>/dev/null >> "$work/system-app.js" || fail compose_javascript_failed
+    test "$(sha "$work/system-app.js")" = c88a9b6053b6e1e23ceb3ccc25882281543008f369492c060f1a777357f81da8 || fail javascript_composition_failed
     for setting in on off; do
         awk -v route="$package/system-route.js" -v selected="$setting" '
             /<head>/{print;print "        <base href=\"file:///jci/gui/\" />";print "        <meta name=\"open-connect-token\" content=\"@TOKEN@\" />";next}
@@ -95,18 +117,25 @@ compose() (
             /<\/body>/{print "        <script src=\"file:///tmp/open-connect/runtime/runtime.js\" type=\"text/javascript\"></script>"}
             {print}
         ' "$D/originals/index.html" > "$work/index-$setting.html" || fail compose_index_failed
-        sed 's@args="-u /jci/gui/index.html"@args="-u /tmp/open-connect/feature/index.html"@' "$D/originals/sm.conf" > "$work/sm-$setting.conf" || fail compose_config_failed
+        for profile in normal wcp; do
+            if test "$profile" = normal; then name=sm.conf; else name=sm_WCP.conf; fi
+            sed 's@args="-u /jci/gui/index.html"@args="-u /tmp/open-connect/feature/index.html"@' \
+                "$D/originals/$name" > "$work/sm-$profile-$setting.conf" || fail compose_config_failed
+            if test "$setting" = on; then
+                sed 's@name="jciMMUI" path="/jci/mmui/svcjcimmui.so"@name="jciMMUI" path="/tmp/open-connect/feature/mmui.so"@' \
+                    "$work/sm-$profile-$setting.conf" > "$work/sm.next" || fail compose_config_failed
+                mv "$work/sm.next" "$work/sm-$profile-$setting.conf" || fail compose_config_failed
+            fi
+        done
     done
-    sed 's@name="jciMMUI" path="/jci/mmui/svcjcimmui.so"@name="jciMMUI" path="/tmp/open-connect/feature/mmui.so"@' \
-        "$work/sm-on.conf" > "$work/sm-on.next" || fail compose_config_failed
-    mv "$work/sm-on.next" "$work/sm-on.conf" || fail compose_config_failed
     awk -v hook="$package/startup-hook.sh" '
         {print}
         $0=="        echo $MESSAGE_NORMALMODE" {while((r=getline line < hook)>0)print line;if(r<0)exit 1;close(hook);n++}
         END{if(n!=1)exit 1}
     ' "$D/originals/autostart" > "$work/autostart" || fail startup_anchor_missing
     sh -n "$work/autostart" || fail startup_syntax
-    for name in autostart uia.so mmui.so mmui.xml system-app.js index-on.html index-off.html sm-on.conf sm-off.conf; do
+    for name in autostart uia.so mmui.so mmui.xml system-app.js index-on.html index-off.html \
+        sm-normal-on.conf sm-normal-off.conf sm-wcp-on.conf sm-wcp-off.conf; do
         chmod 600 "$work/$name" || fail compose_mode_failed
         digest=$(sha "$work/$name") && hex "$digest" 64 || fail compose_hash_failed
         printf '%s  %s\n' "$digest" "$name" || fail compose_manifest_failed
@@ -199,14 +228,13 @@ nvram_change() { sh "$P/touch.sh" change "$1" "$2" >/dev/null; }
 dependency_path() {
     local scope=${1%%/*} name=${1#*/} id folder
     test "$scope/$name" = "$1" && test -n "$name" || return 1
-    case "$name" in .|..|*[!a-zA-Z0-9.-]*) return 1;; esac
+    case "$name" in .|..|*[!a-zA-Z0-9_.-]*) return 1;; esac
     case "$scope" in
-        root) firmware_dependencies | awk -v n="$name" '$2==n && n!="autostart"{print $3;found++} END{if(found!=1)exit 1}';;
+        root) firmware_dependencies | awk -v n="$name" '$2==n && n!="autostart"{print $3;found++} END{if(found!=1)exit 1}'; return;;
         package-*) id=${scope#package-}; folder=packages;;
         composed-*) id=${scope#composed-}; folder=composed;;
         *) return 1;;
     esac
-    test "$scope" = root && return
     hex "$id" 64 && private_dir "$D/$folder/$id" || return 1
     printf '%s\n' "$D/$folder/$id/$name"
 }

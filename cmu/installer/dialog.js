@@ -113,12 +113,12 @@ var OpenConnectInstaller = (function () {
         };
         if (installed || retained) { buttons.button3 = {label: "Uninstall", appData: "uninstall"}; }
         return show(fw, installed || retained ? "Open Connect" : "Install " + name(version) + "?",
-            installed ? "Open Connect is installed." : "Mazda Connect will restart once.", buttons, onChoice);
+            "Do not remove the USB drive or turn off the car during installation.", buttons, onChoice);
     }
 
     // The installation owner calls this only after verifying the installed build.
     function complete(fw, version, onChoice) {
-        return show(fw, name(version) + " installed", "Installation complete.", {
+        return show(fw, name(version) + " installed", "Installation complete. You can now remove the USB drive.", {
             button1: {label: "Done", appData: "done"},
             button2: {label: "Open settings", appData: "settings"}
         }, onChoice);

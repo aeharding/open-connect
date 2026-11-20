@@ -21,15 +21,15 @@ for(const next of ['HomeScreen','Disclaimer']){
  events.length=0;const a=app(next),t=a._outgoingContextTemplate;
  assert.equal(events.length,0); // constructing/readying never disposes
  sandbox.BaseApp.prototype._templateNoLongerDisplayed.call(a,t);
- assert.equal(events.length,next==='Disclaimer'?0:1);
- if(events.length)assert.deepEqual(events[0],['system','DisposeIntroVideo']);
+ assert.equal(events.length,next==='Disclaimer'?0:2);
+ if(events.length)assert.deepEqual(events,[['system','DisposeIntroVideo'],['system','NotifyDisclaimerEnd']]);
  assert.equal(a._outgoingContext,null);
  // OEM clears outgoing ownership: duplicate notification cannot dispatch again.
  sandbox.BaseApp.prototype._templateNoLongerDisplayed.call(a,t);
- assert.equal(events.length,next==='Disclaimer'?0:1);
+ assert.equal(events.length,next==='Disclaimer'?0:2);
 }
 events.length=0;const lost=app(null,true);
 sandbox.BaseApp.prototype._templateNoLongerDisplayed.call(lost,lost._currentContextTemplate);
-assert.deepEqual(events,[['system','DisposeIntroVideo']]);
+assert.deepEqual(events,[['system','DisposeIntroVideo'],['system','NotifyDisclaimerEnd']]);
 assert.equal(lost._currentContextTemplate,null);
-console.log('PASS actual OEM lifecycle: no early disposal, native completion event once, stock Disclaimer owns its cleanup, lost-focus cleanup');
+console.log('PASS actual OEM lifecycle: no early disposal, stock cleanup events once, Disclaimer owns its cleanup, lost-focus cleanup');

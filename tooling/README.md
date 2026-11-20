@@ -1,7 +1,7 @@
 # Bench tooling and release build
 
 `oc` is a host-side CLI for bench instrumentation: UART access, the development
-profile, controlled feature trials, observation and recovery. `open_connect/` is
+profile, observation and file recovery. `open_connect/` is
 its Python package. Installing that package installs tools on your computer,
 not on the CMU. See [CLI usage](../docs/cli.md).
 
@@ -19,15 +19,14 @@ release must work without `oc`, host Python, SSH or a connected computer.
 The [installer development guide](../docs/installer-development.md) describes the standalone installer and
 its current qualification limits.
 
-- feature.py: bench prepare, trial, status and disable operations. Its module
-  entry prepares and inspects private bench fixtures, outside the `oc` CLI.
-- firmware55/: private bench fixture preparation and validation for the supported firmware.
-- device/: staging, file publication, startup observation and independent disable.
+- device/: finite video capture, bounded data staging and generic file publication.
+- elf.py: read-only ARM ELF metadata inspection for private host checks.
 - session.py, uart.py, files.py: serial transport and exact-file operations.
 - bench.py: the runtime development profile.
 
-Target source and shell templates live in cmu/; maintained tests live in tests/.
-The installed package must match the checkout supplied to a feature operation.
+Target source lives in cmu/; maintained tests live in tests/. The optional
+private validation entry is tests/check_firmware.py. The obsolete v55 one-shot
+builder, selector and Home supervisor are retained in Git history.
 
 Make/LLVM compiles the native assets using standard tools. The public build uses
 neither the Python package nor private OEM files.

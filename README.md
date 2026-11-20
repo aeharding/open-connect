@@ -5,8 +5,9 @@ startup behavior, unused services, logging/performance, controls and connectivit
 The first USB installer keeps the touchscreen enabled and skips the startup
 disclaimer, with preferences and uninstall in Mazda Settings.
 
-**Bench-tested development prerelease.**
-The supported firmware is exactly **55.00.750B North America**.
+**V74 release qualification is in progress.**
+Current source targets exactly **74.00.324A North America / cmu150_NA**.
+The earlier v55 development downloads are historical releases.
 See [Quick start](docs/usb-installer.md) for installation and availability, or
 [Build and test the installer](docs/installer-development.md) for development.
 
@@ -38,15 +39,15 @@ Exact firmware checks use private OEM inputs and report explicit skips without t
 
 | Path | Purpose |
 | --- | --- |
-| [tooling/open_connect/](tooling/open_connect/) | Host CLI, firmware builders and device operations |
+| [tooling/open_connect/](tooling/open_connect/) | Host bench CLI, capture and file validation |
 | [cmu/](cmu/) | Code and templates that run on the CMU |
 | [tests/](tests/) | Maintained host, shell and build checks |
 | [Makefile](Makefile) | Standard native build and USB packaging, without Python or OEM inputs |
 | [docs/](docs/index.md) | User guides, development instructions and CMU research |
 
-Installing the Python package installs host tools only. Building a feature uses
-the checkout's target sources and your private OEM inputs; it does not install it.
-Generated firmware files are never included in the package.
+Installing the Python package installs host tools only. The USB release builds
+without OEM inputs; optional private checks validate its composition against
+originals. OEM-containing outputs stay under ignored runs/.
 
 [Contributing](CONTRIBUTING.md) · [Roadmap](PLAN.md) · [Working agreement](STEERING.md)
 

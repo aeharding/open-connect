@@ -80,7 +80,7 @@ done <<'FILES'
 FILES
 
 printf '\n[service-manager configuration and loaded GUI/native paths]\n'
-for name in sm jci opera; do
+for name in sm jci opera sm_svclauncher; do
     pids=$(pidof "$name") || pids=
     if test -z "$pids"; then printf 'NOT_RUNNING %s\n' "$name"; continue; fi
     for pid in $pids; do

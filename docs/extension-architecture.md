@@ -119,7 +119,7 @@ explain the evidence and limits.
 
 ## Next proof
 
-- **Repeatability:** use the [developer CLI](cli.md#developer-feature-trial) for
+- **Repeatability:** use the [maintained installer workflow](installer-development.md) for
   further measured trials. Repeated healthy starts and last-app/display-off
   qualification are needed before treating Home as a broader health policy.
   [Actual signal and limits](reverse-engineering.md#a-home-specific-acknowledgement).
@@ -130,6 +130,6 @@ explain the evidence and limits.
 
 The standalone USB installer development prerelease includes persistent startup
 for the installed features. Its transaction and lifecycle checks are described
-in the USB guide. The bench's limited trial policy remains instrumentation.
+in the USB guide. The superseded one-shot trial policy is retained in Git history.
 No general plugin framework is needed.
 Track the work in [#25](https://github.com/aeharding/open-connect/issues/25).

@@ -77,7 +77,7 @@ var OpenConnect = (function (previous) {
         busy = true;
         queued = null;
         closeDialog();
-        message("Open Connect", "Applying changes. Please leave the power on.",
+        message("Open Connect", "Applying changes. Do not remove the USB drive or turn off the car.",
             {button1: {label: "Close", appData: "close"}}, function () {});
         request(operation, args, function (answer) {
             busy = false;
@@ -85,7 +85,7 @@ var OpenConnect = (function (previous) {
             closeDialog();
             if (!valid(answer)) { error(answer); return; }
             if (answer.restart || operation === "uninstall") {
-                message("Open Connect", "Changes saved. Mazda Connect is restarting.",
+                message("Open Connect", "Restarting. Do not remove the USB drive or turn off the car.",
                     {button1: {label: "Close", appData: "close"}}, function () {});
                 request("restart", null, function (reply) {
                     if (!valid(reply)) { queued = null; closeDialog(); error(reply); }

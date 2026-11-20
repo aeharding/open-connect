@@ -1,10 +1,51 @@
-2016 Mazda3 bench handoff — November 19, 2026
+2016 Mazda3 bench handoff — November 20, 2026
+
+V74 local qualification checkpoint — stock restored
+Work is on feature/v74-installer, based on main 79b5b56. The public installer
+remains v0.2.0-dev.2 for exact v55; this branch is not a published v74 release.
+Current boot: 072b92d3-28c6-4f35-af33-070fcf15ffcf. Normal Settings Uninstall
+restored the original startup bytes and 775:1000:1000 metadata, restored absent
+touch NVRAM, removed the product directory and restarted into stock code.
+All 19 intake file hashes and metadata match. Actual MMUI/UIA mappings are the
+original /jci paths; Opera uses /jci/gui/index.html, the Service Manager uses
+sm.conf, physical root is RO, and product runtime, selection and startup stages
+are absent. Root SSH still works. ACC and supply remain ON, with no relay or
+supply commands sent during these trials. All owned handles are closed.
+
+Fresh originals, source-bound builds, failures, camera/UART observations and the
+comparison are private under runs/v74-release-20261120T064850Z/. See
+qualification.json and stock-intake/. The final tested local build is
+build-v74-renderer; its selected boot was 4bbe6c86-66f2-4b89-a28d-14ee6621327f,
+package 36e557eab0f54406f5cf0804c30a2321230e70fdb7cd47e195dcfd6d59b50878.
+It updated with both preferences retained, bypassed the disclaimer, cleared both
+startup-video layers and reached visible completion without intervention.
+Open settings and full removal then passed through the normal UI. Earlier trials
+found the wrong callback and missing second OEM cleanup event; those failures
+are retained, not counted as clean startup passes. Findings are in
+docs/reverse-engineering.md#v74-installer-port-and-native-code-placement.
+
+Independent guarded emergency restore (not the normal uninstall):
+/tmp/mnt/data_persist/oc-bench-v74-20261120T064850Z/restore.sh --check
+accepts only this unit's original/composed startup hashes and absent/disable touch
+values. --restore restores startup/NVRAM; restart is still required to unload RAM
+code. It preserves the product record for reconciliation. The original, native
+flush helper and touch primitive are retained beside it. Its preflight passed;
+restoration itself is unexercised. This is separate from owner SSH recovery below.
+
+After retiring the v55 one-shot builder, all 116 retained offline host tests
+passed (2 skips). The new maintained private checker passed its 5 ELF/composition
+tests, 4 native host-contract cases and actual v74 BaseApp lifecycle check.
+Evidence: offline-migration.log and maintained-check-formatted/. These are local host-staged
+payload trials; CI-artifact, physical USB-insertion, repeated-start/recovery,
+physical-input and wired-CarPlay feature qualification remain. No PR merge or
+release publication is claimed. The superseded v55 host trial builder is now retired; the replacement checker
+uses Make and the maintained target composer without generating release logic.
 
 Connected replacement CMU — v74 root SSH recovered and restart verified
 The owner completed the update from 59.00.441A NA to 74.00.324A NA. Fresh root
 SSH now verifies MAZ_CMU-150_74.00.324, patch A, flavor cmu150_NA. This is the
 replacement bench, not the old supported v55 unit. The public installer still
-requires exactly 55.00.750B NA; no Open Connect feature was installed on v74.
+requires exactly 55.00.750B NA. The later local feature trials are described above.
 
 The interrupted session prepared and safely ejected the recovery USB from the
 Mac. The owner inserted it into the CMU during this session. Its one-use payload
@@ -41,6 +82,19 @@ Mazda's normal RO mount between tests; remount it RW for a bounded test write.
 Root SSH and the protected restore preflight still passed. Evidence and full
 USB serial: runs/usb-test-storage-20261120T055649Z/. Re-enumerate before writes.
 
+The owner subsequently connected an iPhone SE (iPhone8,4, iOS 15.8.8) to the CMU
+and reported CarPlay up. Its battery was 100%; the brief charging indicator is
+consistent with normal charge completion, not evidence of a supply fault. No
+charging or supply settings were changed. Before the move, the Mac validated
+its existing USB trust; the phone is no longer connected to the Mac by USB.
+Fresh pinned SSH still works. Kernel messages record the iPhone enumerating,
+the expected host-to-gadget transition, iap_ncm configuration and usb0 link ready.
+The Ethernet adapter is now at USB 2-1.3 and no removable USB volume is mounted;
+the empty SanDisk test drive is no longer present in that inventory. The owner
+report and link evidence establish connection, not measured responsiveness,
+audio, repeated-start or charging-current qualification. Evidence:
+runs/wired-carplay-connection-20261120T064405Z/.
+
 The protected original and independent restore script are under
 /data_persist/oc-bench-access-fw74/. restore.sh --check passed before and after
 the restart; restoration itself was not exercised. Running it without --check
@@ -53,8 +107,9 @@ preparation is in runs/post-upgrade-20261120T052126Z/. Earlier v59 originals and
 access evidence remain under runs/replacement-root-ssh-20261119/; do not replay
 the v59 repair or its guarded restore on v74.
 
-ACC and supply output are left ON. Supply setpoints were not changed. All owned
-UART, camera, relay and SSH handles are closed; no host bench operation is running.
+ACC and supply output are left ON. Supply setpoints were not changed. Access
+recovery closed its owned handles; see the active qualification state above before
+opening bench resources.
 Physical touch and commander response on this replacement still need observation.
 The physical part label and prior modification history remain unknown.
 
@@ -110,17 +165,16 @@ until the reboot is understood and the full flow passes. The docs/handoff work
 is separate so public download links and screenshots match the published bundle.
 
 Next: replacement CMU
-1. Complete the read-only v74 intake and preserve this unit's originals/metadata
-   and touch NVRAM before feature writes. See
-   docs/cmu/firmware74.md#replacement-bench-sequence. Capture the actual board
-   GPIOs and Service Manager branch; do not reuse v59 or old-CMU cleanup guards.
-2. Qualify physical touch and commander operation, then one camera-observed
-   focus movement through Mazda's named Virtual Keyboard. Input registration
-   alone does not establish these controls work.
-3. Follow PLAN.md for the v74 port and complete release qualification. The owner
-   observed a successful upgrade on this unit; this is not a general upgrade
-   procedure or qualification of the v55 installer on v74. The unresolved old
-   SliderCtrl failure and the v74 native code-placement blocker remain open.
+1. Complete independent review and CI-artifact qualification, including fresh
+   install from empty state, USB
+   insertion, repeated starts, conflict/interruption recovery and wired CarPlay.
+2. Physical touch, the declared motion restriction and physical commander response
+   still need qualification. Virtual Keyboard inputs operated the stock UI,
+   CarPlay and installer pages; they do not establish physical controls work.
+3. Follow PLAN.md for the complete release. The observed owner upgrade is not a
+   general upgrade procedure. The old SliderCtrl fault's cause remains unresolved;
+   the failure did not recur in the first v74 Open settings check. Native code
+   placement now has host and first-load evidence, not full release qualification.
 4. Developer options are tracked in issue #85: a UART console-login checkbox and
    SSH enable/disable with public-key import. The import interaction and firmware
    controls remain unqualified; the recovery added no such menu.

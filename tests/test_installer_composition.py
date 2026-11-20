@@ -15,6 +15,19 @@ ASSETS = ROOT / "cmu/installer"
 
 
 class InstallerComposition(unittest.TestCase):
+    def test_wcp_dependency_resolves_without_accepting_unknown_paths(self):
+        driver = (
+            'set -eu; . "$1/state.sh"; . "$1/firmware.sh"\n'
+            "dependency_path root/sm_WCP.conf\n"
+            "for name in root/not_known.conf root/../sm_WCP.conf root//sm_WCP.conf; do\n"
+            '    if dependency_path "$name"; then exit 1; fi\n'
+            "done\n"
+        )
+        result = subprocess.run(
+            ["sh", "-c", driver, "test", ASSETS], capture_output=True, text=True, check=True
+        )
+        self.assertEqual(result.stdout, "/jci/sm/sm_WCP.conf\n")
+
     def test_each_failed_patch_write_refuses_publication(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
@@ -28,22 +41,29 @@ class InstallerComposition(unittest.TestCase):
                 "native",
                 "branch",
                 "sizes",
+                "layout",
                 "mmui-path",
                 "mmui-sizes",
                 "mmui-length",
                 "mmui-pointer",
+                "mmui-count-pointer",
             ):
                 (root / "packages" / package / (name + ".bin")).write_bytes(b"patch")
-            wrapper = root / "tools/dd"
-            wrapper.write_text(
-                "#!/bin/sh\nset -eu\n"
-                'n=$(cat "$COUNT"); n=$((n+1)); echo "$n" > "$COUNT"\n'
-                'if test "$n" = "$FAIL_AT"; then exit 42; fi\n'
-                + "exec "
-                + shlex.quote(shutil.which("dd"))
-                + ' "$@"\n'
+            shutil.copyfile(
+                ROOT / "cmu/features/disclaimer/layout.txt",
+                root / "packages" / package / "layout.txt",
             )
-            wrapper.chmod(0o700)
+            for command in ("dd", "head", "tail"):
+                wrapper = root / "tools" / command
+                wrapper.write_text(
+                    "#!/bin/sh\nset -eu\n"
+                    'n=$(cat "$COUNT"); n=$((n+1)); echo "$n" > "$COUNT"\n'
+                    'if test "$n" = "$FAIL_AT"; then exit 42; fi\n'
+                    + "exec "
+                    + shlex.quote(shutil.which(command))
+                    + ' "$@"\n'
+                )
+                wrapper.chmod(0o700)
             backend = (ASSETS / "backend.sh").read_text().splitlines()
             error_handler = next(line for line in backend if line.startswith("fail()"))
             invocation = next(
@@ -59,7 +79,9 @@ class InstallerComposition(unittest.TestCase):
                 + invocation
                 + "\n"
             )
-            for fail_at in range(1, 8):
+            # Prefix/gap/tail, payload/branch/sizes, every ELF layout word,
+            # and all six MMUI writes must fail closed in the backend caller.
+            for fail_at in range(1, 30):
                 with self.subTest(write=fail_at):
                     (root / "count").write_text("0\n")
                     result = subprocess.run(

@@ -182,11 +182,36 @@ incorrect: stock wired CarPlay and input worked while those entries were absent
 and the CMU's USB device-controller interface was UP. See the
 [display and USB-role findings](reverse-engineering.md#display-off-startup-and-usb-role-on-v74).
 
-A distinct replacement-USB launch, physical touch under a declared motion
-restriction, physical commander response, broader startup/audio routes and
-matching-car installation remain release gates. A visible Show disclaimer is
-unqualified under other startup conditions; the tested warm route matched stock's
-logo-to-Home behavior. No qualified v74 download or vehicle-ready claim is made.
+A freshly extracted copy of the current OEM-only CI bundle also passed manual
+SD maintenance: Install/update, automatic restart, completion and Open settings.
+It retained Factory/Show and the original backup base. All 32 public entries in
+the installed package/runtime matched CI; private INSTANCE was the sole addition.
+This qualifies maintenance from fresh payload contents through the existing SD
+bench path. The earlier physical USB insertion evidence retains its own source
+identity; this is not another physical insertion test. No spare USB is required
+for the bench maintenance check. Supporting record:
+runs/v74-release-20261120T064850Z/release-batch/maintenance-qualification.json.
+
+Show also produced a camera-visible warning after both normal ACC startup and
+Mazda's controlled `GenericReboot(0)`. The earlier `/sbin/reboot` case selected
+Mazda's unexpected-shutdown logo branch, which covered the warning until it ended.
+Its logo-to-Home outcome remains recorded under those original conditions.
+
+Normal Settings Uninstall after that fresh-SD reinstall also passed, removing
+both owned packages/state and restoring all 19 intake hashes and mode/UID/GID,
+saved absent touch NVRAM, original loaded native/frontend and read-only root.
+A subsequent stock ACC start displayed the warning with live factory touch
+configuration; normal long-Home returned the actual wired CarPlay grid.
+
+The current bundle also resumed Fuel Economy Monitor after matched normal ACC
+starts with Allow/Skip and Factory/Show. Both saved DriverInfo category 3 and
+returned to the visible app using their respective selected/original native
+routes. This adds a distinct startup continuation; audio playback is outside it.
+
+Physical touch under a declared motion restriction, physical commander response,
+remaining applicable startup/audio routes and matching-car installation remain
+release gates.
+No qualified v74 download or vehicle-ready claim is made.
 
 ### Historical v55 releases
 

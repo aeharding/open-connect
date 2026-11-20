@@ -9,6 +9,8 @@ Historical plans, ready profiles and assignments are evidence, not current autho
 The primary coordinates implementation, tests, bench operation, recovery and
 integration. Use subagents through Herdr when helpful; teammates are equals and
 should have room to solve their work. Keep live bench ownership serialized.
+Create fresh Herdr agents; do not reuse the owner's previously open sessions.
+Use --no-parent --no-notify so inherited context cannot route updates into them.
 Use ephemeral reviewers for focused independent reviews.
 Answer the user promptly; status questions do not cancel ongoing work.
 Complete the release path; do not deliver another standalone prototype increment.

@@ -41,7 +41,11 @@ uninstall option; installing it again uses USB. Preserve backups until restorati
 is durably verified, and let a compatible USB finish interrupted cleanup. If other
 modifications conflict, stop without overwriting them. See docs/uninstall.md.
 Maintenance uses a compatible replacement USB stick; the original stick is not
-required. Arbitrary old-package compatibility is not promised.
+required. Validate independence from old contents using freshly prepared media.
+The SD bench path may qualify installer maintenance; keep its manual launch distinct
+from the separately verified USB-insertion path. Do not require a spare USB
+stick or Mac-attached storage for this check.
+Arbitrary old-package compatibility is not promised.
 Original-backup restoration is as-found restoration, not a factory reset.
 
 USB maintenance should feel OEM: use Mazda's normal UI for concise progress,
@@ -227,6 +231,9 @@ label it explicitly rather than treating it as delivery of the requested feature
 Check relevant prior art early, then compare it against Mazda's actual behavior.
 
 Each experiment must answer one concrete question that changes the next decision.
+Explore and experiment aggressively within the agreed scope: prefer short,
+bounded tests and batches of related release checks, then consolidate findings.
+Do not let repeated evidence handling or per-step publication dominate the work.
 Infrastructure, checks and documentation earn their scope by supporting that
 question. Reuse tested orchestration and check the real entry point before live
 work; do not attribute avoidable runner failures to missing hardware.
@@ -250,6 +257,8 @@ moving without repeated confirmation.
 - The primary coordinates the complete outcome. Use subagents through Herdr
   when helpful. Teammates are equals: trust their judgment and give them room to
   solve their assigned work. Keep bench ownership explicit and serialized.
+  Create fresh agents for this work; do not reuse or notify the owner's
+  previously open sessions. Disable inherited Herdr parent notifications.
 - Decide routine implementation details and continue authorized work without
   repeated permission gates. Surface a concrete new risk or missing dependency
   when it changes the experiment; do not invent hypothetical approval chains.

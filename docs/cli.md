@@ -130,5 +130,8 @@ cat wayland-screenshot.png
 CMU
 ~~~
 
+The PNG captures Mazda’s Wayland surface. CarPlay can use a separate projection
+plane, so use a hardware camera to establish what that screen actually shows.
+
 This uses the system SSH client. A built-in SSH transport for `oc` is tracked
 in [issue #15](https://github.com/aeharding/open-connect/issues/15).

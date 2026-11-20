@@ -1,166 +1,110 @@
-2016 Mazda3 bench handoff — November 20, 2026
+2016 Mazda3 bench — November 20, 2026
 
-OEM-only CI verified — restored stock with live CarPlay
-Current verified boot: d5903246-ad71-4103-b2a0-6c54b17dee38.
-Normal Settings Uninstall restored all 19 intake hashes/metadata, saved absent
-NVRAM and original loaded native/frontend code. Display is 0/3, physical root
-ro,noatime; product state/runtime/startup staging are absent. No Open Connect
-installation is active. Actual panel shows wired CarPlay; projection and Ethernet
-counters increased during three successful SD manifest reads. iPhone, Ethernet
-and FAT32 SD remain connected. All 11 observers are sealed/closed and all 109
-artifacts match; UART/camera/supply handles are closed. Supply ON at unchanged
-12.02 V / 2 A. No relay commands were sent.
+Restored feature baseline, wired CarPlay visible
+Current verified boot: cb6b85de-f372-4b90-b354-32b886a41253.
+Normal Settings Uninstall after fresh-SD reinstall removed both owned packages,
+all product state/runtime and startup staging. All 19 intake SHA-256 values and
+mode/UID/GID independently match. Original native/frontend paths are loaded;
+touch NVRAM is absent, live LVDS configuration is 1/restriction 0, saved resume
+category is Other (6), display is 0/3 and physical root is ro,noatime.
+A subsequent actual ACC shutdown/start displayed the stock warning. One normal
+long-Home from the observed Home screen returned to the actual CarPlay grid.
+Phone, Ethernet and FAT32 SD remain connected; usb0 carrier was 1. Native audio
+helper status was independently read false. UART/camera/relay/supply handles are
+closed; owned SSH forwards ended and loopback port 43019 has no listener.
+Relay override is OFF; actual relay ACC control works. No supply command was sent
+in this batch; its last verified settings remain ON at 12.02 V / 2 A.
 
-Actual CI 44798623680 / source 14919e145463ce4e410cd58d9075d9708a5da138
-passed SD-staged fresh install, automatic restart, completion, Open settings and
-normal Settings Uninstall. All 32 public entries matched the installed package
-and runtime; INSTANCE was the sole addition. Allow/Skip were selected and the
-native hook executed. Removed package:
-8218a5242c3b05e3a65ab8530d689f12670fdbffbc688118894c0dce828f9a44.
-Public manifest: 4069690f7b0c96df38fe539997dd52c4e7b7869805fa594ec9c43616cef5fae1.
-ZIP SHA-256: 28181c1058ba9c440b015e35339a3459a72753ea78ed078ac172d0e407d4f49a.
+Evidence: runs/v74-release-20261120T064850Z/release-batch/, especially
+final-stock-qualification.json, uninstall-qualification.json,
+maintenance-qualification.json, driverinfo-comparison.json,
+active-input-qualification.json and the corresponding sealed observers.
+Capture validation covers touch-ui/ and release-batch/: 49 sealed/closed
+observers, 472 matching artifacts. Six incomplete captures retain their actual
+host-guard/deadline/UI-readiness or module-reset failures; they are not passes.
+The row-selection mistake's Tool Tips/VR changes were restored to their recorded
+checked states, with screenshots, before continuing. A transient DOM read overlay
+expired; all target trial programs cleared on subsequent reboots. No helper hook
+was added. Source-backed findings belong in docs/reverse-engineering.md.
 
-Limits: opening Communication before stock warm restart did not establish a
-new saved last-app case; LastAppType remained 6. Stock logs entered Disclaimer,
-but camera samples showed logo then Home; visible Show remains unqualified.
-The stock warm restart left projection inactive. After product removal, one
-bounded output-only OFF/ON restored the link; normal long-Home foregrounded it.
-No physical input, motion, playback, timing/RAM or car result is claimed.
-An early SSH read was refused during automatic install restart. A later host
-reader used a nonexistent snapshot/state filename; the corrected maintained
-read passed. Neither caused a repeated installation request.
+Last tested product: CI 44798623680 / source 14919e1, VERSION 0.3.0-dev.1.
+Fresh SD contents passed maintenance reinstall, completion, Open settings and
+subsequent normal Settings Uninstall. All 32 public installed/runtime entries
+matched CI; private INSTANCE was the sole addition. Factory/Show and the original
+backup base survived reinstall. The temporary second package and backups were
+then removed by normal uninstall; no product installation is active.
+ZIP SHA256:28181c1058ba9c440b015e35339a3459a72753ea78ed078ac172d0e407d4f49a.
+Manifest:4069690f7b0c96df38fe539997dd52c4e7b7869805fa594ec9c43616cef5fae1.
+Earlier ba941122 and retired c0cc169 evidence keeps its actual source identity.
+No qualified v74 download or matching-car result exists. Published v0.2.0-dev.2
+is historical v55. Current required firmware is exactly 74.00.324A NA/cmu150_NA.
 
-Evidence: runs/v74-release-20261120T064850Z/oem-last-app/, including
-ci-identity.json, installed-qualification.json, uninstall-qualification.json,
-final-stock-qualification.json, capture-validation.json and raw observers.
-Earlier #98/compatibility captures retain c0cc169; that allowance is retired.
-Earlier ba941122 USB/SD results retain their original identities and launch
-methods in the knowledge docs. This new SD launch is not replacement-USB proof.
+Persistent changes and later undo
+Restoration covers feature files and the touch key; firmware, owner access and
+retained media remain as listed. Normal UI navigation can save Mazda state.
+- Firmware remains 74.00.324A NA, upgraded by the owner from 59.00.441A. No downgrade
+  or firmware undo is qualified. Product uninstall does not undo that upgrade.
+- Owner access: /etc/ssh/sshd_config retains the added
+  /data_persist/oc-bench-access-fw74/authorized_keys.%u alongside Mazda's path.
+  /tmp/mnt/data_persist/oc-bench-access-fw74 holds the public key, saved config,
+  installed digest and guarded restore.sh. Its --check returns UNDO_READY.
+  Do not run it without --check during feature work. Restoration followed by
+  restart removes this owner access path; retain another way to regain access
+  before retiring it. Actual access restoration is unexercised. No password changed.
+- Inactive /tmp/mnt/data_persist/oc-bench-access holds old v59 access files;
+  v74 does not reference them. Never run that v59 restore against v74.
+- Independent feature recovery remains at
+  /tmp/mnt/data_persist/oc-bench-v74-20261120T064850Z with original autostart,
+  touch.sh, flush and restore.sh, and no automatic hook. --check is read-only;
+  --restore is emergency feature restoration, preserves the product record and
+  requires restart to unload selected RAM code. It is distinct from normal
+  uninstall; actual emergency restoration remains unexercised.
+- Product state/runtime/backups are absent after verified normal uninstall.
+- FAT32 SD UUID 213E-C5B2, reader 0424:4040 serial 000008264001, currently mounts at
+  /tmp/mnt/sd_nav. It retains /open-connect (fresh 14919e1),
+  /open-connect-pre-maintenance-14919e1, /open-connect-c0cc169 and
+  /open-connect-ba941122. Remove only these four owned folders after verifying
+  archived copies; preserve unrelated files. Formatting was the owner's action.
+  Temporary /tmp/mnt/sda1 bind aliases cleared on reboot. No SD root launch marker
+  or startup service was added. Manual SD maintenance is qualified separately
+  from earlier physical USB insertion. No spare USB or Mac storage is needed.
+- The original SanDisk stick is not enumerated. Its prepared bundle/root markers
+  remain on that disconnected stick. Reidentify it before removing owned files.
+- Host key/known-host/config files remain private under .bench-state/; raw
+  captures/backups are in ignored runs/. The release-batch-audio receipt is OFF,
+  owned=false after verified teardown. Original .bench-state/profile.json is an
+  older expired runtime-only receipt; it is not current v74 setup authority.
+- Other (6)/display 0/3 were restored through normal UI/ACC. Tool Tips and VR
+  Examples were last verified checked. LastDRIAppName may retain ecoenergy from
+  the Fuel Economy test; Other (6) does not use it. The prior string was not
+  captured, so restoration of every internal Mazda settings field is not claimed.
 
-SD /open-connect now holds the OEM-only 14919e1 payload. The superseded c0cc169
-payload is retained at /open-connect-c0cc169 and earlier ba941122 at
-/open-connect-ba941122. All three manifest hashes were read after the final
-restart. Current mount is /tmp/mnt/sd_nav; the temporary /tmp/mnt/sda1 bind alias
-cleared on restart. No SD launch marker/service was added.
-
-Owner-approved isolated native filter probe passed all 15 samples on this same
-kernel: actual NVRAM absent blocked restricted presses, disable passed them, and
-independent restoration to absent blocked again. Unrestricted controls passed.
-The private copy's controller transport was synthetic; the actual filter and
-NVRAM reader were unchanged. Live LVDS pid 61/start 121, config 1/restriction 0
-remained unchanged. Probe files were removed from RAM; final all19 verification
-and actual CarPlay camera passed. Evidence: filter-qualification.json,
-filter-trial.out/.err, filter-cleanup.out and filter-final-observer/ beside the
-CI records above; independent native review is filter-probe/review.txt.
-This is software-filter qualification under a process-local restriction, not
-physical input, real vehicle motion or CarPlay limited-UI proof.
-Next: use existing SSH input interfaces for remaining UI-path checks; trace the
-injection boundary before declaring a hardware blocker. Do not move qualification
-to the car or add an input system based on the earlier resource question.
-
-Owner confirmed exact matching car firmware/region 74.00.324A NA. Do not ask again.
-After owner removal of the old mod, require the supported OEM inputs. Refuse
-remaining edits; do not add legacy-mod allowances or request firmware again.
-Current source VERSION 0.3.0-dev.1; no qualified v74 download exists. Published
-v0.2.0-dev.2 is historical v55. Earlier v74 port/frame cleanup, bounded recovery,
-blank/clock and matched startup evidence remains in the knowledge docs/Git.
-Original autostart SHA-256:
-a8d019650c2a17a50b5ff39435f916c2cbeb3556af128fd913b9714b380e06bd,
-metadata 775:1000:1000. Do not resend earlier install, input or power requests.
-
-Persistent changes and later undo — base inventory plus later SD update
-“Restored stock” above means restored feature baseline with bench SSH retained;
-it does not mean pre-upgrade firmware or a byte-for-byte factory data partition.
-- Firmware: owner upgraded this replacement from 59.00.441A NA to 74.00.324A NA.
-  This remains installed. No downgrade/firmware undo is qualified; neither the
-  product uninstall nor the helpers below rolls firmware back.
-- Active bench access: /etc/ssh/sshd_config differs from its saved v74 original
-  only by adding /data_persist/oc-bench-access-fw74/authorized_keys.%u alongside
-  Mazda's existing key path. No custom daemon/startup hook or password change.
-  /tmp/mnt/data_persist/oc-bench-access-fw74 contains that public key, the original
-  config, installed digest and guarded restore.sh. Its --check returns UNDO_READY;
-  actual restoration is restore.sh with no argument, followed by restart. It
-  disables this owner-key path; it retains the backup directory. Retire access
-  last, after feature restoration/cleanup, with a known way to regain access.
-  The restoration operation itself remains unexercised.
-- Inactive old access files: /tmp/mnt/data_persist/oc-bench-access contains the
-  pre-upgrade v59 config/key/restore script. The active v74 config does not refer
-  to it. Do not run its v59 restore on v74. Archive/verify those owned files before
-  removing this inactive directory; it has no startup hook to undo.
-- Independent feature recovery: /tmp/mnt/data_persist/oc-bench-v74-20261120T064850Z
-  contains original autostart, touch.sh, flush and restore.sh, with no automatic
-  startup hook. Keep it until feature testing ends; archive/verify and remove
-  only this directory after confirming no installed product needs recovery.
-  Emergency --restore and its mandatory restart are distinct from normal uninstall.
-- Probe: the actual NVRAM key was temporarily changed absent -> disable -> absent
-  and independently verified. Private guarded executable/helper files were removed
-  from /tmp/oc-lvds-filter-20261120. No daemon, hook or recovery directory was added.
-- Product: normal Settings Uninstall already removed Open Connect's durable
-  directory, runtime and startup staging; all 19 intake hashes/metadata and
-  absent touchscreen NVRAM are verified. Original native/frontend paths are loaded.
-- SD: owner-formatted FAT32 card UUID 213E-C5B2 retains /open-connect (14919e1),
-  /open-connect-c0cc169 and /open-connect-ba941122 (prior verified payloads).
-  Remove only those three owned folders to undo our SD payload copies;
-  formatting was the owner's action, with no pre-format card-content backup.
-  Temporary bind alias /tmp/mnt/sda1 cleared on reboot; no SD launch marker/service.
-- Original SanDisk stick: its prepared Open Connect bundle/root launch markers
-  remain; it is physically disconnected. Reidentify it before later cleanup;
-  remove only the owned bundle/markers, preserving unrelated files.
-- Host: private owner-key/known-host/config files remain under .bench-state/;
-  captures/backups remain in ignored runs/. Keep these until bench access is
-  retired. .bench-state/profile.json is an old runtime-only silent-UI receipt
-  bound to boot fbd3caa6-e4a8-4f90-8827-ae275a9f6540, not a current v74 setup.
-  Runtime silent-UI state and the temporary mount alias do not survive reboot.
-Base read-only inventory: prior USB/SD run persistent-inventory/read.out and
-detail.out, taken on stock boot 474b74c2. This trial changed the retained SD
-payload folders as listed above; final originals/preflights and all three SD manifests
-were read again. No cleanup or
-access restoration was performed by the inventory. Originals/credentials/raw
-captures remain private. Retain the restored-original verification before deleting
-recovery files; clean up access last rather than locking out ongoing bench work.
-
-Independent recovery and access
-Feature emergency preflight (not normal uninstall):
-/tmp/mnt/data_persist/oc-bench-v74-20261120T064850Z/restore.sh --check
-accepts only this unit's original/composed startup and absent/disable touch values.
---restore restores those targets and requires restart to unload selected RAM code;
-it preserves the product record. Preflight passes; emergency restoration itself
-remains unexercised. Original files and an independent touch/flush primitive are
-beside it, outside product state.
-
-Owner access preflight:
-/tmp/mnt/data_persist/oc-bench-access-fw74/restore.sh --check
-returns UNDO_READY. Never run that access restore without --check during feature
-work: it removes the owner's bench SSH authorization. Root SSH on port 36000 uses
-the pinned host identity and owner key through:
-ssh -F .bench-state/replacement-ssh.conf cmu-bench
-No password was changed. UART still emits logs and a login prompt; the earlier
-user/jci attempt was rejected. UART login is unqualified; do not guess credentials.
+Original autostart SHA256:
+a8d019650c2a17a50b5ff39435f916c2cbeb3556af128fd913b9714b380e06bd.
+Original metadata 775:1000:1000. Originals/metadata are in the private intake and
+independent recovery directory. Verify actual loaded code after restart; restoring
+disk bytes alone does not unload selected native code.
+Owner-key SSH: ssh -T -F .bench-state/replacement-ssh.conf cmu-bench
+Pinned host, port 36000, cmu UID 0; private key stays on the host. UART emits logs
+and a login prompt; login is unqualified. Do not guess credentials.
 
 Next release checks
-- Broader last-app and audio paths remain unqualified; matched blank and clock
-  display-off comparisons are complete. Long-Home toggles CarPlay/last Mazda app,
-  not necessarily the main Home screen. Do not replay input from assumed focus.
-- Physical USB launch passed. A distinct replacement-USB maintenance case, physical
-  touch under a declared motion restriction and physical commander remain unqualified.
-  Virtual events do not establish physical controls.
-- The owner confirmed exact matching car firmware/region. Carry it forward; use
-  the owner’s planned mod removal and exact OEM source guards before writes.
-  Refuse remaining edits; do not repeat the confirmation question.
-- Follow PLAN.md: first v74 release, Developer options, timing/CPU/RAM/I/O baselines,
-  Services/base optimizations, then native wireless CarPlay reliability.
+Physical-controller delivery, real motion and separate CarPlay limited-UI behavior
+remain unqualified. Physical commander and remaining applicable audio/startup/
+vehicle checks remain. Owner confirmed the car matches 74.00.324A NA; never ask
+again. They will uninstall the legacy wireless mod first. Require supported OEM
+inputs and refuse remaining edits; no legacy-mod allowance. Follow PLAN.md:
+first v74 release, Developer options, timing/CPU/RAM/I/O baselines, Services/base
+optimizations, then native wireless CarPlay enablement/reliability. Do not infer
+hardware blockers from observer failures or add speculative features.
 
-Old v55 CMU — parked separately
-Stock boot 53873893-0cf4-43bf-9485-892de26b3be3 was verified after full uninstall.
-Its product/lab staging was archived and removed; ACC and supply output are OFF.
-All 528 archived regular files matched. Evidence: runs/old-cmu-cleanup-20261119/;
-archive SHA-256 d4213a5d908028ce0bb9ddd30b52a059d1b4e6767817b61f3d0c3889b21be9bd.
-The unreleased v55 PR #79 SliderCtrl/GUI-timeout reset remains historical evidence,
-not a qualification result or the current v74 blocker. Do not replay v55 backups
-or checkpoints onto the replacement. Git preserves the detailed former handoff.
+Old v55 CMU is parked separately, ACC/supply OFF after verified uninstall/archive.
+Evidence: runs/old-cmu-cleanup-20261119/, archive SHA256
+d4213a5d908028ce0bb9ddd30b52a059d1b4e6767817b61f3d0c3889b21be9bd.
+Never replay its backups/checkpoints onto the replacement.
 
-Connection identities — re-enumerate before opening
-UART FT232R 0403:6001, serial A9048JM0; 115200/8N1, RTS/DTR inactive.
-ACC relay CH340 1a86:7523, current location 2-1; 9600 baud.
-DPS150 2e3c:5740, serial 14110CF82565; preserve voltage/current settings.
-Apple Ethernet 05ac:1402, MAC 08:6d:41:e5:64:af; pinned owner-key SSH alias above.
+Re-enumerate before opening
+UART FT232R 0403:6001 serial A9048JM0; 115200/8N1, no flow, RTS/DTR inactive.
+ACC CH340 1a86:7523 location 2-1; 9600 baud, override OFF.
+DPS150 2e3c:5740 serial 14110CF82565; preserve last verified 12.02 V / 2 A.
+Ethernet 05ac:1402 MAC 08:6d:41:e5:64:af; pinned owner SSH alias above.

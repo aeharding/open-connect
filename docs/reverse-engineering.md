@@ -336,8 +336,34 @@ focus response on stock. It does not qualify physical controls, audio, charging,
 timing/RAM or native wireless CarPlay. Private last-app/plan.json and
 stock-acc/result.json / ci-acc/result.json retain the original criterion and limits.
 
-Fixture setup needed recovery before each matched case: one stock supply-output
-reset recovered its inactive projection link, and a separate normal ACC cycle
+`LastAppType` is Mazda's coarse saved resume category, not an arbitrary
+foreground app ID. `uiaSystem_CacheLastAppType` at `0xe610` groups Home,
+Communication and Settings under **Other (6)**. Their sharing that value is not
+a persistence failure. **DriverInfo (3)** covers `ecoenergy` and `idm`; ordinary
+Maintenance (`schedmaint`) is outside that whitelist. A running cached value
+need not reflect a newly foregrounded app until Mazda's shutdown cache/save path
+runs. Confirm the saved category on the next boot and observe the actual screen.
+The no-TAU Fuel Economy entry uses `SelectEcoEnergy` with no audio source, making
+it a distinct available startup-continuation case. Private source anchors and
+normal restoration to Other are in release-batch/lastapp-handoff.txt under the
+same release evidence root. Earlier type-6 wired captures retain their original
+scope; they do not qualify DriverInfo or startup audio.
+
+The current OEM-only bundle subsequently passed a matched DriverInfo check.
+Fuel Economy Monitor was foreground before each normal sustained ACC shutdown.
+Allow/Skip and installed Factory/Show each booted a new kernel, read saved
+category 3 and returned to the actual Fuel Economy screen. Display mode stayed
+0/3. Skip loaded the selected RAM native module and live LVDS configuration 0;
+Show loaded the original native module and configuration 1, with the warning
+visible in the camera record. This compares the installed feature choices,
+not a fully uninstalled stock baseline. It adds DriverInfo continuation coverage
+without qualifying tuner/audio startup, physical controls or performance.
+Private release-batch/driverinfo-comparison.json links the captures. An initial
+read helper chose a path from file presence and failed; the corrected reader
+used actual mappings, without repeating the startup.
+
+Before the earlier type-6 wired cases, fixture setup needed recovery: one stock
+supply-output reset recovered its inactive projection link, and a separate normal ACC cycle
 after the CI installation completed recovered unreachable bench Ethernet/SSH.
 Voltage/current settings were unchanged; Install was not repeated. The latter
 boot showed the Ethernet adapter, DHCP client and listening SSH server, but no
@@ -495,6 +521,26 @@ runs/v74-release-20261120T064850Z/oem-last-app/: ci-identity.json,
 installed-qualification.json, uninstall-qualification.json and the raw observers.
 Earlier captures keep their actual source identities.
 
+On a later current-bundle trial, Factory/Show visibly displayed the warning
+after normal ACC shutdown/start and after the OEM SYSTEM `GenericReboot(0)`
+operation. The original native route and all saved source files/metadata were
+verified. A low retry budget renewed correctly across the actual ACC startup.
+The first relay attempts occurred while the owner's override held ACC on; native
+GPIO observations stayed high and no new kernel resulted. After the override was
+removed, native ACC OFF/save logs and a new flag-[0] boot established the actual
+shutdown/start. The failed SSH read during shutdown is retained separately.
+
+This explains the older warm-reboot result. `init_cmu` reads
+`/data/unexpectedshutdownflag`; a nonzero value selects the higher recovery-logo
+surface. The renderer can enter and leave Disclaimer beneath it. Normal ACC
+shutdown clears the flag, as does the normal OEM GenericReboot request with
+flags exactly 0; `/sbin/reboot` bypasses that OEM request. The controlled reboot
+saves settings/stops services and resets the VIP before restarting. Its success
+is not physical ACC, standby-current or retry-renewal evidence. No direct flag
+write, player kill or factory reset was used. Private source anchors and captured
+outcomes are in release-batch/power-route-handoff.txt, oem-show-v2-observer/ and
+show-acc-after-override/ under the release evidence root.
+
 ## Touch input and CarPlay on v74
 
 The [v74 porting record](cmu/firmware74.md) pins the analyzed files and maps the
@@ -544,6 +590,58 @@ restriction. It does not establish physical-controller delivery, actual vehicle
 motion, CarPlay's separate limited-UI behavior or performance. Supporting record:
 runs/v74-release-20261120T064850Z/oem-last-app/filter-qualification.json, with
 raw trial output, byte-equivalence checks and independent review beside it.
+
+Separate stationary UI tests used the existing `com.jci.lvds.TouchSimulation`
+method through host `gdbus` and a loopback-bound owner-SSH TCP forward to the
+OEM HMI bus on port 3001. Its input is `(y(qq)(qq)(qq)(qq))`: a contact count and
+four unsigned coordinate pairs. Press and release must be serialized; the
+asynchronous dispatcher shares one event buffer. Wait for
+`TouchSimulationStatus(1)` before sending the matching release. An acknowledgement
+alone does not establish a visible response.
+
+Actual camera/native evidence confirmed Home → Communication → Home, and a
+Virtual Keyboard Right event changed Home focus. A CarPlay Mazda-app tap at
+`(400,240)` also returned to native Home. A bounded read of the already-enabled
+CarPlay consumer captured pressed then released state; the phone's native-UI
+request and the visible transition corroborated delivery. An earlier `(400,260)`
+attempt had no visible effect. Both coordinate and dwell changed in the successful
+trial, so its cause remains unresolved. Source analysis shows CarPlay converts
+raw coordinates differently from the native UI. Its advertised `TouchScreen`
+D-Bus handler is a stub; the working route uses filtered multitouch input.
+The optional LVDS touch FIFO is diagnostic capture, not this projection route.
+These are software-generated stock UI inputs, not physical-controller or motion
+qualification. Private supporting records are in
+runs/v74-release-20261120T064850Z/touch-ui/, including ui-results-current.json,
+projection-touch-handoff.txt and the corresponding camera/UART captures.
+
+The current bundle repeated the UI checks with Allow/Skip active after a normal
+ACC start. The CarPlay Mazda-app tap, native Communication, Back and Virtual
+Keyboard Right all produced their intended visible results. The live LVDS
+configuration was 0, with stationary restriction state 0. This adds active-feature
+UI regression coverage; it still does not reproduce motion or physical controls.
+Private release-batch/active-input-qualification.json links the paired input,
+producer signals, actual camera and native logs.
+
+The fresh-SD maintenance cycle then completed normal Settings Uninstall after the
+second package had been installed and exercised. Both owned package/state trees
+were removed. All 19 intake hashes and mode/UID/GID matched independently; absent
+touch NVRAM, original loaded native/frontend and root read-only were verified.
+A subsequent normal stock ACC start restored the visible warning, live LVDS
+configuration 1, saved Other (6) and display 0/3. Actual wired CarPlay was returned
+to the panel with normal long-Home. The final stock audio-helper read was false.
+Private release-batch/uninstall-qualification.json and final-stock-qualification.json
+link those closure records.
+
+A separate host UI-readiness mistake toggled Mazda Tool Tips and VR Examples
+before the intended page opened. Recorded checked states were restored and
+verified before continuing; product preferences were unchanged by that attempt.
+Subsequent input followed a visually confirmed Open Connect page, and uninstall
+navigation waited for its exact row and an idle framework. Failed guards,
+deadlines and the unsuccessful software gadget reset remain in the private
+captures, separately from successful feature/startup results. None establishes
+a CMU feature failure. All 49 new UI/batch observers are sealed with closed
+handles and 472 matching artifacts; six preserve incomplete outcomes rather
+than being counted as successful checks. See release-batch/capture-validation.json.
 
 On the stationary replacement bench, first verify that stock touch works in
 Mazda’s menus and CarPlay. Then establish a controlled condition that reproduces

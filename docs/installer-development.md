@@ -104,6 +104,14 @@ publication failures under BusyBox ash. The final CI suite passed 172 tests with
 seven private-input skips. The [BusyBox findings](reverse-engineering.md#complete-uninstall-and-busybox-publication)
 record the failed first candidate, independent restoration and corrected trial.
 
+The unreleased v0.2.0-dev.3 candidate rendered its updated installation warnings
+and post-restart USB-removal message, but an unexpected reboot was observed after
+choosing Open settings. Its cause remains unresolved. Later cleanup through the
+backend restored original startup/NVRAM, removed the product files and passed a
+stock boot check; this does not qualify the failed UI transition. Keep the
+candidate unreleased until that failure is understood and the full flow passes.
+See the [failure and cleanup record](reverse-engineering.md#installer-message-trial-and-old-cmu-cleanup).
+
 See the [firmware-scoped evidence](reverse-engineering.md#standalone-installer-backend).
 These are bounded bench checks, not long-term vehicle reliability qualification.
 The outgoing CMU has unreliable touch hardware. Physical touch/motion behavior,

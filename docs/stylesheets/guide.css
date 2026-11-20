@@ -1,7 +1,7 @@
 .md-typeset .oc-screen {
   width: 100%;
   max-width: 26rem;
-  margin: 1.25rem 0 1.75rem;
+  margin: 1.25rem auto 1.75rem;
 }
 .oc-screen-frame {
   position: relative;
@@ -10,17 +10,17 @@
 }
 .md-typeset .oc-screen-frame img {
   position: absolute;
-  top: 5.7971%;
-  left: 4.5455%;
+  top: 9.1304%;
+  left: 7.2727%;
   display: block;
-  width: 90.9091%;
+  width: 85.4545%;
   height: auto;
 }
 .md-typeset .oc-screen figcaption {
   margin-top: .5rem;
   color: var(--md-default-fg-color--light);
   font-size: .8rem;
-  text-align: left;
+  text-align: center;
 }
 
 .md-typeset ol.oc-install-flow {

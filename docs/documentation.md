@@ -43,6 +43,8 @@ and Uninstall. Use short numbered steps, the exact on-screen labels, current
 direct CMU screenshots and simple diagrams. Explain what to do and what happens
 next. Keep the firmware/prerelease limit visible; move build commands, backend
 mechanics and qualification evidence to Development or CMU research.
+Say “Mazda Connect's main screen,” not “at Home.” Center framed screenshots and
+their captions; keep the outer frame compact and the original capture unedited.
 
 **Features has one page and menu item per feature.** Explain what it changes,
 its default, the available choices and any qualification limits. Keep Settings

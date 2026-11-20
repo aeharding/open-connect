@@ -23,11 +23,16 @@ Public manifest: e3f83d524ab1465fc665b1b6258f09cddab1082001bb3c0254e1b070c9f30a4
 ZIP SHA-256: 6661f885beb64ae53e49d800fe861365bc90ea0da1aa003b363e126035c6d0cc.
 
 Preserved limits/failures: an initial host verifier lacked AUTOSTART; a corrected
-fresh read passed without resending Install. The first clean-reinstall key
-sequence dismissed an earlier refusal dialog already visible before input, then
-Home appeared; kernel/package/record stayed unchanged. Why that dialog reappeared
-is unresolved and is a remaining release issue. Actual reinstall followed a fresh
-maintained reopenUSB, conflict=false and hardware-camera prompt confirmation.
+fresh read passed without resending Install. A second manual SD run.sh call on
+the still-present source did not establish a new maintenance UI: its inherited
+fd8 session lock intentionally makes duplicate launches return zero. An actual
+CMU lock probe confirmed no second session/runtime/payload stage and restored its
+temporary alias. The subsequent key sequence dismissed the earlier refusal dialog;
+no reinstall was committed and kernel/package/record stayed unchanged. The initial
+product-dialog interpretation is superseded by sd-reentry-reconciliation.json.
+No product defect is established by this attempt; the isolated JS cleanup replay
+omitted the entry lock. Actual reinstall followed an explicit maintained reopenUSB,
+conflict=false and hardware-camera prompt confirmation.
 An early SSH read during that restart timed out before a fresh read passed.
 After uninstall, restored-stock warm boot 4e6d0118 had projection carrier/RX/TX 0.
 One bounded output-only OFF/ON restored its link; final full19 verification passed
@@ -35,7 +40,8 @@ again. None of these establishes a wireless/performance improvement or reliabili
 
 Evidence: runs/v74-car-mod-compat-20261120/, including bench-plan.json,
 ci-identity.json, installed-qualification.json, conflict-qualification.json,
-first-reinstall-input-reconciliation.json, reinstalled-qualification.json,
+first-reinstall-input-reconciliation.json, sd-reentry-reconciliation.json,
+reinstalled-qualification.json,
 uninstall-qualification.json, final-stock-qualification.json and
 capture-validation.json. No preexisting wireless mod was installed on this bench.
 The compatibility allowlist/private host four-profile composition evidence is
@@ -126,8 +132,6 @@ No password was changed. UART still emits logs and a login prompt; the earlier
 user/jci attempt was rejected. UART login is unqualified; do not guess credentials.
 
 Next release checks
-- Reproduce/resolve the refusal-dialog reappearance before clean maintenance.
-  See first-reinstall-input-reconciliation.json and its video; fresh reopen worked.
 - Broader last-app and audio paths remain unqualified; matched blank and clock
   display-off comparisons are complete. Long-Home toggles CarPlay/last Mazda app,
   not necessarily the main Home screen. Do not replay input from assumed focus.

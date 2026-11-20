@@ -81,12 +81,14 @@ intake files/metadata, saved touch NVRAM and original loaded code in a new kerne
 with root read-only and no product state/runtime. All 32 public files matched in
 both installed packages and runtimes; INSTANCE was the sole durable addition.
 
-An earlier key sequence dismissed a prior refusal dialog, rather than selecting
-reinstall; video and unchanged state are retained. The reason that dialog
-reappeared remains unresolved. The actual reinstall followed a fresh maintained
-reopen and hardware-camera confirmation, so this is not an uninterrupted
-maintenance-flow claim. The restored-stock warm restart also left its CarPlay
-link inactive, separately from the file-restoration result. See the
+A second manual call to the still-present SD loader did not establish a new UI
+entry. The loader intentionally returns success under its existing USB-session
+lock; an actual CMU probe confirmed no second payload/session/runtime is created.
+The subsequent key sequence dismissed the prior refusal dialog. The actual
+reinstall followed an explicit maintained reopen and hardware-camera confirmation.
+This is a bench reentry correction, not an established product-dialog defect or
+physical replacement-USB proof. The restored-stock warm restart also left its
+CarPlay link inactive, separately from file restoration. See the
 [compatibility findings](reverse-engineering.md#preserving-recognized-wireless-mod-inputs).
 No existing wireless mod was installed on the CMU in this stock regression.
 
@@ -192,9 +194,8 @@ incorrect: stock wired CarPlay and input worked while those entries were absent
 and the CMU's USB device-controller interface was UP. See the
 [display and USB-role findings](reverse-engineering.md#display-off-startup-and-usb-role-on-v74).
 
-A distinct replacement-USB launch, the refusal-dialog reappearance during
-maintenance, physical touch under a declared motion restriction, physical
-commander response, broader startup/audio routes and
+A distinct replacement-USB launch, physical touch under a declared motion
+restriction, physical commander response, broader startup/audio routes and
 matching-car installation remain release gates. A visible Show disclaimer is
 unqualified under other startup conditions; the tested warm route matched stock's
 logo-to-Home behavior. No qualified v74 download or vehicle-ready claim is made.

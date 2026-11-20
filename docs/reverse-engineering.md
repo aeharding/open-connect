@@ -412,11 +412,18 @@ matched all 32 public entries plus INSTANCE. Uninstall verified all 19 intake
 hashes/metadata, saved touch NVRAM, original native/frontend and root read-only in
 a new kernel, with no product state/runtime.
 
-The first clean-reinstall key sequence actually dismissed the earlier refusal
-dialog: video showed that dialog before input, then Mazda Home, with unchanged
-kernel/record/package. Why it reappeared remains unresolved. A fresh maintained
-reopen reported no conflict and the hardware camera confirmed the maintenance
-prompt before the actual reinstall. An initial host read helper also lacked its
+The second manual SD-loader call did not establish a fresh maintenance UI. The
+USB entry holds a nonblocking fd8 lock inherited by its session; another call
+returns success before creating a second payload/runtime. An actual CMU probe
+under that lock confirmed this behavior and left stock state unchanged. In the
+trial, the subsequent key sequence dismissed the prior refusal dialog, with
+unchanged kernel/record/package. The earlier interpretation that a product dialog
+had reappeared was not established: the manual call was insufficient to reopen it,
+and the direct screenshot did not establish the current hardware input target.
+An isolated cleanup-JavaScript replay also omitted the entry lock and does not
+prove a reachable session-ownership defect. A later explicit maintained reopen
+reported no conflict; hardware-camera confirmation preceded the actual reinstall.
+An initial host read helper also lacked its
 AUTOSTART variable; correcting that read did not repeat Install. One SSH read
 during the actual reinstall restart timed out before a later read completed.
 These failures remain separate from the successful cases. The final restored-stock
@@ -426,7 +433,9 @@ changing voltage/current settings. No cause or reliability improvement is claime
 The live trial used OEM inputs, not a wireless-mod installation. Supporting
 records in the same private root: ci-identity.json, installed-qualification.json,
 conflict-qualification.json, first-reinstall-input-reconciliation.json,
-reinstalled-qualification.json and uninstall-qualification.json.
+reinstalled-qualification.json, uninstall-qualification.json and
+sd-reentry-reconciliation.json. Earlier capture/interpretation records are retained;
+the reconciliation does not relabel the wrong-dialog input as a reinstall.
 
 ## Native installer and Settings on v55
 

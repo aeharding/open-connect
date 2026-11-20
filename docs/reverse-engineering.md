@@ -219,6 +219,76 @@ absent NVRAM, budget 2, selected code and root read-only were verified. This is 
 local-build result under frame-local/; reviewed CI qualification and broader
 release checks remain in progress.
 
+The incoming-frame correction was independently reviewed at `ba941122` and
+merged in PR #91. Its actual [CI bundle](https://github.com/aeharding/open-connect/actions/runs/44716935060)
+has public payload-manifest SHA-256
+`dc2c88ac78dba5ca9a11f8c453331bb3bfcfd554a1d5667aa5280e52f08cb019`.
+A fresh host-staged installation reached completion and Open settings remained
+stable for the 45-second observation. All 32 public payload digests matched;
+only the private installation INSTANCE was added. Both touchscreen choices
+committed the expected NVRAM values. This is new-artifact evidence, separate
+from the earlier CI bundle and local candidate.
+
+On the local candidate, an intentional external touch-NVRAM edit made normal
+Settings Uninstall refuse with “Nothing was overwritten.” The external value,
+record and startup bytes were unchanged. After independently undoing that owned
+test edit, the maintained transaction primitives restored startup and touch state
+and deliberately stopped before cleanup. A stock reboot verified all 19 original
+hashes/metadata and original mappings while the removed-state record remained.
+The new CI payload, staged independently in RAM, recognized that retained state.
+Choosing Uninstall finished cleanup and restarted; all product files, backups
+and the record were absent, all 19 originals still matched, and physical root
+was read-only. This qualifies that controlled stop and compatible payload handoff,
+not arbitrary interruption points or physical replacement-USB insertion.
+
+The same CI installation then passed the prepared touch 1-to-0 supply-output
+interruption: active record, no pending operation, touch 0/warning 1, absent
+NVRAM, budget 2, selected native files and physical root read-only. Both cleanup
+events appeared and the camera reached the ordinary CarPlay agreement dialog
+without intervention after power-on. Supply voltage/current setpoint bits were
+unchanged. The phone and CarPlay hub, absent from the preceding software boot's
+USB inventory, enumerated after this full power cycle. That observation does not
+establish why they were absent or qualify charging or USB reliability. New-artifact
+evidence is under runs/v74-release-20261120T064850Z/ci-ba941122/.
+Agree then opened the wired CarPlay dashboard, a virtual Right input changed
+visible focus, and the normal long-Home event returned to Mazda. These results
+use touch 0/warning 1 after recovery; they do not establish physical controls,
+audio, charging, timings or long-term projection reliability.
+
+Reinstalling that same CI bundle preserved touch 0/warning 1 and reached
+completion. Show saved through the normal radio page and the following boot
+loaded the original native files; the camera again showed logo through to Home,
+as in the stock comparison. Returning to Allow/Skip through the menus selected
+both features across three software starts, with attempt counts 2, 1 and 0.
+A 2.014-second ACC off/on interval at count 1 kept the same kernel and a
+byte-identical record. After the last selected start reached the ordinary
+CarPlay agreement dialog, one TERM to the verified Opera process triggered
+Mazda's watchdog reset. The next kernel used original native/frontend paths,
+restored absent touch NVRAM and retained both preferences with count 0.
+A subsequent 30.014-second ACC-off interval and new kernel renewed the budget
+and selected those preferences, leaving count 2 and NVRAM disable. Neither ACC
+trial sent supply commands. These are controlled recovery cases, not universal
+fault detection or physical touchscreen qualification.
+
+With both choices selected after renewal, wired projection, a virtual focus
+change and return to Mazda passed. A deliberate external change from NVRAM
+disable to enable then made normal Settings Uninstall refuse. Readback verified
+that the external value, startup and record were unchanged. After independently
+undoing that owned edit, normal UI Uninstall restored all 19 intake hashes and
+metadata, saved absent NVRAM, original native/frontend paths and root read-only;
+all product files, backups and runtime state were gone after restart. These are
+results from the reviewed CI payload, separately preserved under its conflict/
+and uninstall/ evidence directories.
+
+The intermittent missing phone/hub observation remains separate. A fully
+uninstalled stock cold boot and following plain software reboot both enumerated
+the phone and bridge and reached the normal CarPlay agreement dialog. This one
+comparison did not reproduce the disappearance and does not establish its cause.
+Preserve the earlier missing-device inventories rather than treating a later
+working connection as proof of continuous USB or charging reliability. The
+stock-usb-comparison/ record retains this limit alongside the supply samples;
+their buffered receipt times are not startup-phase timestamps.
+
 Private evidence is under
 runs/v74-release-20261120T064850Z/ci-1850c73/, including source/run identity,
 checksums, guarded actions, camera/UART observations and readback. This is not

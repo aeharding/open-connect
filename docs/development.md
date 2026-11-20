@@ -26,15 +26,15 @@ local PTYs and temporary files; they do not open the physical bench.
 
 | Location | Purpose |
 | --- | --- |
-| [tooling/open_connect/](https://github.com/aeharding/open-connect/tree/main/tooling/open_connect) | Host CLI, firmware builders, device operations and bench profile |
+| [tooling/open_connect/](https://github.com/aeharding/open-connect/tree/main/tooling/open_connect) | Host CLI, read-only ELF inspection, device operations and bench profile |
 | [tests/](https://github.com/aeharding/open-connect/tree/main/tests) | Maintained offline tests for the host tools |
 | [cmu/](https://github.com/aeharding/open-connect/tree/main/cmu) | Target startup code, firmware adapters and feature sources |
 | [Makefile](https://github.com/aeharding/open-connect/blob/main/Makefile) | Native compilation and USB packaging with standard tools |
 | [docs/](https://github.com/aeharding/open-connect/tree/main/docs) | This website's Markdown sources |
 
 The public suite reports explicit skips for tests needing private OEM inputs.
-[The developer feature guide](disclaimer-development.md) covers the real build
-and its private checks. Keep generated firmware files out of commits.
+[The installer development guide](installer-development.md) covers the release
+build and its private checks. Keep generated firmware files out of commits.
 
 ## Make one complete change
 

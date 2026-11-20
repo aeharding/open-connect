@@ -27,9 +27,6 @@ native: $(OUT)/native.bin $(OUT)/branch.bin $(OUT)/sizes.bin $(OUT)/layout.bin
 $(OUT):
 	mkdir -p "$@"
 
-$(OUT)/receiver: cmu/startup/ready-receiver.c | $(OUT)
-	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
-
 $(OUT)/api: cmu/installer/api.c | $(OUT)
 	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
 

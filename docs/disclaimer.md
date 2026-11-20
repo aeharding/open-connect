@@ -3,7 +3,7 @@
 Open Connect lets you choose whether Mazda's startup warning appears.
 Fresh installations select **Skip**.
 
-Available in the development prerelease for **55.00.750B North America**.
+Implemented in the **74.00.324A NA** candidate. See [Quick start](usb-installer.md) for qualification and availability.
 Firmware 74 is not supported yet.
 
 ## Change the setting

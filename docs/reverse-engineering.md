@@ -510,7 +510,7 @@ reboot occurred. Source ordering is not proof of runtime fallback or cold startu
 optional runtime. Mazda's existing watchdog performs the reset; Open Connect
 must choose what runs afterward.
 
-The [one-shot selector](https://github.com/aeharding/open-connect/blob/main/tooling/open_connect/firmware55/selection.py)
+The [one-shot selector](https://github.com/aeharding/open-connect/blob/79b5b562086acfb615c50807395c21adae5e1e7c/tooling/open_connect/firmware55/selection.py)
 runs in /usr/bin/autostart before normal-mode setup, the Logger and Service
 Manager (SM). It consumes and flushes a trial record before choosing a fixed
 configuration. A spent record selects Mazda's original service configuration.
@@ -557,7 +557,7 @@ This proves feature selection and omission, not a new timing/no-flash result
 or qualification of every last-app/display-off route.
 
 Private evidence: `runs/selected-feature-v2/result.json`.
-The [reproduction guide](https://aeharding.github.io/open-connect/disclaimer-development/)
+The [reproduction guide](https://github.com/aeharding/open-connect/blob/79b5b562086acfb615c50807395c21adae5e1e7c/docs/disclaimer-development.md)
 builds from explicitly supplied private originals; none are published.
 
 ### A live process is not proof of a working UI
@@ -574,7 +574,7 @@ will cause a reboot. Automatic recovery from this kind of partial startup still
 needs a bounded health check outside the optional component.
 
 The corrected adapter splits the parent and relative library path within both
-limits. See the [feature builder](https://github.com/aeharding/open-connect/blob/main/tooling/open_connect/firmware55/generation.py).
+limits. See the [feature builder](https://github.com/aeharding/open-connect/blob/79b5b562086acfb615c50807395c21adae5e1e7c/tooling/open_connect/firmware55/generation.py).
 Private failed trial, diagnosis and recovery: `runs/selected-feature/result.json`.
 
 ### Normal does not mean the GUI initialized
@@ -728,7 +728,7 @@ baseline boot passed automatically, followed by exact hook restoration/hold clea
 
 Both closed videos showed Home. CPU/RAM/I/O samples were captured, but different
 boot ages and audio-profile conditions prevent a performance comparison.
-[Reproduce the developer workflow](cli.md#developer-feature-trial).
+[Historical developer workflow](https://github.com/aeharding/open-connect/blob/79b5b562086acfb615c50807395c21adae5e1e7c/docs/cli.md#developer-feature-trial).
 A later clean-checkout preview run passed both selected startup and independent
 Disable/baseline startup automatically, without reconciliation or reboot retry.
 This confirms the short-command workflow on the bench; it does not broaden the

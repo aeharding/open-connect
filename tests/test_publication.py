@@ -8,9 +8,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from open_connect.device import boot as stock
 from open_connect.device import publication as linked
 from open_connect.device import records as rt
+from open_connect.session import Bundle
 
 
 class LinkedTests(unittest.TestCase):
@@ -156,7 +156,7 @@ print(fmt)
         self.assertEqual(self.h.read_bytes(), self.o)
 
     def test_real_bundle_event_contract(self):
-        b = stock.Bundle(self.r / "bundle", "test", "t6")
+        b = Bundle(self.r / "bundle", "test", "t6")
         b.event("restart_request", source_kind="C")
         b.event("native_persistent_verified", source_kind="O", writes=0)
         b.finish("offline")

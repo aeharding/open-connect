@@ -45,7 +45,7 @@ Do not change historical manifests to claim old evidence used new code.
 
 ## Device work
 
-Current supported firmware is exactly 55.00.750B NA/cmu150_NA.
+Current source baseline is exactly 74.00.324A NA/cmu150_NA; release qualification is in progress.
 Confirm actual identity before operations; remembered paths/PIDs/inodes are not authority.
 UART is 115200/8N1, no flow control, RTS/DTR inactive. The adapter is presently
 pinned to FT232R VID:PID 0403:6001, serial A9048JM0 by default. Other benches

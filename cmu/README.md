@@ -15,7 +15,7 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | `api.c`, `service.sh` | A bounded local POST parser under BusyBox `tcpsvd`; session-token validation and service ownership |
 | `runtime.js`, `dialog.js`, `settings.js` | One command contract, Mazda dialogs and native Settings pages |
 | `backend.sh`, `transaction.sh`, `state.sh` | Install, preferences, complete uninstall and interrupted-operation reconciliation |
-| `firmware.sh`, `mmui.S`, `intro.js`, `system-route.js` | Exact v55 guards and composition from this unit's saved originals |
+| `firmware.sh`, `mmui.S`, `intro.js`, `system-route.js` | Exact v74 guards and composition from this unit's saved originals |
 | `startup-hook.sh`, `boot.sh`, `ignition.sh` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
 
 The browser sends `POST /control` to `127.0.0.1:35555`, with `Content-Type:
@@ -49,8 +49,9 @@ The root filesystem is returned to read-only after startup-file publication.
 `features/touch/setting.sh` compares the expected NVRAM value before changing and
 committing it. It preserves the distinction between absent, enable and disable.
 `features/disclaimer/` contains the independently authored native bypass.
-`startup/` also contains the existing host-driven trial helpers; they are bench
-instrumentation, not the product's persistence policy.
+`startup/flush.c` provides checked file/directory durability. Its generic
+publication template is bench instrumentation for native file trials.
+The retired v55 one-shot selector and Home supervisor are in Git history.
 
 `make release` uses standard Clang/LLD/llvm-objcopy and Make/shell packaging.
 Authored shell and JavaScript files are copied unchanged; only compiled assets

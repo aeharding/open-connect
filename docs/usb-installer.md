@@ -3,12 +3,16 @@
 Install Open Connect from a USB drive. It adds two choices to Mazda Settings:
 touchscreen access while moving and whether to show the startup disclaimer.
 
-> **Development prerelease · 55.00.750B North America only**
+> **V74 development target · qualification in progress**
 >
-> This release is for bench testing. Startup reliability and physical touch while
-> moving are still being qualified. **Firmware 74 is not supported yet.**
+> Current source targets exactly **74.00.324A North America / cmu150_NA**.
+> A qualified v74 download is not published yet. See
+> [development and qualification](installer-development.md) for current limits.
 
-<p><a class="md-button md-button--primary" href="https://github.com/aeharding/open-connect/releases/download/v0.2.0-dev.2/open-connect-0.2.0-dev.2-usb.zip">Download USB installer</a> <a class="md-button" href="https://github.com/aeharding/open-connect/releases/tag/v0.2.0-dev.2">Release notes</a></p>
+Earlier v55 development downloads remain in the
+[release archive](https://github.com/aeharding/open-connect/releases).
+The screenshots below illustrate that earlier UI; v74 captures will accompany
+the qualified bundle.
 
 <ol class="oc-install-flow" aria-label="Installation overview">
   <li>

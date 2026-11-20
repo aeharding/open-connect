@@ -13,7 +13,7 @@ make release OUT=runs/my-release
 ```
 
 The output is `open-connect-<version>-usb.zip` plus `SHA256SUMS`. CI uploads the
-same files as `fw55-usb-installer`. A `v<version>` development tag matching
+same files as `usb-installer`. A `v<version>` development tag matching
 `cmu/installer/VERSION` on reviewed main history prepares a draft prerelease after
 host checks. Publish it after qualifying that CI artifact on the bench.
 
@@ -21,6 +21,37 @@ Build scripts copy authored files and compile native assets; OEM files are read
 and composed privately on the CMU. The installer and its backend run on the CMU;
 `oc` remains host bench instrumentation. See [CMU code](https://github.com/aeharding/open-connect/blob/main/cmu/README.md)
 for the implementation and command contract.
+
+## Private firmware checks
+
+The optional checker builds the same public bundle, composes it with exact
+originals using the maintained shell, and validates the result on the host:
+
+~~~sh
+.venv/bin/python tests/check_firmware.py --firmware /private/firmware74 \
+  --output runs/my-v74-check
+~~~
+
+The input is a private filesystem-shaped tree containing the original paths
+listed by firmware_dependencies in cmu/installer/firmware.sh, plus GuiFramework.js
+and lvds_service. No credentials are needed. Unknown hashes and public output
+paths are refused before building; OEM-containing outputs stay under ignored runs/.
+Use a fresh output directory for each run so failures and source snapshots remain.
+
+Clang, LLD, llvm-objcopy, llvm-objdump, Node.js, OpenSSL, zip and GNU-compatible
+stat/readlink are needed. Explicit tool paths can be supplied with --host-cc,
+--objdump and --node; Make handles the target toolchain.
+
+Checks preserve every original section and symbol address, validate segment
+alignment and PIC relocations, and require the interception point to lie in the
+ordinary event callback. They cover both MMUI XML consumers, both stock board
+configurations, the real v74 BaseApp lifecycle and the native C wrapper with all
+13 actual continuation rules. Source/input hashes and outputs are retained.
+The host composition stubs durability flushes and the C contract uses fakes:
+these checks do not execute ARM code, access a CMU or prove recovery.
+
+Without explicit private inputs, the public offline suite reports a skip for
+these firmware checks. The superseded v55 one-shot builder is in Git history.
 
 ## Startup recovery
 
@@ -67,19 +98,35 @@ snapshots. It also handles a cut between deleting the record and removing the
 empty directory. No Open Connect files or backups remain on persistent storage
 after successful uninstall. The original USB is not required.
 
-The new USB can finish removal of v0.2.0-dev.1's retained state by choosing
-Uninstall. It accepts that release's record layout and keeps an always-false
+The historical v55 maintenance bundle could finish removal of v0.2.0-dev.1's
+retained state by choosing Uninstall. That implementation accepted the old
+record layout and kept an always-false
 legacy `undo` response field during service handoff; no Undo command is accepted.
 An old pending conflicted uninstall is refused because it promised to preserve
 the conflicting edits. Fresh and pending removal also check that the saved
 startup and touchscreen state belong to Open Connect; a legacy Undo could have
 adopted someone else's edits into its current snapshot. Recovery preserves those
 edits even if some targets have already been restored. Arbitrary old-package
-compatibility remains unqualified.
+compatibility, including cross-firmware maintenance, remains unqualified.
 
 ## Qualification
 
-The development prerelease supports exactly **55.00.750B NA / cmu150_NA**.
+Current source targets exactly **74.00.324A NA / cmu150_NA**. A local
+host-staged candidate installed, updated with preferences retained, restarted
+with the disclaimer bypass and both video-cleanup events, opened Settings and
+uninstalled through its normal UI. Stock startup/NVRAM, all 19 original file
+hashes/metadata, native mappings and root read-only were verified after removal.
+The [v74 findings](reverse-engineering.md#v74-installer-port-and-native-code-placement)
+retain the failed candidates and fixes.
+
+This is not yet qualification of a reviewed CI artifact or physical USB insertion.
+Fresh final-bundle install, repeated starts, interruption/conflict recovery,
+physical touch/motion/commander and selected-feature wired CarPlay checks remain.
+
+### Historical v55 releases
+
+The following evidence belongs to the earlier **55.00.750B NA / cmu150_NA**
+development releases; it does not qualify v74.
 The v0.2.0-dev.1 bench qualification covered its actual CI bundle and these behaviors:
 
 - Fresh install, reinstall with preferences retained, restart, completion and

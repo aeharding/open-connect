@@ -37,7 +37,7 @@ result = unittest.TextTestRunner(stream=log, verbosity=2).run(suite)
 stable = all(hashlib.sha256((ROOT / p).read_bytes()).hexdigest() == h for p, h in source.items())
 manifest = dict(
     question="Do the host CLI, bench profile and UART/file operations pass offline?",
-    firmware_scope="55.00.750B cmu150_NA; no real device used",
+    firmware_scope="74.00.324A cmu150_NA; no real device used",
     mode="offline_only",
     hardware_opened=False,
     camera_opened=False,

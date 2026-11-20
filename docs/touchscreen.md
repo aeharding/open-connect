@@ -3,7 +3,7 @@
 Choose whether Mazda's speed-based touchscreen restriction applies.
 Fresh installations select **Allow**.
 
-Available in the development prerelease for **55.00.750B North America**.
+Implemented in the **74.00.324A NA** candidate. See [Quick start](usb-installer.md) for qualification and availability.
 Physical touch while moving and CarPlay behavior are still being qualified.
 Firmware 74 is not supported yet.
 

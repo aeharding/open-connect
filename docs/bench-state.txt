@@ -32,13 +32,14 @@ code. It preserves the product record for reconciliation. The original, native
 flush helper and touch primitive are retained beside it. Its preflight passed;
 restoration itself is unexercised. This is separate from owner SSH recovery below.
 
-All 174 offline host tests passed (8 private-input skips); ARM build, real-rule
-host contract and actual-original composition checks also passed. The final
-renderer passed the real v74 BaseApp host check. These are local host-staged
+After retiring the v55 one-shot builder, all 116 retained offline host tests
+passed (2 skips). The new maintained private checker passed its 5 ELF/composition
+tests, 4 native host-contract cases and actual v74 BaseApp lifecycle check.
+Evidence: offline-migration.log and maintained-check-formatted/. These are local host-staged
 payload trials; CI-artifact, physical USB-insertion, repeated-start/recovery,
 physical-input and wired-CarPlay feature qualification remain. No PR merge or
-release publication is claimed. The old v55 host trial builder still needs
-retirement/migration before the one-baseline port is merged.
+release publication is claimed. The superseded v55 host trial builder is now retired; the replacement checker
+uses Make and the maintained target composer without generating release logic.
 
 Connected replacement CMU — v74 root SSH recovered and restart verified
 The owner completed the update from 59.00.441A NA to 74.00.324A NA. Fresh root
@@ -164,9 +165,8 @@ until the reboot is understood and the full flow passes. The docs/handoff work
 is separate so public download links and screenshots match the published bundle.
 
 Next: replacement CMU
-1. Retire or migrate the superseded v55 host-driven trial builder; its old
-   native/JS guards do not validate the v74 assets. Complete independent review
-   and CI-artifact qualification, including fresh install from empty state, USB
+1. Complete independent review and CI-artifact qualification, including fresh
+   install from empty state, USB
    insertion, repeated starts, conflict/interruption recovery and wired CarPlay.
 2. Physical touch, the declared motion restriction and physical commander response
    still need qualification. Virtual Keyboard inputs operated the stock UI,

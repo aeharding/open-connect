@@ -31,7 +31,7 @@ tuner or establish working playback.
 | oc bench status | Read actual state and whether our ownership still applies |
 | oc bench teardown | Disable only a change owned by setup on this service instance |
 
-Before live use, establish an idle root shell on **55.00.750B NA**, then close
+Before live use, establish an idle root shell on **74.00.324A NA**, then close
 your serial terminal. Bench-profile commands do not log in or reset the device. Our current
 runner accepts FT232R 0403:6001 adapters. Set `OC_UART_SERIAL` to your exact serial
 number before launching commands; the project bench defaults to A9048JM0.
@@ -54,58 +54,16 @@ Keep it; deleting it discards ownership information. Use --state to select a
 different receipt explicitly. Only one program should own UART at a time.
 --solicit-prompt sends one CR: use it only when the shell is known to be idle.
 
-## Developer feature trial
+## Private firmware checks
 
-For the current source and complete walkthrough, see [Test the disclaimer bypass](disclaimer-development.md).
+Use the [installer development guide](installer-development.md#private-firmware-checks)
+to check the actual Make/shell release against private exact-original firmware
+files. This is host validation and does not install anything on the CMU.
 
-This is **FW55 Home-only bench verification**, not the USB installer. Use a source
-checkout; the bench tools locate private fixture builders through `--workspace`.
-Supply private original files in a filesystem-shaped directory. They are never
-downloaded or included in the package.
-
-~~~sh
-python -m open_connect.feature build --workspace . --firmware /private/firmware55 \
-  --output runs/my-feature --recover-on-timeout
-python -m open_connect.feature inspect --build runs/my-feature
-oc feature prepare --build runs/my-feature --state runs/my-trial
-~~~
-
-Build creates local files and runs native/JS checks. Inspect checks those files.
-Prepare defaults to a dry run; add `--live` to stage them and independent undo.
-It does **not** publish the startup hook or reboot. An already-modified bench
-must explicitly supply its as-found JS with `--baseline-system-app`.
-
-The input tree needs:
-`usr/bin/autostart`, `jci/sm/sm.conf`, `jci/mmui/svcjcimmui.so`,
-`jci/mmui/mmui_config.xml`, `jci/mmui/uia/libjciuiasystem.so`,
-`jci/gui/index.html`, and `jci/gui/framework/js/BaseApp.js` plus
-`jci/gui/apps/system/js/systemApp.js`. Exact supported originals are checked.
-Build tools: Python, Node.js, Make, clang, llvm-objcopy, llvm-objdump and ld.lld.
-
-~~~sh
-oc feature trial --state runs/my-trial --bundle runs/my-start \
-  --credentials /private/root.json --camera-index 0 --live
-oc feature status --state runs/my-trial --bundle runs/my-status --live
-oc feature disable --state runs/my-trial --bundle runs/my-baseline \
-  --credentials /private/root.json --camera-index 0 --live
-~~~
-
-- **Trial:** publish once, record one reboot, verify selected code and Home acknowledgement.
-- **Status:** distinguish installed hook, currently loaded code and current-boot acknowledgement.
-- **Disable:** restore the original startup hook, reboot into baseline, verify it and clean holds.
-
-Credentials are a private, owner-only JSON file with `username` and `password`;
-the established username must be `root`. Close other serial users first.
-The current camera adapter uses macOS AVFoundation; host checks remain Linux CI.
-Use a fresh bundle for each operation. Trial/status assume an established idle
-shell; after uncertain console activity, reconcile that shell before using them.
-An unknown request is never automatically
-resent. Keep the state directory: it binds the independent on-device recovery.
-Without `--recover-on-timeout`, the build observes readiness but does not request
-automatic recovery. Even with it, this is one Home-specific experiment.
-
-CPU/RAM/I/O snapshots accompany the trial and baseline. They are observations,
-not repeated performance evidence. Camera footage still establishes visible behavior.
+The former v55 one-shot feature CLI and Home supervisor are retired. Their
+[source and walkthrough](https://github.com/aeharding/open-connect/blob/79b5b562086acfb615c50807395c21adae5e1e7c/docs/disclaimer-development.md)
+remain historical evidence. Use the maintained USB backend for installation,
+settings, recovery and removal.
 
 ## USB installer build
 
@@ -117,18 +75,18 @@ make release OUT=runs/my-release
 ~~~
 
 This does not require Python, an installed `oc`, private OEM inputs or a connected
-CMU. CI provides the ZIP and `SHA256SUMS` as `fw55-usb-installer`. See the
+CMU. CI provides the ZIP and `SHA256SUMS` as `usb-installer`. See the
 [installer development guide](installer-development.md) for builds and qualification limits
 and [Quick start](usb-installer.md) for installation.
 Checksums detect damaged payloads; they are not a package-signing scheme.
 
 ## Low-level UART
 
-First [open the serial terminal and log in](bench-setup.md#first-boot) with
-Mazda's public default UART credentials: username `root`, password `jci`.
-This login is verified on the supported 55.00.750B NA bench.
-Close the terminal before running a live `oc` operation. The commands below
-do not log in automatically.
+First [open the serial terminal](bench-setup.md#first-boot) and establish an
+authenticated UID-0 shell on exact 74.00.324A NA. UART login credentials on the
+replacement v74 bench remain unqualified; owner-key SSH works separately.
+Close the terminal before running a live command. These operations do not log in
+automatically. Read-only receive needs no authenticated shell.
 
 ~~~sh
 .venv/bin/oc uart --help
@@ -157,7 +115,7 @@ Raw UART evidence is private under the requested runs/ bundle.
 
 ## Capture the CMU screen over SSH
 
-With authenticated SSH on the v55 bench, Mazda’s Wayland screenshot utility
+With authenticated SSH on the v74 bench, Mazda’s Wayland screenshot utility
 returns the current 800 × 480 display as a PNG. Replace `my-cmu` with your
 verified SSH host alias. Pick a fresh output filename on your computer.
 

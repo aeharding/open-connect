@@ -60,14 +60,15 @@ job to pass alongside adversarial review before merging. To apply formatting
 locally, run .venv/bin/ruff format tooling tests.
 
 Ruff covers tooling/ and tests/. The offline suite includes the public CLI,
-publication/undo with real local files and mappings, simulated boot observation,
-and startup selection with local sockets and shell processes. It uses no physical
+publication/undo with real local files and mappings, generated video,
+and installer transactions with local sockets and shell processes. It uses no physical
 device, credentials or OEM files. Install Clang for its host C checks; optional
 Node.js and ffmpeg checks report skips if those tools are absent.
 
 CI also builds the maintained ARM helpers and public USB bundle with standard tools.
-Private native/JS input checks run through python -m open_connect.feature build; an absent private
-fixture is an explicit skip in the public suite. Host tests do not establish
+Private exact-original checks use tests/check_firmware.py as described in the
+[installer development guide](docs/installer-development.md#private-firmware-checks).
+An absent private fixture is an explicit skip in the public suite. Host tests do not establish
 firmware behavior or successful recovery on a CMU.
 
 Actions are pinned to commit hashes, validation jobs have read-only permissions, and
@@ -92,8 +93,8 @@ See [documentation guidance](docs/documentation.md) for content and publication 
 
 ## Mods and device work
 
-Use the [developer feature workflow](docs/disclaimer-development.md) for bench
-verification. Superseded probes are in Git history. Report missing private OEM
+Use the [maintained installer workflow](docs/installer-development.md) for bench
+verification. The superseded v55 one-shot workflow is in Git history. Report missing private OEM
 inputs rather than claiming their checks passed.
 Read [bench setup](docs/bench-setup.md), [CLI usage](docs/cli.md) and the current
 [lab state](docs/bench-state.txt) before operating the project's bench.
@@ -123,7 +124,7 @@ inventing a general framework. Git history preserves retired implementations.
 Only original AGPL-compatible code and sanitized findings belong in commits.
 Never add OEM binaries/sources, credentials, private captures or the noncommercial
 comparison adaptations. See [THIRD_PARTY.md](THIRD_PARTY.md).
-Support one exact firmware baseline: currently 55.00.750B NA.
+Support one exact firmware baseline: currently 74.00.324A NA.
 
 Use [PLAN.md](PLAN.md) for priorities and [STEERING.md](STEERING.md) for product
 direction. Update useful findings after results, not a journal after every command.

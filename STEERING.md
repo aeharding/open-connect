@@ -173,15 +173,15 @@ plainly without making persistence a separate later milestone.
 ## One required firmware baseline
 
 User decision: support **one exact firmware baseline at a time**. Current required
-baseline: **55.00.750B, North America (cmu150_NA)**, with exact source/API guards.
-A generic v55 label is not permission to apply patches to other v55 builds.
+source baseline: **74.00.324A, North America (cmu150_NA)**, with exact source/API
+guards. Other v74 builds are unsupported. Earlier v55 releases remain historical
+evidence rather than a second maintained baseline.
 
-Move the required baseline to the latest officially applicable North American
-release after package, upgrade sequence and development access are established.
 The Mazda-hosted **74.00.324A NA** package is hash-verified, and owner-key
-development access has been demonstrated on that exact baseline. Feature
-qualification and a general documented upgrade route remain unresolved; this
-is not an upgrade instruction. The user reports 74.00.324 in the real car;
+development access has been demonstrated on that exact baseline. The maintained
+port has local install/update/startup/Settings/uninstall evidence; CI-artifact,
+physical-input and broader recovery qualification remain. A general documented
+upgrade route is unresolved; this is not an upgrade instruction. The user reports 74.00.324 in the real car;
 confirm its exact build and region before installation. See the
 [v74 access evidence](docs/reverse-engineering.md#owner-key-access-after-the-replacements-v74-upgrade).
 The user wants modern firmware as the eventual requirement, not a growing
@@ -269,8 +269,8 @@ the first AGPL release needs an independently distributable implementation.
 A clean bypass is the outcome; visual masking or timer reduction alone is not it.
 Do not indefinitely tune an unmeasured frame at the expense of a usable product.
 
-[PLAN.md](PLAN.md) orders delivery: standalone installer with persistent startup,
-then the separate firmware move for the owner's car. Native
+[PLAN.md](PLAN.md) orders delivery: the v74 installer with persistent startup,
+then the developer menu and measured performance work. Native
 install/undo must account for loaded-module lifetime: restoring disk bytes does
 not unload it. Reuse the working hardlink-hold recovery where native replacement
 requires it.

@@ -154,7 +154,7 @@ hide:
 <details class="bench-detail"><summary>Stock USB hub, firmware and supply notes</summary>
 <ul>
 <li><strong>Stock hub:</strong> use its original keyed USB cable instead of the two retrofit cables. Keep the power plug.</li>
-<li><strong>CarPlay hub:</strong> requires compatible CMU firmware before installation. Our v55 bench has not qualified the incoming aftermarket hub or Ethernet adapter.</li>
+<li><strong>CarPlay hub:</strong> requires compatible CMU firmware before installation. The v74 replacement has owner-reported wired CarPlay and verified Ethernet SSH; full projection qualification remains separate.</li>
 <li><strong>DPS150 input:</strong> it is step-down only. Use a supported PD/QC or DC source above 12 V; an ordinary 5 V USB supply is insufficient. Use one power input at a time.</li>
 <li><strong>Existing lab:</strong> leave its verified DPS150 voltage setting unchanged. Use the relay to cycle ACC while the supply keeps B+ on.</li>
 </ul>
@@ -170,8 +170,8 @@ hide:
 python -m serial.tools.miniterm --rts 0 --dtr 0 --eol CR UART_PORT 115200</code></pre>
 <p>Replace UART_PORT with your adapter. Exit with <strong>Ctrl+]</strong> before using <a href="cli.md">oc commands</a>; only one program can own the port.</p>
 </details>
-<p><strong>UART login:</strong> username <code>root</code>, password <code>jci</code>. These are Mazda's publicly known default credentials, verified on the supported 55.00.750B NA bench.</p>
-<p>Wait for startup to finish. At <code>cmu login:</code>, enter <code>root</code>, then enter <code>jci</code> at <code>Password:</code>. The password does not appear as you type. Startup logs can obscure the login prompt; after startup settles, press Enter once to show it again. A successful login gives a root shell prompt. Exit the serial terminal before running <code>oc</code>; closing the terminal leaves the CMU shell logged in.</p>
+<p><strong>V74 access:</strong> UART output and its login prompt are present, but replacement-bench console credentials remain unqualified. Owner-key SSH works separately; see the <a href="reverse-engineering.md#owner-key-access-after-the-replacements-v74-upgrade">access evidence</a>. The installer does not require developer login.</p>
+<p>For command operations, establish an authenticated UID-0 console shell and close the terminal before using <code>oc</code>. Read-only serial receive does not need a login. The old <code>root</code> / <code>jci</code> result belongs to the historical v55 bench and is not a v74 login instruction.</p>
 <p class="next-link">Once it boots: <a href="cli.md">use the CLI and enable the silent Entertainment profile →</a></p>
 </section>
 

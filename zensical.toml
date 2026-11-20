@@ -30,7 +30,6 @@ nav = [
     { "Wire a bench" = "bench-setup.md" },
     { "Use the CLI" = "cli.md" },
     { "Build and test the installer" = "installer-development.md" },
-    { "Test the disclaimer bypass" = "disclaimer-development.md" },
     { "Architecture" = "extension-architecture.md" },
     { "Edit these docs" = "documentation.md" },
   ] },

@@ -8,10 +8,10 @@ Two optional improvements, inside Mazda's own interface:
 Install from USB, change your choices in Mazda Settings, and uninstall there
 whenever you want to restore your previous setup.
 
-> **Available now: a development prerelease for 55.00.750B North America.**
+> **Current target: exactly 74.00.324A North America. V74 release qualification is in progress.**
 >
-> Bench testing continues; physical touch while moving is not yet qualified.
-> Firmware 74 support is in progress.
+> A qualified v74 download is not published yet. Bench testing continues;
+> physical touch while moving is not yet qualified.
 
 [Quick start](usb-installer.md){ .md-button .md-button--primary }
 [Settings](settings.md){ .md-button }

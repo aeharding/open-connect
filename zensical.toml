@@ -21,13 +21,16 @@ nav = [
     { "Touchscreen While Driving" = "touchscreen.md" },
     { "Startup disclaimer" = "disclaimer.md" },
   ] },
+  { "Performance evidence" = [
+    { "Timings and RAM" = "performance.md" },
+    { "CarPlay measurements" = "carplay-testing.md" },
+  ] },
   { "Development" = [
     { "Contribute" = "development.md" },
     { "Wire a bench" = "bench-setup.md" },
     { "Use the CLI" = "cli.md" },
     { "Build and test the installer" = "installer-development.md" },
     { "Test the disclaimer bypass" = "disclaimer-development.md" },
-    { "Measure CarPlay" = "carplay-testing.md" },
     { "Architecture" = "extension-architecture.md" },
     { "Edit these docs" = "documentation.md" },
   ] },

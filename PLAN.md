@@ -25,7 +25,7 @@ fixed delivery slot. Each performance claim needs comparable measurements.
 | **1. First v74 release** | Install the two initial features on the owner’s car using a normal USB bundle | Both features, startup recovery and the complete maintenance flow pass on the matching bench; the first car installation confirms the intended behavior | [#2 firmware](https://github.com/aeharding/open-connect/issues/2), [#60 touch](https://github.com/aeharding/open-connect/issues/60), [#6 bypass](https://github.com/aeharding/open-connect/issues/6), [#7 delivery](https://github.com/aeharding/open-connect/issues/7) |
 | **2. Developer options** | Control development access from Open Connect Settings | UART console-login checkbox and SSH enable/disable with public-key import work, show actual state and restart requirements, and restore pre-install configuration on uninstall | [#85](https://github.com/aeharding/open-connect/issues/85) |
 | **3. Performance baselines** | Know where startup time and resource pressure go before changing services | Repeatable stock/Open Connect timing, CPU, RAM and I/O batches; compare relevant Miatafy milestones and explain matches or differences | [#5 starts](https://github.com/aeharding/open-connect/issues/5), [#9 measurements](https://github.com/aeharding/open-connect/issues/9) |
-| **4. Services menu and measured improvements** | Let owners disable qualified unused services in a dedicated Settings page | Dependencies and effects are documented, each change is compared against baseline, and controls, restart, regressions and undo are qualified | [#86 Services](https://github.com/aeharding/open-connect/issues/86), [#9 measurements](https://github.com/aeharding/open-connect/issues/9) |
+| **4. Services menu and base optimizations** | Let owners disable qualified unused services in a dedicated Settings page | Dependencies and effects are documented, each change is compared against baseline, and controls, restart, regressions and undo are qualified | [#86 Services](https://github.com/aeharding/open-connect/issues/86), [#9 measurements](https://github.com/aeharding/open-connect/issues/9) |
 | **5. Reliable wireless CarPlay — last** | Get usable projection and responsive controls after a long parked start | Reproduce the lag, identify its cause, compare baseline and modified runs, and confirm a useful improvement in the real car | [#8 reliability](https://github.com/aeharding/open-connect/issues/8) |
 
 These phases describe release outcomes. Existing GitHub milestones retain their
@@ -90,19 +90,16 @@ shutdown, supply loss, warm reboot and quick ACC resume; retain failures and the
 spread across repeated trials. Check collection overhead. Home appearing and an
 input device registering do not by themselves establish usable controls.
 
-Include [Miatafy’s published ScreenTune boot benchmarks](https://miatafy.com/screentune/boot-benchmarks/)
-as an external reference, checked November 20, 2026. That page reports typical
-touch readiness of about **48 s stock / 32 s ScreenTune** on one v74.00.324A unit,
-with seven stock and six modified captures. Its milestones use `/proc/uptime` and
-an internal profiler; exact detection rules and configuration must be resolved
-before claiming a matched reproduction. Record both kernel-relative and external
-power/ACC timing, and independently check real interaction. Report reproduced,
-different or not comparable results, with the conditions and sample spread.
-Initially compare with published results; a direct product comparison needs an
-identified ScreenTune revision/configuration and an available compatible package.
-CarPlay-specific benchmark reproduction remains in phase 5.
+Publish methods, individual timings, RAM values, conditions and failures in the
+[Performance evidence section](docs/performance.md). Include the Miatafy
+comparison there: match milestone definitions and timing origins before claiming
+reproduction, and distinguish external reference numbers from our results.
+CarPlay-specific reproduction stays in phase 5.
 
-Then add a dedicated **Services** page under Open Connect Settings. Inspect each
+Then add a dedicated **Services** page under Open Connect Settings. A proposed
+**Base optimizations** on/off setting groups qualified internal changes such as
+reduced logging; its contents and default need timing and RAM evidence. Measure
+the complete bundle with the same individual service selections. Inspect each
 candidate’s consumers, test one reversible change at a time, and compare against
 the same baseline. Aha/Pandora/Stitcher, TV and logging policy are candidates,
 not a preset purge. Only expose qualified choices; show actual/pending state and

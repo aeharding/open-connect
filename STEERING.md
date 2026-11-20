@@ -79,6 +79,13 @@ The owner wants performance testing before service changes and a dedicated
 Services page in Open Connect Settings before CarPlay work. Include Miatafy's
 published timings in the baseline comparison, matching measurement definitions
 and conditions before claiming reproduction. See PLAN.md and issues #9 and #86.
+Maintain a dedicated [Performance evidence](docs/performance.md) section in the
+docs for timings and RAM, with comparable per-run results, methods, failures and
+regressions. RAM measurements during startup and matched workloads are required.
+A single Base optimizations on/off setting is the proposed way to group tested
+internal changes, such as reduced logging, if timing and RAM evidence support
+them. Qualify the complete bundle with individual service selections held fixed;
+contents and defaults remain undecided.
 
 For a future touchscreen follow-up, extend the preference to Factory behavior,
 Always enabled and Disabled (ghost touch). Complete disable must cover startup

@@ -25,6 +25,30 @@ listener absent. Mazda's startup checksums were unchanged and the physical root
 remained read-only. Private evidence: `runs/replacement-v74-20261119/` and
 `runs/replacement-cleanup-20261119/`. This did not qualify the installer on v59.
 
+The later read-only intake found that this unit's firewall source sets INPUT to
+DROP and permits SSH on port 36000, with no allowance for the temporary listener's
+36001. The normal 36000 listener was reachable and its host key matched the key
+read over UART. That makes the missing firewall allowance the leading explanation
+for the earlier timeout; it was not an authentication rejection. Private evidence:
+`runs/replacement-access-research-20261119/`.
+
+The installed OpenSSH 5.9 binary names `/etc/ssh/sshd_config` as its default;
+the separate `/etc/sshd_config` is a different inode. A one-line candidate adds
+an owner key file to `AuthorizedKeysFile` alongside Mazda's file. OpenSSH 5.9
+[supports multiple key files and username expansion](https://github.com/openssh/openssh-portable/blob/V_5_9_P1/sshd_config.5).
+The owner-authorized repair passed the CMU's `sshd -t` before publication,
+preserved a verified original and an independent guarded restore script, and
+returned the physical root to RO. After a full supply cycle, the normal server
+accepted the owner's key as `cmu`, UID 0. SFTP retrieved the protected original
+configuration byte-for-byte. Effective configuration retained password
+authentication off, the original Mazda key path and port 36000; live firewall
+inspection confirmed the normal rules. Original startup files, passwords and
+Mazda keys were unchanged. The one-use entry and staging were removed, and access
+persisted without a custom startup hook or additional SSH daemon. The restore
+script's input checks passed; restoration itself was not exercised. This is
+single-unit bench access evidence, not installer qualification or a promise of
+access surviving an upgrade. Private evidence: `runs/replacement-root-ssh-20261119/`.
+
 ## Native installer and Settings on v55
 
 Open Connect uses Mazda’s `Dialog3Ctrl` for install and completion. **Open settings**

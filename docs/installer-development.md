@@ -71,8 +71,24 @@ as-found startup and leaves unrelated wireless-mod files untouched.
 Private host composition covered OEM, each pinned mod and luxubuok following
 Kenatia, where Kenatia's startup edit can remain. These are file-preservation
 checks, not ARM execution, wireless performance or matching-car qualification.
-The existing wired-CarPlay bench evidence used the earlier stock-source bundle;
-it is not relabelled as a test of this compatibility change.
+
+The actual compatibility CI bundle, run 44785660779 / source `c0cc169`, also passed
+fresh install/restart/completion on the stock bench, normal UI reinstall refusal
+after a deliberate touch-setting edit, independent restoration of that edit,
+and a fresh UI reinstall/restart preserving both preferences and the base snapshot.
+Open settings and normal Settings Uninstall passed; removal restored all 19
+intake files/metadata, saved touch NVRAM and original loaded code in a new kernel,
+with root read-only and no product state/runtime. All 32 public files matched in
+both installed packages and runtimes; INSTANCE was the sole durable addition.
+
+An earlier key sequence dismissed a prior refusal dialog, rather than selecting
+reinstall; video and unchanged state are retained. The reason that dialog
+reappeared remains unresolved. The actual reinstall followed a fresh maintained
+reopen and hardware-camera confirmation, so this is not an uninterrupted
+maintenance-flow claim. The restored-stock warm restart also left its CarPlay
+link inactive, separately from the file-restoration result. See the
+[compatibility findings](reverse-engineering.md#preserving-recognized-wireless-mod-inputs).
+No existing wireless mod was installed on the CMU in this stock regression.
 
 ## Startup recovery
 
@@ -176,8 +192,9 @@ incorrect: stock wired CarPlay and input worked while those entries were absent
 and the CMU's USB device-controller interface was UP. See the
 [display and USB-role findings](reverse-engineering.md#display-off-startup-and-usb-role-on-v74).
 
-A distinct replacement-USB launch, physical touch under a declared motion
-restriction, physical commander response, broader startup/audio routes and
+A distinct replacement-USB launch, the refusal-dialog reappearance during
+maintenance, physical touch under a declared motion restriction, physical
+commander response, broader startup/audio routes and
 matching-car installation remain release gates. A visible Show disclaimer is
 unqualified under other startup conditions; the tested warm route matched stock's
 logo-to-Home behavior. No qualified v74 download or vehicle-ready claim is made.

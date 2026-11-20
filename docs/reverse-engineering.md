@@ -404,6 +404,30 @@ captures retain their original source identities. Supporting records:
 runs/v74-car-mod-compat-20261120/derived-source-hashes.json,
 composition-results-final.json and stock-check-final/result.json.
 
+Actual CI 44785660779 / source `c0cc169` then passed the maintained stock-bench
+install/restart/completion flow, UI reinstall conflict refusal, independent
+owned-edit restoration, fresh UI reinstall preserving preferences/base snapshot,
+Open settings and normal Settings Uninstall. Both installed packages/runtimes
+matched all 32 public entries plus INSTANCE. Uninstall verified all 19 intake
+hashes/metadata, saved touch NVRAM, original native/frontend and root read-only in
+a new kernel, with no product state/runtime.
+
+The first clean-reinstall key sequence actually dismissed the earlier refusal
+dialog: video showed that dialog before input, then Mazda Home, with unchanged
+kernel/record/package. Why it reappeared remains unresolved. A fresh maintained
+reopen reported no conflict and the hardware camera confirmed the maintenance
+prompt before the actual reinstall. An initial host read helper also lacked its
+AUTOSTART variable; correcting that read did not repeat Install. One SSH read
+during the actual reinstall restart timed out before a later read completed.
+These failures remain separate from the successful cases. The final restored-stock
+warm restart left projection carrier/RX/TX zero, matching the previously recorded
+stock fixture issue; a separate bounded supply-output recovery followed without
+changing voltage/current settings. No cause or reliability improvement is claimed.
+The live trial used OEM inputs, not a wireless-mod installation. Supporting
+records in the same private root: ci-identity.json, installed-qualification.json,
+conflict-qualification.json, first-reinstall-input-reconciliation.json,
+reinstalled-qualification.json and uninstall-qualification.json.
+
 ## Native installer and Settings on v55
 
 Open Connect uses Mazda’s `Dialog3Ctrl` for install and completion. **Open settings**

@@ -323,6 +323,32 @@ root read-only, with product state/runtime absent and saved display mode 3 intac
 This adds the clock option under these conditions; physical wake controls,
 audio, timing and broader last-app coverage remain unqualified.
 
+A matched foreground wired-CarPlay case also restored the dashboard automatically
+on stock and the same reviewed CI bundle with both features enabled. Stock used
+30.021 seconds of ACC off and the selected case used 30.014 seconds; each started
+a new kernel without post-start input or a consent action. Both retained cached
+last-app type 6 and native display current/last 0/3. Hardware-camera observations
+showed projection, with carrier 1 and fresh receive traffic; the selected boot
+also emitted both video cleanup events. This establishes the startup destination
+under these conditions. The planned usable-input comparison remains incomplete:
+the raw/filtered arrow and filtered-wheel probes did not establish a visible
+focus response on stock. It does not qualify physical controls, audio, charging,
+timing/RAM or native wireless CarPlay. Private last-app/plan.json and
+stock-acc/result.json / ci-acc/result.json retain the original criterion and limits.
+
+Fixture setup needed recovery before each matched case: one stock supply-output
+reset recovered its inactive projection link, and a separate normal ACC cycle
+after the CI installation completed recovered unreachable bench Ethernet/SSH.
+Voltage/current settings were unchanged; Install was not repeated. The latter
+boot showed the Ethernet adapter, DHCP client and listening SSH server, but no
+lease result was captured before recovery. Its cause remains unresolved. These
+setup interventions are separate from the subsequent unassisted startup results.
+Normal Settings Uninstall afterward restored all 19 intake hashes/metadata,
+absent touch NVRAM, original loaded native/frontend and display 0/3 in a fresh
+stock kernel, with no product state/runtime and physical root read-only.
+Private last-app/uninstall/qualification.json records closure; all 19 observers
+completed with closed handles and all 173 sealed artifacts matched their manifests.
+
 The earlier missing-phone interpretation was premature. Fully stock live wired
 CarPlay accepted a virtual Right input while the phone and bridge were absent
 from the host USB tree. At that checkpoint `usb0` was UP, associated with

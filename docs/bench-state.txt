@@ -1,17 +1,34 @@
 2016 Mazda3 bench handoff — November 20, 2026
 
-Stock checkpoint after direct v74 owner-guide capture
-Current verified boot: 93d41ff5-8566-43c4-8ecf-b088550457dc.
-The capture installation was removed through normal Settings Uninstall. All 19
-intake hashes and mode/uid/gid triples match. Saved touch NVRAM is absent;
-original native/frontend paths are loaded; product persistent state, backups,
-runtime and startup staging are absent. Physical /dev/ffx01p1 root is ro,noatime.
-Saved display current/last is 0/3, matching the starting state. Final camera shows
-unobscured Mazda Home with Communication focused. No product operation is pending.
-ACC and DPS output are ON at unchanged 12.02 V / 2 A. Owner SSH and independent
-feature/access recovery preflights remain ready. All three UART/camera observers
-completed and closed; recorded artifact hashes/sizes match. All short SSH actions
-finished. No owned bench operation is running. Re-identify before further use.
+Wired-CarPlay startup destination matched — stock restored
+Current verified stock boot: c699f24a-c419-4178-8137-2126db32515a.
+Normal Settings Uninstall after the matched CarPlay trial restored all 19 intake
+hashes/metadata, saved absent touch NVRAM and original loaded native/frontend.
+Product state/runtime/staging are absent, physical root is ro,noatime and display
+current/last is 0/3. Camera shows unobscured Mazda Home. Independent feature and
+owner-access preflights pass. All 19 observers are completed with handles closed;
+all 173 sealed artifacts match their manifests. ACC/supply ON, unchanged 12.02 V /
+2 A. No Open Connect installation is currently active.
+
+Stock and actual CI 44716935060/ba941122 restored the CarPlay dashboard without
+post-start input after 30.021 / 30.014 seconds ACC off and a new kernel. Both
+retained display 0/3, cached last-app type 6 and carrier 1 with fresh traffic.
+The CI boot emitted both video cleanup events. The full planned usable-input
+comparison remains incomplete: stock virtual probes did not establish a visible
+focus response. Physical controls, audio, charging and timing remain unqualified.
+Removed package f85ddda1f44f6f706a1a9a5607d69371489846e257e868197840f7e33cb3e65d
+matched all 32 actual CI public entries plus private INSTANCE. Touch/warning 1/1
+and selected native/frontend maps were verified on both CI boots.
+
+Setup needed one stock supply-output reset for an inactive projection link and
+one separate normal ACC recovery for unreachable bench Ethernet after completed
+CI installation. The latter cause remains unresolved. Neither intervention is
+part of the matched case; no Install request or uncertain input was repeated.
+Evidence: runs/v74-release-20261120T064850Z/last-app/, including plan.json,
+stock-acc/result.json, ci-acc/result.json, capture-validation.json and
+uninstall/qualification.json. The original usable-input criterion is retained.
+Next release gates remain physical USB launch/replacement maintenance, physical
+controls/motion behavior, audio paths and exact car/mod identity confirmation.
 
 Seven direct 800x480 Wayland PNGs now illustrate the v74 development UI in the
 guide. Their original/received hashes match; there are no text/EXIF chunks, and
@@ -48,7 +65,7 @@ The removed clock-trial package was
 its 32 public entries matched, with private INSTANCE the sole addition.
 Original autostart SHA-256:
 a8d019650c2a17a50b5ff39435f916c2cbeb3556af128fd913b9714b380e06bd,
-metadata 775:1000:1000. No Open Connect installation is currently active.
+metadata 775:1000:1000. That clock-trial installation was removed.
 
 Maintained source and completed checks
 The v74 port merged in PR #90 (3bfb56c). Its incoming-frame cleanup correction

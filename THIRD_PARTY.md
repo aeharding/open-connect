@@ -12,13 +12,18 @@ run from a public checkout alone.
 
 ## Documentation screenshots
 
-The seven PNG images in `docs/assets/guide/` show Open Connect **0.2.0-dev.2** running
+The seven PNG images in `docs/assets/guide/` show Open Connect running
 on Mazda firmware **55.00.750B NA**. They were captured directly from the CMU's
 Wayland display on November 18, 2026, without cropping or other image edits.
 Each was reviewed for personal data, credentials and diagnostic overlays.
 The separately authored `cmu-frame.svg` is a decorative bezel displayed around
 the captures by the website; it is not part of the captured screen.
-The USB bundle used for capture came from [CI run 44350948917](https://github.com/aeharding/open-connect/actions/runs/44350948917)
+`install.png` and `complete.png` show **0.2.0-dev.3**, from
+[CI run 44368399412](https://github.com/aeharding/open-connect/actions/runs/44368399412)
+(source `df7fd03`), with bundle SHA-256
+`7490ac35896d71a08b004064b916d7178bdc9f646fa8f5316e30afccfa2172dd`.
+The five unchanged Settings/feature/uninstall captures show **0.2.0-dev.2**.
+Their USB bundle came from [CI run 44350948917](https://github.com/aeharding/open-connect/actions/runs/44350948917)
 (source `2f30ead`), with SHA-256
 `98e7e09fdfb8ca87545e481d1276de0a6db28e6a62648f346a5e71b575a300a9`.
 

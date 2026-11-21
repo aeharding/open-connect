@@ -26,6 +26,10 @@ def main():
     parser.add_argument("--bundle", type=Path)
     parser.add_argument("--relay-location", default="2-1")
     parser.add_argument("--camera-uid", default="0x8400000046d0825")
+    parser.add_argument(
+        "--label",
+        default="Stock reference; record phone/peripherals/camera settings with the batch",
+    )
     parser.add_argument("--live", action="store_true")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", args.host):
@@ -90,6 +94,7 @@ def main():
     outcome, error = "incomplete_preserved", None
     record = {
         "revision": revision,
+        "label": args.label,
         "supply_commands_sent": False,
         "events": [],
         "ui_inputs_sent": False,
@@ -249,14 +254,20 @@ def main():
                     uart_worker.join(2)
                 if port:
                     port.close()
-                video.stop()
-                if sample_worker:
-                    sample_worker.join(160)
-                    if sample_worker.is_alive():
-                        raise RuntimeError("resource worker exceeded its finite deadline")
+                try:
+                    video.stop()
+                except BaseException as exc:
+                    record["camera_error"] = repr(exc)
+                finally:
+                    if sample_worker:
+                        sample_worker.join(160)
+                        if sample_worker.is_alive():
+                            raise RuntimeError("resource worker exceeded its finite deadline")
     except BaseException as exc:
         error = repr(exc)
     finally:
+        if record.get("camera_error"):
+            error = error or record["camera_error"]
         if record.get("sampling_error") or record.get("sampler_returncode") != 0:
             error = error or record.get("sampling_error") or "sampling did not complete"
         record.update(

@@ -35,6 +35,11 @@ def main():
         help="assert the applied service choice; does not change it",
     )
     parser.add_argument(
+        "--log-level",
+        choices=["Info", "Warn"],
+        help="assert the bench RAM choice and loaded native MMUI logging level",
+    )
+    parser.add_argument(
         "--label",
         default="Stock reference; record phone/peripherals/camera settings with the batch",
     )
@@ -126,6 +131,8 @@ def main():
         "package": args.package,
         "pandora": args.pandora,
     }
+    if args.log_level is not None:
+        record["log_level"] = args.log_level
 
     def event(kind, **values):
         row = {"kind": kind, "monotonic_s": time.monotonic(), **values}
@@ -164,6 +171,7 @@ def main():
                 args.condition,
                 args.package or "-",
                 str(args.pandora) if args.pandora is not None else "-",
+                args.log_level or "-",
             ]
         )
         result = subprocess.run(
@@ -173,7 +181,7 @@ def main():
         bundle.save("preflight.err", result.stderr)
         if result.returncode:
             raise RuntimeError("condition preflight refused before any device opened")
-        old_boot = validate_condition(result.stdout, args.condition, args.pandora)
+        old_boot = validate_condition(result.stdout, args.condition, args.pandora, args.log_level)
         cameras = subprocess.check_output(
             ["system_profiler", "SPCameraDataType", "-json"], timeout=12
         )
@@ -262,7 +270,8 @@ def main():
         bundle.save("postflight.err", result.stderr)
         if (
             result.returncode
-            or validate_condition(result.stdout, args.condition, args.pandora) != trace["boot_id"]
+            or validate_condition(result.stdout, args.condition, args.pandora, args.log_level)
+            != trace["boot_id"]
         ):
             raise RuntimeError("condition changed or failed postflight")
         event(
@@ -290,10 +299,28 @@ def main():
         raise SystemExit(error)
 
 
-def validate_condition(raw, condition, pandora=None):
+def validate_condition(raw, condition, pandora=None, log_level=None):
     boots = re.findall(rb"^REFERENCE_BOOT\|(" + metrics.UUID.encode() + rb")$", raw, re.M)
     if len(boots) != 1:
         raise ValueError("missing exact condition boot record")
+    if log_level is not None:
+        if log_level not in ("Info", "Warn"):
+            raise ValueError("invalid expected logging level")
+        choices = re.findall(
+            rb"^NATIVE_LOG_CHOICE\|(Info|Warn)\|([a-f0-9]{64})\|([a-f0-9]{64})$", raw, re.M
+        )
+        expected_sha = hashlib.sha256(f"COMMON_LOG_LEVEL={log_level}\n".encode()).hexdigest()
+        expected_root = "8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0"
+        if choices != [(log_level.encode(), expected_sha.encode(), expected_root.encode())]:
+            raise ValueError("logging choice, RAM bytes or original configuration changed")
+        mmui = re.findall(
+            rb"^NATIVE_LOG_MMUI\|([1-9][0-9]*)\|([1-9][0-9]*)\|([01])\|([0-7])\|([0-7])\|([0-7])$",
+            raw,
+            re.M,
+        )
+        level = b"5" if log_level == "Info" else b"3"
+        if len(mmui) != 1 or mmui[0][2:] != (b"1", level, level, b"5"):
+            raise ValueError("native MMUI logging level is missing or not applied")
     if condition == "open-connect":
         rows = re.findall(rb"^CANDIDATE_STATUS\|(.*)$", raw, re.M)
         if len(rows) != 1:

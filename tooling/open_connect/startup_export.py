@@ -13,22 +13,29 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("base", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--services", action="store_true")
+    comparison = parser.add_mutually_exclusive_group()
+    comparison.add_argument("--services", action="store_true")
+    comparison.add_argument("--logging", action="store_true")
     args = parser.parse_args()
     base = args.base.resolve()
     output = args.output
     output.mkdir(mode=0o700)
-    if args.services:
+    if args.logging:
         cohorts = [
-            ("pandora-on", base / "pandora-on", "open-connect", 1),
-            ("pandora-off", base / "pandora-off", "open-connect", 0),
+            ("logging-info", base / "logging-info", "stock", None, "Info"),
+            ("logging-warn", base / "logging-warn", "stock", None, "Warn"),
+        ]
+    elif args.services:
+        cohorts = [
+            ("pandora-on", base / "pandora-on", "open-connect", 1, None),
+            ("pandora-off", base / "pandora-off", "open-connect", 0, None),
         ]
     else:
         cohorts = [
-            ("stock", base / "stock", "stock", None),
-            ("open-connect", base / "open-connect-matched", "open-connect", None),
+            ("stock", base / "stock", "stock", None, None),
+            ("open-connect", base / "open-connect-matched", "open-connect", None, None),
         ]
-    paths = [root / f"trial-{n}" for _, root, _, _ in cohorts for n in range(1, 6)]
+    paths = [root / f"trial-{n}" for _, root, _, _, _ in cohorts for n in range(1, 6)]
     # The existing analysis independently parses raw retrieval, checks the saved
     # trace/CSV and boot clock, and rejects incomplete or changed evidence.
     raw = subprocess.check_output(
@@ -39,22 +46,25 @@ def main():
     samples = []
     io = []
     timings = []
-    for condition, root, recorded_condition, pandora in cohorts:
+    for condition, root, recorded_condition, pandora, log_level in cohorts:
         for run in range(1, 6):
             path = root / f"trial-{run}"
             proof = verified[str(path)]
             assert proof["condition"] == recorded_condition
             trace = json.loads((path / "trace.json").read_text())
-            if pandora is not None:
+            if pandora is not None or log_level is not None:
                 from open_connect.startup_reference import validate_condition
 
                 meta = json.loads((path / "trial.json").read_text())
-                assert meta["pandora"] == pandora
+                if pandora is not None:
+                    assert meta["pandora"] == pandora
+                if log_level is not None:
+                    assert meta["log_level"] == log_level
                 before = validate_condition(
-                    (path / "preflight.out").read_bytes(), "open-connect", pandora
+                    (path / "preflight.out").read_bytes(), recorded_condition, pandora, log_level
                 )
                 after = validate_condition(
-                    (path / "postflight.out").read_bytes(), "open-connect", pandora
+                    (path / "postflight.out").read_bytes(), recorded_condition, pandora, log_level
                 )
                 assert before != after and after == trace["boot_id"]
             window = [

@@ -14,6 +14,7 @@ def main():
     parser.add_argument("--condition", choices=["stock", "open-connect"], required=True)
     parser.add_argument("--package")
     parser.add_argument("--pandora", type=int, choices=[0, 1])
+    parser.add_argument("--log-level", choices=["Info", "Warn"])
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--live", action="store_true")
     args = parser.parse_args()
@@ -30,6 +31,8 @@ def main():
         condition += ["--package", args.package]
     if args.pandora is not None:
         condition += ["--pandora", str(args.pandora)]
+    if args.log_level is not None:
+        condition += ["--log-level", args.log_level]
     for number in range(1, 6):
         trial = args.bundle / f"trial-{number}"
         print(json.dumps({"start": number, "condition": args.condition}), flush=True)
@@ -44,9 +47,13 @@ def main():
                     "--bundle",
                     str(trial),
                     "--label",
-                    "Declared SERVICES-COMPARISON.md batch"
-                    if args.pandora is not None
-                    else "Declared STARTUP-COMPARISON.md batch",
+                    "Declared LOGGING-PREFILTER.md batch"
+                    if args.log_level is not None
+                    else (
+                        "Declared SERVICES-COMPARISON.md batch"
+                        if args.pandora is not None
+                        else "Declared STARTUP-COMPARISON.md batch"
+                    ),
                 ],
                 stdout=output,
                 stderr=subprocess.STDOUT,

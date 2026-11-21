@@ -17,6 +17,38 @@ from open_connect import startup_reference as m
 
 
 class StartupReferenceTests(unittest.TestCase):
+    def test_logging_condition_requires_exact_ram_bytes_and_loaded_mm_ui_state(self):
+        boot = "11111111-1111-1111-1111-111111111111"
+        root = "8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0"
+
+        def output(choice, actual=None):
+            level = actual if actual is not None else (5 if choice == "Info" else 3)
+            digest = hashlib.sha256(f"COMMON_LOG_LEVEL={choice}\n".encode()).hexdigest()
+            return (
+                f"NATIVE_LOG_CHOICE|{choice}|{digest}|{root}\n"
+                f"NATIVE_LOG_MMUI|123|456|1|{level}|{level}|5\n"
+                f"REFERENCE_BOOT|{boot}\n"
+            ).encode()
+
+        for choice in ("Info", "Warn"):
+            raw = output(choice)
+            self.assertEqual(m.validate_condition(raw, "stock", log_level=choice), boot)
+            for bad in (
+                output(choice, actual=7),
+                raw.replace(b"|123|456|1|", b"|123|456|0|"),
+                raw.replace(root.encode(), b"0" * 64),
+                raw.replace(b"NATIVE_LOG_CHOICE", b"OTHER_CHOICE"),
+                raw.replace(b"NATIVE_LOG_MMUI", b"OTHER_MMUI"),
+                raw + raw.splitlines()[1] + b"\n",
+            ):
+                with self.assertRaises(ValueError):
+                    m.validate_condition(bad, "stock", log_level=choice)
+            other = "Warn" if choice == "Info" else "Info"
+            with self.assertRaises(ValueError):
+                m.validate_condition(raw, "stock", log_level=other)
+        with self.assertRaises(ValueError):
+            m.validate_condition(output("Info"), "stock", log_level="Debug")
+
     def test_service_condition_requires_policy_state_and_startup_records(self):
         boot = "11111111-1111-1111-1111-111111111111"
         state = dict(

@@ -33,6 +33,10 @@ def main():
         colors = {"pandora-on": "#1967a3", "pandora-off": "#d15a12"}
         labels = {"pandora-on": "Pandora on", "pandora-off": "Pandora off"}
         title = "Controlled ACC startup: Pandora on and off\nFive runs each; same Open Connect build and wired CarPlay"
+    elif {row["condition"] for row in rows} == {"logging-info", "logging-warn"}:
+        colors = {"logging-info": "#1967a3", "logging-warn": "#d15a12"}
+        labels = {"logging-info": "Native Info", "logging-warn": "Native Warn"}
+        title = "Controlled ACC startup: native logging prefilter\nFive runs each; original features/services and wired CarPlay"
     for condition in colors:
         for run in range(1, 6):
             group = [r for r in rows if r["condition"] == condition and int(r["run"]) == run]

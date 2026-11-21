@@ -33,6 +33,26 @@ host monotonic clock before computing external startup durations. Actual frame
 spacing, camera exposure/settings and uncertainty belong with the results.
 Camera launch time is not the first frame's capture time.
 
+The optional host-only clock probe uses an already authorized camera and does
+not request permission or change CMU state:
+
+```sh
+clang -fobjc-arc -Wall -Wextra -Werror -Wno-deprecated-declarations \
+  -include stdatomic.h -framework Foundation -framework AVFoundation \
+  -framework CoreMedia tooling/avfoundation-clock.m -o runs/avfoundation-clock
+runs/avfoundation-clock CAMERA_UID
+```
+
+It prints raw sample PTS, that PTS converted to the CoreMedia host clock,
+current CoreMedia host time and current mach_absolute_time in seconds. The
+reference camera produced identical raw/converted timestamps on this Mac, and
+CoreMedia host time matched the clock used by Python monotonic. This qualifies
+the clock domain, not physical sensor/display latency. FFmpeg 7.1.1 assigns the
+[sample presentation time to video packet PTS](https://github.com/FFmpeg/FFmpeg/blob/n7.1.1/libavdevice/avfoundation.m)
+and [subtracts input start time by default](https://github.com/FFmpeg/FFmpeg/blob/n7.1.1/fftools/ffmpeg_demux.c).
+Retain the input start from stderr and the decoded frame timestamps. This initial
+coverage trial still makes no precise external startup-duration claim.
+
 This trial sends no UI input and does not qualify usable touch/commander input,
 audio or projection solely because a process/network interface appears. Keep
 observer failures separate from CMU behavior. Never blindly repeat an uncertain

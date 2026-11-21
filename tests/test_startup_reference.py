@@ -31,6 +31,7 @@ class StartupReferenceTests(unittest.TestCase):
             ssh=0,
             uartCurrent=0,
             sshCurrent=0,
+            notice="-",
         )
 
         def output(state):
@@ -45,6 +46,7 @@ class StartupReferenceTests(unittest.TestCase):
             ("warning", 0),
             ("conflict", True),
             ("sshCurrent", 1),
+            ("notice", "installed"),
         ]:
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "do not match"):
                 m.validate_condition(output({**state, key: value}), "open-connect")

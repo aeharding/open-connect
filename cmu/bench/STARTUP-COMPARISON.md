@@ -47,6 +47,11 @@ source bytes and refuses modified measurement code. Setup/undo is in
 [the reference instructions](STARTUP-REFERENCE.md). Install through normal SD
 maintenance between blocks, retain independent recovery, and verify normal
 uninstall plus original startup after the candidate block.
+Alternatively `python -m open_connect.startup_batch --live --host my-cmu
+--condition stock --bundle runs/comparison/stock` runs the five observers and
+per-boot clock queries serially, stopping on the first failure. For the candidate
+block supply `--condition open-connect --package` with the digest above. The
+preflight also requires the install completion notice to have been dismissed.
 
 Measure first Home icons visible and first CarPlay dashboard visible from video,
 bracketing each transition between actual decoded frame PTS. Use the retained

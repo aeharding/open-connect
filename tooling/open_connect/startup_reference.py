@@ -295,6 +295,7 @@ def validate_condition(raw, condition):
             ssh=0,
             uartCurrent=0,
             sshCurrent=0,
+            notice="-",
         )
         if any(state.get(key) != value for key, value in expected.items()):
             raise ValueError("candidate preferences or applied state do not match")

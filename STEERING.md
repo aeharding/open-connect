@@ -236,11 +236,27 @@ Additional regions, hardware generations and legacy release support are deferred
 
 ## Working style: deliver the product
 
-**“Elaborate is failure.”** Stop delivering successive standalone prototypes.
-Complete the maintained release path: CI bundle, USB insertion, installation,
-restart, Settings and uninstall. Reuse proven feature behavior, while removing
-bench scaffolding from the product. A targeted experiment is justified only by
-a concrete unresolved blocker; integrate its result and retire the temporary path.
+**“Elaborate is failure.”** We are hacking on the bench; Open Connect is not
+installed in any real cars yet. Optimize for learning and useful working changes.
+Short, reversible experiments are normal work, including experiments that explore
+an opportunity rather than resolve a release blocker. Keep the complete owner
+flow as the destination, integrate useful results, and retire superseded probes.
+An experiment does not need production qualification before it can teach us something.
+
+Use fast host checks while iterating, batch related edits, and check the affected
+native behavior. Reserve complete install/update/restart/uninstall cycles for
+changes to those mechanisms or evidence needed for an actual release claim.
+Reuse existing lifecycle evidence when the relevant code is unchanged; identify
+its actual revision and limits. Run required suites once the batch is ready, and
+repeat them when a new change or failure warrants it. Do not spend more effort
+on receipts, bespoke scripts or coordination than the question needs.
+
+Major plans receive one brief independent adversarial review before substantial
+implementation; see CONTRIBUTING.md. The reviewer should challenge scope,
+assumptions, complexity and execution cost, with our current bench stage explicit.
+The purpose is a better next decision and faster useful experiments. Routine
+experiments and implementation choices do not each need another review or owner
+approval. Keep independent work moving while a plan is reviewed.
 
 Reverse engineering and code analysis are core work. Understand how the CMU makes
 decisions, manages resources and moves through its lifecycle so patches change
@@ -289,11 +305,12 @@ new architecture or extra features that were not requested. The roadmap does
 not authorize speculative extensions. Keep routine work within the agreed scope
 moving without repeated confirmation.
 
-- The primary coordinates the complete outcome. Use subagents through Herdr
-  when helpful. Teammates are equals: trust their judgment and give them room to
-  solve their assigned work. Keep bench ownership explicit and serialized.
+- One primary owns the complete outcome. Use ephemeral Herdr peers for focused
+  reviews of major plans and final PRs, without a standing specialist team.
+  Teammates are equals: trust their judgment. Keep bench ownership serialized.
   Create fresh agents for this work; do not reuse or notify the owner's
   previously open sessions. Disable inherited Herdr parent notifications.
+  Put each new reviewer in a visible Herdr tab immediately.
 - Decide routine implementation details and continue authorized work without
   repeated permission gates. Surface a concrete new risk or missing dependency
   when it changes the experiment; do not invent hypothetical approval chains.

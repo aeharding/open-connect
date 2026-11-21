@@ -6,16 +6,20 @@ Historical plans, ready profiles and assignments are evidence, not current autho
 
 ## Ownership and pace
 
-The primary coordinates implementation, tests, bench operation, recovery and
-integration. Use subagents through Herdr when helpful; teammates are equals and
-should have room to solve their work. Keep live bench ownership serialized.
+One primary owns implementation, tests, bench operation, recovery and integration.
+No standing specialists. Use ephemeral peers for final PR review and major-plan
+review as described in CONTRIBUTING.md; teammates are equals with room to challenge
+the approach. Keep live bench ownership serialized.
 Create fresh Herdr agents; do not reuse the owner's previously open sessions.
 Use --no-parent --no-notify so inherited context cannot route updates into them.
-Use ephemeral reviewers for focused independent reviews.
+Attach each new reviewer to a visible Herdr tab immediately.
 Answer the user promptly; status questions do not cancel ongoing work.
-Complete the release path; do not deliver another standalone prototype increment.
-Use targeted experiments only for concrete release blockers, then integrate their
-results. Avoid duplicated audits, tooling and logs. Apply STEERING.md: outcome first,
+Current work is bench hacking, with no real-car installations. Favor quick,
+bounded experiments and usable increments. Keep working toward the release path;
+experiments need not be release blockers. Batch edits and checks, reuse working
+procedures, and repeat hardware checks only for affected behavior. Do not impose
+production qualification on each experiment. Avoid duplicated audits, tooling and
+logs. Apply STEERING.md: outcome first,
 early prior art, one decision per experiment, and separate device/tooling failures.
 
 Run commands and file operations directly, including Git, builds and tests.

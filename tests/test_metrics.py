@@ -72,6 +72,8 @@ class MetricsTests(unittest.TestCase):
         self.assertFalse(parsed["samples"][0]["processes"]["42"]["stable"])
         parsed = metrics.parse(trace(), TOKEN, ["worker (test)"])
         self.assertTrue(parsed["samples"][0]["processes"]["42"]["stable"])
+        parsed = metrics.parse(trace(), TOKEN, [])
+        self.assertFalse(parsed["samples"][0]["processes"]["42"]["stable"])
 
     def test_partial_duplicate_reordered_and_foreign_frames_are_rejected(self):
         original = trace()
@@ -122,7 +124,8 @@ class MetricsTests(unittest.TestCase):
         real_popen = subprocess.Popen
 
         def fake_ssh(argv, **kwargs):
-            token = shlex.split(argv[-1])[-4]
+            words = shlex.split(argv[-1])
+            token = words[words.index("--") + 3]
             body = trace().replace(TOKEN.encode(), token.encode())
             return real_popen(
                 [

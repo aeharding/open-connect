@@ -38,6 +38,15 @@ All ten primary starts completed without failures or exclusions. The optional
 preset defaults off. Its 14.55–14.94-second early resource gap, block order and
 single-bench limits are explicit; these results do not qualify wireless or a vehicle.
 
+The [wireless startup baseline](wireless-comparison.md) retains five Base-off
+and five Base-on attempts on one dev.8 bundle. First-dashboard medians were about
+58.1 and 55.2 seconds after ACC-on, but one Base-on attempt later watchdog-restarted
+and another took about 68 seconds. Only three off/four on resource traces were
+retrieved. Minimum MemFree differed by 6.4 MiB, ending free RAM by only 0.3 MiB.
+All attempts, the restart, Ethernet failures and the day/night-map drift remain
+explicit. These blocks do not establish isolated Base benefit, usable early
+input/audio, long-parked reliability or Miatafy reproduction.
+
 ## Configurations to compare
 
 | Configuration | Purpose |

@@ -81,8 +81,10 @@ adopt its modified files. Remaining conflicting edits cause refusal.
 
 Reinstall checks the current targets and dependencies before accepting inputs.
 Later edits are preserved and refused. The development candidate's Open Connect
-wireless-enable option retains actual vehicle/hardware identity. Wireless timing
-and long-parked reliability remain unqualified. See [wireless research](cmu/wireless-carplay.md).
+wireless-enable option retains actual vehicle/hardware identity. A separate
+[wireless ACC baseline](wireless-comparison.md) retains timings, RAM and failures;
+usable early input/audio and long-parked reliability remain unqualified. See
+[wireless research](cmu/wireless-carplay.md).
 
 The removed compatibility allowance remains in Git history. Its captures retain
 their actual source identity; they are not tests of this OEM-only revision.

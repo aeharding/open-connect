@@ -50,8 +50,12 @@ now has [installed dev.8 bench checks](docs/cmu/wireless-carplay.md#installed-de
 projection, repeated-start reconnection, controls, retained settings and uninstall
 without changing vehicle/hardware identity. Physical input/audio, vehicle behavior,
 long-parked timing and the Miatafy wireless milestone remain unqualified.
-Next collect the wireless baseline, then expand Services and optimization research
-beyond Miatafy's documented changes before deep long-parked lag work.
+The [wireless baseline](docs/wireless-comparison.md) now retains five starts per
+Base setting, including one Base-on watchdog restart and incomplete Ethernet
+retrievals. Initial visible projection, resource denominators and comparison
+limits are explicit; early usable input/audio and long-parked behavior remain
+unqualified. Next expand Services and optimization research beyond Miatafy's
+documented changes before deep long-parked lag work.
 The owner requested this broader research; candidate selection and
 defaults still require dependency, benefit and restoration evidence.
 The deferred phase-1 manual and first-car checks remain separate.

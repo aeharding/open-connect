@@ -32,7 +32,7 @@ def process_identity(raw):
     return {"pid": int(match[1]), "start_ticks": int(fields[18]), "comm": match[2]}
 
 
-def parse(raw, token, processes=()):
+def parse(raw, token, processes=None):
     """Require complete ordered frames; keep unsupported/raced reads explicit."""
     prefix = "OCM1 " + token + " "
     boot, samples, sample, current, complete = None, [], None, None, False
@@ -93,7 +93,7 @@ def parse(raw, token, processes=()):
                         and before is not None
                         and before == after
                         and before["pid"] == int(path.split("/")[2])
-                        and (not processes or before["comm"] in processes),
+                        and (processes is None or before["comm"] in processes),
                     }
             sample["processes"] = identities
             samples.append(sample)
@@ -109,7 +109,7 @@ def parse(raw, token, processes=()):
     return {
         "schema": 1,
         "boot_id": boot,
-        "requested_processes": list(processes),
+        "requested_processes": None if processes is None else list(processes),
         "samples": samples,
     }
 
@@ -152,7 +152,7 @@ def main(argv=None):
     parser.add_argument("--bundle", type=Path)
     parser.add_argument("--live", action="store_true")
     args = parser.parse_args(argv)
-    processes = args.process or ["jci", "opera", "carplayd"]
+    processes = args.process or []
     if not 1 <= args.seconds <= 600 or not 1 <= args.interval <= 30:
         parser.error("seconds must be 1..600; interval must be 1..30")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", args.host) or any(

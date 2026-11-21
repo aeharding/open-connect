@@ -81,8 +81,10 @@ The finite shell collector runs from stdin and only reads the CMU. It checks the
 firmware and binds the trace to one boot. No startup hook, package, settings change
 or target output file is created. `--seconds` accepts 1–600; `--interval` is a
 1–30 second **minimum pause**, with actual sample start/end times retained.
-The default process names are `jci`, `opera`, and `carplayd`; repeated `--process`
-options replace that list with exact kernel comm names.
+By default it reads system counters only. Detailed process discovery has measurable
+CPU cost: opt in with repeated `--process` options using exact kernel comm names,
+for example `--process jci --process opera --process carplayd`. Use a longer pause
+for that trace when appropriate and measure its overhead separately.
 
 The bundle contains the exact collector sources and hashes, raw SSH output,
 `trace.json` with system/process counters, and `memory.csv` with named kernel RAM

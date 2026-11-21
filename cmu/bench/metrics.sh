@@ -12,7 +12,6 @@ case "$token" in ''|*[!0-9a-f]*) exit 64;; esac
 test "$seconds" -ge 1 && test "$seconds" -le 600
 test "$interval" -ge 1 && test "$interval" -le 30
 test "${#token}" -eq 32
-test "$#" -gt 0
 for name do
     case "$name" in ''|-*|*[!A-Za-z0-9_-]*) exit 64;; esac
     test "${#name}" -le 15
@@ -58,18 +57,20 @@ BEGIN {
         file("/proc/vmstat")
         file("/proc/diskstats")
         file("/proc/net/dev")
-        # Enumerate once, then read comm directly. BusyBox pidof scans much more.
-        command = "printf \"%s\\n\" /proc/[0-9]*"
-        while ((command | getline path) > 0) {
-            status = (getline name < (path "/comm"))
-            close(path "/comm")
-            if (status != 1 || !(name in wanted)) continue
-            file(path "/stat")
-            file(path "/status")
-            file(path "/io")
-            file(path "/stat")
+        if (names != "") {
+            # Detailed process reads are opt-in: discovery has measurable CPU cost.
+            command = "printf \"%s\\n\" /proc/[0-9]*"
+            while ((command | getline path) > 0) {
+                status = (getline name < (path "/comm"))
+                close(path "/comm")
+                if (status != 1 || !(name in wanted)) continue
+                file(path "/stat")
+                file(path "/status")
+                file(path "/io")
+                file(path "/stat")
+            }
+            if (close(command) != 0) exit 77
         }
-        if (close(command) != 0) exit 77
         marker(sprintf("end %d %.2f", sample_no, clock()))
         fflush()
         sample_no++

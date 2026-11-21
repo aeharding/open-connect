@@ -4,9 +4,8 @@
 uninstall.** The inspected path clears user data and resets native settings.
 It does not restore modified system files to their original bytes.
 
-**Evidence:** offline analysis of North American **74.00.324A**, with the same
-startup deletion found in the bench's **55.00.750B** init binary. We have not
-performed a complete Factory Reset on either firmware.
+**Evidence:** offline analysis of North American **74.00.324A**. We have not
+performed a complete Factory Reset on the supported firmware.
 
 ## The reset path
 

@@ -1,54 +1,43 @@
 2016 Mazda3 bench — November 20, 2026
 
-Developer options bench checks complete; stock restored
-Current verified boot: 9daa9c0c-9151-40db-a3af-88778adaf295, exact
-74.00.324A NA/cmu150_NA. Open Connect is not installed. The final stock ignition
-cycle completed with ACC off for 30.014 seconds; supply voltage was not changed.
-Physical root is ro,noatime. Original autostart, runlogin and bench SSH config
-match intake. Runlogin is the original inode 3299, with one link and no hold.
-Reidentify actual firmware, files, mappings and peripherals before operations.
+Developer UI and version-prompt follow-up complete; stock restored
+Current verified boot: 6e9201af-bc9a-46e4-809c-d29b02225988, exact
+74.00.324A NA/cmu150_NA. Open Connect is not installed. Normal Settings Uninstall
+from the dev.4 off-access startup matched all 19 original intake hashes and
+metadata, absent touch NVRAM, stock native mappings and stock Opera index.
+Product/runtime state and access staging/holds are absent. Original runlogin
+inode 3299 has one link; physical /dev/ffx01p1 root is ro,noatime. Owner SSH and
+all three independent recovery preflights still work. Raw verification SHA256:
+692f3db7436bfe347cbbb52af0a80d969759eed071cccdad3260e1bb4d096dfb.
+The owned SD public test key was removed by its SHA guard. No supply commands
+were sent, no owned camera/UART/relay handles or observers remain live.
 
-PR #103 source 5414d59 / CI 44847049064 / version 0.3.0-dev.3 passed normal
-SD maintenance update, automatic restart, completion/Open settings, key import
-and reuse with a complete visible fingerprint, both access options across real
-ignition restarts, off/rejection after restart, and normal Settings Uninstall
-from an enabled startup. The dedicated test key authenticated as UID 0 when on
-and was rejected after off and after uninstall; existing bench SSH survived.
-The first normal reinstall reached the old 60-second cap and required guarded
-recovery of its exact prepared revision. That preserved failure is separate from
-the successful new CI UI update using bounded 180/185-second server/client limits.
-See docs/reverse-engineering.md and ignored runs/developer-options-20261120/.
+CI 44857345909 / source 17b5715014091d9672a8359b5b0dc99b586fc460,
+0.3.0-dev.4, passed normal dev.3 → dev.4 update/restart/completion/Open settings
+and uninstall. All 34 runtime entries matched CI; version/installedVersion both
+became dev.4 after the update. Before it, the actual prompt correctly showed
+From dev.3 / To dev.4, with installedVersion read from the installed package.
+CI/Docs are green, with 124 offline tests and two private-input skips. Separate
+source 356cd7e / CI 44856371233 supplies the refreshed short-label Developer,
+UART-popup and key-import screenshots; those were not relabeled as dev.4.
+The rejected 9abac23 header remains private historical evidence only.
 
-After normal UI uninstall, boot a97c65ef-a7cc-4ffd-a131-d240d403815b independently
-matched all 19 intake hashes and metadata, absent touch NVRAM, stock native
-mappings and stock Opera index. Product state/runtime, imported keys and all
-login/SSH staging/hold names were absent. Original runlogin had inode 3299 and
-one link; root was read-only. Both independent access recovery preflights passed.
-Raw verification SHA256: 4a8187a0eef85828bcc07bb8a8b753b0f0e40a82302d990ca0289de6171219a7.
-The following stock ACC cycle retained original access/startup bytes and no
-product state. Its USB carrier returned to 1; one normal long-Home event then
-showed a wired CarPlay dashboard on the physical display. The software-uninstall
-restart had USB carrier 0; this known stock warm-start fixture behavior was
-reconciled with the normal ignition cycle, not a product change.
+Phone, Ethernet and FAT32 SD remain connected. Ethernet carrier is 1. Stock
+software restart left USB projection carrier/RX/TX at 0, the known stock warm
+fixture behavior; CarPlay is not currently established. Native stock display
+state reads 0/3. Keep this distinct from a product failure. The next native UI
+preview can use this stock state; restore wired CarPlay with one normal ACC
+cycle afterwards, before timing batches. ACC is ON and the relay override OFF.
+Last supply setting remains 12.02 V / 2 A; keep the voltage unchanged.
 
-Phone, Ethernet and FAT32 SD remain connected; CarPlay and Ethernet carriers
-are 1 and CarPlay is foreground. UART/camera/relay/supply handles are closed,
-with no owned SSH forwards or live observers. Relay override is OFF, ACC ON.
-Supply last verified ON at 12.02 V / 2 A; no supply command was sent in this
-batch. The temporary /tmp/mnt/sda1 bind cleared on restart. The owned SD root
-open-connect.pub was SHA-verified and removed; its private test key stays only
-in ignored host evidence. SD /open-connect contains CI 5414d59 (34 public files).
-Public manifest: be499e83c68eeb4b908127b123359f73dffd534a054acf3918cd826aa5a164cb.
-ZIP: 3c4880fe062accbb533b2568802be2cd872c3ce546537bdc6fa618b32db8bec2.
-
-Closing evidence: deadline-stock.json/out, deadline-key-after-uninstall.json,
-cleanup-test-key.out, deadline-final-stock-acc/, deadline-final-stock-intake.out
-and deadline-stock-carplay-observer/. Earlier trials retain their actual CI
-identities. Source 5414d59 has green CI/Docs, 123 offline tests with two skips and
-independent code review without blockers. PR #103 tracks final publication and
-review; its live state is authoritative for merge status.
-No qualified v74 download or matching-car result exists. Published v0.2.0-dev.2
-is historical v55. Physical/manual and first-car qualification remain deferred.
+SD /open-connect is CI 17b5715; manifest
+9e41f7c9e80543ca928c757329096d91916392677da7f1c89ffb6f25643efe78.
+ZIP 6e6b8d986dc3988d4a2e74488cac5dfff10412a2539797bab5949a3df0ad9b13.
+Only its verified owned folder was replaced. The test key and temporary sda1
+bind are absent after cleanup/restart. No SD launch marker or startup service
+was added. Supporting records: runs/developer-ui-20261120/, plus popup-*,
+version-* and ui-* in runs/developer-options-20261120/. Earlier trial records
+retain their actual source identities; no failed/unknown mutation was retried.
 
 Persistent changes and later undo
 Restoration covers feature files and the touch key; firmware, owner access and
@@ -79,18 +68,18 @@ retained media remain as listed. Normal UI navigation can save Mazda state.
   targets after this single-test-key trial; --restore is unexercised and requires
   restart. The current restore uses the verified original hardlink when present.
   The original owner-SSH recovery above remains separate and intact.
-- Normal UI Uninstall removed /tmp/mnt/data_persist/open-connect, its packages,
-  snapshots, original backups and imported keys, plus the original-login hold.
-  /tmp/open-connect is absent after restart. Do not confuse the separate bench
-  owner-access or emergency-recovery directories with product leftovers.
+- Normal Settings Uninstall removed /tmp/mnt/data_persist/open-connect and
+  /tmp/open-connect after restart, with packages, snapshots, imported key and
+  original-login hold absent. Separate bench access/recovery directories are not
+  product leftovers and remain for independent owner access/recovery.
 - FAT32 SD UUID 213E-C5B2, reader 0424:4040 serial 000008264001, currently mounts at
-  /tmp/mnt/sd_nav. It retains /open-connect (CI 5414d59),
+  /tmp/mnt/sd_nav. It retains /open-connect (CI 17b5715),
   /open-connect-pre-developer-14919e1,
   /open-connect-pre-maintenance-14919e1, /open-connect-c0cc169 and
   /open-connect-ba941122. Remove only these five owned folders after verifying
   archived copies; preserve unrelated files. Formatting was the owner's action.
   The temporary /tmp/mnt/sda1 bind alias cleared on restart. The owned
-  root open-connect.pub was SHA-verified and removed after the developer test.
+  root open-connect.pub was removed by its SHA guard.
   No SD root launch marker
   or startup service was added. Manual SD maintenance is qualified separately
   from earlier physical USB insertion. No spare USB or Mac storage is needed.
@@ -100,9 +89,9 @@ retained media remain as listed. Normal UI navigation can save Mazda state.
   captures/backups are in ignored runs/. The release-batch-audio receipt is OFF,
   owned=false after verified teardown. Original .bench-state/profile.json is an
   older expired runtime-only receipt; it is not current v74 setup authority.
-- Other (6)/display 0/3 were last verified at stock native Home before the
-  final normal switch to CarPlay. Tool Tips and VR
-  Examples were last verified checked. LastDRIAppName may retain ecoenergy from
+- LastAppType Other (6) was last recorded in the earlier fixture work; current
+  native display state is freshly verified at 0/3. Tool Tips and VR Examples were
+  last verified checked. LastDRIAppName may retain ecoenergy from
   the Fuel Economy test; Other (6) does not use it. The prior string was not
   captured, so restoration of every internal Mazda settings field is not claimed.
 
@@ -112,27 +101,24 @@ Original metadata 775:1000:1000. Originals/metadata are in the private intake an
 independent recovery directory. Verify actual loaded code after restart; restoring
 disk bytes alone does not unload selected native code.
 Owner-key SSH: ssh -T -F .bench-state/replacement-ssh.conf cmu-bench
-Pinned host, port 36000, cmu UID 0; private key stays on the host. UART is restored
-to its original authenticated login prompt. The original UART credentials remain
+Pinned host, port 36000, cmu UID 0; private key stays on the host. UART uses
+its original authenticated login prompt on this boot. The original UART credentials remain
 unqualified; never send shell commands at that prompt or guess credentials.
 
 Next work
-The Developer implementation and complete access/uninstall bench path pass.
-Check PR #103 for publication status, then start the declared stock / Open
-Connect timing, CPU, RAM and I/O baseline batch, including the Miatafy
-comparison limits. Keep stock restored for its baseline; use the CI bundle on
-SD when the Open Connect comparison is needed. No spare or Mac USB is needed.
-Physical-controller delivery, real motion and separate CarPlay limited-UI behavior
-remain unqualified. Physical commander and remaining applicable audio/startup/
-vehicle checks remain. Owner confirmed the car matches 74.00.324A NA; never ask
-again. Manual bench and first-car checks are deferred by the owner; proceed
-with performance baselines. They will uninstall the legacy wireless mod before a
-future car installation. Require supported OEM inputs and refuse remaining edits;
-no legacy-mod allowance. Follow PLAN.md: Developer options, timing/CPU/RAM/I/O baselines, Services/base
-optimizations, then native wireless CarPlay enablement/reliability. Do not infer
-hardware blockers from observer failures or add speculative features.
+Finish final evidence review and merge/deploy PR #104; source 17b5715 is the
+bench-qualified code. The owner asks for faster development: make check-ui now
+passes in 0.342 s locally; add a temporary RAM-only native UI preview with mock
+settings, no product install or settings writes. Keep it distinct from release
+qualification. Then restore wired CarPlay by normal ACC and continue timing,
+CPU, RAM and I/O baselines, including Miatafy comparison limits.
+No qualified v74 download or matching-car result exists. Physical input, real
+motion, remaining audio/startup and first-car checks remain deferred by the owner.
+The car matches 74.00.324A NA; never ask again. The owner will remove the legacy
+wireless mod before car installation; no legacy-mod allowance. Plugin research
+remains a proposal, not an approved implementation or new roadmap phase.
 
-Old v55 CMU is parked separately, ACC/supply OFF after verified uninstall/archive.
+Retired CMU is parked separately, ACC/supply OFF after verified uninstall/archive.
 Evidence: runs/old-cmu-cleanup-20261119/, archive SHA256
 d4213a5d908028ce0bb9ddd30b52a059d1b4e6767817b61f3d0c3889b21be9bd.
 Never replay its backups/checkpoints onto the replacement.

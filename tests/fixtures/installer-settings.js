@@ -20,7 +20,7 @@ const fw = {getCurrentApp: () => "syssettings", getCurrCtxtId: () => "SystemTab"
         assert.equal(type, "List2Tmplt"); assert.equal(app, "syssettings"); assert.equal(container, parent);
         const ctrl = props.List2Ctrl;
         ctrl.updateItems = (first,last) => {
-            if (first === 2) { assert.equal(last,4); }
+            if (first === 2) { assert.equal(last,2); }
             else { assert.equal(first,0); assert.equal(last,1); }
         };
         pages.push({ctrl, list2Ctrl: ctrl, divElt: {parentNode: parent}, events: [],
@@ -184,12 +184,16 @@ assert.equal(host.divElt.style.display, "");
 
 // Developer controls use Mazda's actual On/Off callback values. Import shares
 // the preference session, so leaving the page cannot race uninstall or writes.
-values = {touch: 0, warning: 1, developer: true, uart: 0, ssh: 0, key: "-", fingerprint: "-", restart: false};
+values = {touch: 0, warning: 1, developer: true, uart: 0, ssh: 0, uartCurrent: 0, sshCurrent: 0,
+    key: "-", fingerprint: "-", restart: false};
 let importReply;
 store.importKey = callback => { importReply = callback; };
 settings.open(fw, store);
 assert.equal(pages.at(-1).ctrl.dataList.items[2].text1, "Developer options");
 pick(2);
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items, row => row.text1), ["UART", "SSH", "Import public key"]);
+assert.equal(pages.at(-1).ctrl.title.titleStyle, "style02");
+assert.equal(pages.at(-1).ctrl.title.text2, undefined);
 assert.equal(pages.at(-1).ctrl.dataList.items[0].itemStyle, "styleOnOff");
 assert.equal(pages.at(-1).ctrl.dataList.items[1].disabled, true);
 pick(2);
@@ -207,12 +211,20 @@ settings.open(fw, store); pick(2);
 assert.equal(pages.at(-1).ctrl.dataList.items[1].disabled, false);
 const developerCtrl = pages.at(-1).ctrl;
 developerCtrl.selectCallback(developerCtrl, "ssh", {additionalData: 1});
+assert.equal(modal.props.title, "Enable SSH?");
+assert.match(modal.props.text1, /Changes apply after restarting/);
+modal.props.defaultSelectCallback(modal, "cancel");
+assert.equal(pages.at(-1).ctrl.dataList.items[1].value, 2);
+let sshCtrl = pages.at(-1).ctrl;
+sshCtrl.selectCallback(sshCtrl, "ssh", {additionalData: 1});
+modal.props.defaultSelectCallback(modal, "enable");
 idle();
 assert.deepEqual(writes.at(-1), ["ssh", 0, 1]);
 values = {...values, ssh: 1}; reply(values);
 values = {...values, restart: false};
-developerCtrl.selectCallback(developerCtrl, "uart", {additionalData: 1});
-assert.equal(modal.props.title, "Enable UART root console?");
+const afterSshCtrl = pages.at(-1).ctrl;
+afterSshCtrl.selectCallback(afterSshCtrl, "uart", {additionalData: 1});
+assert.equal(modal.props.title, "Enable UART?");
 modal.props.defaultSelectCallback(modal, "cancel");
 assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 2);
 let uartCtrl = pages.at(-1).ctrl;
@@ -220,13 +232,11 @@ uartCtrl.selectCallback(uartCtrl, "uart", {additionalData: 1});
 modal.props.defaultSelectCallback(modal, "enable");
 const savingUartPage = pages.at(-1);
 assert.equal(savingUartPage.ctrl.dataList.items[2].disabled, true);
-assert.equal(savingUartPage.ctrl.dataList.items[4].text1, "Changes apply after restart");
 idle();
 assert.deepEqual(writes.at(-1), ["uart", 0, 1]);
 values = {...values, uart: 1, restart: true}; reply(values);
 assert.equal(pages.at(-1), savingUartPage);
 assert.equal(savingUartPage.ctrl.dataList.items[2].disabled, false);
-assert.equal(savingUartPage.ctrl.dataList.items[4].text1, "Restart required to apply changes");
 // Cancelling an unsent change also releases the Import control, without a write.
 const beforeCoalesced = writes.length;
 const cancelCtrl = pages.at(-1).ctrl;

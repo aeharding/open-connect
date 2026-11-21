@@ -15,8 +15,7 @@ Developer options, performance baselines and the Services/base-optimization work
 Wired projection is the earlier measurement fixture; its results do not establish
 wireless reliability or reproduce Miatafy's wireless timings. In the final phase,
 measure the actual reported wireless symptom before choosing a wireless change.
-A faster Home screen or lower idle RAM is not enough. Existing v55 results do
-not establish CarPlay performance.
+A faster Home screen or lower idle RAM is not enough.
 
 ## Start with comparable runs
 

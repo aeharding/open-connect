@@ -37,7 +37,7 @@ nav = [
   { "CMU research" = [
     { "System overview" = "cmu/index.md" },
     { "Findings" = "reverse-engineering.md" },
-    { "Firmware 74 port" = "cmu/firmware74.md" },
+    { "Firmware 74 integration" = "cmu/firmware74.md" },
     { "Wireless CarPlay" = "cmu/wireless-carplay.md" },
     { "Factory Reset" = "cmu/factory-reset.md" },
   ] },

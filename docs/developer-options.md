@@ -1,27 +1,34 @@
 # Developer options
 
-Implemented in the **74.00.324A NA** development candidate. It is not available
-in the historical v55 download. See [Quick start](usb-installer.md) for
-qualification and availability; a qualified v74 download is not published yet.
+Implemented in the **74.00.324A NA** development candidate. See
+[Quick start](usb-installer.md) for qualification and availability; a qualified
+v74 download is not published yet.
 
 Open **Mazda Settings → System → Open Connect → Developer options**.
-Both owner-access options start **off**. Checkboxes show your saved choices;
-the **At startup** row shows the choices applied at startup. Changes take effect
+Both access options start **off**. Checkboxes show your saved choices.
+The enable popup explains the restart requirement. Changes take effect
 after a full Mazda Connect restart, including disabling access.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/developer-options.png" alt="Developer options with UART and owner SSH off, Import public key available, and the startup-applied state shown below." width="800" height="480"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/developer-options.png" alt="Developer options with UART and SSH off and Import public key available." width="800" height="480"></div>
   <figcaption>Fresh installations leave both access options off.</figcaption>
 </figure>
 
-## UART root console
+## UART
 
-**UART root console** provides passwordless root access over the serial connection.
+**UART** provides passwordless root access over the serial connection.
 Confirm **Enable**, then restart.
 Use 115200 baud, 8 data bits, no parity, 1 stop bit and no flow control.
 
+Use a **3.3 V TTL USB-to-UART adapter** connected to the CMU's blue connector 2:
+**2S (CMU TX) → adapter RX**, **2T (CMU RX) → adapter TX**, and common ground
+**(CMU 2C, 2D or 2L) → adapter GND**. Leave the adapter's VCC and handshake
+pins disconnected.
+See the [connection guide and pin maps](bench-setup.md#pin-maps) for connector
+orientation and ground pins, and its [UART cable instructions](bench-setup.md#cables).
+
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/uart-console.png" alt="Enable UART root console confirmation: Passwordless root access over UART. Restart to apply." width="800" height="480" loading="lazy"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/uart-console.png" alt="Enable UART confirmation explaining passwordless root access and that changes apply after restart." width="800" height="480" loading="lazy"></div>
   <figcaption>Confirm Enable, then restart Mazda Connect.</figcaption>
 </figure>
 
@@ -29,16 +36,19 @@ Turning it off restores the original authenticated login behavior. It does not
 change passwords or turn off diagnostic output. The checkbox does not set a
 password.
 
-## Owner SSH access
+## SSH
 
-Import your own public key, enable **Owner SSH access**, then restart. This uses
+Import your own public key, enable **SSH**, then restart. This uses
 Mazda's existing SSH server on port **36000** and preserves its existing key
 authorization. Turning it off removes the Open Connect key's authorization after
 restart; any access configured before installing Open Connect is preserved.
 
 SSH also needs a working network connection to the CMU. Enabling this option
-does not configure Wi-Fi. Use the CMU's address on your connected network and
-the account name **cmu**.
+does not configure Wi-Fi. You can use a **supported USB-to-Ethernet adapter** in
+the Mazda USB hub's front data port, connected to the same router or switch as
+your computer; see the [network connection guide](bench-setup.md#cables).
+Use the CMU's address on that network and the account name **cmu**. Adapter
+driver support is required; not every USB network adapter will work.
 
 ### Import a public key
 

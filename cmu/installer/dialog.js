@@ -105,15 +105,22 @@ var OpenConnectInstaller = (function () {
         return "Open Connect " + version;
     }
 
-    function choose(fw, installed, onChoice, version, retained) {
+    function versionText(version) {
+        if (version === undefined || version === "-") { return "Unavailable"; }
+        name(version);
+        return version;
+    }
+
+    function choose(fw, installed, onChoice, version, retained, installedVersion) {
         if (typeof installed !== "boolean") { throw new TypeError("Expected verified install state"); }
         var buttons = {
             button1: {label: "Cancel", appData: "cancel"},
             button2: {label: installed ? "Install/update" : "Install", appData: "install"}
         };
         if (installed || retained) { buttons.button3 = {label: "Uninstall", appData: "uninstall"}; }
-        return show(fw, installed || retained ? "Open Connect" : "Install " + name(version) + "?",
-            "Do not remove the USB drive or turn off the car during installation.", buttons, onChoice);
+        var text = "Do not remove the USB drive or turn off the car during installation.";
+        if (installed) { text = "From: " + versionText(installedVersion) + "\nTo: " + versionText(version) + "\n" + text; }
+        return show(fw, installed || retained ? "Open Connect" : "Install " + name(version) + "?", text, buttons, onChoice);
     }
 
     // The installation owner calls this only after verifying the installed build.

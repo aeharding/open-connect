@@ -51,10 +51,14 @@ committing it. It preserves the distinction between absent, enable and disable.
 `features/disclaimer/` contains the independently authored native bypass.
 `startup/flush.c` provides checked file/directory durability. Its generic
 publication template is bench instrumentation for native file trials.
-The retired v55 one-shot selector and Home supervisor are in Git history.
 
 `make release` uses standard Clang/LLD/llvm-objcopy and Make/shell packaging.
 Authored shell and JavaScript files are copied unchanged; only compiled assets
 and data manifests are generated. No OEM firmware or host Python is bundled.
 See [Quick start](../docs/usb-installer.md) for owner instructions and
 [Build and test the installer](../docs/installer-development.md) for backend behavior.
+
+Maintenance status distinguishes the running package’s `version` from the
+verified current snapshot’s `installedVersion`. The USB prompt uses these for
+To and From respectively; an unavailable installed identity is shown explicitly,
+never inferred from the staged client.

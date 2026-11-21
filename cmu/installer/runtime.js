@@ -22,7 +22,9 @@ var OpenConnect = (function (previous) {
                 (s.uart === 0 || s.uart === 1) && (s.ssh === 0 || s.ssh === 1) &&
                 (s.uartCurrent === 0 || s.uartCurrent === 1) && (s.sshCurrent === 0 || s.sshCurrent === 1) &&
                 /^(?:-|[a-f0-9]{64})$/.test(s.key) && /^(?:-|[a-f0-9:]{47})$/.test(s.fingerprint))) &&
-            /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(s.version);
+            /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(s.version) &&
+            (s.installedVersion === undefined || s.installedVersion === "-" ||
+                /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(s.installedVersion));
     }
     function request(operation, args, done) {
         if (stopped) { return; }
@@ -34,7 +36,11 @@ var OpenConnect = (function (previous) {
             answered = true;
             clearTimeout(deadline);
             if (stopped) { return; }
-            if (valid(answer)) { state = answer; store.version = answer.version; }
+            if (valid(answer)) {
+                state = answer;
+                store.version = answer.installedVersion === undefined ? answer.version :
+                    (answer.installedVersion === "-" ? undefined : answer.installedVersion);
+            }
             done(answer);
         }
         xhr.onreadystatechange = function () {
@@ -135,7 +141,7 @@ var OpenConnect = (function (previous) {
                 dialog = null;
                 if (action === "install" || action === "uninstall") { run(action); }
                 else { dismiss(); }
-            }, state.version, state.retained);
+            }, state.version, state.retained, state.installedVersion);
         };
     }
     function tick() {

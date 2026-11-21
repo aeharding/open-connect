@@ -2,8 +2,8 @@
 
 1. Open **Mazda Settings → System → Open Connect**.
 2. Choose **Uninstall**, then confirm **Uninstall**.
-3. Leave the power on. Mazda Connect restores the startup and touchscreen
-   behavior from before you installed Open Connect, then restarts automatically.
+3. Leave the power on. Mazda Connect restores the saved startup, touchscreen
+   and developer-access configuration, then restarts automatically.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/uninstall.png" alt="Uninstall? Open Connect will be removed. Mazda Connect will restart. Cancel and Uninstall buttons." width="800" height="480"></div>
@@ -27,6 +27,5 @@ Keep the displayed message when [reporting the problem](https://github.com/aehar
 Follow [Quick start](usb-installer.md) and choose **Install**. Your old Open Connect
 preferences are not retained.
 
-The earlier v55 development releases have their matching maintenance bundles
-in the [release archive](https://github.com/aeharding/open-connect/releases).
-The current source targets v74; cross-firmware maintenance is not promised.
+Maintenance requires a bundle compatible with the installed version and exact
+firmware. Cross-firmware maintenance is not supported.

@@ -33,8 +33,8 @@ down completely before starting again. A quick off/on may resume the old session
 To remove both features, choose [**Uninstall**](uninstall.md).
 
 The newer v74 development candidate also has
-[Developer options](developer-options.md) for an optional UART root console and
-owner SSH access. These are separate from the two driving/startup preferences.
+[Developer options](developer-options.md) for optional UART and SSH access,
+including public-key import. These are separate from the two driving/startup preferences.
 
 If a change cannot be confirmed, return to Open Connect and check the selected
 choice before trying again.

@@ -22,6 +22,18 @@ and composed privately on the CMU. The installer and its backend run on the CMU;
 `oc` remains host bench instrumentation. See [CMU code](https://github.com/aeharding/open-connect/blob/main/cmu/README.md)
 for the implementation and command contract.
 
+## Iterate on the UI
+
+Run `make check-ui` for the dialog, Settings, runtime and USB-loader behavior
+fixtures. It needs Node.js and opens no physical device. Use this during small
+UI edits; the full host suite and CI remain the pre-merge checks.
+
+Batch visual changes and use targeted native rendering checks. A final supported
+CI artifact still needs install/update/startup/Settings/uninstall qualification.
+Changes to durable state, publication, native lifetime or recovery require checks
+for those affected cases. Do not repeat the whole lifecycle for each label edit,
+or relabel an old artifact's evidence as testing a new one.
+
 ## Private firmware checks
 
 The optional checker builds the same public bundle, composes it with exact
@@ -51,7 +63,7 @@ The host composition stubs durability flushes and the C contract uses fakes:
 these checks do not execute ARM code, access a CMU or prove recovery.
 
 Without explicit private inputs, the public offline suite reports a skip for
-these firmware checks. The superseded v55 one-shot builder is in Git history.
+these firmware checks.
 
 ## Existing modifications
 
@@ -65,10 +77,8 @@ Later edits are preserved and refused. The future Open Connect wireless-enable
 option must retain actual vehicle/hardware identity and remains in the final
 roadmap phase. See [wireless research](cmu/wireless-carplay.md).
 
-The earlier compatibility allowance and its stock-bench CI trial are
-[historical evidence](reverse-engineering.md#preserving-recognized-wireless-mod-inputs).
-Those captures retain their actual source identity; they are not tests of this
-OEM-only revision.
+The removed compatibility allowance remains in Git history. Its captures retain
+their actual source identity; they are not tests of this OEM-only revision.
 
 ## Startup recovery
 
@@ -115,16 +125,8 @@ snapshots. It also handles a cut between deleting the record and removing the
 empty directory. No Open Connect files or backups remain on persistent storage
 after successful uninstall. The original USB is not required.
 
-The historical v55 maintenance bundle could finish removal of v0.2.0-dev.1's
-retained state by choosing Uninstall. That implementation accepted the old
-record layout and kept an always-false
-legacy `undo` response field during service handoff; no Undo command is accepted.
-An old pending conflicted uninstall is refused because it promised to preserve
-the conflicting edits. Fresh and pending removal also check that the saved
-startup and touchscreen state belong to Open Connect; a legacy Undo could have
-adopted someone else's edits into its current snapshot. Recovery preserves those
-edits even if some targets have already been restored. Arbitrary old-package
-compatibility, including cross-firmware maintenance, remains unqualified.
+Arbitrary old-package compatibility, including cross-firmware maintenance, is
+not supported. Unknown edits are preserved even if restoration has partly completed.
 
 ## Qualification
 
@@ -212,47 +214,3 @@ Physical touch under a declared motion restriction, physical commander response,
 remaining applicable startup/audio routes and matching-car installation remain
 release gates.
 No qualified v74 download or vehicle-ready claim is made.
-
-### Historical v55 releases
-
-The following evidence belongs to the earlier **55.00.750B NA / cmu150_NA**
-development releases; it does not qualify v74.
-The v0.2.0-dev.1 bench qualification covered its actual CI bundle and these behaviors:
-
-- Fresh install, reinstall with preferences retained, restart, completion and
-  native Settings; uninstall from the installed backend after USB removal.
-- Full ignition shutdown/startup, quick resume, software resets and an exhausted
-  attempt budget followed by a fault after Home.
-- Recovery after one controlled power cut with a prepared preference transaction.
-- Conflicted uninstall, exact Undo and refusal after a later edit; original
-  startup, NVRAM and native mappings verified after removal, with root read-only.
-
-Those Undo/conflict results describe the earlier prerelease. For v0.2.0-dev.2,
-the [CI bundle from source 2f30ead](https://github.com/aeharding/open-connect/actions/runs/44350948917)
-installed from empty product state, restarted into both selected features, and
-opened completion and native Settings. After removing the USB files and detaching
-the drive, Settings Uninstall restored the saved startup/metadata and NVRAM,
-deleted the product directory, and restarted into original native/JavaScript
-paths with root read-only. No startup staging or product runtime remained.
-
-Legacy retained-state cleanup also passed on an earlier candidate. Host tests
-cover interrupted deletion, conflicting edits adopted by legacy Undo, and
-publication failures under BusyBox ash. The final CI suite passed 172 tests with
-seven private-input skips. The [BusyBox findings](reverse-engineering.md#complete-uninstall-and-busybox-publication)
-record the failed first candidate, independent restoration and corrected trial.
-
-The unreleased v0.2.0-dev.3 candidate rendered its updated installation warnings
-and post-restart USB-removal message. After Open settings, Mazda's Display tab
-timed out waiting for its slider control. Opera exited and the watchdog rebooted
-the CMU. Why the control missed registration remains unresolved. Later cleanup through the
-backend restored original startup/NVRAM, removed the product files and passed a
-stock boot check; this does not qualify the failed UI transition. Keep the
-candidate unreleased until that failure is understood and the full flow passes.
-See the [failure and cleanup record](reverse-engineering.md#installer-message-trial-and-old-cmu-cleanup).
-
-See the [firmware-scoped evidence](reverse-engineering.md#standalone-installer-backend).
-These are bounded bench checks, not long-term vehicle reliability qualification.
-The outgoing CMU has unreliable touch hardware. Physical touch/motion behavior,
-broader last-app/display-off cases and the modern-firmware port remain before a
-normal owner release. Power loss at arbitrary storage-write points is also
-unqualified; the host suite covers additional injected failures.

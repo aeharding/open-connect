@@ -50,6 +50,14 @@ python3 -m venv .venv
 .venv/bin/python tests/run_offline.py
 ~~~
 
+For UI iteration, run `make check-ui` with Node.js. It exercises the maintained
+dialog, Settings, runtime and loader fixtures without a CMU, release build or
+private inputs. Batch small UI edits and use targeted native layout checks where
+needed. Qualify the final CI artifact through the complete hardware flow; repeat
+focused hardware checks when persistent state, publication or recovery changes.
+A wording change does not require another full install/update/uninstall cycle.
+The complete offline suite and CI checks remain required for the final revision.
+
 Host code lives in tooling/open_connect/, with tests in tests/.
 The offline runner includes the CLI and bench profile and opens no physical device.
 The installed entry point is oc; python -m open_connect is equivalent.
@@ -94,8 +102,7 @@ See [documentation guidance](docs/documentation.md) for content and publication 
 ## Mods and device work
 
 Use the [maintained installer workflow](docs/installer-development.md) for bench
-verification. The superseded v55 one-shot workflow is in Git history. Report missing private OEM
-inputs rather than claiming their checks passed.
+verification. Report missing private OEM inputs rather than claiming their checks passed.
 Read [bench setup](docs/bench-setup.md), [CLI usage](docs/cli.md) and the current
 [lab state](docs/bench-state.txt) before operating the project's bench.
 One operator owns UART and cleanup.

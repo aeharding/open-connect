@@ -7,7 +7,6 @@ disclaimer, with preferences and uninstall in Mazda Settings.
 
 **V74 release qualification is in progress.**
 Current source targets exactly **74.00.324A North America / cmu150_NA**.
-The earlier v55 development downloads are historical releases.
 See [Quick start](docs/usb-installer.md) for installation and availability, or
 [Build and test the installer](docs/installer-development.md) for development.
 

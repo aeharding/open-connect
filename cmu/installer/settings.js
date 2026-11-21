@@ -160,17 +160,12 @@ var OpenConnectSettings = (function () {
                 rows.push({text1: "Return to Mazda Settings", itemStyle: "style01", hasCaret: false, appData: 0});
             } else if (index === "developer") {
                 title = "Developer options";
-                rows.push({text1: "UART root console", itemStyle: "styleOnOff", value: values.uart ? 1 : 2,
+                rows.push({text1: "UART", itemStyle: "styleOnOff", value: values.uart ? 1 : 2,
                     hasCaret: false, appData: "uart"});
-                rows.push({text1: "Owner SSH access", itemStyle: "styleOnOff", value: values.ssh ? 1 : 2,
+                rows.push({text1: "SSH", itemStyle: "styleOnOff", value: values.ssh ? 1 : 2,
                     hasCaret: false, appData: "ssh", disabled: values.key === "-"});
                 rows.push({text1: "Import public key", itemStyle: "style01", appData: "import",
                     disabled: prefs.pending() || typeof store.importKey !== "function"});
-                rows.push({text1: "At startup: UART " + (values.uartCurrent ? "on" : "off") +
-                    ", owner SSH " + (values.sshCurrent ? "on" : "off"), itemStyle: "style01", hasCaret: false, disabled: true});
-                if (values.restart) {
-                    rows.push({text1: "Restart required to apply changes", itemStyle: "style01", hasCaret: false, disabled: true});
-                } else { rows.push({text1: "Changes apply after restart", itemStyle: "style01", hasCaret: false, disabled: true}); }
             } else {
                 row = entries[index];
                 title = row.title;
@@ -204,14 +199,15 @@ var OpenConnectSettings = (function () {
                         (params.additionalData === 1 || params.additionalData === 2)) {
                     var currentValues = prefs.values();
                     if (item === "ssh" && currentValues.key === "-") { return; }
-                    if (item === "uart" && params.additionalData === 1 && currentValues.uart === 0) {
-                        dismiss = OpenConnectInstaller.message(fw, "Enable UART root console?",
-                            "Passwordless root access over UART. Restart to apply.",
+                    if (params.additionalData === 1 && currentValues[item] === 0) {
+                        dismiss = OpenConnectInstaller.message(fw, item === "uart" ? "Enable UART?" : "Enable SSH?",
+                            item === "uart" ? "Passwordless root access over UART. Changes apply after restart." :
+                                "Changes apply after restarting Mazda Connect.",
                             {button1: {label: "Cancel", appData: "cancel"}, button2: {label: "Enable", appData: "enable"}},
                             function (action) {
                                 dismiss = null;
-                                if (action === "enable" && current()) { prefs.select("uart", 1); }
-                                if (current() && choice === "developer") { render("developer", 0); }
+                                if (action === "enable" && current()) { prefs.select(item, 1); }
+                                if (current() && choice === "developer") { render("developer", item === "uart" ? 0 : 1); }
                             });
                         return;
                     }
@@ -228,7 +224,7 @@ var OpenConnectSettings = (function () {
                                 render("developer", 2);
                                 dismiss = OpenConnectInstaller.message(fw, actual ? "Public key imported" : "Key could not be imported",
                                     actual ? "Fingerprint (MD5):\n" + actual.fingerprint.slice(0, 23) + "\n" +
-                                        actual.fingerprint.slice(24) + "\nEnable Owner SSH access when ready." :
+                                        actual.fingerprint.slice(24) + "\nEnable SSH when ready." :
                                         "Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",
                                     {button1: {label: "OK", appData: "done"}}, function () { dismiss = null; });
                             });
@@ -269,10 +265,7 @@ var OpenConnectSettings = (function () {
                     var values = prefs.values(), ctrl = page.list2Ctrl;
                     if (!values) { return; }
                     ctrl.dataList.items[2].disabled = prefs.pending() || typeof store.importKey !== "function";
-                    ctrl.dataList.items[3].text1 = "At startup: UART " + (values.uartCurrent ? "on" : "off") +
-                        ", owner SSH " + (values.sshCurrent ? "on" : "off");
-                    ctrl.dataList.items[4].text1 = values.restart ? "Restart required to apply changes" : "Changes apply after restart";
-                    ctrl.updateItems(2, 4);
+                    ctrl.updateItems(2, 2);
                 }
                 return;
             }

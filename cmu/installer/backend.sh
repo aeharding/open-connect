@@ -40,6 +40,7 @@ fi
 status() {
     local installed=false retained=false conflict=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
     local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 applied
+    local installed_version=- installed_package=-
     if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
     if test "$empty_state" = true; then pending=true; fi
     if test "$exists" = true; then
@@ -49,6 +50,7 @@ status() {
             rev=$R_REV; restart=true; pending=true
         else
             snapshot_read "$R_CURRENT" || fail invalid_snapshot
+            installed_package=$S_PACKAGE
             touch=$S_TOUCH; warning=$S_WARNING
             developer=$S_ACCESS; uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
             if test "$key" != - && access_key_verify "$key"; then
@@ -58,6 +60,13 @@ status() {
             if test "$R_PHASE" = active; then installed=true; fi
             if test "$R_PHASE" = removed; then retained=true; fi
             if ! targets_match "$R_CURRENT" || ! dependencies_match "$R_CURRENT"; then conflict=true; fi
+            # The verified dependencies pin the installed package's VERSION.
+            # P may instead be a newer client staged from maintenance media.
+            if test "$installed" = true && test "$conflict" = false && test "$installed_package" != - &&
+                file "$D/packages/$installed_package/VERSION"; then
+                installed_version=$(cat "$D/packages/$installed_package/VERSION") || installed_version=-
+                case "$installed_version" in ''|*[!a-zA-Z0-9.-]*) installed_version=-;; esac
+            fi
             if test "$R_PHASE" = active; then
                 if ! file /tmp/open-connect/selected || test "$(cat /tmp/open-connect/selected)" != "$R_CURRENT"; then restart=true; fi
             elif test -e /tmp/open-connect/selected; then restart=true; fi
@@ -73,9 +82,9 @@ status() {
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
     # Keep the retired boolean false for an installed v0.2.0-dev.1 client during
     # USB handoff. No endpoint or UI offers Undo.
-    printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s}\n' \
+    printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s}\n' \
         "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version" \
-        "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current"
+        "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current"
 }
 
 finish_removal() {

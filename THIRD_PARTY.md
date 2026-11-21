@@ -6,7 +6,7 @@ otherwise. See [LICENSE](LICENSE). Copyright 2026 Open Connect contributors.
 
 Mazda firmware, binaries, extracted full JavaScript files, device backups,
 private credentials and raw capture collections are not distributed here. Mazda's
-publicly known default UART login is documented in the bench setup guide.
+UART connection is documented in the bench setup guide.
 Local evidence paths and
 hashes document research; they are not downloads or grants of rights to OEM code.
 Some integration tests require privately obtained exact firmware files and cannot
@@ -26,21 +26,27 @@ bezel displayed around the captures by the website; it is not part of the screen
   [CI run 44716935060](https://github.com/aeharding/open-connect/actions/runs/44716935060),
   source `ba941122b7306136d8f63448085f1e170fcb5afb`. Its USB ZIP SHA-256 is
   `dde586b5072ef4d90a985fa91ebaf054db8c056410ff97585c79dc80cd12276d`.
-- `settings.png`, `developer-options.png` and `uart-console.png` show
-  **0.3.0-dev.3** from
+- `settings.png` shows **0.3.0-dev.3** from
   [CI run 44843072197](https://github.com/aeharding/open-connect/actions/runs/44843072197),
   source `ccb3a25385d8ce513717575aa0bbc23ba567e0e3`. Its USB ZIP SHA-256 is
   `b3d0c2dcd08e5fb1295bcef5c13d15490d20bd90150afb6e45862812513c1dce`.
-- `ssh-key-imported.png` shows **0.3.0-dev.3** from
-  [CI run 44847049064](https://github.com/aeharding/open-connect/actions/runs/44847049064),
-  source `5414d59b0d02bb4361b07977679b8a2c9dcfeb63`. Its USB ZIP SHA-256 is
-  `3c4880fe062accbb533b2568802be2cd872c3ce546537bdc6fa618b32db8bec2`.
+- `developer-options.png`, `uart-console.png` and `ssh-key-imported.png` show
+  **0.3.0-dev.3** from
+  [CI run 44856371233](https://github.com/aeharding/open-connect/actions/runs/44856371233),
+  source `356cd7e6fe9820c6d2a6b5e6b4daf89ea4411aec`. Its USB ZIP SHA-256 is
+  `a9d1b449071be1bc9b7c9d349e2fc7c9dcdfe2f459f5a51b41722f81141344d8`.
   The displayed fingerprint belongs to a dedicated test public key; no private
   key or owner credential is shown.
 
+- `update.png` shows the **0.3.0-dev.4** maintenance client from
+  [CI run 44857345909](https://github.com/aeharding/open-connect/actions/runs/44857345909),
+  source `17b5715014091d9672a8359b5b0dc99b586fc460`, while the installed package
+  is 0.3.0-dev.3. Its USB ZIP SHA-256 is
+  `6e6b8d986dc3988d4a2e74488cac5dfff10412a2539797bab5949a3df0ad9b13`.
+
 These illustrate the v74 development candidate's UI from bench sessions. They do
 not establish physical USB launch or matching-car qualification; no qualified v74
-download has been published. Earlier v55 images remain in Git history. Raw
+download has been published. Raw
 capture collections and OEM inputs stay private; only these reviewed UI images
 are included in the owner guide.
 
@@ -61,7 +67,7 @@ No CarPlay patches or reconstructed OEM files are included.
 
 The inspected [piotrmocko/mzd-v74-tweaks](https://github.com/piotrmocko/mzd-v74-tweaks)
 revision is `5a17963a8631b3b68b9187b6ebbefeef1def05ef`, licensed
-CC BY-NC-SA 4.0. Our local firmware55 comparison and Snap adaptations retain
+CC BY-NC-SA 4.0. Our local comparison and Snap adaptations retain
 that upstream license and attribution. They are excluded from this repository,
 not relicensed under AGPL. Published comparison notes describe the approaches;
 the independent native implementation predates examination of that code.

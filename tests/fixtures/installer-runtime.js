@@ -27,7 +27,9 @@ function fixture(previous, loadingUSB) {
             this.abort = () => { this.aborted = true; };
         },
         OpenConnectInstaller: {
-            choose(fw, installed, done, version, retained) { choices.push({installed, retained, done}); return () => {}; },
+            choose(fw, installed, done, version, retained, installedVersion) {
+                choices.push({installed, retained, done, version, installedVersion}); return () => {};
+            },
             message(fw, title, text, buttons, done) { messages.push({title, text, buttons, done}); return () => {}; },
             complete(fw, version, done) { choices.push({complete: true, done}); return () => {}; }
         },
@@ -75,6 +77,21 @@ f.reply(install, f.state({installed: true, restart: true, revision: "c".repeat(3
 assert.equal(f.requests[2].body, token + "|" + "c".repeat(32) + "|restart|-|-|-");
 f.reply(install, f.state({installed: true, restart: true})); // Duplicate readyState event.
 assert.equal(f.requests.length, 3);
+
+// Maintenance must distinguish the installed package from the staged client.
+f = fixture();
+f.ctx.OpenConnect.start(token, true);
+f.reply(f.requests[0], f.state({installed: true, version: "0.3.0-dev.4", installedVersion: "0.3.0-dev.3"}));
+f.tick();
+assert.equal(f.choices[0].installedVersion, "0.3.0-dev.3");
+assert.equal(f.choices[0].version, "0.3.0-dev.4");
+assert.equal(f.store.version, "0.3.0-dev.3");
+f = fixture();
+f.ctx.OpenConnect.start(token, true);
+f.reply(f.requests[0], f.state({installed: true, installedVersion: "-"}));
+f.tick();
+assert.equal(f.choices[0].installedVersion, "-");
+assert.equal(f.store.version, undefined);
 
 // A complete access-preserving reinstall can exceed the former one-minute cap.
 f = fixture();

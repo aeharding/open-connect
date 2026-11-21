@@ -123,6 +123,12 @@ var OpenConnectSettings = (function () {
         function current() {
             return !closed && fw._currTmpltInstance === host && inTab(fw) && fw.getCurrCtxtId() === tab;
         }
+        function developerTitle(values) {
+            return {text1: "Developer options", titleStyle: "style07",
+                text2: "At startup: UART " + (values.uartCurrent ? "on" : "off") +
+                    ", SSH " + (values.sshCurrent ? "on" : "off") + ". " +
+                    (values.restart ? "Restart required." : "Changes apply after restart.")};
+        }
         function discard(p) {
             if (p) {
                 p.cleanUp();
@@ -160,17 +166,12 @@ var OpenConnectSettings = (function () {
                 rows.push({text1: "Return to Mazda Settings", itemStyle: "style01", hasCaret: false, appData: 0});
             } else if (index === "developer") {
                 title = "Developer options";
-                rows.push({text1: "UART root console", itemStyle: "styleOnOff", value: values.uart ? 1 : 2,
+                rows.push({text1: "UART", itemStyle: "styleOnOff", value: values.uart ? 1 : 2,
                     hasCaret: false, appData: "uart"});
-                rows.push({text1: "Owner SSH access", itemStyle: "styleOnOff", value: values.ssh ? 1 : 2,
+                rows.push({text1: "SSH", itemStyle: "styleOnOff", value: values.ssh ? 1 : 2,
                     hasCaret: false, appData: "ssh", disabled: values.key === "-"});
                 rows.push({text1: "Import public key", itemStyle: "style01", appData: "import",
                     disabled: prefs.pending() || typeof store.importKey !== "function"});
-                rows.push({text1: "At startup: UART " + (values.uartCurrent ? "on" : "off") +
-                    ", owner SSH " + (values.sshCurrent ? "on" : "off"), itemStyle: "style01", hasCaret: false, disabled: true});
-                if (values.restart) {
-                    rows.push({text1: "Restart required to apply changes", itemStyle: "style01", hasCaret: false, disabled: true});
-                } else { rows.push({text1: "Changes apply after restart", itemStyle: "style01", hasCaret: false, disabled: true}); }
             } else {
                 row = entries[index];
                 title = row.title;
@@ -180,7 +181,8 @@ var OpenConnectSettings = (function () {
                 }
             }
             var listProps = {dataList: {itemCountKnown: true, itemCount: rows.length, items: rows},
-                titleConfiguration: "listTitle", title: {text1: title, titleStyle: "style02"},
+                titleConfiguration: "listTitle", title: index === "developer" ? developerTitle(values) :
+                    {text1: title, titleStyle: "style02"},
                 smallItemText: true, focussedItem: focus, selectCallback: select};
             if (index === 0 || index === 1) { listProps.checkMinChangeInterval = 0; }
             if (index === "developer") { listProps.toggleMinChangeInterval = 0; }
@@ -228,7 +230,7 @@ var OpenConnectSettings = (function () {
                                 render("developer", 2);
                                 dismiss = OpenConnectInstaller.message(fw, actual ? "Public key imported" : "Key could not be imported",
                                     actual ? "Fingerprint (MD5):\n" + actual.fingerprint.slice(0, 23) + "\n" +
-                                        actual.fingerprint.slice(24) + "\nEnable Owner SSH access when ready." :
+                                        actual.fingerprint.slice(24) + "\nEnable SSH when ready." :
                                         "Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",
                                     {button1: {label: "OK", appData: "done"}}, function () { dismiss = null; });
                             });
@@ -269,10 +271,8 @@ var OpenConnectSettings = (function () {
                     var values = prefs.values(), ctrl = page.list2Ctrl;
                     if (!values) { return; }
                     ctrl.dataList.items[2].disabled = prefs.pending() || typeof store.importKey !== "function";
-                    ctrl.dataList.items[3].text1 = "At startup: UART " + (values.uartCurrent ? "on" : "off") +
-                        ", owner SSH " + (values.sshCurrent ? "on" : "off");
-                    ctrl.dataList.items[4].text1 = values.restart ? "Restart required to apply changes" : "Changes apply after restart";
-                    ctrl.updateItems(2, 4);
+                    ctrl.setTitle(developerTitle(values));
+                    ctrl.updateItems(2, 2);
                 }
                 return;
             }

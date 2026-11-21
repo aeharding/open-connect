@@ -2,6 +2,76 @@
 """Read-only analysis of completed STARTUP-COMPARISON.md trials."""
 
 
+def verified_clock(path, boot):
+    """Recompute saved bounds and match all seven exchanges to raw replies."""
+    import json
+    import re
+
+    from open_connect.clock_reference import bounds
+
+    directory = path.parent / path.name.replace("trial-", "clock-")
+    saved = json.loads((directory / "clock-bounds.json").read_text())
+    raw = (directory / "ssh.stdout").read_text()
+    assert saved["boot"] == boot
+    assert re.findall(r"^BOOT_CLOCK_READY\|([a-f0-9-]{36})$", raw, re.M) == [boot]
+    replies = re.findall(
+        r"^BOOT_CLOCK_REPLY\|([a-f0-9]{32})\|([0-9]+\.[0-9]+) ([0-9]+\.[0-9]+)$",
+        raw,
+        re.M,
+    )
+    exchanges = saved["exchanges"]
+    assert len(replies) == len(exchanges) == len({r[0] for r in replies}) == 7
+    assert [float(r[1]) for r in replies] == [r["uptime_s"] for r in exchanges]
+    assert all(a["after_s"] <= b["before_s"] for a, b in zip(exchanges, exchanges[1:]))
+    for key, value in bounds(exchanges).items():
+        assert saved[key] == value, key
+    return saved
+
+
+def verified_annotations(path, clocks):
+    """Check definitions, adjacent saved video PTS and all timing arithmetic."""
+    import json
+    import math
+    import re
+
+    meta = json.loads((path / "trial.json").read_text())
+    on = [e["monotonic_s"] for e in meta["events"] if e["kind"] == "ACC_ON"]
+    starts = re.findall(
+        r"Duration: N/A, start: ([0-9.]+), bitrate:",
+        (path / "camera.stderr.txt").read_text(),
+    )
+    assert len(on) == len(starts) == 1
+    start = float(starts[0])
+    assert math.isfinite(start) and math.isfinite(on[0])
+    origin = json.loads((path / "video-clock-origin.json").read_text())
+    assert origin == {
+        "avfoundation_input_start_host_s": start,
+        "acc_on_host_s": on[0],
+        "acc_on_video_pts_s": on[0] - start,
+    }
+    frames = json.loads((path / "camera-result.json").read_text())["ffprobe"]["frames"]
+    pts = [float(f["best_effort_timestamp_time"]) for f in frames]
+    assert pts and all(math.isfinite(v) for v in pts)
+    assert all(a < b for a, b in zip(pts, pts[1:]))
+    rows = json.loads((path / "annotations.json").read_text())
+    assert [r["definition"] for r in rows] == [
+        "Home carousel fully spaced",
+        "CarPlay dashboard fully rendered; map still loading",
+    ]
+    for row in rows:
+        a, b = row["before_frame"], row["first_frame"]
+        assert type(a) is int and type(b) is int and 0 <= a < b < len(pts) and b == a + 1
+        assert row["video_pts_bounds_s"] == [pts[a], pts[b]]
+        host = [start + pts[a], start + pts[b]]
+        assert row["relative_acc_command_s"] == [v - on[0] for v in host]
+        assert row["relative_kernel_s"] == [
+            host[0] - clocks["kernel_zero_host_upper_s"],
+            host[1] - clocks["kernel_zero_host_lower_s"],
+        ]
+        assert row["sensor_and_relay_latency_qualified"] is False
+    return rows
+
+
 def main():
     import hashlib
     import json
@@ -90,10 +160,7 @@ def main():
                     sectors_written=values[6],
                 )
             )
-        clocks = json.loads(
-            (path.parent / path.name.replace("trial-", "clock-") / "clock-bounds.json").read_text()
-        )
-        assert clocks["boot"] == trace["boot_id"]
+        clocks = verified_clock(path, trace["boot_id"])
         values = [memory(sample) for sample in samples]
         result = dict(
             trial=str(path),

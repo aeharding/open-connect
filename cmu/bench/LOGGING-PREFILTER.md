@@ -74,3 +74,11 @@ policy affects normal CommonLog levels; peak-load defaults and early contexts
 remain distinct. No result is presumed from the lower setting or process count.
 The exporter independently reparses raw traces/clocks and the effective policy
 records. Old default and Services export modes retain their original labels.
+
+Later read-only analysis strengthens timing cross-checks without changing capture:
+`verified_clock` recalculates bounds from all seven exchanges and matches uptime
+values to raw replies; `verified_annotations` checks the exact definitions,
+adjacent saved ffprobe PTS, video origin and ACC/kernel arithmetic. It does not
+replace visual review of the recorded milestone. The November21 capture remains
+source173a839; cite this later analysis commit separately. Old saved captures and
+manifests are never rewritten to claim they used these later checks.

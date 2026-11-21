@@ -151,7 +151,10 @@ def main():
                         **disk,
                     )
                 )
-            for annotation in json.loads((path / "annotations.json").read_text()):
+            from open_connect.startup_analysis import verified_annotations, verified_clock
+
+            clocks = verified_clock(path, trace["boot_id"])
+            for annotation in verified_annotations(path, clocks):
                 label = (
                     "home_spaced"
                     if annotation["definition"] == "Home carousel fully spaced"

@@ -1,6 +1,6 @@
 # Open Connect — roadmap
 
-Updated 2026-11-20. [STEERING.md](STEERING.md) defines product intent; GitHub
+Updated 2026-11-21. [STEERING.md](STEERING.md) defines product intent; GitHub
 issues track implementation. This roadmap sets delivery order and completion
 criteria, without calendar promises. One primary owns each complete release.
 
@@ -32,9 +32,13 @@ found later Home and wired CarPlay with the pinned development candidate, higher
 CPU, and similar free RAM. Grouping repeated dependency-parent checks then
 [recovered about 1.2 seconds to Home and 2.2 seconds to the dashboard](docs/startup-verification.md),
 with no useful CPU/RAM gain; stock remains faster. That narrow change is integrated.
-Proceed to the first Services candidate with the existing measurements as context.
-Block order and one-unit observations still limit causal attribution. Reproducible
-source and excluded attempts are retained.
+The first [Services control](docs/services.md) now selects Pandora startup policy.
+[Five starts enabled and five disabled](docs/pandora-comparison.md) found about
+3.2 MiB higher minimum MemFree with it off and no resolved wired-dashboard gain.
+It remains optional and defaults on. Next, test a narrow logging change before
+deciding the Base optimizations contents/default; keep individual service choices
+fixed. Block order and one-unit observations still limit attribution. Reproducible
+source, individual results and excluded earlier attempts are retained.
 The deferred phase-1 manual and first-car checks remain separate.
 
 | Phase | Outcome | Done when | Work |

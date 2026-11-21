@@ -98,7 +98,12 @@ Private originals, raw traces, logs and restoration receipts remain in
 `runs/services-20261121/`. No OEM source or raw capture is published. The candidate
 host check of both exact profiles verifies that disabling changes only Pandora's
 single `autorun` attribute in the selected copy; enabled copies remain identical.
-Hardware boot/measurement/UI qualification of that candidate is separate.
+Five enabled and five disabled ACC starts then verified the selected policy:
+native SM reports one Pandora start when enabled and none when disabled, with
+wired projection returning in every trial. The [comparison](pandora-comparison.md)
+records the modest MemFree difference, unresolved dashboard timing gain and
+measurement limits. The later maintenance fixes have separate artifact identity;
+these measurements remain attributed to the actually tested c98 build.
 
 ## Developer access and login-script lifetime on v74
 

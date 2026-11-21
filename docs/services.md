@@ -4,21 +4,30 @@ The **Services** page is under **Mazda Settings → System → Open Connect**.
 Its first development control is **Pandora**, which defaults to **on**.
 This controls Mazda's built-in Pandora integration.
 
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/services.png" alt="Services page with Pandora checked." width="800" height="480"></div>
+  <figcaption>Pandora starts by default.</figcaption>
+</figure>
+
 Clear the checkbox to stop that integration from loading. The confirmation
 explains that changes apply after restarting Mazda Connect. Switching ignition
 off and immediately on may resume the existing session; let it shut down fully.
 Updating preserves the selection. Uninstall restores the pre-install startup
 configuration.
 
-The setting changes Open Connect's selected RAM service configuration before
-Mazda's service manager starts. It does not hot-stop or hot-restart the service,
-and does not edit Mazda's original service configuration files.
+Checking it again and confirming **Enable** restores the integration after the
+next full restart. The checkbox shows your saved choice; the current session
+keeps its existing services until that restart.
+
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/services-disable.png" alt="Disable Pandora confirmation explaining that changes apply after restarting Mazda Connect." width="800" height="480" loading="lazy"></div>
+  <figcaption>Confirm Disable to save the choice.</figcaption>
+</figure>
 
 Other service choices and a Base optimizations bundle remain under investigation.
-They are not a preset purge: Aha, for example, has declared consumers in Wi-Fi,
-voice and other startup stages. See [performance evidence](performance.md) and
-the [service-manager findings](reverse-engineering.md#service-manager-dependencies-and-pandora-restart).
+The [five-start comparison](pandora-comparison.md) found modestly higher free
+RAM with Pandora off, without a resolved wired CarPlay startup gain.
 
-This is a development candidate. Bench startup, resource, UI and restoration
-qualification must be recorded before treating the new control as supported;
-the owner's deferred physical-input/audio and first-car checks remain separate.
+This development control has bench checks for startup, software Settings,
+update and restoration; see the [qualification record](pandora-comparison.md#maintenance-and-restoration-qualification).
+Physical-input/audio and first-car checks remain pending.

@@ -17,6 +17,7 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | `backend.sh`, `transaction.sh`, `state.sh` | Install, preferences, complete uninstall and interrupted-operation reconciliation |
 | `firmware.sh`, `mmui.S`, `intro.js`, `system-route.js` | Exact v74 guards and composition from this unit's saved originals |
 | `startup-hook.sh`, `boot.sh`, `ignition.sh` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
+| `wireless.sh`, `wireless-sm.awk`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step and narrow native wireless service arguments |
 
 The browser sends `POST /control` to `127.0.0.1:35555`, with `Content-Type:
 text/plain` and body `token|revision|operation|arg0|arg1|arg2`. Missing arguments
@@ -40,11 +41,20 @@ checkpoint slot and an always-false `undo` response field only allow handoff
 from v0.2.0-dev.1; there is no Undo command. Its already-removed installations
 offer Uninstall on a new USB to discard their retained files.
 
-Only the startup integration and Mazda's touchscreen NVRAM value change in place.
+Startup integration, touchscreen NVRAM and optional developer login/SSH settings
+change in place, with verified originals retained for uninstall.
 The native libraries, service configuration, index and paired JavaScript are
 composed privately and copied into a fixed RAM directory for the selected boot.
 Update and uninstall leave that boot's mapped native bytes intact until restart.
 The root filesystem is returned to read-only after startup-file publication.
+
+Wireless selection changes service arguments in the selected RAM profile. After
+VBS renders its normal Device Manager XML, one bounded process changes only its
+two Wi-Fi capability values before releasing Device Manager initialization.
+The physical master XML, board detection, GPS and native modules stay original.
+Failure preserves the generated XML and releases ordinary initialization; an
+ephemeral applied value contributes to the existing status response. Preferences
+remain in the same immutable snapshot and authoritative durable record.
 
 `features/touch/setting.sh` compares the expected NVRAM value before changing and
 committing it. It preserves the distinction between absent, enable and disable.

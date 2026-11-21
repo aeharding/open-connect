@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +54,8 @@ class InstallerBoot(unittest.TestCase):
         (self.source / "state.sh").write_text(state)
         shutil.copyfile(ASSETS / "transaction.sh", self.source / "transaction.sh")
         shutil.copyfile(ASSETS / "access.sh", self.source / "access.sh")
+        for name in ("wireless-sm.awk", "wireless-device.awk", "wireless.sh"):
+            shutil.copyfile(ASSETS / name, self.source / name)
         self.log_original = b"synthetic original logging settings\n"
         self.log_library = b"synthetic exact common library\n"
         (self.root / "physical-log-settings").write_bytes(self.log_original)
@@ -191,6 +194,106 @@ record_write
                     self.assertEqual(
                         (self.runtime / "feature" / name).read_text(), f"{profile} {setting}\n"
                     )
+
+    def select_wireless(self, value, *, base=0):
+        for profile in ("normal", "wcp"):
+            args = {
+                "jciMMUI": "mouse=filtered-mouse0, keyboard=filtered-keyboard0, display=filtered-touchscreen0",
+                "start_network": "UCP",
+                "bds": "-interface dbus",
+            }
+            if profile == "wcp":
+                args["jciMMUI"] += ", wcp"
+                args["start_network"] = ""
+                args["bds"] += " -wcp"
+            lines = ["<services>"]
+            for name in (
+                "jciMMUI",
+                "start_network",
+                "bds",
+                "jciUSBMGR",
+                "jciCARPLAY",
+                "jciBCA",
+                "blm_nms_svc",
+                "devicemanager",
+                "blm_ira_pandora",
+                "jciLDS",
+            ):
+                attr = f'name="{name}" autorun="yes" reset_board="yes" retry_count="0"'
+                if name in args:
+                    attr += f' args="{args[name]}"'
+                elif (
+                    name in ("jciUSBMGR", "jciCARPLAY", "jciBCA", "blm_nms_svc")
+                    and profile == "wcp"
+                ):
+                    attr += ' args="wcp"'
+                elif name == "jciLDS":
+                    attr += ' args="actual-gps-provider"'
+                lines += [
+                    "<service " + attr + ">",
+                    '<dependency type="service" value="existing"/>',
+                    "</service>",
+                ]
+            lines += ["</services>"]
+            for setting in ("on", "off"):
+                path = self.data / "composed" / self.package_id / f"sm-{profile}-{setting}.conf"
+                path.write_text("\n".join(lines) + "\n")
+        self.shell(
+            'record_read; snapshot_read "$R_CURRENT"; '
+            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" /dev/null - 1 '
+            + str(base)
+            + " "
+            + str(value)
+            + "); record_write"
+        )
+
+    def test_wireless_boot_composes_both_profiles_and_preserves_native_services(self):
+        self.select_wireless(1)
+        result = self.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        feature = self.runtime / "feature"
+        for name in ("wireless.sh", "wireless-device.awk"):
+            self.assertEqual((feature / name).read_bytes(), (ASSETS / name).read_bytes())
+        self.assertEqual((feature / "boot-id").read_bytes(), (self.root / "boot-id").read_bytes())
+        self.assertEqual((feature / "wireless-applied").read_text(), "0\n")
+        for name in ("sm.conf", "sm_WCP.conf"):
+            services = {s.attrib["name"]: s for s in ET.parse(feature / name).iter("service")}
+            self.assertEqual(services["jciLDS"].attrib["args"], "actual-gps-provider")
+            self.assertEqual(services["jciCARPLAY"].attrib["args"], "wcp")
+            self.assertEqual(services["jciCARPLAY"].attrib["reset_board"], "yes")
+            self.assertEqual(services["jciCARPLAY"].attrib["retry_count"], "0")
+            helper = services["open_connect_wireless"]
+            self.assertEqual(
+                helper.attrib["args"], "timeout -t 15 sh /tmp/open-connect/feature/wireless.sh"
+            )
+            self.assertEqual(helper.attrib["reset_board"], "no")
+            dependencies = [d.attrib["value"] for d in services["devicemanager"]]
+            self.assertEqual(dependencies, ["open_connect_wireless", "existing"])
+
+    def test_wireless_remains_absent_when_disabled_or_startup_budget_is_exhausted(self):
+        self.select_wireless(0)
+        result = self.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.runtime / "feature/wireless.sh").exists())
+        self.assertNotIn("open_connect_wireless", (self.runtime / "feature/sm.conf").read_text())
+        self.select_wireless(1)
+        self.shell("record_read; R_BUDGET=0; record_write")
+        result = self.boot(2)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.runtime / "feature").exists())
+        self.assertFalse((self.runtime / "selected").exists())
+
+    def test_foreign_wireless_service_argument_refuses_before_other_ram_effects(self):
+        self.select_wireless(1, base=1)
+        path = self.data / "composed" / self.package_id / "sm-normal-on.conf"
+        path.write_text(
+            path.read_text().replace('name="jciUSBMGR"', 'name="jciUSBMGR" args="foreign"')
+        )
+        result = self.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertFalse((self.runtime / "feature").exists())
+        self.assertFalse((self.root / "common/log/settings.txt").exists())
 
     def select_base(self, value):
         self.shell(

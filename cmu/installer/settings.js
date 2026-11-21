@@ -13,7 +13,8 @@ var OpenConnectSettings = (function () {
         return values && (values.touch === 0 || values.touch === 1) &&
             (values.warning === 0 || values.warning === 1) &&
             (values.pandora === undefined || values.pandora === 0 || values.pandora === 1) &&
-            (values.base === undefined || values.base === 0 || values.base === 1);
+            (values.base === undefined || values.base === 0 || values.base === 1) &&
+            (values.wireless === undefined || values.wireless === 0 || values.wireless === 1);
     }
 
     function replace(obj, key, fn) {
@@ -52,8 +53,8 @@ var OpenConnectSettings = (function () {
                 saved = current;
             }
             var values = {developer: saved.developer, key: saved.key, fingerprint: saved.fingerprint,
-                uartCurrent: saved.uartCurrent, sshCurrent: saved.sshCurrent,
-                restart: saved.restart}, keys = ["touch", "warning", "uart", "ssh", "pandora", "base"];
+                uartCurrent: saved.uartCurrent, sshCurrent: saved.sshCurrent, wirelessCurrent: saved.wirelessCurrent,
+                restart: saved.restart}, keys = ["touch", "warning", "uart", "ssh", "pandora", "base", "wireless"];
             keys.forEach(function (key) { values[key] = own.call(wanted, key) ? wanted[key] : saved[key]; });
             return values;
         };
@@ -151,6 +152,10 @@ var OpenConnectSettings = (function () {
                     rows.push({text1: row.title, label1: row.key === "touch" ? ["Default", "Allow"][values.touch] : row.choices[values[row.key]],
                         itemStyle: "style06", hasCaret: true, appData: i});
                 }
+                if (values.wireless !== undefined) {
+                    rows.push({text1: "Wireless CarPlay", itemStyle: "styleOnOff", value: values.wireless ? 1 : 2,
+                        hasCaret: false, appData: "wireless"});
+                }
                 if (values.pandora !== undefined || values.base !== undefined) {
                     rows.push({text1: "Services", itemStyle: "style01", hasCaret: true, appData: "services"});
                 }
@@ -210,6 +215,23 @@ var OpenConnectSettings = (function () {
             if (!current() || dismiss || !page || control !== page.list2Ctrl) { return; }
             if (choice === null && item === "developer") { render("developer", 0); return; }
             if (choice === null && item === "services") { render("services", 0); return; }
+            if (choice === null && item === "wireless") {
+                if (!params || (params.additionalData !== 1 && params.additionalData !== 2)) { return; }
+                var wirelessValues = prefs.values(), enableWireless = params.additionalData === 1;
+                if (!wirelessValues || wirelessValues.wireless === undefined ||
+                        wirelessValues.wireless === (enableWireless ? 1 : 0)) { return; }
+                dismiss = OpenConnectInstaller.message(fw, (enableWireless ? "Enable" : "Disable") + " Wireless CarPlay?",
+                    enableWireless ? "Changes apply after restarting Mazda Connect. Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth." :
+                        "Restores the original CarPlay behavior after restarting Mazda Connect.",
+                    {button1: {label: "Cancel", appData: "cancel"},
+                        button2: {label: enableWireless ? "Enable" : "Disable", appData: "apply"}},
+                    function (action) {
+                        dismiss = null;
+                        if (action === "apply" && current()) { prefs.select("wireless", enableWireless ? 1 : 0); }
+                        if (current() && choice === null) { render(null, 2); }
+                    });
+                return;
+            }
             if (choice === "services") {
                 if ((item !== "pandora" && item !== "base") || !params ||
                         (params.additionalData !== 1 && params.additionalData !== 2)) { return; }
@@ -330,10 +352,14 @@ var OpenConnectSettings = (function () {
                 if (dismiss) { dismiss(); }
                 else if (choice !== null && choice !== "unknown") {
                     var focus = choice;
-                    if (choice === "services") { focus = 2; }
+                    if (choice === "services") {
+                        var serviceValues = prefs.values();
+                        focus = 2 + (serviceValues && serviceValues.wireless !== undefined ? 1 : 0);
+                    }
                     if (choice === "developer") {
                         var values = prefs.values();
-                        focus = values && values.pandora !== undefined ? 3 : 2;
+                        focus = 2 + (values && values.wireless !== undefined ? 1 : 0) +
+                            (values && (values.pandora !== undefined || values.base !== undefined) ? 1 : 0);
                     }
                     render(null, focus);
                 }

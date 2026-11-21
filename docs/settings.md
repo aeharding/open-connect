@@ -23,8 +23,11 @@ Use Back to return to the list.
 | --- | --- |
 | [Touchscreen While Driving](touchscreen.md) | **Allow** |
 | [Startup disclaimer](disclaimer.md) | **Skip** |
+| [Wireless CarPlay](wireless-carplay.md) | **Off** |
 
 Updating keeps your choices. See each feature's page for what its options do.
+Wireless CarPlay uses a checkbox and a confirmation explaining restart and
+Mazda's native Wi-Fi/Bluetooth setup.
 
 After changing a preference, switch the ignition off and let Mazda Connect shut
 down completely before starting again. A quick off/on may resume the old session.

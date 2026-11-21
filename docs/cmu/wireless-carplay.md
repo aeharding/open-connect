@@ -1,19 +1,18 @@
 # Native wireless CarPlay
 
 **Mazda's v74 firmware already contains wireless CarPlay and a Wi-Fi mode
-selector.** The research question is how to enable the needed capabilities on
-older hardware without pretending the whole CMU is a different board.
+selector.** A narrow v74 boot trial reached native wireless projection while
+preserving the CMU's actual board and generated vehicle/GPS values.
 
-This is source-backed research on **North American 74.00.324A**, not a working
-Open Connect wireless feature. The maintained installer targets that exact
-baseline; [release qualification](../installer-development.md#qualification)
-and native wireless enablement are separate work.
+This page records source-backed findings on **North American 74.00.324A** and
+that single-boot trial. The maintained [Wireless CarPlay control](../wireless-carplay.md)
+is under qualification. This does not establish input/audio performance,
+repeated reconnection, vehicle behavior or long-parked startup timing.
 
 The owner will uninstall the existing wireless mod before the first Open Connect
-installation. The installer requires the supported OEM files. The planned Open
-Connect wireless-enable option must preserve actual vehicle/hardware identity;
-it remains in the final roadmap phase, after the initial release, Developer
-options and measured Services work. No implementation is qualified yet.
+installation. The installer requires the supported OEM files. Wireless work
+follows the initial release, Developer options and measured Services work;
+the existing mods are research references, not compatibility targets.
 
 ## What the existing mods change
 
@@ -38,11 +37,41 @@ are separate tasks.
 | Device Manager configuration | `bWifiSupport` and `bOOBSupport` use the `@board@` placeholder. EEM renders it while also choosing location-reporting values. | Investigate changing these capability fields independently of GPS/board reporting. |
 | MMUI startup | Its `wcp` service argument sets an internal WCP status. | There is an explicit service-level input to trace. |
 
-The proposed experiment is a selected boot configuration with narrowly scoped
-wireless capabilities and required service arguments, while preserving actual
-hardware detection, GPS behavior and OEM reset policy. These leads are **not
-yet proven sufficient**; Device Manager consumers and the remaining service
-gates still need tracing before building the candidate.
+## Narrow enablement result
+
+The successful trial changed six service arguments: MMUI, USB manager, CarPlay,
+BDS, BCA and BLM NMS receive their corresponding OEM wireless arguments. Network
+startup selects the OEM WCP firewall mode. GPS/location, AAPA hardware selection,
+navigation dependencies and original retry/reset policy remain unchanged.
+
+After VBS renders `/tmp/devmgr_config_edit.xml`, one finite process changes
+`bWifiSupport` and `bOOBSupport` from FALSE to TRUE. Device Manager waits for its
+ready flag before reading that same XML path. Independent before/after byte
+comparison found precisely those two value substitutions; every other generated
+byte was preserved. The physical master, EEM module, board script, SM profiles
+and Device Manager module were unchanged. Native parsing and service lifecycle
+remain Mazda's own implementation.
+
+Mazda's native Devices menu then exposed Wi-Fi and the CarPlay page. Selecting
+Apple CarPlay started a channel-6 AP. The owner re-paired the iPhone's Bluetooth
+connection to enable its wireless Connect button, connected wirelessly, then
+moved phone USB to the Mac. Independent intake found no CMU phone USB link, one
+Wi-Fi station exchanging traffic and a visible CarPlay dashboard on the physical
+display. Later USB inspection identified `iPhone8,4`, iOS **15.8.8**. This setup
+observation does not establish that all existing pairings must be replaced.
+
+The original startup inode and read-only physical root were restored before a
+separate stock ACC start. That start restored both FALSE values, stopped the AP
+and returned the radio to managed mode after entering the test with Mazda's
+CarPlay Wi-Fi preference selected. Saved-mode and pairing reuse still need
+reconnection checks. This supports the off-path mechanism;
+the maintained installer still needs its own complete qualification.
+
+The authored [playground source](https://github.com/aeharding/open-connect/tree/bc9761a/cmu/bench)
+retains the initial filters and observed scope. Private captures, generated XML,
+OEM source and pairing material are excluded. Its first attempt stopped before
+selection when an early root read-only remount returned `EBUSY`; post-startup
+restoration passed. That was a boot-trial tooling failure, not a wireless result.
 
 ## Internet and the OEM menu
 
@@ -55,6 +84,7 @@ CarPlay maps to Wi-Fi access-point mode; Connected Services maps to client mode.
 Selections send Mazda's normal `SelectWifiMode` event. This supports investigating
 the user's preferred explicit switch to a hotspot and back.
 
+The tested North American UI exposes only **Off / Apple CarPlay**.
 We have not established which native region/capability checks expose the
 three-option menu on this hardware, or verified usable internet and CarPlay
 reconnection. Menu code alone does not prove either.

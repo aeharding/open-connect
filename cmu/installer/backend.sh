@@ -39,8 +39,8 @@ fi
 
 status() {
     local installed=false retained=false conflict=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
-    local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 applied
-    local installed_version=- installed_package=- pandora= base=
+    local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 wireless_current=0 applied
+    local installed_version=- installed_package=- pandora= base= wireless=
     if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
     if test "$empty_state" = true; then pending=true; fi
     if test "$exists" = true; then
@@ -53,7 +53,8 @@ status() {
             installed_package=$S_PACKAGE
             touch=$S_TOUCH; warning=$S_WARNING
             if test "$S_CONFIG_FIELDS" -ge 6; then pandora=$S_PANDORA; fi
-            if test "$S_CONFIG_FIELDS" = 7; then base=$S_BASE; fi
+            if test "$S_CONFIG_FIELDS" -ge 7; then base=$S_BASE; fi
+            if test "$S_CONFIG_FIELDS" -ge 8; then wireless=$S_WIRELESS; fi
             developer=$S_ACCESS; uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
             if test "$key" != - && access_key_verify "$key"; then
                 fingerprint=$(/usr/bin/ssh-keygen -l -f "$D/keys/$key.cmu" | awk '{print $2}')
@@ -82,6 +83,17 @@ status() {
     local version service_status=
     if test -n "$pandora"; then service_status=',"pandora":'$pandora; fi
     if test -n "$base"; then service_status=$service_status',"base":'$base; fi
+    if test -n "$wireless"; then service_status=$service_status',"wireless":'$wireless; fi
+    if test -n "$wireless"; then
+        if file /tmp/open-connect/selected; then
+            applied=$(cat /tmp/open-connect/selected)
+            if snapshot_read "$applied" && test "$S_WIRELESS" = 1 &&
+                file /tmp/open-connect/feature/wireless-applied &&
+                test "$(cat /tmp/open-connect/feature/wireless-applied)" = 1; then wireless_current=1; fi
+        fi
+        service_status=$service_status',"wirelessCurrent":'$wireless_current
+        test "$wireless" = "$wireless_current" || restart=true
+    fi
     version=$(cat "$P/VERSION")
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
     # Keep the retired boolean false for an installed v0.2.0-dev.1 client during
@@ -134,15 +146,16 @@ install)
     done
     flush d "$D"
     originals_save
-    old_package=-; touch=1; warning=1; uart=0; owner_ssh=0; key=-; pandora=1; base=0
+    old_package=-; touch=1; warning=1; uart=0; owner_ssh=0; key=-; pandora=1; base=0; wireless=0
     access_work=$(mktemp -d "$D/.access-XXXXXX") || fail access_plan_failed
     trap 'rm -rf "$access_work"' EXIT
     if test "$exists" = true && test "$R_PHASE" = active; then
         snapshot_read "$R_CURRENT" || fail invalid_snapshot
         old_package=$S_PACKAGE; touch=$S_TOUCH; warning=$S_WARNING; pandora=$S_PANDORA
-        base=$S_BASE; before_pandora=$pandora; before_base=$base
+        base=$S_BASE; wireless=$S_WIRELESS; before_pandora=$pandora; before_base=$base; before_wireless=$wireless
         if test "$S_CONFIG_FIELDS" = 5; then before_pandora=-; fi
         if test "$S_CONFIG_FIELDS" -lt 7; then before_base=-; fi
+        if test "$S_CONFIG_FIELDS" -lt 8; then before_wireless=-; fi
         uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
         if test "$S_ACCESS" = true && test "$S_LOGIN_INODE" = -; then fail developer_reinstall_required; fi
         if test "$S_ACCESS" = false; then
@@ -151,7 +164,7 @@ install)
         fi
         if test "$S_LOGIN_INODE" = -; then login_inode=$(stat -c %i /usr/bin/runlogin); else login_inode=$S_LOGIN_INODE; fi
         access_capture "$access_work" "$uart" "$owner_ssh" "$key" "$login_inode" || fail access_backup_failed
-        before=$(state_capture "$old_package" "$touch" "$warning" "$access_work" "$before_pandora" "$before_base") || fail checkpoint_failed
+        before=$(state_capture "$old_package" "$touch" "$warning" "$access_work" "$before_pandora" "$before_base" "$before_wireless") || fail checkpoint_failed
         snapshot_read "$R_BASE" || fail originals_changed
         if test "$S_ACCESS" = false; then
             R_BASE=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 "$S_NVRAM" "$S_META" "$D/snapshots/$R_BASE/dependencies" "$access_work") || fail access_backup_failed
@@ -172,7 +185,7 @@ install)
     test "$touch" = 0 || nvram=disable
     deps=$(mktemp "$D/.dependencies-XXXXXX")
     dependencies_capture "$package" > "$deps" || fail checkpoint_dependencies_failed
-    after=$(snapshot_create "$D/composed/$package/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$deps" "$access_work" "$pandora" "$base") || fail plan_failed
+    after=$(snapshot_create "$D/composed/$package/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$deps" "$access_work" "$pandora" "$base" "$wireless") || fail plan_failed
     rm "$deps"
     R_BACKEND=$package
     if test "$exists" = false; then
@@ -187,10 +200,11 @@ set|import)
     test "$exists" = true && test "$R_PHASE" = active || fail not_installed
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
     snapshot_read "$R_CURRENT" || fail invalid_snapshot
-    package=$S_PACKAGE; touch=$S_TOUCH; warning=$S_WARNING; pandora=$S_PANDORA; base=$S_BASE; mode=$S_META
+    package=$S_PACKAGE; touch=$S_TOUCH; warning=$S_WARNING; pandora=$S_PANDORA; base=$S_BASE; wireless=$S_WIRELESS; mode=$S_META
     settings_schema=$S_CONFIG_FIELDS
     test "$argument" != pandora || test "$settings_schema" -ge 6 || fail services_update_required
-    test "$argument" != base || test "$settings_schema" = 7 || fail services_update_required
+    test "$argument" != base || test "$settings_schema" -ge 7 || fail services_update_required
+    test "$argument" != wireless || test "$settings_schema" -ge 8 || fail wireless_update_required
     uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
     access_source=$D/snapshots/$R_CURRENT
     if test "$operation" = import || test "$argument" = uart || test "$argument" = ssh; then
@@ -216,16 +230,18 @@ set|import)
             warning:[01]:[01]) test "$warning" = "$expected" || fail stale_setting; warning=$desired;;
             pandora:[01]:[01]) test "$pandora" = "$expected" || fail stale_setting; pandora=$desired;;
             base:[01]:[01]) test "$base" = "$expected" || fail stale_setting; base=$desired;;
+            wireless:[01]:[01]) test "$wireless" = "$expected" || fail stale_setting; wireless=$desired;;
             *) fail invalid_setting;;
         esac
     fi
     if test "$operation" = set && test "$expected" = "$desired"; then status; exit; fi
     snapshot_read "$R_BASE" || fail originals_changed
     nvram=$S_NVRAM; test "$touch" = 0 || nvram=disable
-    service_choice=$pandora; base_choice=$base
+    service_choice=$pandora; base_choice=$base; wireless_choice=$wireless
     if test "$settings_schema" = 5; then service_choice=-; fi
     if test "$settings_schema" -lt 7; then base_choice=-; fi
-    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$access_source" "$service_choice" "$base_choice") || fail plan_failed
+    if test "$settings_schema" -lt 8; then wireless_choice=-; fi
+    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$access_source" "$service_choice" "$base_choice" "$wireless_choice") || fail plan_failed
     transaction_prepare set "$R_CURRENT" "$after"
     transaction_reconcile
     ;;

@@ -150,6 +150,9 @@ class InstallerComposition(unittest.TestCase):
             expected = []
             for name, target in (
                 ("manager.so", "/jci/lib/libjciuiamgr.so"),
+                ("device-master.xml", "/etc/devmgr_config_master.xml"),
+                ("eem.so", "/jci/vbs/modules/libjcimod_eem.so"),
+                ("device-manager.so", "/jci/devicemanager/libdevicemanager.so"),
                 ("rungetty", "/usr/bin/rungetty"),
                 ("sshd", "/usr/sbin/sshd"),
                 ("ssh-keygen", "/usr/bin/ssh-keygen"),

@@ -20,6 +20,7 @@ nav = [
   { "Features" = [
     { "Touchscreen While Driving" = "touchscreen.md" },
     { "Startup disclaimer" = "disclaimer.md" },
+    { "Wireless CarPlay" = "wireless-carplay.md" },
     { "Developer options" = "developer-options.md" },
     { "Services" = "services.md" },
   ] },

@@ -50,7 +50,7 @@ itself consumes memory; retain its size with results.
 
 The relay is turned off once for 30 seconds, then on once. UART receives only;
 no login or input events are sent. Video/UART observe 120 seconds after ACC on.
-There is no SSH polling during startup. At 195 seconds the host retrieves the
+There is no SSH polling during startup. At 225 seconds the host retrieves the
 completed trace, checking new boot identity, source digests, exit status, full
 trace digest and sample framing. If it failed, RAM/raw evidence is retained;
 retrieval never starts a replacement collector. The supply is untouched.
@@ -95,7 +95,10 @@ observer failures separate from CMU behavior. Never blindly repeat an uncertain
 relay transmission.
 
 For a pinned installed candidate, use `--condition open-connect --package SHA256`,
-where SHA256 is the candidate's `files.sha256` digest. This requires both initial
+where SHA256 is the installed runtime's `files.sha256` digest. Installation adds
+an INSTANCE member, so this differs from the public USB manifest. Verify that
+the installed files excluding INSTANCE match the pinned public package before
+using its installed instance digest. This requires both initial
 features selected and applied, both developer-access options off, no conflict or
 pending restart, and the exact runtime package. The same preflight runs again
 after retrieval. See [the declared comparison batch](STARTUP-COMPARISON.md).

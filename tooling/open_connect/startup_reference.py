@@ -48,7 +48,7 @@ def main():
                     "acc_off_seconds": 30,
                     "post_on_video_seconds": 120,
                     "resources_seconds": 180,
-                    "resource_launch": "local stage_1 hook; SSH retrieval after 195 seconds",
+                    "resource_launch": "local stage_1 hook; SSH retrieval after 225 seconds",
                     "device_opened": False,
                     "condition": args.condition,
                     "package": args.package,
@@ -220,7 +220,9 @@ def main():
                     record["camera_error"] = repr(exc)
         # No SSH polling or collection commands run during startup. The local
         # observer is finite and the first SSH here only fetches completed data.
-        wait_until(on + 195)
+        # Product bootstrap precedes this hook. Allow the candidate's complete
+        # local 180-second trace before opening SSH, including slow startup.
+        wait_until(on + 225)
         try:
             result = subprocess.run(
                 ssh + ["timeout -t 20 sh -s -- " + shlex.join([old_boot, *sources.values()])],

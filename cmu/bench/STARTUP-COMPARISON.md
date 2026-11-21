@@ -27,7 +27,7 @@ gain 32. Do not change supply voltage or send supply commands.
 Use the same local stage-1 observer in both conditions: system counters only,
 180 seconds, minimum one-second pause, output in RAM. Each start has 30 seconds
 ACC-off, camera/UART from before OFF until 120 seconds after ON, and no SSH or
-GUI input during startup. Retrieve at 195 seconds, then qualify the kernel/host
+GUI input during startup. Retrieve at 225 seconds, then qualify the kernel/host
 clock with `clock_reference` for that exact boot. The first sample and output
 size are retained; do not call this whole-kernel resource coverage.
 
@@ -35,7 +35,7 @@ size are retained; do not call this whole-kernel resource coverage.
 python -m open_connect.startup_reference --live --condition stock \
   --host my-cmu --bundle runs/comparison/stock-1
 python -m open_connect.startup_reference --live --condition open-connect \
-  --package caca0596c53b678cc587226a362bce48f04652a65dcd359331ef45415dddd48f \
+  --package THE_VERIFIED_INSTALLED_INSTANCE_MANIFEST_SHA256 \
   --host my-cmu --bundle runs/comparison/open-connect-1
 python -m open_connect.clock_reference --live --host my-cmu \
   --expect-boot THE_RETRIEVED_BOOT_UUID --bundle runs/comparison/clock-1
@@ -47,11 +47,24 @@ source bytes and refuses modified measurement code. Setup/undo is in
 [the reference instructions](STARTUP-REFERENCE.md). Install through normal SD
 maintenance between blocks, retain independent recovery, and verify normal
 uninstall plus original startup after the candidate block.
+The installed package includes an INSTANCE data member. Verify its members match
+the pinned public package (excluding INSTANCE), then use the full installed
+manifest digest for `--package`; do not use the public USB digest there.
+
 Alternatively `python -m open_connect.startup_batch --live --host my-cmu
 --condition stock --bundle runs/comparison/stock` runs the five observers and
 per-boot clock queries serially, stopping on the first failure. For the candidate
 block supply `--condition open-connect --package` with the digest above. The
 preflight also requires the install completion notice to have been dismissed.
+
+Observed correction: the original host source 58ba042 retrieved at 195 seconds.
+All five stock traces finished before that. The first candidate trace ran from
+uptime 16.01 to 195.98 seconds, and its retrieval arrived before completion.
+The original failure and same-boot late retrieval are preserved. Exclude that
+attempt from the primary comparison because the premature SSH overlapped the
+end of collection; run five candidate starts with the later retrieval. Collector,
+hook, sample duration, video/UART windows and common analysis window are unchanged.
+Retain each run's actual host revision rather than relabeling the stock evidence.
 
 Measure first Home icons visible and first CarPlay dashboard visible from video,
 bracketing each transition between actual decoded frame PTS. Use the retained

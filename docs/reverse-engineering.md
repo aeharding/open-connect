@@ -768,3 +768,37 @@ frame bounds and immutable reproduction source are linked with the result.
 Normal UI uninstall plus independent observer restoration verified originals,
 stock loaded code and read-only root. Private supporting records are under
 `runs/startup-comparison-20261121/`; raw capture collections remain private.
+
+## Native logging configuration lifetime on v74
+
+On exact **74.00.324A NA**, `libjcicommon.so` uses a global RAM logging override
+at `/tmp/common/log/settings.txt`, separate from the physical default at
+`/config/common/log/settings.txt`. The inspected native initialization path also
+recognizes a per-process RAM settings filename. This is source-backed behavior,
+not a supported Open Connect logging option. The original library SHA256 is
+`637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d`.
+
+**Observed:** supplying Warn after startup left all 83 existing native contexts
+at Info. A separate newly spawned read-only SM client, with an original getter
+probe, reported Info → Warn → Info → Info as the RAM override was added, changed
+and removed. Cache/enabled getters stayed 1. The probe was loaded only into that
+new client; no running service was injected or modified.
+
+Supplying the same override from a temporary stage-1 hook before ordinary service
+startup then produced 74 initialized contexts with current/normal Warn and peak
+Info, seven earlier initialized contexts still at Info and two uninitialized
+contexts. A later primary block-end read found 73 Warn/eight Info/two uninitialized,
+with `L_settings` also initialized at Info. Those counts describe their particular
+reads, not a fixed whole-system split for every startup or
+all diagnostic sources. Existing services cache their initial level; adding or
+removing the file alone does not qualify a running policy change or restoration.
+Restoration requires a fresh original startup and loaded-state verification.
+
+The original Info configuration, service files and library remained unchanged.
+Read-only state inspection used the exact mapped library, PID/start identity and
+initialized logger PID. The original getter/read probes and hook are available
+in [experiment source 173a839](https://github.com/aeharding/open-connect/tree/173a839d3a0f225b1d32fb2ba34c74ffe3f172c2/cmu/bench);
+the [comparison method](logging-comparison.md) keeps mechanism evidence separate
+from timings. Supporting records are `startup-mechanism-result.json` and
+`fresh-process-mechanism.json` under private `runs/logging-prefilter-20261121/`.
+OEM inputs, compiled OEM dependencies and raw process reads remain private.

@@ -97,6 +97,7 @@ def main():
             path = root / f"trial-{run}"
             if args.wireless:
                 from open_connect.startup_reference import validate_condition
+                from open_connect.startup_wireless import BOOT_MARKER
 
                 meta = metadata[path]
                 assert meta["condition"] == recorded_condition and meta["base"] == base_choice
@@ -113,6 +114,7 @@ def main():
                 )
                 camera = json.loads((path / "camera-result.json").read_text())
                 assert camera["video_verified"] is True
+                uart = (path / "rx.bin").read_bytes()
                 attempts.append(
                     dict(
                         condition=condition,
@@ -122,6 +124,10 @@ def main():
                         resource_trace_present=(path / "trace.json").exists(),
                         resource_postflight_verified=str(path) in verified,
                         camera_verified=True,
+                        uart_boot_markers=uart.count(BOOT_MARKER),
+                        kernel_boot_banners=uart.count(
+                            b"Uncompressing Linux... done, booting the kernel."
+                        ),
                     )
                 )
                 if str(path) not in verified:

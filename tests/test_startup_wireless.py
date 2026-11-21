@@ -8,12 +8,37 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from open_connect import startup_annotate
+from open_connect import startup_annotate, startup_export
 from open_connect.startup_analysis import verified_annotations
 from open_connect.startup_wireless import BOOT_MARKER, native_events, trial_rows
 
 
 class WirelessEvents(unittest.TestCase):
+    def test_partial_export_rejects_unverified_preflight(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for base, condition in [(0, "wireless-base-off"), (1, "wireless-base-on")]:
+                for number in range(1, 6):
+                    path = root / condition / f"trial-{number}"
+                    path.mkdir(parents=True)
+                    (path / "trial.json").write_text(
+                        json.dumps(
+                            {
+                                "outcome": "incomplete_preserved",
+                                "condition": "open-connect",
+                                "base": base,
+                                "wireless": 1,
+                                "pandora": 1,
+                            }
+                        )
+                    )
+                    (path / "preflight.out").write_bytes(b"unverified policy\n")
+            with (
+                patch("sys.argv", ["export", str(root), str(root / "public"), "--wireless"]),
+                self.assertRaisesRegex(ValueError, "missing"),
+            ):
+                startup_export.main()
+
     def test_camera_only_keeps_missing_kernel_time_unknown(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trial-4"

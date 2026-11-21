@@ -50,7 +50,10 @@ class MetricsTests(unittest.TestCase):
         parsed = metrics.parse(trace(), TOKEN)
         self.assertEqual(parsed["boot_id"], BOOT)
         sample = parsed["samples"][0]
-        self.assertEqual(sample["processes"]["42"], {"identity": (42, 123), "stable": True})
+        self.assertEqual(
+            sample["processes"]["42"],
+            {"identity": {"pid": 42, "start_ticks": 123, "comm": "worker (test)"}, "stable": True},
+        )
         self.assertEqual(sample["files"]["/proc/42/io"], ["UNAVAILABLE\n"])
         rows = list(csv.DictReader(io.StringIO(metrics.memory_csv(parsed))))
         self.assertEqual(rows[0]["MemFree_kB"], "100")
@@ -61,6 +64,14 @@ class MetricsTests(unittest.TestCase):
         for after in (stat(start=456), stat(pid=43), "READ_FAILED"):
             parsed = metrics.parse(trace(after), TOKEN)
             self.assertFalse(parsed["samples"][0]["processes"]["42"]["stable"])
+
+    def test_reuse_before_first_stat_cannot_select_an_unrequested_process(self):
+        replacement = trace().replace(b"worker (test)", b"unrelated")
+        parsed = metrics.parse(replacement, TOKEN, ["jci"])
+        self.assertEqual(parsed["requested_processes"], ["jci"])
+        self.assertFalse(parsed["samples"][0]["processes"]["42"]["stable"])
+        parsed = metrics.parse(trace(), TOKEN, ["worker (test)"])
+        self.assertTrue(parsed["samples"][0]["processes"]["42"]["stable"])
 
     def test_partial_duplicate_reordered_and_foreign_frames_are_rejected(self):
         original = trace()
@@ -81,9 +92,12 @@ class MetricsTests(unittest.TestCase):
             metrics.parse(original, "b" * 32)
 
     def test_memory_read_failure_cannot_be_reported_as_zero(self):
-        parsed = metrics.parse(trace().replace(b"MemTotal: 1000 kB", b"READ_FAILED"), TOKEN)
-        with self.assertRaises(ValueError):
-            metrics.memory_csv(parsed)
+        for raw in (
+            trace().replace(b"MemTotal: 1000 kB", b"READ_FAILED"),
+            trace().replace(b"Cached: 200 kB", b"Cached: 200 kB\nREAD_FAILED"),
+        ):
+            with self.assertRaises(ValueError):
+                metrics.parse(raw, TOKEN)
 
     def test_front_door_dry_run_opens_no_transport(self):
         with (

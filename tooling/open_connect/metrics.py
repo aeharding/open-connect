@@ -29,10 +29,10 @@ def process_identity(raw):
     fields = match[4].split()  # starts at field 4 (ppid)
     if len(fields) < 19 or not fields[18].isdigit():
         return None
-    return int(match[1]), int(fields[18])
+    return {"pid": int(match[1]), "start_ticks": int(fields[18]), "comm": match[2]}
 
 
-def parse(raw, token):
+def parse(raw, token, processes=()):
     """Require complete ordered frames; keep unsupported/raced reads explicit."""
     prefix = "OCM1 " + token + " "
     boot, samples, sample, current, complete = None, [], None, None, False
@@ -76,6 +76,8 @@ def parse(raw, token):
                 blocks = sample["files"].get(path, [])
                 if len(blocks) != 1:
                     raise ValueError("missing/duplicate system counter file")
+                if "READ_FAILED" in blocks[0]:
+                    raise ValueError("system counter read failed; raw evidence retained")
             sample["files"] = {
                 path: ["\n".join(block).strip() + "\n" for block in blocks]
                 for path, blocks in sample["files"].items()
@@ -90,7 +92,8 @@ def parse(raw, token):
                         "stable": len(blocks) == 2
                         and before is not None
                         and before == after
-                        and before[0] == int(path.split("/")[2]),
+                        and before["pid"] == int(path.split("/")[2])
+                        and (not processes or before["comm"] in processes),
                     }
             sample["processes"] = identities
             samples.append(sample)
@@ -103,7 +106,12 @@ def parse(raw, token):
             raise ValueError("unexpected metrics frame")
     if not complete or sample is not None:
         raise ValueError("incomplete trace; raw evidence retained")
-    return {"schema": 1, "boot_id": boot, "samples": samples}
+    return {
+        "schema": 1,
+        "boot_id": boot,
+        "requested_processes": list(processes),
+        "samples": samples,
+    }
 
 
 def memory_csv(trace):
@@ -223,7 +231,7 @@ def main(argv=None):
                 bundle.meta["ssh_closed"] = process.poll() is not None
         if process.returncode:
             raise RuntimeError("SSH/collector returned " + str(process.returncode))
-        trace = parse((bundle.path / "ssh.stdout").read_bytes(), token)
+        trace = parse((bundle.path / "ssh.stdout").read_bytes(), token, processes)
         csv_data = memory_csv(trace)
         bundle.save("trace.json", (json.dumps(trace, indent=2) + "\n").encode())
         bundle.save("memory.csv", csv_data.encode())

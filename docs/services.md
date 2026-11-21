@@ -10,6 +10,11 @@ full Mazda Connect restart.
 | Base optimizations | **Off** | Reduce normal native diagnostic logging to Warn |
 | Pandora | **On** | Load Mazda's built-in Pandora integration |
 
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/services.png" alt="Services page with Base optimizations off and Pandora on." width="800" height="480"></div>
+  <figcaption>Fresh installations leave Base off and Pandora on.</figcaption>
+</figure>
+
 ## Base optimizations
 
 Check **Base optimizations** and confirm **Enable** to apply the preset at the
@@ -18,21 +23,24 @@ filter. Native warnings/errors remain available; early services and other
 logging sources retain their separate behavior. Service selections stay as you
 chose them.
 
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/base-enable.png" alt="Enable Base optimizations confirmation explaining reduced native diagnostic logging and the restart requirement." width="800" height="480" loading="lazy"></div>
+  <figcaption>Confirm Enable to save the choice.</figcaption>
+</figure>
+
 Clear it and confirm **Disable** to return to the original native logging policy
 after the next full restart. Updating preserves your choice. Uninstall restores
 the pre-install startup configuration; its restart clears the temporary filter.
 
-The [isolated logging comparison](logging-comparison.md) found earlier visible
-wired CarPlay and a smaller temporary free-RAM dip. That experiment used original
-features/services. The complete installed preset needs its own qualification;
-those numbers are not an installed-bundle or vehicle guarantee.
+The [installed-preset comparison](base-comparison.md) found the visible wired
+CarPlay dashboard about 3.8 seconds earlier with Base on, with 9.9 MiB higher
+minimum MemFree in the matched startup window and 2.58 MiB higher ending free RAM.
+It used five starts per condition on the same development build, with Pandora on.
+The [earlier isolated comparison](logging-comparison.md) used original features/
+services and remains separate evidence. These are bench observations, with
+physical-input/audio and vehicle qualification still pending.
 
 ## Pandora
-
-<figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/services.png" alt="Services page with Pandora checked." width="800" height="480"></div>
-  <figcaption>Pandora starts by default.</figcaption>
-</figure>
 
 Clear the checkbox to stop that integration from loading. The confirmation
 explains that changes apply after restarting Mazda Connect. Switching ignition

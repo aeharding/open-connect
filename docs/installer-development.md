@@ -34,12 +34,11 @@ Changes to durable state, publication, native lifetime or recovery require check
 for those affected cases. Do not repeat the whole lifecycle for each label edit,
 or relabel an old artifact's evidence as testing a new one.
 
-The [dev.5 startup-verification result](startup-verification.md) records the
-newer measured CI candidate, normal install/restart/Settings, same-version
-reinstall and original-file/native restoration after uninstall. Its grouped
-directory checks do not change the durable record or recovery policy. Earlier
-qualification records below retain their actual artifact identities; deferred
-physical-input and matching-car checks still prevent a qualified v74 release.
+The [dev.7 installed Base result](base-comparison.md) records the current measured
+CI candidate and its complete maintenance checks. The earlier
+[dev.5 verification result](startup-verification.md) retains its grouped-directory
+optimization and original artifact identity. Deferred physical-input/audio and
+matching-car checks still prevent a qualified v74 release.
 
 ## Private firmware checks
 
@@ -136,6 +135,20 @@ Arbitrary old-package compatibility, including cross-firmware maintenance, is
 not supported. Unknown edits are preserved even if restoration has partly completed.
 
 ## Qualification
+
+The **0.3.0-dev.7** bundle from
+[CI 44917434811](https://github.com/aeharding/open-connect/actions/runs/44917434811),
+source `2bbc8ade53ea455bd923c0fd4ae487ee9e93e285`, has separate
+[installed-preset measurements and maintenance qualification](base-comparison.md).
+Its public manifest is
+`e403bdd466a0e8d15bbcc787fa02268aaae3972fb704f88cb45d7efc6bfa8fed`.
+Fresh defaults, native confirmations/cancellation, automatic restart, completion,
+Open settings, same-version dev.7 reinstall, legacy dev.6 → dev.7 migration and
+normal Settings uninstall were checked through the maintained flow. Base on
+selected Warn after startup; disabling required a full restart to return to Info.
+Other preferences and the original uninstall baseline were preserved. Earlier
+physical-insertion and interruption records below retain their actual sources;
+this new maintenance path used manual SD staging with the existing USB loader.
 
 The [Services development qualification](pandora-comparison.md#maintenance-and-restoration-qualification)
 records its exact measured and later maintenance artifacts. The final CI bundle

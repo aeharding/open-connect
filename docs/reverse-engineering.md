@@ -774,8 +774,9 @@ stock loaded code and read-only root. Private supporting records are under
 On exact **74.00.324A NA**, `libjcicommon.so` uses a global RAM logging override
 at `/tmp/common/log/settings.txt`, separate from the physical default at
 `/config/common/log/settings.txt`. The inspected native initialization path also
-recognizes a per-process RAM settings filename. This is source-backed behavior,
-not a supported Open Connect logging option. The original library SHA256 is
+recognizes a per-process RAM settings filename. This firmware behavior is used
+by the development candidate's [Base optimizations](services.md#base-optimizations);
+production and vehicle qualification remain separate. The original library SHA256 is
 `637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d`.
 
 **Observed:** supplying Warn after startup left all 83 existing native contexts
@@ -802,3 +803,23 @@ the [comparison method](logging-comparison.md) keeps mechanism evidence separate
 from timings. Supporting records are `startup-mechanism-result.json` and
 `fresh-process-mechanism.json` under private `runs/logging-prefilter-20261121/`.
 OEM inputs, compiled OEM dependencies and raw process reads remain private.
+
+
+The installed dev.7 candidate publishes the Warn file only for a selected Base-on
+boot, after ordinary feature preparation. It checks the exact physical Info file
+and common library first. Base off skips publication; exhausted-budget fallback
+returns before it. A failed publication clears the selected marker. Existing RAM
+resources are refused rather than adopted, replaced or deleted. These failure
+paths have host checks; the installed on/off paths have separate
+[CI-bundle qualification](base-comparison.md#maintenance-and-restoration-qualification).
+
+**Observed tooling constraint:** this CMU's BusyBox 1.19.2 `ln` has no `-T`.
+An existing or racing destination directory can change ordinary `ln` semantics.
+The existing native flush helper's small link mode instead calls ARM's `link`
+syscall directly, atomically refusing any existing destination. The Warn source
+is an owned staging file in the same RAM directory; cleanup removes only that
+staging name. This avoids overwriting another provider or linking inside its
+directory. Actual ARM publication succeeded on the CI-built candidate; independent
+host probes also checked existing files/directories/symlinks and a late directory
+race. Supporting records are `link-capability.out`, `reinstalled-verified.out`
+and `review-base.md` under private `runs/base-optimizations-20261121/`.

@@ -38,11 +38,16 @@ The first [Services control](docs/services.md) now selects Pandora startup polic
 It remains optional and defaults on. A separate [native logging comparison](docs/logging-comparison.md)
 found about 3.2 seconds earlier visible wired CarPlay and 8.7 MiB higher minimum
 MemFree with a narrow Warn prefilter; ending free RAM differed by only 1.4 MiB.
-Next, integrate and qualify that candidate behind the proposed Base optimizations
-setting, then measure the complete installed bundle with service choices fixed.
-Its controls/default and installed-bundle effect remain unqualified. Block order
-and one-unit observations still limit attribution. Reproducible
-source, individual results and excluded earlier attempts are retained.
+The [installed Base preset](docs/base-comparison.md) now has a separate five-on/
+five-off comparison on one dev.7 CI bundle: about 3.8 seconds earlier visible wired
+CarPlay, 9.9 MiB higher minimum MemFree and 2.58 MiB higher ending free RAM. Pandora
+and the initial features were fixed. The optional preset defaults off as an
+implementation choice; fresh install, same-version reinstall, legacy upgrade,
+controls, restart and uninstall have software bench checks. Block order and one
+unit still limit attribution. Reproducible source, individual results and the
+installed candidate's early resource gap are retained. Next is native wireless
+CarPlay enablement while preserving actual vehicle/hardware identity; its
+long-parked behavior and the Miatafy wireless milestone still need measurement.
 The deferred phase-1 manual and first-car checks remain separate.
 
 | Phase | Outcome | Done when | Work |
@@ -134,9 +139,9 @@ Include usable wired projection in these baselines once the early fixture is
 qualified. Miatafy's wireless CarPlay milestone reproduction stays in phase 5;
 do not compare a wired result directly with its wireless timing.
 
-Then add a dedicated **Services** page under Open Connect Settings. A proposed
-**Base optimizations** on/off setting groups qualified internal changes such as
-reduced logging; its contents and default need timing and RAM evidence. Measure
+Then add a dedicated **Services** page under Open Connect Settings. The development candidate's **Base optimizations** choice now groups the measured
+native Warn filter and defaults off. Further contents and default changes need
+their own timing and RAM evidence. Measure
 the complete bundle with the same individual service selections. Inspect each
 candidate’s consumers, test one reversible change at a time, and compare against
 the same baseline. Aha/Pandora/Stitcher, TV and logging policy are candidates,

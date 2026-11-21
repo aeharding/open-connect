@@ -1,7 +1,7 @@
 # Quick start
 
-Install Open Connect from a USB drive. It adds two choices to Mazda Settings:
-touchscreen access while moving and whether to show the startup disclaimer.
+Install Open Connect from a USB drive, then choose your preferences in
+Mazda Settings.
 
 > **V74 development target · qualification in progress**
 >
@@ -9,9 +9,8 @@ touchscreen access while moving and whether to show the startup disclaimer.
 > A qualified v74 download is not published yet. See
 > [development and qualification](installer-development.md) for current limits.
 
-The installation screenshots show **0.3.0-dev.1**; the update prompt shows
-the **0.3.0-dev.4** client. Both are v74 development builds. Release qualification
-remains in progress.
+The screenshots show **0.3.0-dev.7**, including an update from dev.6. These are
+v74 development builds; release qualification remains in progress.
 
 <ol class="oc-install-flow" aria-label="Installation overview">
   <li>
@@ -46,7 +45,7 @@ Wait for **Mazda Connect's main screen**, then insert the USB drive.
 Choose **Install** when the prompt appears.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect 0.3.0-dev.1? Cancel and Install buttons on the Mazda Connect main screen." width="800" height="480"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect 0.3.0-dev.7? Cancel and Install buttons on the Mazda Connect main screen." width="800" height="480"></div>
   <figcaption>Choose Install. Keep the USB connected and the car on.</figcaption>
 </figure>
 
@@ -60,7 +59,7 @@ After the restart, wait for **Installation complete**, then choose **Done** or
 for future starts.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect 0.3.0-dev.1 installed. Installation complete, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect 0.3.0-dev.7 installed. Installation complete, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
   <figcaption>You can now remove the USB drive. Choose Open settings to change your preferences.</figcaption>
 </figure>
 
@@ -74,7 +73,7 @@ version) and **To** (the version on the drive), including same-version reinstall
 Choose **Install/update**. Your Open Connect preferences are kept.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/update.png" alt="Open Connect update prompt showing From 0.3.0-dev.3 and To 0.3.0-dev.4, with Cancel, Install/update and Uninstall buttons." width="800" height="480" loading="lazy"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/update.png" alt="Open Connect update prompt showing From 0.3.0-dev.6 and To 0.3.0-dev.7, with Cancel, Install/update and Uninstall buttons." width="800" height="480" loading="lazy"></div>
   <figcaption>Check the installed and target versions before choosing Install/update.</figcaption>
 </figure>
 

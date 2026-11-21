@@ -48,3 +48,18 @@ stay passive, and software-input responsiveness, physical input, audio and
 overnight-car behavior remain separate qualifications. Restore the original
 stage-1 script after collection and retain the independent undo. Publish numeric
 exports and authored tooling only, never raw UART/video, OEM files or access data.
+
+Extract named native UART events from completed trials without adding collection:
+
+```sh
+python -m open_connect.startup_wireless runs/wireless/base-off/trial-{1,2,3,4,5} \
+  > runs/wireless/base-off-events.csv
+```
+
+This exports only numeric timestamps, fixed event names and trial metadata.
+Repeated observations remain separate; missing records have empty times. A
+missing or duplicated new-boot syslog marker prevents timestamp attribution.
+The native logger's origin is separate from camera/ACC and mapped kernel time.
+DHCP startup is not an AP-readiness measurement, and a session event does not
+prove visible projection, input or audio. UART buffering/drops and the internal
+Miatafy profiler's different triggers remain explicit comparison limits.

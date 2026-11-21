@@ -51,6 +51,7 @@ def main():
     parser.add_argument("--seconds", type=int, default=45)
     parser.add_argument("--pairs", type=int, default=3)
     parser.add_argument("--interval", type=int, default=1)
+    parser.add_argument("--process", action="append", default=[])
     parser.add_argument("--label", required=True, help="fixed workload/configuration")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", args.host):
@@ -65,6 +66,7 @@ def main():
         "seconds": args.seconds,
         "pairs": args.pairs,
         "interval": args.interval,
+        "processes": args.process,
         "reference_sha256": digest(reference),
         "collector_sha256": digest((ROOT / "cmu/bench/metrics.sh").read_bytes()),
         "order": [
@@ -123,6 +125,8 @@ def main():
                     ]
                     if args.ssh_config:
                         options += ["--ssh-config", str(args.ssh_config)]
+                    for name in args.process:
+                        options += ["--process", name]
                     if metrics.main(options) != 0:
                         raise RuntimeError("collector did not finish; no retry")
                 process.wait(timeout=args.seconds + 15)

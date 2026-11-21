@@ -18,6 +18,9 @@ Sampling windows run the normal one-second-pause collector for 40 seconds,
 starting two seconds inside the window. Both reference and collector must stay
 on the same boot, and all collector samples must fall inside their reference.
 The extra SSH session is part of the cost being measured.
+The default collects system counters only. Add repeated `--process` options to
+measure the separate cost of detailed process discovery and reads; for example,
+`--process jci --process opera --process carplayd`. The plan records this selection.
 
 CPU busy excludes idle and iowait and uses aggregate tick deltas over the actual
 reference interval. Report all windows and paired percentage-point differences;

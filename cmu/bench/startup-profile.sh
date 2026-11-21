@@ -31,6 +31,7 @@ awk '$0=="JCI_SW_VER=\"MAZ_CMU-150_74.00.324\""{v++}
      END{exit !(v==1&&p==1&&f==1)}' /jci/version.ini
 test "$(root_mode)" = ro,noatime
 file "$T"
+action=$1
 case "${1:-}" in
 install)
     test "${2:-}" = "$(cat /proc/sys/kernel/random/boot_id)"
@@ -59,7 +60,7 @@ install)
     # Prove the independent restore entry is usable before changing the target.
     sh "$D/startup-profile.sh" --check
     ;;
---check|--restore)
+--check|--restore|--enable)
     test "$(readlink -f "$D")" = "$D"
     test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0
     verify "$D"
@@ -84,6 +85,12 @@ install)
         test "$(stat -c '%h' "$H")" = 1
     fi
     if test "$1" = --check; then echo STARTUP_RECOVERY_READY; exit; fi
+    if test "$1" = --enable; then
+        test "${2:-}" = "$(cat /proc/sys/kernel/random/boot_id)"
+        test "$current" = "$O"
+        absent "$H" && absent "$W"
+        action=install
+    fi
     ;;
 *) exit 64;;
 esac
@@ -97,7 +104,7 @@ finish() {
 trap finish EXIT
 trap 'exit 1' HUP INT TERM
 timeout -t 8 /bin/busybox mount -i -n -t relfs -o remount,rw,noatime /dev/ffx01p1 /
-if test "$1" = install; then
+if test "$action" = install; then
     test "$(identity "$T")" = "$(cat "$D/original.identity")"
     test "$(sha "$T")" = "$O"
     ln "$T" "$H"

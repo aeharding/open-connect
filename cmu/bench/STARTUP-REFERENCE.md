@@ -34,6 +34,10 @@ and original inode before atomically replacing it. Independent undo is
 `--restore`. Unknown target edits are refused. Restoration needs a subsequent
 normal restart to verify original startup and absence of the RAM observer.
 Do not remove the recovery directory before that verification.
+After a verified restore, reuse the same profile with
+`sh /tmp/mnt/data_persist/oc-bench-startup/startup-profile.sh --enable CURRENT_BOOT_UUID`.
+This requires the exact saved original inode and absent hold/staging files;
+it does not overwrite an active or unknown hook.
 
 The hook backgrounds a detached, finite system-only collector at Service
 Manager's stage 1. It records 180 seconds with a minimum one-second pause to
@@ -89,3 +93,9 @@ This trial sends no UI input and does not qualify usable touch/commander input,
 audio or projection solely because a process/network interface appears. Keep
 observer failures separate from CMU behavior. Never blindly repeat an uncertain
 relay transmission.
+
+For a pinned installed candidate, use `--condition open-connect --package SHA256`,
+where SHA256 is the candidate's `files.sha256` digest. This requires both initial
+features selected and applied, both developer-access options off, no conflict or
+pending restart, and the exact runtime package. The same preflight runs again
+after retrieval. See [the declared comparison batch](STARTUP-COMPARISON.md).

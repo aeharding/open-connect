@@ -17,6 +17,40 @@ from open_connect import startup_reference as m
 
 
 class StartupReferenceTests(unittest.TestCase):
+    def test_candidate_condition_requires_selected_features_and_no_pending_restart(self):
+        boot = "11111111-1111-1111-1111-111111111111"
+        state = dict(
+            ok=True,
+            installed=True,
+            conflict=False,
+            restart=False,
+            pending=False,
+            touch=1,
+            warning=1,
+            uart=0,
+            ssh=0,
+            uartCurrent=0,
+            sshCurrent=0,
+        )
+
+        def output(state):
+            return (
+                "CANDIDATE_STATUS|" + json.dumps(state) + "\nREFERENCE_BOOT|" + boot + "\n"
+            ).encode()
+
+        self.assertEqual(m.validate_condition(output(state), "open-connect"), boot)
+        for key, value in [
+            ("restart", True),
+            ("touch", 0),
+            ("warning", 0),
+            ("conflict", True),
+            ("sshCurrent", 1),
+        ]:
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "do not match"):
+                m.validate_condition(output({**state, key: value}), "open-connect")
+        with self.assertRaisesRegex(ValueError, "missing candidate"):
+            m.validate_condition(("REFERENCE_BOOT|" + boot + "\n").encode(), "open-connect")
+
     def test_camera_identity_allows_continuity_camera_and_resolves_current_ffmpeg_index(self):
         devices = [
             {"_name": "Phone", "spcamera_unique-id": "phone"},
@@ -105,7 +139,7 @@ class StartupReferenceTests(unittest.TestCase):
         def run(argv, **kwargs):
             if argv[0] == "ssh":
                 return subprocess.CompletedProcess(
-                    argv, 0, b"\nSTOCK_BOOT|11111111-1111-1111-1111-111111111111\n", b""
+                    argv, 0, b"\nREFERENCE_BOOT|11111111-1111-1111-1111-111111111111\n", b""
                 )
             if argv[0] == "ffmpeg":
                 return subprocess.CompletedProcess(

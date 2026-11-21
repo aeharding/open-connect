@@ -1,4 +1,4 @@
-"""Playground: one stock ACC restart, UART/video and locally started boot metrics."""
+"""Playground: one pinned ACC restart, UART/video and locally started boot metrics."""
 
 import argparse
 import hashlib
@@ -26,6 +26,8 @@ def main():
     parser.add_argument("--bundle", type=Path)
     parser.add_argument("--relay-location", default="2-1")
     parser.add_argument("--camera-uid", default="0x8400000046d0825")
+    parser.add_argument("--condition", choices=["stock", "open-connect"], default="stock")
+    parser.add_argument("--package", help="required candidate files.sha256 digest")
     parser.add_argument(
         "--label",
         default="Stock reference; record phone/peripherals/camera settings with the batch",
@@ -34,6 +36,10 @@ def main():
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", args.host):
         parser.error("use an existing trusted SSH alias")
+    if (
+        args.condition == "open-connect" and not re.fullmatch(r"[a-f0-9]{64}", args.package or "")
+    ) or (args.condition == "stock" and args.package is not None):
+        parser.error("open-connect requires its exact --package; stock has no package")
     if not args.live:
         print(
             json.dumps(
@@ -44,6 +50,8 @@ def main():
                     "resources_seconds": 180,
                     "resource_launch": "local stage_1 hook; SSH retrieval after 195 seconds",
                     "device_opened": False,
+                    "condition": args.condition,
+                    "package": args.package,
                 }
             )
         )
@@ -66,7 +74,7 @@ def main():
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     bundle = Bundle(
         args.bundle,
-        "stock startup coverage trial, not a performance comparison",
+        "pinned startup measurement; interpret only with its declared batch",
         "primary",
         mode="live",
     )
@@ -105,6 +113,8 @@ def main():
         "events": [],
         "ui_inputs_sent": False,
         "resource_sources": sources,
+        "condition": args.condition,
+        "package": args.package,
     }
 
     def event(kind, **values):
@@ -139,17 +149,17 @@ def main():
             time.sleep(min(0.1, max(0, deadline - time.monotonic())))
 
     try:
+        preflight_command = "timeout -t 35 sh -s -- " + shlex.join(
+            [args.condition, args.package or "-"]
+        )
         result = subprocess.run(
-            ssh + ["timeout -t 15 sh -s"], input=preflight, capture_output=True, timeout=20
+            ssh + [preflight_command], input=preflight, capture_output=True, timeout=40
         )
         bundle.save("preflight.out", result.stdout)
         bundle.save("preflight.err", result.stderr)
         if result.returncode:
-            raise RuntimeError("stock preflight refused before any device opened")
-        boots = re.findall(rb"^STOCK_BOOT\|([a-f0-9-]{36})$", result.stdout, re.M)
-        if len(boots) != 1:
-            raise RuntimeError("missing exact stock boot record")
-        old_boot = boots[0].decode()
+            raise RuntimeError("condition preflight refused before any device opened")
+        old_boot = validate_condition(result.stdout, args.condition)
         cameras = subprocess.check_output(
             ["system_profiler", "SPCameraDataType", "-json"], timeout=12
         )
@@ -163,7 +173,7 @@ def main():
         bundle.save("camera-enumeration.txt", enumeration.stderr)
         video.index = camera_index(devices, enumeration.stderr, args.camera_uid)
         record["camera_index"] = video.index
-        with AdapterLock(owner="primary", purpose="stock ACC trial; UART receive only"):
+        with AdapterLock(owner="primary", purpose="pinned ACC trial; UART receive only"):
             try:
                 port = open_adapter(bundle)
                 uart_worker = threading.Thread(target=receive)
@@ -229,6 +239,16 @@ def main():
         trace = parse_boot_trace(result.stdout, old_boot)
         bundle.save("trace.json", (json.dumps(trace, indent=2) + "\n").encode())
         bundle.save("memory.csv", metrics.memory_csv(trace).encode())
+        result = subprocess.run(
+            ssh + [preflight_command], input=preflight, capture_output=True, timeout=40
+        )
+        bundle.save("postflight.out", result.stdout)
+        bundle.save("postflight.err", result.stderr)
+        if (
+            result.returncode
+            or validate_condition(result.stdout, args.condition) != trace["boot_id"]
+        ):
+            raise RuntimeError("condition changed or failed postflight")
         event(
             "trace_retrieved",
             boot_id=trace["boot_id"],
@@ -252,6 +272,33 @@ def main():
         bundle.finish(record["outcome"], error)
     if error:
         raise SystemExit(error)
+
+
+def validate_condition(raw, condition):
+    boots = re.findall(rb"^REFERENCE_BOOT\|(" + metrics.UUID.encode() + rb")$", raw, re.M)
+    if len(boots) != 1:
+        raise ValueError("missing exact condition boot record")
+    if condition == "open-connect":
+        rows = re.findall(rb"^CANDIDATE_STATUS\|(.*)$", raw, re.M)
+        if len(rows) != 1:
+            raise ValueError("missing candidate state")
+        state = json.loads(rows[0])
+        expected = dict(
+            ok=True,
+            installed=True,
+            conflict=False,
+            restart=False,
+            pending=False,
+            touch=1,
+            warning=1,
+            uart=0,
+            ssh=0,
+            uartCurrent=0,
+            sshCurrent=0,
+        )
+        if any(state.get(key) != value for key, value in expected.items()):
+            raise ValueError("candidate preferences or applied state do not match")
+    return boots[0].decode()
 
 
 def camera_index(devices, enumeration, uid):

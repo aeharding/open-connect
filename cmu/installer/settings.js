@@ -227,7 +227,8 @@ var OpenConnectSettings = (function () {
                                 if (!current() || choice !== "developer") { return; }
                                 render("developer", 2);
                                 dismiss = OpenConnectInstaller.message(fw, actual ? "Public key imported" : "Key could not be imported",
-                                    actual ? "Fingerprint (MD5): " + actual.fingerprint + ". Enable Owner SSH access when ready." :
+                                    actual ? "Fingerprint (MD5):\n" + actual.fingerprint.slice(0, 23) + "\n" +
+                                        actual.fingerprint.slice(24) + "\nEnable Owner SSH access when ready." :
                                         "Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",
                                     {button1: {label: "OK", appData: "done"}}, function () { dismiss = null; });
                             });

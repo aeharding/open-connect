@@ -237,4 +237,14 @@ assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, true);
 idle();
 assert.equal(writes.length, beforeCoalesced);
 assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, false);
+// Keep every fingerprint octet visible in Mazda's fixed-width dialog.
+pick(2); modal.props.defaultSelectCallback(modal, "import");
+importReply(values);
+assert.equal(modal.props.title, "Public key imported");
+const fingerprintLines = modal.props.text1.split("\n");
+assert.equal(fingerprintLines.length, 4);
+assert.equal(fingerprintLines.slice(1, 3).join(":"), values.fingerprint);
+assert.equal(fingerprintLines[1].length, 23);
+assert.equal(fingerprintLines[2].length, 23);
+modal.props.defaultSelectCallback(modal, "done");
 back(); back();

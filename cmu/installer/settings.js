@@ -123,12 +123,6 @@ var OpenConnectSettings = (function () {
         function current() {
             return !closed && fw._currTmpltInstance === host && inTab(fw) && fw.getCurrCtxtId() === tab;
         }
-        function developerTitle(values) {
-            return {text1: "Developer options", titleStyle: "style07",
-                text2: "At startup: UART " + (values.uartCurrent ? "on" : "off") +
-                    ", SSH " + (values.sshCurrent ? "on" : "off") + ". " +
-                    (values.restart ? "Restart required." : "Changes apply after restart.")};
-        }
         function discard(p) {
             if (p) {
                 p.cleanUp();
@@ -181,8 +175,7 @@ var OpenConnectSettings = (function () {
                 }
             }
             var listProps = {dataList: {itemCountKnown: true, itemCount: rows.length, items: rows},
-                titleConfiguration: "listTitle", title: index === "developer" ? developerTitle(values) :
-                    {text1: title, titleStyle: "style02"},
+                titleConfiguration: "listTitle", title: {text1: title, titleStyle: "style02"},
                 smallItemText: true, focussedItem: focus, selectCallback: select};
             if (index === 0 || index === 1) { listProps.checkMinChangeInterval = 0; }
             if (index === "developer") { listProps.toggleMinChangeInterval = 0; }
@@ -206,14 +199,15 @@ var OpenConnectSettings = (function () {
                         (params.additionalData === 1 || params.additionalData === 2)) {
                     var currentValues = prefs.values();
                     if (item === "ssh" && currentValues.key === "-") { return; }
-                    if (item === "uart" && params.additionalData === 1 && currentValues.uart === 0) {
-                        dismiss = OpenConnectInstaller.message(fw, "Enable UART root console?",
-                            "Passwordless root access over UART. Restart to apply.",
+                    if (params.additionalData === 1 && currentValues[item] === 0) {
+                        dismiss = OpenConnectInstaller.message(fw, item === "uart" ? "Enable UART?" : "Enable SSH?",
+                            item === "uart" ? "Passwordless root access over UART. Changes apply after restart." :
+                                "Changes apply after restarting Mazda Connect.",
                             {button1: {label: "Cancel", appData: "cancel"}, button2: {label: "Enable", appData: "enable"}},
                             function (action) {
                                 dismiss = null;
-                                if (action === "enable" && current()) { prefs.select("uart", 1); }
-                                if (current() && choice === "developer") { render("developer", 0); }
+                                if (action === "enable" && current()) { prefs.select(item, 1); }
+                                if (current() && choice === "developer") { render("developer", item === "uart" ? 0 : 1); }
                             });
                         return;
                     }
@@ -271,7 +265,6 @@ var OpenConnectSettings = (function () {
                     var values = prefs.values(), ctrl = page.list2Ctrl;
                     if (!values) { return; }
                     ctrl.dataList.items[2].disabled = prefs.pending() || typeof store.importKey !== "function";
-                    ctrl.setTitle(developerTitle(values));
                     ctrl.updateItems(2, 2);
                 }
                 return;

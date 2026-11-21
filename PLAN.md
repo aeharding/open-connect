@@ -35,9 +35,13 @@ with no useful CPU/RAM gain; stock remains faster. That narrow change is integra
 The first [Services control](docs/services.md) now selects Pandora startup policy.
 [Five starts enabled and five disabled](docs/pandora-comparison.md) found about
 3.2 MiB higher minimum MemFree with it off and no resolved wired-dashboard gain.
-It remains optional and defaults on. Next, test a narrow logging change before
-deciding the Base optimizations contents/default; keep individual service choices
-fixed. Block order and one-unit observations still limit attribution. Reproducible
+It remains optional and defaults on. A separate [native logging comparison](docs/logging-comparison.md)
+found about 3.2 seconds earlier visible wired CarPlay and 8.7 MiB higher minimum
+MemFree with a narrow Warn prefilter; ending free RAM differed by only 1.4 MiB.
+Next, integrate and qualify that candidate behind the proposed Base optimizations
+setting, then measure the complete installed bundle with service choices fixed.
+Its controls/default and installed-bundle effect remain unqualified. Block order
+and one-unit observations still limit attribution. Reproducible
 source, individual results and excluded earlier attempts are retained.
 The deferred phase-1 manual and first-car checks remain separate.
 

@@ -23,6 +23,13 @@ Pandora off; the wired dashboard timing difference was below camera resolution.
 All individual results and reproduction commands are published. The first
 Services control remains optional and defaults to running.
 
+The [native logging comparison](logging-comparison.md) tests a narrow Warn filter
+with original features/services: five Info starts followed by five Warn starts.
+The visible wired dashboard median was about 3.2 seconds earlier; minimum MemFree
+in the matched window was about 8.7 MiB higher, with only about 1.4 MiB higher ending
+free RAM. The source, spread and limits are published. This is evidence for
+qualifying a Base optimizations candidate, not an installed-bundle claim.
+
 ## Configurations to compare
 
 | Configuration | Purpose |

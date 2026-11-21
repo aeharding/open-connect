@@ -12,6 +12,11 @@ attempts, numeric samples and reproduction commands are published with the resul
 This is a regression to investigate before service optimizations, with no claim
 of reproducing Miatafy's wireless timings.
 
+The [first verification optimization](startup-verification.md) recovers about
+1.2 seconds to Home and 2.2 seconds to the dashboard in a five-run dev.5 block.
+CPU and RAM remain similar, and stock is still faster. The original controls
+are reused explicitly; their collection identities are unchanged.
+
 ## Configurations to compare
 
 | Configuration | Purpose |

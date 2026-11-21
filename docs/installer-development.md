@@ -34,6 +34,13 @@ Changes to durable state, publication, native lifetime or recovery require check
 for those affected cases. Do not repeat the whole lifecycle for each label edit,
 or relabel an old artifact's evidence as testing a new one.
 
+The [dev.5 startup-verification result](startup-verification.md) records the
+newer measured CI candidate, normal install/restart/Settings, same-version
+reinstall and original-file/native restoration after uninstall. Its grouped
+directory checks do not change the durable record or recovery policy. Earlier
+qualification records below retain their actual artifact identities; deferred
+physical-input and matching-car checks still prevent a qualified v74 release.
+
 ## Private firmware checks
 
 The optional checker builds the same public bundle, composes it with exact

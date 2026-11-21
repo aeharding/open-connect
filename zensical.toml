@@ -25,6 +25,7 @@ nav = [
   { "Performance evidence" = [
     { "Timings and RAM" = "performance.md" },
     { "First startup comparison" = "startup-comparison.md" },
+    { "Startup verification optimization" = "startup-verification.md" },
     { "CarPlay measurements" = "carplay-testing.md" },
   ] },
   { "Development" = [

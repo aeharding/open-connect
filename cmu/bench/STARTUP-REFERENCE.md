@@ -16,7 +16,8 @@ python -m open_connect.startup_reference --live --host my-cmu \
 
 Supply `--ssh-config` for a separate trusted alias configuration. Other benches
 must set their `OC_UART_SERIAL`, relay `--relay-location` and `--camera-uid`
-explicitly. This reference only supports one camera at AVFoundation index 0.
+explicitly. The reference resolves the unique UID to a unique camera name, then
+uses its freshly enumerated FFmpeg index; unrelated continuity cameras are allowed.
 The code must be committed and unchanged before a live run. The preflight
 requires exact 74.00.324A NA stock startup/login/service/capability files,
 Open Connect absent, absent touch override, ACC on and root read-only.

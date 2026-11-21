@@ -1,9 +1,9 @@
 """Playground: one stock ACC restart, UART/video and locally started boot metrics."""
 
 import argparse
+import hashlib
 import json
 import re
-import hashlib
 import shlex
 import subprocess
 import threading
@@ -155,8 +155,14 @@ def main():
         )
         bundle.save("camera-identity.json", cameras)
         devices = json.loads(cameras)["SPCameraDataType"]
-        if len(devices) != 1 or devices[0]["spcamera_unique-id"] != args.camera_uid:
-            raise RuntimeError("reference trial requires its one identified camera at index 0")
+        enumeration = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
+            capture_output=True,
+            timeout=10,
+        )
+        bundle.save("camera-enumeration.txt", enumeration.stderr)
+        video.index = camera_index(devices, enumeration.stderr, args.camera_uid)
+        record["camera_index"] = video.index
         with AdapterLock(owner="primary", purpose="stock ACC trial; UART receive only"):
             try:
                 port = open_adapter(bundle)
@@ -205,12 +211,17 @@ def main():
         # No SSH polling or collection commands run during startup. The local
         # observer is finite and the first SSH here only fetches completed data.
         wait_until(on + 195)
-        result = subprocess.run(
-            ssh + ["timeout -t 20 sh -s -- " + shlex.join([old_boot, *sources.values()])],
-            input=fetch,
-            capture_output=True,
-            timeout=25,
-        )
+        try:
+            result = subprocess.run(
+                ssh + ["timeout -t 20 sh -s -- " + shlex.join([old_boot, *sources.values()])],
+                input=fetch,
+                capture_output=True,
+                timeout=25,
+            )
+        except subprocess.TimeoutExpired as exc:
+            bundle.save("fetch.out", exc.stdout or b"")
+            bundle.save("fetch.err", exc.stderr or b"")
+            raise
         bundle.save("fetch.out", result.stdout)
         bundle.save("fetch.err", result.stderr)
         if result.returncode:
@@ -241,6 +252,24 @@ def main():
         bundle.finish(record["outcome"], error)
     if error:
         raise SystemExit(error)
+
+
+def camera_index(devices, enumeration, uid):
+    selected = [d for d in devices if d.get("spcamera_unique-id") == uid]
+    if len(selected) != 1:
+        raise ValueError("camera UID absent or ambiguous")
+    section = enumeration.split(b"AVFoundation video devices:\n", 1)
+    if len(section) != 2 or b"AVFoundation audio devices:" not in section[1]:
+        raise ValueError("incomplete camera enumeration")
+    video_devices = section[1].split(b"AVFoundation audio devices:", 1)[0]
+    indices = re.findall(
+        rb"\[([0-9]+)\] " + re.escape(selected[0]["_name"].encode()) + rb"$",
+        video_devices,
+        re.M,
+    )
+    if len(indices) != 1:
+        raise ValueError("camera name absent or ambiguous in FFmpeg enumeration")
+    return int(indices[0])
 
 
 def parse_boot_trace(raw, old_boot):

@@ -17,6 +17,25 @@ from open_connect import startup_reference as m
 
 
 class StartupReferenceTests(unittest.TestCase):
+    def test_camera_identity_allows_continuity_camera_and_resolves_current_ffmpeg_index(self):
+        devices = [
+            {"_name": "Phone", "spcamera_unique-id": "phone"},
+            {"_name": "USB Camera", "spcamera_unique-id": "bench"},
+        ]
+        enumeration = (
+            b"[avf] AVFoundation video devices:\n[avf] [0] Phone\n[avf] [2] USB Camera\n"
+            b"[avf] AVFoundation audio devices:\n[avf] [0] USB Camera\n"
+        )
+        self.assertEqual(m.camera_index(devices, enumeration, "bench"), 2)
+        with self.assertRaisesRegex(ValueError, "ambiguous"):
+            m.camera_index(devices + [devices[1]], enumeration, "bench")
+        with self.assertRaisesRegex(ValueError, "ambiguous"):
+            m.camera_index(
+                devices,
+                enumeration.replace(b"[2] USB Camera", b"[2] USB Camera\n[3] USB Camera"),
+                "bench",
+            )
+
     def test_boot_retrieval_requires_new_boot_complete_trace_and_matching_digest(self):
         boot = "22222222-2222-2222-2222-222222222222"
         token = boot.replace("-", "")
@@ -30,9 +49,13 @@ class StartupReferenceTests(unittest.TestCase):
 
         def response(body):
             return (
-                "banner\nBOOT_TRACE|" + boot + "\nBOOT_TRACE_SHA|(stdin)= "
-                + hashlib.sha256(body.encode()).hexdigest() + "\n"
-                + "START_UPTIME|1.99 0.00\n" + body
+                "banner\nBOOT_TRACE|"
+                + boot
+                + "\nBOOT_TRACE_SHA|(stdin)= "
+                + hashlib.sha256(body.encode()).hexdigest()
+                + "\n"
+                + "START_UPTIME|1.99 0.00\n"
+                + body
             ).encode()
 
         result = m.parse_boot_trace(response(trace), "11111111-1111-1111-1111-111111111111")
@@ -84,12 +107,23 @@ class StartupReferenceTests(unittest.TestCase):
                 return subprocess.CompletedProcess(
                     argv, 0, b"\nSTOCK_BOOT|11111111-1111-1111-1111-111111111111\n", b""
                 )
+            if argv[0] == "ffmpeg":
+                return subprocess.CompletedProcess(
+                    argv,
+                    1,
+                    b"",
+                    b"[avf] AVFoundation video devices:\n[avf] [0] Fake\n[avf] AVFoundation audio devices:\n",
+                )
             return actual_run(argv, **kwargs)
 
         def output(argv, **kwargs):
             if argv[0] == "system_profiler":
                 return json.dumps(
-                    {"SPCameraDataType": [{"spcamera_unique-id": "synthetic-camera"}]}
+                    {
+                        "SPCameraDataType": [
+                            {"_name": "Fake", "spcamera_unique-id": "synthetic-camera"}
+                        ]
+                    }
                 ).encode()
             return actual_output(argv, **kwargs)
 

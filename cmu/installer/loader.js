@@ -23,7 +23,8 @@
         });
         nodes.push(document.getElementById(id));
     }
-    if (window.OpenConnect && OpenConnect.reopenUSB && OpenConnect.reopenUSB(token)) { finish(); return; }
+    // Use this verified package's client, including its operation deadline.
+    // Runtime retains the installed client until the replacement is ready.
     load("runtime.js", "oc-usb-ui", function () {
         OpenConnect.start(token, true);
         finish();

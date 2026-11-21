@@ -37,7 +37,8 @@ targets_match() {
     snapshot_read "$1" && file "$AUTOSTART" &&
         test "$(sha "$AUTOSTART")" = "$(sha "$D/snapshots/$1/autostart")" &&
         test "$(stat -c '%a:%u:%g' "$AUTOSTART")" = "$S_META" &&
-        test "$(nvram_read)" = "$S_NVRAM"
+        test "$(nvram_read)" = "$S_NVRAM" || return 1
+    if test "$S_ACCESS" = true; then access_targets_match "$1"; fi
 }
 
 state_capture() (
@@ -45,7 +46,7 @@ state_capture() (
     local deps result
     deps=$(mktemp "$D/.dependencies-XXXXXX") || fail checkpoint_create_failed
     dependencies_capture "$1" > "$deps" || fail checkpoint_dependencies_failed
-    result=$(snapshot_create "$AUTOSTART" "$1" "$2" "$3" "$(nvram_read)" "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$deps") || fail checkpoint_failed
+    result=$(snapshot_create "$AUTOSTART" "$1" "$2" "$3" "$(nvram_read)" "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$deps" "${4:--}") || fail checkpoint_failed
     rm "$deps"
     printf '%s\n' "$result"
 )
@@ -98,14 +99,20 @@ transaction_reconcile() {
     actual_hash=$(sha "$AUTOSTART"); actual_mode=$(stat -c '%a:%u:%g' "$AUTOSTART"); actual_nv=$(nvram_read) || fail nvram_unreadable
     case "$actual_hash:$actual_mode" in "$before_hash:$before_mode"|"$after_hash:$after_mode") ;; *) fail startup_changed;; esac
     case "$actual_nv" in "$before_nv"|"$after_nv") ;; *) fail nvram_changed;; esac
+    if test ! -e "$D/snapshots/$R_BEFORE/access" && test ! -e "$D/snapshots/$R_AFTER/access"; then :
+    else access_pair_check "$R_BEFORE" "$R_AFTER" || fail access_changed; fi
     # Install the recovery entry before changing NVRAM. Remove it last on
     # uninstall. Re-committing a matching NVRAM value repairs an interrupted commit.
     if test "$phase" != uninstall; then
         startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
     fi
+    if test -e "$D/snapshots/$R_AFTER/access"; then
+        access_pair_apply "$R_BEFORE" "$R_AFTER" || fail access_apply_failed
+    fi
     nvram_change "$actual_nv" "$after_nv" || fail nvram_commit_failed
     if test "$phase" = uninstall; then
         startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
+        if test -e "$D/snapshots/$R_AFTER/access"; then access_hold_cleanup || fail access_cleanup_failed; fi
     fi
     targets_match "$R_AFTER" && dependencies_match "$R_AFTER" || fail final_verification_failed
     R_CURRENT=$R_AFTER

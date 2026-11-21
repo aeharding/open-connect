@@ -27,7 +27,10 @@ Ship always-enabled touchscreen input and the startup disclaimer bypass together
 in the first production release. The owner plans the first real-car installation
 after bench validation on matching firmware. The agreed order is first v74
 release, a small developer menu, performance baselines, a dedicated Services menu
-with measured changes, then cold-start CarPlay reliability last.
+with measured changes, then cold-start CarPlay reliability last. The owner has
+deferred first-car validation and additional manual bench checks for now. Continue
+Developer options development without waiting for those checks; retain the
+remaining qualification limits and do not claim a qualified release.
 Keep the two user-facing actions **Install/update** and **Uninstall**. Running Install again reinstalls it using verified originals;
 interrupted-operation recovery is internal behavior, not a separate Repair option.
 Keep the USB install prompt short. During installation and its automatic restart,
@@ -132,17 +135,27 @@ semantic CLI reuses working tools; Python on the host and POSIX sh on the CMU ar
 the initial implementation. Extend it only for concrete tasks. See docs/cli.md. Command-only ephemeral agents can test usability, while the primary
 retains ownership of live state and the complete outcome.
 
-After the first v74 release, ship a small **Developer options** page in Open
-Connect Settings before performance-baseline and Services work. The agreed
-controls are a UART console-login checkbox and SSH enable/disable with an Import
-public key option.
+The small **Developer options** page in Open Connect Settings is the agreed step
+before performance-baseline and Services work. Deferred manual bench and
+first-car validation do not block further development. The agreed
+controls are a UART root-console checkbox and owner SSH enable/disable with an
+Import public key option. The owner chose a password-free root shell over the
+physical UART connection, with a brief, matter-of-fact confirmation when enabling
+it: passwordless root access over UART. Default
+both owner-access options off; preserve Mazda's original login/key behavior when
+off and restore the pre-install configuration on uninstall.
 Keep diagnostic logging separate from interactive login. The private key stays
-on the owner's computer. USB public-key import is a proposal; the exact import
-interaction, defaults and firmware login controls still need qualification.
+on the owner's computer. Use a fixed public-key file on maintenance USB for the
+small initial import flow; qualify the firmware controls and complete UI flow.
 Show actual state and any restart requirement, preserve the pre-install access
 configuration for uninstall, and retain USB access/recovery when the UI is
 unavailable. This product feature is separate from the bench helper profile.
 See [#85](https://github.com/aeharding/open-connect/issues/85).
+
+The owner suggested contextual documentation help, potentially an OEM-style Help
+dialog with a QR code and short link to the relevant docs section. This remains
+a proposal; placement and presentation are undecided. It does not expand the
+current access-controls implementation.
 
 ## Release implementation
 

@@ -52,6 +52,7 @@ class InstallerBoot(unittest.TestCase):
         )
         (self.source / "state.sh").write_text(state)
         shutil.copyfile(ASSETS / "transaction.sh", self.source / "transaction.sh")
+        shutil.copyfile(ASSETS / "access.sh", self.source / "access.sh")
         (self.source / "firmware.sh").write_text(r"""
 firmware_guard() { :; }
 native_guard() { :; }

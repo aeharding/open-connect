@@ -28,6 +28,8 @@ STATIC = (
     "state.sh",
     "transaction.sh",
     "firmware.sh",
+    "access.sh",
+    "console.sh",
     "boot.sh",
     "startup-hook.sh",
     "ignition.sh",

@@ -22,6 +22,10 @@ ORIGINALS
 firmware_dependencies() {
     original_files
     printf '%s\n' '1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29 manager.so /jci/lib/libjciuiamgr.so'
+    printf '%s\n' \
+        '0b205e203510bef6d20b910f31c88a7f9c141048c41b1704eed20b880d67ac82 rungetty /usr/bin/rungetty' \
+        'f83f7661e0ba41da379936ba319f40e228cd14d470c3081f19d8fbec8297a195 sshd /usr/sbin/sshd' \
+        'b735d7dd9a9a45badf18b2a9d0e32ca791a4e582400e57378a27b2a2d92ae9c9 ssh-keygen /usr/bin/ssh-keygen'
 }
 
 firmware_guard() {
@@ -158,20 +162,33 @@ startup_staging_guard() {
     local path
     # Random staging names from an older release are not evidence of ownership.
     # Refuse cleanup rather than erase unknown files or report complete removal.
-    for path in /usr/bin/.open-connect-*; do absent "$path" || return 1; done
+    for path in /usr/bin/.open-connect-* /etc/ssh/.open-connect-*; do absent "$path" || return 1; done
 }
 remount() {
     timeout -t 8 -s TERM /bin/busybox mount -i -n -t relfs -o "remount,$1,noatime" /dev/ffx01p1 / &&
         test "$(root_mode)" = "$1,noatime"
 }
-startup_publish() (
+startup_publish() { root_publish "$AUTOSTART" "$@"; }
+root_publish() (
     set -eu
     # BusyBox ash unwinds function locals before this subshell's EXIT trap.
     # Keep trap inputs in the subshell scope so cleanup can still read them.
-    source=$1; mode=$2; expected=$3; expected_mode=$4; identity=
+    target=$1; source=$2; mode=$3; expected=$4; expected_mode=$5; identity=
+    held=${6:-}; hold_mode=${7:-}
+    case "$target" in /usr/bin/autostart|/usr/bin/runlogin|/etc/ssh/sshd_config) ;; *) fail invalid_target;; esac
+    case "$hold_mode" in
+        '') test -z "$held" || fail invalid_hold;;
+        keep|restore)
+            test "$target" = /usr/bin/runlogin || fail invalid_hold
+            case "$held" in /usr/bin/.open-connect-runlogin-*) ;; *) fail invalid_hold;; esac
+            case "${held##*-}" in ''|*[!0-9]*) fail invalid_hold;; esac;;
+        *) fail invalid_hold;;
+    esac
+    parent=${target%/*}
     hex "$R_REV" 32 && file "$source" || fail invalid_startup_plan
     # The durable pending revision names this exact staging file across retries.
-    work=/usr/bin/.open-connect-$R_REV
+    if test "$target" = "$AUTOSTART"; then work=/usr/bin/.open-connect-$R_REV
+    else work=$parent/.open-connect-$R_REV-${target##*/}; fi
     case "$(root_mode)" in ro,noatime|rw,noatime) ;; *) fail root_mount_changed;; esac
     stage_matches() {
         local size prefix
@@ -188,7 +205,7 @@ startup_publish() (
         trap - EXIT HUP INT TERM
         if ! absent "$work" && test -n "$identity"; then
             if test "$(stat -c '%d:%i' "$work")" = "$identity" && stage_matches; then
-                remount rw && rm "$work" && "$P/flush" d /usr/bin || result=1
+                remount rw && rm "$work" && "$P/flush" d "$parent" || result=1
             else result=1; fi
         fi
         remount ro || result=1
@@ -196,30 +213,47 @@ startup_publish() (
     }
     trap finish EXIT
     trap 'exit 1' HUP INT TERM
-    file "$AUTOSTART" && test "$(sha "$AUTOSTART")" = "$expected" &&
-        test "$(stat -c '%a:%u:%g' "$AUTOSTART")" = "$expected_mode" || fail startup_changed
+    file "$target" && test "$(sha "$target")" = "$expected" &&
+        test "$(stat -c '%a:%u:%g' "$target")" = "$expected_mode" || fail startup_changed
     if ! absent "$work"; then
         stage_matches || fail startup_stage_changed
+        if test "$hold_mode" = restore; then
+            test "$(stat -c '%d:%i' "$work")" = "$(stat -c '%d:%i' "$held")" || fail startup_stage_changed
+        fi
         identity=$(stat -c '%d:%i' "$work") || fail startup_stage_changed
     fi
     if test "$expected" != "$(sha "$source")" || test "$expected_mode" != "$mode"; then
         remount rw || fail remount_failed
+        if test "$hold_mode" = keep; then
+            if absent "$held"; then
+                test "$(stat -c %i "$target")" = "${held##*-}" || fail console_identity_changed
+                ln "$target" "$held" || fail console_hold_failed
+            fi
+            access_hold_verify || fail console_hold_changed
+            flush f "$held"
+            flush d "$parent"
+        fi
         if absent "$work"; then
-            (set -C; : > "$work") || fail startup_stage_failed
+            if test "$hold_mode" = restore; then
+                access_hold_verify && test "$(stat -c '%a:%u:%g' "$held")" = "$mode" || fail console_hold_changed
+                ln "$held" "$work" || fail startup_stage_failed
+            else (set -C; : > "$work") || fail startup_stage_failed; fi
             identity=$(stat -c '%d:%i' "$work") || fail startup_stage_failed
         fi
         metadata "$mode" || fail invalid_startup_metadata
         # BusyBox cp replaces an existing inode. Preserve the exclusively
         # created stage's identity so the failure handler can remove it.
-        cat "$source" > "$work" && chown "$S_UID:$S_GID" "$work" && chmod "$S_MODE" "$work" || fail startup_copy_failed
+        if test "$hold_mode" != restore; then
+            cat "$source" > "$work" && chown "$S_UID:$S_GID" "$work" && chmod "$S_MODE" "$work" || fail startup_copy_failed
+        fi
         test "$(sha "$work")" = "$(sha "$source")" || fail startup_copy_changed
         flush f "$work"
-        file "$AUTOSTART" && test "$(sha "$AUTOSTART")" = "$expected" &&
-            test "$(stat -c '%a:%u:%g' "$AUTOSTART")" = "$expected_mode" || fail startup_changed
-        mv -f "$work" "$AUTOSTART" || fail startup_rename_failed
+        file "$target" && test "$(sha "$target")" = "$expected" &&
+            test "$(stat -c '%a:%u:%g' "$target")" = "$expected_mode" || fail startup_changed
+        mv -f "$work" "$target" || fail startup_rename_failed
     fi
-    flush f "$AUTOSTART"
-    flush d /usr/bin
+    flush f "$target"
+    flush d "$parent"
 )
 
 nvram_read() { sh "$P/touch.sh" read; }

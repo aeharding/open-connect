@@ -84,7 +84,7 @@ if ! absent "$R/runtime"; then test -L "$R/runtime" || fail invalid_runtime_poin
 # replacement refuses a request; it never authorizes a persistent operation.
 ln -sfn "$work" "$R/runtime"
 ( exec 8>&- 9>&-; exec /bin/busybox tcpsvd -E -c 4 127.0.0.1 35555 \
-    /bin/busybox timeout -t 60 "$work/api" "$work/token" "$work/backend.sh" ) </dev/null >"$work/service.log" 2>&1 &
+    /bin/busybox timeout -t 180 "$work/api" "$work/token" "$work/backend.sh" ) </dev/null >"$work/service.log" 2>&1 &
 pid=$!
 sleep 1
 test -d "/proc/$pid" && test "$(readlink "/proc/$pid/exe")" = /bin/busybox || fail listener_start_failed

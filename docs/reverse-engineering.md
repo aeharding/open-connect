@@ -82,6 +82,80 @@ upgrade route. At that checkpoint the published installer required 55.00.750B NA
 the later maintained v74 port is recorded below. Private evidence:
 `runs/post-upgrade-20261120T052126Z/` and `runs/access-resume-20261120T053952Z/`.
 
+## Developer access and login-script lifetime on v74
+
+The **74.00.324A NA / cmu150_NA** Developer options candidate provides an optional
+passwordless UART root console and owner-key SSH through Mazda's normal server
+on port 36000. Both default off. The [owner guide](developer-options.md) shows the
+controls and import flow. Direct CMU parser checks accepted ECDSA and 2048-bit
+RSA and rejected Ed25519; the private test key stayed on the host.
+
+With [CI run 44847049064](https://github.com/aeharding/open-connect/actions/runs/44847049064)
+(source `5414d59`, version 0.3.0-dev.3), a normal SD-launched Install/update
+preserved both enabled access choices and the imported key, restarted
+automatically and displayed completion on the physical screen. All 34 public
+runtime files matched CI. Open settings and repeated import worked; the complete
+MD5 fingerprint fit across two lines. The dedicated key authenticated as `cmu`,
+UID 0, and a fresh UART identity probe verified the passwordless root shell.
+
+Both off selections saved when made back-to-back. The page showed the old
+startup-applied state and a restart requirement; the test key still worked
+before restart. After a 30.018-second ACC-off interval, both applied bits were
+off, the key was rejected, and Mazda's original `cmu login:` prompt returned.
+Existing bench authorization remained usable. The original login inode was
+restored at its pathname, sharing a second link with the retained hold. Both
+options then enabled again and survived another ignition restart.
+
+Normal Settings Uninstall from that enabled startup restored all **19 intake
+file hashes and metadata**, the absent touchscreen NVRAM key, stock native
+mappings and the stock Opera entry point. The original login inode retained one
+link; its hold and staging files were gone. Product state, imported keys and
+runtime were absent after the automatic restart, the test key was rejected, and
+physical root was read-only. Independent recovery preflights passed. This is
+single-unit evidence using virtual commander input and ignition cycles, not
+physical-controller, matching-car or exhaustive power-loss qualification. No
+original UART credentials were attempted. SD maintenance remains distinct from
+the earlier physical USB-insertion evidence.
+
+### Why the original login needs a hardlink
+
+The first UART enable stopped at a failed read-only remount. Its old reader had
+exited before inspection, so that failure alone did not prove the cause. A
+bounded experiment with owned data files reproduced `EBUSY` while an unlinked
+inode remained open, then remounted read-only with the same reader open when a
+same-filesystem hardlink retained the inode. Linux 3.0's
+[read-only remount check](https://github.com/torvalds/linux/blob/v3.0/fs/file_table.c)
+rejects open unlinked inodes, consistent with this observation.
+
+The maintained fix links the original login script before replacing it, keeps
+that inode through repeated changes, restores it when disabling UART, and
+removes the hold only after restoration on uninstall. The fresh held-original
+trial used [CI run 44843072197](https://github.com/aeharding/open-connect/actions/runs/44843072197)
+at `ccb3a25`; the hold retained its inode across subsequent kernel boots and the
+physical root returned to read-only. Host interruption checks separately covered
+13 boundaries and six toggles; they do not simulate CMU power loss.
+
+### Maintenance request lifetime
+
+A UI reinstall of [CI run 44845680376](https://github.com/aeharding/open-connect/actions/runs/44845680376)
+(`c40f08f`) stopped with an unconfirmed result, a prepared `install` record and
+no remaining backend process. Root was still read-only. The service capped each
+request at 60 seconds; guarded recovery of that exact revision completed without
+error in **44.434 seconds**. That was a separate host-run recovery, not a clean UI
+pass. The candidate now allows a bounded 180-second request plus five seconds of
+client response headroom and loads the staged USB client, so an older installed
+client cannot retain its shorter deadline. The repeated `5414d59` update above
+completed through the normal UI without intervention.
+
+Private evidence stays under `runs/developer-options-20261120/`, with original
+source/CI identities preserved: `fs-hold-probe.out`, `stock-before-held.json`,
+`held-access-on-restarted.json`, `fingerprint-update-observer/`,
+`fingerprint-recover-timing.json`, `deadline-update-observer/`,
+`deadline-update-complete.json`, `deadline-key-reimported.json`,
+`deadline-uart-root/`, `deadline-both-off-restarted.json`,
+`deadline-both-on-again-restarted.json`, `deadline-uninstall-observer/`,
+`deadline-stock.json` and `deadline-key-after-uninstall.json`.
+
 ## V74 installer port and native code placement
 
 Fresh intake on **74.00.324A / cmu150_NA** matched the extracted originals.

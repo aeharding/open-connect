@@ -20,6 +20,7 @@ nav = [
   { "Features" = [
     { "Touchscreen While Driving" = "touchscreen.md" },
     { "Startup disclaimer" = "disclaimer.md" },
+    { "Developer options" = "developer-options.md" },
   ] },
   { "Performance evidence" = [
     { "Timings and RAM" = "performance.md" },

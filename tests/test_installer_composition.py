@@ -103,17 +103,23 @@ class InstallerComposition(unittest.TestCase):
                     self.assertEqual((root / "count").read_text().strip(), str(fail_at))
                     self.assertFalse((root / "composed" / package).exists())
 
-    def test_manager_is_captured_and_resolved_as_a_dependency(self):
+    def test_manager_and_access_tools_are_captured_and_resolved_as_dependencies(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
-            manager = root / "manager.so"
-            manager.write_bytes(b"synthetic manager\n")
+            contents = (ASSETS / "firmware.sh").read_text()
+            expected = []
+            for name, target in (
+                ("manager.so", "/jci/lib/libjciuiamgr.so"),
+                ("rungetty", "/usr/bin/rungetty"),
+                ("sshd", "/usr/sbin/sshd"),
+                ("ssh-keygen", "/usr/bin/ssh-keygen"),
+            ):
+                fixture = root / name
+                fixture.write_bytes(b"synthetic dependency\n")
+                contents = contents.replace(target, str(fixture))
+                expected.append(hashlib.sha256(fixture.read_bytes()).hexdigest() + "  root/" + name)
             firmware = root / "firmware.sh"
-            firmware.write_text(
-                (ASSETS / "firmware.sh")
-                .read_text()
-                .replace("/jci/lib/libjciuiamgr.so", str(manager))
-            )
+            firmware.write_text(contents)
             driver = (
                 'set -eu\n. "$1/state.sh"; . "$2"\n'
                 "original_files() { :; }\ndependencies_capture -\ndependency_path root/manager.so\n"
@@ -124,10 +130,4 @@ class InstallerComposition(unittest.TestCase):
                 text=True,
                 check=True,
             )
-            self.assertEqual(
-                result.stdout.splitlines(),
-                [
-                    hashlib.sha256(manager.read_bytes()).hexdigest() + "  root/manager.so",
-                    str(manager),
-                ],
-            )
+            self.assertEqual(result.stdout.splitlines(), expected + [str(root / "manager.so")])

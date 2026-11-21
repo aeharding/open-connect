@@ -140,7 +140,7 @@ class InstallerTransaction(unittest.TestCase):
         runtime.mkdir(mode=0o700)
         (runtime / "lock").touch()
         (runtime / "runtime").symlink_to(self.tools)
-        for name in ("state.sh", "transaction.sh", "VERSION"):
+        for name in ("state.sh", "transaction.sh", "access.sh", "VERSION"):
             shutil.copyfile(ROOT / "cmu/installer" / name, self.tools / name)
         state = (
             (self.tools / "state.sh")

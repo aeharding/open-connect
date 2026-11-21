@@ -18,8 +18,17 @@ wired CarPlay early as a qualification and measurement fixture.
 
 ## Delivery order
 
-The owner chose the five phases below. Later candidates remain backlog with no
-fixed delivery slot. Each performance claim needs comparable measurements.
+The owner chose the five phases below. Manual bench checks and first-car
+validation are deferred by the owner; continue Developer options development
+now without treating those checks as prerequisites for further development.
+This does not qualify or publish the v74 release. Later candidates remain backlog
+with no fixed delivery slot. Each performance claim needs comparable measurements.
+
+Developer options are implemented and bench-checked in the v74 development
+candidate; see [#103](https://github.com/aeharding/open-connect/pull/103) and the
+[access findings](docs/reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74).
+The next priority is **performance baselines**, including RAM. The deferred
+phase-1 manual and first-car checks remain separate.
 
 | Phase | Outcome | Done when | Work |
 | --- | --- | --- | --- |
@@ -79,14 +88,17 @@ backups and transaction state. See [uninstall behavior](docs/uninstall.md).
 ## Phase 2: keep developer access small
 
 Use Open Connect’s OEM-style Settings entry. The agreed controls are a **UART
-console-login checkbox** and **SSH enable/disable with Import public key**.
+root-console checkbox** and **owner SSH enable/disable with Import public key**.
 Diagnostic logging is separate from interactive login. The private key stays on
-the owner’s computer. Importing a public-key file from USB is a proposal; defaults,
-the exact import interaction and the stock console-login control still need
-qualification. Preserve Mazda’s existing key authorization and normal service
+the owner’s computer. Both owner-access options default off. Enabling UART gives
+a password-free root shell over the physical serial connection, with a short
+confirmation. Import a fixed public-key file from maintenance USB; qualify the
+complete flow and firmware behavior. Preserve Mazda’s existing key authorization and normal service
 behavior. Initial USB access and recovery must work when Settings is unavailable.
 
-Ship this bounded follow-up before the performance-baseline and Services phases.
+Proceed with this bounded follow-up now; deferred manual bench and first-car
+validation do not block its development. Deliver it before the performance-baseline
+and Services phases.
 Keep ordinary installation and USB recovery independent of developer access.
 [#85](https://github.com/aeharding/open-connect/issues/85) owns the details.
 

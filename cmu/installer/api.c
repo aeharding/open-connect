@@ -114,12 +114,12 @@ static int run(int argc,char **argv) {
     if(!equal(token,fields[0]))return response(403,"unauthorized"),1;
     const char *op=fields[2];
     if(equal(op,"set")){
-        if((!equal(fields[3],"touch")&&!equal(fields[3],"warning"))||
+        if((!equal(fields[3],"touch")&&!equal(fields[3],"warning")&&!equal(fields[3],"uart")&&!equal(fields[3],"ssh"))||
            (!equal(fields[4],"0")&&!equal(fields[4],"1"))||
            (!equal(fields[5],"0")&&!equal(fields[5],"1")))goto bad;
     }else{
         if(!equal(op,"status")&&!equal(op,"install")&&!equal(op,"uninstall")&&
-           !equal(op,"restart")&&!equal(op,"dismiss")&&!equal(op,"recover"))goto bad;
+           !equal(op,"restart")&&!equal(op,"dismiss")&&!equal(op,"recover")&&!equal(op,"import"))goto bad;
         if(!equal(fields[3],"-")||!equal(fields[4],"-")||!equal(fields[5],"-"))goto bad;
     }
     if(!response(200,0))return 1;

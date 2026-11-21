@@ -301,6 +301,24 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(reply["ok"])
 
+    def test_status_distinguishes_installed_and_maintenance_versions(self):
+        data = self.create("versions")
+        package = data / "packages" / "1".zfill(64)
+        package.mkdir(parents=True, mode=0o700)
+        (package / "VERSION").write_text("0.3.0-dev.2\n")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        source_version = (self.tools / "VERSION").read_text().strip()
+        self.assertNotEqual(source_version, "0.3.0-dev.2")
+        result, state = self.api("status")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(state["version"], source_version)
+        self.assertEqual(state["installedVersion"], "0.3.0-dev.2")
+        (package / "VERSION").unlink()
+        result, state = self.api("status")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(state["installedVersion"], "-")
+
     def test_backend_reinstall_refuses_later_target_or_dependency_edits(self):
         data = self.create("reinstall-conflict")
         self.run_ok(data, "install")

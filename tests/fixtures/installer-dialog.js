@@ -58,6 +58,14 @@ assert.deepEqual(Object.values(control.props.buttonConfig).map(b=>b.label),["Can
 dismissRetained();
 assert.equal(common.getCommonTransitionData,baseTransition);
 
+for (const from of ["0.3.0-dev.3", "0.3.0-dev.4", "-"]) {
+    const cancelUpdate = choose(fw, true, decision, "0.3.0-dev.4", false, from);
+    assert.match(control.props.text1, /^From: /);
+    assert.ok(control.props.text1.includes("From: " + (from === "-" ? "Unavailable" : from) + "\nTo: 0.3.0-dev.4\n"));
+    assert.match(control.props.text1, /Do not remove the USB drive/);
+    cancelUpdate();
+}
+
 assert.equal(typeof choose(fw, true, decision), "function");
 assert.deepEqual(Object.values(control.props.buttonConfig).map(b=>b.appData), ["cancel","install","uninstall"]);
 control.props.defaultSelectCallback(control,"uninstall");

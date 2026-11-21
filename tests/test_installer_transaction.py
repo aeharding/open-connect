@@ -71,15 +71,17 @@ if ! settled; then transaction_reconcile; exit; fi
 case "$ACTION" in
 service-off)
     snapshot_read "$R_CURRENT"
-    after=$(snapshot_create "$AUTOSTART" "$S_PACKAGE" "$S_TOUCH" "$S_WARNING" "$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 0)
+    after=$(snapshot_create "$AUTOSTART" "$S_PACKAGE" "$S_TOUCH" "$S_WARNING" "$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 0 "$S_BASE")
     transaction_prepare set "$R_CURRENT" "$after";;
-install|install-legacy)
+install|install-legacy|install-six)
     printf 'installed\n' > "$D/installed"
     package=$(printf '%064d' 1)
     mkdir -p "$D/composed/$package"
     cp "$D/installed" "$D/composed/$package/autostart"
-    service_choice=1; test "$ACTION" != install-legacy || service_choice=-
-    after=$(snapshot_create "$D/installed" "$package" 1 1 disable "755:$(id -u):$(id -g)" "$D/snapshots/$R_CURRENT/dependencies" - "$service_choice")
+    service_choice=1; base_choice=0
+    if test "$ACTION" = install-legacy; then service_choice=-; fi
+    if test "$ACTION" != install; then base_choice=-; fi
+    after=$(snapshot_create "$D/installed" "$package" 1 1 disable "755:$(id -u):$(id -g)" "$D/snapshots/$R_CURRENT/dependencies" - "$service_choice" "$base_choice")
     transaction_prepare install "$R_CURRENT" "$after";;
 uninstall)
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
@@ -239,6 +241,55 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(data.exists())
         self.assertEqual(self.target(data, "target").read_text(), "stock\n")
+
+    def test_base_setting_preserves_service_and_other_choices_through_uninstall(self):
+        data = self.create("base-setting")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        _, status = self.api("status")
+        self.assertEqual(status["base"], 0)
+        result, status = self.api("set", status["revision"], "pandora", "1", "0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result, status = self.api("set", status["revision"], "base", "0", "1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((status["base"], status["pandora"]), (1, 0))
+        result, status = self.api("set", status["revision"], "warning", "1", "0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((status["base"], status["pandora"]), (1, 0))
+        self.assertEqual(
+            len((data / "snapshots" / status["revision"] / "config").read_text().split("|")), 7
+        )
+        record = (data / "record").read_bytes()
+        result, error = self.api("set", status["revision"], "base", "0", "1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "stale_setting")
+        self.assertEqual((data / "record").read_bytes(), record)
+        result, _ = self.api("uninstall", status["revision"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(data.exists())
+        self.assertEqual(self.target(data, "target").read_text(), "stock\n")
+
+    def test_six_field_selector_keeps_its_format_and_refuses_base_before_update(self):
+        data = self.create("six-field-settings")
+        self.run_ok(data, "install-six")
+        self.backend_fixture(data)
+        _, status = self.api("status")
+        self.assertNotIn("base", status)
+        for key, expected, desired in (("pandora", "1", "0"), ("touch", "1", "0")):
+            result, status = self.api("set", status["revision"], key, expected, desired)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config = data / "snapshots" / status["revision"] / "config"
+            self.assertEqual(len(config.read_text().strip().split("|")), 6)
+            self.assertNotIn("base", status)
+        self.assertEqual(status["pandora"], 0)
+        record = (data / "record").read_bytes()
+        result, error = self.api("set", status["revision"], "base", "0", "1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "services_update_required")
+        self.assertEqual((data / "record").read_bytes(), record)
+        result, _ = self.api("uninstall", status["revision"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(data.exists())
 
     def test_older_snapshot_uninstall_can_resume_after_durable_preparation(self):
         data = self.create("five-field-removal")

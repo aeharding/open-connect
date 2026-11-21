@@ -291,6 +291,39 @@ pick(3); back();
 assert.equal(pages.at(-1).ctrl.focussedItem, 3);
 back();
 
+// The measured base preset is independent of Pandora and only saved after its
+// confirmation. Both directions explain restart, with no navigation caret.
+values = {...values, base: 0};
+settings.open(fw, store); pick(2);
+let baseCtrl = pages.at(-1).ctrl;
+assert.deepEqual(Array.from(baseCtrl.dataList.items, x => x.text1), ["Base optimizations", "Pandora"]);
+assert.equal(baseCtrl.dataList.items[0].value, 2);
+assert.equal(baseCtrl.dataList.items[0].hasCaret, false);
+const beforeBase = writes.length;
+baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 1});
+assert.equal(modal.props.title, "Enable Base optimizations?");
+assert.match(modal.props.text1, /native diagnostic logging/);
+assert.match(modal.props.text1, /after restarting/);
+modal.props.defaultSelectCallback(modal, "cancel"); idle();
+assert.equal(writes.length, beforeBase);
+baseCtrl = pages.at(-1).ctrl;
+baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 1});
+modal.props.defaultSelectCallback(modal, "apply");
+back(); back(); idle();
+assert.deepEqual(writes.at(-1), ["base", 0, 1]);
+values = {...values, base: 1, restart: true}; reply(values);
+settings.open(fw, store); pick(2);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 1);
+assert.equal(pages.at(-1).ctrl.dataList.items[1].value, 2);
+baseCtrl = pages.at(-1).ctrl;
+baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 2});
+assert.equal(modal.props.title, "Disable Base optimizations?");
+assert.match(modal.props.text1, /Restores original native logging/);
+modal.props.defaultSelectCallback(modal, "apply"); idle();
+assert.deepEqual(writes.at(-1), ["base", 1, 0]);
+values = {...values, base: 0}; reply(values);
+back(); back();
+
 // Status can become unavailable while a page is open. Keep Back usable and
 // refuse the new selection without sending a write.
 const beforeUnavailable = writes.length;

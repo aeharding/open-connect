@@ -31,7 +31,7 @@ esac
 test "$R_PHASE" = active || exit 1
 targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
 snapshot_read "$R_CURRENT" || fail invalid_snapshot
-package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; mode=$S_META; pandora=$S_PANDORA
+package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; mode=$S_META; pandora=$S_PANDORA; base=$S_BASE
 # The current snapshot pins every package/composed file, including manifests;
 # dependencies_match above has just checked those exact bytes.
 hex "$package" 64 && private_dir "$D/packages/$package" && private_dir "$D/composed/$package" || fail damaged_feature
@@ -53,7 +53,7 @@ nvram=$S_NVRAM
 if test "$selected:$touch" = true:1; then nvram=disable; fi
 snapshot_read "$R_CURRENT" || fail invalid_snapshot
 if test "$S_NVRAM" != "$nvram"; then
-    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" "$pandora") || fail startup_plan_failed
+    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" "$pandora" "$base") || fail startup_plan_failed
     transaction_prepare apply "$R_CURRENT" "$after"
     transaction_reconcile
 fi
@@ -70,4 +70,10 @@ token=$(cat "$runtime/token"); hex "$token" 32 || fail invalid_token
 sed "s/@TOKEN@/$token/" "$D/composed/$package/index-$setting.html" > "$work/index.html"
 mv "$work" /tmp/open-connect/feature
 printf '%s\n' "$R_CURRENT" > /tmp/open-connect/selected
+# Publish the optional external RAM resource last. A failed atomic link cannot
+# overwrite another provider, and must not leave our selected marker claiming it.
+if ! native_log_config "$base"; then
+    rm /tmp/open-connect/selected
+    fail logging_config_failed
+fi
 exit 0

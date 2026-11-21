@@ -37,8 +37,8 @@ The newer v74 development candidate also has
 including public-key import. These are separate from the two driving/startup preferences.
 
 The Services development candidate adds a separate [Services](services.md) page
-for qualified startup choices. Its first candidate controls Mazda's built-in
-Pandora integration and defaults to running.
+for startup choices. Base optimizations defaults off; Mazda's built-in Pandora
+integration defaults to running.
 
 If a change cannot be confirmed, return to Open Connect and check the selected
 choice before trying again.

@@ -6,6 +6,7 @@ import shlex
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -26,6 +27,8 @@ class InstallerWireless(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
+        busybox = shutil.which("busybox")
+        self.shell = [busybox, "sh"] if busybox else ["/bin/bash"]
         self.feature = self.root / "feature"
         self.tools = self.root / "tools"
         self.feature.mkdir(mode=0o700)
@@ -39,6 +42,13 @@ class InstallerWireless(unittest.TestCase):
         self.boot.write_text("00000000-0000-0000-0000-000000000001\n")
         (self.feature / "boot-id").write_bytes(self.boot.read_bytes())
         (self.feature / "wireless-applied").write_text("0\n")
+        self.launcher = self.root / "session.py"
+        self.launcher.write_text(
+            "import os,sys\nfrom pathlib import Path\n"
+            "os.setsid()\n"
+            f"Path({str(self.root / 'session-pid')!r}).write_text(str(os.getpid()))\n"
+            "os.execv(sys.argv[1],sys.argv[1:])\n"
+        )
         shutil.copyfile(ASSETS / "wireless-device.awk", self.feature / "wireless-device.awk")
         source = (ASSETS / "wireless.sh").read_text()
         source = source.replace("/tmp/open-connect/feature", str(self.feature))
@@ -50,6 +60,50 @@ class InstallerWireless(unittest.TestCase):
             "PATH=/usr/bin:/bin:/usr/sbin:/sbin",
             "PATH=" + shlex.quote(str(self.tools) + os.pathsep + os.environ["PATH"]),
         )
+        # macOS has no BusyBox/procfs. Use its real setsid/group/session APIs;
+        # Linux CI and the target probe use the unmodified procfs identity read.
+        source = source.replace(
+            '/bin/sh -c \'exec /bin/busybox setsid /bin/sh "$1" --prepare "$$"\' wireless-worker "$0" &',
+            '/bin/sh -c \'exec "$2" "$3" '
+            + shlex.join(self.shell)
+            + ' "$1" --prepare "$$"\' wireless-worker "$0" '
+            + shlex.quote(sys.executable)
+            + " "
+            + shlex.quote(str(self.launcher))
+            + " &",
+        )
+        if not Path("/proc/self/stat").exists():
+            proc = self.root / "process-stat.py"
+            proc.write_text(
+                "import os,sys,subprocess\n"
+                "p=int(sys.argv[1])\n"
+                "parent=int(subprocess.check_output(['ps','-p',str(p),'-o','ppid=']))\n"
+                "print(f'{p} (worker) S {parent} {os.getpgid(p)} {os.getsid(p)}')\n"
+            )
+            source = source.replace(
+                'read -r process_stat 2>/dev/null < "/proc/$worker/stat"',
+                "process_stat=$("
+                + shlex.quote(sys.executable)
+                + " "
+                + shlex.quote(str(proc))
+                + ' "$worker" 2>/dev/null)',
+            )
+            # macOS's old Bash does not time out this RDWR FIFO read. Its host
+            # adapter uses select; Linux CI and native probes use BusyBox read.
+            timed = self.root / "read-timed.py"
+            timed.write_text(
+                "import os,select,sys,time\n"
+                "fd=int(sys.argv[1]); end=time.monotonic()+int(sys.argv[2]); data=b''\n"
+                "while time.monotonic()<end:\n"
+                " if not select.select([fd],[],[],max(0,end-time.monotonic()))[0]: break\n"
+                " data+=os.read(fd,1)\n"
+                " if data.endswith(b'\\n'): print(data.decode().rstrip('\\n')); sys.exit(0)\n"
+                "sys.exit(1)\n"
+            )
+            command = shlex.join([sys.executable, str(timed)])
+            source = source.replace(
+                "IFS= read -r -t 12 permission <&4", f"permission=$({command} 4 12)"
+            ).replace("IFS= read -r -t 1 acknowledged <&3", f"acknowledged=$({command} 3 1)")
         self.originals = []
         for name, path, digest in (
             (
@@ -78,7 +132,7 @@ class InstallerWireless(unittest.TestCase):
         self.script.write_text(source)
 
     def run_helper(self):
-        return subprocess.run(["sh", self.script], capture_output=True, text=True, timeout=5)
+        return subprocess.run([*self.shell, self.script], capture_output=True, text=True, timeout=5)
 
     def assert_released(self, applied):
         self.assertTrue((self.feature / "wireless-ready").is_file())
@@ -181,11 +235,9 @@ class InstallerWireless(unittest.TestCase):
         self.assertFalse((self.feature / "wireless-ready").exists())
         self.assertEqual(self.target.read_bytes(), XML)
 
-    def test_termination_releases_original_initialization(self):
-        marker = self.root / "waiting"
-        self.replace_awk("touch " + shlex.quote(str(marker)) + "\nsleep 10\n")
+    def interrupt_at(self, marker, expected):
         process = subprocess.Popen(
-            ["sh", self.script],
+            [*self.shell, self.script],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -196,12 +248,76 @@ class InstallerWireless(unittest.TestCase):
             while not marker.exists() and time.monotonic() < deadline:
                 time.sleep(0.01)
             self.assertTrue(marker.exists())
-            os.killpg(process.pid, signal.SIGTERM)
+            started = time.monotonic()
+            # Match BusyBox timeout: TERM only the supervisor's positive PID.
+            os.kill(process.pid, signal.SIGTERM)
             out, error = process.communicate(timeout=3)
             self.assertEqual(process.returncode, 0, (out, error))
-            self.assertEqual(self.target.read_bytes(), XML)
-            self.assert_released(0)
+            self.assertLess(time.monotonic() - started, 3)
+            self.assert_released(expected)
+            content = self.target.read_bytes()
+            time.sleep(0.2)
+            self.assertEqual(self.target.read_bytes(), content)
+            return content
         finally:
+            # Match the live session leader's identity before cleaning a failed
+            # host probe; never signal a remembered or unrelated process group.
+            pid_file = self.root / "session-pid"
+            if pid_file.exists():
+                child = int(pid_file.read_text())
+                live = subprocess.run(
+                    ["ps", "-p", str(child), "-o", "command="],
+                    capture_output=True,
+                    text=True,
+                )
+                if str(self.root) in live.stdout and os.getpgid(child) == child:
+                    os.killpg(child, signal.SIGKILL)
             if process.poll() is None:
                 os.killpg(process.pid, signal.SIGKILL)
             process.communicate(timeout=3)
+
+    def test_positive_pid_termination_releases_original_initialization(self):
+        marker = self.root / "waiting"
+        self.replace_awk("touch " + shlex.quote(str(marker)) + "\nsleep 10\n")
+        self.assertEqual(self.interrupt_at(marker, 0), XML)
+
+    def pause_launcher(self, after_session):
+        marker = self.root / "launcher-waiting"
+        source = self.launcher.read_text()
+        pause = f"Path({str(marker)!r}).touch()\n__import__('time').sleep(10)\n"
+        location = "os.setsid()\n"
+        source = source.replace(location, location + pause if after_session else pause + location)
+        self.launcher.write_text(source)
+        return marker
+
+    def test_positive_pid_termination_before_session_does_not_authorize_preparation(self):
+        self.assertEqual(self.interrupt_at(self.pause_launcher(False), 0), XML)
+
+    def test_positive_pid_termination_after_session_before_ack_does_not_authorize_preparation(self):
+        self.assertEqual(self.interrupt_at(self.pause_launcher(True), 0), XML)
+
+    def test_positive_pid_termination_before_xml_rename_cannot_publish_later(self):
+        marker = self.root / "before-rename"
+        wrapper = self.tools / "mv"
+        wrapper.write_text(
+            '#!/bin/sh\nif test "$2" = ' + shlex.quote(str(self.target)) + "; then\n"
+            "touch "
+            + shlex.quote(str(marker))
+            + "\nsleep 10\nfi\nexec "
+            + shlex.quote(shutil.which("mv"))
+            + ' "$@"\n'
+        )
+        wrapper.chmod(0o700)
+        self.assertEqual(self.interrupt_at(marker, 0), XML)
+
+    def test_positive_pid_termination_after_xml_rename_reports_applied_policy(self):
+        marker = self.root / "after-rename"
+        wrapper = self.tools / "mv"
+        wrapper.write_text(
+            "#!/bin/sh\n" + shlex.quote(shutil.which("mv")) + ' "$@" || exit\n'
+            'if test "$2" = ' + shlex.quote(str(self.target)) + "; then\n"
+            "touch " + shlex.quote(str(marker)) + "\nsleep 10\nfi\n"
+        )
+        wrapper.chmod(0o700)
+        content = self.interrupt_at(marker, 1)
+        self.assertEqual(content, XML.replace(b">FALSE<", b">TRUE<"))

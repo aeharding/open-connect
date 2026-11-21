@@ -4,10 +4,13 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
-**No completed stock-versus-Open-Connect startup/RAM comparison is published
-yet.** The collector-overhead pilot below qualifies the measurement method;
-feature and installer trials do not establish a performance gain. External
-reference numbers are identified separately from Open Connect results.
+The [first stock/Open Connect comparison](startup-comparison.md) found **slower
+startup with the development candidate**: the median wired CarPlay dashboard
+milestone moved from about 48.3 to 56.7 seconds after ACC-on. CPU busy increased;
+minimum free RAM was similar. Five accepted runs per condition, the excluded
+attempts, numeric samples and reproduction commands are published with the result.
+This is a regression to investigate before service optimizations, with no claim
+of reproducing Miatafy's wireless timings.
 
 ## Configurations to compare
 

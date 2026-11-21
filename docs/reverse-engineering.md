@@ -712,3 +712,17 @@ physical-usb/qualification.json, uninstall/qualification.json and
 stock-link-recovery/qualification.json link the cases.
 Raw observations remain private; the SD bench path is separate from qualification
 of a distinct replacement USB drive.
+
+## First reproducible startup comparison
+
+The [November 21 stock/candidate batch](startup-comparison.md) retains five
+accepted starts per condition, with local pre-SSH resource collection and
+camera/UART coverage before ACC-on. Open Connect 0.3.0-dev.4 / source `3713f24`
+reached the visible Home and wired CarPlay milestones later, with higher CPU and
+similar free RAM. The blocked order does not isolate the cause. Three excluded
+candidate attempts retain their original retrieval/foreground/cancellation
+outcomes; none is evidence of a CMU boot failure. Numeric samples, I/O endpoints,
+frame bounds and immutable reproduction source are linked with the result.
+Normal UI uninstall plus independent observer restoration verified originals,
+stock loaded code and read-only root. Private supporting records are under
+`runs/startup-comparison-20261121/`; raw capture collections remain private.

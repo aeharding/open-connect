@@ -37,6 +37,32 @@ was not tested on v74. It does not qualify Open Connect features or a general
 upgrade route. The maintained port is recorded below. Private evidence:
 `runs/post-upgrade-20261120T052126Z/` and `runs/access-resume-20261120T053952Z/`.
 
+## Early startup resource collection on v74
+
+On the stock-service 74.00.324A NA bench, the first SSH-started RAM/CPU/I/O sample
+arrived at kernel uptime 41.09 seconds, after native UI was already visible.
+Camera/UART covered the preceding restart; resource counters did not. SSH is
+therefore a retrieval channel for the replacement startup experiment, rather
+than its launch trigger. See [performance evidence](performance.md#startup-observer-coverage-november-21-2026).
+
+Service Manager's stock configuration runs `/jci/scripts/stage_1.sh` with no
+service dependencies and permits its exit. On this exact firmware the script
+contains only its shell interpreter line and blank lines, SHA256
+`2ec71fc955d0107a6e90d1ab4e6f00c9438b56d3e621ef018d57c8ef07bfae7f`.
+This provides a narrow temporary bench hook without changing product-managed
+startup/service files. The experiment detaches a finite system-counter observer,
+writes only RAM output, preserves the original inode with a same-filesystem
+hardlink, and provides an independent guarded restore entry. Actual first-sample
+uptime establishes coverage; this hook is not assumed to cover kernel startup.
+The local trial first sampled at 11.16 seconds and completed 171 samples. Its
+independent restore returned the original inode; a subsequent ACC restart
+verified the original script, absent observer output and physical root read-only.
+
+The [original experiment source and undo](https://github.com/aeharding/open-connect/blob/34d7c293a9cc7476884f88c2061164a3d7b5becd/cmu/bench/STARTUP-REFERENCE.md)
+is on a playground branch, not an owner installation feature. Private intake,
+camera-clock qualification and trial records remain under
+`runs/startup-baseline-20261120/`. No OEM script or raw capture is published.
+
 ## Developer access and login-script lifetime on v74
 
 The **74.00.324A NA / cmu150_NA** Developer options candidate provides an optional

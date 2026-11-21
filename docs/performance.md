@@ -69,6 +69,61 @@ into zero. Collect only fields supported by the actual kernel and bound expensiv
 mapping snapshots. The [Linux proc documentation](https://docs.kernel.org/filesystems/proc.html)
 describes these counters; its newer fields are not a promise about the CMU kernel.
 
+## Startup observer coverage — November 21, 2026
+
+Startup collection must begin locally, independently of network readiness. In
+the initial stock ACC trial, the SSH-started collector first sampled at kernel
+uptime **41.09 seconds**, after native UI was already visible. Camera and
+receive-only UART covered the restart from before ACC-on, but RAM, CPU and I/O
+before that first sample were unobserved. Those missing values are not zero;
+that trace cannot establish whole-startup memory pressure.
+
+The replacement experiment backgrounds the same system-counter collector from
+the supported firmware's empty `stage_1.sh`. It records a finite 180-second
+trace in RAM, with a one-second minimum pause, and retrieves the finished result
+over SSH after startup. There is no SSH readiness polling during that window.
+The temporary hook preserves the exact original and an independent restore
+entry. It does not change product startup files or service selections.
+
+| Coverage trial | First sample uptime, seconds | Last sample end, seconds | Samples | RAM values |
+| --- | --- | --- | --- | --- |
+| SSH-started, source 9b2971f | 41.09 | 160.72 | 117 | [CSV](assets/performance/startup-post-ssh-coverage.csv) |
+| Local stage-1 hook, source 34d7c29 | 11.16 | 190.32 | 171 | [CSV](assets/performance/startup-local-coverage.csv) |
+
+These are separate single-run coverage checks after 30.015- and 30.017-second
+ACC-off intervals, respectively. Both used stock services, owner-key SSH, a wired
+phone, Ethernet and FAT SD, with camera/UART observation and no GUI input or supply
+commands. Phone model/iOS was not captured. One earlier local-observer attempt
+refused before any ACC transmission because an unrelated continuity camera
+appeared; selecting the identified bench camera resolved that tooling failure.
+After the local trial, the independent restore returned the exact original
+script and inode. A further ACC restart verified original startup with no RAM
+observer output and physical root read-only.
+
+The local trace covers substantially more startup allocation: kernel `MemFree`
+was 639,244 kB in its first sample and 207,052 kB in its last, with a minimum of
+198,728 kB in the observed window. This is not `MemAvailable` or a RAM-saving
+claim. The first **11.16 seconds still lack resource samples**, so even this
+trace does not establish a whole-boot peak. Its completed RAM output was
+832,230 bytes, contributing to the memory being observed; do not subtract it
+from the counters as though all instrumentation overhead were known.
+
+Use the pinned [playground experiment and setup/undo instructions](https://github.com/aeharding/open-connect/blob/34d7c293a9cc7476884f88c2061164a3d7b5becd/cmu/bench/STARTUP-REFERENCE.md).
+Its host command retains the observer sources, raw retrieval, verified boot,
+sample bounds and RAM CSV. This is measurement-method qualification, not a
+stock-versus-Open-Connect comparison. Describe the condition as stock features
+with bench instrumentation; the temporary root hook and RAM output are part of
+the measurement setup. The earlier SSH overhead pilot below does not establish
+the overhead of this boot-local configuration.
+
+The collector in both checks is
+[`metrics.sh` at 34d7c29](https://github.com/aeharding/open-connect/blob/34d7c293a9cc7476884f88c2061164a3d7b5becd/cmu/bench/metrics.sh),
+SHA256 `04ce5017e08a4e62823135eb6a560cefbc51289edda256ff5f2b1946b3d5a109`.
+The linked experiment uses the maintained `metrics.memory_csv` to produce these
+per-sample exports; public copies normalize line endings to LF. Neither check establishes CarPlay usability, input latency
+or a product performance difference. Camera clock-domain qualification does not
+eliminate sensor/display latency or the roughly five-frame-per-second spacing.
+
 ## Collector overhead pilot — November 20, 2026
 
 The first collector disturbed the workload substantially. On one exact

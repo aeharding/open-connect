@@ -260,6 +260,8 @@ nvram_read() { sh "$P/touch.sh" read; }
 nvram_change() { sh "$P/touch.sh" change "$1" "$2" >/dev/null; }
 
 dependency_path() {
+    # Resolve names only. The dependency verifier checks the canonical file and
+    # private package parent before reading any bytes.
     local scope=${1%%/*} name=${1#*/} id folder
     test "$scope/$name" = "$1" && test -n "$name" || return 1
     case "$name" in .|..|*[!a-zA-Z0-9_.-]*) return 1;; esac
@@ -269,7 +271,7 @@ dependency_path() {
         composed-*) id=${scope#composed-}; folder=composed;;
         *) return 1;;
     esac
-    hex "$id" 64 && private_dir "$D/$folder/$id" || return 1
+    hex "$id" 64 || return 1
     printf '%s\n' "$D/$folder/$id/$name"
 }
 

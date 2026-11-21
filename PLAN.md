@@ -24,6 +24,12 @@ now without treating those checks as prerequisites for further development.
 This does not qualify or publish the v74 release. Later candidates remain backlog
 with no fixed delivery slot. Each performance claim needs comparable measurements.
 
+Developer options are implemented and bench-checked in the v74 development
+candidate; see [#103](https://github.com/aeharding/open-connect/pull/103) and the
+[access findings](docs/reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74).
+The next priority is **performance baselines**, including RAM. The deferred
+phase-1 manual and first-car checks remain separate.
+
 | Phase | Outcome | Done when | Work |
 | --- | --- | --- | --- |
 | **1. First v74 release** | Install the two initial features on the owner’s car using a normal USB bundle | Both features, startup recovery and the complete maintenance flow pass on the matching bench; the first car installation confirms the intended behavior | [#2 firmware](https://github.com/aeharding/open-connect/issues/2), [#60 touch](https://github.com/aeharding/open-connect/issues/60), [#6 bypass](https://github.com/aeharding/open-connect/issues/6), [#7 delivery](https://github.com/aeharding/open-connect/issues/7) |

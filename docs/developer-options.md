@@ -1,12 +1,18 @@
 # Developer options
 
-This page describes the v74 development candidate. It is not available in the
-historical v55 download. Bench qualification is in progress.
+Implemented in the **74.00.324A NA** development candidate. It is not available
+in the historical v55 download. See [Quick start](usb-installer.md) for
+qualification and availability; a qualified v74 download is not published yet.
 
 Open **Mazda Settings → System → Open Connect → Developer options**.
 Both owner-access options start **off**. Checkboxes show your saved choices;
 the **At startup** row shows the choices applied at startup. Changes take effect
 after a full Mazda Connect restart, including disabling access.
+
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/developer-options.png" alt="Developer options with UART and owner SSH off, Import public key available, and the startup-applied state shown below." width="800" height="480"></div>
+  <figcaption>Fresh installations leave both access options off.</figcaption>
+</figure>
 
 ## UART root console
 
@@ -14,9 +20,14 @@ after a full Mazda Connect restart, including disabling access.
 Confirm **Enable**, then restart.
 Use 115200 baud, 8 data bits, no parity, 1 stop bit and no flow control.
 
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/uart-console.png" alt="Enable UART root console confirmation: Passwordless root access over UART. Restart to apply." width="800" height="480" loading="lazy"></div>
+  <figcaption>Confirm Enable, then restart Mazda Connect.</figcaption>
+</figure>
+
 Turning it off restores the original authenticated login behavior. It does not
-change passwords or turn off diagnostic output. Original login credentials are
-not established for the v74 bench; the checkbox does not set a password.
+change passwords or turn off diagnostic output. The checkbox does not set a
+password.
 
 ## Owner SSH access
 
@@ -45,7 +56,12 @@ Keep `~/.ssh/open-connect` on your computer. Copy only
 `~/.ssh/open-connect.pub` to the root of a FAT32 USB drive, naming the copy
 **open-connect.pub**. Insert the drive, choose **Import public key**, then
 confirm **Import**. The confirmation displays the imported key's MD5 fingerprint.
-Compare it with the public key on your computer:
+Compare all 16 pairs, across both lines, with the public key on your computer:
+
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/ssh-key-imported.png" alt="Public key imported confirmation showing the complete MD5 fingerprint across two lines." width="800" height="480" loading="lazy"></div>
+  <figcaption>Verify the fingerprint against the key on your computer.</figcaption>
+</figure>
 
 ```sh
 ssh-keygen -E md5 -l -f ~/.ssh/open-connect.pub

@@ -135,9 +135,9 @@ semantic CLI reuses working tools; Python on the host and POSIX sh on the CMU ar
 the initial implementation. Extend it only for concrete tasks. See docs/cli.md. Command-only ephemeral agents can test usability, while the primary
 retains ownership of live state and the complete outcome.
 
-Develop the small **Developer options** page in Open Connect Settings now, while
-manual bench and first-car validation are deferred, and deliver it before
-performance-baseline and Services work. The agreed
+The small **Developer options** page in Open Connect Settings is the agreed step
+before performance-baseline and Services work. Deferred manual bench and
+first-car validation do not block further development. The agreed
 controls are a UART root-console checkbox and owner SSH enable/disable with an
 Import public key option. The owner chose a password-free root shell over the
 physical UART connection, with a brief, matter-of-fact confirmation when enabling

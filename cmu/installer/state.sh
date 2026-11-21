@@ -102,13 +102,15 @@ snapshot_read() {
     test "$S_PACKAGE" = - || hex "$S_PACKAGE" 64 || return 1
     bit "$S_TOUCH" && bit "$S_WARNING" && touch_value "$S_NVRAM" || return 1
     metadata "$S_META" || return 1
-    S_ACCESS=false; S_UART=0; S_SSH=0; S_KEY=-; S_LOGIN_META=-; S_SSH_META=-
+    S_ACCESS=false; S_UART=0; S_SSH=0; S_KEY=-; S_LOGIN_META=-; S_SSH_META=-; S_LOGIN_INODE=-
     if ! absent "$D/snapshots/$1/access"; then
         local dir=$D/snapshots/$1
         file "$dir/runlogin" && file "$dir/sshd.conf" && file "$dir/access" || return 1
-        test "$(wc -l < "$dir/access")" -eq 1 &&
-            test "$(awk -F '|' '{print NF}' "$dir/access")" = 5 || return 1
-        IFS='|' read -r S_UART S_SSH S_KEY S_LOGIN_META S_SSH_META extra < "$dir/access" || return 1
+        test "$(wc -l < "$dir/access")" -eq 1 || return 1
+        case "$(awk -F '|' '{print NF}' "$dir/access")" in 5|6) ;; *) return 1;; esac
+        IFS='|' read -r S_UART S_SSH S_KEY S_LOGIN_META S_SSH_META S_LOGIN_INODE extra < "$dir/access" || return 1
+        S_LOGIN_INODE=${S_LOGIN_INODE:--}
+        case "$S_LOGIN_INODE" in -) ;; ''|*[!0-9]*) return 1;; esac
         bit "$S_UART" && bit "$S_SSH" && { test "$S_KEY" = - || hex "$S_KEY" 64; } || return 1
         test "$S_SSH" = 0 || hex "$S_KEY" 64 || return 1
         (metadata "$S_LOGIN_META" && metadata "$S_SSH_META") || return 1

@@ -162,7 +162,7 @@ var OpenConnectSettings = (function () {
                     hasCaret: false, appData: "ssh", disabled: values.key === "-"});
                 rows.push({text1: "Import public key", itemStyle: "style01", appData: "import",
                     disabled: prefs.pending() || typeof store.importKey !== "function"});
-                rows.push({text1: "Current: UART " + (values.uartCurrent ? "on" : "off") +
+                rows.push({text1: "At startup: UART " + (values.uartCurrent ? "on" : "off") +
                     ", owner SSH " + (values.sshCurrent ? "on" : "off"), itemStyle: "style01", hasCaret: false, disabled: true});
                 if (values.restart) {
                     rows.push({text1: "Restart required to apply changes", itemStyle: "style01", hasCaret: false, disabled: true});
@@ -202,7 +202,7 @@ var OpenConnectSettings = (function () {
                     if (item === "ssh" && currentValues.key === "-") { return; }
                     if (item === "uart" && params.additionalData === 1 && currentValues.uart === 0) {
                         dismiss = OpenConnectInstaller.message(fw, "Enable UART root console?",
-                            "Anyone connected to the physical serial port will have root access without a password. Restart to apply.",
+                            "Passwordless root access over UART. Restart to apply.",
                             {button1: {label: "Cancel", appData: "cancel"}, button2: {label: "Enable", appData: "enable"}},
                             function (action) {
                                 dismiss = null;
@@ -264,7 +264,7 @@ var OpenConnectSettings = (function () {
                     var values = prefs.values(), ctrl = page.list2Ctrl;
                     if (!values) { return; }
                     ctrl.dataList.items[2].disabled = prefs.pending() || typeof store.importKey !== "function";
-                    ctrl.dataList.items[3].text1 = "Current: UART " + (values.uartCurrent ? "on" : "off") +
+                    ctrl.dataList.items[3].text1 = "At startup: UART " + (values.uartCurrent ? "on" : "off") +
                         ", owner SSH " + (values.sshCurrent ? "on" : "off");
                     ctrl.dataList.items[4].text1 = values.restart ? "Restart required to apply changes" : "Changes apply after restart";
                     ctrl.updateItems(2, 4);

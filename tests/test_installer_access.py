@@ -69,6 +69,8 @@ class InstallerAccess(unittest.TestCase):
             "/tmp/mnt/sda1": str(self.volume),
         }.items():
             access = access.replace(before, after)
+        access = access.replace("/usr/bin", str(self.bin))
+        (self.bin / "ssh-keygen").symlink_to(shutil.which("ssh-keygen"))
         (self.tools / "access.sh").write_text(access)
         shutil.copyfile(ASSETS / "console.sh", self.tools / "console.sh")
         self.env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
@@ -180,6 +182,9 @@ printf '%s\n' "$snapshot"
 
     def test_interrupted_ssh_change_recovers_and_uninstall_restores_originals(self):
         self.target.write_bytes(self.public)
+        opened_login = (self.bin / "runlogin").open("rb")
+        self.addCleanup(opened_login.close)
+        original_inode = os.fstat(opened_login.fileno()).st_ino
         firmware = (ASSETS / "firmware.sh").read_text()
         firmware = firmware.replace("/usr/bin", str(self.bin)).replace("/etc/ssh", str(self.ssh))
         firmware = firmware.replace("root_publish() (", "root_publish_real() (")
@@ -218,6 +223,9 @@ transaction_reconcile
         interrupted = self.run_shell(prefix + initialize)
         self.assertNotEqual(interrupted.returncode, 0, interrupted.stderr)
         self.assertNotEqual((self.ssh / "sshd_config").read_bytes(), self.original)
+        # Linux 3.x refuses a read-only remount while an open file has no
+        # pathname. Preserve the reader's inode throughout the change.
+        self.assertGreater(os.fstat(opened_login.fileno()).st_nlink, 0)
         recovered = self.run_shell(
             prefix + 'record_read; transaction_reconcile; targets_match "$R_CURRENT"'
         )
@@ -245,4 +253,7 @@ targets_match "$R_CURRENT"
         self.assertEqual(restored.returncode, 0, restored.stderr)
         self.assertEqual((self.ssh / "sshd_config").read_bytes(), self.original)
         self.assertEqual((self.bin / "runlogin").read_text(), "stock authenticated login\n")
+        self.assertEqual((self.bin / "runlogin").stat().st_ino, original_inode)
+        self.assertGreater(os.fstat(opened_login.fileno()).st_nlink, 0)
+        self.assertEqual(list(self.bin.glob(".open-connect-runlogin-*")), [])
         self.assertEqual((self.bin / "autostart").read_text(), "stock startup\n")

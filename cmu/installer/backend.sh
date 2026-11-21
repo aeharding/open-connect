@@ -128,10 +128,13 @@ install)
         snapshot_read "$R_CURRENT" || fail invalid_snapshot
         old_package=$S_PACKAGE; touch=$S_TOUCH; warning=$S_WARNING
         uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
+        if test "$S_ACCESS" = true && test "$S_LOGIN_INODE" = -; then fail developer_reinstall_required; fi
         if test "$S_ACCESS" = false; then
             test "$(sha /usr/bin/runlogin)" = b77e4dadaa1173578e58d319dd3d37bb24117cb9b3baf73731c401f5a47360b8 || fail unsupported_console
+            absent "/usr/bin/.open-connect-runlogin-$(stat -c %i /usr/bin/runlogin)" || fail console_hold_conflict
         fi
-        access_capture "$access_work" "$uart" "$owner_ssh" "$key" || fail access_backup_failed
+        if test "$S_LOGIN_INODE" = -; then login_inode=$(stat -c %i /usr/bin/runlogin); else login_inode=$S_LOGIN_INODE; fi
+        access_capture "$access_work" "$uart" "$owner_ssh" "$key" "$login_inode" || fail access_backup_failed
         before=$(state_capture "$old_package" "$touch" "$warning" "$access_work") || fail checkpoint_failed
         snapshot_read "$R_BASE" || fail originals_changed
         if test "$S_ACCESS" = false; then
@@ -140,6 +143,7 @@ install)
     else
         test "$(sha "$AUTOSTART")" = "$(sha "$D/originals/autostart")" || fail unsupported_startup
         test "$(sha /usr/bin/runlogin)" = b77e4dadaa1173578e58d319dd3d37bb24117cb9b3baf73731c401f5a47360b8 || fail unsupported_console
+        absent "/usr/bin/.open-connect-runlogin-$(stat -c %i /usr/bin/runlogin)" || fail console_hold_conflict
         access_capture "$access_work" 0 0 - || fail access_backup_failed
         before=$(state_capture - 0 0 "$access_work") || fail checkpoint_failed
         R_BASE=$before
@@ -172,6 +176,7 @@ set|import)
     access_source=$D/snapshots/$R_CURRENT
     if test "$operation" = import || test "$argument" = uart || test "$argument" = ssh; then
         test "$S_ACCESS" = true || fail developer_update_required
+        test "$S_LOGIN_INODE" != - || fail developer_reinstall_required
         access_work=$(mktemp -d "$D/.access-XXXXXX") || fail access_plan_failed
         trap 'rm -rf "$access_work"' EXIT
         if test "$operation" = import; then

@@ -5,7 +5,7 @@ historical v55 download. Bench qualification is in progress.
 
 Open **Mazda Settings → System → Open Connect → Developer options**.
 Both owner-access options start **off**. Checkboxes show your saved choices;
-the **Current** row shows the choices applied at startup. Changes take effect
+the **At startup** row shows the choices applied at startup. Changes take effect
 after a full Mazda Connect restart, including disabling access.
 
 ## UART root console

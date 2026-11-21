@@ -112,6 +112,7 @@ transaction_reconcile() {
     nvram_change "$actual_nv" "$after_nv" || fail nvram_commit_failed
     if test "$phase" = uninstall; then
         startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
+        if test -e "$D/snapshots/$R_AFTER/access"; then access_hold_cleanup || fail access_cleanup_failed; fi
     fi
     targets_match "$R_AFTER" && dependencies_match "$R_AFTER" || fail final_verification_failed
     R_CURRENT=$R_AFTER

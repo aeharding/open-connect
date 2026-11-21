@@ -140,7 +140,8 @@ manual bench and first-car validation are deferred, and deliver it before
 performance-baseline and Services work. The agreed
 controls are a UART root-console checkbox and owner SSH enable/disable with an
 Import public key option. The owner chose a password-free root shell over the
-physical UART connection, with a short confirmation when enabling it. Default
+physical UART connection, with a brief, matter-of-fact confirmation when enabling
+it: passwordless root access over UART. Default
 both owner-access options off; preserve Mazda's original login/key behavior when
 off and restore the pre-install configuration on uninstall.
 Keep diagnostic logging separate from interactive login. The private key stays

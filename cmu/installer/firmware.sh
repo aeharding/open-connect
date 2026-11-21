@@ -174,7 +174,16 @@ root_publish() (
     # BusyBox ash unwinds function locals before this subshell's EXIT trap.
     # Keep trap inputs in the subshell scope so cleanup can still read them.
     target=$1; source=$2; mode=$3; expected=$4; expected_mode=$5; identity=
+    held=${6:-}; hold_mode=${7:-}
     case "$target" in /usr/bin/autostart|/usr/bin/runlogin|/etc/ssh/sshd_config) ;; *) fail invalid_target;; esac
+    case "$hold_mode" in
+        '') test -z "$held" || fail invalid_hold;;
+        keep|restore)
+            test "$target" = /usr/bin/runlogin || fail invalid_hold
+            case "$held" in /usr/bin/.open-connect-runlogin-*) ;; *) fail invalid_hold;; esac
+            case "${held##*-}" in ''|*[!0-9]*) fail invalid_hold;; esac;;
+        *) fail invalid_hold;;
+    esac
     parent=${target%/*}
     hex "$R_REV" 32 && file "$source" || fail invalid_startup_plan
     # The durable pending revision names this exact staging file across retries.
@@ -208,18 +217,35 @@ root_publish() (
         test "$(stat -c '%a:%u:%g' "$target")" = "$expected_mode" || fail startup_changed
     if ! absent "$work"; then
         stage_matches || fail startup_stage_changed
+        if test "$hold_mode" = restore; then
+            test "$(stat -c '%d:%i' "$work")" = "$(stat -c '%d:%i' "$held")" || fail startup_stage_changed
+        fi
         identity=$(stat -c '%d:%i' "$work") || fail startup_stage_changed
     fi
     if test "$expected" != "$(sha "$source")" || test "$expected_mode" != "$mode"; then
         remount rw || fail remount_failed
+        if test "$hold_mode" = keep; then
+            if absent "$held"; then
+                test "$(stat -c %i "$target")" = "${held##*-}" || fail console_identity_changed
+                ln "$target" "$held" || fail console_hold_failed
+            fi
+            access_hold_verify || fail console_hold_changed
+            flush f "$held"
+            flush d "$parent"
+        fi
         if absent "$work"; then
-            (set -C; : > "$work") || fail startup_stage_failed
+            if test "$hold_mode" = restore; then
+                access_hold_verify && test "$(stat -c '%a:%u:%g' "$held")" = "$mode" || fail console_hold_changed
+                ln "$held" "$work" || fail startup_stage_failed
+            else (set -C; : > "$work") || fail startup_stage_failed; fi
             identity=$(stat -c '%d:%i' "$work") || fail startup_stage_failed
         fi
         metadata "$mode" || fail invalid_startup_metadata
         # BusyBox cp replaces an existing inode. Preserve the exclusively
         # created stage's identity so the failure handler can remove it.
-        cat "$source" > "$work" && chown "$S_UID:$S_GID" "$work" && chmod "$S_MODE" "$work" || fail startup_copy_failed
+        if test "$hold_mode" != restore; then
+            cat "$source" > "$work" && chown "$S_UID:$S_GID" "$work" && chmod "$S_MODE" "$work" || fail startup_copy_failed
+        fi
         test "$(sha "$work")" = "$(sha "$source")" || fail startup_copy_changed
         flush f "$work"
         file "$target" && test "$(sha "$target")" = "$expected" &&

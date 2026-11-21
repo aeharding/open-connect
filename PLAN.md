@@ -27,8 +27,12 @@ with no fixed delivery slot. Each performance claim needs comparable measurement
 Developer options are implemented and bench-checked in the v74 development
 candidate; see [#103](https://github.com/aeharding/open-connect/pull/103) and the
 [access findings](docs/reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74).
-The next priority is **performance baselines**, including RAM. The deferred
-phase-1 manual and first-car checks remain separate.
+The first five-run-per-condition [startup/RAM comparison](docs/startup-comparison.md)
+found later Home and wired CarPlay with the pinned development candidate, higher
+CPU, and similar free RAM. Investigate that startup cost before service changes;
+the blocked order and one-unit fixture do not isolate its cause. Measurement
+collection is complete, with reproducible source and excluded attempts retained.
+The deferred phase-1 manual and first-car checks remain separate.
 
 | Phase | Outcome | Done when | Work |
 | --- | --- | --- | --- |

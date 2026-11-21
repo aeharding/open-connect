@@ -1,0 +1,3 @@
+condition,samples,first_uptime_s,last_uptime_s,cpu_busy_pct,MemFree_min_kB,MemFree_last_kB,Cached_last_kB,input_probe_sha256
+stock,59,337.59,397.09,14.309721872111588,204200,205004,216568,b726c1e4a6d116bd0e0985943951f8cdc7cee30f0949b78f99c4f1c08e399ea7
+open-connect,59,438.95,498.34,16.33425902549861,200584,201348,220900,b726c1e4a6d116bd0e0985943951f8cdc7cee30f0949b78f99c4f1c08e399ea7

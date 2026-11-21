@@ -157,7 +157,10 @@ The attempt CSV also retains native syslog markers and Linux boot-banner counts,
 so a final visible dashboard cannot hide a restart during observation.
 
 The UART export retains eight named native events, repeated occurrences and
-missing records. A unique new-boot syslog marker scopes each capture. Firmware
+missing records. A unique new-boot syslog marker scopes the extractor's output.
+**Discard UART event times whenever the attempt CSV has `kernel_boot_banners > 1`,
+even if the event CSV says `single_boot`.** A dropped second syslog marker can
+otherwise make two boots appear to be one. Firmware
 syslog-ng rewrites the prefix from `R_DATE`: these are receiver wall-clock
 timestamps, **not calibrated kernel uptime**. UART buffering/drops remain
 possible. DHCP-server startup is not proof of AP readiness; a session event is
@@ -188,11 +191,15 @@ has an independent restore command.
 
 Collector SHA256 remains
 `04ce5017e08a4e62823135eb6a560cefbc51289edda256ff5f2b1946b3d5a109`.
-The analysis revision passed 184 host tests with two explicit local skips and
+The analysis revision ran 184 host tests: 182 passed and two were skipped. It
 regenerated all four previously published Base comparison CSVs byte for byte.
 Capture provenance remains at its actual earlier revision.
 
-At the capture revision, with an already authenticated trusted SSH alias:
+The excluded coverage pilot used
+[`d29e87a0`](https://github.com/aeharding/open-connect/tree/d29e87a0664d832285dc41b474e8aabc1f77825a);
+its quoted coverage bounds retain that provenance. The commands below reproduce
+the pilot and primary blocks at `ab8993a5`, using an already authenticated trusted
+SSH alias:
 
 ```sh
 python -m open_connect.startup_reference --live --host my-cmu \
@@ -225,9 +232,12 @@ python -m open_connect.startup_wireless \
 
 The standalone plot uses Matplotlib 3.10.9 (`python -m pip install matplotlib==3.10.9`).
 Use `startup_frames` and `startup_annotate` for adjacent-frame bounds. Explicit
-`--camera-only` retains valid ACC observations without a missing clock mapping.
-Export checks raw resource framing/digests, saved traces and policy, available
-clock replies, adjacent PTS and annotation arithmetic. These checks do not replace
+`--camera-only` requires the clock mapping to be absent and retains valid ACC
+observations with unknown kernel time. Capture validates the transmitted
+`BOOT_TRACE_SHA` digest. Export reparses the saved trace framing, compares saved
+JSON/CSV data, and verifies policy, available clock replies, adjacent PTS and
+annotation arithmetic; it does not repeat the transmitted-digest check.
+These checks do not replace
 visual review. Only reviewed numeric exports and the standalone chart are public;
 OEM inputs, credentials, raw video/UART and personal map images stay private.
 Public CSV line endings are normalized to LF.

@@ -53,6 +53,9 @@ f.nodes["oc-usb-loader"].ocToken = "later-token";
 f.cleanup();
 assert.equal(f.nodes["oc-usb-loader"].ocToken, "later-token");
 f = fixture(true, true);
-assert.deepEqual(f.calls, [["reopen", "token"]]);
-assert.deepEqual(f.pending, []); // Installed Settings needs no replacement scripts.
+assert.deepEqual(f.calls, []); // The installed client's old deadline must not govern this package.
+assert.equal(f.pending.length, 1);
+assert.equal(f.pending[0].url, "file://localhost/tmp/oc-usb-abc/runtime.js");
+f.pending[0].loaded();
+assert.deepEqual(f.calls, [["token", true]]);
 assert.deepEqual(Object.keys(f.nodes), []);

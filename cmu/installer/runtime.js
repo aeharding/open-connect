@@ -27,7 +27,8 @@ var OpenConnect = (function (previous) {
     function request(operation, args, done) {
         if (stopped) { return; }
         var xhr = new XMLHttpRequest(), answered = false;
-        var deadline = setTimeout(function () { finish(null); xhr.abort(); }, 65000);
+        // Leave the server's bounded transaction time plus response headroom.
+        var deadline = setTimeout(function () { finish(null); xhr.abort(); }, 185000);
         function finish(answer) {
             if (answered) { return; }
             answered = true;

@@ -8,7 +8,7 @@ function fixture(previous, loadingUSB) {
     const fw = {_browserShown: true, getAppInstance() { return app; }};
     const app = {}, nodes = {};
     if (loadingUSB) { nodes["oc-usb-loader"] = {ocToken: token}; }
-    let store;
+    let store, now = 0;
     const ctx = {
         OpenConnect: previous,
         document: {querySelector() { return null; }, getElementById(id) { return nodes[id]; }},
@@ -17,13 +17,14 @@ function fixture(previous, loadingUSB) {
             nodes[attrs.id] = {parentNode: {removeChild() { delete nodes[attrs.id]; }}};
             done();
         }},
-        setTimeout(fn, ms) { timeouts.push({fn, ms}); return fn; }, clearTimeout() {},
+        setTimeout(fn, ms) { const timer = {fn, ms, at: now + ms, active: true}; timeouts.push(timer); return timer; },
+        clearTimeout(timer) { if (timer) { timer.active = false; } },
         setInterval(fn) { intervals.push(fn); return fn; }, clearInterval() {},
         XMLHttpRequest: function () {
             this.open = (method, url) => { this.method = method; this.url = url; };
             this.setRequestHeader = (name, value) => { this.type = value; };
             this.send = body => { this.body = body; requests.push(this); };
-            this.abort = () => {};
+            this.abort = () => { this.aborted = true; };
         },
         OpenConnectInstaller: {
             choose(fw, installed, done, version, retained) { choices.push({installed, retained, done}); return () => {}; },
@@ -46,6 +47,14 @@ function fixture(previous, loadingUSB) {
     }
     return {ctx, requests, choices, messages, reply, state,
         tick() { intervals.forEach(fn => fn()); },
+        advance(ms) {
+            const end = now + ms;
+            let timer;
+            while ((timer = timeouts.filter(t => t.active && t.at <= end).sort((a, b) => a.at - b.at)[0])) {
+                now = timer.at; timer.active = false; timer.fn();
+            }
+            now = end;
+        },
         retry() { const index = timeouts.findIndex(t => t.ms === 500); assert.ok(index >= 0); timeouts.splice(index, 1)[0].fn(); },
         get store() { return store; }};
 }
@@ -66,6 +75,28 @@ f.reply(install, f.state({installed: true, restart: true, revision: "c".repeat(3
 assert.equal(f.requests[2].body, token + "|" + "c".repeat(32) + "|restart|-|-|-");
 f.reply(install, f.state({installed: true, restart: true})); // Duplicate readyState event.
 assert.equal(f.requests.length, 3);
+
+// A complete access-preserving reinstall can exceed the former one-minute cap.
+f = fixture();
+f.ctx.OpenConnect.start(token, true);
+f.reply(f.requests[0], f.state({installed: true}));
+f.tick(); f.choices[0].done("install");
+const slowInstall = f.requests[1];
+f.advance(120000);
+assert.equal(slowInstall.aborted, undefined);
+assert.equal(f.requests.length, 2);
+f.reply(slowInstall, f.state({installed: true, restart: true}));
+assert.match(f.requests[2].body, /\|restart\|/);
+// A missing response still expires once and reconciles without resending.
+f = fixture();
+f.ctx.OpenConnect.start(token, true);
+f.reply(f.requests[0], f.state());
+f.tick(); f.choices[0].done("install");
+const lostInstall = f.requests[1];
+f.advance(185000);
+assert.equal(lostInstall.aborted, true);
+assert.equal(f.requests.filter(r => r.body.includes("|install|")).length, 1);
+assert.equal(f.requests.at(-1).body, token + "|-|status|-|-|-");
 
 f = fixture();
 f.ctx.OpenConnect.start(token, false);

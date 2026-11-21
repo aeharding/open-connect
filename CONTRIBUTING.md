@@ -20,11 +20,30 @@ Record the reviewed commit, findings and their disposition in the PR. Resolve
 blocking findings before merge. After changes, have the reviewer check the
 affected delta; a review of an earlier revision is not approval of new code.
 Keep this proportional: one focused review, not a standing review team.
+Use GPT-6.2-Astra for agent reviews, including major-plan reviews.
+
+## Review major plans without adding ceremony
+
+Get one independent adversarial review before substantial implementation of a
+major change to architecture, feature scope, delivery sequence or state/recovery
+design. A short approach and the relevant code or evidence are enough; no formal
+plan document or new approval process is required. Routine experiments and local
+implementation choices do not need separate plan reviews.
+
+Tell the reviewer the development stage: we are hacking on the bench, with no
+real-car installations yet. Ask whether the plan reaches a useful result quickly,
+which assumptions need an experiment, and what complexity or verification can be
+removed. Challenge execution overhead as well as correctness. Do not manufacture
+production requirements, speculative risks or findings to fill a checklist.
+Continue independent work while the review runs; resolve consequential findings
+before committing to the major implementation. The final PR still gets its normal
+review, focused on the actual delta rather than repeating the entire plan audit.
 
 ## Release implementation
 
-Complete the maintained USB install/restart/Settings/uninstall path. Targeted
-experiments resolve concrete blockers; another standalone preview is not delivery.
+Keep development moving toward the maintained USB install/restart/Settings/
+uninstall path. Use bounded experiments to learn; they need not be release blockers.
+An experiment is not a claim that the complete owner flow is qualified.
 The installer prerelease includes persistent features after USB removal and
 ordinary restarts, with repeated-start and bounded-recovery checks.
 Keep loader, UI and backend logic in static files. Make/shell invokes standard
@@ -53,10 +72,14 @@ python3 -m venv .venv
 For UI iteration, run `make check-ui` with Node.js. It exercises the maintained
 dialog, Settings, runtime and loader fixtures without a CMU, release build or
 private inputs. Batch small UI edits and use targeted native layout checks where
-needed. Qualify the final CI artifact through the complete hardware flow; repeat
-focused hardware checks when persistent state, publication or recovery changes.
-A wording change does not require another full install/update/uninstall cycle.
-The complete offline suite and CI checks remain required for the final revision.
+needed. Select hardware checks from the behavior changed. Complete lifecycle
+qualification belongs to changes in installer/state/recovery behavior and actual
+release claims; reuse existing evidence for unchanged mechanisms and name its
+revision. UI text, layout and read-only status changes need focused checks, not
+another complete install/update/uninstall cycle. The offline suite remains the
+final local check for host/code batches. Run the strict docs build when changing
+site content or configuration.
+Required CI checks still run on the final PR revision.
 
 Host code lives in tooling/open_connect/, with tests in tests/.
 The offline runner includes the CLI and bench profile and opens no physical device.
@@ -112,9 +135,12 @@ question this experiment answers, and evidence that would count as success.
 Check relevant existing implementations early and compare them with actual Mazda
 behavior. Label partial improvements and unproved proposals explicitly.
 
-Write a short approach and use one focused review. Reuse working instrumentation,
-check the real release entry point, then qualify the complete flow and undo. Use
-a separate experiment only when a specific unknown blocks that qualification.
+Use the major-plan review above when it applies. For routine experiments, choose
+the smallest useful next check and run it directly. Reuse working instrumentation,
+check actual entry points, and verify undo for effects introduced by the trial.
+Batch related checks and documentation; do not create a new script, audit or
+publication step for every command. Keep release qualification separate from
+exploration so experiments stay quick.
 Record firmware, bench profile, installed versus loaded code, and whether a
 failure occurred in the CMU or our tooling. Unknown outcomes stay unknown until
 reconciled. Tests and infrastructure must support the concrete question; avoid

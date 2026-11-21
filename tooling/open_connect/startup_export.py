@@ -96,9 +96,21 @@ def main():
         for run in range(1, 6):
             path = root / f"trial-{run}"
             if args.wireless:
+                from open_connect.startup_reference import validate_condition
+
                 meta = metadata[path]
                 assert meta["condition"] == recorded_condition and meta["base"] == base_choice
                 assert meta["wireless"] == 1 and meta["pandora"] == 1
+                # A failed fetch still needs independent evidence that the
+                # declared policy was applied before its ACC attempt.
+                validate_condition(
+                    (path / "preflight.out").read_bytes(),
+                    recorded_condition,
+                    pandora,
+                    None,
+                    base_choice,
+                    1,
+                )
                 camera = json.loads((path / "camera-result.json").read_text())
                 assert camera["video_verified"] is True
                 attempts.append(

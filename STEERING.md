@@ -33,7 +33,8 @@ Developer options development without waiting for those checks; retain the
 remaining qualification limits and do not claim a qualified release.
 Keep the two user-facing actions **Install/update** and **Uninstall**. Running Install again reinstalls it using verified originals;
 interrupted-operation recovery is internal behavior, not a separate Repair option.
-Keep the USB install prompt short. During installation and its automatic restart,
+Keep the USB install prompt short. The update prompt shows the installed and
+target versions, including same-version reinstalls. During installation and its automatic restart,
 tell users not to remove the USB drive or turn off the car. Show completion after
 restart, say the USB drive can now be removed, and offer Done and Open settings.
 Use Mazda’s own Settings list and a separate radio-choice page for each feature
@@ -138,9 +139,12 @@ retains ownership of live state and the complete outcome.
 The small **Developer options** page in Open Connect Settings is the agreed step
 before performance-baseline and Services work. Deferred manual bench and
 first-car validation do not block further development. The agreed
-controls are a UART root-console checkbox and owner SSH enable/disable with an
-Import public key option. The owner chose a password-free root shell over the
-physical UART connection, with a brief, matter-of-fact confirmation when enabling
+controls are labeled **UART** and **SSH**, with an **Import public key** option.
+Keep the normal Developer options title and three controls. Explain that changes
+apply after restart in the enable popups; omit the always-visible startup-state
+header and disabled notice rows. Link the UART pin/cable guide
+and explain SSH through a supported USB-to-network adapter in the owner docs.
+The owner chose a password-free root shell over the physical UART connection, with a brief, matter-of-fact confirmation when enabling
 it: passwordless root access over UART. Default
 both owner-access options off; preserve Mazda's original login/key behavior when
 off and restore the pre-install configuration on uninstall.
@@ -156,6 +160,14 @@ The owner suggested contextual documentation help, potentially an OEM-style Help
 dialog with a QR code and short link to the relevant docs section. This remains
 a proposal; placement and presentation are undecided. It does not expand the
 current access-controls implementation.
+
+The owner wants faster, automated development checks that reduce repeated
+installation cycles. Use the existing fast host UI fixtures during iteration. A temporary RAM-only
+native UI preview with simulated settings is the proposed next step, separate
+from real installer qualification and persistent writes. Batch
+UI edits before the final CI-built hardware cycle. Automate repeatable bench
+steps where useful and measure installer bottlenecks before optimizing them;
+retain durable transactions, original preservation and unknown-state refusal.
 
 ## Release implementation
 
@@ -195,8 +207,8 @@ plainly without making persistence a separate later milestone.
 
 User decision: support **one exact firmware baseline at a time**. Current required
 source baseline: **74.00.324A, North America (cmu150_NA)**, with exact source/API
-guards. Other v74 builds are unsupported. Earlier v55 releases remain historical
-evidence rather than a second maintained baseline.
+guards. Other builds are unsupported. Keep maintained documentation on this
+baseline; Git history preserves retired firmware guidance and experiments.
 
 The Mazda-hosted **74.00.324A NA** package is hash-verified, and owner-key
 development access has been demonstrated on that exact baseline. The maintained
@@ -296,10 +308,9 @@ cleanup, focus, last-app/audio/display-off behavior and the normal frontend life
 Use native changes when they are the right intervention; do not require them when
 an existing OEM mechanism provides a simpler correct result.
 
-The independent native bypass and paired renderer cleanup worked on firmware55,
-including undo and restored-stock startup. The subsequent upstream JS comparison
-and Snap experiment still showed a handoff. Their noncommercial code remains local;
-the first AGPL release needs an independently distributable implementation.
+The independent native bypass and paired renderer cleanup now have v74 CI-bundle
+startup and restored-stock evidence. Keep the implementation independently
+distributable under AGPL. Noncommercial comparison adaptations stay private.
 A clean bypass is the outcome; visual masking or timer reduction alone is not it.
 Do not indefinitely tune an unmeasured frame at the expense of a usable product.
 
@@ -317,13 +328,17 @@ architecture. Global disable must account for earlier service/configuration
 effects too; a late MMUI flag cannot undo them. Prefer boot-scoped changes over
 persistent edits that need repair before stock startup can resume.
 
-The revised [architecture proposal](docs/extension-architecture.md) recommends a
-small pre-consumer selector, immutable composed configurations and per-feature
-adapters. The early boundary has one-shot warm-boot and controlled native/JS fault evidence.
-The standalone installer now implements persistent startup; its bounded recovery
-and interruption evidence and remaining limits belong in the USB guide.
-Keep requested disable, verified baseline startup, automatic failed-start detection
-and full uninstall distinct. No hot-unload or universal crash-recovery promise.
+The owner requested a retrospective and deep plugin-architecture research,
+especially layering, conflicting changes, restoration in either removal order
+and dogfooding our own features. The [research proposal](docs/extension-architecture.md)
+recommends core-owned hooks, typed resource providers and the existing transaction.
+These are recommendations, not an approved framework implementation or new roadmap
+phase. A marketplace is a possible destination, not the current deliverable.
+Call features built-in plugins when they use the same package, conflict and
+removal contract as independent plugins; a label change alone is insufficient.
+Preserve unknown external edits and distinguish activation compatibility from the
+evidence required to release our own changes. Keep requested disable, baseline
+startup, failed-start fallback and complete uninstall distinct.
 
 User priority: prevent an endless watchdog boot loop first; avoid unnecessary
 safe-mode fallback after battery loss or an unrelated Mazda fault second.

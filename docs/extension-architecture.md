@@ -1,135 +1,210 @@
-# Architecture direction
+# Restoration and plugin architecture
 
-**Architecture research on 55.00.750B NA.** The maintained
-[USB installer](usb-installer.md) now implements persistent startup with a finite
-attempt budget and ACC-based renewal. Its [qualification evidence](reverse-engineering.md#standalone-installer-backend)
-supersedes the trial-only renewal limits below.
+**Research proposal for 74.00.324A NA; no plugin API is implemented.** The
+current installer has a useful restoration foundation, but its built-in features
+share specialized code and cannot yet be installed as independent plugins.
+A marketplace would require a package contract, compatibility and trust model
+in addition to a loader.
 
-Service policy, logging and native/JS code worked under one selection.
-A real native/JS feature now ran from selected files, then was omitted on the
-next boot without restoring installed feature files. Fault tests support finite
-fallback. A Home-only independent deadline now recovered one stuck-logo startup;
-other startup paths remain outside that Home-specific experiment.
+The proposed direction is **one core-owned integration point per hook, with
+registrations owned by plugins**, plus typed operations for configuration and
+persistent state. Keep the existing transaction and preserved originals. This
+proposal does not change the [delivery order](https://github.com/aeharding/open-connect/blob/main/PLAN.md)
+or authorize a framework implementation.
 
-## Earlier trial mechanism
+## What restoration means today
 
-Select one complete Open Connect configuration **before Mazda's services start**.
-On a fallback boot, skip its changes and let Mazda start normally.
+Uninstall returns affected resources to their **pre-install state**, not factory
+defaults. A saved absent touchscreen key differs from an explicit value. Existing
+SSH authorization must survive. “Factory Default” currently selects that saved
+touchscreen value; it need not be the value on a newly manufactured CMU.
 
-~~~mermaid
+The backend already provides a serialized writer, immutable inputs and snapshots,
+one durable before/after record, stale-request checks and recovery that preserves
+unknown later edits. Access configuration is regenerated from the saved baseline.
+The normal UI uninstall trial independently matched 19 intake hashes and metadata,
+the original login inode, stock native mappings and frontend startup, with physical
+root read-only. This is bounded single-unit evidence, not proof of every power-loss
+boundary. See [the actual CI identities and limits](reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74).
+
+| Operation | Current meaning |
+| --- | --- |
+| Preference off | Select saved original behavior while retaining Open Connect and its settings. Imported access keys may remain available for re-enabling. |
+| Failed-start fallback | Omit the optional disclaimer route and restore the saved touch value. The early display consumer observes that value on the following boot. Access is not revoked by this fallback. |
+| Reinstall | Keep the original baseline and preferences, validate current targets and dependencies, then publish a verified package. |
+| Uninstall | Restore owned targets, verify and flush restoration, then purge product state and remove its record last. Restart retires loaded code. |
+
+The maintainability limit is coupling: snapshot fields, API values, target checks,
+boot paths and UI code know individual feature names. There is no independently
+removable package unit. Every new feature should not need another special branch
+through each layer. The [existing transaction](https://github.com/aeharding/open-connect/blob/84471d2/cmu/installer/transaction.sh)
+and [resource lifetime handling](https://github.com/aeharding/open-connect/blob/84471d2/cmu/installer/access.sh)
+are worth retaining while reducing that coupling.
+
+## Hooks instead of independent wrappers
+
+Each firmware adapter would install its hook once. The core owns the original
+Mazda call, required cleanup and a table of selected registrations. Removing A
+builds the table from the surviving registrations; B never holds A's callback as
+its restoration handle. Initially, a changed table takes effect after restart.
+
+A host experiment using the current Settings `replace()` helper illustrates the
+problem with independent wrappers. Registering A then B called `B, A, Mazda`.
+Undoing A left that chain intact because B owned the current callback. Undoing B
+then exposed A again. The helper protects another writer, but does not provide
+arbitrary-order plugin removal. This is a synthetic host result, not a CMU trial.
+[Current helper and cleanup](https://github.com/aeharding/open-connect/blob/84471d2/cmu/installer/settings.js#L17-L23)
+
+A hook needs explicit semantics, rather than a universal priority number:
+
+| Hook type | Proposed combination rule |
+| --- | --- |
+| Named collection, such as Settings entries | Combine distinct stable IDs; reject conflicting duplicate IDs. The core preserves Mazda's callbacks and positional assumptions. |
+| Observation | Notify multiple subscribers without granting a veto over Mazda's call. In-process code still shares its host's latency and crash risks. |
+| Decision or replacement | Accept one behavior-changing owner unless a specific, tested combiner exists. Ordering two competing replacements does not make them compatible. |
+| State consumed elsewhere or earlier | Use a typed resource provider with the correct timing, verification and undo. A late JavaScript hook cannot undo an earlier NVRAM or service-policy change. |
+
+This has useful prior art. [Harmony](https://harmony.pardeike.net/v3/articles/basics.html#unpatching)
+removes owned registrations and rebuilds from the original method and remaining
+patches. Its managed runtime is not available on the CMU. [Tapable](https://github.com/webpack/tapable#hook-types)
+distinguishes notification, first-result and transformation hooks. [Linux ftrace](https://docs.kernel.org/5.18/trace/ftrace-uses.html)
+defines callback retirement and restricts instruction-pointer-changing owners.
+These are design precedents, not libraries we propose installing on Mazda.
+
+## Shared files and conflicts
+
+A resource provider is the sole physical writer. Plugins declare contributions
+to canonical resources or named slots; the provider defines combination rules,
+read dependencies, metadata, validation and lifetime. It can publish a complete
+file while assigning ownership at a smaller granularity. [Debian's shared-configuration policy](https://www.debian.org/doc/debian-policy/ch-files.html#sharing-configuration-files)
+uses one owner and a shared modifier. [Kubernetes field ownership](https://kubernetes.io/docs/reference/using-api/server-side-apply/#merge-strategy)
+shows why keyed collections and indivisible resources need different rules.
+
+```mermaid
 flowchart TD
-    Boot["Mazda startup"] --> Select{"Valid trial / attempts available?"}
-    Select -->|No| Baseline["Start baseline configuration"]
-    Select -->|Yes| Consume["Reserve attempt + verify flush"]
-    Consume -->|Failure or timeout| Baseline
-    Consume -->|Success| Trial["Start selected configuration"]
-    Trial --> Watch{"Home acknowledgement?"}
-    Watch -->|Received| Ready["Finish startup observation; keep attempt spent"]
-    Watch -->|Deadline expires| Restart["Request normal reboot"]
-    Restart --> Boot
-    Trial -->|Mazda watchdog reset| Boot
-~~~
+    P["Bundled and independent packages + owner choices"] --> V["Validate one desired set and its claims"]
+    B["Preserved resource baselines"] --> C["Core hooks and firmware resource providers"]
+    V --> C
+    C --> G["One immutable generation"]
+    G --> T["Existing durable before/after transaction"]
+    T --> R["Verified publication and boot selection"]
+```
 
-An attempt is spent before optional code starts. A new configuration gets one
-startup until explicitly confirmed. Confirmation does not refund that attempt.
-Once the finite budget is exhausted, the next boot selects baseline—even when
-the previous startup reached Home before failing.
+Capture a resource's valid as-found bytes, absence, metadata and required identity
+at its first acquisition. A later plugin sharing that resource reuses its existing
+baseline. A newly acquired resource gets its own recorded provenance. Upgrades
+must carry those baselines forward.
 
-“Baseline” means Open Connect features are off. The small installed integration
-point remains; this is different from uninstalling it.
+Remove A by generating **baseline + surviving contributions**, not by restoring
+A's backup over B. Preserve untouched bytes and comments where the provider
+promises a lossless edit. Reject ambiguous input. For example, the core frontend
+route and disclaimer native route alter different entries in both service-manager
+profiles. One provider can generate each profile with both contributions, then
+omit only the disclaimer route on removal. Preserve the actual board decision.
 
-## Release responsibilities
+Disjoint text or byte ranges are insufficient evidence of compatibility. A second
+host experiment merged two individually valid JSON changes without a Git conflict,
+yet produced a route pointing at a renamed service. Validate the resulting
+consumer relationships. Native edits can also share layout, ABI or scratch-space
+dependencies. Keep opaque binaries and behavior replacements exclusive until a
+provider qualifies a finer-grained contract. Filesystem overlays alone hide a
+lower file rather than combining its fields.
 
-| Part | Job |
+## External mods and removal authority
+
+Cooperating plugins can use this contract. Arbitrary root scripts can change
+undeclared files or external state, so they cannot receive a universal undo
+guarantee. A checksum establishes content integrity, not publisher trust or
+confinement of native code, renderer JavaScript or root shell scripts.
+
+The current uninstall requires the complete dependency list to match. This can
+block restoration after an external edit to a file Open Connect only reads.
+Separate evidence needed to **activate** a feature from evidence needed to
+**release its owned changes**. This is a proposed improvement, not a current
+exception to the installer's guards.
+
+| Observation | Proposed treatment |
 | --- | --- |
-| Build tools | Compile original native code with standard tools and package static installer files plus data manifests into one USB bundle |
-| CMU installer | Verify the unit's own originals, compose feature files, and own install/uninstall/recovery through one durable transaction record |
-| Early selector | Choose baseline or one configuration before affected services start |
-| Firmware adapters | Connect each feature to the Mazda component that owns its behavior |
-| Bench tools | Instrument and verify the device; installation must not depend on them |
+| A removed plugin's activation-only dependency changed | Allow removal only if restoration inputs, owned targets and surviving configuration verify. Leave the changed dependency untouched. Qualify this per provider. |
+| Firmware or an input needed for restoration changed | Refuse; retain originals and a compatible recovery path. Never replay old offsets or bytes into another firmware. |
+| A managed target has an external edit | Initially refuse the requested transition before writes. Report the resource and preserve the edit. Any future semantic import needs separate ownership and recovery tests. |
+| An OEM source used for a private shadow changed | Refuse stale activation too: a private copy can hide the owner's edit without overwriting the source. |
 
-The product path is a small static USB loader, static installer UI and a CMU-local
-backend. Use one explicit UI/backend command contract. Experimental image-request,
-receiver and D-Bus callback chains are evidence, not the default product design.
-Keep runtime tokens, paths and ports as data; avoid generated application scripts.
-The build uses Make/shell and standard compiler/linker tools, not a Python packager
-or custom ELF linker. Full OEM files stay on the head unit or in private research.
+Recheck publication preconditions under the lock. The record does not make
+multiple files plus NVRAM atomically visible to arbitrary running consumers.
+Select complete generations before consumption or require restart. A third state
+found during recovery remains preserved, including evidence of any targets already
+changed. Automatic merging of unmanaged edits is a separate promise.
 
-Compose startup configuration from verified on-device originals where needed.
-Add native or JS code where the behavior needs it. A runtime loader alone starts
-too late to control earlier services.
+## Lifetime, upgrades and recovery
 
-## Product scope
+Keep one authoritative record pointing to the baseline, committed generation and
+precise before/after generations while prepared. Immutable manifests may describe
+package versions, options and claims without becoming competing operation records.
+Distinguish requested, committed and startup-selected state from independently
+observed behavior.
 
-Startup/disclaimer behavior, unused services, logging and performance, OEM
-controls, and phone/audio reliability. Preserve Mazda's appearance. Bench-only
-helpers remain a separate development profile.
+A migration must preserve selections and existing baselines, validate the entire
+surviving set, and keep the old reader and inputs until retirement. Finish a pending
+old transaction with its recorded semantics before migrating. Removal must work
+from verified local evidence even if the original plugin distribution disappears.
+Do not require a downloaded uninstaller. Removing a provider with active dependents
+needs an explicit combined plan; arbitrary removal order applies to independent
+plugins, not missing prerequisites.
 
-Compose shared-file changes together rather than stacking patches over previous
-installations. Service changes must account for their remaining consumers.
+Loaded native mappings, callback tables, open login scripts and authorized-key
+references have lifetimes beyond a pathname replacement. Retain required holds
+and generations until their readers retire. The original login needs its
+same-filesystem hardlink even for a read-only remount. Claim restored running
+behavior only after restart and independent checks. Keep the existing finite boot
+budget; a ready screen must not erase protection against later faults. The current
+fallback's treatment of developer access must remain explicit.
 
-## Recovery direction
+The 44.434-second prepared maintenance recovery does not establish that a larger
+plugin set fits the current 25-second startup wrapper. Measure both boot and
+180/185-second service/client paths, RAM and storage as part of any migration.
 
-- Record an attempt **before** optional effects. New configurations start as trials.
-- Missing or invalid control selects baseline.
-- Repeated failures must exhaust a finite attempt budget. Startup-ready alone
-  must not replenish it.
-- Preserve the user's selection when falling back; a reset does not identify
-  which component caused it.
-- Recovery must work without optional native code, the GUI or networking.
+## Dogfooding before marketplace work
 
-The [reset comparison](reverse-engineering.md#a-reset-label-is-not-a-cause-classifier)
-found the same “Power-up” word after normal reboot and watchdog reset. That label,
-a ready screen or a shutdown request must not grant fresh attempts.
+Use **built-in plugins** once our separately packaged features use the same
+admission, options, conflicts, removal and recovery contract as an independent
+package. Renaming today's feature directories alone would not achieve that.
+[VS Code's bundled JSON manifest](https://github.com/microsoft/vscode/blob/main/extensions/json/package.json)
+uses a [public contribution point](https://code.visualstudio.com/api/references/contribution-points#contributes.languages),
+a concrete precedent for testing the same extension surface internally.
 
-The prototype charges every selected boot. Its **two-attempt limit is a test
-parameter, not the product policy**. An explicit maintenance operation can renew
-a confirmed generation's budget; its stale-command checks have host coverage.
-Keep the current budget on a same-boot ACC resume. On v55 a brief interruption
-produced both ignition events and returned to Home within the same boot. The Home-specific supervisor can request a reboot
-when processes stay alive without a usable Home screen. Other intended screens
-and display-off behavior need their own evidence before enabling that policy.
-This cannot rescue a broken kernel, baseline or bootstrap.
+| Existing feature | Contribution through the proposed contract | Mechanics retained in reviewed providers |
+| --- | --- | --- |
+| Touchscreen | Radio entry and a typed claim on the display restriction setting | Exact display compatibility, absent/enable/disable state, commit/readback and early-reader timing |
+| Disclaimer | Radio entry and paired native continuation/renderer contributions | Exact native layout, both service profiles, mandatory Mazda cleanup and boot-long loaded lifetime |
+| Developer access | Default-off controls, public-key import and selected access claims | Login inode hold, metadata, SSH parser/config validation and preserved existing authorization |
 
-## Evidence so far
+A bounded first slice would add one core Settings registration point and one
+resource provider, then convert our features with UI/uninstall parity. A separate
+offline package must add a new named entry without its ID being compiled into the
+core or renderer. Repackage one of our own definitions independently and exercise
+the same lifecycle. A private list of hard-coded built-ins fails that proof.
 
-| Test | Result |
-| --- | --- |
-| Developer CLI cycle | Build/prepare/trial/status/disable completed; selected state reconciled after a console-check failure, baseline return automatic |
-| Paired disclaimer feature | Selected native bypass and JS cleanup ran together; next boot omitted both without feature-file restoration |
-| Home acknowledgement | Real browser delivered a generation/current-boot signal to an independent receiver; camera confirmed Home |
-| Missing native module, responsive GUI loop | Independent deadline requested a normal reboot; spent trial selected baseline and Home returned |
-| Combined service/logging/native/JS trial | All four effects selected; following baseline omitted all four |
-| Two ordinary warm boots | Trial selected once; baseline selected next |
-| Native MMUI process crash | Mazda watchdog reset; baseline selected next |
-| Late crash after two selected, ready startups | Confirmation kept the first charge; exhausted budget selected baseline and omitted all four effects |
-| Trial-only JS event-loop hang | Mazda closed Opera after missed heartbeats, then reset; original entry page returned |
-| Full power cut after a flushed record | Consumed record survived |
-| Cut after early commit, before services | Spent record survived; next boot chose baseline |
+Before calling that slice complete, require:
 
-The JS result needed Mazda's saved crash log plus fresh postboot checks: serial
-logging lagged behind the reset. The original observer's incomplete result remains
-unchanged. Power cuts covered a completed runtime write and an explicit pause
-after the early record flush, before services. Neither cut interrupted rename/fsync.
-Each fault/power case has one actual observation; voltage settings were unchanged.
+- **Composition:** independent A/B contributions installed in either order yield
+  identical outputs and behavior. `AB → B` equals clean B-only, and vice versa.
+- **Conflict refusal:** duplicate keys, competing decisions, semantic dependencies
+  and layout-dependent binary edits fail before publication with useful reasons.
+- **Removal and lifetime:** no removed wrapper reappears; surviving callbacks and
+  Mazda's continuation run correctly after the selected restart boundary.
+- **External edits:** preserve unknown targets and distinguish retired activation
+  dependencies from necessary restoration inputs. Exercise edits after prepare.
+- **Upgrade and interruption:** retain B and owner options across A's schema change;
+  recover each publication/purge boundary without blind UI retries. Lost package
+  distribution must not prevent removal.
+- **Last removal:** restore acquired resources to their saved values, including
+  absence and existing authorization. Whole-product Uninstall additionally removes
+  the host, state, keys and holds and verifies stock loaded code and read-only root.
 
-All trial hooks were removed. Existing bench modifications remained.
-[CMU findings](reverse-engineering.md#startup-selection-and-reset-evidence)
-explain the evidence and limits.
-
-## Next proof
-
-- **Repeatability:** use the [maintained installer workflow](installer-development.md) for
-  further measured trials. Repeated healthy starts and last-app/display-off
-  qualification are needed before treating Home as a broader health policy.
-  [Actual signal and limits](reverse-engineering.md#a-home-specific-acknowledgement).
-- **Renewal:** the installer now uses sustained ACC off followed by a different
-  kernel boot with ACC on. Full shutdown, quick resume, software reset and a late
-  watchdog fault were checked. Broader vehicle conditions remain unqualified.
-- **Durability:** qualify interrupted record updates, beyond completed-flush cuts.
-
-The standalone USB installer development prerelease includes persistent startup
-for the installed features. Its transaction and lifecycle checks are described
-in the USB guide. The superseded one-shot trial policy is retained in Git history.
-No general plugin framework is needed.
-Track the work in [#25](https://github.com/aeharding/open-connect/issues/25).
+Package admission, executable capabilities, publisher trust and distribution remain
+product decisions. Bounded declarations over supported hooks are a proposed first
+scope; a public native/JavaScript ABI needs a separately specified trust and
+lifetime contract. No catalog or marketplace implementation is proposed for the
+current release. Private research and both host examples are recorded under
+`runs/plugin-architecture-20261120/research.md`; OEM inputs remain private.

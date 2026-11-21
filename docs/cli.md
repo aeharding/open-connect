@@ -60,10 +60,7 @@ Use the [installer development guide](installer-development.md#private-firmware-
 to check the actual Make/shell release against private exact-original firmware
 files. This is host validation and does not install anything on the CMU.
 
-The former v55 one-shot feature CLI and Home supervisor are retired. Their
-[source and walkthrough](https://github.com/aeharding/open-connect/blob/79b5b562086acfb615c50807395c21adae5e1e7c/docs/disclaimer-development.md)
-remain historical evidence. Use the maintained USB backend for installation,
-settings, recovery and removal.
+Use the maintained USB backend for installation, settings, recovery and removal.
 
 ## USB installer build
 
@@ -111,7 +108,8 @@ A verified status may correctly report inactive or expired ownership.
 Raw UART evidence is private under the requested runs/ bundle.
 
 [Host tests](https://github.com/aeharding/open-connect/blob/main/CONTRIBUTING.md) cover these operations without hardware.
-[Audio Manager findings](reverse-engineering.md#silent-entertainment-without-a-tau) summarize the bench result.
+The [v74 qualification record](installer-development.md#qualification) describes
+the silent bench fixture and its limits.
 
 ## Capture the CMU screen over SSH
 

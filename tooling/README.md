@@ -25,8 +25,7 @@ its current qualification limits.
 - bench.py: the runtime development profile.
 
 Target source lives in cmu/; maintained tests live in tests/. The optional
-private validation entry is tests/check_firmware.py. The obsolete v55 one-shot
-builder, selector and Home supervisor are retained in Git history.
+private validation entry is tests/check_firmware.py.
 
 Make/LLVM compiles the native assets using standard tools. The public build uses
 neither the Python package nor private OEM files.

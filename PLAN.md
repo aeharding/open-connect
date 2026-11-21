@@ -44,14 +44,13 @@ specific release blockers rather than becoming a separate product milestone.
 
 ## Phase 1: finish the v74 release
 
-The published development installer still supports exactly **55.00.750B North
-America / cmu150_NA**. Current source targets **74.00.324A NA / cmu150_NA**; qualification is in progress.
+Current source targets exactly **74.00.324A NA / cmu150_NA**; release
+qualification is in progress. A qualified download is not published yet.
 The verified Mazda package and demonstrated [v74 development access](docs/reverse-engineering.md#owner-key-access-after-the-replacements-v74-upgrade)
 make the port possible; they do not qualify the features or a general upgrade
 procedure. The owner has confirmed the car matches **74.00.324A NA**; retain the
 installer’s exact identity/source checks before writes.
-Move support to v74 together once qualified; do not build a v55/v74 support matrix
-or reuse old patch offsets.
+Maintain one exact baseline; do not add a firmware matrix or reuse unchecked patch offsets.
 
 1. **Establish the stock baseline.** Complete the read-only intake, identify the
    board and actual startup branch, preserve originals/metadata and touch NVRAM,
@@ -62,7 +61,7 @@ or reuse old patch offsets.
    tracks this fixture. Hardware waits gate only the checks that need them.
 2. **Port the two features.** Adapt the startup integration, disclaimer bypass,
    renderer lifecycle, touch setting and Settings pages to exact v74 inputs.
-   Resolve native code placement rather than replaying the v55 layout. Preserve
+   Use the exact native code placement for this image. Preserve
    normal initialization, cleanup, last-app/audio and display-off behavior.
 3. **Qualify one CI-built USB bundle.** Exercise install, restart, persistence,
    Settings, update/reinstall and full uninstall. Test conflicting edits,
@@ -79,16 +78,16 @@ or reuse old patch offsets.
    two features and normal controls in the real vehicle,
    document the limits, and publish the supported release and matching owner guide.
 
-The v55 prerelease supplies working installer mechanisms and prior evidence,
-not a fresh v74 qualification. See the [installer development guide](docs/installer-development.md).
+See the [installer development guide](docs/installer-development.md) for current
+artifact identities, passed checks and remaining qualification limits.
 Keep **Install/update** and **Uninstall** as the two maintenance actions. Preserve
 verified originals until restoration succeeds; uninstall removes installed files,
 backups and transaction state. See [uninstall behavior](docs/uninstall.md).
 
 ## Phase 2: keep developer access small
 
-Use Open Connect’s OEM-style Settings entry. The agreed controls are a **UART
-root-console checkbox** and **owner SSH enable/disable with Import public key**.
+Use Open Connect’s OEM-style Settings entry. The controls are **UART** and
+**SSH** checkboxes with **Import public key**.
 Diagnostic logging is separate from interactive login. The private key stays on
 the owner’s computer. Both owner-access options default off. Enabling UART gives
 a password-free root shell over the physical serial connection, with a short
@@ -130,8 +129,9 @@ not a preset purge. Only expose qualified choices; show actual/pending state and
 restart requirements, preserve normal OEM behavior and verify uninstall restores
 the original selection/configuration. Publish negative results as well as gains;
 reduced process counts or RSS alone are not proof of better responsiveness.
-Use the [boot configuration architecture](docs/extension-architecture.md) for
-service changes. [#86](https://github.com/aeharding/open-connect/issues/86)
+Consider the restoration and shared-resource requirements in the
+[architecture research](docs/extension-architecture.md) when selecting service
+changes; the proposed plugin framework is not a prerequisite. [#86](https://github.com/aeharding/open-connect/issues/86)
 owns the menu, and [#9](https://github.com/aeharding/open-connect/issues/9) owns the measurements.
 
 ## Phase 5: improve native wireless CarPlay
@@ -162,6 +162,13 @@ persistence, independent recovery and exact pre-install restoration. Qualify the
 earliest effective firmware control; suppression after Home is not total disable.
 This is a follow-up after the first release with no fixed slot yet. See
 [#87](https://github.com/aeharding/open-connect/issues/87).
+
+**Plugin architecture — research requested.** The retrospective proposes
+core-owned hooks and typed resources for layering and conflicts, with built-in
+features dogfooding the same contract as independent packages. See the
+[proposal and acceptance cases](docs/extension-architecture.md). Package scope,
+executable/trust boundaries and implementation timing remain decisions; this
+research does not add a phase or authorize a marketplace build.
 
 **Connected maintenance — proposed.** Explore an explicit switch from wireless
 CarPlay to a phone/home hotspot and a reliable return. Concurrent modes are not

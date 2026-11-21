@@ -9,8 +9,6 @@ touchscreen access while moving and whether to show the startup disclaimer.
 > A qualified v74 download is not published yet. See
 > [development and qualification](installer-development.md) for current limits.
 
-Earlier v55 development downloads remain in the
-[release archive](https://github.com/aeharding/open-connect/releases).
 The screenshots show the **0.3.0-dev.1 v74 development build**. Release
 qualification remains in progress.
 
@@ -70,8 +68,14 @@ for future starts.
 ## Updating an existing installation
 
 Prepare a USB drive from the new release in the same way. Insert it while
-Mazda Connect shows its main screen and choose **Install/update**.
-Your Open Connect preferences are kept.
+Mazda Connect shows its main screen. The prompt shows **From** (the installed
+version) and **To** (the version on the drive), including same-version reinstalls.
+Choose **Install/update**. Your Open Connect preferences are kept.
+
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/update.png" alt="Open Connect update prompt showing From 0.3.0-dev.3 and To 0.3.0-dev.4, with Cancel, Install/update and Uninstall buttons." width="800" height="480" loading="lazy"></div>
+  <figcaption>Check the installed and target versions before choosing Install/update.</figcaption>
+</figure>
 
 ## Existing modifications
 

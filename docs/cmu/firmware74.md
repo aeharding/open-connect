@@ -1,9 +1,10 @@
-# Preparing the move to firmware 74
+# Firmware 74 integration
 
 **Current source targets exactly 74.00.324A / cmu150_NA; release qualification
 is in progress.** This records the input analysis and local porting evidence.
-It does not establish a general firmware upgrade procedure. Earlier v55 releases
-remain historical; there is one maintained baseline.
+It does not establish a general firmware upgrade procedure. There is one
+maintained baseline; [installer qualification](../installer-development.md#qualification)
+records the actual CI artifacts and remaining limits.
 
 ## Verified input
 
@@ -42,9 +43,9 @@ the exact-base inputs used by the adapter, not a supported-device verdict.
 
 The existing normal-mode anchor is still present once in `autostart`. After that
 anchor, v74 runs `get_board_type.sh` and starts the Service Manager with either
-`SMCFG_NORMALMODE` (`sm.conf`) or `SMCFG_WCPMODE` (`sm_WCP.conf`). The old v55 Open
-Connect hook assigned only `SMCFG_NORMALMODE`. Reusing it unchanged can leave the
-wireless branch outside our selected configuration.
+`SMCFG_NORMALMODE` (`sm.conf`) or `SMCFG_WCPMODE` (`sm_WCP.conf`). Assigning only
+the normal-mode variable would leave the wireless branch outside the selected
+configuration.
 
 Preserve the actual board branch and compose from its verified original service
 configuration. Do not force the normal configuration onto a wireless board or
@@ -58,14 +59,13 @@ The persistent `ublox.txt` marker alone does not establish hardware identity.
 
 ### Native disclaimer bypass
 
-The v55 payload cannot be relocated by changing version strings. In the v74
-system UI library, symbol and table analysis establishes:
+In the exact system UI library, symbol and table analysis establishes:
 
 | Integration point | v74 observation |
 | --- | --- |
 | Context machine | VA `0x83dac`: 24 columns, 166 rows, 249 cells |
 | Current context | `systemCurrentContext`, VA `0x77d48` |
-| Intro context | ID **1023**, column index **10**; v55 uses 1021 and index 9 |
+| Intro context | ID **1023**, column index **10** |
 | ShowDisclaimer event | ID **1491**, cell index **88**, one rule leading to Disclaimer 1012 |
 | Disclaimer timeout continuation | Event **1502**, cell index **238**, **13 ordered rules**, VA `0x88f5c` |
 | Disclaimer Yes continuation | Event **411**, cell index **239**, **12 ordered rules**, VA `0x89198` |
@@ -87,8 +87,7 @@ The v74 executable `PT_LOAD` ends at
 file offset **`0x6f79c`**, where the writable segment's file bytes immediately
 begin (mapped at VA `0x7779c`). There is no file padding there for the current
 append-and-extend technique. Extending the executable segment and writing our
-payload there would overwrite live data. The old v55 injection offset `0x48c00`
-also falls inside v74 code. The maintained port now inserts an aligned file
+payload there would overwrite live data. The maintained port inserts an aligned file
 interval while preserving virtual addresses; its first loader check passed.
 See the [port and failure evidence](../reverse-engineering.md#v74-installer-port-and-native-code-placement).
 This does not qualify the complete release.
@@ -100,8 +99,8 @@ and standard assembler-emitted length/pointer words.
 
 ### Renderer, Settings and touch
 
-`index.html` is byte-identical to the v55 input. The system app, BaseApp and GUI
-framework are not. The v74 `IntroAnimation` still has no
+The exact system app, BaseApp and GUI framework are guarded independently.
+The `IntroAnimation` context has no
 `noLongerDisplayedFunction`; BaseApp still supplies that lifecycle callback, and
 GuiFramework hides outgoing native surfaces before calling it from
 `_templateTransitionCompleteCallback`. The initial offline check inserted the old
@@ -127,8 +126,8 @@ produces SHA-256
 Host regression checks, a local update/restart and the matched prepared-record
 supply interruption pass; reviewed CI qualification remains in progress.
 See the [native and visible failure evidence](../reverse-engineering.md#v74-installer-port-and-native-code-placement).
-Do not reuse the v55 insertion offset or composed-file hash. Settings must
-also be checked against the new `syssettingsApp.js`, including list refresh,
+Do not transplant insertion offsets or composed-file hashes. Settings must
+also be checked against the exact `syssettingsApp.js`, including list refresh,
 radio selection, Back, and the About row's positional assumptions.
 
 The v74 LVDS function `LVDS_getSpeedRestconfigNVRAM` at VA `0x3bf9c` reads the same
@@ -185,10 +184,10 @@ stop on mismatching original hashes rather than overwriting them.
    unsupported layout or a transient process, not a broken CMU. A changed boot ID
    exits 75. Even a complete intake is an observation, not an atomic backup or
    installation authorization.
-3. **Select the next operation from the evidence.** On exact v55, the published
-   development bundle remains the available installer. On exact v74, finish the
-   adapter against the hashes above. For any other starting firmware, establish
-   the applicable official route before flashing. Save the replacement's own
+3. **Select the next operation from the evidence.** Use the development bundle
+   only on the exact supported firmware and source hashes above. For any other
+   starting firmware, establish the applicable official route before flashing.
+   Save the replacement's own
    original files and touch state; never restore the outgoing CMU's backups onto
    it. Prepare and verify independent undo through the confirmed access path.
 4. **Qualify the whole selected baseline.** Verify USB insertion, Install,
@@ -197,8 +196,8 @@ stop on mismatching original hashes rather than overwriting them.
    bundle. Compare stock/enabled/restored physical touch under the same reproduced
    restriction. Include last-app, display-off and CarPlay in disclaimer checks.
    Confirm actual loaded modules and original startup after removal, not just disk
-   hashes. Recheck touchscreen fallback timing; the v55 recovery intentionally
-   restores the preference for the next boot without requesting another restart.
+   hashes. Recheck touchscreen fallback timing; recovery restores the preference
+   for the next boot without requesting another restart.
 
 For already verified SSH and a confirmed BusyBox `timeout -t` interface, a bounded
 intake invocation from the checkout is:

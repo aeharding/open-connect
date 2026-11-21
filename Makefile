@@ -18,11 +18,17 @@ NATIVE_FLAGS = --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard \
     -mfpu=vfpv3 -Oz -ffreestanding -fPIC -fvisibility=hidden \
     -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector
 
-.PHONY: release native
+.PHONY: release native check-ui
 release: native $(OUT)/api $(OUT)/flush $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin count-pointer.bin)
 	sh tooling/package-usb.sh "$(OUT)"
 
 native: $(OUT)/native.bin $(OUT)/branch.bin $(OUT)/sizes.bin $(OUT)/layout.bin
+
+check-ui:
+	node tests/fixtures/installer-dialog.js cmu/installer/dialog.js
+	node tests/fixtures/installer-settings.js cmu/installer/dialog.js cmu/installer/settings.js
+	node tests/fixtures/installer-runtime.js cmu/installer/runtime.js
+	node tests/fixtures/usb-loader.js cmu/installer/loader.js
 
 $(OUT):
 	mkdir -p "$@"

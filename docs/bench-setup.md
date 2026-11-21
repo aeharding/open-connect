@@ -41,7 +41,7 @@ hide:
 <p class="kit-options"><strong>Optional:</strong> USB Ethernet adapter + network cable; camera for recordings; Micro-USB data cable for DPS150 control.</p>
 <details class="bench-detail"><summary>CarPlay hub instead of the stock hub</summary>
 <p>OEM references: <a href="https://www.mazdaswag.com/oem-parts/mazda-genuine-oem-mazda-android-apple-car-play-auxiliary-unit-c922-v6-605a-required-for-installation-tk78669u0e">TK78-66-9U0E hub</a> (replaces C/D revisions) and <a href="https://www.mazdapartsfactor.com/oem-parts/mazda-smartphone-screen-mirroring-kit-c922v6605a">C922-V6-605A cable kit</a>. Aftermarket kits often use these reference numbers; that does not make them OEM.</p>
-<p>Upgrade to compatible firmware <strong>before</strong> connecting the retrofit hub. Use the stock hub for a v55 bench; our incoming aftermarket kit is not yet qualified.</p>
+<p>Upgrade to compatible firmware <strong>before</strong> connecting the retrofit hub. Our v74 bench has demonstrated wired CarPlay, USB storage and Ethernet through a compatible retrofit hub; this does not qualify every aftermarket kit.</p>
 </details>
 </section>
 
@@ -125,7 +125,7 @@ hide:
 <h3>Computer-controlled ACC</h3>
 <p>For automated testing, use a USB serial relay such as a <a href="https://ae01.alicdn.com/kf/S61b00d8484144b179c33e457e19f6f16l.pdf">USB-C LCUS-1</a> in the switch position above.</p>
 <p><strong>Fused B+ → COM</strong> · <strong>NO → ACC rail</strong> · <strong>NC → leave unused</strong><br>Computer USB → relay USB-C for power and control.</p>
-<span>Follow the board's terminal labels; COM carries +12 V here, not ground. The relay switches ACC while B+ stays on. The v55 bench verified commanded OFF and ON. Verify your relay’s default state at USB power-up before unattended use.</span>
+<span>Follow the board's terminal labels; COM carries +12 V here, not ground. The relay switches ACC while B+ stays on. The v74 bench verified ACC OFF and ON through this relay. Verify your relay’s default state at USB power-up before unattended use.</span>
 </div>
 <div class="short-notes"><p><strong>Before connecting:</strong> power off; verify nominal 12 V with modules disconnected; fit an inline fuse sized for the harness.</p><p><strong>Normal shutdown:</strong> ACC off first, with B+ retained. Turning the supply output off is a full power cut.</p></div>
 </section>
@@ -154,7 +154,7 @@ hide:
 <details class="bench-detail"><summary>Stock USB hub, firmware and supply notes</summary>
 <ul>
 <li><strong>Stock hub:</strong> use its original keyed USB cable instead of the two retrofit cables. Keep the power plug.</li>
-<li><strong>CarPlay hub:</strong> requires compatible CMU firmware before installation. The v74 replacement has owner-reported wired CarPlay and verified Ethernet SSH; full projection qualification remains separate.</li>
+<li><strong>CarPlay hub:</strong> requires compatible CMU firmware before installation. The v74 bench has exercised wired CarPlay and Ethernet SSH. Physical input, audio and broader projection reliability remain separate qualification work.</li>
 <li><strong>DPS150 input:</strong> it is step-down only. Use a supported PD/QC or DC source above 12 V; an ordinary 5 V USB supply is insufficient. Use one power input at a time.</li>
 <li><strong>Existing lab:</strong> leave its verified DPS150 voltage setting unchanged. Use the relay to cycle ACC while the supply keeps B+ on.</li>
 </ul>
@@ -171,7 +171,7 @@ python -m serial.tools.miniterm --rts 0 --dtr 0 --eol CR UART_PORT 115200</code>
 <p>Replace UART_PORT with your adapter. Exit with <strong>Ctrl+]</strong> before using <a href="cli.md">oc commands</a>; only one program can own the port.</p>
 </details>
 <p><strong>V74 access:</strong> UART output and its login prompt are present, but replacement-bench console credentials remain unqualified. Owner-key SSH works separately; see the <a href="reverse-engineering.md#owner-key-access-after-the-replacements-v74-upgrade">access evidence</a>. The installer does not require developer login.</p>
-<p>For command operations, establish an authenticated UID-0 console shell and close the terminal before using <code>oc</code>. Read-only serial receive does not need a login. The old <code>root</code> / <code>jci</code> result belongs to the historical v55 bench and is not a v74 login instruction.</p>
+<p>For command operations, establish an authenticated UID-0 console shell and close the terminal before using <code>oc</code>. Read-only serial receive does not need a login. Do not guess login credentials. The optional <a href="developer-options.md#uart">UART setting</a> provides a passwordless root console after restart.</p>
 <p class="next-link">Once it boots: <a href="cli.md">use the CLI and enable the silent Entertainment profile →</a></p>
 </section>
 

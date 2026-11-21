@@ -8,7 +8,7 @@ Historical plans, ready profiles and assignments are evidence, not current autho
 
 One primary owns implementation, tests, bench operation, recovery and integration.
 No standing specialists. Use ephemeral peers for final PR review and major-plan
-review as described in CONTRIBUTING.md; teammates are equals with room to challenge
+review as described in CONTRIBUTING.md, using GPT-6.2-Astra; teammates are equals with room to challenge
 the approach. Keep live bench ownership serialized.
 Create fresh Herdr agents; do not reuse the owner's previously open sessions.
 Use --no-parent --no-notify so inherited context cannot route updates into them.

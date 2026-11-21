@@ -20,6 +20,7 @@ Record the reviewed commit, findings and their disposition in the PR. Resolve
 blocking findings before merge. After changes, have the reviewer check the
 affected delta; a review of an earlier revision is not approval of new code.
 Keep this proportional: one focused review, not a standing review team.
+Use GPT-6.2-Astra for agent reviews, including major-plan reviews.
 
 ## Review major plans without adding ceremony
 
@@ -76,7 +77,8 @@ qualification belongs to changes in installer/state/recovery behavior and actual
 release claims; reuse existing evidence for unchanged mechanisms and name its
 revision. UI text, layout and read-only status changes need focused checks, not
 another complete install/update/uninstall cycle. The offline suite remains the
-final local check for host/code batches; docs-only edits use the strict docs build.
+final local check for host/code batches. Run the strict docs build when changing
+site content or configuration.
 Required CI checks still run on the final PR revision.
 
 Host code lives in tooling/open_connect/, with tests in tests/.

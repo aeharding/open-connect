@@ -13,6 +13,7 @@ def main():
     parser.add_argument("--ssh-config", type=Path)
     parser.add_argument("--condition", choices=["stock", "open-connect"], required=True)
     parser.add_argument("--package")
+    parser.add_argument("--pandora", type=int, choices=[0, 1])
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--live", action="store_true")
     args = parser.parse_args()
@@ -27,6 +28,8 @@ def main():
     condition = ["--condition", args.condition]
     if args.package:
         condition += ["--package", args.package]
+    if args.pandora is not None:
+        condition += ["--pandora", str(args.pandora)]
     for number in range(1, 6):
         trial = args.bundle / f"trial-{number}"
         print(json.dumps({"start": number, "condition": args.condition}), flush=True)
@@ -41,7 +44,9 @@ def main():
                     "--bundle",
                     str(trial),
                     "--label",
-                    "Declared STARTUP-COMPARISON.md batch",
+                    "Declared SERVICES-COMPARISON.md batch"
+                    if args.pandora is not None
+                    else "Declared STARTUP-COMPARISON.md batch",
                 ],
                 stdout=output,
                 stderr=subprocess.STDOUT,

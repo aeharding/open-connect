@@ -17,6 +17,62 @@ from open_connect import startup_reference as m
 
 
 class StartupReferenceTests(unittest.TestCase):
+    def test_service_condition_requires_policy_state_and_startup_records(self):
+        boot = "11111111-1111-1111-1111-111111111111"
+        state = dict(
+            ok=True,
+            installed=True,
+            conflict=False,
+            restart=False,
+            pending=False,
+            touch=1,
+            warning=1,
+            uart=0,
+            ssh=0,
+            uartCurrent=0,
+            sshCurrent=0,
+            notice="-",
+        )
+
+        def output(enabled, current=None, starts=None, pid=None):
+            current = current or ("RUNNING" if enabled else "STOPPED")
+            starts = enabled if starts is None else starts
+            pid = ('    pid="123"\n' if enabled else "") if pid is None else pid
+            return (
+                "CANDIDATE_STATUS|"
+                + json.dumps({**state, "pandora": enabled})
+                + '\nPANDORA_INFO_BEGIN\n<service\n    state="'
+                + current
+                + '"\n    autorun="'
+                + ("yes" if enabled else "no")
+                + '"\n'
+                + pid
+                + "/>\nPANDORA_INFO_END\nPANDORA_STARTS|"
+                + str(starts)
+                + "\nREFERENCE_BOOT|"
+                + boot
+                + "\n"
+            ).encode()
+
+        for enabled in (0, 1):
+            self.assertEqual(m.validate_condition(output(enabled), "open-connect", enabled), boot)
+            with self.assertRaises(ValueError):
+                m.validate_condition(output(enabled), "open-connect", 1 - enabled)
+        for bad in (
+            output(0, starts=1),
+            output(0, pid='    pid="123"\n'),
+            output(0, current="RUNNING"),
+            output(1, starts=2),
+            output(1, pid=""),
+            output(1).replace(b"PANDORA_INFO_BEGIN", b"OTHER_INFO_BEGIN"),
+        ):
+            with self.assertRaises(ValueError):
+                m.validate_condition(
+                    bad,
+                    "open-connect",
+                    json.loads(bad.split(b"|", 1)[1].splitlines()[0])["pandora"],
+                )
+
     def test_candidate_condition_requires_selected_features_and_no_pending_restart(self):
         boot = "11111111-1111-1111-1111-111111111111"
         state = dict(

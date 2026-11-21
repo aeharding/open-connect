@@ -27,6 +27,12 @@ def main():
     )
     fig, axes = plt.subplots(3, 1, figsize=(9, 8), sharex=True, layout="constrained")
     colors = {"stock": "#1967a3", "open-connect": "#d15a12"}
+    labels = {"stock": "Stock", "open-connect": "Open Connect"}
+    title = "Controlled ACC startup: stock and Open Connect\nFive runs each; stock services and wired CarPlay"
+    if {row["condition"] for row in rows} == {"pandora-on", "pandora-off"}:
+        colors = {"pandora-on": "#1967a3", "pandora-off": "#d15a12"}
+        labels = {"pandora-on": "Pandora on", "pandora-off": "Pandora off"}
+        title = "Controlled ACC startup: Pandora on and off\nFive runs each; same Open Connect build and wired CarPlay"
     for condition in colors:
         for run in range(1, 6):
             group = [r for r in rows if r["condition"] == condition and int(r["run"]) == run]
@@ -38,7 +44,7 @@ def main():
                 color=colors[condition],
                 alpha=0.55,
                 lw=1,
-                label=("Stock" if condition == "stock" else "Open Connect") if run == 1 else None,
+                label=labels[condition] if run == 1 else None,
             )
             axes[1].plot(
                 x,
@@ -68,9 +74,7 @@ def main():
     axes[2].set_xlabel("CMU kernel uptime (seconds)")
     axes[2].set_xlim(0, 200)
     axes[0].legend(frameon=False, loc="upper right")
-    fig.suptitle(
-        "Controlled ACC startup: stock and Open Connect\nFive runs each; stock services and wired CarPlay"
-    )
+    fig.suptitle(title)
     fig.supxlabel(
         "Shaded: 20–170 s analysis window. RAM includes instrumentation; MiB = kernel kB / 1024.\nCPU excludes idle and iowait. First resource samples do not cover kernel startup.",
         fontsize=8,

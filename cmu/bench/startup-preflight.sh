@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Reference experiment: pinned condition, declared owner SSH access, root RO.
 set -eu
-condition=${1:-stock} package=${2:--}
+condition=${1:-stock} package=${2:--} pandora=${3:--}
+case "$pandora" in -|0|1) ;; *) exit 64;; esac
 test "$(id -u)" = 0
 awk '$0=="JCI_SW_VER=\"MAZ_CMU-150_74.00.324\""{v++}
      $0=="JCI_SW_VER_PATCH=\"A\""{p++}
@@ -13,6 +14,7 @@ awk '$1=="/dev/ffx01p1"&&$2=="/"&&$4=="ro,noatime"{n++} END{exit n!=1}' /proc/mo
 sha() { v=$(openssl dgst -sha256 < "$1"); printf '%s\n' "${v##* }"; }
 case "$condition" in
 stock)
+    test "$pandora" = -
     test "$package" = -
     test ! -e /tmp/mnt/data_persist/open-connect
     test ! -e /tmp/open-connect
@@ -31,6 +33,13 @@ open-connect)
     test "$(cat /tmp/open-connect/selected)" = "$current"
     printf '\nCANDIDATE_STATUS|'
     sh "$P/backend.sh" api - status - - -
+    if test "$pandora" != -; then
+        test "$(sha /jci/sm/smctl)" = a51a03ce7bc1f602ccca7b15af8c9698fed5debfb904f01fcc358f57ca46330f
+        printf '\nPANDORA_INFO_BEGIN\n'
+        LD_LIBRARY_PATH=/jci/lib:/usr/lib:/lib timeout -t 8 /jci/sm/smctl --get --type info --name blm_ira_pandora
+        printf 'PANDORA_INFO_END\nPANDORA_STARTS|'
+        awk -F , '$2=="blm_ira_pandora"&&$3=="SM_SVC_CMD_START"{n++} END{print n+0}' /tmp/smevents.txt
+    fi
     ;;
 *) exit 64;;
 esac

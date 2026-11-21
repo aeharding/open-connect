@@ -29,6 +29,12 @@ def main():
     parser.add_argument("--condition", choices=["stock", "open-connect"], default="stock")
     parser.add_argument("--package", help="required candidate files.sha256 digest")
     parser.add_argument(
+        "--pandora",
+        type=int,
+        choices=[0, 1],
+        help="assert the applied service choice; does not change it",
+    )
+    parser.add_argument(
         "--label",
         default="Stock reference; record phone/peripherals/camera settings with the batch",
     )
@@ -40,6 +46,8 @@ def main():
         args.condition == "open-connect" and not re.fullmatch(r"[a-f0-9]{64}", args.package or "")
     ) or (args.condition == "stock" and args.package is not None):
         parser.error("open-connect requires its exact --package; stock has no package")
+    if args.pandora is not None and args.condition != "open-connect":
+        parser.error("--pandora requires open-connect")
     if not args.live:
         print(
             json.dumps(
@@ -52,6 +60,7 @@ def main():
                     "device_opened": False,
                     "condition": args.condition,
                     "package": args.package,
+                    "pandora": args.pandora,
                 }
             )
         )
@@ -115,6 +124,7 @@ def main():
         "resource_sources": sources,
         "condition": args.condition,
         "package": args.package,
+        "pandora": args.pandora,
     }
 
     def event(kind, **values):
@@ -150,7 +160,11 @@ def main():
 
     try:
         preflight_command = "timeout -t 35 sh -s -- " + shlex.join(
-            [args.condition, args.package or "-"]
+            [
+                args.condition,
+                args.package or "-",
+                str(args.pandora) if args.pandora is not None else "-",
+            ]
         )
         result = subprocess.run(
             ssh + [preflight_command], input=preflight, capture_output=True, timeout=40
@@ -159,7 +173,7 @@ def main():
         bundle.save("preflight.err", result.stderr)
         if result.returncode:
             raise RuntimeError("condition preflight refused before any device opened")
-        old_boot = validate_condition(result.stdout, args.condition)
+        old_boot = validate_condition(result.stdout, args.condition, args.pandora)
         cameras = subprocess.check_output(
             ["system_profiler", "SPCameraDataType", "-json"], timeout=12
         )
@@ -248,7 +262,7 @@ def main():
         bundle.save("postflight.err", result.stderr)
         if (
             result.returncode
-            or validate_condition(result.stdout, args.condition) != trace["boot_id"]
+            or validate_condition(result.stdout, args.condition, args.pandora) != trace["boot_id"]
         ):
             raise RuntimeError("condition changed or failed postflight")
         event(
@@ -276,7 +290,7 @@ def main():
         raise SystemExit(error)
 
 
-def validate_condition(raw, condition):
+def validate_condition(raw, condition, pandora=None):
     boots = re.findall(rb"^REFERENCE_BOOT\|(" + metrics.UUID.encode() + rb")$", raw, re.M)
     if len(boots) != 1:
         raise ValueError("missing exact condition boot record")
@@ -301,6 +315,24 @@ def validate_condition(raw, condition):
         )
         if any(state.get(key) != value for key, value in expected.items()):
             raise ValueError("candidate preferences or applied state do not match")
+        if pandora is not None:
+            info = re.findall(rb"^PANDORA_INFO_BEGIN\n(.*?)^PANDORA_INFO_END$", raw, re.M | re.S)
+            starts = re.findall(rb"^PANDORA_STARTS\|([0-9]+)$", raw, re.M)
+            if len(info) != 1 or len(starts) != 1 or state.get("pandora") != pandora:
+                raise ValueError("missing or mismatched service condition")
+            autorun = re.findall(rb'^    autorun="([a-z]+)"$', info[0], re.M)
+            current = re.findall(rb'^    state="([A-Z_]+)"$', info[0], re.M)
+            pid = re.findall(rb'^    pid="([0-9]+)"$', info[0], re.M)
+            if autorun != [b"yes" if pandora else b"no"] or len(current) != 1:
+                raise ValueError("service policy or state missing")
+            if pandora and (
+                current != [b"RUNNING"] or len(pid) != 1 or int(pid[0]) <= 0 or starts != [b"1"]
+            ):
+                raise ValueError("Pandora did not start normally")
+            if not pandora and (
+                starts != [b"0"] or pid or current[0] in (b"RUNNING", b"STARTING", b"STOPPING")
+            ):
+                raise ValueError("disabled Pandora was launched or remains active")
     return boots[0].decode()
 
 

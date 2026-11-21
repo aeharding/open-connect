@@ -3,17 +3,32 @@
 
 
 def main():
+    import argparse
     import csv
     import json
     import subprocess
     import sys
     from pathlib import Path
 
-    base = Path(sys.argv[1]).resolve()
-    output = Path(sys.argv[2])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("base", type=Path)
+    parser.add_argument("output", type=Path)
+    parser.add_argument("--services", action="store_true")
+    args = parser.parse_args()
+    base = args.base.resolve()
+    output = args.output
     output.mkdir(mode=0o700)
-    cohorts = [("stock", base / "stock"), ("open-connect", base / "open-connect-matched")]
-    paths = [root / f"trial-{n}" for _, root in cohorts for n in range(1, 6)]
+    if args.services:
+        cohorts = [
+            ("pandora-on", base / "pandora-on", "open-connect", 1),
+            ("pandora-off", base / "pandora-off", "open-connect", 0),
+        ]
+    else:
+        cohorts = [
+            ("stock", base / "stock", "stock", None),
+            ("open-connect", base / "open-connect-matched", "open-connect", None),
+        ]
+    paths = [root / f"trial-{n}" for _, root, _, _ in cohorts for n in range(1, 6)]
     # The existing analysis independently parses raw retrieval, checks the saved
     # trace/CSV and boot clock, and rejects incomplete or changed evidence.
     raw = subprocess.check_output(
@@ -24,12 +39,24 @@ def main():
     samples = []
     io = []
     timings = []
-    for condition, root in cohorts:
+    for condition, root, recorded_condition, pandora in cohorts:
         for run in range(1, 6):
             path = root / f"trial-{run}"
             proof = verified[str(path)]
-            assert proof["condition"] == condition
+            assert proof["condition"] == recorded_condition
             trace = json.loads((path / "trace.json").read_text())
+            if pandora is not None:
+                from open_connect.startup_reference import validate_condition
+
+                meta = json.loads((path / "trial.json").read_text())
+                assert meta["pandora"] == pandora
+                before = validate_condition(
+                    (path / "preflight.out").read_bytes(), "open-connect", pandora
+                )
+                after = validate_condition(
+                    (path / "postflight.out").read_bytes(), "open-connect", pandora
+                )
+                assert before != after and after == trace["boot_id"]
             window = [
                 s
                 for s in trace["samples"]

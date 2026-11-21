@@ -15,6 +15,46 @@ ASSETS = ROOT / "cmu/installer"
 
 
 class InstallerComposition(unittest.TestCase):
+    def test_service_selection_preserves_peers_and_refuses_unknown_structure(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source, selected = root / "original", root / "selected"
+            pandora = '<service type="jci_service" name="blm_ira_pandora" autorun="yes" retry_count="6" />\n'
+            original = (
+                '<services>\n<service name="peer" autorun="yes" />\n' + pandora + "</services>\n"
+            )
+            driver = 'set -eu; . "$1/state.sh"; . "$1/firmware.sh"; service_config "$2" "$3" "$4"'
+
+            def run(value):
+                return subprocess.run(
+                    ["sh", "-c", driver, "test", ASSETS, source, selected, value],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+
+            source.write_text(original)
+            self.assertEqual(run("1").returncode, 0)
+            self.assertEqual(selected.read_text(), original)
+            self.assertEqual(run("0").returncode, 0)
+            self.assertEqual(
+                selected.read_text(),
+                original.replace(pandora, pandora.replace('autorun="yes"', 'autorun="no"')),
+            )
+            self.assertEqual(source.read_text(), original)
+            for unknown in (
+                original.replace(pandora, ""),
+                original.replace(pandora, pandora * 2),
+                original.replace(
+                    'name="blm_ira_pandora" autorun="yes"', 'name="blm_ira_pandora" autorun="no"'
+                ),
+            ):
+                source.write_text(unknown)
+                self.assertNotEqual(run("0").returncode, 0)
+                self.assertEqual(source.read_text(), unknown)
+            for invalid in ("", "2", "false"):
+                self.assertNotEqual(run(invalid).returncode, 0)
+
     def test_wcp_dependency_resolves_without_accepting_unknown_paths(self):
         driver = (
             'set -eu; . "$1/state.sh"; . "$1/firmware.sh"\n'

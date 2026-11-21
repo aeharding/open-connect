@@ -40,7 +40,7 @@ fi
 status() {
     local installed=false retained=false conflict=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
     local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 applied
-    local installed_version=- installed_package=-
+    local installed_version=- installed_package=- pandora=1
     if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
     if test "$empty_state" = true; then pending=true; fi
     if test "$exists" = true; then
@@ -51,7 +51,7 @@ status() {
         else
             snapshot_read "$R_CURRENT" || fail invalid_snapshot
             installed_package=$S_PACKAGE
-            touch=$S_TOUCH; warning=$S_WARNING
+            touch=$S_TOUCH; warning=$S_WARNING; pandora=$S_PANDORA
             developer=$S_ACCESS; uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
             if test "$key" != - && access_key_verify "$key"; then
                 fingerprint=$(/usr/bin/ssh-keygen -l -f "$D/keys/$key.cmu" | awk '{print $2}')
@@ -82,9 +82,9 @@ status() {
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
     # Keep the retired boolean false for an installed v0.2.0-dev.1 client during
     # USB handoff. No endpoint or UI offers Undo.
-    printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s}\n' \
+    printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s,"pandora":%s}\n' \
         "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version" \
-        "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current"
+        "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current" "$pandora"
 }
 
 finish_removal() {
@@ -130,12 +130,12 @@ install)
     done
     flush d "$D"
     originals_save
-    old_package=-; touch=1; warning=1; uart=0; owner_ssh=0; key=-
+    old_package=-; touch=1; warning=1; uart=0; owner_ssh=0; key=-; pandora=1
     access_work=$(mktemp -d "$D/.access-XXXXXX") || fail access_plan_failed
     trap 'rm -rf "$access_work"' EXIT
     if test "$exists" = true && test "$R_PHASE" = active; then
         snapshot_read "$R_CURRENT" || fail invalid_snapshot
-        old_package=$S_PACKAGE; touch=$S_TOUCH; warning=$S_WARNING
+        old_package=$S_PACKAGE; touch=$S_TOUCH; warning=$S_WARNING; pandora=$S_PANDORA
         uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
         if test "$S_ACCESS" = true && test "$S_LOGIN_INODE" = -; then fail developer_reinstall_required; fi
         if test "$S_ACCESS" = false; then
@@ -144,7 +144,7 @@ install)
         fi
         if test "$S_LOGIN_INODE" = -; then login_inode=$(stat -c %i /usr/bin/runlogin); else login_inode=$S_LOGIN_INODE; fi
         access_capture "$access_work" "$uart" "$owner_ssh" "$key" "$login_inode" || fail access_backup_failed
-        before=$(state_capture "$old_package" "$touch" "$warning" "$access_work") || fail checkpoint_failed
+        before=$(state_capture "$old_package" "$touch" "$warning" "$access_work" "$pandora") || fail checkpoint_failed
         snapshot_read "$R_BASE" || fail originals_changed
         if test "$S_ACCESS" = false; then
             R_BASE=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 "$S_NVRAM" "$S_META" "$D/snapshots/$R_BASE/dependencies" "$access_work") || fail access_backup_failed
@@ -165,7 +165,7 @@ install)
     test "$touch" = 0 || nvram=disable
     deps=$(mktemp "$D/.dependencies-XXXXXX")
     dependencies_capture "$package" > "$deps" || fail checkpoint_dependencies_failed
-    after=$(snapshot_create "$D/composed/$package/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$deps" "$access_work") || fail plan_failed
+    after=$(snapshot_create "$D/composed/$package/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$deps" "$access_work" "$pandora") || fail plan_failed
     rm "$deps"
     R_BACKEND=$package
     if test "$exists" = false; then
@@ -180,7 +180,7 @@ set|import)
     test "$exists" = true && test "$R_PHASE" = active || fail not_installed
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
     snapshot_read "$R_CURRENT" || fail invalid_snapshot
-    package=$S_PACKAGE; touch=$S_TOUCH; warning=$S_WARNING; mode=$S_META
+    package=$S_PACKAGE; touch=$S_TOUCH; warning=$S_WARNING; pandora=$S_PANDORA; mode=$S_META
     uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
     access_source=$D/snapshots/$R_CURRENT
     if test "$operation" = import || test "$argument" = uart || test "$argument" = ssh; then
@@ -204,13 +204,14 @@ set|import)
         case "$argument:$expected:$desired" in
             touch:[01]:[01]) test "$touch" = "$expected" || fail stale_setting; touch=$desired;;
             warning:[01]:[01]) test "$warning" = "$expected" || fail stale_setting; warning=$desired;;
+            pandora:[01]:[01]) test "$pandora" = "$expected" || fail stale_setting; pandora=$desired;;
             *) fail invalid_setting;;
         esac
     fi
     if test "$operation" = set && test "$expected" = "$desired"; then status; exit; fi
     snapshot_read "$R_BASE" || fail originals_changed
     nvram=$S_NVRAM; test "$touch" = 0 || nvram=disable
-    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$access_source") || fail plan_failed
+    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$access_source" "$pandora") || fail plan_failed
     transaction_prepare set "$R_CURRENT" "$after"
     transaction_reconcile
     ;;
@@ -222,7 +223,7 @@ uninstall)
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
     uninstall_owned "$R_CURRENT" || fail state_changed
     snapshot_read "$R_CURRENT" || fail invalid_snapshot
-    before=$(state_capture "$S_PACKAGE" "$S_TOUCH" "$S_WARNING" "$D/snapshots/$R_CURRENT") || fail checkpoint_failed
+    before=$(state_capture "$S_PACKAGE" "$S_TOUCH" "$S_WARNING" "$D/snapshots/$R_CURRENT" "$S_PANDORA") || fail checkpoint_failed
     snapshot_read "$R_BASE" || fail originals_changed
     after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 "$S_NVRAM" "$S_META" "$D/snapshots/$before/dependencies" "$D/snapshots/$R_BASE") || fail plan_failed
     transaction_prepare uninstall "$before" "$after"

@@ -63,6 +63,43 @@ is on a playground branch, not an owner installation feature. Private intake,
 camera-clock qualification and trial records remain under
 `runs/startup-baseline-20261120/`. No OEM script or raw capture is published.
 
+## Service-manager dependencies and Pandora restart
+
+On exact **74.00.324A NA**, both stock SM profiles declare Pandora as a leaf:
+no other configured service depends on `blm_ira_pandora`. Aha is different:
+`stage_wifi`, `stage_vr` and `stage_gap2` depend on it. Stitcher also has a
+separate helper. These static edges do not establish every runtime dependency.
+
+The native `/jci/sm/smctl` client can query service information and request
+stop/launch with `--wait`. Its verified SHA256 is
+`a51a03ce7bc1f602ccca7b15af8c9698fed5debfb904f01fcc358f57ca46330f`.
+A bounded stock-bench pilot stopped Pandora, observed it stopped throughout a
+120-second resource window, then launched it again. The phone projection and
+checked peers remained present while it was stopped. This was warm mechanism
+exploration, not a startup or audio qualification.
+
+The later launch deliberately restarted `irs_server`: the stock Pandora library
+contains that initialization path, and device logs record its initialization,
+the helper receiving SIGKILL, SM relaunching it, and Pandora completing startup.
+It was not a clean restore of all original process identities. The Services
+candidate therefore selects policy before SM starts and applies changes after a
+full restart, rather than offering live service stop/start.
+
+Pandora's initial RSS was 6,304 kernel kB, but private clean/dirty pages totaled
+1,980 kB and PSS was 2,271 kB. The before/stopped resource windows had median
+MemFree 198,024/200,120 kB. After launch, median MemFree was 159,576 kB, with a
+large increase in Buffers and reclaimable slab accompanying Mazda's diagnostic
+archive. Do not subtract RSS as freed RAM or call this single sequential pilot a
+CPU/RAM improvement. A fresh original startup restored the expected stock
+configuration and native/frontend code, with all 19 original hashes/metadata,
+read-only physical root, absent product/runtime and both projection/network links.
+
+Private originals, raw traces, logs and restoration receipts remain in
+`runs/services-20261121/`. No OEM source or raw capture is published. The candidate
+host check of both exact profiles verifies that disabling changes only Pandora's
+single `autorun` attribute in the selected copy; enabled copies remain identical.
+Hardware boot/measurement/UI qualification of that candidate is separate.
+
 ## Developer access and login-script lifetime on v74
 
 The **74.00.324A NA / cmu150_NA** Developer options candidate provides an optional

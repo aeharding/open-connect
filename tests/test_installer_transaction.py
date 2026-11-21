@@ -69,6 +69,10 @@ fi
 record_read
 if ! settled; then transaction_reconcile; exit; fi
 case "$ACTION" in
+service-off)
+    snapshot_read "$R_CURRENT"
+    after=$(snapshot_create "$AUTOSTART" "$S_PACKAGE" "$S_TOUCH" "$S_WARNING" "$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 0)
+    transaction_prepare set "$R_CURRENT" "$after";;
 install)
     printf 'installed\n' > "$D/installed"
     package=$(printf '%064d' 1)
@@ -167,15 +171,70 @@ class InstallerTransaction(unittest.TestCase):
             script = script.replace(old, new)
         (self.tools / "backend.sh").write_text(script)
 
-    def api(self, operation, revision="-"):
+    def api(self, operation, revision="-", argument="-", expected="-", desired="-"):
         result = subprocess.run(
-            ["sh", self.tools / "backend.sh", "api", revision, operation, "-", "-", "-"],
+            [
+                "sh",
+                self.tools / "backend.sh",
+                "api",
+                revision,
+                operation,
+                argument,
+                expected,
+                desired,
+            ],
             capture_output=True,
             text=True,
             timeout=15,
             env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
         )
         return result, json.loads(result.stdout)
+
+    def test_service_preference_survives_other_settings_and_stale_requests(self):
+        data = self.create("service-setting")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        _, status = self.api("status")
+        self.assertEqual(status["pandora"], 1)
+        old_targets = self.target(data, "target").read_bytes()
+        result, status = self.api("set", status["revision"], "pandora", "1", "0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(status["pandora"], 0)
+        self.assertTrue(status["restart"])
+        self.assertEqual(self.target(data, "target").read_bytes(), old_targets)
+        result, status = self.api("set", status["revision"], "warning", "1", "0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(status["pandora"], 0)
+        record = (data / "record").read_bytes()
+        result, error = self.api("set", status["revision"], "pandora", "1", "0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "stale_setting")
+        self.assertEqual((data / "record").read_bytes(), record)
+        result, status = self.api("uninstall", status["revision"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(data.exists())
+        self.assertEqual(self.target(data, "target").read_text(), "stock\n")
+
+    def test_interrupted_service_selection_keeps_conflicts_and_recovers_preference(self):
+        data = self.create("service-recovery")
+        self.run_ok(data, "install")
+        self.assertNotEqual(self.run_command(data, "service-off", "prepared").returncode, 0)
+        record = (data / "record").read_bytes()
+        target = self.target(data, "target").read_bytes()
+        dependency = self.target(data, "relevant")
+        original = dependency.read_bytes()
+        dependency.write_bytes(b"external edit\n")
+        refused = self.run_command(data, "service-off")
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertEqual((data / "record").read_bytes(), record)
+        self.assertEqual(dependency.read_bytes(), b"external edit\n")
+        dependency.write_bytes(original)
+        self.run_ok(data, "service-off")
+        current = (data / "record").read_text().split("|")[5]
+        self.assertEqual(
+            (data / "snapshots" / current / "config").read_text().strip().split("|")[5], "0"
+        )
+        self.assertEqual(self.target(data, "target").read_bytes(), target)
 
     def test_interrupted_install_and_uninstall_complete_from_each_target_boundary(self):
         for action in ("install", "uninstall"):

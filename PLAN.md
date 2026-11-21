@@ -29,9 +29,12 @@ candidate; see [#103](https://github.com/aeharding/open-connect/pull/103) and th
 [access findings](docs/reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74).
 The first five-run-per-condition [startup/RAM comparison](docs/startup-comparison.md)
 found later Home and wired CarPlay with the pinned development candidate, higher
-CPU, and similar free RAM. Investigate that startup cost before service changes;
-the blocked order and one-unit fixture do not isolate its cause. Measurement
-collection is complete, with reproducible source and excluded attempts retained.
+CPU, and similar free RAM. Grouping repeated dependency-parent checks then
+[recovered about 1.2 seconds to Home and 2.2 seconds to the dashboard](docs/startup-verification.md),
+with no useful CPU/RAM gain; stock remains faster. That narrow change is integrated.
+Proceed to the first Services candidate with the existing measurements as context.
+Block order and one-unit observations still limit causal attribution. Reproducible
+source and excluded attempts are retained.
 The deferred phase-1 manual and first-car checks remain separate.
 
 | Phase | Outcome | Done when | Work |

@@ -56,7 +56,7 @@ state_capture() (
     local deps result
     deps=$(mktemp "$D/.dependencies-XXXXXX") || fail checkpoint_create_failed
     dependencies_capture "$1" > "$deps" || fail checkpoint_dependencies_failed
-    result=$(snapshot_create "$AUTOSTART" "$1" "$2" "$3" "$(nvram_read)" "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$deps" "${4:--}") || fail checkpoint_failed
+    result=$(snapshot_create "$AUTOSTART" "$1" "$2" "$3" "$(nvram_read)" "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$deps" "${4:--}" "${5-1}") || fail checkpoint_failed
     rm "$deps"
     printf '%s\n' "$result"
 )

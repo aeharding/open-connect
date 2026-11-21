@@ -50,6 +50,8 @@ class InstallerState(unittest.TestCase):
             "change) record_read; R_BUDGET=3; record_write;;\n"
             'manifest) verify_manifest "$5";;\n'
             'create-dependencies) snapshot_create "$5" - 0 0 absent "755:$(id -u):$(id -g)" "$6";;\n'
+            'create-prefs) snapshot_create "$5" - 0 0 absent "755:$(id -u):$(id -g)" /dev/null - "$6";;\n'
+            'read-prefs) snapshot_read "$5" && printf "%s\\n" "$S_PANDORA";;\n'
             'dependencies) . "${3%/*}/firmware.sh"; . "${3%/*}/transaction.sh"; dependencies_match "$5";;\n'
             "esac\n"
         )
@@ -72,6 +74,45 @@ class InstallerState(unittest.TestCase):
             timeout=5,
             env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
         )
+
+    def test_service_preference_and_legacy_snapshot_parsing(self):
+        for enabled in ("0", "1"):
+            result = self.run_command("create-prefs", None, enabled)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                self.run_command("read-prefs", result.stdout.strip()).stdout, enabled + "\n"
+            )
+        for invalid in ("", "2"):
+            self.assertNotEqual(self.run_command("create-prefs", None, invalid).returncode, 0)
+        original = next((self.data / "snapshots").iterdir())
+        base = original.joinpath("config").read_text().strip().split("|")[:5]
+        for fields, expected in (
+            (base, "1\n"),
+            (base + [""], None),
+            (base + ["2"], None),
+            (base + ["0", "1"], None),
+        ):
+            # Authenticate each fixture so refusal exercises the schema parser.
+            content = {
+                name: original.joinpath(name).read_bytes()
+                for name in ("autostart", "config", "dependencies")
+            }
+            content["config"] = ("|".join(fields) + "\n").encode()
+            manifest = "".join(
+                hashlib.sha256(data).hexdigest() + "  " + name + "\n"
+                for name, data in content.items()
+            ).encode()
+            identity = hashlib.sha256(manifest).hexdigest()
+            folder = self.data / "snapshots" / identity
+            folder.mkdir(mode=0o700)
+            for name, data in {**content, "files.sha256": manifest}.items():
+                folder.joinpath(name).write_bytes(data)
+            read = self.run_command("read-prefs", identity)
+            if expected is None:
+                self.assertNotEqual(read.returncode, 0)
+            else:
+                self.assertEqual(read.returncode, 0, read.stderr)
+                self.assertEqual(read.stdout, expected)
 
     def test_original_backup_changes_are_rejected(self):
         self.assertEqual(self.run_command("read").returncode, 0)

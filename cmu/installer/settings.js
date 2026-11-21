@@ -11,7 +11,8 @@ var OpenConnectSettings = (function () {
 
     function valid(values) {
         return values && (values.touch === 0 || values.touch === 1) &&
-            (values.warning === 0 || values.warning === 1);
+            (values.warning === 0 || values.warning === 1) &&
+            (values.pandora === undefined || values.pandora === 0 || values.pandora === 1);
     }
 
     function replace(obj, key, fn) {
@@ -51,7 +52,7 @@ var OpenConnectSettings = (function () {
             }
             var values = {developer: saved.developer, key: saved.key, fingerprint: saved.fingerprint,
                 uartCurrent: saved.uartCurrent, sshCurrent: saved.sshCurrent,
-                restart: saved.restart}, keys = ["touch", "warning", "uart", "ssh"];
+                restart: saved.restart}, keys = ["touch", "warning", "uart", "ssh", "pandora"];
             keys.forEach(function (key) { values[key] = own.call(wanted, key) ? wanted[key] : saved[key]; });
             return values;
         };
@@ -149,6 +150,9 @@ var OpenConnectSettings = (function () {
                     rows.push({text1: row.title, label1: row.key === "touch" ? ["Default", "Allow"][values.touch] : row.choices[values[row.key]],
                         itemStyle: "style06", hasCaret: true, appData: i});
                 }
+                if (values.pandora !== undefined) {
+                    rows.push({text1: "Services", itemStyle: "style01", hasCaret: true, appData: "services"});
+                }
                 if (values.developer) {
                     rows.push({text1: "Developer options", itemStyle: "style01", hasCaret: true, appData: "developer"});
                 }
@@ -158,6 +162,10 @@ var OpenConnectSettings = (function () {
             } else if (index === "unknown") {
                 title = "Change could not be confirmed";
                 rows.push({text1: "Return to Mazda Settings", itemStyle: "style01", hasCaret: false, appData: 0});
+            } else if (index === "services") {
+                title = "Services";
+                rows.push({text1: "Pandora", itemStyle: "styleOnOff", value: values.pandora ? 1 : 2,
+                    hasCaret: false, appData: "pandora"});
             } else if (index === "developer") {
                 title = "Developer options";
                 rows.push({text1: "UART", itemStyle: "styleOnOff", value: values.uart ? 1 : 2,
@@ -178,7 +186,7 @@ var OpenConnectSettings = (function () {
                 titleConfiguration: "listTitle", title: {text1: title, titleStyle: "style02"},
                 smallItemText: true, focussedItem: focus, selectCallback: select};
             if (index === 0 || index === 1) { listProps.checkMinChangeInterval = 0; }
-            if (index === "developer") { listProps.toggleMinChangeInterval = 0; }
+            if (index === "developer" || index === "services") { listProps.toggleMinChangeInterval = 0; }
             var next = fw.instantiateTemplate("syssettings", host.divElt.parentNode, "List2Tmplt",
                 {List2Ctrl: listProps});
             if (!next) { return false; }
@@ -194,6 +202,24 @@ var OpenConnectSettings = (function () {
         function select(control, item, params) {
             if (!current() || dismiss || !page || control !== page.list2Ctrl) { return; }
             if (choice === null && item === "developer") { render("developer", 0); return; }
+            if (choice === null && item === "services") { render("services", 0); return; }
+            if (choice === "services") {
+                if (item !== "pandora" || !params ||
+                        (params.additionalData !== 1 && params.additionalData !== 2)) { return; }
+                var enabled = params.additionalData === 1, desired = enabled ? 1 : 0;
+                if (prefs.values().pandora === desired) { return; }
+                dismiss = OpenConnectInstaller.message(fw, enabled ? "Enable Pandora?" : "Disable Pandora?",
+                    enabled ? "Changes apply after restarting Mazda Connect." :
+                        "Stops Mazda's built-in Pandora integration. Changes apply after restarting Mazda Connect.",
+                    {button1: {label: "Cancel", appData: "cancel"},
+                        button2: {label: enabled ? "Enable" : "Disable", appData: "apply"}},
+                    function (action) {
+                        dismiss = null;
+                        if (action === "apply" && current()) { prefs.select("pandora", desired); }
+                        if (current() && choice === "services") { render("services", 0); }
+                    });
+                return;
+            }
             if (choice === "developer") {
                 if ((item === "uart" || item === "ssh") && params &&
                         (params.additionalData === 1 || params.additionalData === 2)) {
@@ -287,7 +313,12 @@ var OpenConnectSettings = (function () {
         restorers.push(replace(fw, "sendEventToMmui", function (app, event) {
             if (current() && app === "common" && (event === "Global.GoBack" || event === "Global.MenuUp")) {
                 if (dismiss) { dismiss(); }
-                else if (choice !== null && choice !== "unknown") { render(null, choice === "developer" ? 2 : choice); }
+                else if (choice !== null && choice !== "unknown") {
+                    var focus = choice;
+                    if (choice === "services") { focus = 2; }
+                    if (choice === "developer") { focus = prefs.values().pandora === undefined ? 2 : 3; }
+                    render(null, focus);
+                }
                 else { if (choice === "unknown") { prefs.failure = null; } close(); }
                 return;
             }

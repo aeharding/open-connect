@@ -34,7 +34,14 @@ def main():
         choices=[0, 1],
         help="assert the applied service choice; does not change it",
     )
-    parser.add_argument(
+    logging = parser.add_mutually_exclusive_group()
+    logging.add_argument(
+        "--base",
+        type=int,
+        choices=[0, 1],
+        help="assert the installed preset and loaded native policy",
+    )
+    logging.add_argument(
         "--log-level",
         choices=["Info", "Warn"],
         help="assert the bench RAM choice and loaded native MMUI logging level",
@@ -51,6 +58,8 @@ def main():
         args.condition == "open-connect" and not re.fullmatch(r"[a-f0-9]{64}", args.package or "")
     ) or (args.condition == "stock" and args.package is not None):
         parser.error("open-connect requires its exact --package; stock has no package")
+    if args.base is not None and args.condition != "open-connect":
+        parser.error("--base requires open-connect")
     if args.pandora is not None and args.condition != "open-connect":
         parser.error("--pandora requires open-connect")
     if not args.live:
@@ -66,6 +75,7 @@ def main():
                     "condition": args.condition,
                     "package": args.package,
                     "pandora": args.pandora,
+                    **({"base": args.base} if args.base is not None else {}),
                 }
             )
         )
@@ -133,6 +143,8 @@ def main():
     }
     if args.log_level is not None:
         record["log_level"] = args.log_level
+    if args.base is not None:
+        record["base"] = args.base
 
     def event(kind, **values):
         row = {"kind": kind, "monotonic_s": time.monotonic(), **values}
@@ -172,6 +184,7 @@ def main():
                 args.package or "-",
                 str(args.pandora) if args.pandora is not None else "-",
                 args.log_level or "-",
+                *([] if args.base is None else [str(args.base)]),
             ]
         )
         result = subprocess.run(
@@ -181,7 +194,9 @@ def main():
         bundle.save("preflight.err", result.stderr)
         if result.returncode:
             raise RuntimeError("condition preflight refused before any device opened")
-        old_boot = validate_condition(result.stdout, args.condition, args.pandora, args.log_level)
+        old_boot = validate_condition(
+            result.stdout, args.condition, args.pandora, args.log_level, args.base
+        )
         cameras = subprocess.check_output(
             ["system_profiler", "SPCameraDataType", "-json"], timeout=12
         )
@@ -270,7 +285,9 @@ def main():
         bundle.save("postflight.err", result.stderr)
         if (
             result.returncode
-            or validate_condition(result.stdout, args.condition, args.pandora, args.log_level)
+            or validate_condition(
+                result.stdout, args.condition, args.pandora, args.log_level, args.base
+            )
             != trace["boot_id"]
         ):
             raise RuntimeError("condition changed or failed postflight")
@@ -299,26 +316,45 @@ def main():
         raise SystemExit(error)
 
 
-def validate_condition(raw, condition, pandora=None, log_level=None):
+def validate_condition(raw, condition, pandora=None, log_level=None, base=None):
     boots = re.findall(rb"^REFERENCE_BOOT\|(" + metrics.UUID.encode() + rb")$", raw, re.M)
     if len(boots) != 1:
         raise ValueError("missing exact condition boot record")
-    if log_level is not None:
-        if log_level not in ("Info", "Warn"):
+    if base is not None and (
+        type(base) is not int
+        or base not in (0, 1)
+        or condition != "open-connect"
+        or log_level is not None
+    ):
+        raise ValueError("invalid installed base condition")
+    native_level = log_level if base is None else ("Warn" if base else "Info")
+    if native_level is not None:
+        if native_level not in ("Info", "Warn"):
             raise ValueError("invalid expected logging level")
-        choices = re.findall(
-            rb"^NATIVE_LOG_CHOICE\|(Info|Warn)\|([a-f0-9]{64})\|([a-f0-9]{64})$", raw, re.M
-        )
-        expected_sha = hashlib.sha256(f"COMMON_LOG_LEVEL={log_level}\n".encode()).hexdigest()
         expected_root = "8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0"
-        if choices != [(log_level.encode(), expected_sha.encode(), expected_root.encode())]:
+        expected_sha = hashlib.sha256(f"COMMON_LOG_LEVEL={native_level}\n".encode()).hexdigest()
+        if base is None:
+            choices = re.findall(
+                rb"^NATIVE_LOG_CHOICE\|(Info|Warn)\|([a-f0-9]{64})\|([a-f0-9]{64})$", raw, re.M
+            )
+            expected_choice = (native_level.encode(), expected_sha.encode(), expected_root.encode())
+        else:
+            choices = re.findall(
+                rb"^BASE_POLICY\|([01])\|(-|[a-f0-9]{64})\|([a-f0-9]{64})$", raw, re.M
+            )
+            expected_choice = (
+                str(base).encode(),
+                expected_sha.encode() if base else b"-",
+                expected_root.encode(),
+            )
+        if choices != [expected_choice]:
             raise ValueError("logging choice, RAM bytes or original configuration changed")
         mmui = re.findall(
             rb"^NATIVE_LOG_MMUI\|([1-9][0-9]*)\|([1-9][0-9]*)\|([01])\|([0-7])\|([0-7])\|([0-7])$",
             raw,
             re.M,
         )
-        level = b"5" if log_level == "Info" else b"3"
+        level = b"5" if native_level == "Info" else b"3"
         if len(mmui) != 1 or mmui[0][2:] != (b"1", level, level, b"5"):
             raise ValueError("native MMUI logging level is missing or not applied")
     if condition == "open-connect":
@@ -342,10 +378,12 @@ def validate_condition(raw, condition, pandora=None, log_level=None):
         )
         # A settings write retains its restart notice after the selected snapshot
         # is applied. The actual restart/pending flags above must still be false.
-        if pandora is not None and state.get("notice") == "restart":
+        if (pandora is not None or base is not None) and state.get("notice") == "restart":
             expected["notice"] = "restart"
         if any(state.get(key) != value for key, value in expected.items()):
             raise ValueError("candidate preferences or applied state do not match")
+        if base is not None and (type(state.get("base")) is not int or state["base"] != base):
+            raise ValueError("installed base preference is missing or changed")
         if pandora is not None:
             info = re.findall(rb"^PANDORA_INFO_BEGIN\n(.*?)^PANDORA_INFO_END$", raw, re.M | re.S)
             starts = re.findall(rb"^PANDORA_STARTS\|([0-9]+)$", raw, re.M)

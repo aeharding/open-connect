@@ -17,6 +17,51 @@ from open_connect import startup_reference as m
 
 
 class StartupReferenceTests(unittest.TestCase):
+    def test_base_condition_requires_installed_choice_and_effective_boot_policy(self):
+        boot = "11111111-1111-1111-1111-111111111111"
+        root = "8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0"
+        state = dict(
+            ok=True,
+            installed=True,
+            conflict=False,
+            restart=False,
+            pending=False,
+            touch=1,
+            warning=1,
+            uart=0,
+            ssh=0,
+            uartCurrent=0,
+            sshCurrent=0,
+            notice="-",
+        )
+        for enabled in (0, 1):
+            level = 3 if enabled else 5
+            ram = hashlib.sha256(b"COMMON_LOG_LEVEL=Warn\n").hexdigest() if enabled else "-"
+            raw = (
+                "CANDIDATE_STATUS|"
+                + json.dumps({**state, "base": enabled})
+                + "\n"
+                + f"BASE_POLICY|{enabled}|{ram}|{root}\n"
+                + f"NATIVE_LOG_MMUI|123|456|1|{level}|{level}|5\nREFERENCE_BOOT|{boot}\n"
+            ).encode()
+            self.assertEqual(m.validate_condition(raw, "open-connect", base=enabled), boot)
+            for bad in (
+                raw.replace(
+                    b'"base": ' + str(enabled).encode(), b'"base": ' + str(1 - enabled).encode()
+                ),
+                raw.replace(b'"restart": false', b'"restart": true'),
+                raw.replace(b'"base": ' + str(enabled).encode(), b'"base": true'),
+                raw.replace(b"BASE_POLICY", b"NATIVE_LOG_CHOICE"),
+                raw.replace(f"|{ram}|{root}".encode(), ("|" + "0" * 64 + "|" + root).encode()),
+                raw.replace(f"|{level}|{level}|5".encode(), b"|7|7|5"),
+            ):
+                with self.assertRaises(ValueError):
+                    m.validate_condition(bad, "open-connect", base=enabled)
+            with self.assertRaises(ValueError):
+                m.validate_condition(raw, "stock", base=enabled)
+            with self.assertRaises(ValueError):
+                m.validate_condition(raw, "open-connect", log_level="Warn", base=enabled)
+
     def test_logging_condition_requires_exact_ram_bytes_and_loaded_mm_ui_state(self):
         boot = "11111111-1111-1111-1111-111111111111"
         root = "8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0"

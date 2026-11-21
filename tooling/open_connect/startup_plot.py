@@ -37,6 +37,10 @@ def main():
         colors = {"logging-info": "#1967a3", "logging-warn": "#d15a12"}
         labels = {"logging-info": "Native Info", "logging-warn": "Native Warn"}
         title = "Controlled ACC startup: native logging prefilter\nFive runs each; original features/services and wired CarPlay"
+    elif {row["condition"] for row in rows} == {"base-on", "base-off"}:
+        colors = {"base-off": "#1967a3", "base-on": "#d15a12"}
+        labels = {"base-off": "Base off", "base-on": "Base on"}
+        title = "Controlled ACC startup: Base optimizations\nFive runs each; same Open Connect build and wired CarPlay"
     for condition in colors:
         for run in range(1, 6):
             group = [r for r in rows if r["condition"] == condition and int(r["run"]) == run]

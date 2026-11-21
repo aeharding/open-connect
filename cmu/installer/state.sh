@@ -99,6 +99,7 @@ snapshot_read() {
     test "$(wc -l < "$D/snapshots/$1/config")" -eq 1 || return 1
     fields=$(awk -F '|' '{print NF}' "$D/snapshots/$1/config")
     case "$fields" in 5|6) ;; *) return 1;; esac
+    S_CONFIG_FIELDS=$fields
     IFS='|' read -r S_PACKAGE S_TOUCH S_WARNING S_NVRAM S_META S_PANDORA extra < "$D/snapshots/$1/config" || return 1
     # Older snapshots retained Mazda's original service policy.
     if test "$fields" = 5; then S_PANDORA=1; fi
@@ -121,14 +122,20 @@ snapshot_read() {
     fi
 }
 snapshot_create() (
+    # Optional ninth argument: Pandora bit for the new selector, '-' (or absent)
+    # preserves the five-field format understood by an installed older selector.
     # autostart, package, touch, warning, nvram, mode, dependencies, access, Pandora
     set -eu
-    file "$1" && { test "$2" = - || hex "$2" 64; } && bit "$3" && bit "$4" && bit "${9-1}" && touch_value "$5" && metadata "$6" || fail invalid_snapshot
+    file "$1" && { test "$2" = - || hex "$2" 64; } && bit "$3" && bit "$4" && { test "${9--}" = - || bit "${9--}"; } && touch_value "$5" && metadata "$6" || fail invalid_snapshot
     local work id name digest
     work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail snapshot_create_failed
     cp "$1" "$work/autostart" || fail snapshot_copy_failed
     if test "$#" -ge 7; then cp "$7" "$work/dependencies"; else : > "$work/dependencies"; fi || fail snapshot_copy_failed
-    printf '%s|%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" "${9-1}" > "$work/config" || fail snapshot_config_failed
+    if test "${9--}" = -; then
+        printf '%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6"
+    else
+        printf '%s|%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" "$9"
+    fi > "$work/config" || fail snapshot_config_failed
     chmod 600 "$work/autostart" "$work/config" "$work/dependencies" || fail snapshot_mode_failed
     set -- autostart config dependencies "${8:--}"
     if test "$4" != - && ! absent "$4/access"; then

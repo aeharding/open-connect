@@ -73,17 +73,17 @@ service-off)
     snapshot_read "$R_CURRENT"
     after=$(snapshot_create "$AUTOSTART" "$S_PACKAGE" "$S_TOUCH" "$S_WARNING" "$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 0)
     transaction_prepare set "$R_CURRENT" "$after";;
-install)
+install|install-legacy)
     printf 'installed\n' > "$D/installed"
     package=$(printf '%064d' 1)
     mkdir -p "$D/composed/$package"
     cp "$D/installed" "$D/composed/$package/autostart"
-    after=$(snapshot_create "$D/installed" "$package" 1 1 disable "755:$(id -u):$(id -g)" "$D/snapshots/$R_CURRENT/dependencies")
+    service_choice=1; test "$ACTION" != install-legacy || service_choice=-
+    after=$(snapshot_create "$D/installed" "$package" 1 1 disable "755:$(id -u):$(id -g)" "$D/snapshots/$R_CURRENT/dependencies" - "$service_choice")
     transaction_prepare install "$R_CURRENT" "$after";;
 uninstall)
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
-    snapshot_read "$R_CURRENT"
-    before=$(state_capture "$S_PACKAGE" "$S_TOUCH" "$S_WARNING")
+    before=$R_CURRENT
     after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 absent "755:$(id -u):$(id -g)" "$D/snapshots/$before/dependencies")
     transaction_prepare uninstall "$before" "$after";;
 legacy-current)
@@ -211,6 +211,76 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(error["error"], "stale_setting")
         self.assertEqual((data / "record").read_bytes(), record)
         result, status = self.api("uninstall", status["revision"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(data.exists())
+        self.assertEqual(self.target(data, "target").read_text(), "stock\n")
+
+    def test_older_snapshot_settings_stay_readable_and_services_require_update(self):
+        data = self.create("five-field-settings")
+        self.run_ok(data, "install-legacy")
+        self.backend_fixture(data)
+        _, status = self.api("status")
+        self.assertNotIn("pandora", status)
+        backend = (data / "record").read_text().split("|")[3]
+        for key, expected, desired in (("touch", "1", "0"), ("warning", "1", "0")):
+            result, status = self.api("set", status["revision"], key, expected, desired)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            current = data / "snapshots" / status["revision"] / "config"
+            # The immediate dev.5 selector requires exactly these five fields.
+            self.assertEqual(len(current.read_text().strip().split("|")), 5)
+            self.assertEqual((data / "record").read_text().split("|")[3], backend)
+            self.assertNotIn("pandora", status)
+        record = (data / "record").read_bytes()
+        result, error = self.api("set", status["revision"], "pandora", "1", "0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "services_update_required")
+        self.assertEqual((data / "record").read_bytes(), record)
+        result, _ = self.api("uninstall", status["revision"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(data.exists())
+        self.assertEqual(self.target(data, "target").read_text(), "stock\n")
+
+    def test_older_snapshot_uninstall_can_resume_after_durable_preparation(self):
+        data = self.create("five-field-removal")
+        self.run_ok(data, "install-legacy")
+        self.backend_fixture(data)
+        _, status = self.api("status")
+        current = status["revision"]
+        original_flush = self.tools / "flush-real"
+        (self.tools / "flush").rename(original_flush)
+        armed = self.root / "interrupt-once"
+        armed.touch()
+        (self.tools / "flush").write_text(
+            "#!/bin/sh\nset -eu\n"
+            + shlex.quote(str(original_flush))
+            + ' "$@"\n'
+            + 'if test "$1" = d && test "$2" = '
+            + shlex.quote(str(data))
+            + " && test -f "
+            + shlex.quote(str(armed))
+            + ' && test "$(cut -d \'|\' -f 2 "$2/record")" = uninstall; then\n'
+            + "rm "
+            + shlex.quote(str(armed))
+            + '; kill -KILL "$PPID"\nfi\n'
+        )
+        (self.tools / "flush").chmod(0o700)
+        result = subprocess.run(
+            ["sh", self.tools / "backend.sh", "api", current, "uninstall", "-", "-", "-"],
+            capture_output=True,
+            timeout=15,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        self.assertNotEqual(result.returncode, 0)
+        fields = (data / "record").read_text().split("|")
+        self.assertEqual(fields[1], "uninstall")
+        self.assertEqual(fields[5], current)
+        self.assertEqual(fields[6], current)
+        self.assertEqual(
+            len((data / "snapshots" / fields[7] / "config").read_text().strip().split("|")), 5
+        )
+        _, status = self.api("status")
+        self.assertTrue(status["pending"])
+        result, _ = self.api("recover", status["revision"])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(data.exists())
         self.assertEqual(self.target(data, "target").read_text(), "stock\n")

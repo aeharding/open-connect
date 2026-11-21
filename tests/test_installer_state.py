@@ -104,7 +104,7 @@ class InstallerState(unittest.TestCase):
             ).encode()
             identity = hashlib.sha256(manifest).hexdigest()
             folder = self.data / "snapshots" / identity
-            folder.mkdir(mode=0o700)
+            folder.mkdir(mode=0o700, exist_ok=True)
             for name, data in {**content, "files.sha256": manifest}.items():
                 folder.joinpath(name).write_bytes(data)
             read = self.run_command("read-prefs", identity)

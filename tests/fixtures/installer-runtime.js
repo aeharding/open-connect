@@ -86,6 +86,22 @@ f.tick();
 assert.equal(f.choices[0].installedVersion, "0.3.0-dev.3");
 assert.equal(f.choices[0].version, "0.3.0-dev.4");
 assert.equal(f.store.version, "0.3.0-dev.3");
+// Cancelling a newer maintenance client does not expose services unsupported by
+// the installed selector. Existing choices still use the same request contract.
+f = fixture();
+f.ctx.OpenConnect.start(token, true);
+f.reply(f.requests[0], f.state({installed: true, version: "0.3.0-dev.6",
+    installedVersion: "0.3.0-dev.5"}));
+f.tick(); f.choices[0].done("cancel");
+assert.equal(f.store.read().pandora, undefined);
+f.store.write("touch", 0, 1, () => {});
+assert.equal(f.requests.at(-1).body, token + "|" + revision + "|set|touch|0|1");
+f = fixture();
+f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true, version: "0.3.0-dev.6",
+    installedVersion: "0.3.0-dev.6", pandora: 0}));
+f.tick();
+assert.equal(f.store.read().pandora, 0);
 f = fixture();
 f.ctx.OpenConnect.start(token, true);
 f.reply(f.requests[0], f.state({installed: true, installedVersion: "-"}));

@@ -1,6 +1,7 @@
 """Mutating experiment front door: refusal and uncertain relay TX with fake hardware."""
 
 import contextlib
+import hashlib
 import io
 import json
 import subprocess
@@ -16,6 +17,33 @@ from open_connect import startup_reference as m
 
 
 class StartupReferenceTests(unittest.TestCase):
+    def test_boot_retrieval_requires_new_boot_complete_trace_and_matching_digest(self):
+        boot = "22222222-2222-2222-2222-222222222222"
+        token = boot.replace("-", "")
+        prefix = "OCM1 " + token + " "
+        trace = "\n" + prefix + "boot " + boot + "\n"
+        trace += "\n" + prefix + "sample 0 2.00\n"
+        for path in m.metrics.FILES:
+            trace += "\n" + prefix + "file " + path + "\n"
+            trace += "MemTotal: 1 kB\nMemFree: 1 kB\n" if path == "/proc/meminfo" else "example\n"
+        trace += "\n" + prefix + "end 0 2.01\n\n" + prefix + "complete 1\n"
+
+        def response(body):
+            return (
+                "banner\nBOOT_TRACE|" + boot + "\nBOOT_TRACE_SHA|(stdin)= "
+                + hashlib.sha256(body.encode()).hexdigest() + "\n"
+                + "START_UPTIME|1.99 0.00\n" + body
+            ).encode()
+
+        result = m.parse_boot_trace(response(trace), "11111111-1111-1111-1111-111111111111")
+        self.assertEqual(result["samples"][0]["uptime_start_s"], 2.0)
+        with self.assertRaisesRegex(ValueError, "stale"):
+            m.parse_boot_trace(response(trace), boot)
+        with self.assertRaisesRegex(ValueError, "digest"):
+            m.parse_boot_trace(response(trace).replace(b"example", b"changed", 1), "old")
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            m.parse_boot_trace(response(trace.rsplit("\n" + prefix + "complete", 1)[0]), "old")
+
     def test_dry_run_never_opens_devices_or_ssh(self):
         with (
             patch.object(sys, "argv", ["startup_reference"]),

@@ -1,9 +1,9 @@
-"""Playground: one stock ACC restart, receive-only UART/video and post-SSH metrics."""
+"""Playground: one stock ACC restart, UART/video and locally started boot metrics."""
 
 import argparse
 import json
 import re
-import secrets
+import hashlib
 import shlex
 import subprocess
 import threading
@@ -41,7 +41,8 @@ def main():
                     "outcome": "dry_run",
                     "acc_off_seconds": 30,
                     "post_on_video_seconds": 120,
-                    "resources_seconds": 120,
+                    "resources_seconds": 180,
+                    "resource_launch": "local stage_1 hook; SSH retrieval after 195 seconds",
                     "device_opened": False,
                 }
             )
@@ -71,9 +72,14 @@ def main():
     )
     bundle.save("startup_reference.py", Path(__file__).read_bytes())
     preflight = (ROOT / "cmu/bench/startup-preflight.sh").read_bytes()
-    ready = (ROOT / "cmu/bench/startup-ready.sh").read_bytes()
+    fetch = (ROOT / "cmu/bench/startup-fetch.sh").read_bytes()
     bundle.save("preflight.sh", preflight)
-    bundle.save("ready.sh", ready)
+    bundle.save("fetch.sh", fetch)
+    sources = {}
+    for name in ("metrics.sh", "startup-launch.sh", "startup-hook.sh"):
+        source = (ROOT / "cmu/bench" / name).read_bytes()
+        bundle.save(name, source)
+        sources[name] = hashlib.sha256(source).hexdigest()
     ssh = [
         "ssh",
         "-T",
@@ -90,7 +96,7 @@ def main():
     video = Video(bundle, 0)
     stop = threading.Event()
     errors = []
-    port = relay = uart_worker = sample_worker = None
+    port = relay = uart_worker = None
     outcome, error = "incomplete_preserved", None
     record = {
         "revision": revision,
@@ -98,6 +104,7 @@ def main():
         "supply_commands_sent": False,
         "events": [],
         "ui_inputs_sent": False,
+        "resource_sources": sources,
     }
 
     def event(kind, **values):
@@ -130,66 +137,6 @@ def main():
             if errors:
                 raise RuntimeError(errors[0])
             time.sleep(min(0.1, max(0, deadline - time.monotonic())))
-
-    def sample_after_ready(old_boot, on):
-        try:
-            token = secrets.token_hex(16)
-            deadline, attempt = on + 100, 0
-            while time.monotonic() < deadline and not stop.is_set():
-                before = time.monotonic()
-                try:
-                    result = subprocess.run(
-                        ssh + ["timeout -t 3 sh -s -- " + shlex.join([old_boot, token])],
-                        input=ready,
-                        capture_output=True,
-                        timeout=5,
-                    )
-                    raw, err, rc = result.stdout, result.stderr, result.returncode
-                except subprocess.TimeoutExpired as exc:
-                    raw, err, rc = exc.stdout or b"", exc.stderr or b"", None
-                after = time.monotonic()
-                bundle.save(f"probe-{attempt}.out", raw)
-                bundle.save(f"probe-{attempt}.err", err)
-                match = re.findall(
-                    rb"^STARTUP_READY\|"
-                    + token.encode()
-                    + rb"\|([a-f0-9-]{36})\|([0-9.]+) ([0-9.]+)$",
-                    raw,
-                    re.M,
-                )
-                event("ssh_probe", attempt=attempt, before_s=before, after_s=after, returncode=rc)
-                if rc == 0 and len(match) == 1:
-                    new_boot, uptime, _ = match[0]
-                    record["ready"] = {
-                        "boot": new_boot.decode(),
-                        "uptime_s": float(uptime),
-                        "host_before_s": before,
-                        "host_after_s": after,
-                    }
-                    options = [
-                        "--live",
-                        "--host",
-                        args.host,
-                        "--seconds",
-                        "120",
-                        "--interval",
-                        "1",
-                        "--workspace",
-                        str(ROOT),
-                        "--bundle",
-                        str(bundle.path / "resources"),
-                    ]
-                    if args.ssh_config:
-                        options += ["--ssh-config", str(args.ssh_config)]
-                    record["sampler_returncode"] = metrics.main(options)
-                    event("sampling_complete", returncode=record["sampler_returncode"])
-                    return
-                attempt += 1
-                stop.wait(0.5)
-            raise RuntimeError("new-boot owner SSH not ready within 100 seconds")
-        except BaseException as exc:
-            record["sampling_error"] = repr(exc)
-            event("sampling_error", error=repr(exc))
 
     try:
         result = subprocess.run(
@@ -240,10 +187,7 @@ def main():
                         raise RuntimeError("partial relay transmission; no resend")
                     if name == "ACC_ON":
                         relay.close()
-                        sample_worker = threading.Thread(
-                            target=sample_after_ready, args=(old_boot, at)
-                        )
-                        sample_worker.start()
+                        on = at
                     wait_until(at + delay)
                 outcome = "observed"
             finally:
@@ -258,18 +202,34 @@ def main():
                     video.stop()
                 except BaseException as exc:
                     record["camera_error"] = repr(exc)
-                finally:
-                    if sample_worker:
-                        sample_worker.join(160)
-                        if sample_worker.is_alive():
-                            raise RuntimeError("resource worker exceeded its finite deadline")
+        # No SSH polling or collection commands run during startup. The local
+        # observer is finite and the first SSH here only fetches completed data.
+        wait_until(on + 195)
+        result = subprocess.run(
+            ssh + ["timeout -t 20 sh -s -- " + shlex.join([old_boot, *sources.values()])],
+            input=fetch,
+            capture_output=True,
+            timeout=25,
+        )
+        bundle.save("fetch.out", result.stdout)
+        bundle.save("fetch.err", result.stderr)
+        if result.returncode:
+            raise RuntimeError("boot trace fetch refused; inspect retained RAM evidence")
+        trace = parse_boot_trace(result.stdout, old_boot)
+        bundle.save("trace.json", (json.dumps(trace, indent=2) + "\n").encode())
+        bundle.save("memory.csv", metrics.memory_csv(trace).encode())
+        event(
+            "trace_retrieved",
+            boot_id=trace["boot_id"],
+            samples=len(trace["samples"]),
+            first_sample_uptime_s=trace["samples"][0]["uptime_start_s"],
+            last_sample_uptime_s=trace["samples"][-1]["uptime_end_s"],
+        )
     except BaseException as exc:
         error = repr(exc)
     finally:
         if record.get("camera_error"):
             error = error or record["camera_error"]
-        if record.get("sampling_error") or record.get("sampler_returncode") != 0:
-            error = error or record.get("sampling_error") or "sampling did not complete"
         record.update(
             outcome=outcome if error is None else "incomplete_preserved",
             error=error,
@@ -281,6 +241,23 @@ def main():
         bundle.finish(record["outcome"], error)
     if error:
         raise SystemExit(error)
+
+
+def parse_boot_trace(raw, old_boot):
+    boots = re.findall(rb"^BOOT_TRACE\|(" + metrics.UUID.encode() + rb")$", raw, re.M)
+    if len(boots) != 1 or boots[0].decode() == old_boot:
+        raise ValueError("missing or stale local boot trace")
+    boot = boots[0].decode()
+    token = boot.replace("-", "")
+    trace_start = raw.index(b"\nOCM1 " + token.encode() + b" boot ")
+    trace_raw = raw[trace_start:]
+    digests = re.findall(rb"^BOOT_TRACE_SHA\|\(stdin\)= ([a-f0-9]{64})$", raw, re.M)
+    if len(digests) != 1 or hashlib.sha256(trace_raw).hexdigest().encode() != digests[0]:
+        raise ValueError("retrieved trace digest mismatch")
+    trace = metrics.parse(trace_raw, token, [])
+    if trace["boot_id"] != boot:
+        raise ValueError("trace boot identity mismatch")
+    return trace
 
 
 if __name__ == "__main__":

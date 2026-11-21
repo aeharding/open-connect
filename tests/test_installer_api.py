@@ -58,6 +58,7 @@ class InstallerApi(unittest.TestCase):
             (TOKEN + "|" + "b" * 64 + "|set|uart|1|0", "set", "uart"),
             (TOKEN + "|" + "b" * 64 + "|set|pandora|1|0", "set", "pandora"),
             (TOKEN + "|" + "b" * 64 + "|set|base|0|1", "set", "base"),
+            (TOKEN + "|" + "b" * 64 + "|set|wireless|0|1", "set", "wireless"),
             (TOKEN + "|" + "b" * 64 + "|import|-|-|-", "import", "-"),
             (TOKEN + "|" + "b" * 32 + "|recover|-|-|-", "recover", "-"),
         ):
@@ -85,6 +86,7 @@ class InstallerApi(unittest.TestCase):
             self.request((TOKEN + "|-|set|unrelated|0|1").encode()),
             self.request((TOKEN + "|-|set|pandora|1|2").encode()),
             self.request((TOKEN + "|-|set|base|0|2").encode()),
+            self.request((TOKEN + "|-|set|wireless|0|2").encode()),
             b"POST /control HTTP/1.1\r\n" + b"x" * 4100,
         ]
         for request in cases:

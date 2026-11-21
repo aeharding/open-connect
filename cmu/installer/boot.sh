@@ -31,7 +31,7 @@ esac
 test "$R_PHASE" = active || exit 1
 targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
 snapshot_read "$R_CURRENT" || fail invalid_snapshot
-package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; mode=$S_META; pandora=$S_PANDORA; base=$S_BASE
+package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; mode=$S_META; pandora=$S_PANDORA; base=$S_BASE; wireless=$S_WIRELESS
 # The current snapshot pins every package/composed file, including manifests;
 # dependencies_match above has just checked those exact bytes.
 hex "$package" 64 && private_dir "$D/packages/$package" && private_dir "$D/composed/$package" || fail damaged_feature
@@ -53,7 +53,7 @@ nvram=$S_NVRAM
 if test "$selected:$touch" = true:1; then nvram=disable; fi
 snapshot_read "$R_CURRENT" || fail invalid_snapshot
 if test "$S_NVRAM" != "$nvram"; then
-    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" "$pandora" "$base") || fail startup_plan_failed
+    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" "$pandora" "$base" "$wireless") || fail startup_plan_failed
     transaction_prepare apply "$R_CURRENT" "$after"
     transaction_reconcile
 fi
@@ -64,8 +64,14 @@ absent /tmp/open-connect/feature || fail feature_already_present
 work=$(mktemp -d /tmp/open-connect/.feature-XXXXXX)
 for name in uia.so mmui.so mmui.xml system-app.js; do cp "$D/composed/$package/$name" "$work/$name"; done
 if test "$warning" = 1; then setting=on; else setting=off; fi
-service_config "$D/composed/$package/sm-normal-$setting.conf" "$work/sm.conf" "$pandora" || fail service_config_failed
-service_config "$D/composed/$package/sm-wcp-$setting.conf" "$work/sm_WCP.conf" "$pandora" || fail service_config_failed
+service_config "$D/composed/$package/sm-normal-$setting.conf" "$work/sm.conf" "$pandora" "$wireless" || fail service_config_failed
+service_config "$D/composed/$package/sm-wcp-$setting.conf" "$work/sm_WCP.conf" "$pandora" "$wireless" || fail service_config_failed
+if test "$wireless" = 1; then
+    cp "$P/wireless.sh" "$work/wireless.sh"
+    cp "$P/wireless-device.awk" "$work/wireless-device.awk"
+    printf '%s\n' "$boot" > "$work/boot-id"
+    printf '0\n' > "$work/wireless-applied"
+fi
 token=$(cat "$runtime/token"); hex "$token" 32 || fail invalid_token
 sed "s/@TOKEN@/$token/" "$D/composed/$package/index-$setting.html" > "$work/index.html"
 mv "$work" /tmp/open-connect/feature

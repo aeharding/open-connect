@@ -15,16 +15,21 @@ automatically** and takes effect at the next full Mazda Connect restart.
 Use Back to return to the list.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings with Touchscreen While Driving, Startup disclaimer, Services, Developer options and Uninstall visible; About is below." width="800" height="480" loading="lazy"></div>
-  <figcaption>Your current choices appear beside each preference.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings with Touchscreen While Driving, Startup disclaimer, Wireless CarPlay, Services and Developer options visible." width="800" height="480" loading="lazy"></div>
+  <figcaption>Your current choices appear beside each preference. Scroll for Uninstall and About.</figcaption>
 </figure>
 
 | Feature | Fresh-install default |
 | --- | --- |
 | [Touchscreen While Driving](touchscreen.md) | **Allow** |
 | [Startup disclaimer](disclaimer.md) | **Skip** |
+| [Wireless CarPlay](wireless-carplay.md) | **Off** |
 
 Updating keeps your choices. See each feature's page for what its options do.
+Wireless CarPlay uses a checkbox and a confirmation explaining restart and
+Mazda's native Wi-Fi/Bluetooth setup.
+On hardware with factory wireless CarPlay, the checkbox is already checked and
+disabled, labeled **factory enabled**. Mazda's Wi-Fi menu controls its connection.
 
 After changing a preference, switch the ignition off and let Mazda Connect shut
 down completely before starting again. A quick off/on may resume the old session.

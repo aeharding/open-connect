@@ -249,3 +249,25 @@ f.choices[0].done("uninstall");
 assert.equal(f.requests[1].body, token + "|" + revision + "|uninstall|-|-|-");
 f.reply(f.requests[1], f.state({revision: "-", restart: true}));
 assert.equal(f.requests[2].body, token + "|-|restart|-|-|-");
+
+// Wireless uses the same request shape and keeps the applied boot selection
+// separate from the saved preference while a restart is pending.
+f = fixture();
+f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true, wireless: 1, wirelessCurrent: 1}));
+f.tick();
+assert.equal(f.store.read().wireless, 1);
+assert.equal(f.store.read().wirelessCurrent, 1);
+f.store.write("wireless", 1, 0, () => {});
+assert.equal(f.requests[1].body, token + "|" + revision + "|set|wireless|1|0");
+f.reply(f.requests[1], f.state({installed: true, wireless: 0, wirelessCurrent: 1, restart: true}));
+assert.equal(f.store.read().wireless, 0);
+assert.equal(f.store.read().wirelessCurrent, 1);
+assert.equal(f.store.read().restart, true);
+
+f = fixture();
+f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true, wireless: 0, wirelessCurrent: 0, wirelessFactory: true}));
+f.tick();
+assert.equal(f.store.read().wirelessFactory, true);
+assert.equal(f.store.read().wireless, 0);

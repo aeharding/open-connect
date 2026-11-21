@@ -51,8 +51,8 @@ class InstallerState(unittest.TestCase):
             'manifest) verify_manifest "$5";;\n'
             'create-dependencies) snapshot_create "$5" - 0 0 absent "755:$(id -u):$(id -g)" "$6";;\n'
             'create-prefs) snapshot_create "$5" - 0 0 absent "755:$(id -u):$(id -g)" /dev/null - "$6";;\n'
-            'read-prefs) snapshot_read "$5" && printf "%s|%s\\n" "$S_PANDORA" "$S_BASE";;\n'
-            'read-pair) snapshot_read "$5" && snapshot_read "$6" && printf "%s|%s\\n" "$S_PANDORA" "$S_BASE";;\n'
+            'read-prefs) snapshot_read "$5" && printf "%s|%s|%s\\n" "$S_PANDORA" "$S_BASE" "$S_WIRELESS";;\n'
+            'read-pair) snapshot_read "$5" && snapshot_read "$6" && printf "%s|%s|%s\\n" "$S_PANDORA" "$S_BASE" "$S_WIRELESS";;\n'
             'dependencies) . "${3%/*}/firmware.sh"; . "${3%/*}/transaction.sh"; dependencies_match "$5";;\n'
             "esac\n"
         )
@@ -81,7 +81,7 @@ class InstallerState(unittest.TestCase):
             result = self.run_command("create-prefs", None, enabled)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(
-                self.run_command("read-prefs", result.stdout.strip()).stdout, enabled + "|0\n"
+                self.run_command("read-prefs", result.stdout.strip()).stdout, enabled + "|0|0\n"
             )
         for invalid in ("", "2"):
             self.assertNotEqual(self.run_command("create-prefs", None, invalid).returncode, 0)
@@ -89,14 +89,18 @@ class InstallerState(unittest.TestCase):
         base = original.joinpath("config").read_text().strip().split("|")[:5]
         identities = {}
         for fields, expected in (
-            (base + ["0", "1"], "0|1\n"),
-            (base, "1|0\n"),
-            (base + ["0"], "0|0\n"),
+            (base + ["0", "1"], "0|1|0\n"),
+            (base, "1|0|0\n"),
+            (base + ["0"], "0|0|0\n"),
             (base + [""], None),
             (base + ["2"], None),
             (base + ["0", ""], None),
             (base + ["0", "2"], None),
-            (base + ["0", "1", "0"], None),
+            (base + ["0", "1", "0"], "0|1|0\n"),
+            (base + ["0", "1", "1"], "0|1|1\n"),
+            (base + ["0", "1", ""], None),
+            (base + ["0", "1", "2"], None),
+            (base + ["0", "1", "0", "0"], None),
         ):
             # Authenticate each fixture so refusal exercises the schema parser.
             content = {
@@ -120,9 +124,9 @@ class InstallerState(unittest.TestCase):
                 self.assertEqual(read.returncode, 0, read.stderr)
                 self.assertEqual(read.stdout, expected)
                 identities[len(fields)] = identity
-        # Reading an older snapshot must reset a previous true base flag.
-        for count, expected in ((5, "1|0\n"), (6, "0|0\n")):
-            read = self.run_command("read-pair", identities[7], identities[count])
+        # Reading an older snapshot resets absent base/wireless flags.
+        for count, expected in ((5, "1|0|0\n"), (6, "0|0|0\n"), (7, "0|1|0\n")):
+            read = self.run_command("read-pair", identities[8], identities[count])
             self.assertEqual(read.returncode, 0, read.stderr)
             self.assertEqual(read.stdout, expected)
 

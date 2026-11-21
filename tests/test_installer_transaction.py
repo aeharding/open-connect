@@ -73,15 +73,16 @@ service-off)
     snapshot_read "$R_CURRENT"
     after=$(snapshot_create "$AUTOSTART" "$S_PACKAGE" "$S_TOUCH" "$S_WARNING" "$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 0 "$S_BASE")
     transaction_prepare set "$R_CURRENT" "$after";;
-install|install-legacy|install-six)
+install|install-legacy|install-six|install-seven)
     printf 'installed\n' > "$D/installed"
     package=$(printf '%064d' 1)
     mkdir -p "$D/composed/$package"
     cp "$D/installed" "$D/composed/$package/autostart"
-    service_choice=1; base_choice=0
+    service_choice=1; base_choice=0; wireless_choice=0
     if test "$ACTION" = install-legacy; then service_choice=-; fi
-    if test "$ACTION" != install; then base_choice=-; fi
-    after=$(snapshot_create "$D/installed" "$package" 1 1 disable "755:$(id -u):$(id -g)" "$D/snapshots/$R_CURRENT/dependencies" - "$service_choice" "$base_choice")
+    if test "$ACTION" = install-legacy || test "$ACTION" = install-six; then base_choice=-; fi
+    if test "$ACTION" != install; then wireless_choice=-; fi
+    after=$(snapshot_create "$D/installed" "$package" 1 1 disable "755:$(id -u):$(id -g)" "$D/snapshots/$R_CURRENT/dependencies" - "$service_choice" "$base_choice" "$wireless_choice")
     transaction_prepare install "$R_CURRENT" "$after";;
 uninstall)
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
@@ -160,7 +161,10 @@ class InstallerTransaction(unittest.TestCase):
         # Use the real backend and state/transaction code; replace only physical
         # firmware, NVRAM, mount, root-publication and reboot adapters.
         adapters = DRIVER[DRIVER.index("root_mode()") : DRIVER.index('if test "$ACTION" = init;')]
-        (self.tools / "firmware.sh").write_text("CUT=none\nfirmware_guard() { :; }\n" + adapters)
+        (self.tools / "firmware.sh").write_text(
+            'CUT=none\nfirmware_guard() { :; }\nfactory_wireless() { test -f "$D-factory-wireless"; }\n'
+            + adapters
+        )
         (self.tools / "flock").write_text("#!/bin/sh\nexit 0\n")
         (self.tools / "flock").chmod(0o700)
         script = (ROOT / "cmu/installer/backend.sh").read_text()
@@ -242,6 +246,80 @@ class InstallerTransaction(unittest.TestCase):
         self.assertFalse(data.exists())
         self.assertEqual(self.target(data, "target").read_text(), "stock\n")
 
+    def test_wireless_choice_applied_status_and_other_choices_survive_until_uninstall(self):
+        data = self.create("wireless-setting")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        _, status = self.api("status")
+        self.assertEqual((status["wireless"], status["wirelessCurrent"]), (0, 0))
+        self.assertFalse(status["wirelessFactory"])
+        for key, before, after in (
+            ("wireless", "0", "1"),
+            ("pandora", "1", "0"),
+            ("base", "0", "1"),
+            ("warning", "1", "0"),
+        ):
+            result, status = self.api("set", status["revision"], key, before, after)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((status["wireless"], status["pandora"], status["base"]), (1, 0, 1))
+        self.assertEqual(status["wirelessCurrent"], 0)
+        config = data / "snapshots" / status["revision"] / "config"
+        self.assertEqual(len(config.read_text().strip().split("|")), 8)
+        runtime = self.root / "runtime"
+        (runtime / "selected").write_text(status["revision"] + "\n")
+        feature = runtime / "feature"
+        feature.mkdir(mode=0o700)
+        (feature / "wireless-applied").write_text("1\n")
+        _, status = self.api("status")
+        self.assertEqual(status["wirelessCurrent"], 1)
+        self.assertFalse(status["wirelessFactory"])
+        self.assertFalse(status["restart"])
+        result, status = self.api("set", status["revision"], "wireless", "1", "0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((status["wireless"], status["wirelessCurrent"]), (0, 1))
+        self.assertTrue(status["restart"])
+        result, _ = self.api("uninstall", status["revision"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(data.exists())
+        self.assertEqual(self.target(data, "target").read_text(), "stock\n")
+
+    def test_factory_wireless_status_does_not_change_the_saved_override(self):
+        data = self.create("factory-wireless")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        record = (data / "record").read_bytes()
+        flag = self.root / "factory-wireless-factory-wireless"
+        flag.touch()
+        result, status = self.api("status")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(status["wirelessFactory"])
+        self.assertEqual((status["wireless"], status["wirelessCurrent"]), (0, 0))
+        self.assertEqual((data / "record").read_bytes(), record)
+        flag.unlink()
+        _, status = self.api("status")
+        self.assertFalse(status["wirelessFactory"])
+
+    def test_seven_field_selector_preserves_format_and_refuses_wireless_until_update(self):
+        data = self.create("seven-field-settings")
+        self.run_ok(data, "install-seven")
+        self.backend_fixture(data)
+        _, status = self.api("status")
+        self.assertNotIn("wireless", status)
+        for key, before, after in (("base", "0", "1"), ("pandora", "1", "0")):
+            result, status = self.api("set", status["revision"], key, before, after)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config = data / "snapshots" / status["revision"] / "config"
+            self.assertEqual(len(config.read_text().strip().split("|")), 7)
+            self.assertNotIn("wireless", status)
+        record = (data / "record").read_bytes()
+        result, error = self.api("set", status["revision"], "wireless", "0", "1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "wireless_update_required")
+        self.assertEqual((data / "record").read_bytes(), record)
+        result, _ = self.api("uninstall", status["revision"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(data.exists())
+
     def test_base_setting_preserves_service_and_other_choices_through_uninstall(self):
         data = self.create("base-setting")
         self.run_ok(data, "install")
@@ -257,7 +335,7 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((status["base"], status["pandora"]), (1, 0))
         self.assertEqual(
-            len((data / "snapshots" / status["revision"] / "config").read_text().split("|")), 7
+            len((data / "snapshots" / status["revision"] / "config").read_text().split("|")), 8
         )
         record = (data / "record").read_bytes()
         result, error = self.api("set", status["revision"], "base", "0", "1")

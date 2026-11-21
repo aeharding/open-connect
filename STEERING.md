@@ -73,8 +73,10 @@ before the first Open Connect installation. Do not maintain installer allowances
 for its modified startup, board-detection or service files; require the supported
 OEM originals. The owner rejects vehicle-fingerprint spoofing and wants an Open
 Connect option to enable native wireless CarPlay while preserving actual vehicle
-and hardware identity. That feature remains in the final wireless phase; its
-mechanism and the cause of cold-start lag remain unproved.
+and hardware identity. The development candidate now has installed native
+enablement and repeated-start reconnection checks; cold-start lag remains
+unexplained and unmeasured for this candidate. Wireless baseline measurements
+precede broader Services research; deep long-parked reliability work remains last.
 Establish stock wired CarPlay early on the v74 bench for release compatibility
 checks and timing/RAM baselines. Keep this fixture separate from changes to
 native wireless enablement and cold-start behavior, which remain last in the
@@ -92,6 +94,11 @@ performance settings are first-class feature candidates. Their dependencies,
 benefits and hardware applicability need evidence; reducing process counts or
 idle memory alone is not proof of a useful improvement. Similar feature scope is
 not a requirement to copy another product's implementation or defaults.
+The owner also wants service and optimization research beyond Miatafy's documented
+changes. Inspect this firmware's dependencies and measured startup/background work
+to choose candidates. Implementation plan: after native wireless enablement and
+its baseline, expand Services and measured optimizations before deep long-parked
+lag work. Research may overlap collection; changes need a fixed comparison baseline.
 The owner wants performance testing before service changes and a dedicated
 Services page in Open Connect Settings before CarPlay work. Include Miatafy's
 published timings in the baseline comparison, matching measurement definitions

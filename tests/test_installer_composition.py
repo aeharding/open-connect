@@ -15,6 +15,48 @@ ASSETS = ROOT / "cmu/installer"
 
 
 class InstallerComposition(unittest.TestCase):
+    def test_factory_wireless_uses_only_the_verified_oem_board_branch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            result = root / "board-result"
+            board = root / "board.sh"
+            board.write_text('exit "$(cat ' + shlex.quote(str(result)) + ')"\n')
+            firmware = root / "firmware.sh"
+            firmware.write_text(
+                (ASSETS / "firmware.sh")
+                .read_text()
+                .replace("/jci/scripts/get_board_type.sh", str(board))
+                .replace(
+                    "2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da",
+                    hashlib.sha256(board.read_bytes()).hexdigest(),
+                )
+            )
+
+            def detected():
+                return (
+                    subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            '. "$1/state.sh"; . "$2"; factory_wireless',
+                            "test",
+                            ASSETS,
+                            firmware,
+                        ],
+                        capture_output=True,
+                        timeout=5,
+                    ).returncode
+                    == 0
+                )
+
+            for code, factory in ((1, False), (2, True), (0, False), (3, False)):
+                result.write_text(str(code) + "\n")
+                self.assertEqual(detected(), factory)
+            marker = root / "untrusted-executed"
+            board.write_text("touch " + shlex.quote(str(marker)) + "\nexit 2\n")
+            self.assertFalse(detected())
+            self.assertFalse(marker.exists())
+
     def test_service_selection_preserves_peers_and_refuses_unknown_structure(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -150,6 +192,9 @@ class InstallerComposition(unittest.TestCase):
             expected = []
             for name, target in (
                 ("manager.so", "/jci/lib/libjciuiamgr.so"),
+                ("device-master.xml", "/etc/devmgr_config_master.xml"),
+                ("eem.so", "/jci/vbs/modules/libjcimod_eem.so"),
+                ("device-manager.so", "/jci/devicemanager/libdevicemanager.so"),
                 ("rungetty", "/usr/bin/rungetty"),
                 ("sshd", "/usr/sbin/sshd"),
                 ("ssh-keygen", "/usr/bin/ssh-keygen"),

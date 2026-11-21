@@ -9,7 +9,8 @@ var OpenConnect = (function (previous) {
     var installer, settings, loading = null;
     function values() {
         return state && state.installed ? {touch: state.touch, warning: state.warning, pandora: state.pandora,
-            base: state.base,
+            base: state.base, wireless: state.wireless, wirelessCurrent: state.wirelessCurrent,
+            wirelessFactory: state.wirelessFactory === true,
             developer: state.developer === true, uart: state.uart || 0, ssh: state.ssh || 0,
             key: state.key || "-", fingerprint: state.fingerprint || "-", restart: state.restart,
             uartCurrent: state.uartCurrent || 0, sshCurrent: state.sshCurrent || 0} : null;
@@ -21,6 +22,9 @@ var OpenConnect = (function (previous) {
             (s.touch === 0 || s.touch === 1) && (s.warning === 0 || s.warning === 1) &&
             (s.pandora === undefined || s.pandora === 0 || s.pandora === 1) &&
             (s.base === undefined || s.base === 0 || s.base === 1) &&
+            (s.wirelessFactory === undefined || typeof s.wirelessFactory === "boolean") &&
+            (s.wireless === undefined || ((s.wireless === 0 || s.wireless === 1) &&
+                (s.wirelessCurrent === 0 || s.wirelessCurrent === 1))) &&
             (s.developer === undefined || (typeof s.developer === "boolean" &&
                 (s.uart === 0 || s.uart === 1) && (s.ssh === 0 || s.ssh === 1) &&
                 (s.uartCurrent === 0 || s.uartCurrent === 1) && (s.sshCurrent === 0 || s.sshCurrent === 1) &&

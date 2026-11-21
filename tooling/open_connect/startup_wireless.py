@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Export numeric native UART events from completed wireless startup trials.
 
-Times retain the native logger's origin. They are not camera/ACC timestamps or
+Times retain the syslog receiver's wall-clock time of day. They are not camera/ACC timestamps or
 proof of usable projection. Log bodies and phone identifiers are never exported.
 """
 

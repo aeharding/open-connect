@@ -1,14 +1,56 @@
 """UART extraction excludes prior boots, ambiguous captures and identity data."""
 
+import contextlib
+import io
 import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from open_connect import startup_annotate
+from open_connect.startup_analysis import verified_annotations
 from open_connect.startup_wireless import BOOT_MARKER, native_events, trial_rows
 
 
 class WirelessEvents(unittest.TestCase):
+    def test_camera_only_keeps_missing_kernel_time_unknown(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trial-4"
+            path.mkdir()
+            (path / "trial.json").write_text(
+                json.dumps({"events": [{"kind": "ACC_ON", "monotonic_s": 1001.0}]})
+            )
+            (path / "camera-result.json").write_text(
+                json.dumps(
+                    {
+                        "ffprobe": {
+                            "frames": [
+                                {"best_effort_timestamp_time": str(t)}
+                                for t in (10.0, 10.2, 20.0, 20.2)
+                            ]
+                        }
+                    }
+                )
+            )
+            (path / "camera.stderr.txt").write_text("Duration: N/A, start: 1000.000, bitrate:")
+            (path / "camera.mkv").write_bytes(b"synthetic fixture")
+            with (
+                patch(
+                    "sys.argv", ["annotate", str(path), "10", "10.2", "20", "20.2", "--camera-only"]
+                ),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                startup_annotate.main()
+            rows = verified_annotations(path, None)
+            self.assertEqual(rows[0]["relative_acc_command_s"][0], 9.0)
+            self.assertAlmostEqual(rows[0]["relative_acc_command_s"][1], 9.2)
+            self.assertTrue(all(row["relative_kernel_s"] is None for row in rows))
+            rows[0]["relative_kernel_s"] = [0, 0]
+            (path / "annotations.json").write_text(json.dumps(rows))
+            with self.assertRaises(AssertionError):
+                verified_annotations(path, None)
+
     def test_boot_scope_repeats_and_missing_events(self):
         raw = (
             b"00:12:34.567 hostapd[] Info: IEEE 802.11: associated\n"

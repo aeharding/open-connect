@@ -3,15 +3,20 @@
 
 
 def main():
+    import argparse
     import hashlib
     import json
     import re
-    import sys
     from pathlib import Path
 
-    p = Path(sys.argv[1])
-    requested = list(map(float, sys.argv[2:]))
-    assert len(requested) == 4
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("trial", type=Path)
+    parser.add_argument("bounds", type=float, nargs=4)
+    parser.add_argument(
+        "--camera-only", action="store_true", help="retain ACC bounds with unknown kernel time"
+    )
+    args = parser.parse_args()
+    p, requested = args.trial, args.bounds
     pts = [
         float(f["best_effort_timestamp_time"])
         for f in json.loads((p / "camera-result.json").read_text())["ffprobe"]["frames"]
@@ -31,9 +36,12 @@ def main():
         "acc_on_video_pts_s": on - float(start[0]),
     }
     (p / "video-clock-origin.json").write_text(json.dumps(origin, indent=2) + "\n")
-    clock = json.loads(
-        (p.parent / p.name.replace("trial-", "clock-") / "clock-bounds.json").read_text()
-    )
+    clock_path = p.parent / p.name.replace("trial-", "clock-") / "clock-bounds.json"
+    if args.camera_only:
+        assert not clock_path.exists(), "use the available clock mapping"
+        clock = None
+    else:
+        clock = json.loads(clock_path.read_text())
     rows = []
     for index, name in enumerate(
         ["Home carousel fully spaced", "CarPlay dashboard fully rendered; map still loading"]
@@ -49,7 +57,9 @@ def main():
                 "first_frame": b,
                 "video_pts_bounds_s": [before, after],
                 "relative_acc_command_s": [v - on for v in host],
-                "relative_kernel_s": [
+                "relative_kernel_s": None
+                if clock is None
+                else [
                     host[0] - clock["kernel_zero_host_upper_s"],
                     host[1] - clock["kernel_zero_host_lower_s"],
                 ],

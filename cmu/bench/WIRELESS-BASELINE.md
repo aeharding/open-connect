@@ -59,7 +59,29 @@ python -m open_connect.startup_wireless runs/wireless/base-off/trial-{1,2,3,4,5}
 This exports only numeric timestamps, fixed event names and trial metadata.
 Repeated observations remain separate; missing records have empty times. A
 missing or duplicated new-boot syslog marker prevents timestamp attribution.
-The native logger's origin is separate from camera/ACC and mapped kernel time.
+On this firmware, syslog-ng's `R_DATE` rewrite supplies receiver wall-clock time
+of day. This is separate from camera/ACC and mapped kernel time; do not treat it
+as uptime without calibration.
 DHCP startup is not an AP-readiness measurement, and a session event does not
 prove visible projection, input or audio. UART buffering/drops and the internal
 Miatafy profiler's different triggers remain explicit comparison limits.
+
+If a finished camera recording has no SSH clock mapping, retain its reviewed
+adjacent-frame ACC bounds with `startup_annotate --camera-only`. Kernel bounds
+stay unknown. Keep its failed retrieval in the attempt table; missing RAM or
+clock data must not become zeros or a silently discarded attempt.
+
+Export the scheduled cohorts (including incomplete retrievals) after annotation:
+
+```sh
+python -m open_connect.startup_export runs/wireless-parent runs/wireless-public --wireless
+python -m open_connect.startup_plot runs/wireless-public/startup-samples.csv \
+  runs/wireless-public/startup-resources.svg
+```
+
+`runs/wireless-parent` contains `wireless-base-off` and `wireless-base-on`, each
+with five scheduled `trial-N` directories. `startup-attempts.csv` retains all ten
+attempts. Only fully verified traces enter the resource tables; reviewed partial
+camera timings retain ACC bounds, empty kernel fields and an explicit false
+postflight-verification flag. Report the resource denominator separately from
+projection attempts and explain any unmeasured recovery starts in acquisition order.

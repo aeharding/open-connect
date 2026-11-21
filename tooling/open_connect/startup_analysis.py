@@ -64,10 +64,14 @@ def verified_annotations(path, clocks):
         assert row["video_pts_bounds_s"] == [pts[a], pts[b]]
         host = [start + pts[a], start + pts[b]]
         assert row["relative_acc_command_s"] == [v - on[0] for v in host]
-        assert row["relative_kernel_s"] == [
-            host[0] - clocks["kernel_zero_host_upper_s"],
-            host[1] - clocks["kernel_zero_host_lower_s"],
-        ]
+        assert row["relative_kernel_s"] == (
+            None
+            if clocks is None
+            else [
+                host[0] - clocks["kernel_zero_host_upper_s"],
+                host[1] - clocks["kernel_zero_host_lower_s"],
+            ]
+        )
         assert row["sensor_and_relay_latency_qualified"] is False
     return rows
 

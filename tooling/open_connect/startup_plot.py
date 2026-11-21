@@ -41,8 +41,22 @@ def main():
         colors = {"base-off": "#1967a3", "base-on": "#d15a12"}
         labels = {"base-off": "Base off", "base-on": "Base on"}
         title = "Controlled ACC startup: Base optimizations\nFive runs each; same Open Connect build and wired CarPlay"
+    wireless = {row["condition"] for row in rows} == {"wireless-base-on", "wireless-base-off"}
+    if wireless:
+        colors = {"wireless-base-off": "#1967a3", "wireless-base-on": "#d15a12"}
+        labels = {"wireless-base-off": "Base off", "wireless-base-on": "Base on"}
+        counts = [len({r["run"] for r in rows if r["condition"] == c}) for c in colors]
+        title = (
+            "Controlled ACC startup: wireless CarPlay, Base optimizations\n"
+            f"Resource traces: Base off {counts[0]}, Base on {counts[1]}; see attempt table for missing data"
+        )
     for condition in colors:
-        for run in range(1, 6):
+        runs = (
+            sorted({int(r["run"]) for r in rows if r["condition"] == condition})
+            if wireless
+            else list(range(1, 6))
+        )
+        for run in runs:
             group = [r for r in rows if r["condition"] == condition and int(r["run"]) == run]
             assert len(group) > 100
             x = [float(r["uptime_start_s"]) for r in group]
@@ -52,7 +66,7 @@ def main():
                 color=colors[condition],
                 alpha=0.55,
                 lw=1,
-                label=labels[condition] if run == 1 else None,
+                label=labels[condition] if run == runs[0] else None,
             )
             axes[1].plot(
                 x,

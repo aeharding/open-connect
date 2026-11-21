@@ -207,7 +207,9 @@ var OpenConnectSettings = (function () {
                 if (item !== "pandora" || !params ||
                         (params.additionalData !== 1 && params.additionalData !== 2)) { return; }
                 var enabled = params.additionalData === 1, desired = enabled ? 1 : 0;
-                if (prefs.values().pandora === desired) { return; }
+                var currentValues = prefs.values();
+                if (!currentValues) { render("unknown", 0); return; }
+                if (currentValues.pandora === desired) { return; }
                 dismiss = OpenConnectInstaller.message(fw, enabled ? "Enable Pandora?" : "Disable Pandora?",
                     enabled ? "Changes apply after restarting Mazda Connect." :
                         "Stops Mazda's built-in Pandora integration. Changes apply after restarting Mazda Connect.",
@@ -316,7 +318,10 @@ var OpenConnectSettings = (function () {
                 else if (choice !== null && choice !== "unknown") {
                     var focus = choice;
                     if (choice === "services") { focus = 2; }
-                    if (choice === "developer") { focus = prefs.values().pandora === undefined ? 2 : 3; }
+                    if (choice === "developer") {
+                        var values = prefs.values();
+                        focus = values && values.pandora !== undefined ? 3 : 2;
+                    }
                     render(null, focus);
                 }
                 else { if (choice === "unknown") { prefs.failure = null; } close(); }

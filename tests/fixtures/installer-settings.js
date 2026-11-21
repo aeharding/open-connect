@@ -290,3 +290,22 @@ assert.equal(pages.at(-1).ctrl.focussedItem, 2);
 pick(3); back();
 assert.equal(pages.at(-1).ctrl.focussedItem, 3);
 back();
+
+// Status can become unavailable while a page is open. Keep Back usable and
+// refuse the new selection without sending a write.
+const beforeUnavailable = writes.length;
+const availableValues = values;
+settings.open(fw, store); pick(2);
+values = null;
+const unavailableServices = pages.at(-1).ctrl;
+assert.doesNotThrow(() => unavailableServices.selectCallback(unavailableServices, "pandora", {additionalData: 2}));
+assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
+back();
+values = availableValues;
+settings.open(fw, store); pick(3);
+values = null;
+assert.doesNotThrow(back);
+assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
+back();
+values = availableValues;
+assert.equal(writes.length, beforeUnavailable);

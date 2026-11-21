@@ -10,8 +10,8 @@ after a full Mazda Connect restart, including disabling access.
 
 ## UART root console
 
-Enabling **UART root console** opens a root shell without a password for someone
-connected to the physical serial port. Confirm **Enable**, then restart.
+**UART root console** provides passwordless root access over the serial connection.
+Confirm **Enable**, then restart.
 Use 115200 baud, 8 data bits, no parity, 1 stop bit and no flow control.
 
 Turning it off restores the original authenticated login behavior. It does not

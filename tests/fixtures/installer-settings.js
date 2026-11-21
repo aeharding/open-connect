@@ -227,4 +227,14 @@ values = {...values, uart: 1, restart: true}; reply(values);
 assert.equal(pages.at(-1), savingUartPage);
 assert.equal(savingUartPage.ctrl.dataList.items[2].disabled, false);
 assert.equal(savingUartPage.ctrl.dataList.items[4].text1, "Restart required to apply changes");
+// Cancelling an unsent change also releases the Import control, without a write.
+const beforeCoalesced = writes.length;
+const cancelCtrl = pages.at(-1).ctrl;
+cancelCtrl.selectCallback(cancelCtrl, "uart", {additionalData: 2});
+cancelCtrl.selectCallback(cancelCtrl, "uart", {additionalData: 1});
+modal.props.defaultSelectCallback(modal, "enable");
+assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, true);
+idle();
+assert.equal(writes.length, beforeCoalesced);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, false);
 back(); back();

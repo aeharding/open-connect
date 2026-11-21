@@ -59,7 +59,11 @@ var OpenConnectSettings = (function () {
             var keys = Object.keys(wanted);
             if (busy || !keys.length) { return; }
             var key = keys[0], requested = wanted[key];
-            if (saved[key] === requested) { delete wanted[key]; flush(); return; }
+            if (saved[key] === requested) {
+                delete wanted[key]; flush();
+                if (prefs.changed) { prefs.changed(false); }
+                return;
+            }
             busy = true;
             var answered = false;
             function finish(actual) {

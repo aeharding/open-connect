@@ -41,7 +41,8 @@ open-connect)
         awk -F '|' -v w="$wireless_choice" 'NF==8&&$8==w{n++}END{exit n!=1}' "$config"
         printf 'WIRELESS_SNAPSHOT|8|%s\n' "$wireless_choice"
         usb=$(cat /sys/class/net/usb0/carrier)
-        stations=$(/usr/sbin/iw dev wlan0 station dump | awk '/^Station /{n++}END{print n+0}')
+        station_dump=$(/usr/sbin/iw dev wlan0 station dump)
+        stations=$(printf '%s\n' "$station_dump" | awk '/^Station /{n++}END{print n+0}')
         printf 'WIRELESS_LINK|%s|%s\n' "$usb" "$stations"
         /usr/sbin/iw dev wlan0 info
     fi

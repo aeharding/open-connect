@@ -93,6 +93,8 @@ replace those identities. The portable response wrapper was checked in after
 capture; the original per-condition host scripts remain in the private bundles.
 The target input probe is byte-identical in both recordings (SHA256
 `b726c1e4a6d116bd0e0985943951f8cdc7cee30f0949b78f99c4f1c08e399ea7`).
+The video helpers use macOS AVFoundation and the lab's Logitech camera UID
+`0x8400000046d0825`; reidentify and adapt it for another host/camera arrangement.
 
 `startup_response` records five Right/Left pairs on a settled, idle CarPlay
 dashboard, with no audio/navigation route. Wait until kernel uptime is at least

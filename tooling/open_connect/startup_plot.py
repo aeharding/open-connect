@@ -79,6 +79,11 @@ def main():
         output,
         metadata={"Date": None, "Creator": "Open Connect; Matplotlib " + matplotlib.__version__},
     )
+    if output.suffix == ".svg":
+        # Canonical text whitespace; keep the generated artifact diff-checkable.
+        output.write_text(
+            "\n".join(line.rstrip() for line in output.read_text().splitlines()) + "\n"
+        )
     print(output, matplotlib.__version__)
 
 

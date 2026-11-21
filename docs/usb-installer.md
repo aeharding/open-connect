@@ -9,8 +9,9 @@ touchscreen access while moving and whether to show the startup disclaimer.
 > A qualified v74 download is not published yet. See
 > [development and qualification](installer-development.md) for current limits.
 
-The screenshots show the **0.3.0-dev.1 v74 development build**. Release
-qualification remains in progress.
+The installation screenshots show **0.3.0-dev.1**; the update prompt shows
+the **0.3.0-dev.4** client. Both are v74 development builds. Release qualification
+remains in progress.
 
 <ol class="oc-install-flow" aria-label="Installation overview">
   <li>

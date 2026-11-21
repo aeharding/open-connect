@@ -15,7 +15,7 @@ automatically** and takes effect at the next full Mazda Connect restart.
 Use Back to return to the list.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings: Touchscreen While Driving, Startup disclaimer, Developer options, Uninstall and About." width="800" height="480" loading="lazy"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings with Touchscreen While Driving, Startup disclaimer, Services, Developer options and Uninstall visible; About is below." width="800" height="480" loading="lazy"></div>
   <figcaption>Your current choices appear beside each preference.</figcaption>
 </figure>
 
@@ -30,11 +30,15 @@ After changing a preference, switch the ignition off and let Mazda Connect shut
 down completely before starting again. A quick off/on may resume the old session.
 
 **About** shows the installed Open Connect version.
-To remove both features, choose [**Uninstall**](uninstall.md).
+To remove Open Connect, choose [**Uninstall**](uninstall.md).
 
 The newer v74 development candidate also has
 [Developer options](developer-options.md) for optional UART and SSH access,
 including public-key import. These are separate from the two driving/startup preferences.
+
+The Services development candidate adds a separate [Services](services.md) page
+for qualified startup choices. Its first candidate controls Mazda's built-in
+Pandora integration and defaults to running.
 
 If a change cannot be confirmed, return to Open Connect and check the selected
 choice before trying again.

@@ -26,8 +26,11 @@ bezel displayed around the captures by the website; it is not part of the screen
   [CI run 44716935060](https://github.com/aeharding/open-connect/actions/runs/44716935060),
   source `ba941122b7306136d8f63448085f1e170fcb5afb`. Its USB ZIP SHA-256 is
   `dde586b5072ef4d90a985fa91ebaf054db8c056410ff97585c79dc80cd12276d`.
-- `settings.png` and `developer-options.png` show **0.3.0-dev.4**, captured
-  November 21, 2026. Their exact CI source, package identity and native PNG hashes
+- `settings.png`, `services.png` and `services-disable.png` show
+  **0.3.0-dev.6** from CI run 44893957634, source
+  `c98c9ce4f048255805813a9485eedff8bbdd9816`.
+  `developer-options.png` retains its **0.3.0-dev.4** identity. These were captured
+  November 21, 2026. Their exact package identities and native PNG hashes
   are recorded in the [guide asset notes](docs/assets/guide/README.md).
 - `uart-console.png` and `ssh-key-imported.png` show
   **0.3.0-dev.3** from

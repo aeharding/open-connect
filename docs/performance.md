@@ -17,6 +17,12 @@ The [first verification optimization](startup-verification.md) recovers about
 CPU and RAM remain similar, and stock is still faster. The original controls
 are reused explicitly; their collection identities are unchanged.
 
+The [Pandora comparison](pandora-comparison.md) adds five starts enabled and five
+disabled on the same dev.6 build. Minimum MemFree was about 3.2 MiB higher with
+Pandora off; the wired dashboard timing difference was below camera resolution.
+All individual results and reproduction commands are published. The first
+Services control remains optional and defaults to running.
+
 ## Configurations to compare
 
 | Configuration | Purpose |

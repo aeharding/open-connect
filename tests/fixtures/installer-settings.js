@@ -258,3 +258,54 @@ assert.equal(fingerprintLines[1].length, 23);
 assert.equal(fingerprintLines[2].length, 23);
 modal.props.defaultSelectCallback(modal, "done");
 back(); back();
+
+// Service choices are separate, default running, and take effect after restart.
+values = {...values, pandora: 1};
+settings.open(fw, store);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].text1, "Services");
+assert.equal(pages.at(-1).ctrl.dataList.items[2].hasCaret, true);
+pick(2);
+assert.equal(pages.at(-1).ctrl.title.text1, "Services");
+let servicesCtrl = pages.at(-1).ctrl;
+assert.equal(servicesCtrl.dataList.items[0].hasCaret, false);
+assert.equal(servicesCtrl.dataList.items[0].value, 1);
+const beforeService = writes.length;
+servicesCtrl.selectCallback(servicesCtrl, "pandora", {additionalData: 2});
+assert.equal(modal.props.title, "Disable Pandora?");
+assert.match(modal.props.text1, /after restarting/);
+modal.props.defaultSelectCallback(modal, "cancel");
+idle();
+assert.equal(writes.length, beforeService);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 1);
+servicesCtrl = pages.at(-1).ctrl;
+servicesCtrl.selectCallback(servicesCtrl, "pandora", {additionalData: 2});
+modal.props.defaultSelectCallback(modal, "apply");
+back(); back(); idle();
+assert.deepEqual(writes.at(-1), ["pandora", 1, 0]);
+values = {...values, pandora: 0, restart: true}; reply(values);
+settings.open(fw, store); pick(2);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 2);
+back();
+assert.equal(pages.at(-1).ctrl.focussedItem, 2);
+pick(3); back();
+assert.equal(pages.at(-1).ctrl.focussedItem, 3);
+back();
+
+// Status can become unavailable while a page is open. Keep Back usable and
+// refuse the new selection without sending a write.
+const beforeUnavailable = writes.length;
+const availableValues = values;
+settings.open(fw, store); pick(2);
+values = null;
+const unavailableServices = pages.at(-1).ctrl;
+assert.doesNotThrow(() => unavailableServices.selectCallback(unavailableServices, "pandora", {additionalData: 2}));
+assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
+back();
+values = availableValues;
+settings.open(fw, store); pick(3);
+values = null;
+assert.doesNotThrow(back);
+assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
+back();
+values = availableValues;
+assert.equal(writes.length, beforeUnavailable);

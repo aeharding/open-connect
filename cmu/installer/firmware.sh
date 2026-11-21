@@ -151,6 +151,20 @@ compose() (
     flush d "$D/composed"
 )
 
+service_config() {
+    # Only the selected RAM configuration changes; OEM files stay untouched.
+    bit "$3" || return 1
+    if test "$3" = 1; then cp "$1" "$2"; return; fi
+    awk '
+        /<service / && /name="blm_ira_pandora"/ {
+            if (gsub(/autorun="yes"/, "autorun=\"no\"") != 1) exit 1
+            n++
+        }
+        { print }
+        END { if (n != 1) exit 1 }
+    ' "$1" > "$2"
+}
+
 root_mode() {
     awk '$1=="/dev/ffx01p1"&&$2=="/"&&$3=="relfs"{n++;m=$4}
          END{if(n!=1)exit 1;print m}' /proc/mounts

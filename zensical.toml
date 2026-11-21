@@ -21,11 +21,13 @@ nav = [
     { "Touchscreen While Driving" = "touchscreen.md" },
     { "Startup disclaimer" = "disclaimer.md" },
     { "Developer options" = "developer-options.md" },
+    { "Services" = "services.md" },
   ] },
   { "Performance evidence" = [
     { "Timings and RAM" = "performance.md" },
     { "First startup comparison" = "startup-comparison.md" },
     { "Startup verification optimization" = "startup-verification.md" },
+    { "Pandora startup and RAM" = "pandora-comparison.md" },
     { "CarPlay measurements" = "carplay-testing.md" },
   ] },
   { "Development" = [

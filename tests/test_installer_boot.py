@@ -53,7 +53,9 @@ class InstallerBoot(unittest.TestCase):
         (self.source / "state.sh").write_text(state)
         shutil.copyfile(ASSETS / "transaction.sh", self.source / "transaction.sh")
         shutil.copyfile(ASSETS / "access.sh", self.source / "access.sh")
-        (self.source / "firmware.sh").write_text(r"""
+        (self.source / "firmware.sh").write_text(
+            (ASSETS / "firmware.sh").read_text()
+            + r"""
 firmware_guard() { :; }
 native_guard() { :; }
 root_mode() { printf 'ro,noatime\n'; }
@@ -69,7 +71,8 @@ startup_publish() {
     cp "$1" "$AUTOSTART.next" && metadata "$2" &&
         chmod "$S_MODE" "$AUTOSTART.next" && mv "$AUTOSTART.next" "$AUTOSTART"
 }
-""")
+"""
+        )
         (self.source / "service.sh").write_text(
             "printf '%s\\n' " + shlex.quote(str(self.runtime)) + "\n"
         )
@@ -169,6 +172,41 @@ record_write
                     self.assertEqual(
                         (self.runtime / "feature" / name).read_text(), f"{profile} {setting}\n"
                     )
+
+    def test_service_policy_selects_both_ram_profiles_and_survives_fallback(self):
+        composed = self.data / "composed" / self.package_id
+        original = '<service name="peer" autorun="yes" />\n<service name="blm_ira_pandora" autorun="yes" />\n'
+        for profile in ("normal", "wcp"):
+            (composed / f"sm-{profile}-on.conf").write_text(original)
+        for enabled, number in ((0, 1), (1, 2), (0, 3)):
+            self.shell(
+                'record_read; snapshot_read "$R_CURRENT"; '
+                'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" /dev/null - '
+                + str(enabled)
+                + "); record_write"
+            )
+            result = self.boot(number)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            for name in ("sm.conf", "sm_WCP.conf"):
+                expected = (
+                    original
+                    if enabled
+                    else original.replace(
+                        'name="blm_ira_pandora" autorun="yes"',
+                        'name="blm_ira_pandora" autorun="no"',
+                    )
+                )
+                self.assertEqual((self.runtime / "feature" / name).read_text(), expected)
+            self.assertEqual((composed / "sm-normal-on.conf").read_text(), original)
+            self.assertEqual((composed / "sm-wcp-on.conf").read_text(), original)
+        self.assertNotEqual(self.boot(4).returncode, 0)
+        self.assertFalse((self.runtime / "feature").exists())
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
+        config = (
+            (self.data / "snapshots" / self.record()[5] / "config").read_text().strip().split("|")
+        )
+        self.assertEqual(config[5], "0")
 
     def test_reset_budget_is_finite_and_fallback_restores_nvram_without_losing_preferences(self):
         for number in range(1, 4):

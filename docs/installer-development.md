@@ -137,6 +137,13 @@ not supported. Unknown edits are preserved even if restoration has partly comple
 
 ## Qualification
 
+The [Services development qualification](pandora-comparison.md#maintenance-and-restoration-qualification)
+records its exact measured and later maintenance artifacts. The final CI bundle
+preserved Pandora off and existing preferences through normal update/restart/
+completion/Open settings, then passed normal Settings Uninstall and independent
+original-startup checks. The original physical service files were never changed.
+Physical-input/audio and matching-car checks remain separate.
+
 Current source targets exactly **74.00.324A NA / cmu150_NA**. The reviewed
 OEM-only bundle from [CI 44798623680](https://github.com/aeharding/open-connect/actions/runs/44798623680),
 source `14919e1`, passed SD-staged install, automatic restart, completion,

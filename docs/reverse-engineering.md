@@ -37,6 +37,74 @@ was not tested on v74. It does not qualify Open Connect features or a general
 upgrade route. The maintained port is recorded below. Private evidence:
 `runs/post-upgrade-20261120T052126Z/` and `runs/access-resume-20261120T053952Z/`.
 
+## Early startup resource collection on v74
+
+On the stock-service 74.00.324A NA bench, the first SSH-started RAM/CPU/I/O sample
+arrived at kernel uptime 41.09 seconds, after native UI was already visible.
+Camera/UART covered the preceding restart; resource counters did not. SSH is
+therefore a retrieval channel for the replacement startup experiment, rather
+than its launch trigger. See [performance evidence](performance.md#startup-observer-coverage-november-21-2026).
+
+Service Manager's stock configuration runs `/jci/scripts/stage_1.sh` with no
+service dependencies and permits its exit. On this exact firmware the script
+contains only its shell interpreter line and blank lines, SHA256
+`2ec71fc955d0107a6e90d1ab4e6f00c9438b56d3e621ef018d57c8ef07bfae7f`.
+This provides a narrow temporary bench hook without changing product-managed
+startup/service files. The experiment detaches a finite system-counter observer,
+writes only RAM output, preserves the original inode with a same-filesystem
+hardlink, and provides an independent guarded restore entry. Actual first-sample
+uptime establishes coverage; this hook is not assumed to cover kernel startup.
+The local trial first sampled at 11.16 seconds and completed 171 samples. Its
+independent restore returned the original inode; a subsequent ACC restart
+verified the original script, absent observer output and physical root read-only.
+
+The [original experiment source and undo](https://github.com/aeharding/open-connect/blob/34d7c293a9cc7476884f88c2061164a3d7b5becd/cmu/bench/STARTUP-REFERENCE.md)
+is on a playground branch, not an owner installation feature. Private intake,
+camera-clock qualification and trial records remain under
+`runs/startup-baseline-20261120/`. No OEM script or raw capture is published.
+
+## Service-manager dependencies and Pandora restart
+
+On exact **74.00.324A NA**, both stock SM profiles declare Pandora as a leaf:
+no other configured service depends on `blm_ira_pandora`. Aha is different:
+`stage_wifi`, `stage_vr` and `stage_gap2` depend on it. Stitcher also has a
+separate helper. These static edges do not establish every runtime dependency.
+
+The native `/jci/sm/smctl` client can query service information and request
+stop/launch with `--wait`. Its verified SHA256 is
+`a51a03ce7bc1f602ccca7b15af8c9698fed5debfb904f01fcc358f57ca46330f`.
+A bounded stock-bench pilot stopped Pandora, observed it stopped throughout a
+120-second resource window, then launched it again. The phone projection and
+checked peers remained present while it was stopped. This was warm mechanism
+exploration, not a startup or audio qualification.
+
+The later launch deliberately restarted `irs_server`: the stock Pandora library
+contains that initialization path, and device logs record its initialization,
+the helper receiving SIGKILL, SM relaunching it, and Pandora completing startup.
+It was not a clean restore of all original process identities. The Services
+candidate therefore selects policy before SM starts and applies changes after a
+full restart, rather than offering live service stop/start.
+
+Pandora's initial RSS was 6,304 kernel kB, but private clean/dirty pages totaled
+1,980 kB and PSS was 2,271 kB. The before/stopped resource windows had median
+MemFree 198,024/200,120 kB. After launch, median MemFree was 159,576 kB, with a
+large increase in Buffers and reclaimable slab accompanying Mazda's diagnostic
+archive. Do not subtract RSS as freed RAM or call this single sequential pilot a
+CPU/RAM improvement. A fresh original startup restored the expected stock
+configuration and native/frontend code, with all 19 original hashes/metadata,
+read-only physical root, absent product/runtime and both projection/network links.
+
+Private originals, raw traces, logs and restoration receipts remain in
+`runs/services-20261121/`. No OEM source or raw capture is published. The candidate
+host check of both exact profiles verifies that disabling changes only Pandora's
+single `autorun` attribute in the selected copy; enabled copies remain identical.
+Five enabled and five disabled ACC starts then verified the selected policy:
+native SM reports one Pandora start when enabled and none when disabled, with
+wired projection returning in every trial. The [comparison](pandora-comparison.md)
+records the modest MemFree difference, unresolved dashboard timing gain and
+measurement limits. The later maintenance fixes have separate artifact identity;
+these measurements remain attributed to the actually tested c98 build.
+
 ## Developer access and login-script lifetime on v74
 
 The **74.00.324A NA / cmu150_NA** Developer options candidate provides an optional
@@ -686,3 +754,72 @@ physical-usb/qualification.json, uninstall/qualification.json and
 stock-link-recovery/qualification.json link the cases.
 Raw observations remain private; the SD bench path is separate from qualification
 of a distinct replacement USB drive.
+
+## First reproducible startup comparison
+
+The [November 21 stock/candidate batch](startup-comparison.md) retains five
+accepted starts per condition, with local pre-SSH resource collection and
+camera/UART coverage before ACC-on. Open Connect 0.3.0-dev.4 / source `3713f24`
+reached the visible Home and wired CarPlay milestones later, with higher CPU and
+similar free RAM. The blocked order does not isolate the cause. Three excluded
+candidate attempts retain their original retrieval/foreground/cancellation
+outcomes; none is evidence of a CMU boot failure. Numeric samples, I/O endpoints,
+frame bounds and immutable reproduction source are linked with the result.
+Normal UI uninstall plus independent observer restoration verified originals,
+stock loaded code and read-only root. Private supporting records are under
+`runs/startup-comparison-20261121/`; raw capture collections remain private.
+
+## Native logging configuration lifetime on v74
+
+On exact **74.00.324A NA**, `libjcicommon.so` uses a global RAM logging override
+at `/tmp/common/log/settings.txt`, separate from the physical default at
+`/config/common/log/settings.txt`. The inspected native initialization path also
+recognizes a per-process RAM settings filename. This firmware behavior is used
+by the development candidate's [Base optimizations](services.md#base-optimizations);
+production and vehicle qualification remain separate. The original library SHA256 is
+`637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d`.
+
+**Observed:** supplying Warn after startup left all 83 existing native contexts
+at Info. A separate newly spawned read-only SM client, with an original getter
+probe, reported Info → Warn → Info → Info as the RAM override was added, changed
+and removed. Cache/enabled getters stayed 1. The probe was loaded only into that
+new client; no running service was injected or modified.
+
+Supplying the same override from a temporary stage-1 hook before ordinary service
+startup then produced 74 initialized contexts with current/normal Warn and peak
+Info, seven earlier initialized contexts still at Info and two uninitialized
+contexts. A later primary block-end read found 73 Warn/eight Info/two uninitialized,
+with `L_settings` also initialized at Info. Those counts describe their particular
+reads, not a fixed whole-system split for every startup or
+all diagnostic sources. Existing services cache their initial level; adding or
+removing the file alone does not qualify a running policy change or restoration.
+Restoration requires a fresh original startup and loaded-state verification.
+
+The original Info configuration, service files and library remained unchanged.
+Read-only state inspection used the exact mapped library, PID/start identity and
+initialized logger PID. The original getter/read probes and hook are available
+in [experiment source 173a839](https://github.com/aeharding/open-connect/tree/173a839d3a0f225b1d32fb2ba34c74ffe3f172c2/cmu/bench);
+the [comparison method](logging-comparison.md) keeps mechanism evidence separate
+from timings. Supporting records are `startup-mechanism-result.json` and
+`fresh-process-mechanism.json` under private `runs/logging-prefilter-20261121/`.
+OEM inputs, compiled OEM dependencies and raw process reads remain private.
+
+
+The installed dev.7 candidate publishes the Warn file only for a selected Base-on
+boot, after ordinary feature preparation. It checks the exact physical Info file
+and common library first. Base off skips publication; exhausted-budget fallback
+returns before it. A failed publication clears the selected marker. Existing RAM
+resources are refused rather than adopted, replaced or deleted. These failure
+paths have host checks; the installed on/off paths have separate
+[CI-bundle qualification](base-comparison.md#maintenance-and-restoration-qualification).
+
+**Observed tooling constraint:** this CMU's BusyBox 1.19.2 `ln` has no `-T`.
+An existing or racing destination directory can change ordinary `ln` semantics.
+The existing native flush helper's small link mode instead calls ARM's `link`
+syscall directly, atomically refusing any existing destination. The Warn source
+is an owned staging file in the same RAM directory; cleanup removes only that
+staging name. This avoids overwriting another provider or linking inside its
+directory. Actual ARM publication succeeded on the CI-built candidate; independent
+host probes also checked existing files/directories/symlinks and a late directory
+race. Supporting records are `link-capability.out`, `reinstalled-verified.out`
+and `review-base.md` under private `runs/base-optimizations-20261121/`.

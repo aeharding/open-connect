@@ -23,6 +23,10 @@ firmware_dependencies() {
     original_files
     printf '%s\n' '1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29 manager.so /jci/lib/libjciuiamgr.so'
     printf '%s\n' \
+        '9f1811e2d9a905ba9060a9c20b8d91c18aaa5c079512e3261b51cf0114fc857b device-master.xml /etc/devmgr_config_master.xml' \
+        '0160354861d0dddf09f05dc69df95f14be074de706a4d7656166666d587439d9 eem.so /jci/vbs/modules/libjcimod_eem.so' \
+        '88d6291d74fe993536ec724064b8ccfbc133b2341282b93cfc7fb2927fbbc563 device-manager.so /jci/devicemanager/libdevicemanager.so'
+    printf '%s\n' \
         '0b205e203510bef6d20b910f31c88a7f9c141048c41b1704eed20b880d67ac82 rungetty /usr/bin/rungetty' \
         'f83f7661e0ba41da379936ba319f40e228cd14d470c3081f19d8fbec8297a195 sshd /usr/sbin/sshd' \
         'b735d7dd9a9a45badf18b2a9d0e32ca791a4e582400e57378a27b2a2d92ae9c9 ssh-keygen /usr/bin/ssh-keygen'
@@ -44,6 +48,15 @@ firmware_guard() {
 native_guard() {
     test "$(sha /jci/lib/libjciuiamgr.so)" = 1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29 || fail unsupported_manager
 }
+
+factory_wireless() (
+    # Follow the verified OEM hardware branch, never our rendered RAM flags.
+    file /jci/scripts/get_board_type.sh || exit 1
+    test "$(sha /jci/scripts/get_board_type.sh)" = 2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da || exit 1
+    result=0
+    PATH=/usr/bin:/bin:/usr/sbin:/sbin sh /jci/scripts/get_board_type.sh >/dev/null 2>&1 || result=$?
+    test "$result" = 2
+)
 
 originals_verify() {
     local digest name target
@@ -150,6 +163,51 @@ compose() (
     mv "$work" "$D/composed/$1" || fail compose_publish_failed
     flush d "$D/composed"
 )
+
+native_log_config() (
+    # Boot-only RAM override. Preserve physical settings and other providers.
+    set -eu
+    bit "$1" || exit 1
+    test "$1" = 1 || exit 0
+    file /config/common/log/settings.txt &&
+        test "$(sha /config/common/log/settings.txt)" = 8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0 || exit 1
+    file /jci/lib/libjcicommon.so &&
+        test "$(sha /jci/lib/libjcicommon.so)" = 637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d || exit 1
+    for folder in /tmp/common /tmp/common/log; do
+        if absent "$folder"; then mkdir -m 755 "$folder" || exit 1; fi
+        test -d "$folder" && test ! -L "$folder" &&
+            test "$(readlink -f "$folder")" = "$folder" || exit 1
+    done
+    target=/tmp/common/log/settings.txt
+    absent "$target" || exit 1
+    stage=
+    trap 'test -z "$stage" || rm -f "$stage" || :' EXIT
+    stage=$(mktemp /tmp/common/log/.open-connect-log-XXXXXX) || exit 1
+    printf 'COMMON_LOG_LEVEL=Warn\n' > "$stage" || exit 1
+    chmod 644 "$stage" || exit 1
+    # Link is the final commit: atomically refuse even a concurrently created
+    # target. Later best-effort staging cleanup cannot undo cached log levels.
+    "$P/flush" l "$stage" "$target" || exit 1
+    exit 0
+)
+
+service_config() {
+    # Only the selected RAM configuration changes; OEM files stay untouched.
+    bit "$3" && bit "${4:-0}" || return 1
+    if test "${4:-0}" = 1; then
+        awk -v pandora="$3" -f "$P/wireless-sm.awk" "$1" > "$2"
+        return
+    fi
+    if test "$3" = 1; then cp "$1" "$2"; return; fi
+    awk '
+        /<service / && /name="blm_ira_pandora"/ {
+            if (gsub(/autorun="yes"/, "autorun=\"no\"") != 1) exit 1
+            n++
+        }
+        { print }
+        END { if (n != 1) exit 1 }
+    ' "$1" > "$2"
+}
 
 root_mode() {
     awk '$1=="/dev/ffx01p1"&&$2=="/"&&$3=="relfs"{n++;m=$4}
@@ -260,6 +318,8 @@ nvram_read() { sh "$P/touch.sh" read; }
 nvram_change() { sh "$P/touch.sh" change "$1" "$2" >/dev/null; }
 
 dependency_path() {
+    # Resolve names only. The dependency verifier checks the canonical file and
+    # private package parent before reading any bytes.
     local scope=${1%%/*} name=${1#*/} id folder
     test "$scope/$name" = "$1" && test -n "$name" || return 1
     case "$name" in .|..|*[!a-zA-Z0-9_.-]*) return 1;; esac
@@ -269,7 +329,7 @@ dependency_path() {
         composed-*) id=${scope#composed-}; folder=composed;;
         *) return 1;;
     esac
-    hex "$id" 64 && private_dir "$D/$folder/$id" || return 1
+    hex "$id" 64 || return 1
     printf '%s\n' "$D/$folder/$id/$name"
 }
 

@@ -86,6 +86,31 @@ f.tick();
 assert.equal(f.choices[0].installedVersion, "0.3.0-dev.3");
 assert.equal(f.choices[0].version, "0.3.0-dev.4");
 assert.equal(f.store.version, "0.3.0-dev.3");
+// Cancelling a newer maintenance client does not expose services unsupported by
+// the installed selector. Existing choices still use the same request contract.
+f = fixture();
+f.ctx.OpenConnect.start(token, true);
+f.reply(f.requests[0], f.state({installed: true, version: "0.3.0-dev.6",
+    installedVersion: "0.3.0-dev.5"}));
+f.tick(); f.choices[0].done("cancel");
+assert.equal(f.store.read().pandora, undefined);
+f.store.write("touch", 0, 1, () => {});
+assert.equal(f.requests.at(-1).body, token + "|" + revision + "|set|touch|0|1");
+f = fixture();
+f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true, version: "0.3.0-dev.6",
+    installedVersion: "0.3.0-dev.6", pandora: 0}));
+f.tick();
+assert.equal(f.store.read().pandora, 0);
+assert.equal(f.store.read().base, undefined);
+f = fixture();
+f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true, version: "0.3.0-dev.7",
+    installedVersion: "0.3.0-dev.7", pandora: 1, base: 0}));
+f.tick();
+assert.equal(f.store.read().base, 0);
+f.store.write("base", 0, 1, () => {});
+assert.equal(f.requests.at(-1).body, token + "|" + revision + "|set|base|0|1");
 f = fixture();
 f.ctx.OpenConnect.start(token, true);
 f.reply(f.requests[0], f.state({installed: true, installedVersion: "-"}));
@@ -224,3 +249,25 @@ f.choices[0].done("uninstall");
 assert.equal(f.requests[1].body, token + "|" + revision + "|uninstall|-|-|-");
 f.reply(f.requests[1], f.state({revision: "-", restart: true}));
 assert.equal(f.requests[2].body, token + "|-|restart|-|-|-");
+
+// Wireless uses the same request shape and keeps the applied boot selection
+// separate from the saved preference while a restart is pending.
+f = fixture();
+f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true, wireless: 1, wirelessCurrent: 1}));
+f.tick();
+assert.equal(f.store.read().wireless, 1);
+assert.equal(f.store.read().wirelessCurrent, 1);
+f.store.write("wireless", 1, 0, () => {});
+assert.equal(f.requests[1].body, token + "|" + revision + "|set|wireless|1|0");
+f.reply(f.requests[1], f.state({installed: true, wireless: 0, wirelessCurrent: 1, restart: true}));
+assert.equal(f.store.read().wireless, 0);
+assert.equal(f.store.read().wirelessCurrent, 1);
+assert.equal(f.store.read().restart, true);
+
+f = fixture();
+f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true, wireless: 0, wirelessCurrent: 0, wirelessFactory: true}));
+f.tick();
+assert.equal(f.store.read().wirelessFactory, true);
+assert.equal(f.store.read().wireless, 0);

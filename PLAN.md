@@ -1,6 +1,6 @@
 # Open Connect — roadmap
 
-Updated 2026-11-20. [STEERING.md](STEERING.md) defines product intent; GitHub
+Updated 2026-11-21. [STEERING.md](STEERING.md) defines product intent; GitHub
 issues track implementation. This roadmap sets delivery order and completion
 criteria, without calendar promises. One primary owns each complete release.
 
@@ -27,8 +27,34 @@ with no fixed delivery slot. Each performance claim needs comparable measurement
 Developer options are implemented and bench-checked in the v74 development
 candidate; see [#103](https://github.com/aeharding/open-connect/pull/103) and the
 [access findings](docs/reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74).
-The next priority is **performance baselines**, including RAM. The deferred
-phase-1 manual and first-car checks remain separate.
+The first five-run-per-condition [startup/RAM comparison](docs/startup-comparison.md)
+found later Home and wired CarPlay with the pinned development candidate, higher
+CPU, and similar free RAM. Grouping repeated dependency-parent checks then
+[recovered about 1.2 seconds to Home and 2.2 seconds to the dashboard](docs/startup-verification.md),
+with no useful CPU/RAM gain; stock remains faster. That narrow change is integrated.
+The first [Services control](docs/services.md) now selects Pandora startup policy.
+[Five starts enabled and five disabled](docs/pandora-comparison.md) found about
+3.2 MiB higher minimum MemFree with it off and no resolved wired-dashboard gain.
+It remains optional and defaults on. A separate [native logging comparison](docs/logging-comparison.md)
+found about 3.2 seconds earlier visible wired CarPlay and 8.7 MiB higher minimum
+MemFree with a narrow Warn prefilter; ending free RAM differed by only 1.4 MiB.
+The [installed Base preset](docs/base-comparison.md) now has a separate five-on/
+five-off comparison on one dev.7 CI bundle: about 3.8 seconds earlier visible wired
+CarPlay, 9.9 MiB higher minimum MemFree and 2.58 MiB higher ending free RAM. Pandora
+and the initial features were fixed. The optional preset defaults off as an
+implementation choice; fresh install, same-version reinstall, legacy upgrade,
+controls, restart and uninstall have software bench checks. Block order and one
+unit still limit attribution. Reproducible source, individual results and the
+installed candidate's early resource gap are retained. Native wireless enablement
+now has [installed dev.8 bench checks](docs/cmu/wireless-carplay.md#installed-development-candidate):
+projection, repeated-start reconnection, controls, retained settings and uninstall
+without changing vehicle/hardware identity. Physical input/audio, vehicle behavior,
+long-parked timing and the Miatafy wireless milestone remain unqualified.
+Next collect the wireless baseline, then expand Services and optimization research
+beyond Miatafy's documented changes before deep long-parked lag work.
+The owner requested this broader research; candidate selection and
+defaults still require dependency, benefit and restoration evidence.
+The deferred phase-1 manual and first-car checks remain separate.
 
 | Phase | Outcome | Done when | Work |
 | --- | --- | --- | --- |
@@ -119,9 +145,9 @@ Include usable wired projection in these baselines once the early fixture is
 qualified. Miatafy's wireless CarPlay milestone reproduction stays in phase 5;
 do not compare a wired result directly with its wireless timing.
 
-Then add a dedicated **Services** page under Open Connect Settings. A proposed
-**Base optimizations** on/off setting groups qualified internal changes such as
-reduced logging; its contents and default need timing and RAM evidence. Measure
+Then add a dedicated **Services** page under Open Connect Settings. The development candidate's **Base optimizations** choice now groups the measured
+native Warn filter and defaults off. Further contents and default changes need
+their own timing and RAM evidence. Measure
 the complete bundle with the same individual service selections. Inspect each
 candidate’s consumers, test one reversible change at a time, and compare against
 the same baseline. Aha/Pandora/Stitcher, TV and logging policy are candidates,
@@ -133,6 +159,13 @@ Consider the restoration and shared-resource requirements in the
 [architecture research](docs/extension-architecture.md) when selecting service
 changes; the proposed plugin framework is not a prerequisite. [#86](https://github.com/aeharding/open-connect/issues/86)
 owns the menu, and [#9](https://github.com/aeharding/open-connect/issues/9) owns the measurements.
+
+Continue this phase after the native wireless baseline: inspect the actual service
+graph and startup/background CPU, RAM and I/O for additional candidates, including
+work not documented by Miatafy. Research may overlap measurement collection. Add
+qualified individual controls or measured Base contents, retaining negative results
+and checking normal behavior and undo. Complete this broader Services pass before
+deep long-parked wireless lag work; the initial Pandora control is not its endpoint.
 
 ## Phase 5: improve native wireless CarPlay
 

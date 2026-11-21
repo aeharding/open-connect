@@ -7,12 +7,22 @@
 settled() { case "$R_PHASE" in active|removed) true;; *) false;; esac; }
 
 dependencies_match() {
-    local digest name extra target expected= actual snapshot=$1
+    local digest name extra target parent checked_parent= expected= actual snapshot=$1
     snapshot_verify "$1" || return 1
     set --
     while read -r digest name extra; do
         hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1
         target=$(dependency_path "$name") || return 1
+        case "$name" in package-*/*|composed-*/*)
+            parent=${target%/*}
+            # Immutable package entries share a parent. Validate its ownership
+            # once per consecutive group in this check, rather than for every
+            # member. Each file still gets its full canonical/symlink check.
+            if test "$parent" != "$checked_parent"; then
+                private_dir "$parent" || return 1
+                checked_parent=$parent
+            fi;;
+        esac
         file "$target" || return 1
         set -- "$@" "$target"
         expected="$expected$digest *$target
@@ -46,7 +56,7 @@ state_capture() (
     local deps result
     deps=$(mktemp "$D/.dependencies-XXXXXX") || fail checkpoint_create_failed
     dependencies_capture "$1" > "$deps" || fail checkpoint_dependencies_failed
-    result=$(snapshot_create "$AUTOSTART" "$1" "$2" "$3" "$(nvram_read)" "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$deps" "${4:--}") || fail checkpoint_failed
+    result=$(snapshot_create "$AUTOSTART" "$1" "$2" "$3" "$(nvram_read)" "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$deps" "${4:--}" "${5--}" "${6--}" "${7--}") || fail checkpoint_failed
     rm "$deps"
     printf '%s\n' "$result"
 )

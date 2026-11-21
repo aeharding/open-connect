@@ -1,6 +1,7 @@
 # Open Connect — living steering agreement
 
-Last updated: 2026-11-20, from the user's explicit direction.
+Last updated: 2026-11-21. User direction and implementation choices are
+identified separately.
 
 Read this first when starting or resuming work. It records product intent and how
 we work; it is not a run log or an approval checklist. New user direction takes
@@ -72,8 +73,10 @@ before the first Open Connect installation. Do not maintain installer allowances
 for its modified startup, board-detection or service files; require the supported
 OEM originals. The owner rejects vehicle-fingerprint spoofing and wants an Open
 Connect option to enable native wireless CarPlay while preserving actual vehicle
-and hardware identity. That feature remains in the final wireless phase; its
-mechanism and the cause of cold-start lag remain unproved.
+and hardware identity. The development candidate now has installed native
+enablement and repeated-start reconnection checks; cold-start lag remains
+unexplained and unmeasured for this candidate. Wireless baseline measurements
+precede broader Services research; deep long-parked reliability work remains last.
 Establish stock wired CarPlay early on the v74 bench for release compatibility
 checks and timing/RAM baselines. Keep this fixture separate from changes to
 native wireless enablement and cold-start behavior, which remain last in the
@@ -91,6 +94,11 @@ performance settings are first-class feature candidates. Their dependencies,
 benefits and hardware applicability need evidence; reducing process counts or
 idle memory alone is not proof of a useful improvement. Similar feature scope is
 not a requirement to copy another product's implementation or defaults.
+The owner also wants service and optimization research beyond Miatafy's documented
+changes. Inspect this firmware's dependencies and measured startup/background work
+to choose candidates. Implementation plan: after native wireless enablement and
+its baseline, expand Services and measured optimizations before deep long-parked
+lag work. Research may overlap collection; changes need a fixed comparison baseline.
 The owner wants performance testing before service changes and a dedicated
 Services page in Open Connect Settings before CarPlay work. Include Miatafy's
 published timings in the baseline comparison, matching measurement definitions
@@ -98,10 +106,10 @@ and conditions before claiming reproduction. See PLAN.md and issues #9 and #86.
 Maintain a dedicated [Performance evidence](docs/performance.md) section in the
 docs for timings and RAM, with comparable per-run results, methods, failures and
 regressions. RAM measurements during startup and matched workloads are required.
-A single Base optimizations on/off setting is the proposed way to group tested
-internal changes, such as reduced logging, if timing and RAM evidence support
-them. Qualify the complete bundle with individual service selections held fixed;
-contents and defaults remain undecided.
+The development candidate now groups the measured native Warn filter behind a
+single Base optimizations on/off setting, with an implementation default of off.
+Qualify the complete installed bundle with individual service selections held fixed; further contents and
+default changes need their own timing and RAM evidence.
 
 For a future touchscreen follow-up, extend the preference to Factory behavior,
 Always enabled and Disabled (ghost touch). Complete disable must cover startup
@@ -235,11 +243,27 @@ Additional regions, hardware generations and legacy release support are deferred
 
 ## Working style: deliver the product
 
-**“Elaborate is failure.”** Stop delivering successive standalone prototypes.
-Complete the maintained release path: CI bundle, USB insertion, installation,
-restart, Settings and uninstall. Reuse proven feature behavior, while removing
-bench scaffolding from the product. A targeted experiment is justified only by
-a concrete unresolved blocker; integrate its result and retire the temporary path.
+**“Elaborate is failure.”** We are hacking on the bench; Open Connect is not
+installed in any real cars yet. Optimize for learning and useful working changes.
+Short, reversible experiments are normal work, including experiments that explore
+an opportunity rather than resolve a release blocker. Keep the complete owner
+flow as the destination, integrate useful results, and retire superseded probes.
+An experiment does not need production qualification before it can teach us something.
+
+Use fast host checks while iterating, batch related edits, and check the affected
+native behavior. Reserve complete install/update/restart/uninstall cycles for
+changes to those mechanisms or evidence needed for an actual release claim.
+Reuse existing lifecycle evidence when the relevant code is unchanged; identify
+its actual revision and limits. Run required suites once the batch is ready, and
+repeat them when a new change or failure warrants it. Do not spend more effort
+on receipts, bespoke scripts or coordination than the question needs.
+
+Major plans receive one brief independent adversarial review before substantial
+implementation; see CONTRIBUTING.md. The reviewer should challenge scope,
+assumptions, complexity and execution cost, with our current bench stage explicit.
+The purpose is a better next decision and faster useful experiments. Routine
+experiments and implementation choices do not each need another review or owner
+approval. Keep independent work moving while a plan is reviewed.
 
 Reverse engineering and code analysis are core work. Understand how the CMU makes
 decisions, manages resources and moves through its lifecycle so patches change
@@ -288,11 +312,12 @@ new architecture or extra features that were not requested. The roadmap does
 not authorize speculative extensions. Keep routine work within the agreed scope
 moving without repeated confirmation.
 
-- The primary coordinates the complete outcome. Use subagents through Herdr
-  when helpful. Teammates are equals: trust their judgment and give them room to
-  solve their assigned work. Keep bench ownership explicit and serialized.
+- One primary owns the complete outcome. Use ephemeral Herdr peers for focused
+  reviews of major plans and final PRs, without a standing specialist team.
+  Teammates are equals: trust their judgment. Keep bench ownership serialized.
   Create fresh agents for this work; do not reuse or notify the owner's
   previously open sessions. Disable inherited Herdr parent notifications.
+  Put each new reviewer in a visible Herdr tab immediately.
 - Decide routine implementation details and continue authorized work without
   repeated permission gates. Surface a concrete new risk or missing dependency
   when it changes the experiment; do not invent hypothetical approval chains.

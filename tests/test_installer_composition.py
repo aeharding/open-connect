@@ -15,6 +15,88 @@ ASSETS = ROOT / "cmu/installer"
 
 
 class InstallerComposition(unittest.TestCase):
+    def test_factory_wireless_uses_only_the_verified_oem_board_branch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            result = root / "board-result"
+            board = root / "board.sh"
+            board.write_text('exit "$(cat ' + shlex.quote(str(result)) + ')"\n')
+            firmware = root / "firmware.sh"
+            firmware.write_text(
+                (ASSETS / "firmware.sh")
+                .read_text()
+                .replace("/jci/scripts/get_board_type.sh", str(board))
+                .replace(
+                    "2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da",
+                    hashlib.sha256(board.read_bytes()).hexdigest(),
+                )
+            )
+
+            def detected():
+                return (
+                    subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            '. "$1/state.sh"; . "$2"; factory_wireless',
+                            "test",
+                            ASSETS,
+                            firmware,
+                        ],
+                        capture_output=True,
+                        timeout=5,
+                    ).returncode
+                    == 0
+                )
+
+            for code, factory in ((1, False), (2, True), (0, False), (3, False)):
+                result.write_text(str(code) + "\n")
+                self.assertEqual(detected(), factory)
+            marker = root / "untrusted-executed"
+            board.write_text("touch " + shlex.quote(str(marker)) + "\nexit 2\n")
+            self.assertFalse(detected())
+            self.assertFalse(marker.exists())
+
+    def test_service_selection_preserves_peers_and_refuses_unknown_structure(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source, selected = root / "original", root / "selected"
+            pandora = '<service type="jci_service" name="blm_ira_pandora" autorun="yes" retry_count="6" />\n'
+            original = (
+                '<services>\n<service name="peer" autorun="yes" />\n' + pandora + "</services>\n"
+            )
+            driver = 'set -eu; . "$1/state.sh"; . "$1/firmware.sh"; service_config "$2" "$3" "$4"'
+
+            def run(value):
+                return subprocess.run(
+                    ["sh", "-c", driver, "test", ASSETS, source, selected, value],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+
+            source.write_text(original)
+            self.assertEqual(run("1").returncode, 0)
+            self.assertEqual(selected.read_text(), original)
+            self.assertEqual(run("0").returncode, 0)
+            self.assertEqual(
+                selected.read_text(),
+                original.replace(pandora, pandora.replace('autorun="yes"', 'autorun="no"')),
+            )
+            self.assertEqual(source.read_text(), original)
+            for unknown in (
+                original.replace(pandora, ""),
+                original.replace(pandora, pandora * 2),
+                original.replace(
+                    'name="blm_ira_pandora" autorun="yes"', 'name="blm_ira_pandora" autorun="no"'
+                ),
+            ):
+                source.write_text(unknown)
+                self.assertNotEqual(run("0").returncode, 0)
+                self.assertEqual(source.read_text(), unknown)
+            for invalid in ("", "2", "false"):
+                self.assertNotEqual(run(invalid).returncode, 0)
+
     def test_wcp_dependency_resolves_without_accepting_unknown_paths(self):
         driver = (
             'set -eu; . "$1/state.sh"; . "$1/firmware.sh"\n'
@@ -110,6 +192,9 @@ class InstallerComposition(unittest.TestCase):
             expected = []
             for name, target in (
                 ("manager.so", "/jci/lib/libjciuiamgr.so"),
+                ("device-master.xml", "/etc/devmgr_config_master.xml"),
+                ("eem.so", "/jci/vbs/modules/libjcimod_eem.so"),
+                ("device-manager.so", "/jci/devicemanager/libdevicemanager.so"),
                 ("rungetty", "/usr/bin/rungetty"),
                 ("sshd", "/usr/sbin/sshd"),
                 ("ssh-keygen", "/usr/bin/ssh-keygen"),

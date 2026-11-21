@@ -15,26 +15,35 @@ automatically** and takes effect at the next full Mazda Connect restart.
 Use Back to return to the list.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings: Touchscreen While Driving, Startup disclaimer, Developer options, Uninstall and About." width="800" height="480" loading="lazy"></div>
-  <figcaption>Your current choices appear beside each preference.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings with Touchscreen While Driving, Startup disclaimer, Wireless CarPlay, Services and Developer options visible." width="800" height="480" loading="lazy"></div>
+  <figcaption>Your current choices appear beside each preference. Scroll for Uninstall and About.</figcaption>
 </figure>
 
 | Feature | Fresh-install default |
 | --- | --- |
 | [Touchscreen While Driving](touchscreen.md) | **Allow** |
 | [Startup disclaimer](disclaimer.md) | **Skip** |
+| [Wireless CarPlay](wireless-carplay.md) | **Off** |
 
 Updating keeps your choices. See each feature's page for what its options do.
+Wireless CarPlay uses a checkbox and a confirmation explaining restart and
+Mazda's native Wi-Fi/Bluetooth setup.
+On hardware with factory wireless CarPlay, the checkbox is already checked and
+disabled, labeled **factory enabled**. Mazda's Wi-Fi menu controls its connection.
 
 After changing a preference, switch the ignition off and let Mazda Connect shut
 down completely before starting again. A quick off/on may resume the old session.
 
 **About** shows the installed Open Connect version.
-To remove both features, choose [**Uninstall**](uninstall.md).
+To remove Open Connect, choose [**Uninstall**](uninstall.md).
 
 The newer v74 development candidate also has
 [Developer options](developer-options.md) for optional UART and SSH access,
 including public-key import. These are separate from the two driving/startup preferences.
+
+The Services development candidate adds a separate [Services](services.md) page
+for startup choices. Base optimizations defaults off; Mazda's built-in Pandora
+integration defaults to running.
 
 If a change cannot be confirmed, return to Open Connect and check the selected
 choice before trying again.

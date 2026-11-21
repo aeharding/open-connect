@@ -34,6 +34,13 @@ Changes to durable state, publication, native lifetime or recovery require check
 for those affected cases. Do not repeat the whole lifecycle for each label edit,
 or relabel an old artifact's evidence as testing a new one.
 
+The [dev.8 wireless result](cmu/wireless-carplay.md#installed-development-candidate)
+records native connection and maintenance checks. The [dev.7 installed Base result](base-comparison.md)
+retains the measured CI candidate and its complete maintenance checks. The earlier
+[dev.5 verification result](startup-verification.md) retains its grouped-directory
+optimization and original artifact identity. Deferred physical-input/audio and
+matching-car checks still prevent a qualified v74 release.
+
 ## Private firmware checks
 
 The optional checker builds the same public bundle, composes it with exact
@@ -73,9 +80,9 @@ CarPlay mod before installing Open Connect; the installer does not recognize or
 adopt its modified files. Remaining conflicting edits cause refusal.
 
 Reinstall checks the current targets and dependencies before accepting inputs.
-Later edits are preserved and refused. The future Open Connect wireless-enable
-option must retain actual vehicle/hardware identity and remains in the final
-roadmap phase. See [wireless research](cmu/wireless-carplay.md).
+Later edits are preserved and refused. The development candidate's Open Connect
+wireless-enable option retains actual vehicle/hardware identity. Wireless timing
+and long-parked reliability remain unqualified. See [wireless research](cmu/wireless-carplay.md).
 
 The removed compatibility allowance remains in Git history. Its captures retain
 their actual source identity; they are not tests of this OEM-only revision.
@@ -129,6 +136,36 @@ Arbitrary old-package compatibility, including cross-firmware maintenance, is
 not supported. Unknown edits are preserved even if restoration has partly completed.
 
 ## Qualification
+
+The **0.3.0-dev.8** bundle from
+[CI 44942234519](https://github.com/aeharding/open-connect/actions/runs/44942234519),
+source `c25d5202ddebfed15b2f3eab8cccedb54a244dad`, passed fresh installation,
+dev.7 update and same-version reinstall retaining choices and an imported key,
+wireless controls/restarts/reconnection, and uninstall from wireless enabled.
+The [wireless qualification record](cmu/wireless-carplay.md#installed-development-candidate)
+identifies the artifact, restoration checks and remaining limits. These checks
+do not qualify audio, physical input or a real-car release.
+
+The **0.3.0-dev.7** bundle from
+[CI 44917434811](https://github.com/aeharding/open-connect/actions/runs/44917434811),
+source `2bbc8ade53ea455bd923c0fd4ae487ee9e93e285`, has separate
+[installed-preset measurements and maintenance qualification](base-comparison.md).
+Its public manifest is
+`e403bdd466a0e8d15bbcc787fa02268aaae3972fb704f88cb45d7efc6bfa8fed`.
+Fresh defaults, native confirmations/cancellation, automatic restart, completion,
+Open settings, same-version dev.7 reinstall, legacy dev.6 → dev.7 migration and
+normal Settings uninstall were checked through the maintained flow. Base on
+selected Warn after startup; disabling required a full restart to return to Info.
+Other preferences and the original uninstall baseline were preserved. Earlier
+physical-insertion and interruption records below retain their actual sources;
+this new maintenance path used manual SD staging with the existing USB loader.
+
+The [Services development qualification](pandora-comparison.md#maintenance-and-restoration-qualification)
+records its exact measured and later maintenance artifacts. The final CI bundle
+preserved Pandora off and existing preferences through normal update/restart/
+completion/Open settings, then passed normal Settings Uninstall and independent
+original-startup checks. The original physical service files were never changed.
+Physical-input/audio and matching-car checks remain separate.
 
 Current source targets exactly **74.00.324A NA / cmu150_NA**. The reviewed
 OEM-only bundle from [CI 44798623680](https://github.com/aeharding/open-connect/actions/runs/44798623680),

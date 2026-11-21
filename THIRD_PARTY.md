@@ -15,7 +15,7 @@ run from a public checkout alone.
 ## Documentation screenshots
 
 The PNG images in `docs/assets/guide/` were captured directly from the CMU's
-Wayland display on November 20, 2026, without cropping or other image edits.
+Wayland display, without cropping or other image edits.
 They show Mazda firmware **74.00.324A NA / cmu150_NA**. Each original PNG matches
 its received SHA-256 and was reviewed for personal data, credentials and
 diagnostic overlays. The separately authored `cmu-frame.svg` is a decorative
@@ -26,11 +26,13 @@ bezel displayed around the captures by the website; it is not part of the screen
   [CI run 44716935060](https://github.com/aeharding/open-connect/actions/runs/44716935060),
   source `ba941122b7306136d8f63448085f1e170fcb5afb`. Its USB ZIP SHA-256 is
   `dde586b5072ef4d90a985fa91ebaf054db8c056410ff97585c79dc80cd12276d`.
-- `settings.png` shows **0.3.0-dev.3** from
-  [CI run 44843072197](https://github.com/aeharding/open-connect/actions/runs/44843072197),
-  source `ccb3a25385d8ce513717575aa0bbc23ba567e0e3`. Its USB ZIP SHA-256 is
-  `b3d0c2dcd08e5fb1295bcef5c13d15490d20bd90150afb6e45862812513c1dce`.
-- `developer-options.png`, `uart-console.png` and `ssh-key-imported.png` show
+- `settings.png`, `services.png` and `services-disable.png` show
+  **0.3.0-dev.6** from CI run 44893957634, source
+  `c98c9ce4f048255805813a9485eedff8bbdd9816`.
+  `developer-options.png` retains its **0.3.0-dev.4** identity. These were captured
+  November 21, 2026. Their exact package identities and native PNG hashes
+  are recorded in the [guide asset notes](docs/assets/guide/README.md).
+- `uart-console.png` and `ssh-key-imported.png` show
   **0.3.0-dev.3** from
   [CI run 44856371233](https://github.com/aeharding/open-connect/actions/runs/44856371233),
   source `356cd7e6fe9820c6d2a6b5e6b4daf89ea4411aec`. Its USB ZIP SHA-256 is

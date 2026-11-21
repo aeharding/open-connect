@@ -78,7 +78,7 @@ its own page; use the existing findings page for smaller results.
 Publish original explanations and sanitized evidence references. Reviewed direct
 screenshots of the current Open Connect UI are allowed in owner guides; exclude
 personal data, credentials and diagnostic overlays. Keep their version/provenance
-with the asset notes. Do not publish raw capture collections, OEM source files,
+with the [guide asset notes](assets/guide/README.md). Do not publish raw capture collections, OEM source files,
 binaries, private credentials or incompatible comparison code. Mazda's publicly
 known default UART login may be documented for onboarding; private credential
 files and device-specific secrets remain excluded.

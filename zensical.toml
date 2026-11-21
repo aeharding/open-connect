@@ -18,12 +18,20 @@ nav = [
     { "Uninstall" = "uninstall.md" },
   ] },
   { "Features" = [
+    { "Overview" = "features/index.md" },
     { "Touchscreen While Driving" = "touchscreen.md" },
     { "Startup disclaimer" = "disclaimer.md" },
+    { "Wireless CarPlay" = "wireless-carplay.md" },
     { "Developer options" = "developer-options.md" },
+    { "Services" = "services.md" },
   ] },
   { "Performance evidence" = [
     { "Timings and RAM" = "performance.md" },
+    { "First startup comparison" = "startup-comparison.md" },
+    { "Startup verification optimization" = "startup-verification.md" },
+    { "Pandora startup and RAM" = "pandora-comparison.md" },
+    { "Native logging comparison" = "logging-comparison.md" },
+    { "Installed Base optimizations" = "base-comparison.md" },
     { "CarPlay measurements" = "carplay-testing.md" },
   ] },
   { "Development" = [

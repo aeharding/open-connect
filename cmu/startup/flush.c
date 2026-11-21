@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later
- * Flush one existing file or directory; report syscall failures.
+ * Flush one existing file/directory, or atomically link without replacement.
+ * Report syscall failures; never interpret a link destination as a directory.
  * Caller owns path/type/identity validation and the operation deadline.
  * ARM build uses the Linux 3.0 ARM EABI directly, without a target libc.
  */
@@ -15,6 +16,9 @@ static long open_readonly(const char *path, int directory) {
 }
 static long flush_fd(int fd) { return fsync(fd) < 0 ? -errno : 0; }
 static long close_fd(int fd) { return close(fd) < 0 ? -errno : 0; }
+static long link_path(const char *source, const char *target) {
+    return link(source, target) < 0 ? -errno : 0;
+}
 static void report(const char *s, unsigned n) { (void)write(2, s, n); }
 #else
 #if !defined(__arm__) || !defined(__ARM_EABI__)
@@ -34,6 +38,9 @@ static long open_readonly(const char *path, int directory) {
 }
 static long flush_fd(int fd) { return syscall3(118, fd, 0, 0); }
 static long close_fd(int fd) { return syscall3(6, fd, 0, 0); }
+static long link_path(const char *source, const char *target) {
+    return syscall3(9, (long)source, (long)target, 0);
+}
 static void report(const char *s, unsigned n) { (void)syscall3(4, 2, (long)s, n); }
 #endif
 
@@ -43,9 +50,20 @@ static int failure(long error) {
 }
 
 static int run(int argc, char **argv) {
+    if (argc == 4 && argv[1][0] == 'l' && !argv[1][1] &&
+        argv[2][0] == '/' && argv[3][0] == '/') {
+        long linked = link_path(argv[2], argv[3]);
+        if (linked < 0) {
+            report("link failed\n", 12);
+            return failure(linked);
+        }
+        return 0;
+    }
     if (argc != 3 || !argv[1][0] || argv[1][1] ||
         (argv[1][0] != 'f' && argv[1][0] != 'd') || argv[2][0] != '/') {
-        report("usage: flush f|d /absolute/path\n", 32);
+        static const char usage[] = "usage: flush f|d /absolute/path\n"
+                                    "       flush l /absolute/source /absolute/target\n";
+        report(usage, sizeof usage - 1);
         return 64;
     }
     long fd = open_readonly(argv[2], argv[1][0] == 'd');

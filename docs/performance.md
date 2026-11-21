@@ -4,10 +4,39 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
-**No completed stock-versus-Open-Connect startup/RAM comparison is published
-yet.** The collector-overhead pilot below qualifies the measurement method;
-feature and installer trials do not establish a performance gain. External
-reference numbers are identified separately from Open Connect results.
+The [first stock/Open Connect comparison](startup-comparison.md) found **slower
+startup with the development candidate**: the median wired CarPlay dashboard
+milestone moved from about 48.3 to 56.7 seconds after ACC-on. CPU busy increased;
+minimum free RAM was similar. Five accepted runs per condition, the excluded
+attempts, numeric samples and reproduction commands are published with the result.
+This is a regression to investigate before service optimizations, with no claim
+of reproducing Miatafy's wireless timings.
+
+The [first verification optimization](startup-verification.md) recovers about
+1.2 seconds to Home and 2.2 seconds to the dashboard in a five-run dev.5 block.
+CPU and RAM remain similar, and stock is still faster. The original controls
+are reused explicitly; their collection identities are unchanged.
+
+The [Pandora comparison](pandora-comparison.md) adds five starts enabled and five
+disabled on the same dev.6 build. Minimum MemFree was about 3.2 MiB higher with
+Pandora off; the wired dashboard timing difference was below camera resolution.
+All individual results and reproduction commands are published. The first
+Services control remains optional and defaults to running.
+
+The [native logging comparison](logging-comparison.md) tests a narrow Warn filter
+with original features/services: five Info starts followed by five Warn starts.
+The visible wired dashboard median was about 3.2 seconds earlier; minimum MemFree
+in the matched window was about 8.7 MiB higher, with only about 1.4 MiB higher ending
+free RAM. The source, spread and limits are published. This is evidence for
+qualifying a Base optimizations candidate, not an installed-bundle claim.
+
+The [installed Base comparison](base-comparison.md) then measures five Base-on
+starts followed by five Base-off starts of the same dev.7 CI bundle, with Pandora
+and the initial features held fixed. Dashboard median was about 3.8 seconds earlier;
+minimum MemFree was about 9.9 MiB higher and ending free RAM about 2.58 MiB higher.
+All ten primary starts completed without failures or exclusions. The optional
+preset defaults off. Its 14.55–14.94-second early resource gap, block order and
+single-bench limits are explicit; these results do not qualify wireless or a vehicle.
 
 ## Configurations to compare
 
@@ -15,15 +44,15 @@ reference numbers are identified separately from Open Connect results.
 | --- | --- |
 | Stock services with declared instrumentation | Establish the baseline on this unit |
 | Pinned Open Connect candidate or release, unchanged service selections | Measure the initial features and installed runtime; identify development candidates explicitly |
-| Base optimizations off/on, same individual service selections | Measure the proposed bundle as one setting |
+| Base optimizations off/on, same individual service selections | Measure the installed bundle as one setting |
 | One service choice changed, other settings fixed | Attribute the effect and detect dependencies |
 
-The proposed **Base optimizations** setting groups qualified internal changes,
-such as reduced logging, behind one on/off choice. Its contents and default are
-not settled. Identify the exact bundle revision in every result and test the
-whole bundle; individual savings cannot simply be added together. Keep optional
-service selections explicit. Both the bundle and individual choices need undo
-and regression checks. See [Services work #86](https://github.com/aeharding/open-connect/issues/86).
+The current development candidate groups the measured native Warn filter behind
+one optional **Base optimizations** choice, initially off. That default is an
+implementation choice. Identify the exact bundle revision in every result and
+test the whole bundle; individual savings cannot simply be added together.
+Future preset contents and individual service choices need comparable measurements,
+undo and regression checks. See [Services work #86](https://github.com/aeharding/open-connect/issues/86).
 
 ## Timings
 
@@ -68,6 +97,61 @@ Do not sum process RSS and call it physical RAM saved, or turn missing counters
 into zero. Collect only fields supported by the actual kernel and bound expensive
 mapping snapshots. The [Linux proc documentation](https://docs.kernel.org/filesystems/proc.html)
 describes these counters; its newer fields are not a promise about the CMU kernel.
+
+## Startup observer coverage — November 21, 2026
+
+Startup collection must begin locally, independently of network readiness. In
+the initial stock ACC trial, the SSH-started collector first sampled at kernel
+uptime **41.09 seconds**, after native UI was already visible. Camera and
+receive-only UART covered the restart from before ACC-on, but RAM, CPU and I/O
+before that first sample were unobserved. Those missing values are not zero;
+that trace cannot establish whole-startup memory pressure.
+
+The replacement experiment backgrounds the same system-counter collector from
+the supported firmware's empty `stage_1.sh`. It records a finite 180-second
+trace in RAM, with a one-second minimum pause, and retrieves the finished result
+over SSH after startup. There is no SSH readiness polling during that window.
+The temporary hook preserves the exact original and an independent restore
+entry. It does not change product startup files or service selections.
+
+| Coverage trial | First sample uptime, seconds | Last sample end, seconds | Samples | RAM values |
+| --- | --- | --- | --- | --- |
+| SSH-started, source 9b2971f | 41.09 | 160.72 | 117 | [CSV](assets/performance/startup-post-ssh-coverage.csv) |
+| Local stage-1 hook, source 34d7c29 | 11.16 | 190.32 | 171 | [CSV](assets/performance/startup-local-coverage.csv) |
+
+These are separate single-run coverage checks after 30.015- and 30.017-second
+ACC-off intervals, respectively. Both used stock services, owner-key SSH, a wired
+phone, Ethernet and FAT SD, with camera/UART observation and no GUI input or supply
+commands. Phone model/iOS was not captured. One earlier local-observer attempt
+refused before any ACC transmission because an unrelated continuity camera
+appeared; selecting the identified bench camera resolved that tooling failure.
+After the local trial, the independent restore returned the exact original
+script and inode. A further ACC restart verified original startup with no RAM
+observer output and physical root read-only.
+
+The local trace covers substantially more startup allocation: kernel `MemFree`
+was 639,244 kB in its first sample and 207,052 kB in its last, with a minimum of
+198,728 kB in the observed window. This is not `MemAvailable` or a RAM-saving
+claim. The first **11.16 seconds still lack resource samples**, so even this
+trace does not establish a whole-boot peak. Its completed RAM output was
+832,230 bytes, contributing to the memory being observed; do not subtract it
+from the counters as though all instrumentation overhead were known.
+
+Use the pinned [playground experiment and setup/undo instructions](https://github.com/aeharding/open-connect/blob/34d7c293a9cc7476884f88c2061164a3d7b5becd/cmu/bench/STARTUP-REFERENCE.md).
+Its host command retains the observer sources, raw retrieval, verified boot,
+sample bounds and RAM CSV. This is measurement-method qualification, not a
+stock-versus-Open-Connect comparison. Describe the condition as stock features
+with bench instrumentation; the temporary root hook and RAM output are part of
+the measurement setup. The earlier SSH overhead pilot below does not establish
+the overhead of this boot-local configuration.
+
+The collector in both checks is
+[`metrics.sh` at 34d7c29](https://github.com/aeharding/open-connect/blob/34d7c293a9cc7476884f88c2061164a3d7b5becd/cmu/bench/metrics.sh),
+SHA256 `04ce5017e08a4e62823135eb6a560cefbc51289edda256ff5f2b1946b3d5a109`.
+The linked experiment uses the maintained `metrics.memory_csv` to produce these
+per-sample exports; public copies normalize line endings to LF. Neither check establishes CarPlay usability, input latency
+or a product performance difference. Camera clock-domain qualification does not
+eliminate sensor/display latency or the roughly five-frame-per-second spacing.
 
 ## Collector overhead pilot — November 20, 2026
 

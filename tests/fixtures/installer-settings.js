@@ -258,3 +258,155 @@ assert.equal(fingerprintLines[1].length, 23);
 assert.equal(fingerprintLines[2].length, 23);
 modal.props.defaultSelectCallback(modal, "done");
 back(); back();
+
+// Service choices are separate, default running, and take effect after restart.
+values = {...values, pandora: 1};
+settings.open(fw, store);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].text1, "Services");
+assert.equal(pages.at(-1).ctrl.dataList.items[2].hasCaret, true);
+pick(2);
+assert.equal(pages.at(-1).ctrl.title.text1, "Services");
+let servicesCtrl = pages.at(-1).ctrl;
+assert.equal(servicesCtrl.dataList.items[0].hasCaret, false);
+assert.equal(servicesCtrl.dataList.items[0].value, 1);
+const beforeService = writes.length;
+servicesCtrl.selectCallback(servicesCtrl, "pandora", {additionalData: 2});
+assert.equal(modal.props.title, "Disable Pandora?");
+assert.match(modal.props.text1, /after restarting/);
+modal.props.defaultSelectCallback(modal, "cancel");
+idle();
+assert.equal(writes.length, beforeService);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 1);
+servicesCtrl = pages.at(-1).ctrl;
+servicesCtrl.selectCallback(servicesCtrl, "pandora", {additionalData: 2});
+modal.props.defaultSelectCallback(modal, "apply");
+back(); back(); idle();
+assert.deepEqual(writes.at(-1), ["pandora", 1, 0]);
+values = {...values, pandora: 0, restart: true}; reply(values);
+settings.open(fw, store); pick(2);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 2);
+back();
+assert.equal(pages.at(-1).ctrl.focussedItem, 2);
+pick(3); back();
+assert.equal(pages.at(-1).ctrl.focussedItem, 3);
+back();
+
+// The measured base preset is independent of Pandora and only saved after its
+// confirmation. Both directions explain restart, with no navigation caret.
+values = {...values, base: 0};
+settings.open(fw, store); pick(2);
+let baseCtrl = pages.at(-1).ctrl;
+assert.deepEqual(Array.from(baseCtrl.dataList.items, x => x.text1), ["Base optimizations", "Pandora"]);
+assert.equal(baseCtrl.dataList.items[0].value, 2);
+assert.equal(baseCtrl.dataList.items[0].hasCaret, false);
+const beforeBase = writes.length;
+baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 1});
+assert.equal(modal.props.title, "Enable Base optimizations?");
+assert.match(modal.props.text1, /native diagnostic logging/);
+assert.match(modal.props.text1, /after restarting/);
+modal.props.defaultSelectCallback(modal, "cancel"); idle();
+assert.equal(writes.length, beforeBase);
+baseCtrl = pages.at(-1).ctrl;
+baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 1});
+modal.props.defaultSelectCallback(modal, "apply");
+back(); back(); idle();
+assert.deepEqual(writes.at(-1), ["base", 0, 1]);
+values = {...values, base: 1, restart: true}; reply(values);
+settings.open(fw, store); pick(2);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 1);
+assert.equal(pages.at(-1).ctrl.dataList.items[1].value, 2);
+baseCtrl = pages.at(-1).ctrl;
+baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 2});
+assert.equal(modal.props.title, "Disable Base optimizations?");
+assert.match(modal.props.text1, /Restores original native logging/);
+modal.props.defaultSelectCallback(modal, "apply"); idle();
+assert.deepEqual(writes.at(-1), ["base", 1, 0]);
+values = {...values, base: 0}; reply(values);
+back(); back();
+
+// Status can become unavailable while a page is open. Keep Back usable and
+// refuse the new selection without sending a write.
+const beforeUnavailable = writes.length;
+const availableValues = values;
+settings.open(fw, store); pick(2);
+values = null;
+const unavailableServices = pages.at(-1).ctrl;
+assert.doesNotThrow(() => unavailableServices.selectCallback(unavailableServices, "pandora", {additionalData: 2}));
+assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
+back();
+values = availableValues;
+settings.open(fw, store); pick(3);
+values = null;
+assert.doesNotThrow(back);
+assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
+back();
+values = availableValues;
+assert.equal(writes.length, beforeUnavailable);
+
+// Wireless is a main-page checkbox; Cancel never saves, and nested-page Back
+// returns to the correct row after its insertion. Older status hid this row.
+values = {...values, wireless: 0, wirelessCurrent: 0};
+settings.open(fw, store);
+let wirelessCtrl = pages.at(-1).ctrl;
+assert.equal(wirelessCtrl.dataList.items[2].text1, "Wireless CarPlay");
+assert.equal(wirelessCtrl.dataList.items[2].value, 2);
+assert.equal(wirelessCtrl.dataList.items[2].hasCaret, false);
+const beforeWireless = writes.length;
+wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 1});
+assert.equal(modal.props.title, "Enable Wireless CarPlay?");
+assert.match(modal.props.text1, /restarting Mazda Connect/);
+assert.match(modal.props.text1, /Bluetooth/);
+modal.props.defaultSelectCallback(modal, "cancel"); idle();
+assert.equal(writes.length, beforeWireless);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].value, 2);
+wirelessCtrl = pages.at(-1).ctrl;
+wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 1});
+modal.props.defaultSelectCallback(modal, "apply");
+back(); idle();
+assert.deepEqual(writes.at(-1), ["wireless", 0, 1]);
+values = {...values, wireless: 1, wirelessCurrent: 0, restart: true}; reply(values);
+settings.open(fw, store);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].value, 1);
+pick(3); back();
+assert.equal(pages.at(-1).ctrl.focussedItem, 3);
+pick(4); back();
+assert.equal(pages.at(-1).ctrl.focussedItem, 4);
+wirelessCtrl = pages.at(-1).ctrl;
+wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 2});
+assert.equal(modal.props.title, "Disable Wireless CarPlay?");
+assert.match(modal.props.text1, /original CarPlay behavior/);
+modal.props.defaultSelectCallback(modal, "apply"); idle();
+assert.deepEqual(writes.at(-1), ["wireless", 1, 0]);
+values = {...values, wireless: 0}; reply(values);
+back();
+
+// A disappearing status while backing out must not break native Back.
+settings.open(fw, store); pick(3);
+const availableWirelessValues = values;
+values = null;
+assert.doesNotThrow(back);
+assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
+back();
+values = availableWirelessValues;
+
+// Factory wireless is already available: show a checked, disabled row without
+// turning that into an Open Connect preference or allowing a confirmation/write.
+values = {...values, wireless: 0, wirelessCurrent: 0, wirelessFactory: true};
+settings.open(fw, store);
+wirelessCtrl = pages.at(-1).ctrl;
+assert.match(wirelessCtrl.dataList.items[2].text1, /factory enabled/);
+assert.equal(wirelessCtrl.dataList.items[2].value, 1);
+assert.equal(wirelessCtrl.dataList.items[2].disabled, true);
+const beforeFactory = writes.length, factoryModal = modal;
+wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 2});
+wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 1});
+idle();
+assert.equal(writes.length, beforeFactory);
+assert.equal(modal, factoryModal);
+assert.equal(values.wireless, 0);
+back();
+values = {...values, wirelessFactory: false};
+settings.open(fw, store);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].value, 2);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, false);
+back();

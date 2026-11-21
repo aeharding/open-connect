@@ -34,8 +34,9 @@ Changes to durable state, publication, native lifetime or recovery require check
 for those affected cases. Do not repeat the whole lifecycle for each label edit,
 or relabel an old artifact's evidence as testing a new one.
 
-The [dev.7 installed Base result](base-comparison.md) records the current measured
-CI candidate and its complete maintenance checks. The earlier
+The [dev.8 wireless result](cmu/wireless-carplay.md#installed-development-candidate)
+records native connection and maintenance checks. The [dev.7 installed Base result](base-comparison.md)
+retains the measured CI candidate and its complete maintenance checks. The earlier
 [dev.5 verification result](startup-verification.md) retains its grouped-directory
 optimization and original artifact identity. Deferred physical-input/audio and
 matching-car checks still prevent a qualified v74 release.
@@ -79,9 +80,9 @@ CarPlay mod before installing Open Connect; the installer does not recognize or
 adopt its modified files. Remaining conflicting edits cause refusal.
 
 Reinstall checks the current targets and dependencies before accepting inputs.
-Later edits are preserved and refused. The future Open Connect wireless-enable
-option must retain actual vehicle/hardware identity and remains in the final
-roadmap phase. See [wireless research](cmu/wireless-carplay.md).
+Later edits are preserved and refused. The development candidate's Open Connect
+wireless-enable option retains actual vehicle/hardware identity. Wireless timing
+and long-parked reliability remain unqualified. See [wireless research](cmu/wireless-carplay.md).
 
 The removed compatibility allowance remains in Git history. Its captures retain
 their actual source identity; they are not tests of this OEM-only revision.
@@ -135,6 +136,15 @@ Arbitrary old-package compatibility, including cross-firmware maintenance, is
 not supported. Unknown edits are preserved even if restoration has partly completed.
 
 ## Qualification
+
+The **0.3.0-dev.8** bundle from
+[CI 44942234519](https://github.com/aeharding/open-connect/actions/runs/44942234519),
+source `c25d5202ddebfed15b2f3eab8cccedb54a244dad`, passed fresh installation,
+dev.7 update and same-version reinstall retaining choices and an imported key,
+wireless controls/restarts/reconnection, and uninstall from wireless enabled.
+The [wireless qualification record](cmu/wireless-carplay.md#installed-development-candidate)
+identifies the artifact, restoration checks and remaining limits. These checks
+do not qualify audio, physical input or a real-car release.
 
 The **0.3.0-dev.7** bundle from
 [CI 44917434811](https://github.com/aeharding/open-connect/actions/runs/44917434811),

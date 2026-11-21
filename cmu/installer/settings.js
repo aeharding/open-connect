@@ -14,7 +14,8 @@ var OpenConnectSettings = (function () {
             (values.warning === 0 || values.warning === 1) &&
             (values.pandora === undefined || values.pandora === 0 || values.pandora === 1) &&
             (values.base === undefined || values.base === 0 || values.base === 1) &&
-            (values.wireless === undefined || values.wireless === 0 || values.wireless === 1);
+            (values.wireless === undefined || values.wireless === 0 || values.wireless === 1) &&
+            (values.wirelessFactory === undefined || typeof values.wirelessFactory === "boolean");
     }
 
     function replace(obj, key, fn) {
@@ -54,7 +55,8 @@ var OpenConnectSettings = (function () {
             }
             var values = {developer: saved.developer, key: saved.key, fingerprint: saved.fingerprint,
                 uartCurrent: saved.uartCurrent, sshCurrent: saved.sshCurrent, wirelessCurrent: saved.wirelessCurrent,
-                restart: saved.restart}, keys = ["touch", "warning", "uart", "ssh", "pandora", "base", "wireless"];
+                wirelessFactory: saved.wirelessFactory, restart: saved.restart},
+                keys = ["touch", "warning", "uart", "ssh", "pandora", "base", "wireless"];
             keys.forEach(function (key) { values[key] = own.call(wanted, key) ? wanted[key] : saved[key]; });
             return values;
         };
@@ -153,8 +155,9 @@ var OpenConnectSettings = (function () {
                         itemStyle: "style06", hasCaret: true, appData: i});
                 }
                 if (values.wireless !== undefined) {
-                    rows.push({text1: "Wireless CarPlay", itemStyle: "styleOnOff", value: values.wireless ? 1 : 2,
-                        hasCaret: false, appData: "wireless"});
+                    rows.push({text1: "Wireless CarPlay" + (values.wirelessFactory ? " (factory enabled)" : ""),
+                        itemStyle: "styleOnOff", value: values.wirelessFactory || values.wireless ? 1 : 2,
+                        disabled: values.wirelessFactory === true, hasCaret: false, appData: "wireless"});
                 }
                 if (values.pandora !== undefined || values.base !== undefined) {
                     rows.push({text1: "Services", itemStyle: "style01", hasCaret: true, appData: "services"});
@@ -218,7 +221,7 @@ var OpenConnectSettings = (function () {
             if (choice === null && item === "wireless") {
                 if (!params || (params.additionalData !== 1 && params.additionalData !== 2)) { return; }
                 var wirelessValues = prefs.values(), enableWireless = params.additionalData === 1;
-                if (!wirelessValues || wirelessValues.wireless === undefined ||
+                if (!wirelessValues || wirelessValues.wirelessFactory === true || wirelessValues.wireless === undefined ||
                         wirelessValues.wireless === (enableWireless ? 1 : 0)) { return; }
                 dismiss = OpenConnectInstaller.message(fw, (enableWireless ? "Enable" : "Disable") + " Wireless CarPlay?",
                     enableWireless ? "Changes apply after restarting Mazda Connect. Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth." :

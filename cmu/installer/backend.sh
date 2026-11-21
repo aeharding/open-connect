@@ -80,18 +80,19 @@ status() {
             fi
         fi
     fi
-    local version service_status=
+    local version service_status= wireless_factory=false
     if test -n "$pandora"; then service_status=',"pandora":'$pandora; fi
     if test -n "$base"; then service_status=$service_status',"base":'$base; fi
     if test -n "$wireless"; then service_status=$service_status',"wireless":'$wireless; fi
     if test -n "$wireless"; then
+        if factory_wireless; then wireless_factory=true; fi
         if file /tmp/open-connect/selected; then
             applied=$(cat /tmp/open-connect/selected)
             if snapshot_read "$applied" && test "$S_WIRELESS" = 1 &&
                 file /tmp/open-connect/feature/wireless-applied &&
                 test "$(cat /tmp/open-connect/feature/wireless-applied)" = 1; then wireless_current=1; fi
         fi
-        service_status=$service_status',"wirelessCurrent":'$wireless_current
+        service_status=$service_status',"wirelessCurrent":'$wireless_current',"wirelessFactory":'$wireless_factory
         test "$wireless" = "$wireless_current" || restart=true
     fi
     version=$(cat "$P/VERSION")

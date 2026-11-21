@@ -264,3 +264,10 @@ f.reply(f.requests[1], f.state({installed: true, wireless: 0, wirelessCurrent: 1
 assert.equal(f.store.read().wireless, 0);
 assert.equal(f.store.read().wirelessCurrent, 1);
 assert.equal(f.store.read().restart, true);
+
+f = fixture();
+f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true, wireless: 0, wirelessCurrent: 0, wirelessFactory: true}));
+f.tick();
+assert.equal(f.store.read().wirelessFactory, true);
+assert.equal(f.store.read().wireless, 0);

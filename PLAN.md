@@ -45,9 +45,15 @@ and the initial features were fixed. The optional preset defaults off as an
 implementation choice; fresh install, same-version reinstall, legacy upgrade,
 controls, restart and uninstall have software bench checks. Block order and one
 unit still limit attribution. Reproducible source, individual results and the
-installed candidate's early resource gap are retained. Next is native wireless
-CarPlay enablement while preserving actual vehicle/hardware identity; its
-long-parked behavior and the Miatafy wireless milestone still need measurement.
+installed candidate's early resource gap are retained. Native wireless enablement
+now has [installed dev.8 bench checks](docs/cmu/wireless-carplay.md#installed-development-candidate):
+projection, repeated-start reconnection, controls, retained settings and uninstall
+without changing vehicle/hardware identity. Physical input/audio, vehicle behavior,
+long-parked timing and the Miatafy wireless milestone remain unqualified.
+Next collect the wireless baseline, then expand Services and optimization research
+beyond Miatafy's documented changes before deep long-parked lag work.
+The owner requested this broader research; candidate selection and
+defaults still require dependency, benefit and restoration evidence.
 The deferred phase-1 manual and first-car checks remain separate.
 
 | Phase | Outcome | Done when | Work |
@@ -153,6 +159,13 @@ Consider the restoration and shared-resource requirements in the
 [architecture research](docs/extension-architecture.md) when selecting service
 changes; the proposed plugin framework is not a prerequisite. [#86](https://github.com/aeharding/open-connect/issues/86)
 owns the menu, and [#9](https://github.com/aeharding/open-connect/issues/9) owns the measurements.
+
+Continue this phase after the native wireless baseline: inspect the actual service
+graph and startup/background CPU, RAM and I/O for additional candidates, including
+work not documented by Miatafy. Research may overlap measurement collection. Add
+qualified individual controls or measured Base contents, retaining negative results
+and checking normal behavior and undo. Complete this broader Services pass before
+deep long-parked wireless lag work; the initial Pandora control is not its endpoint.
 
 ## Phase 5: improve native wireless CarPlay
 

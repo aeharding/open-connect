@@ -388,3 +388,25 @@ assert.doesNotThrow(back);
 assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
 back();
 values = availableWirelessValues;
+
+// Factory wireless is already available: show a checked, disabled row without
+// turning that into an Open Connect preference or allowing a confirmation/write.
+values = {...values, wireless: 0, wirelessCurrent: 0, wirelessFactory: true};
+settings.open(fw, store);
+wirelessCtrl = pages.at(-1).ctrl;
+assert.match(wirelessCtrl.dataList.items[2].text1, /factory enabled/);
+assert.equal(wirelessCtrl.dataList.items[2].value, 1);
+assert.equal(wirelessCtrl.dataList.items[2].disabled, true);
+const beforeFactory = writes.length, factoryModal = modal;
+wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 2});
+wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 1});
+idle();
+assert.equal(writes.length, beforeFactory);
+assert.equal(modal, factoryModal);
+assert.equal(values.wireless, 0);
+back();
+values = {...values, wirelessFactory: false};
+settings.open(fw, store);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].value, 2);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, false);
+back();

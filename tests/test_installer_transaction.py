@@ -161,7 +161,10 @@ class InstallerTransaction(unittest.TestCase):
         # Use the real backend and state/transaction code; replace only physical
         # firmware, NVRAM, mount, root-publication and reboot adapters.
         adapters = DRIVER[DRIVER.index("root_mode()") : DRIVER.index('if test "$ACTION" = init;')]
-        (self.tools / "firmware.sh").write_text("CUT=none\nfirmware_guard() { :; }\n" + adapters)
+        (self.tools / "firmware.sh").write_text(
+            'CUT=none\nfirmware_guard() { :; }\nfactory_wireless() { test -f "$D-factory-wireless"; }\n'
+            + adapters
+        )
         (self.tools / "flock").write_text("#!/bin/sh\nexit 0\n")
         (self.tools / "flock").chmod(0o700)
         script = (ROOT / "cmu/installer/backend.sh").read_text()
@@ -249,6 +252,7 @@ class InstallerTransaction(unittest.TestCase):
         self.backend_fixture(data)
         _, status = self.api("status")
         self.assertEqual((status["wireless"], status["wirelessCurrent"]), (0, 0))
+        self.assertFalse(status["wirelessFactory"])
         for key, before, after in (
             ("wireless", "0", "1"),
             ("pandora", "1", "0"),
@@ -268,6 +272,7 @@ class InstallerTransaction(unittest.TestCase):
         (feature / "wireless-applied").write_text("1\n")
         _, status = self.api("status")
         self.assertEqual(status["wirelessCurrent"], 1)
+        self.assertFalse(status["wirelessFactory"])
         self.assertFalse(status["restart"])
         result, status = self.api("set", status["revision"], "wireless", "1", "0")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -277,6 +282,22 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(data.exists())
         self.assertEqual(self.target(data, "target").read_text(), "stock\n")
+
+    def test_factory_wireless_status_does_not_change_the_saved_override(self):
+        data = self.create("factory-wireless")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        record = (data / "record").read_bytes()
+        flag = self.root / "factory-wireless-factory-wireless"
+        flag.touch()
+        result, status = self.api("status")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(status["wirelessFactory"])
+        self.assertEqual((status["wireless"], status["wirelessCurrent"]), (0, 0))
+        self.assertEqual((data / "record").read_bytes(), record)
+        flag.unlink()
+        _, status = self.api("status")
+        self.assertFalse(status["wirelessFactory"])
 
     def test_seven_field_selector_preserves_format_and_refuses_wireless_until_update(self):
         data = self.create("seven-field-settings")

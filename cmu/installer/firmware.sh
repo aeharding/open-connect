@@ -49,6 +49,15 @@ native_guard() {
     test "$(sha /jci/lib/libjciuiamgr.so)" = 1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29 || fail unsupported_manager
 }
 
+factory_wireless() (
+    # Follow the verified OEM hardware branch, never our rendered RAM flags.
+    file /jci/scripts/get_board_type.sh || exit 1
+    test "$(sha /jci/scripts/get_board_type.sh)" = 2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da || exit 1
+    result=0
+    PATH=/usr/bin:/bin:/usr/sbin:/sbin sh /jci/scripts/get_board_type.sh >/dev/null 2>&1 || result=$?
+    test "$result" = 2
+)
+
 originals_verify() {
     local digest name target
     private_dir "$D/originals" || return 1

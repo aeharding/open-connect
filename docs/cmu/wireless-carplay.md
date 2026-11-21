@@ -1,13 +1,14 @@
 # Native wireless CarPlay
 
 **Mazda's v74 firmware already contains wireless CarPlay and a Wi-Fi mode
-selector.** A narrow v74 boot trial reached native wireless projection while
+selector.** The installed dev.8 candidate reached native wireless projection while
 preserving the CMU's actual board and generated vehicle/GPS values.
 
-This page records source-backed findings on **North American 74.00.324A** and
-that single-boot trial. The maintained [Wireless CarPlay control](../wireless-carplay.md)
-is under qualification. This does not establish input/audio performance,
-repeated reconnection, vehicle behavior or long-parked startup timing.
+This page records source-backed findings on **North American 74.00.324A**, the
+initial narrow trial and installed development checks. The maintained
+[Wireless CarPlay control](../wireless-carplay.md) remains a development candidate.
+This does not establish physical-input/audio performance, vehicle behavior or
+long-parked startup timing.
 
 The owner will uninstall the existing wireless mod before the first Open Connect
 installation. The installer requires the supported OEM files. Wireless work
@@ -65,13 +66,91 @@ separate stock ACC start. That start restored both FALSE values, stopped the AP
 and returned the radio to managed mode after entering the test with Mazda's
 CarPlay Wi-Fi preference selected. Saved-mode and pairing reuse still need
 reconnection checks. This supports the off-path mechanism;
-the maintained installer still needs its own complete qualification.
+the installed candidate has the separate checks below.
 
 The authored [playground source](https://github.com/aeharding/open-connect/tree/bc9761a/cmu/bench)
 retains the initial filters and observed scope. Private captures, generated XML,
 OEM source and pairing material are excluded. Its first attempt stopped before
 selection when an early root read-only remount returned `EBUSY`; post-startup
 restoration passed. That was a boot-trial tooling failure, not a wireless result.
+
+## Finite preparation and cancellation
+
+The maintained helper uses a supervisor and a worker in a separate session.
+Before any preparation, the worker acknowledges its PID and waits on inherited
+FIFO descriptors. The supervisor verifies its parent, process group and session,
+then records that cancellation can stop the group before authorizing preparation.
+This closes the launch race where cancellation could otherwise kill the launcher
+while leaving XML preparation running. Read/write FIFO opens do not wait for a
+peer on this CMU. Timed reads bound a missing acknowledgement.
+
+On the first installed boot, Service Manager logged that it unlinked the ready
+flag when the one-shot process stopped. That flag is a startup dependency signal;
+it is not a persistent status marker. Current availability uses the selected
+snapshot and the separate per-boot applied-policy result.
+
+The observed BusyBox 1.19.2 timeout sends TERM to the supervisor PID. Cancellation
+stops preparation before releasing Device Manager; applied status reflects the
+actual XML on either side of its atomic rename. A separate synthetic native check
+exercised normal and malformed inputs, delayed filtering, both sides of rename,
+and three launch/authorization boundaries. All eight cases passed. The six
+one-second-timeout cases released in **1.04–1.06 seconds**, with unchanged hashes
+five seconds later. Physical originals and the kernel remained unchanged.
+This qualifies those failure paths, not installed projection or startup performance.
+Private provenance is in `runs/wireless-enable-20261121/native-r1b-identity.json`
+and `native-r1b.out`; maintained host coverage is `tests/test_installer_wireless.py`.
+
+## Installed development candidate
+
+The **0.3.0-dev.8** payload from
+[CI 44942234519](https://github.com/aeharding/open-connect/actions/runs/44942234519),
+source [c25d5202](https://github.com/aeharding/open-connect/tree/c25d5202ddebfed15b2f3eab8cccedb54a244dad),
+was installed through the normal maintenance UI on the matching bench. The SD
+manual launch was used; this is separate from earlier physical USB-insertion
+qualification. All 37 public manifest entries matched the installed runtime.
+
+| Identity | Value |
+| --- | --- |
+| CI artifact | `14722505940` |
+| USB ZIP SHA256 | `e34a91136e526f97f77f67d3455d625bef77b85dec831506ba9059fa2e99c835` |
+| Public manifest SHA256 | `3e0d04f7b4af47e0cffffba3ebea52fe8da4631cdb8c1447f77ddd2436948150` |
+
+The dev.7 → dev.8 update retained every existing choice, imported SSH key and
+original baseline; Wireless started off. Native Enable/Disable confirmations and
+Cancel behaved correctly. Full ACC starts applied each selection. With Wireless
+on, the generated XML differed in precisely the two capability values, and all
+physical dependencies remained original with root read-only. Selecting the native
+Apple CarPlay mode reused the existing Bluetooth pairing and reached visible
+projection with no CMU phone USB link and one active Wi-Fi station. A repeated
+full ACC start retained that mode and returned to projection without further UI
+or phone actions. These were two enabled starts, not a long-run reliability test.
+
+Disable restored both original capability values and managed radio mode, with
+no active station or applied-policy marker. A same-version reinstall retained
+Wireless on and all other choices/key. Normal menu uninstall from that enabled
+state restored 19 originals with metadata, the three added read-only dependencies
+and original loaded startup after restart. It removed product state and imported
+key access while preserving independent bench access. A subsequent fresh install
+restored all documented defaults with Wireless/Base/UART/SSH off and Pandora on.
+
+Private checks are under `runs/wireless-enable-20261121/`: `dev8-upgrade-check.out`,
+`installed-wireless-on{1,2}/`, `installed-wireless-off/postboot.out`,
+`dev8-reinstall-check.out`, `final-uninstall/closure-stock.json` and
+`fresh-dev8-check.out`. Reviewed native guide images have
+[separate provenance](../assets/guide/README.md). Raw projection frames, generated
+OEM XML and access material remain private. Physical input, audio, vehicle
+behavior, startup timing/RAM and long-parked reliability remain unqualified.
+
+## Recognize factory wireless
+
+The final UI adds read-only `wirelessFactory` status from the hash-verified OEM
+`get_board_type.sh` result: exit 2 selects Mazda's factory wireless branch.
+The script reads `DI_TP1056` and `DI_TP1029`; generated RAM capability flags are
+not used for this decision. Our override therefore cannot make a non-factory
+unit identify itself as factory wireless. A factory row is checked and disabled,
+labeled **factory enabled**, without changing the saved override or adding a
+durable record. The factory branch is covered by host fixtures; this bench is
+non-factory, so actual factory hardware remains untested.
 
 ## Internet and the OEM menu
 

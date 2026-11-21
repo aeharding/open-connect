@@ -5,9 +5,15 @@ System → Open Connect**. It defaults off. Enabling it makes Mazda's native
 wireless controls available after a full restart, while retaining the CMU's
 actual hardware identity and GPS configuration.
 
-The maintained candidate is still under qualification. A separate narrow bench
-trial reached visible wireless projection; this is not a vehicle, audio, input
-latency or long-parked startup result. See the [source findings](cmu/wireless-carplay.md).
+The installed dev.8 CI candidate reached visible wireless projection and
+reconnected after a full restart without phone or menu actions. Installation,
+updates, controls and restoration have software bench checks. Vehicle behavior,
+audio, physical input and long-parked startup remain unqualified. See the
+[qualification record](cmu/wireless-carplay.md#installed-development-candidate).
+
+If your hardware already has factory wireless CarPlay, the checkbox is checked
+and disabled, labeled **factory enabled**. Use Mazda's Wi-Fi menu to connect;
+Open Connect does not need to enable it.
 
 ## Connect an iPhone
 
@@ -19,6 +25,11 @@ latency or long-parked startup result. See the [source findings](cmu/wireless-ca
    Accept the phone's wireless CarPlay prompt if offered.
 4. Select your iPhone under **Devices → Apple CarPlay** and connect.
 
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/wireless-enable.png" alt="Enable Wireless CarPlay confirmation explaining restart, Mazda Wi-Fi settings and Bluetooth pairing, with Cancel and Enable buttons." width="800" height="480"></div>
+  <figcaption>Enable the option, then finish setup in Mazda's own menus.</figcaption>
+</figure>
+
 In the first bench trial, the existing Bluetooth pairing left Connect disabled;
 re-pairing made it available. If that happens, re-pair that iPhone. Other devices
 do not need to be removed.
@@ -27,6 +38,11 @@ On the tested North American configuration, Mazda's Wi-Fi choices are **Off**
 and **Apple CarPlay**. Joining a phone/home hotspot through Connected Services
 remains under investigation; it is not exposed by this setting.
 
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/wireless-mode.png" alt="Mazda Wi-Fi mode selector with Off and Apple CarPlay choices." width="800" height="480" loading="lazy"></div>
+  <figcaption>Select Apple CarPlay in Mazda Settings → Devices → Wi-Fi.</figcaption>
+</figure>
+
 ## Disable or remove
 
 Clear **Wireless CarPlay** and confirm **Disable** to restore the CMU's original
@@ -34,10 +50,16 @@ wireless availability after the next full restart. Updating retains your choice.
 Uninstall restores pre-install startup; the restart clears the RAM configuration.
 The current session continues until it shuts down.
 
-Mazda retains its Wi-Fi preference and paired phones. This option does not erase
-those choices or replace Mazda's own Wi-Fi mode control. The first stock-start
-check stopped the AP and restored both original capability values despite the
-CarPlay Wi-Fi preference selected before that start.
+Open Connect leaves Mazda's Wi-Fi preferences and paired-phone records alone;
+Mazda still controls its own Wi-Fi mode. The installed bench reused its existing
+pairing and retained Apple CarPlay mode across a repeated enabled start. Disabling
+the override restored the original unavailable state on this non-factory unit.
+On factory-wireless hardware, factory availability remains intact.
 
-Performance comparisons, repeated reconnection and maintained installer
-qualification are separate work. No cold-start improvement is claimed yet.
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/wireless-disable.png" alt="Disable Wireless CarPlay confirmation explaining that original behavior returns after restart, with Cancel and Disable buttons." width="800" height="480" loading="lazy"></div>
+  <figcaption>Disable restores the original availability after a full restart.</figcaption>
+</figure>
+
+No cold-start improvement is claimed yet. Timing, RAM and long-parked comparisons
+are the next measurement work.

@@ -18,6 +18,7 @@ nav = [
     { "Uninstall" = "uninstall.md" },
   ] },
   { "Features" = [
+    { "Overview" = "features/index.md" },
     { "Touchscreen While Driving" = "touchscreen.md" },
     { "Startup disclaimer" = "disclaimer.md" },
     { "Wireless CarPlay" = "wireless-carplay.md" },

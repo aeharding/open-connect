@@ -19,7 +19,9 @@ dashboard without startup input. No primary attempt failed or was excluded.
 | Off | 31.63–31.84 | 54.42–54.63 | 33.75% | 189.52 |
 | On | 30.83–31.04 | 50.61–50.82 | 31.04% | 199.42 |
 
-Timing bounds are medians of the individual frame intervals, rounded outwards.
+The timing tables use the host ACC-on command as origin. The CSV also retains
+per-boot kernel-relative bounds. Timing bounds are medians of the individual
+frame intervals, rounded outwards.
 CPU/RAM use actual sample endpoints inside kernel uptime 20–170 seconds. The
 3.81-second dashboard difference is calculated from unrounded median interval
 midpoints. The roughly 0.80-second Home difference is smaller and sensitive to

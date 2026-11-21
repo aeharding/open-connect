@@ -60,6 +60,13 @@ class InstallerWireless(unittest.TestCase):
             "PATH=/usr/bin:/bin:/usr/sbin:/sbin",
             "PATH=" + shlex.quote(str(self.tools) + os.pathsep + os.environ["PATH"]),
         )
+        # Some host BusyBox builds run their applets without searching PATH.
+        # Route only the injected commands through explicit private fixtures.
+        for name in ("awk", "mv"):
+            command = self.tools / name
+            command.write_text("#!/bin/sh\nexec " + shlex.quote(shutil.which(name)) + ' "$@"\n')
+            command.chmod(0o700)
+            source = source.replace(f"\n    {name} ", "\n    " + shlex.quote(str(command)) + " ")
         # macOS has no BusyBox/procfs. Use its real setsid/group/session APIs;
         # Linux CI and the target probe use the unmodified procfs identity read.
         source = source.replace(

@@ -40,7 +40,7 @@ class Video:
             "-q:v",
             "4",
             "-t",
-            "185",
+            "260",
             "-f",
             "matroska",
             "-cluster_time_limit",

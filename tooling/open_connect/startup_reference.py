@@ -29,6 +29,9 @@ def main():
     parser.add_argument("--condition", choices=["stock", "open-connect"], default="stock")
     parser.add_argument("--package", help="required candidate files.sha256 digest")
     parser.add_argument(
+        "--wireless", type=int, choices=[0, 1], help="assert saved/applied wireless policy"
+    )
+    parser.add_argument(
         "--pandora",
         type=int,
         choices=[0, 1],
@@ -62,19 +65,22 @@ def main():
         parser.error("--base requires open-connect")
     if args.pandora is not None and args.condition != "open-connect":
         parser.error("--pandora requires open-connect")
+    if args.wireless is not None and args.condition != "open-connect":
+        parser.error("--wireless requires open-connect")
     if not args.live:
         print(
             json.dumps(
                 {
                     "outcome": "dry_run",
                     "acc_off_seconds": 30,
-                    "post_on_video_seconds": 120,
+                    "post_on_video_seconds": 210,
                     "resources_seconds": 180,
                     "resource_launch": "local stage_1 hook; SSH retrieval after 225 seconds",
                     "device_opened": False,
                     "condition": args.condition,
                     "package": args.package,
                     "pandora": args.pandora,
+                    "wireless": args.wireless,
                     **({"base": args.base} if args.base is not None else {}),
                 }
             )
@@ -140,6 +146,7 @@ def main():
         "condition": args.condition,
         "package": args.package,
         "pandora": args.pandora,
+        "wireless": args.wireless,
     }
     if args.log_level is not None:
         record["log_level"] = args.log_level
@@ -184,7 +191,8 @@ def main():
                 args.package or "-",
                 str(args.pandora) if args.pandora is not None else "-",
                 args.log_level or "-",
-                *([] if args.base is None else [str(args.base)]),
+                str(args.base) if args.base is not None else "-",
+                str(args.wireless) if args.wireless is not None else "-",
             ]
         )
         result = subprocess.run(
@@ -195,7 +203,7 @@ def main():
         if result.returncode:
             raise RuntimeError("condition preflight refused before any device opened")
         old_boot = validate_condition(
-            result.stdout, args.condition, args.pandora, args.log_level, args.base
+            result.stdout, args.condition, args.pandora, args.log_level, args.base, args.wireless
         )
         cameras = subprocess.check_output(
             ["system_profiler", "SPCameraDataType", "-json"], timeout=12
@@ -229,7 +237,7 @@ def main():
                     raise RuntimeError("relay changed after open")
                 for name, frame, delay in (
                     ("ACC_OFF", "a00100a1", 30),
-                    ("ACC_ON", "a00101a2", 120),
+                    ("ACC_ON", "a00101a2", 210),
                 ):
                     if resolve_relay() != device:
                         raise RuntimeError("relay changed; no transmission")
@@ -286,7 +294,12 @@ def main():
         if (
             result.returncode
             or validate_condition(
-                result.stdout, args.condition, args.pandora, args.log_level, args.base
+                result.stdout,
+                args.condition,
+                args.pandora,
+                args.log_level,
+                args.base,
+                args.wireless,
             )
             != trace["boot_id"]
         ):
@@ -316,10 +329,14 @@ def main():
         raise SystemExit(error)
 
 
-def validate_condition(raw, condition, pandora=None, log_level=None, base=None):
+def validate_condition(raw, condition, pandora=None, log_level=None, base=None, wireless=None):
     boots = re.findall(rb"^REFERENCE_BOOT\|(" + metrics.UUID.encode() + rb")$", raw, re.M)
     if len(boots) != 1:
         raise ValueError("missing exact condition boot record")
+    if wireless is not None and (
+        type(wireless) is not int or wireless not in (0, 1) or condition != "open-connect"
+    ):
+        raise ValueError("invalid wireless condition")
     if base is not None and (
         type(base) is not int
         or base not in (0, 1)
@@ -378,12 +395,25 @@ def validate_condition(raw, condition, pandora=None, log_level=None, base=None):
         )
         # A settings write retains its restart notice after the selected snapshot
         # is applied. The actual restart/pending flags above must still be false.
-        if (pandora is not None or base is not None) and state.get("notice") == "restart":
+        if (pandora is not None or base is not None or wireless is not None) and state.get(
+            "notice"
+        ) == "restart":
             expected["notice"] = "restart"
         if any(state.get(key) != value for key, value in expected.items()):
             raise ValueError("candidate preferences or applied state do not match")
         if base is not None and (type(state.get("base")) is not int or state["base"] != base):
             raise ValueError("installed base preference is missing or changed")
+        if wireless is not None:
+            if any(
+                type(state.get(k)) is not int or state[k] != wireless
+                for k in ("wireless", "wirelessCurrent")
+            ):
+                raise ValueError("saved/applied wireless policy is missing or changed")
+            snapshots = re.findall(rb"^WIRELESS_SNAPSHOT\|8\|([01])$", raw, re.M)
+            links = re.findall(rb"^WIRELESS_LINK\|([01])\|([0-9]+)$", raw, re.M)
+            if snapshots != [str(wireless).encode()] or len(links) != 1 or links[0][0] != b"0":
+                raise ValueError("wireless snapshot or phone USB condition changed")
+            # Station count is an outcome, not a gate that discards reconnect misses.
         if pandora is not None:
             info = re.findall(rb"^PANDORA_INFO_BEGIN\n(.*?)^PANDORA_INFO_END$", raw, re.M | re.S)
             starts = re.findall(rb"^PANDORA_STARTS\|([0-9]+)$", raw, re.M)

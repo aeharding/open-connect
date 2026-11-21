@@ -177,6 +177,25 @@ class StartupReferenceTests(unittest.TestCase):
             ).encode()
 
         self.assertEqual(m.validate_condition(output(state), "open-connect"), boot)
+        wireless_state = {**state, "wireless": 1, "wirelessCurrent": 1}
+        wireless_rows = b"WIRELESS_SNAPSHOT|8|1\nWIRELESS_LINK|0|0\n"
+        # A failed association remains an observed attempt; wrong applied policy
+        # or a connected USB phone would make the declared comparison invalid.
+        self.assertEqual(
+            m.validate_condition(
+                output(wireless_state) + wireless_rows, "open-connect", wireless=1
+            ),
+            boot,
+        )
+        for bad in (
+            output({**wireless_state, "wirelessCurrent": 0}) + wireless_rows,
+            output({**wireless_state, "wireless": True}) + wireless_rows,
+            output(wireless_state) + wireless_rows.replace(b"|8|1", b"|7|1"),
+            output(wireless_state) + wireless_rows.replace(b"LINK|0|0", b"LINK|1|0"),
+            output(wireless_state),
+        ):
+            with self.assertRaises(ValueError):
+                m.validate_condition(bad, "open-connect", wireless=1)
         for key, value in [
             ("restart", True),
             ("touch", 0),

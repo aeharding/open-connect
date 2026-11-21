@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Reference experiment: pinned condition, declared owner SSH access, root RO.
 set -eu
-condition=${1:-stock} package=${2:--} pandora=${3:--} log_level=${4:--} base_choice=${5:--}
+condition=${1:-stock} package=${2:--} pandora=${3:--} log_level=${4:--} base_choice=${5:--} wireless_choice=${6:--}
 case "$pandora" in -|0|1) ;; *) exit 64;; esac
 case "$log_level" in -|Info|Warn) ;; *) exit 64;; esac
 case "$base_choice" in -) ;; 0|1) test "$condition" = open-connect && test "$log_level" = -;; *) exit 64;; esac
+case "$wireless_choice" in -) ;; 0|1) test "$condition" = open-connect;; *) exit 64;; esac
 test "$(id -u)" = 0
 awk '$0=="JCI_SW_VER=\"MAZ_CMU-150_74.00.324\""{v++}
      $0=="JCI_SW_VER_PATCH=\"A\""{p++}
@@ -35,6 +36,15 @@ open-connect)
     test "$(cat /tmp/open-connect/selected)" = "$current"
     printf '\nCANDIDATE_STATUS|'
     sh "$P/backend.sh" api - status - - -
+    if test "$wireless_choice" != -; then
+        config=/tmp/mnt/data_persist/open-connect/snapshots/$current/config
+        awk -F '|' -v w="$wireless_choice" 'NF==8&&$8==w{n++}END{exit n!=1}' "$config"
+        printf 'WIRELESS_SNAPSHOT|8|%s\n' "$wireless_choice"
+        usb=$(cat /sys/class/net/usb0/carrier)
+        stations=$(/usr/sbin/iw dev wlan0 station dump | awk '/^Station /{n++}END{print n+0}')
+        printf 'WIRELESS_LINK|%s|%s\n' "$usb" "$stations"
+        /usr/sbin/iw dev wlan0 info
+    fi
     if test "$pandora" != -; then
         test "$(sha /jci/sm/smctl)" = a51a03ce7bc1f602ccca7b15af8c9698fed5debfb904f01fcc358f57ca46330f
         printf '\nPANDORA_INFO_BEGIN\n'

@@ -49,11 +49,13 @@ class InstallerState(unittest.TestCase):
             'read) record_read && snapshot_read "$R_CURRENT";;\n'
             "change) record_read; R_BUDGET=3; record_write;;\n"
             'manifest) verify_manifest "$5";;\n'
+            'create-dependencies) snapshot_create "$5" - 0 0 absent "755:$(id -u):$(id -g)" "$6";;\n'
+            'dependencies) . "${3%/*}/firmware.sh"; . "${3%/*}/transaction.sh"; dependencies_match "$5";;\n'
             "esac\n"
         )
         self.assertEqual(self.run_command("create").returncode, 0)
 
-    def run_command(self, action, path=None):
+    def run_command(self, action, path=None, *extra):
         return subprocess.run(
             [
                 "sh",
@@ -63,6 +65,7 @@ class InstallerState(unittest.TestCase):
                 ROOT / "cmu/installer/state.sh",
                 action,
                 path or self.root / "autostart",
+                *extra,
             ],
             capture_output=True,
             text=True,
@@ -107,6 +110,57 @@ class InstallerState(unittest.TestCase):
         )
         (self.tools / "openssl").chmod(0o700)
         self.assertNotEqual(self.run_command("read").returncode, 0)
+
+    def test_dependency_groups_preserve_parent_and_individual_file_guards(self):
+        package = "a" * 64
+        content = b"synthetic dependency\n"
+        digest = hashlib.sha256(content).hexdigest()
+        folders = []
+        entries = []
+        for group in ("package", "composed"):
+            folder = self.data / (group + "s" if group == "package" else group) / package
+            folder.parent.mkdir(mode=0o700)
+            folder.mkdir(mode=0o700)
+            folders.append(folder)
+            for name in ("one", "two"):
+                (folder / name).write_bytes(content)
+                entries.append(f"{digest}  {group}-{package}/{name}\n")
+        dependencies = self.root / "dependencies"
+        dependencies.write_text("".join(entries))
+        result = self.run_command("create-dependencies", None, dependencies)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        snapshot = result.stdout.strip()
+        self.assertEqual(self.run_command("dependencies", snapshot).returncode, 0)
+
+        # Later byte changes must be refused and preserved, including the second
+        # member of a shared parent that has already been validated.
+        second = folders[0] / "two"
+        second.write_bytes(b"later third-party change\n")
+        self.assertNotEqual(self.run_command("dependencies", snapshot).returncode, 0)
+        self.assertEqual(second.read_bytes(), b"later third-party change\n")
+        second.unlink()
+        second.symlink_to(folders[0] / "one")
+        self.assertNotEqual(self.run_command("dependencies", snapshot).returncode, 0)
+        second.unlink()
+        second.write_bytes(content)
+
+        for folder in folders:
+            with self.subTest(parent=folder.parent.name):
+                folder.chmod(0o755)
+                self.assertNotEqual(self.run_command("dependencies", snapshot).returncode, 0)
+                folder.chmod(0o700)
+                held = folder.with_name("held")
+                folder.rename(held)
+                folder.symlink_to(held, target_is_directory=True)
+                self.assertNotEqual(self.run_command("dependencies", snapshot).returncode, 0)
+                folder.unlink()
+                held.rename(folder)
+        self.assertEqual(self.run_command("dependencies", snapshot).returncode, 0)
+
+        dependencies.write_text(f"{digest}  package-{package}/../one\n")
+        result = self.run_command("create-dependencies", None, dependencies)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotEqual(self.run_command("dependencies", result.stdout.strip()).returncode, 0)
 
     def test_missing_or_invalid_record_never_selects_state(self):
         record = self.data / "record"

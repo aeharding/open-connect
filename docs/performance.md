@@ -14,7 +14,7 @@ separately from Open Connect results.
 | Configuration | Purpose |
 | --- | --- |
 | Stock services with declared instrumentation | Establish the baseline on this unit |
-| Released Open Connect, unchanged service selections | Measure the initial features and installed runtime, including the qualified wired CarPlay fixture |
+| Pinned Open Connect candidate or release, unchanged service selections | Measure the initial features and installed runtime; identify development candidates explicitly |
 | Base optimizations off/on, same individual service selections | Measure the proposed bundle as one setting |
 | One service choice changed, other settings fixed | Attribute the effect and detect dependencies |
 
@@ -94,6 +94,26 @@ and identified revision. Wireless CarPlay reproduction waits for that phase;
 screen and general-resource comparisons can proceed earlier.
 
 ## Publishing a result
+
+Another contributor must be able to repeat each published batch. Include the
+exact collector and analysis commits, commands, input configuration, startup
+condition and off interval, milestone definitions, sampling cadence, workload,
+phone/firmware details, and per-attempt values. Preserve failures and unsupported
+counters. Explain clock alignment, video uncertainty and any coverage before the
+collector starts. A summary chart alone is insufficient.
+
+The [resource sampling command](cli.md#record-ram-cpu-and-io-over-ssh) retains
+read-only traces and a RAM CSV using the checked-in collector. It is one part of
+the method; it does not measure startup milestones or early RAM before SSH is
+available. Measure collection overhead before using it in a comparison.
+
+Useful temporary service-disable or tuning experiments may live on clearly
+labeled playground branches. Cite immutable commits and retain setup, verification
+and undo commands, so later readers can reproduce the experiment after the branch
+changes. Experimental branches are not supported releases. Publish only original
+compatible code and reviewed derived data; OEM files, keys and raw captures stay
+private. Extending `oc` is appropriate when it makes these steps repeatable, not a
+requirement to create a separate benchmarking framework.
 
 For each completed batch, add its question, configurations and conditions,
 collector/build revisions, per-run timing and RAM values, summary spread,

@@ -11,6 +11,7 @@ import re
 import secrets
 import shlex
 import stat
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -436,7 +437,15 @@ def transition(action, audio, store, bundle):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "sample":
+        from open_connect.metrics import main as sample
+
+        return sample(argv[1:])
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog="Use oc bench sample --help for read-only resource traces over SSH.",
+    )
     parser.add_argument("action", choices=("setup", "status", "teardown"))
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--bundle", type=Path)

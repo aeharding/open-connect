@@ -120,6 +120,15 @@ responsiveness, alongside connection/service readiness; Home appearing is not
 CarPlay readiness. Separate cold, warm and resume conditions. Name the memory metric; lower RSS alone is not proof of a
 useful improvement. Keep the baseline, feature set and measurement method explicit.
 
+Published measurements must be reproducible by other contributors. Include the
+collector and analysis revisions, exact commands, configuration, milestone
+definitions, sampling intervals and individual results. Extend `oc` when it
+materially simplifies repeatable timing/resource collection; this is a useful
+option, not a required framework. Temporary service-disable and tuning experiments
+may be checked into clearly labeled playground branches when that makes them
+reproducible. Keep unfinished experiments out of main and retain the existing
+publication exclusions for OEM code, credentials and private captures.
+
 The autonomous bench and published reverse-engineering knowledge enable the
 product and help contributors. Build them when they unblock a concrete experiment
 or remove repeated effort. A 24/7 autonomous bench is an aspiration, not a

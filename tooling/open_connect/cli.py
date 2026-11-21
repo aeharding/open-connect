@@ -8,7 +8,7 @@ def main(argv=None):
     if not argv or argv[0] in ("-h", "--help"):
         print("""usage: oc {bench,uart} [options]
 
-  bench   setup, status or teardown of the runtime development profile
+  bench   development profile setup/status/teardown, or read-only resource samples
   uart    low-level receive, identity, command or exact-file transfer
 
 Device operations default to a dry run. Release builds use make release.

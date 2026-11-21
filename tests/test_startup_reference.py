@@ -58,6 +58,10 @@ class StartupReferenceTests(unittest.TestCase):
             self.assertEqual(m.validate_condition(output(enabled), "open-connect", enabled), boot)
             with self.assertRaises(ValueError):
                 m.validate_condition(output(enabled), "open-connect", 1 - enabled)
+            applied = output(enabled).replace(b'"notice": "-"', b'"notice": "restart"')
+            self.assertEqual(m.validate_condition(applied, "open-connect", enabled), boot)
+            with self.assertRaises(ValueError):
+                m.validate_condition(applied, "open-connect")
         for bad in (
             output(0, starts=1),
             output(0, pid='    pid="123"\n'),

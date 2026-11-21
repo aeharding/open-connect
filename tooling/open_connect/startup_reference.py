@@ -313,6 +313,10 @@ def validate_condition(raw, condition, pandora=None):
             sshCurrent=0,
             notice="-",
         )
+        # A settings write retains its restart notice after the selected snapshot
+        # is applied. The actual restart/pending flags above must still be false.
+        if pandora is not None and state.get("notice") == "restart":
+            expected["notice"] = "restart"
         if any(state.get(key) != value for key, value in expected.items()):
             raise ValueError("candidate preferences or applied state do not match")
         if pandora is not None:

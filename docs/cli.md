@@ -1,8 +1,8 @@
 # Use the host CLI
 
 For wiring, start with [bench setup](bench-setup.md).
-The CLI runs on your computer. It sends commands over UART; it does not install
-a daemon or package on the CMU.
+The CLI runs on your computer. Profile commands use UART; resource sampling uses
+an existing trusted SSH connection. It does not install a daemon or package on the CMU.
 
 ## Install and preview
 
@@ -61,6 +61,43 @@ to check the actual Make/shell release against private exact-original firmware
 files. This is host validation and does not install anything on the CMU.
 
 Use the maintained USB backend for installation, settings, recovery and removal.
+
+## Record RAM, CPU and I/O over SSH
+
+Use an already authenticated UID-0 SSH alias for exact **74.00.324A NA**.
+Preview the request, then choose a fresh private output directory:
+
+~~~sh
+oc bench sample --seconds 180 --interval 1
+oc bench sample --live --host my-cmu --seconds 180 --interval 1 \
+  --bundle runs/my-resources
+~~~
+
+Pass `--ssh-config /path/to/config` if the alias uses a separate OpenSSH config.
+The host key must already be trusted; the tool does not provision access or accept
+unknown host keys. It uses the system SSH client and opens no UART or camera.
+
+The finite shell collector runs from stdin and only reads the CMU. It checks the
+firmware and binds the trace to one boot. No startup hook, package, settings change
+or target output file is created. `--seconds` accepts 1–600; `--interval` is a
+1–30 second **minimum pause**, with actual sample start/end times retained.
+By default it reads system counters only. Detailed process discovery has measurable
+CPU cost: opt in with repeated `--process` options using exact kernel comm names,
+for example `--process jci --process opera --process carplayd`. Use a longer pause
+for that trace when appropriate and measure its overhead separately.
+
+The bundle contains the exact collector sources and hashes, raw SSH output,
+`trace.json` with system/process counters, and `memory.csv` with named kernel RAM
+fields in their original kB units. Missing fields stay empty; a process that exits
+or reuses its PID during a read is marked unstable. CPU ticks and I/O counters are
+retained for interval analysis. RSS includes shared pages; do not sum it as physical
+RAM usage. This collector does not take PSS snapshots.
+
+`outcome=recorded` establishes a complete resource trace, not a timing result or
+performance improvement. Record the phone, workload, feature/service selections
+and exact installed build with the batch. Collection starts when SSH runs the
+script; it does not cover earlier startup. Keep raw bundles private and publish
+reviewed derived results following [Performance evidence](performance.md).
 
 ## USB installer build
 
@@ -131,5 +168,6 @@ CMU
 The PNG captures Mazda’s Wayland surface. CarPlay can use a separate projection
 plane, so use a hardware camera to establish what that screen actually shows.
 
-This uses the system SSH client. A built-in SSH transport for `oc` is tracked
-in [issue #15](https://github.com/aeharding/open-connect/issues/15).
+This uses the system SSH client, as does resource sampling above. General SSH
+support for the other bench operations remains tracked in
+[issue #15](https://github.com/aeharding/open-connect/issues/15).

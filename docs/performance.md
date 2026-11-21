@@ -4,17 +4,17 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
-**No completed comparable v74 timing/RAM batch is published yet.** Existing
-feature and installer trials do not establish a performance gain. The method
-below is the qualification plan; external reference numbers are identified
-separately from Open Connect results.
+**No completed stock-versus-Open-Connect startup/RAM comparison is published
+yet.** The collector-overhead pilot below qualifies the measurement method;
+feature and installer trials do not establish a performance gain. External
+reference numbers are identified separately from Open Connect results.
 
 ## Configurations to compare
 
 | Configuration | Purpose |
 | --- | --- |
 | Stock services with declared instrumentation | Establish the baseline on this unit |
-| Released Open Connect, unchanged service selections | Measure the initial features and installed runtime, including the qualified wired CarPlay fixture |
+| Pinned Open Connect candidate or release, unchanged service selections | Measure the initial features and installed runtime; identify development candidates explicitly |
 | Base optimizations off/on, same individual service selections | Measure the proposed bundle as one setting |
 | One service choice changed, other settings fixed | Attribute the effect and detect dependencies |
 
@@ -69,6 +69,55 @@ into zero. Collect only fields supported by the actual kernel and bound expensiv
 mapping snapshots. The [Linux proc documentation](https://docs.kernel.org/filesystems/proc.html)
 describes these counters; its newer fields are not a promise about the CMU kernel.
 
+## Collector overhead pilot — November 20, 2026
+
+The first collector disturbed the workload substantially. On one exact
+74.00.324A NA bench with Open Connect uninstalled, it raised aggregate CPU busy
+by 10.49–12.77 percentage points across three control/sampling pairs. A single
+reader reduced that cost; making detailed process discovery opt-in reduced it
+further. The default now collects system RAM, CPU, VM, disk and network counters.
+Use explicit process names when those additional observations justify their cost.
+
+| Collector/configuration | Paired CPU-busy change, median (range), percentage points | Per-pair results | Experiment revision |
+| --- | --- | --- | --- |
+| Original per-file programs, with process reads | +11.21 (+10.49 to +12.77) | [CSV](assets/performance/collector-original.csv) | [b5ec28f](https://github.com/aeharding/open-connect/tree/b5ec28fd498511dde776f785218430dced8a6ec8) |
+| One reader, direct process discovery | +4.31 (+1.51 to +4.95) | [CSV](assets/performance/collector-processes.csv) | [c9721ac](https://github.com/aeharding/open-connect/tree/c9721ac0e8b9c7086c29e4fcaa244cf0f628a088) |
+| Default system counters, no process discovery | +0.81 (+0.50 to +2.38) | [CSV](assets/performance/collector-system.csv) | [ae30a0f](https://github.com/aeharding/open-connect/tree/ae30a0f1126d5f3a5c27d2a6b0592ae6236ed1b3) |
+
+Each row has three pairs in alternating order: control, sampling, sampling,
+control, control, sampling. Each reference window lasted about 45 seconds. In
+sampling windows the collector ran for 40 seconds, starting two seconds inside
+the reference window, with a one-second minimum pause. All sample bounds were
+inside their reference window. CPU busy excludes idle and iowait and is computed
+from aggregate tick deltas over the **whole reference window**, including the
+extra SSH session and collector startup/exit. The CSV retains actual durations.
+
+The same CMU, phone and idle wired CarPlay dashboard were retained throughout;
+OEM service selections and logging were unchanged, no audio workload was used,
+and the owner-key SSH bench access remained installed. No camera/UART observer
+or GUI input ran during these windows. Phone model/iOS version was not captured,
+which limits comparisons with other phone workloads. Background load varied;
+three pairs do not precisely isolate the collector's CPU use or establish that
+startup latency is unaffected. These are observer-qualification results on one
+bench, with no Open Connect speedup, RAM saving or wireless-timing claim.
+
+The measured collector sources are respectively
+[5b282c5](https://github.com/aeharding/open-connect/blob/5b282c59db30668ad3f5992ed5d7d9d3e3fe8f24/cmu/bench/metrics.sh),
+[ded334e](https://github.com/aeharding/open-connect/blob/ded334e9bda5843b85f3f35a607793d98b65c209/cmu/bench/metrics.sh)
+and [8c51e53](https://github.com/aeharding/open-connect/blob/8c51e534021b6c11d163b6c5656fc48bf5917b60/cmu/bench/metrics.sh).
+Source hashes in the private run manifests matched those revisions; later changes
+do not relabel these measurements. All 18 reference windows and nine sampling
+commands completed. Earlier short smoke tests were separate qualification steps.
+
+To reproduce, use the linked experiment revision and its
+`cmu/bench/METRICS-OVERHEAD.md` command with a declared fixed workload and an
+existing trusted SSH alias. The checked-in
+[analysis/export command](https://github.com/aeharding/open-connect/blob/412d512/cmu/bench/METRICS-OVERHEAD.md)
+recomputes paired results from the original saved CPU endpoints, checks boot,
+order and completeness, and exports the CSV without opening a device. Private
+raw records remain under `runs/performance-v74-20261120/`; the public CSVs contain
+only reviewed derived CPU values and durations.
+
 ## Miatafy comparison
 
 [Miatafy’s ScreenTune benchmark page](https://miatafy.com/screentune/boot-benchmarks/),
@@ -94,6 +143,26 @@ and identified revision. Wireless CarPlay reproduction waits for that phase;
 screen and general-resource comparisons can proceed earlier.
 
 ## Publishing a result
+
+Another contributor must be able to repeat each published batch. Include the
+exact collector and analysis commits, commands, input configuration, startup
+condition and off interval, milestone definitions, sampling cadence, workload,
+phone/firmware details, and per-attempt values. Preserve failures and unsupported
+counters. Explain clock alignment, video uncertainty and any coverage before the
+collector starts. A summary chart alone is insufficient.
+
+The [resource sampling command](cli.md#record-ram-cpu-and-io-over-ssh) retains
+read-only traces and a RAM CSV using the checked-in collector. It is one part of
+the method; it does not measure startup milestones or early RAM before SSH is
+available. Measure collection overhead before using it in a comparison.
+
+Useful temporary service-disable or tuning experiments may live on clearly
+labeled playground branches. Cite immutable commits and retain setup, verification
+and undo commands, so later readers can reproduce the experiment after the branch
+changes. Experimental branches are not supported releases. Publish only original
+compatible code and reviewed derived data; OEM files, keys and raw captures stay
+private. Extending `oc` is appropriate when it makes these steps repeatable, not a
+requirement to create a separate benchmarking framework.
 
 For each completed batch, add its question, configurations and conditions,
 collector/build revisions, per-run timing and RAM values, summary spread,

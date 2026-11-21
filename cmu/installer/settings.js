@@ -152,9 +152,9 @@ var OpenConnectSettings = (function () {
                 if (values.developer) {
                     rows.push({text1: "Developer options", itemStyle: "style01", hasCaret: true, appData: "developer"});
                 }
-                rows.push({text1: "Uninstall", itemStyle: "style01", appData: "uninstall",
+                rows.push({text1: "Uninstall", itemStyle: "style01", hasCaret: false, appData: "uninstall",
                     disabled: typeof store.uninstall !== "function"});
-                rows.push({text1: "About", itemStyle: "style01", appData: "about"});
+                rows.push({text1: "About", itemStyle: "style01", hasCaret: false, appData: "about"});
             } else if (index === "unknown") {
                 title = "Change could not be confirmed";
                 rows.push({text1: "Return to Mazda Settings", itemStyle: "style01", hasCaret: false, appData: 0});
@@ -164,7 +164,7 @@ var OpenConnectSettings = (function () {
                     hasCaret: false, appData: "uart"});
                 rows.push({text1: "SSH", itemStyle: "styleOnOff", value: values.ssh ? 1 : 2,
                     hasCaret: false, appData: "ssh", disabled: values.key === "-"});
-                rows.push({text1: "Import public key", itemStyle: "style01", appData: "import",
+                rows.push({text1: "Import public key", itemStyle: "style01", hasCaret: false, appData: "import",
                     disabled: prefs.pending() || typeof store.importKey !== "function"});
             } else {
                 row = entries[index];

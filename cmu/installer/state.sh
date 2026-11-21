@@ -77,7 +77,7 @@ record_write() {
 }
 
 # A snapshot contains an autostart file and data, not executable operation state.
-# config = package | touch | warning | actual NVRAM | mode:uid:gid | Pandora
+# config = package | touch | warning | actual NVRAM | mode:uid:gid | Pandora | base
 metadata() {
     S_META=$1
     S_MODE=${S_META%%:*}; local rest=${S_META#*:}
@@ -98,13 +98,14 @@ snapshot_read() {
     snapshot_verify "$1" || return 1
     test "$(wc -l < "$D/snapshots/$1/config")" -eq 1 || return 1
     fields=$(awk -F '|' '{print NF}' "$D/snapshots/$1/config")
-    case "$fields" in 5|6) ;; *) return 1;; esac
+    case "$fields" in 5|6|7) ;; *) return 1;; esac
     S_CONFIG_FIELDS=$fields
-    IFS='|' read -r S_PACKAGE S_TOUCH S_WARNING S_NVRAM S_META S_PANDORA extra < "$D/snapshots/$1/config" || return 1
+    IFS='|' read -r S_PACKAGE S_TOUCH S_WARNING S_NVRAM S_META S_PANDORA S_BASE extra < "$D/snapshots/$1/config" || return 1
     # Older snapshots retained Mazda's original service policy.
     if test "$fields" = 5; then S_PANDORA=1; fi
+    if test "$fields" -lt 7; then S_BASE=0; fi
     test "$S_PACKAGE" = - || hex "$S_PACKAGE" 64 || return 1
-    bit "$S_TOUCH" && bit "$S_WARNING" && bit "$S_PANDORA" && touch_value "$S_NVRAM" || return 1
+    bit "$S_TOUCH" && bit "$S_WARNING" && bit "$S_PANDORA" && bit "$S_BASE" && touch_value "$S_NVRAM" || return 1
     metadata "$S_META" || return 1
     S_ACCESS=false; S_UART=0; S_SSH=0; S_KEY=-; S_LOGIN_META=-; S_SSH_META=-; S_LOGIN_INODE=-
     if ! absent "$D/snapshots/$1/access"; then
@@ -122,16 +123,21 @@ snapshot_read() {
     fi
 }
 snapshot_create() (
-    # Optional ninth argument: Pandora bit for the new selector, '-' (or absent)
-    # preserves the five-field format understood by an installed older selector.
-    # autostart, package, touch, warning, nvram, mode, dependencies, access, Pandora
+    # Optional ninth/tenth bits append Pandora/base. '-' preserves the older
+    # installed selector's five/six-field format until Install/update replaces it.
+    # autostart, package, touch, warning, nvram, mode, dependencies, access, Pandora, base
     set -eu
-    file "$1" && { test "$2" = - || hex "$2" 64; } && bit "$3" && bit "$4" && { test "${9--}" = - || bit "${9--}"; } && touch_value "$5" && metadata "$6" || fail invalid_snapshot
+    file "$1" && { test "$2" = - || hex "$2" 64; } && bit "$3" && bit "$4" &&
+        { test "${9--}" = - || bit "${9--}"; } &&
+        { test "${10--}" = - || { bit "${10--}" && test "${9--}" != -; }; } &&
+        touch_value "$5" && metadata "$6" || fail invalid_snapshot
     local work id name digest
     work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail snapshot_create_failed
     cp "$1" "$work/autostart" || fail snapshot_copy_failed
     if test "$#" -ge 7; then cp "$7" "$work/dependencies"; else : > "$work/dependencies"; fi || fail snapshot_copy_failed
-    if test "${9--}" = -; then
+    if test "${10--}" != -; then
+        printf '%s|%s|%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" "$9" "${10}"
+    elif test "${9--}" = -; then
         printf '%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6"
     else
         printf '%s|%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" "$9"

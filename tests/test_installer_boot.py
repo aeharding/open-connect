@@ -53,8 +53,25 @@ class InstallerBoot(unittest.TestCase):
         (self.source / "state.sh").write_text(state)
         shutil.copyfile(ASSETS / "transaction.sh", self.source / "transaction.sh")
         shutil.copyfile(ASSETS / "access.sh", self.source / "access.sh")
+        self.log_original = b"synthetic original logging settings\n"
+        self.log_library = b"synthetic exact common library\n"
+        (self.root / "physical-log-settings").write_bytes(self.log_original)
+        (self.root / "common-library").write_bytes(self.log_library)
+        firmware = (ASSETS / "firmware.sh").read_text()
+        for old, new in {
+            "/config/common/log/settings.txt": str(self.root / "physical-log-settings"),
+            "/jci/lib/libjcicommon.so": str(self.root / "common-library"),
+            "/tmp/common": str(self.root / "common"),
+            "8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0": hashlib.sha256(
+                self.log_original
+            ).hexdigest(),
+            "637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d": hashlib.sha256(
+                self.log_library
+            ).hexdigest(),
+        }.items():
+            firmware = firmware.replace(old, new)
         (self.source / "firmware.sh").write_text(
-            (ASSETS / "firmware.sh").read_text()
+            firmware
             + r"""
 firmware_guard() { :; }
 native_guard() { :; }
@@ -140,11 +157,13 @@ record_write
             timeout=10,
         )
 
-    def boot(self, number):
+    def boot(self, number, *, preserve_log=False):
         boot_id = "00000000-0000-0000-0000-" + f"{number:012x}"
         (self.root / "boot-id").write_text(boot_id + "\n")
         shutil.rmtree(self.runtime / "feature", ignore_errors=True)
         (self.runtime / "selected").unlink(missing_ok=True)
+        if not preserve_log:
+            shutil.rmtree(self.root / "common", ignore_errors=True)
         return subprocess.run(
             ["sh", self.package / "boot.sh"],
             env=self.env,
@@ -172,6 +191,44 @@ record_write
                     self.assertEqual(
                         (self.runtime / "feature" / name).read_text(), f"{profile} {setting}\n"
                     )
+
+    def select_base(self, value):
+        self.shell(
+            'record_read; snapshot_read "$R_CURRENT"; '
+            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" /dev/null - 1 '
+            + str(value)
+            + "); record_write"
+        )
+
+    def test_logging_is_boot_only_and_disabled_again_on_fallback(self):
+        target = self.root / "common/log/settings.txt"
+        for enabled, number in ((1, 1), (0, 2), (1, 3)):
+            self.select_base(enabled)
+            result = self.boot(number)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            if enabled:
+                self.assertEqual(target.read_bytes(), b"COMMON_LOG_LEVEL=Warn\n")
+                self.assertEqual(target.stat().st_nlink, 1)
+                self.assertEqual(list(target.parent.glob(".open-connect-*")), [])
+            else:
+                self.assertFalse((self.root / "common").exists())
+            self.assertEqual((self.root / "physical-log-settings").read_bytes(), self.log_original)
+        result = self.boot(4)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(target.exists())
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertEqual((self.root / "physical-log-settings").read_bytes(), self.log_original)
+
+    def test_logging_conflict_preserves_other_provider_and_refuses_selected_marker(self):
+        self.select_base(1)
+        target = self.root / "common/log/settings.txt"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"another provider\n")
+        result = self.boot(1, preserve_log=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(target.read_bytes(), b"another provider\n")
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertEqual((self.root / "physical-log-settings").read_bytes(), self.log_original)
 
     def test_service_policy_selects_both_ram_profiles_and_survives_fallback(self):
         composed = self.data / "composed" / self.package_id

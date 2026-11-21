@@ -102,6 +102,15 @@ f.reply(f.requests[0], f.state({installed: true, version: "0.3.0-dev.6",
     installedVersion: "0.3.0-dev.6", pandora: 0}));
 f.tick();
 assert.equal(f.store.read().pandora, 0);
+assert.equal(f.store.read().base, undefined);
+f = fixture();
+f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true, version: "0.3.0-dev.7",
+    installedVersion: "0.3.0-dev.7", pandora: 1, base: 0}));
+f.tick();
+assert.equal(f.store.read().base, 0);
+f.store.write("base", 0, 1, () => {});
+assert.equal(f.requests.at(-1).body, token + "|" + revision + "|set|base|0|1");
 f = fixture();
 f.ctx.OpenConnect.start(token, true);
 f.reply(f.requests[0], f.state({installed: true, installedVersion: "-"}));

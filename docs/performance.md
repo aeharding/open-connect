@@ -30,21 +30,29 @@ in the matched window was about 8.7 MiB higher, with only about 1.4 MiB higher e
 free RAM. The source, spread and limits are published. This is evidence for
 qualifying a Base optimizations candidate, not an installed-bundle claim.
 
+The [installed Base comparison](base-comparison.md) then measures five Base-on
+starts followed by five Base-off starts of the same dev.7 CI bundle, with Pandora
+and the initial features held fixed. Dashboard median was about 3.8 seconds earlier;
+minimum MemFree was about 9.9 MiB higher and ending free RAM about 2.58 MiB higher.
+All ten primary starts completed without failures or exclusions. The optional
+preset defaults off. Its 14.55–14.94-second early resource gap, block order and
+single-bench limits are explicit; these results do not qualify wireless or a vehicle.
+
 ## Configurations to compare
 
 | Configuration | Purpose |
 | --- | --- |
 | Stock services with declared instrumentation | Establish the baseline on this unit |
 | Pinned Open Connect candidate or release, unchanged service selections | Measure the initial features and installed runtime; identify development candidates explicitly |
-| Base optimizations off/on, same individual service selections | Measure the proposed bundle as one setting |
+| Base optimizations off/on, same individual service selections | Measure the installed bundle as one setting |
 | One service choice changed, other settings fixed | Attribute the effect and detect dependencies |
 
-The proposed **Base optimizations** setting groups qualified internal changes,
-such as reduced logging, behind one on/off choice. Its contents and default are
-not settled. Identify the exact bundle revision in every result and test the
-whole bundle; individual savings cannot simply be added together. Keep optional
-service selections explicit. Both the bundle and individual choices need undo
-and regression checks. See [Services work #86](https://github.com/aeharding/open-connect/issues/86).
+The current development candidate groups the measured native Warn filter behind
+one optional **Base optimizations** choice, initially off. That default is an
+implementation choice. Identify the exact bundle revision in every result and
+test the whole bundle; individual savings cannot simply be added together.
+Future preset contents and individual service choices need comparable measurements,
+undo and regression checks. See [Services work #86](https://github.com/aeharding/open-connect/issues/86).
 
 ## Timings
 

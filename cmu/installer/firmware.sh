@@ -151,6 +151,33 @@ compose() (
     flush d "$D/composed"
 )
 
+native_log_config() (
+    # Boot-only RAM override. Preserve physical settings and other providers.
+    set -eu
+    bit "$1" || exit 1
+    test "$1" = 1 || exit 0
+    file /config/common/log/settings.txt &&
+        test "$(sha /config/common/log/settings.txt)" = 8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0 || exit 1
+    file /jci/lib/libjcicommon.so &&
+        test "$(sha /jci/lib/libjcicommon.so)" = 637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d || exit 1
+    for folder in /tmp/common /tmp/common/log; do
+        if absent "$folder"; then mkdir -m 755 "$folder" || exit 1; fi
+        test -d "$folder" && test ! -L "$folder" &&
+            test "$(readlink -f "$folder")" = "$folder" || exit 1
+    done
+    target=/tmp/common/log/settings.txt
+    absent "$target" || exit 1
+    stage=
+    trap 'test -z "$stage" || rm -f "$stage" || :' EXIT
+    stage=$(mktemp /tmp/common/log/.open-connect-log-XXXXXX) || exit 1
+    printf 'COMMON_LOG_LEVEL=Warn\n' > "$stage" || exit 1
+    chmod 644 "$stage" || exit 1
+    # Link is the final commit: atomically refuse even a concurrently created
+    # target. Later best-effort staging cleanup cannot undo cached log levels.
+    "$P/flush" l "$stage" "$target" || exit 1
+    exit 0
+)
+
 service_config() {
     # Only the selected RAM configuration changes; OEM files stay untouched.
     bit "$3" || return 1

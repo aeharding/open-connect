@@ -36,7 +36,7 @@ STATIC = (
     "intro.js",
     "system-route.js",
     "wireless.sh",
-    "wireless-sm.awk",
+    "services-sm.awk",
     "wireless-device.awk",
     "VERSION",
     "KENATIA-LICENSE",

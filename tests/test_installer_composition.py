@@ -65,7 +65,9 @@ class InstallerComposition(unittest.TestCase):
             original = (
                 '<services>\n<service name="peer" autorun="yes" />\n' + pandora + "</services>\n"
             )
-            driver = 'set -eu; . "$1/state.sh"; . "$1/firmware.sh"; service_config "$2" "$3" "$4"'
+            driver = (
+                'set -eu; P=$1; . "$P/state.sh"; . "$P/firmware.sh"; service_config "$2" "$3" "$4"'
+            )
 
             def run(value):
                 return subprocess.run(

@@ -191,22 +191,24 @@ native_log_config() (
     exit 0
 )
 
+bds_log_config() (
+    # BDS overrides the common logger from its own XML. Publish data with the
+    # selected feature before SM starts, leaving the OEM source unchanged.
+    set -euC
+    source=/jci/bds/BdsConfiguration.xml
+    file "$source" && test "$(sha "$source")" = 33a2450c5c932f2ae3523f21e148effcce7db8341f163f7cb72ac277d96e301d || exit 1
+    # BDS ignores its cp status and will read an old destination if one exists.
+    absent /tmp/BdsConfiguration.xml && absent "$1" || exit 1
+    sed 's/logLevel="info"/logLevel="warning"/g' "$source" > "$1" || exit 1
+    file "$1" && test "$(sha "$1")" = e2ebaed22f3a506d3c14f789a16b1efd780c79afe3f31774760589397e1fac0d
+)
+
 service_config() {
     # Only the selected RAM configuration changes; OEM files stay untouched.
-    bit "$3" && bit "${4:-0}" || return 1
-    if test "${4:-0}" = 1; then
-        awk -v pandora="$3" -f "$P/wireless-sm.awk" "$1" > "$2"
-        return
-    fi
-    if test "$3" = 1; then cp "$1" "$2"; return; fi
-    awk '
-        /<service / && /name="blm_ira_pandora"/ {
-            if (gsub(/autorun="yes"/, "autorun=\"no\"") != 1) exit 1
-            n++
-        }
-        { print }
-        END { if (n != 1) exit 1 }
-    ' "$1" > "$2"
+    bit "$3" && bit "${4:-0}" && bit "${5:-0}" || return 1
+    if test "$3:${4:-0}:${5:-0}" = 1:0:0; then cp "$1" "$2"; return; fi
+    awk -v pandora="$3" -v wireless="${4:-0}" -v base="${5:-0}" \
+        -f "$P/services-sm.awk" "$1" > "$2"
 }
 
 root_mode() {

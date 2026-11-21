@@ -54,12 +54,18 @@ class InstallerBoot(unittest.TestCase):
         (self.source / "state.sh").write_text(state)
         shutil.copyfile(ASSETS / "transaction.sh", self.source / "transaction.sh")
         shutil.copyfile(ASSETS / "access.sh", self.source / "access.sh")
-        for name in ("wireless-sm.awk", "wireless-device.awk", "wireless.sh"):
+        for name in ("services-sm.awk", "wireless-device.awk", "wireless.sh"):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.log_original = b"synthetic original logging settings\n"
         self.log_library = b"synthetic exact common library\n"
         (self.root / "physical-log-settings").write_bytes(self.log_original)
         (self.root / "common-library").write_bytes(self.log_library)
+        self.bds_original = (
+            b'<bdsConfig logLevel="info">\n'
+            b'  <xlator name="bluego" logLevel="info"/>\n</bdsConfig>\n'
+        )
+        self.bds_warning = self.bds_original.replace(b'logLevel="info"', b'logLevel="warning"')
+        (self.root / "bds-source.xml").write_bytes(self.bds_original)
         firmware = (ASSETS / "firmware.sh").read_text()
         for old, new in {
             "/config/common/log/settings.txt": str(self.root / "physical-log-settings"),
@@ -70,6 +76,14 @@ class InstallerBoot(unittest.TestCase):
             ).hexdigest(),
             "637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d": hashlib.sha256(
                 self.log_library
+            ).hexdigest(),
+            "/jci/bds/BdsConfiguration.xml": str(self.root / "bds-source.xml"),
+            "/tmp/BdsConfiguration.xml": str(self.root / "bds-active.xml"),
+            "33a2450c5c932f2ae3523f21e148effcce7db8341f163f7cb72ac277d96e301d": hashlib.sha256(
+                self.bds_original
+            ).hexdigest(),
+            "e2ebaed22f3a506d3c14f789a16b1efd780c79afe3f31774760589397e1fac0d": hashlib.sha256(
+                self.bds_warning
             ).hexdigest(),
         }.items():
             firmware = firmware.replace(old, new)
@@ -296,12 +310,61 @@ record_write
         self.assertFalse((self.root / "common/log/settings.txt").exists())
 
     def select_base(self, value):
-        self.shell(
-            'record_read; snapshot_read "$R_CURRENT"; '
-            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" /dev/null - 1 '
-            + str(value)
-            + "); record_write"
-        )
+        self.select_wireless(0, base=value)
+
+    def test_base_bds_xml_and_arguments_preserve_both_wireless_policies(self):
+        for wireless, number in ((0, 1), (1, 2)):
+            self.select_wireless(wireless, base=1)
+            result = self.boot(number)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            feature = self.runtime / "feature"
+            self.assertEqual((feature / "bds-warning.xml").read_bytes(), self.bds_warning)
+            self.assertEqual((self.root / "bds-source.xml").read_bytes(), self.bds_original)
+            for profile, name in (("normal", "sm.conf"), ("wcp", "sm_WCP.conf")):
+                bds = next(
+                    s for s in ET.parse(feature / name).iter("service") if s.get("name") == "bds"
+                )
+                args = "-interface dbus"
+                if wireless or profile == "wcp":
+                    args += " -wcp"
+                self.assertEqual(
+                    bds.get("args"),
+                    args + " -configFilePath /tmp/open-connect/feature/bds-warning.xml",
+                )
+                self.assertEqual(bds.get("reset_board"), "yes")
+                self.assertEqual(bds.get("retry_count"), "0")
+
+    def test_base_bds_refuses_stale_destination_including_dangling_symlink(self):
+        self.select_base(1)
+        target = self.root / "bds-active.xml"
+        target.write_bytes(self.bds_warning)
+        self.assertNotEqual(self.boot(1).returncode, 0)
+        self.assertEqual(target.read_bytes(), self.bds_warning)
+        target.unlink()
+        target.symlink_to(self.root / "missing.xml")
+        self.assertNotEqual(self.boot(2).returncode, 0)
+        self.assertTrue(target.is_symlink())
+        self.assertFalse((self.runtime / "feature").exists())
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertFalse((self.root / "common").exists())
+
+    def test_base_bds_refuses_unknown_xml_without_rewriting_it(self):
+        self.select_base(1)
+        target = self.root / "bds-source.xml"
+        target.write_bytes(b"unknown XML\n")
+        self.assertNotEqual(self.boot(1).returncode, 0)
+        self.assertEqual(target.read_bytes(), b"unknown XML\n")
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertFalse((self.runtime / "feature").exists())
+
+    def test_base_bds_refuses_foreign_arguments_before_publication(self):
+        self.select_base(1)
+        path = self.data / "composed" / self.package_id / "sm-normal-on.conf"
+        path.write_text(path.read_text().replace('args="-interface dbus"', 'args="foreign"'))
+        self.assertNotEqual(self.boot(1).returncode, 0)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertFalse((self.runtime / "feature").exists())
+        self.assertFalse((self.root / "common").exists())
 
     def test_logging_is_boot_only_and_disabled_again_on_fallback(self):
         target = self.root / "common/log/settings.txt"
@@ -311,10 +374,14 @@ record_write
             self.assertEqual(result.returncode, 0, result.stderr)
             if enabled:
                 self.assertEqual(target.read_bytes(), b"COMMON_LOG_LEVEL=Warn\n")
+                self.assertEqual(
+                    (self.runtime / "feature/bds-warning.xml").read_bytes(), self.bds_warning
+                )
                 self.assertEqual(target.stat().st_nlink, 1)
                 self.assertEqual(list(target.parent.glob(".open-connect-*")), [])
             else:
                 self.assertFalse((self.root / "common").exists())
+                self.assertFalse((self.runtime / "feature/bds-warning.xml").exists())
             self.assertEqual((self.root / "physical-log-settings").read_bytes(), self.log_original)
         result = self.boot(4)
         self.assertNotEqual(result.returncode, 0)

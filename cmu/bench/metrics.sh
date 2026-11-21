@@ -58,16 +58,9 @@ BEGIN {
         file("/proc/vmstat")
         file("/proc/diskstats")
         file("/proc/net/dev")
-        command = "pidof " names
-        pids = ""
-        command | getline pids
-        close(command)
-        for (pid in seen) delete seen[pid]
-        count = split(pids, candidates, " ")
-        for (i = 1; i <= count; i++) {
-            pid = candidates[i]
-            if (seen[pid]++) continue
-            path = "/proc/" pid
+        # Enumerate once, then read comm directly. BusyBox pidof scans much more.
+        command = "printf \"%s\\n\" /proc/[0-9]*"
+        while ((command | getline path) > 0) {
             status = (getline name < (path "/comm"))
             close(path "/comm")
             if (status != 1 || !(name in wanted)) continue
@@ -76,6 +69,7 @@ BEGIN {
             file(path "/io")
             file(path "/stat")
         }
+        if (close(command) != 0) exit 77
         marker(sprintf("end %d %.2f", sample_no, clock()))
         fflush()
         sample_no++

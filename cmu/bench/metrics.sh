@@ -52,7 +52,7 @@ BEGIN {
     sample_no = 0
     while ((before = clock()) - started < seconds || sample_no == 0) {
         if (one("/proc/sys/kernel/random/boot_id") != boot) exit 75
-        marker("sample " sample_no " " before)
+        marker(sprintf("sample %d %.2f", sample_no, before))
         file("/proc/meminfo")
         file("/proc/stat")
         file("/proc/vmstat")
@@ -76,7 +76,7 @@ BEGIN {
             file(path "/io")
             file(path "/stat")
         }
-        marker("end " sample_no " " clock())
+        marker(sprintf("end %d %.2f", sample_no, clock()))
         fflush()
         sample_no++
         if (system("sleep " pause) != 0) exit 76

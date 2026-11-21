@@ -1,17 +1,65 @@
 """Playground experiment: matched control/collector windows on one idle workload."""
 
 import argparse
+import csv
 import json
 import re
 import secrets
 import shlex
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 from open_connect import metrics
 from open_connect.paths import ROOT
 from open_connect.session import digest
+
+
+def summarize(argv):
+    parser = argparse.ArgumentParser(description="Export paired CPU results; opens no device.")
+    parser.add_argument("bundle", type=Path)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args(argv)
+    plan = json.loads((args.bundle / "plan.json").read_text())
+    windows = json.loads((args.bundle / "windows.json").read_text())
+    if len(windows) != 2 * plan["pairs"] or [w["mode"] for w in windows] != plan["order"]:
+        raise ValueError("incomplete or reordered batch")
+    rows = []
+    boot = windows[0]["before"]["boot"]
+    for index in range(0, len(windows), 2):
+        pair = {}
+        for window in windows[index : index + 2]:
+            before, after = window["before"], window["after"]
+            if before["boot"] != boot or after["boot"] != boot:
+                raise ValueError("mixed boot identities")
+            delta = [b - a for a, b in zip(before["cpu"], after["cpu"])]
+            if len(delta) != 8 or min(delta) < 0 or sum(delta) <= 0:
+                raise ValueError("invalid CPU endpoints")
+            busy = 100 * (sum(delta) - delta[3] - delta[4]) / sum(delta)
+            if abs(busy - window["cpu_busy_pct_excluding_iowait"]) > 1e-9:
+                raise ValueError("stored result differs from original counters")
+            duration = after["uptime_s"] - before["uptime_s"]
+            if duration <= 0:
+                raise ValueError("invalid reference duration")
+            pair[window["mode"]] = (busy, duration)
+        if set(pair) != {"control", "sample"}:
+            raise ValueError("incomplete control/sampling pair")
+        off, on = pair["control"], pair["sample"]
+        rows.append([index // 2, off[0], on[0], on[0] - off[0], off[1], on[1]])
+    with args.output.open("x") as output:
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "pair",
+                "control_cpu_busy_pct",
+                "sampling_cpu_busy_pct",
+                "difference_pp",
+                "control_duration_s",
+                "sampling_duration_s",
+            ]
+        )
+        writer.writerows(rows)
 
 
 def endpoints(raw, token):
@@ -167,4 +215,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:2] == ["summarize"]:
+        summarize(sys.argv[2:])
+    else:
+        main()

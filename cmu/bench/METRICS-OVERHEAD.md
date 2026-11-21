@@ -30,3 +30,14 @@ does not assess startup or physical input latency.
 
 Retain the immutable experiment/collector commits, exact command/configuration
 and all failures. Raw output remains private; publish reviewed derived results.
+
+Export a completed batch without opening a device:
+
+```sh
+python -m open_connect.metrics_overhead summarize runs/overhead-1 \
+  --output runs/overhead-1-pairs.csv
+```
+
+The exporter recomputes each window from the original CPU endpoints, verifies
+the saved values and boot/order/completeness, and refuses an existing output.
+Its CSV excludes private raw captures and host/phone identifiers.

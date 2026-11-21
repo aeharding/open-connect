@@ -139,7 +139,10 @@ Private checks are under `runs/wireless-enable-20261121/`: `dev8-upgrade-check.o
 `fresh-dev8-check.out`. Reviewed native guide images have
 [separate provenance](../assets/guide/README.md). Raw projection frames, generated
 OEM XML and access material remain private. Physical input, audio, vehicle
-behavior, startup timing/RAM and long-parked reliability remain unqualified.
+behavior and long-parked reliability remain unqualified. The later final dev.8
+artifact has a separate [wireless ACC timing/RAM baseline](../wireless-comparison.md),
+including incomplete retrievals and a watchdog restart; those are not results
+of the earlier C25 lifecycle checks.
 
 ## Recognize factory wireless
 

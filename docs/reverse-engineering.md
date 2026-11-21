@@ -823,3 +823,41 @@ directory. Actual ARM publication succeeded on the CI-built candidate; independe
 host probes also checked existing files/directories/symlinks and a late directory
 race. Supporting records are `link-capability.out`, `reinstalled-verified.out`
 and `review-base.md` under private `runs/base-optimizations-20261121/`.
+
+## Wireless timing clocks and bench Ethernet fallback on v74
+
+**Source-backed, 74.00.324A NA:** `/etc/syslog-ng.conf` constructs native log
+prefixes with `r_jci_log_tstamp`, using `R_DATE` and removing the date portion.
+The [syslog-ng macro documentation](https://support.oneidentity.com/technical-documents/syslog-ng-open-source-edition/3.22/administration-guide/63)
+defines `R_DATE` as reception time. A prefix near `00:00:55.000` is therefore
+receiver wall-clock time of day, not a direct `/proc/uptime` sample or the exact
+time a function executed. The original configuration SHA256 is
+`fa6c51bac24de38f6a7e3e81a4a6ae7733ce4127a4424d1c3d467fad73448de7`.
+
+The [wireless baseline](wireless-comparison.md) keeps these events separate from
+camera/ACC and mapped kernel timings. Its fixed-event export requires a unique
+new-boot syslog marker, ignores prior shutdown messages, keeps repeats and missing
+events, and exports no log bodies or phone identifiers. Wall-clock calibration,
+delivery buffering and drops remain limits; a native session event does not
+establish visible projection, input or audio readiness.
+
+**Source-backed:** `/jci/scripts/start_eth1_dhcp.sh` waits for Ethernet, runs
+`udhcpc` with quit-on-lease and exit-on-failure options for ten attempts, then
+adds a static fallback address and waits until the interface disappears. It does
+not retry DHCP while the interface remains present. The original script SHA256 is
+`4738ab12939b2dade5e5873d11931b7bc4acf02e29721f78e6062e454f2d1f25`.
+
+**Observed:** Base-off wireless attempts 4 and 5 show the SSH listener starting,
+Ethernet with no IPv4 address, and DHCP ending with “No lease, failing.” Attempts
+1–3 obtain the expected lease. CarPlay is camera-visible in all five starts;
+only the first three have retrieved resource traces and kernel-clock mappings.
+Fresh ACC recovery restored the pinned SSH connection, without changing IP or
+firewall configuration. This supports Ethernet DHCP failure as the missing-access
+mechanism; why the DHCP exchange failed remains unresolved. It is not evidence
+of a wireless CarPlay boot failure.
+
+Supporting records are the five `rx.bin` captures, original fetch failures,
+`network-uart-private.txt` extracts and `network-uart-counts.json` under private
+`runs/wireless-enable-20261121/wireless-base-off/`, with separate recovery
+observations. Raw logs and firmware sources remain private; the public comparison
+retains the failed attempts and numeric observations.

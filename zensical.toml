@@ -32,6 +32,7 @@ nav = [
     { "Pandora startup and RAM" = "pandora-comparison.md" },
     { "Native logging comparison" = "logging-comparison.md" },
     { "Installed Base optimizations" = "base-comparison.md" },
+    { "Wireless startup baseline" = "wireless-comparison.md" },
     { "CarPlay measurements" = "carplay-testing.md" },
   ] },
   { "Development" = [

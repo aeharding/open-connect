@@ -1,0 +1,11 @@
+condition,run,host_revision,observer_outcome,resource_trace_present,resource_postflight_verified,camera_verified,uart_boot_markers,kernel_boot_banners
+wireless-base-off,1,ab8993a5c1647d0c1a17a44faa425e1f367de81f,observed,True,True,True,1,1
+wireless-base-off,2,ab8993a5c1647d0c1a17a44faa425e1f367de81f,observed,True,True,True,1,1
+wireless-base-off,3,ab8993a5c1647d0c1a17a44faa425e1f367de81f,observed,True,True,True,1,1
+wireless-base-off,4,ab8993a5c1647d0c1a17a44faa425e1f367de81f,incomplete_preserved,False,False,True,1,1
+wireless-base-off,5,ab8993a5c1647d0c1a17a44faa425e1f367de81f,incomplete_preserved,False,False,True,1,1
+wireless-base-on,1,ab8993a5c1647d0c1a17a44faa425e1f367de81f,observed,True,True,True,1,1
+wireless-base-on,2,ab8993a5c1647d0c1a17a44faa425e1f367de81f,observed,True,True,True,1,1
+wireless-base-on,3,ab8993a5c1647d0c1a17a44faa425e1f367de81f,incomplete_preserved,False,False,True,2,2
+wireless-base-on,4,ab8993a5c1647d0c1a17a44faa425e1f367de81f,observed,True,True,True,1,1
+wireless-base-on,5,ab8993a5c1647d0c1a17a44faa425e1f367de81f,observed,True,True,True,1,1

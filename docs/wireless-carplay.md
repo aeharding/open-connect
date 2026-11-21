@@ -61,5 +61,6 @@ On factory-wireless hardware, factory availability remains intact.
   <figcaption>Disable restores the original availability after a full restart.</figcaption>
 </figure>
 
-No cold-start improvement is claimed yet. Timing, RAM and long-parked comparisons
-are the next measurement work.
+A separate [wireless startup baseline](wireless-comparison.md) compares Base
+optimizations off/on, including its failed attempts. Long-parked startup
+improvement remains unqualified.

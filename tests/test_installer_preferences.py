@@ -326,7 +326,9 @@ class InstallerPreferences(unittest.TestCase):
                                 ),
                             )
                     if wireless and base:
-                        if name == "bds":
+                        if name == "jciCARPLAY":
+                            expected.set("affinity_mask", "0x03")
+                        elif name == "bds":
                             next(
                                 child for child in expected if child.get("value") == "stage_3"
                             ).set("value", "jciUSBMGR")
@@ -429,6 +431,13 @@ class InstallerPreferences(unittest.TestCase):
                         self.compose(ET.tostring(root, encoding="unicode"), config).returncode, 0
                     )
         source = self.profile().replace('value="dmserver"', 'value="jciUSBMGR"')
+        self.assertNotEqual(self.compose(source, config).returncode, 0)
+
+    def test_carplay_affinity_preserves_foreign_claim(self):
+        config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
+        source = self.profile().replace(
+            'name="jciCARPLAY"', 'name="jciCARPLAY" affinity_mask="0x02"'
+        )
         self.assertNotEqual(self.compose(source, config).returncode, 0)
 
     def test_restoring_android_auto_leaves_clean_pandora_only_profile(self):

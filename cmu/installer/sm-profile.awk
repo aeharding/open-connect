@@ -58,6 +58,9 @@ prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ {
     if(sm_name in wireless_hits) {
         name=sm_name
         wireless_hits[name]++
+        if(prefs["base"]=="1" && name=="jciCARPLAY") {
+            if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
+        }
         if(attribute_count("args")) {
             if(attribute("args")!="wcp") refuse()
         } else if($0~/\/>[ \t]*$/ || sub(/>$/," args=\"wcp\">")!=1) refuse()

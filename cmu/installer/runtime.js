@@ -97,7 +97,7 @@ var OpenConnect = (function (previous) {
         if (remaining <= 0) { done(null); return; }
         request("status", null, function (answer) {
             if ((answer && answer.error === "busy" || (!answer && boot)) &&
-                    (attempts || 0) < 8 && (!boot || Date.now() - began < 12000)) {
+                    (boot || (attempts || 0) < 8) && (!boot || Date.now() - began < 12000)) {
                 setTimeout(function () { if (!stopped) { readStatus(done, (attempts || 0) + 1, began); } }, 500);
             } else { done(answer); }
         }, remaining);

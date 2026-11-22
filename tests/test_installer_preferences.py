@@ -197,6 +197,7 @@ class InstallerPreferences(unittest.TestCase):
         root = ET.Element("services")
         names = (
             "stage_1",
+            "stage_3",
             "jciVBS",
             "jciMMUI",
             "jciUSBMGR",
@@ -323,12 +324,28 @@ class InstallerPreferences(unittest.TestCase):
                     )
                 worker = jobs["open_connect_settings"]
                 self.assertEqual(worker.get("reset_board"), "no")
-                self.assertEqual(worker.find("dependency").get("value"), "stage_1")
+                self.assertEqual(worker.find("dependency").get("value"), "stage_3")
+
+    def test_settings_gate_requires_one_stage3_on_each_board(self):
+        for wcp, duplicate in itertools.product((False, True), repeat=2):
+            with self.subTest(wcp=wcp, duplicate=duplicate):
+                root = ET.fromstring(self.profile(wcp))
+                gate = next(node for node in root if node.get("name") == "stage_3")
+                if duplicate:
+                    root.append(copy.deepcopy(gate))
+                else:
+                    root.remove(gate)
+                ET.indent(root)
+                self.assertNotEqual(
+                    self.compose(ET.tostring(root, encoding="unicode"), self.fresh()).returncode,
+                    0,
+                )
 
     def test_missing_duplicate_and_preexisting_claims_refuse(self):
         config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
         for name in (
             "stage_1",
+            "stage_3",
             "jciVBS",
             "aap_service",
             "jciAAPA",

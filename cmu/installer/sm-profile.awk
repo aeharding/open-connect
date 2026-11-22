@@ -41,6 +41,7 @@ BEGIN {
         put_attribute("autorun","no")
     }
     if(sm_name=="stage_1") stage++
+    if(sm_name=="stage_3") stage3++
     if(sm_name=="jciVBS") vbs++
 }
 prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="jciMMUI" {
@@ -87,13 +88,13 @@ prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="devicemanager" {
 }
 /<\/services>/ {
     print "        <service type=\"process\" name=\"open_connect_settings\" path=\"/bin/busybox\" args=\"timeout -t 20 sh /tmp/open-connect/feature/service.sh boot\" autorun=\"yes\" retry_count=\"0\" reset_board=\"no\" exit_allowed=\"yes\" started_after_exit_allowed=\"yes\">"
-    print "            <dependency type=\"service\" value=\"stage_1\"/>"
+    print "            <dependency type=\"service\" value=\"stage_3\"/>"
     print "        </service>"
     end++
 }
 {print}
 END {
-    if(invalid || stage!=1 || end!=1) exit 1
+    if(invalid || stage!=1 || stage3!=1 || end!=1) exit 1
     for(name in service_owner) if(service_hits[name]!=1) exit 1
     if(prefs["base"]=="1") for(name in base_hits) if(base_hits[name]!=1) exit 1
     if(prefs["wireless"]=="1") {

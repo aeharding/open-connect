@@ -179,6 +179,34 @@ check a single durable debit, rather than treating plan validation as selection.
 
 ## Qualification
 
+The **0.3.0-dev.10** Services candidate from
+[CI 45016577830](https://github.com/aeharding/open-connect/actions/runs/45016577830),
+source `0b5a4af74cdf8ab15014b3d6de63671fc4808666`, has live checks for the
+actual dev.9 → dev.10 upgrade, retained choices and five-field stock baseline,
+canonical active preferences, completion and Open settings. Android Auto and
+Pandora were each disabled through Settings, applied after restart, then restored;
+the other integration remained running. Cancellation preserved the record and
+Settings re-entry retained the saved choice. Base on stopped exactly the four
+named DAB/TV/Stitcher members; Base off restored them. The original voice delay
+was retained. [The complete-preset comparison](services-comparison.md) records
+all timing attempts and their limits.
+
+Independent dev.10 maintenance was then prepared by extracting the exact CI ZIP
+again onto the existing SD, preserving the previous contents. The manually
+launched maintenance UI selected **Uninstall** once. Its new stock kernel restored
+the exact OEM hashes/modes, original startup and absent touchscreen NVRAM key;
+the original UIA/MMUI libraries, SM configuration and Opera entry were loaded.
+The boot helper, installed package/snapshot/record directory and product RAM
+runtime were absent. DAB, TV, both Stitcher services, both Android Auto members
+and Pandora were running. Physical root was read-only. The original five-field
+baseline identity was retained until restoration; existing bench SSH and startup
+instrumentation were preserved. This is as-found restoration, not a factory reset
+or another physical USB-insertion qualification. Private supporting records are
+`runs/services-pilots-20261122/independent-dev10-` preparation/prompt/camera and
+`independent-dev10-verify-stock.out`. Physical-input/audio, Android-phone and
+first-car checks remain open.
+
+
 The **0.3.0-dev.8** bundle from
 [CI 44942234519](https://github.com/aeharding/open-connect/actions/runs/44942234519),
 source `c25d5202ddebfed15b2f3eab8cccedb54a244dad`, passed fresh installation,

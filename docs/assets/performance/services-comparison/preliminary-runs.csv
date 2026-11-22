@@ -1,0 +1,3 @@
+condition,run,outcome,home_acc_lower_s,home_acc_upper_s,carplay_acc_lower_s,carplay_acc_upper_s,cpu_busy_percent,memfree_min_kB,memfree_end_kB,samples,first_sample_uptime_s,last_sample_uptime_s,selector_entry_uptime_s,selector_exit_uptime_s
+preliminary-base-off,1,native_foreground_no_visible_projection,27.210344210267067,27.41134420968592,,,27.85559084071536,205676,213588,170,12.22,191.46,6.46,7.50
+preliminary-base-off,2,native_foreground_no_visible_projection,26.801974335685372,27.002974335104227,,,27.70411253954365,204708,212588,170,11.6,190.85,6.46,7.03

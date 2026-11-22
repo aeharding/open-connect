@@ -3,8 +3,8 @@
 These single-boot experiments select candidates for the next Services change.
 They do not establish repeated speed gains, usable early input/audio, or vehicle
 reliability. The voice-startup delay is parked. The four-service suppression is
-a RAM candidate for Base; the complete installed preset still needs repeated
-measurement.
+a RAM candidate for Base. The subsequent [complete dev.10 preset comparison](services-comparison.md)
+records two starts per setting and its foreground/acquisition limits.
 
 ## Voice startup: keep the original delay
 

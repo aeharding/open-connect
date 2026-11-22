@@ -804,7 +804,6 @@ from timings. Supporting records are `startup-mechanism-result.json` and
 `fresh-process-mechanism.json` under private `runs/logging-prefilter-20261121/`.
 OEM inputs, compiled OEM dependencies and raw process reads remain private.
 
-
 The installed dev.7 candidate publishes the Warn file only for a selected Base-on
 boot, after ordinary feature preparation. It checks the exact physical Info file
 and common library first. Base off skips publication; exhausted-budget fallback
@@ -979,3 +978,20 @@ the isolated writer had succeeded. The writer now captures one `package_programs
 result that verifies the full manifest and every required interpreter/composer
 member before executing target code. A guarded target preparation with that
 change succeeded without changing the record or activating the new snapshot.
+
+The exact `0b5a4af7` CI bundle then passed the actual Settings saves and restarts:
+Android Auto off left Pandora running; Pandora off left both Android Auto members
+running; restoring each and switching Base verified the four Base member states.
+The existing stock-five baseline remained unchanged through the upgrade and saves.
+This is live lifecycle evidence, separate from Android-phone/audio qualification.
+Private supporting records are `runs/services-pilots-20261122/verify-reviewed-dev10.out`,
+`verify-reviewed-aa-restart.out`, `verify-reviewed-pandora-restart.out` and `verify-base-off-setup.out` /
+`verify-base-on-setup.out`. See the [complete-preset measurements](services-comparison.md).
+
+A fresh extraction of that exact CI payload, manually launched from the same SD,
+then passed independent UI Uninstall. The new kernel loaded the original UIA/MMUI,
+SM and Opera paths; all seven checked Base/Android Auto/Pandora members were
+running. The exact original hashes/modes, absent original touchscreen key,
+read-only physical root and removal of installed product state/helper/runtime
+were verified. Existing lab access and the independent startup observer remained.
+Supporting private record: `runs/services-pilots-20261122/independent-dev10-verify-stock.out`.

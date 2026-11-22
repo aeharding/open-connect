@@ -1,6 +1,6 @@
 # Open Connect — roadmap
 
-Updated 2026-11-21. [STEERING.md](STEERING.md) defines product intent; GitHub
+Updated 2026-11-22. [STEERING.md](STEERING.md) defines product intent; GitHub
 issues track implementation. This roadmap sets delivery order and completion
 criteria, without calendar promises. One primary owns each complete release.
 
@@ -72,9 +72,17 @@ The selector still recorded 0.56 s; the no-added-delay target remains open.
 Preserve durable budget
 barriers, original restoration and independent USB undo. Use phase timings and
 matched visible milestones to guide remaining work. Wireless results alone do
-not qualify stock parity. Further Services expansion and the voice-start
-deferral pilot follow this work. Active optional services remain individual
-choices; qualified discontinued/non-NA changes may enter Base optimizations.
+not qualify stock parity. The subsequent [Services pilots](docs/service-pilots.md)
+parked voice deferral and selected the four DAB/TV/Stitcher leaves for Base.
+The [complete dev.10 preset](docs/services-comparison.md) has two starts per setting,
+with Android Auto and Pandora held on; controls and restoration have their own
+qualification evidence. Active optional services remain individual choices.
+
+After the Services slice, the owner's next priority is a matched stock startup
+comparison under [#9](https://github.com/aeharding/open-connect/issues/9), then
+removing any measured Open Connect delay. Preserve the clean stock result of the
+independent uninstall as the starting fixture; retain bench instrumentation and
+do not reinstall merely to prepare that baseline.
 
 The deferred phase-1 manual and first-car checks remain separate.
 
@@ -167,9 +175,10 @@ Include usable wired projection in these baselines once the early fixture is
 qualified. Miatafy's wireless CarPlay milestone reproduction stays in phase 5;
 do not compare a wired result directly with its wireless timing.
 
-Then add a dedicated **Services** page under Open Connect Settings. The development candidate's **Base optimizations** choice now groups the measured
-native Warn filter and defaults off. Further contents and default changes need
-their own timing and RAM evidence. Measure
+Then add a dedicated **Services** page under Open Connect Settings. The development
+candidate's **Base optimizations** choice groups native Warn filtering and the four
+measured DAB/TV/Stitcher leaves, and defaults off. Further contents and default
+changes need their own timing and RAM evidence. Measure
 the complete bundle with the same individual service selections. Inspect each
 candidate’s consumers, test one reversible change at a time, and compare against
 the same baseline. Aha/Pandora/Stitcher, TV and logging policy are candidates,

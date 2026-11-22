@@ -106,8 +106,8 @@ and conditions before claiming reproduction. See PLAN.md and issues #9 and #86.
 Maintain a dedicated [Performance evidence](docs/performance.md) section in the
 docs for timings and RAM, with comparable per-run results, methods, failures and
 regressions. RAM measurements during startup and matched workloads are required.
-The development candidate now groups the measured native Warn filter behind a
-single Base optimizations on/off setting, with an implementation default of off.
+The development candidate now groups the measured native Warn filter and four
+qualified DAB/TV/Stitcher leaves behind a single Base optimizations on/off setting, with an implementation default of off.
 Qualify the complete installed bundle with individual service selections held fixed; further contents and
 default changes need their own timing and RAM evidence.
 

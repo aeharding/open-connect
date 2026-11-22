@@ -43,6 +43,7 @@ class InstallerBoot(unittest.TestCase):
         (self.runtime / "token").write_text("a" * 32 + "\n")
         (self.runtime / "ignition.sh").write_text("exit 0\n")
         (self.root / "acc").write_text("1\n")
+        (self.root / "uptime").write_text("1.00 0.00\n")
         state = (
             (ASSETS / "state.sh")
             .read_text()
@@ -56,12 +57,18 @@ class InstallerBoot(unittest.TestCase):
         shutil.copyfile(ASSETS / "access.sh", self.source / "access.sh")
         for name in ("wireless-sm.awk", "wireless-device.awk", "wireless.sh"):
             shutil.copyfile(ASSETS / name, self.source / name)
+        self.manager = self.root / "manager.so"
+        self.manager.write_bytes(b"synthetic pinned manager library\n")
         self.log_original = b"synthetic original logging settings\n"
         self.log_library = b"synthetic exact common library\n"
         (self.root / "physical-log-settings").write_bytes(self.log_original)
         (self.root / "common-library").write_bytes(self.log_library)
         firmware = (ASSETS / "firmware.sh").read_text()
         for old, new in {
+            "/jci/lib/libjciuiamgr.so": str(self.manager),
+            "1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29": hashlib.sha256(
+                self.manager.read_bytes()
+            ).hexdigest(),
             "/config/common/log/settings.txt": str(self.root / "physical-log-settings"),
             "/jci/lib/libjcicommon.so": str(self.root / "common-library"),
             "/tmp/common": str(self.root / "common"),
@@ -94,7 +101,7 @@ startup_publish() {
 """
         )
         (self.source / "service.sh").write_text(
-            "printf '%s\\n' " + shlex.quote(str(self.runtime)) + "\n"
+            "service_stage() { runtime=" + shlex.quote(str(self.runtime)) + "; }\n"
         )
         script = (ASSETS / "boot.sh").read_text()
         for old, new in {
@@ -102,6 +109,7 @@ startup_publish() {
             "/tmp/open-connect": str(self.runtime),
             "/usr/bin/autostart": str(self.root / "data-target"),
             "/proc/sys/kernel/random/boot_id": str(self.root / "boot-id"),
+            "/proc/uptime": str(self.root / "uptime"),
             "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
         }.items():
             script = script.replace(old, new)
@@ -174,6 +182,108 @@ record_write
             text=True,
             timeout=10,
         )
+
+    def populated_dependencies(self, change=""):
+        self.shell(
+            '. "$P/firmware.sh"; record_read; snapshot_read "$R_CURRENT"; '
+            'firmware_dependencies() { printf "%s  manager.so %s\\n" "$(sha '
+            + shlex.quote(str(self.manager))
+            + ')" '
+            + shlex.quote(str(self.manager))
+            + "; }; "
+            'deps=$(mktemp "$D/.deps-XXXXXX"); dependencies_capture "$R_BACKEND" > "$deps"; '
+            + change
+            + 'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" "$S_TOUCH" "$S_WARNING" '
+            '"$S_NVRAM" "$S_META" "$deps" - "$S_PANDORA" "$S_BASE" "$S_WIRELESS"); '
+            'rm "$deps"; record_write'
+        )
+
+    def hook(self):
+        hook = (ASSETS / "startup-hook.sh").read_text()
+        for old, new in {
+            "/tmp/mnt/data_persist/open-connect": str(self.data),
+            "/tmp/open-connect": str(self.runtime),
+            "/proc/uptime": str(self.root / "uptime"),
+            'test "$(id -u)" = 0': 'test "$(id -u)" = ' + str(os.getuid()),
+            "700:0:0": f"700:{os.getuid()}:{os.getgid()}",
+        }.items():
+            hook = hook.replace(old, new)
+        timeout = shutil.which("gtimeout") or shutil.which("timeout")
+        self.assertIsNotNone(timeout)
+        shim = self.tools / "timeout"
+        shim.write_text(
+            '#!/bin/sh\nif test "$1" = -t; then shift; fi\nexec ' + shlex.quote(timeout) + ' "$@"\n'
+        )
+        shim.chmod(0o700)
+        return subprocess.run(
+            [
+                "sh",
+                "-c",
+                "SMCFG_NORMALMODE=stock; " + hook + '\nprintf "CONFIG|%s\\n" "$SMCFG_NORMALMODE"',
+            ],
+            env=self.env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_embedded_hook_selects_only_after_complete_source_verification(self):
+        self.populated_dependencies()
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        result = self.hook()
+        self.assertIn(
+            "CONFIG|" + str(self.runtime / "feature/sm.conf"), result.stdout, result.stderr
+        )
+        self.assertTrue((self.runtime / "selected").exists())
+        self.assertIn("package_verified|", (self.runtime / "startup-times").read_text())
+
+    def test_embedded_hook_refuses_corrupt_or_unlisted_package_before_execution(self):
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        original = (self.package / "boot.sh").read_bytes()
+        (self.package / "boot.sh").write_bytes(original + b"\nfalse\n")
+        result = self.hook()
+        self.assertIn("CONFIG|stock", result.stdout)
+        self.assertFalse((self.runtime / "selected").exists())
+        (self.package / "boot.sh").write_bytes(original)
+        (self.package / "undeclared").write_text("unlisted\n")
+        result = self.hook()
+        self.assertIn("CONFIG|stock", result.stdout)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertEqual(self.record()[9], "3")
+
+    def test_standalone_entry_checks_service_bytes_before_loading_them(self):
+        marker = self.root / "unverified-service-ran"
+        with (self.package / "service.sh").open("a") as f:
+            f.write("\ntouch " + shlex.quote(str(marker)) + "\n")
+        result = self.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("damaged_package", result.stderr)
+        self.assertFalse(marker.exists())
+        self.assertEqual(self.record()[9], "3")
+
+    def test_populated_fast_path_keeps_budget_and_original_dependency_guards(self):
+        self.populated_dependencies()
+        result = self.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.record()[9], "2")
+        phases = (self.runtime / "startup-times").read_text()
+        self.assertLess(phases.index("targets_dependencies|"), phases.index("session_ready|"))
+        self.manager.write_bytes(b"foreign manager\n")
+        result = self.boot(2)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertEqual(self.record()[9], "2")
+
+    def test_fast_path_refuses_missing_and_duplicate_package_dependencies(self):
+        for change in (
+            'sed \'/package-.*\\/boot.sh$/d\' "$deps" > "$deps.next"; mv "$deps.next" "$deps"; ',
+            'grep \'package-.*\\/boot.sh$\' "$deps" >> "$deps.copy"; cat "$deps.copy" >> "$deps"; ',
+        ):
+            self.populated_dependencies(change)
+            result = self.boot(1)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse((self.runtime / "selected").exists())
+            self.assertEqual(self.record()[9], "3")
 
     def record(self):
         return (self.data / "record").read_text().strip().split("|")
@@ -395,6 +505,7 @@ record_write
         self.assertEqual(self.record()[9], "1")
         self.shell("record_read; R_OFF=$R_BOOT; record_write")
         (self.root / "acc").write_text("1\n")
+        (self.root / "uptime").write_text("1.00 0.00\n")
         self.assertEqual(self.boot(3).returncode, 0)
         self.assertEqual(self.record()[9], "2")
 
@@ -406,6 +517,7 @@ record_write
             "/tmp/mnt/data_persist/open-connect": str(self.data),
             "/tmp/open-connect": str(self.runtime),
             "/proc/sys/kernel/random/boot_id": str(self.root / "boot-id"),
+            "/proc/uptime": str(self.root / "uptime"),
             "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
         }.items():
             script = script.replace(old, new)

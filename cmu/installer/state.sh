@@ -23,12 +23,14 @@ boot_id() {
 }
 
 verify_manifest() {
-    local folder=$1 digest name extra expected= actual
+    local folder=$1 digest name extra expected= actual seen='|'
     directory "$folder" && file "$folder/files.sha256" || return 1
     set --
     while read -r digest name extra; do
         hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1
         case "$name" in .|..|*[!a-zA-Z0-9.-]*) return 1;; esac
+        case "$seen" in *"|$name|"*) return 1;; esac
+        seen="$seen$name|"
         # The parent is already canonical, and names cannot contain a slash.
         test -f "$folder/$name" && test ! -L "$folder/$name" || return 1
         set -- "$@" "$folder/$name"
@@ -39,6 +41,18 @@ verify_manifest() {
     # One process checks all bytes; repeated OpenSSL startup dominated early boot.
     actual=$(openssl dgst -sha256 -r "$@") || return 1
     test "$actual" = "${expected%?}"
+}
+
+verify_package() {
+    local item count=0 folder=$1
+    verify_manifest "$folder" || return 1
+    for item in "$folder"/* "$folder"/.[!.]* "$folder"/..?*; do
+        if absent "$item"; then continue; fi
+        test -f "$item" && test ! -L "$item" || return 1
+        count=$((count+1))
+    done
+    test "$count" -eq "$(($(wc -l < "$folder/files.sha256")+1))" || return 1
+    awk '$2=="boot.sh"||$2=="state.sh"||$2=="firmware.sh"||$2=="access.sh"||$2=="transaction.sh"||$2=="service.sh"{n++}END{exit n!=6}' "$folder/files.sha256"
 }
 
 record_read() {
@@ -93,9 +107,12 @@ snapshot_verify() {
     hex "$1" 64 && private_dir "$dir" && verify_manifest "$dir" &&
         test "$(sha "$dir/files.sha256")" = "$1"
 }
-snapshot_read() {
+snapshot_read() { snapshot_verify "$1" && snapshot_decode "$1"; }
+
+# Internal parser for snapshots already verified in the caller's held critical
+# section. Ordinary callers use snapshot_read; no on-disk verification cache.
+snapshot_decode() {
     local extra fields
-    snapshot_verify "$1" || return 1
     test "$(wc -l < "$D/snapshots/$1/config")" -eq 1 || return 1
     fields=$(awk -F '|' '{print NF}' "$D/snapshots/$1/config")
     case "$fields" in 5|6|7|8) ;; *) return 1;; esac

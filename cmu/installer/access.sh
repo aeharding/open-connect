@@ -88,8 +88,11 @@ access_compose() {
     printf '%s|%s|%s|%s|%s|%s\n' "$uart" "$ssh" "$key" "$S_LOGIN_META" "$S_SSH_META" "$S_LOGIN_INODE" > "$dest/access"
 }
 
-access_hold_verify() (
-    snapshot_read "$R_BASE" && test "$S_LOGIN_INODE" != - || exit 1
+access_hold_verify() ( snapshot_read "$R_BASE" && access_hold_verify_loaded; )
+
+# These two helpers consume the already verified baseline snapshot fields.
+access_hold_verify_loaded() (
+    test "$S_LOGIN_INODE" != - || exit 1
     hold=/usr/bin/.open-connect-runlogin-$S_LOGIN_INODE
     file "$hold" && test "$(stat -c %i "$hold")" = "$S_LOGIN_INODE" &&
         test "$(stat -c %d "$hold")" = "$(stat -c %d /usr/bin/runlogin)" &&
@@ -97,14 +100,15 @@ access_hold_verify() (
         test "$(stat -c '%a:%u:%g' "$hold")" = "$S_LOGIN_META"
 )
 
-access_login_check() (
-    snapshot_read "$R_BASE" || exit 1
+access_login_check() ( snapshot_read "$R_BASE" && access_login_check_loaded; )
+
+access_login_check_loaded() (
     test "$S_LOGIN_INODE" != - || exit 0
     hold=/usr/bin/.open-connect-runlogin-$S_LOGIN_INODE
-    if ! absent "$hold"; then access_hold_verify || exit 1; fi
+    if ! absent "$hold"; then access_hold_verify_loaded || exit 1; fi
     if test "$(sha /usr/bin/runlogin)" = "$(sha "$D/snapshots/$R_BASE/runlogin")"; then
         test "$(stat -c %i /usr/bin/runlogin)" = "$S_LOGIN_INODE"
-    else access_hold_verify; fi
+    else access_hold_verify_loaded; fi
 )
 
 access_hold_cleanup() (
@@ -125,16 +129,19 @@ access_hold_cleanup() (
 )
 
 access_targets_match() {
-    local dir=$D/snapshots/$1
     snapshot_read "$1" || return 1
+    if test "$S_ACCESS" = true; then access_files_match_loaded "$1" && access_login_check; fi
+}
+
+access_files_match_loaded() {
+    local dir=$D/snapshots/$1
     test "$S_ACCESS" = true || return 0
     file /usr/bin/runlogin && file /etc/ssh/sshd_config &&
         test "$(sha /usr/bin/runlogin)" = "$(sha "$dir/runlogin")" &&
         test "$(stat -c '%a:%u:%g' /usr/bin/runlogin)" = "$S_LOGIN_META" &&
         test "$(sha /etc/ssh/sshd_config)" = "$(sha "$dir/sshd.conf")" &&
         test "$(stat -c '%a:%u:%g' /etc/ssh/sshd_config)" = "$S_SSH_META" || return 1
-    test "$S_KEY" = - || access_key_verify "$S_KEY" || return 1
-    access_login_check
+    test "$S_KEY" = - || access_key_verify "$S_KEY"
 }
 
 access_pair_check() {

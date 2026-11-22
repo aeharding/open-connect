@@ -45,9 +45,8 @@ firmware_guard() {
     for path in /tmp /tmp/mnt /tmp/mnt/data_persist; do directory "$path" || fail invalid_persistence_path; done
 }
 
-native_guard() {
-    test "$(sha /jci/lib/libjciuiamgr.so)" = 1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29 || fail unsupported_manager
-}
+native_dependency_guard() { test "$1" = 1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29; }
+native_guard() { native_dependency_guard "$(sha /jci/lib/libjciuiamgr.so)" || fail unsupported_manager; }
 
 factory_wireless() (
     # Follow the verified OEM hardware branch, never our rendered RAM flags.

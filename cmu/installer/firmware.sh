@@ -277,7 +277,12 @@ boot_render_profiles() {
 }
 
 boot_sm_profile() {
-    awk '
+    # Exploratory Base pilot: defer only the existing VR gate by 30 seconds.
+    awk -v base="${S_BASE:-0}" '
+        base==1 && /<service / && /name="stage_vr"/ {
+            if (gsub(/args="5s"/, "args=\"35s\"") != 1) exit 1
+            vr++
+        }
         /<service / && /name="stage_1"/ {stage++}
         /name="open_connect_settings"/ {bad=1;exit 1}
         /<\/services>/ {
@@ -287,7 +292,7 @@ boot_sm_profile() {
             end++
         }
         {print}
-        END {if(bad || stage!=1 || end!=1)exit 1}
+        END {if(bad || stage!=1 || end!=1 || (base==1 && vr!=1))exit 1}
     ' "$1" > "$2"
 }
 

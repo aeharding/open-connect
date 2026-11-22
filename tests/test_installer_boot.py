@@ -596,6 +596,7 @@ record_write
     def select_wireless(self, value, *, base=0):
         for profile in ("normal", "wcp"):
             args = {
+                "stage_vr": "5s",
                 "jciMMUI": "mouse=filtered-mouse0, keyboard=filtered-keyboard0, display=filtered-touchscreen0",
                 "start_network": "UCP",
                 "bds": "-interface dbus",
@@ -607,6 +608,7 @@ record_write
             lines = ["<services>"]
             for name in (
                 "stage_1",
+                "stage_vr",
                 "jciMMUI",
                 "start_network",
                 "bds",

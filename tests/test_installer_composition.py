@@ -15,6 +15,36 @@ ASSETS = ROOT / "cmu/installer"
 
 
 class InstallerComposition(unittest.TestCase):
+    def test_vr_pilot_changes_only_the_gate_and_requires_one_stock_delay(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source, selected = root / "source", root / "selected"
+            gate = '<service name="stage_vr" args="5s" autorun="yes" />\n'
+            peer = '<service name="natp" sched_priority="0" autorun="yes" />\n'
+            original = '<services>\n<service name="stage_1" />\n' + gate + peer + "</services>\n"
+            driver = 'set -eu; . "$1/firmware.sh"; S_BASE=$4; boot_sm_profile "$2" "$3"'
+
+            def render(text, base):
+                source.write_text(text)
+                return subprocess.run(
+                    ["sh", "-c", driver, "test", ASSETS, source, selected, str(base)],
+                    capture_output=True,
+                    timeout=5,
+                )
+
+            for base in (0, 1):
+                self.assertEqual(render(original, base).returncode, 0)
+                expected_gate = gate.replace('args="5s"', 'args="35s"') if base else gate
+                self.assertIn(expected_gate, selected.read_text())
+                self.assertIn(peer, selected.read_text())
+                self.assertEqual(selected.read_text().count('name="open_connect_settings"'), 1)
+            for changed in (
+                original.replace(gate, ""),
+                original.replace(gate, gate + gate),
+                original.replace('args="5s"', 'args="6s"'),
+            ):
+                self.assertNotEqual(render(changed, 1).returncode, 0)
+
     def test_boot_mounts_allow_rootfs_but_refuse_protected_overlays(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()

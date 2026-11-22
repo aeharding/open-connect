@@ -48,6 +48,9 @@ BEGIN {
 }
 prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="jciMMUI" {
     mmui++
+    if(prefs["base"]=="1") {
+        if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
+    }
     args=attribute("args")
     if(args!~/display=filtered-touchscreen0, wcp$/) {
         if(sub(/display=filtered-touchscreen0$/,"display=filtered-touchscreen0, wcp",args)!=1) refuse()

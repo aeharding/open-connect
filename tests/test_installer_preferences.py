@@ -326,7 +326,7 @@ class InstallerPreferences(unittest.TestCase):
                                 ),
                             )
                     if wireless and base:
-                        if name == "jciCARPLAY":
+                        if name in ("jciCARPLAY", "jciMMUI"):
                             expected.set("affinity_mask", "0x03")
                         elif name == "bds":
                             next(
@@ -433,12 +433,14 @@ class InstallerPreferences(unittest.TestCase):
         source = self.profile().replace('value="dmserver"', 'value="jciUSBMGR"')
         self.assertNotEqual(self.compose(source, config).returncode, 0)
 
-    def test_carplay_affinity_preserves_foreign_claim(self):
+    def test_wireless_leaf_affinity_preserves_foreign_claim(self):
         config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
-        source = self.profile().replace(
-            'name="jciCARPLAY"', 'name="jciCARPLAY" affinity_mask="0x02"'
-        )
-        self.assertNotEqual(self.compose(source, config).returncode, 0)
+        for name in ("jciCARPLAY", "jciMMUI"):
+            with self.subTest(name=name):
+                source = self.profile().replace(
+                    f'name="{name}"', f'name="{name}" affinity_mask="0x02"'
+                )
+                self.assertNotEqual(self.compose(source, config).returncode, 0)
 
     def test_restoring_android_auto_leaves_clean_pandora_only_profile(self):
         original = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")

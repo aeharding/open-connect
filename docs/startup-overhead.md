@@ -132,6 +132,11 @@ audio, broader interruption and matching-car qualification remain deferred.
 
 ## Stock comparison and Settings staging
 
+The subsequent [three-stock/three-dev.11 comparison](stock-startup-comparison.md)
+measures the integrated Settings change against stock. It retains about 0.83 s
+added Home delay and 0.621 s added native `stage_1` delay; parity remains open.
+The four individual pilots below explain candidate selection.
+
 Four separate one-start pilots used the same 30-second ACC-off procedure,
 Allow/Skip on the installed candidates, Base and Wireless off, Android Auto and
 Pandora on, and the phone connected to the Mac. Ethernet, reference SD, the

@@ -11,11 +11,15 @@ import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+BUSYBOX = os.environ.get("OC_TEST_BUSYBOX") or shutil.which("busybox")
+
 ASSETS = Path(__file__).resolve().parents[1] / "cmu/installer"
 
 
 @unittest.skipUnless(shutil.which("awk"), "POSIX awk required")
 class InstallerPreferences(unittest.TestCase):
+    awk = ("awk",)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -35,7 +39,7 @@ class InstallerPreferences(unittest.TestCase):
             data = data.encode() if isinstance(data, str) else data
             self.config.write_bytes(data)
             arguments.update(input=str(self.config), input_bytes=str(len(data)))
-        command = ["awk"]
+        command = list(self.awk)
         for key, value in arguments.items():
             command += ["-v", f"{key}={value}"]
         command += ["-f", str(ASSETS / "preferences.awk")]
@@ -241,7 +245,7 @@ class InstallerPreferences(unittest.TestCase):
         self.config.write_bytes(config)
         return subprocess.run(
             [
-                "awk",
+                *self.awk,
                 "-v",
                 "operation=compose",
                 "-v",
@@ -391,3 +395,8 @@ class InstallerPreferences(unittest.TestCase):
         jobs = {node.get("name"): node for node in ET.fromstring(result.stdout)}
         self.assertEqual(jobs["optional_leaf"].get("autorun"), "no")
         self.assertEqual(jobs["jciAAPA"].get("autorun"), "yes")
+
+
+@unittest.skipUnless(BUSYBOX, "BusyBox awk required")
+class InstallerBusyboxPreferences(InstallerPreferences):
+    awk = (BUSYBOX, "awk")

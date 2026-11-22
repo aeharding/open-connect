@@ -35,7 +35,8 @@ function load_catalog(path, line, columns, fields, id, members, count, i, member
             member=members[i]
             if(length(member)>64 || member!~/^[A-Za-z_][A-Za-z0-9_]*$/ || member in service_owner) refuse()
             service_owner[member]=id
-            joined=joined (i==1 ? "" : " ") member
+            if(i>1) joined=joined " "
+            joined=joined member
         }
         if(joined!=columns[4]) refuse()
     }
@@ -122,7 +123,10 @@ BEGIN {
     prefs["base"]="0";prefs["wireless"]="0";prefs["touch"]="1";prefs["warning"]="1"
     for(id in service_default) prefs["service." id]=service_default[id]
     service_keys=""
-    for(i=1;i<=service_count;i++) service_keys=service_keys (i==1 ? "" : ",") service_ids[i]
+    for(i=1;i<=service_count;i++) {
+        if(i>1) service_keys=service_keys ","
+        service_keys=service_keys service_ids[i]
+    }
     prefs["service-ids"]=service_keys
     if(input!="") load_preferences(input,operation=="write" || operation=="legacy" || (operation=="set" && legacy=="1"))
     else if(operation!="write") refuse()
@@ -171,7 +175,8 @@ BEGIN {
         # Config keys are sorted; retain that same order in the shell summary.
         for(i=1;i<=service_count;i++) {
             id=service_ids[i]
-            choices=choices (choices=="" ? "" : ",") id "=" prefs["service." id]
+            if(i>1) choices=choices ","
+            choices=choices id "=" prefs["service." id]
         }
         print prefs["package"] "|" prefs["touch"] "|" prefs["warning"] "|" prefs["nvram"] "|" \
             prefs["metadata"] "|" ("service.pandora" in prefs ? prefs["service.pandora"] : "1") "|" \

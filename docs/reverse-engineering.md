@@ -960,3 +960,13 @@ rebinding a package path leaves the newer shell functions in memory and is
 insufficient. The new active preferences are bounded named data inside the same
 snapshot and `OCBP1` plan, with the existing record as transaction authority;
 see [the data contract](installer-development.md#services-data-and-composition).
+
+The v74 BusyBox AWK parser treats `value (conditional)` as a function call,
+including when whitespace separates the tokens. Host AWK accepted that
+concatenation. The initial dev.10 maintenance attempt on `be66b573` refused before
+prepare, leaving the exact dev.9 record, selected snapshot and baseline unchanged.
+Constructing these strings in explicit steps passed a RAM-only target matrix:
+all 32 profile hashes matched the exact-original host outputs, Services JSON
+parsed, and malformed bit/key-set/UID cases refused. The maintained preferences
+and composition suite also runs through BusyBox when available. This was an
+installer compatibility failure, not a primary startup timing attempt.

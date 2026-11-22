@@ -404,6 +404,23 @@ class NativeBootPlan(unittest.TestCase):
             self.assertEqual(link.resolve(), fixture.data / "composed" / fixture.package_id / name)
             self.assertEqual(link.read_bytes(), link.resolve().read_bytes())
 
+    def test_unlisted_boot_plan_cannot_authorize_reseal_or_shell_links(self):
+        fixture = self.native_fixture()
+        snapshot = fixture.data / "snapshots" / fixture.record()[5]
+        (snapshot / "boot.plan").write_text("unlisted plan\n")
+        before = (fixture.data / "record").read_bytes()
+        with self.assertRaises(subprocess.CalledProcessError) as caught:
+            fixture.shell('record_read; AUTOSTART=$D-target; boot_snapshot_seal "$R_CURRENT"')
+        self.assertIn("invalid_boot_plan", caught.exception.stderr)
+        hint = fixture.data / "reseal"
+        hint.write_text(fixture.record()[5] + "\n")
+        hint.chmod(0o600)
+        result = fixture.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("reseal_inputs_changed", result.stderr)
+        self.assertEqual((fixture.data / "record").read_bytes(), before)
+        self.assertFalse((fixture.runtime / "selected").exists())
+
     def test_sealer_rejects_a_copy_that_differs_from_prepared_named_digest(self):
         fixture = self.native_fixture()
         before = fixture.record()[5]

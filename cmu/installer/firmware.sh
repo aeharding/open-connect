@@ -364,7 +364,9 @@ _boot_snapshot_seal() (
     helper=$P/boot-select
     file "$helper" && test -x "$helper" || fail invalid_boot_selector
     snapshot_verify "$R_BASE" && firmware_guard && test "$(root_mode)" = ro,noatime || fail invalid_boot_baseline
-    if file "$D/snapshots/$snapshot/boot.plan"; then
+    if ! absent "$D/snapshots/$snapshot/boot.plan"; then
+        file "$D/snapshots/$snapshot/boot.plan" &&
+            awk '$2=="boot.plan"{n++}END{exit n!=1}' "$D/snapshots/$snapshot/files.sha256" || fail invalid_boot_plan
         IFS='|' read -r magic base backend < "$D/snapshots/$snapshot/boot.plan"
         if test "$magic:$base:$backend" = "OCBP1:$R_BASE:$package" &&
             "$helper" check / "${D#/}/snapshots/$snapshot" < "$D/snapshots/$snapshot/boot.plan"; then

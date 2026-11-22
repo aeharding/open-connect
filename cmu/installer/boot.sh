@@ -53,7 +53,8 @@ boot_observer_stage() {
 
 boot_plan_verify() {
     local snapshot=$1 mode=$2 magic base backend dir=$D/snapshots/$1
-    snapshot_verify "$snapshot" && file "$dir/boot.plan" || return 1
+    snapshot_verify "$snapshot" && file "$dir/boot.plan" &&
+        awk '$2=="boot.plan"{n++}END{exit n!=1}' "$dir/files.sha256" || return 1
     IFS='|' read -r magic base backend < "$dir/boot.plan" || return 1
     test "$magic:$base:$backend" = "OCBP1:$R_BASE:$R_BACKEND" || return 1
     "$P/boot-select" "$mode" / "${dir#/}" < "$dir/boot.plan"
@@ -169,7 +170,7 @@ absent /tmp/open-connect/feature || fail feature_already_present
 work=$(mktemp -d /tmp/open-connect/.feature-XXXXXX)
 if test "$warning" = 1; then
     cp "$D/composed/$package/mmui.so" "$D/composed/$package/mmui.xml" "$work/"
-    if file "$D/snapshots/$R_CURRENT/boot.plan"; then
+    if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then
         boot_plan_verify "$R_CURRENT" verify || fail feature_inputs_changed
         for name in uia.so system-app.js; do
             ln -s "../../mnt/data_persist/open-connect/composed/$package/$name" "$work/$name" || fail feature_link_failed

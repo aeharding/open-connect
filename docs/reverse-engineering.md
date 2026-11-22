@@ -925,8 +925,18 @@ Independent installed-Settings Uninstall then restored the original loaded
 UIA/MMUI, original startup and touch state, and removed both persistent and RAM
 Open Connect directories. Private supporting evidence is
 `runs/stock-parity-20261122/dev12-uninstall-stock-verify-retry.out` and
-`dev12-installed-ui-uninstall-retry/`. Startup/RAM parity remains unqualified
-pending the matched measurements.
+`dev12-installed-ui-uninstall-retry/`, at source `1ff3fe2` before the later
+read-only hint/plan-verification fixes.
+
+The [matched dev.12 comparison](stock-startup-comparison.md) on reviewed CI
+`2fedfcdf` recorded zero join wait in all three Base-off starts, with native SM
+`stage_1` median +0.085 s versus stock. Home was still about +0.397 s later,
+shared-window CPU +0.831 percentage points and minimum MemFree 3180 KiB lower.
+One separate Base-on warm restart confirmed zero join wait and three current
+Warn readbacks each for MMUI/cpugauge; it does not qualify Base-on performance.
+Unique allocated runtime tmpfs measured 408 KiB, with 208 KiB private pages in
+the listener/ignition processes in one postflight. These observations do not
+establish the no-overhead/no-unapproved-RAM target.
 
 ## Opera rejects block function declarations in strict code
 

@@ -1,0 +1,8 @@
+condition,acquisition_attempt,complete_trace_run,observer_outcome,resource_trace_present,clock_mapping_present,postflight_verified,camera_verified,kernel_boot_banners,syslog_boot_markers,acc_home_lower_s,acc_home_upper_s,failure
+stock,1,1,observed,True,True,True,True,1,1,25.582431249320507,25.783431250602007,
+stock,2,,incomplete_preserved,False,False,False,True,1,1,25.800195835530758,26.001195834949613,ssh_fetch_connection_refused
+stock,3,2,observed,True,True,True,True,1,1,25.399352749809623,25.600352749228477,
+stock,4,3,observed,True,True,True,True,1,1,25.201776959002018,25.402776958420873,
+open-connect,1,1,observed,True,True,True,True,1,1,25.79599541798234,25.996995417401195,
+open-connect,2,2,observed,True,True,True,True,1,1,25.39267100021243,25.593670999631286,
+open-connect,3,3,observed,True,True,True,True,1,1,25.79846833460033,25.999468334019184,

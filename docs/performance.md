@@ -4,12 +4,16 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
-The latest [matched stock/dev.11 comparison](stock-startup-comparison.md) retains
-three complete starts per condition, without projection. Median fully spaced
-Home appeared about **0.83 seconds later** with Open Connect; native SM `stage_1`
-started **0.621 seconds later**. Both exceed the declared parity margins. CPU
-was slightly higher and MemFree lower in the shared window. The no-added-delay
-target remains open; the results below trace the preceding work.
+The latest [matched stock/dev.12 comparison](stock-startup-comparison.md) retains
+four stock attempts (three complete traces) and three complete active starts,
+without projection. Native SM `stage_1` started **0.085 seconds later**, within
+its declared margin, but Home's **midpoint estimate was about 0.40 seconds later**;
+its +0.196..+0.598 s frame bounds straddle the +0.20 s margin, so Home parity was
+not established. CPU was 0.83 percentage points higher and minimum MemFree
+3.11 MiB lower with Base off. Runtime tmpfs, private process pages and raw memory
+categories are accounted separately. A Base-on warm restart confirmed overlap
+and Warn logging; it is not matched Base-on performance qualification. The
+no-overhead/no-unapproved-RAM target remains open.
 
 The [first stock/Open Connect comparison](startup-comparison.md) found **slower
 startup with the development candidate**: the median wired CarPlay dashboard

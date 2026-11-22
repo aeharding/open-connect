@@ -78,16 +78,18 @@ The [complete dev.10 preset](docs/services-comparison.md) has two starts per set
 with Android Auto and Pandora held on; controls and restoration have their own
 qualification evidence. Active optional services remain individual choices.
 
-The subsequent [matched stock/dev.11 comparison](docs/stock-startup-comparison.md)
-retains three complete starts per condition, with Base/Wireless off and stock
-Services. Median Home appeared about 0.83 s later and native SM `stage_1` started
-0.621 s later with Open Connect. Both exceed the declared parity margins; CPU
-was slightly higher and MemFree lower in the shared window. Settings staging now
-waits until `stage_3`, with bounded boot-status retries for the delayed listener.
-Removing the residual startup delay remains the priority under
-[#9](https://github.com/aeharding/open-connect/issues/9), preserving durable
-attempt-record flushes, recovery and independent restoration. Further changes
-need a concrete measured hypothesis rather than another speculative selector pilot.
+The subsequent [matched stock/dev.12 comparison](docs/stock-startup-comparison.md)
+retains four stock attempts (three complete traces) and three complete active
+starts, with Base/Wireless off and stock Services. Median native SM `stage_1`
+started 0.085 s later, within its 0.10 s margin, but the fully spaced Home
+midpoint estimate was about 0.40 s later. Its +0.196..+0.598 s frame bounds
+straddle the +0.20 s margin; Home parity was not established. CPU was 0.83 percentage points
+higher and minimum MemFree 3.11 MiB lower. The overlapped selector, reduced RAM
+closure and delayed CPU1 Settings worker reduce overhead; they do not establish
+parity. A Base-on warm restart confirmed overlap and Warn without qualifying
+matched Base-on performance. Keep [#9](https://github.com/aeharding/open-connect/issues/9)
+open and require an explicit owner decision on the remaining tradeoff, preserving
+durable attempt-record flushes, recovery and independent restoration.
 
 The deferred phase-1 manual and first-car checks remain separate.
 

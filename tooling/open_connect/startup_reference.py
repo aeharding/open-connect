@@ -409,10 +409,32 @@ def validate_condition(raw, condition, pandora=None, log_level=None, base=None, 
                 for k in ("wireless", "wirelessCurrent")
             ):
                 raise ValueError("saved/applied wireless policy is missing or changed")
-            snapshots = re.findall(rb"^WIRELESS_SNAPSHOT\|8\|([01])$", raw, re.M)
+            snapshots = re.findall(rb"^WIRELESS_SNAPSHOT\|(8|OC2)\|([01])$", raw, re.M)
             links = re.findall(rb"^WIRELESS_LINK\|([01])\|([0-9]+)$", raw, re.M)
-            if snapshots != [str(wireless).encode()] or len(links) != 1 or links[0][0] != b"0":
+            if (
+                len(snapshots) != 1
+                or snapshots[0][1] != str(wireless).encode()
+                or len(links) != 1
+                or links[0][0] != b"0"
+            ):
                 raise ValueError("wireless snapshot or phone USB condition changed")
+            if snapshots[0][0] == b"OC2":
+                rows = state.get("services")
+                wanted = {"android-auto": 1, "pandora": state.get("pandora")}
+                if (
+                    not isinstance(rows, list)
+                    or len(rows) != 2
+                    or any(
+                        not isinstance(row, dict)
+                        or row.get("id") != key
+                        or any(
+                            type(row.get(field)) is not int or row[field] != wanted[key]
+                            for field in ("saved", "current")
+                        )
+                        for row, key in zip(rows, sorted(wanted), strict=True)
+                    )
+                ):
+                    raise ValueError("individual Services choices are missing, pending or changed")
             # Station count is an outcome, not a gate that discards reconnect misses.
         if pandora is not None:
             info = re.findall(rb"^PANDORA_INFO_BEGIN\n(.*?)^PANDORA_INFO_END$", raw, re.M | re.S)

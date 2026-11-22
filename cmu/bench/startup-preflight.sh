@@ -38,8 +38,19 @@ open-connect)
     sh "$P/backend.sh" api - status - - -
     if test "$wireless_choice" != -; then
         config=/tmp/mnt/data_persist/open-connect/snapshots/$current/config
-        awk -F '|' -v w="$wireless_choice" 'NF==8&&$8==w{n++}END{exit n!=1}' "$config"
-        printf 'WIRELESS_SNAPSHOT|8|%s\n' "$wireless_choice"
+        if test "$(head -n 1 "$config")" = OC2; then
+            # Backend status above already authenticates and decodes this data.
+            # Bind the declared wireless fixture to both individual choices.
+            awk -F = -v w="$wireless_choice" -v p="$pandora" '
+                $1=="wireless" {nw++;if($2!=w)bad=1}
+                $1=="service.android-auto" {na++;if($2!="1")bad=1}
+                $1=="service.pandora" {np++;if(p!="-"&&$2!=p)bad=1}
+                END{exit bad||nw!=1||na!=1||np!=1}' "$config"
+            printf 'WIRELESS_SNAPSHOT|OC2|%s\n' "$wireless_choice"
+        else
+            awk -F '|' -v w="$wireless_choice" 'NF==8&&$8==w{n++}END{exit n!=1}' "$config"
+            printf 'WIRELESS_SNAPSHOT|8|%s\n' "$wireless_choice"
+        fi
         usb=$(cat /sys/class/net/usb0/carrier)
         station_dump=$(/usr/sbin/iw dev wlan0 station dump)
         stations=$(printf '%s\n' "$station_dump" | awk '/^Station /{n++}END{print n+0}')

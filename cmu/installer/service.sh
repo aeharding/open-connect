@@ -233,7 +233,8 @@ service_boot() {
     test -f "$P/files.sha256" && test ! -L "$P/files.sha256" || exit 1
     digest=$(openssl dgst -sha256 < "$P/files.sha256")
     test "${digest##* }" = "$package"
-    seen='|'; bootstrap_digest=; count=0; mandatory=0
+    seen='|'; expected=; count=0; mandatory=0
+    set --
     while read -r digest name extra; do
         test "${#digest}" = 64 && test -n "$name" && test -z "$extra" || exit 1
         case "$digest" in *[!a-f0-9]*) exit 1;; esac
@@ -241,8 +242,10 @@ service_boot() {
         case "$seen" in *"|$name|"*) exit 1;; esac
         seen="$seen$name|"
         case "$name" in state.sh|backend.sh|service.sh|api|flush) mandatory=$((mandatory+1));; esac
-        if test "$name" = state.sh; then bootstrap_digest=$digest; fi
         test -f "$P/$name" && test ! -L "$P/$name" || exit 1
+        set -- "$@" "$P/$name"
+        expected="$expected$digest *$P/$name
+"
         count=$((count+1)); test "$count" -le 64
     done < "$P/files.sha256"
     test "$mandatory" = 5
@@ -253,11 +256,8 @@ service_boot() {
         actual_count=$((actual_count+1))
     done
     test "$actual_count" -eq "$((count+1))"
-    # Bootstrap only this library before sourcing it. service_files verifies
-    # every copied or shared member of the boot closure before the listener
-    # can execute any backend code; unused build assets need no second hash.
-    actual=$(openssl dgst -sha256 -r "$P/state.sh")
-    test "$actual" = "$bootstrap_digest *$P/state.sh"
+    actual=$(openssl dgst -sha256 -r "$@")
+    test "$actual" = "${expected%?}"
     . "$P/state.sh"
     record_read && test "$R_PHASE:$R_BACKEND:$R_CURRENT:$R_BOOT" = "active:$package:$current:$boot" || fail state_changed
     service_stage boot "$package"

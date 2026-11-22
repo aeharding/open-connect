@@ -324,6 +324,7 @@ class InstallerPreferences(unittest.TestCase):
                     )
                 worker = jobs["open_connect_settings"]
                 self.assertEqual(worker.get("reset_board"), "no")
+                self.assertEqual(worker.get("affinity_mask"), "0x02")
                 self.assertEqual(worker.find("dependency").get("value"), "stage_3")
 
     def test_settings_gate_requires_one_stage3_on_each_board(self):

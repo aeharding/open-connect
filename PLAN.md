@@ -61,10 +61,15 @@ defaults still require dependency, benefit and restoration evidence.
 Immediate priority: recover Open Connect's own pre-Service-Manager overhead
 toward the owner's bar of no measurable delay against stock. The
 [verification pilot](docs/startup-overhead.md) provides a single-start improvement
-and phase data, with residual work and comparison limits explicit. The reviewed
-implementation plan uses a native selector for a verified settled snapshot,
-synchronous checked RAM features and Service-Manager-owned Settings staging;
-the full shell path handles mismatches and recovery. Preserve durable budget
+and phase data, with residual work and comparison limits explicit. The dev.9
+native selector now selects a verified settled snapshot, stages synchronous
+checked RAM features and gives Service Manager ownership of Settings staging;
+the full shell path handles mismatches and recovery. Its single working pilot
+reached Home at 26.20–26.41 s and wireless projection at 52.01–52.22 s, both
+about 2.22 s earlier than the preceding pilot. Compatible Uninstall independently
+restored the as-found stock paths and removed the helper and product state.
+The selector still recorded 0.56 s; the no-added-delay target remains open.
+Preserve durable budget
 barriers, original restoration and independent USB undo. Use phase timings and
 matched visible milestones to guide remaining work. Wireless results alone do
 not qualify stock parity. Further Services expansion and the voice-start

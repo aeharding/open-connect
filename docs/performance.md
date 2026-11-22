@@ -54,6 +54,13 @@ conditional medians; CPU and MemFree remained within their spread. Individual
 attempts, remaining 3.64-second selector work and single-pilot limits are explicit.
 This does not meet or qualify the target of no added delay versus stock.
 
+The [native-selector follow-up](startup-overhead.md#native-selector-pilot-dev9)
+records one working dev.9 start: Home at 26.20–26.41 s and the wireless dashboard
+at 52.01–52.22 s, both about 2.22 seconds earlier than the verification pilot.
+CPU was 31.42%; minimum/ending MemFree were 207.99/209.67 MiB. The earlier
+UI-failing attempt and setup failures remain explicit. The 0.56-second selector
+span is a measured reduction; stock parity and repeated gains remain unqualified.
+
 ## Configurations to compare
 
 | Configuration | Purpose |

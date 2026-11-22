@@ -114,8 +114,12 @@ static int run(int argc,char **argv) {
     if(!equal(token,fields[0]))return response(403,"unauthorized"),1;
     const char *op=fields[2];
     if(equal(op,"set")){
-        if((!equal(fields[3],"touch")&&!equal(fields[3],"warning")&&!equal(fields[3],"uart")&&!equal(fields[3],"ssh")&&!equal(fields[3],"pandora")&&!equal(fields[3],"base")&&!equal(fields[3],"wireless"))||
-           (!equal(fields[4],"0")&&!equal(fields[4],"1"))||
+        /* Syntax only; the locked backend checks the verified writable catalog. */
+        unsigned n=0;
+        for(const char *p=fields[3];*p;++p) {
+            if(++n>32||((*p<'a'||*p>'z')&&!(n>1&&((*p>='0'&&*p<='9')||*p=='-'))))goto bad;
+        }
+        if(!n||(!equal(fields[4],"0")&&!equal(fields[4],"1"))||
            (!equal(fields[5],"0")&&!equal(fields[5],"1")))goto bad;
     }else{
         if(!equal(op,"status")&&!equal(op,"install")&&!equal(op,"uninstall")&&

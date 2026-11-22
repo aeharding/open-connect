@@ -245,50 +245,21 @@ native_log_config() (
     native_log_prepare "$1" && native_log_commit
 )
 
-service_config() {
-    # Only the selected RAM configuration changes; OEM files stay untouched.
-    bit "$3" && bit "${4:-0}" || return 1
-    if test "${4:-0}" = 1; then
-        awk -v pandora="$3" -f "$P/wireless-sm.awk" "$1" > "$2"
-        return
-    fi
-    if test "$3" = 1; then cp "$1" "$2"; return; fi
-    awk '
-        /<service / && /name="blm_ira_pandora"/ {
-            if (gsub(/autorun="yes"/, "autorun=\"no\"") != 1) exit 1
-            n++
-        }
-        { print }
-        END { if (n != 1) exit 1 }
-    ' "$1" > "$2"
-}
-
 boot_render_profiles() {
-    # S_* belongs to the verified after-snapshot. Render only its saved policy.
-    local destination=$1 source=$D/composed/$S_PACKAGE setting=off profile
+    # This function runs from the verified target package, before prepare.
+    local destination=$1 config=$2 source setting=off profile
+    config_decode "$config" && test "$S_SCHEMA" = OC2 &&
+        test "$P" = "$D/packages/$S_PACKAGE" || return 1
+    source=$D/composed/$S_PACKAGE
+    private_dir "$source" && verify_manifest "$source" || return 1
     test "$S_WARNING" != 1 || setting=on
     for profile in normal wcp; do
-        service_config "$source/sm-$profile-$setting.conf" "$destination/.sm-$profile" "$S_PANDORA" "$S_WIRELESS" &&
-            boot_sm_profile "$destination/.sm-$profile" "$destination/sm-$profile.conf" &&
-            rm "$destination/.sm-$profile" || return 1
+        awk -v operation=compose -v catalog="$P/services.tsv" -v input="$config" \
+            -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" \
+            "$source/sm-$profile-$setting.conf" > "$destination/sm-$profile.conf" || return 1
     done
     cp "$source/index-$setting.html" "$destination/index.html" || return 1
     awk '{n+=gsub(/@TOKEN@/,"@TOKEN@")}END{exit n!=1}' "$destination/index.html"
-}
-
-boot_sm_profile() {
-    awk '
-        /<service / && /name="stage_1"/ {stage++}
-        /name="open_connect_settings"/ {bad=1;exit 1}
-        /<\/services>/ {
-            print "        <service type=\"process\" name=\"open_connect_settings\" path=\"/bin/busybox\" args=\"timeout -t 20 sh /tmp/open-connect/feature/service.sh boot\" autorun=\"yes\" retry_count=\"0\" reset_board=\"no\" exit_allowed=\"yes\" started_after_exit_allowed=\"yes\">"
-            print "            <dependency type=\"service\" value=\"stage_1\"/>"
-            print "        </service>"
-            end++
-        }
-        {print}
-        END {if(bad || stage!=1 || end!=1)exit 1}
-    ' "$1" > "$2"
 }
 
 boot_plan_inputs() {
@@ -339,6 +310,30 @@ boot_plan_inputs() {
 }
 
 boot_snapshot_seal() (
+    # Serialization and rendering must belong to the snapshot's package,
+    # including an old Set recovered by a newer maintenance USB session.
+    set -eu
+    local snapshot=$1 package target
+    snapshot_read "$snapshot" || fail invalid_boot_snapshot
+    package=$S_PACKAGE
+    if test "$package" = -; then printf '%s\n' "$snapshot"; exit 0; fi
+    test "$package" = "$R_BACKEND" || fail invalid_boot_package
+    target=$(package_programs "$package" state.sh firmware.sh access.sh transaction.sh boot-select VERSION) || fail invalid_boot_package
+    if test "$S_SCHEMA" = dev9; then
+        test "$(cat "$target/VERSION")" = 0.3.0-dev.9 && absent "$target/preferences.awk" || fail unsupported_boot_package
+        sh -c 'set -eu; D=$1; P=$2; R_BACKEND=$3; R_BASE=$4; AUTOSTART=$5;
+            . "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; . "$P/transaction.sh";
+            boot_snapshot_seal "$6"' seal "$D" "$target" "$R_BACKEND" "$R_BASE" "$AUTOSTART" "$snapshot"
+    else
+        test "$S_SCHEMA" = OC2 || fail invalid_boot_package
+        sh -c 'set -eu; D=$1; P=$2; R_BACKEND=$3; R_BASE=$4; AUTOSTART=$5;
+            . "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; . "$P/transaction.sh";
+            _boot_snapshot_seal "$6"' seal "$D" "$target" "$R_BACKEND" "$R_BASE" "$AUTOSTART" "$snapshot"
+    fi
+)
+
+_boot_snapshot_seal() (
+
     # Reconciliation has already applied and fully verified the after-state.
     # Seal a new immutable snapshot before record can call it current. A cut
     # leaves the existing prepared transaction recoverable, never a side flag.
@@ -349,7 +344,7 @@ boot_snapshot_seal() (
     if test "$package" = - || absent "$D/packages/$package/boot-select"; then
         printf '%s\n' "$snapshot"; exit 0
     fi
-    test "$package" = "$R_BACKEND" && test "$S_CONFIG_FIELDS" = 8 || fail invalid_boot_package
+    test "$package" = "$R_BACKEND" && test "$S_SCHEMA" = OC2 || fail invalid_boot_package
     P=$D/packages/$package
     private_dir "$P" && test "$(sha "$P/files.sha256")" = "$R_BACKEND" &&
         verify_manifest "$P" && boot_dependencies_match "$snapshot" || fail boot_dependencies_changed
@@ -368,7 +363,12 @@ boot_snapshot_seal() (
     if test "$S_ACCESS" = true; then set -- "$@" access runlogin sshd.conf; fi
     if test "${S_SELECTOR_RECORDED:-false}" = true; then set -- "$@" selector; fi
     for name in "$@"; do cp "$D/snapshots/$snapshot/$name" "$work/$name" || fail boot_snapshot_copy_failed; done
-    boot_render_profiles "$work" || fail boot_profiles_failed
+    # These bytes were composed before transaction_prepare. A later seal only
+    # attests metadata after the physical targets match; it never rerenders.
+    for name in sm-normal.conf sm-wcp.conf index.html; do
+        file "$D/snapshots/$snapshot/$name" &&
+            cp "$D/snapshots/$snapshot/$name" "$work/$name" || fail boot_profiles_missing
+    done
     set -- "$@" sm-normal.conf sm-wcp.conf index.html
     for name in "$@"; do chmod 600 "$work/$name" || fail boot_snapshot_mode_failed; done
     boot_plan_inputs "$work" "$snapshot" "$@" > "$work/inputs" || fail boot_inputs_failed

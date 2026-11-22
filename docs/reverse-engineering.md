@@ -931,3 +931,32 @@ allowance across retries. The transaction request deadline and rule against
 retrying writes are unchanged. Supporting records are private
 `fixed-status-latency.out`, `native-status-request.out` and the completion video
 under the same run directory. This setup observation is not a primary timing run.
+
+## SM service choices and composition on v74
+
+Both exact normal/WCP profiles declare Android Auto's `aap_service` and `jciAAPA`
+as separate startup services. The bounded Android Auto pilot suppressed only
+their `autorun` attributes, then independently restored both processes with the
+reviewed control bundle. Android-phone and audio behavior remain unqualified.
+DAB, TV and the two Stitcher leaves are a separate
+[RAM candidate](service-pilots.md#four-discontinued-or-non-na-services).
+The voice-delay experiment moved a resource burst and phone/voice lifecycle
+readiness later without a projection/RAM gain; its original delay is retained.
+
+The dev.10 source consolidates service selection, wireless argument changes and
+the Settings worker in one composer over verified frontend templates. The
+32-case exact-original matrix covers both boards and every Base, Wireless,
+Android Auto and Pandora combination. With Base off and Android Auto on, all
+eight outputs match the dev.9 composer byte for byte. Per-member checks reject
+missing/duplicate stanzas and existing worker/edge claims. Both boards render
+before transaction preparation, so a deterministic profile conflict does not
+strand recovery or block Uninstall. These are source/host checks, distinct from
+the pilot observations and installed lifecycle evidence.
+
+Dev.9 writes five-field stock baseline/Uninstall snapshots and eight-field
+active snapshots. Newer maintenance must retain the baseline identity and use
+the verified target package's writer and renderer for pending old work. Merely
+rebinding a package path leaves the newer shell functions in memory and is
+insufficient. The new active preferences are bounded named data inside the same
+snapshot and `OCBP1` plan, with the existing record as transaction authority;
+see [the data contract](installer-development.md#services-data-and-composition).

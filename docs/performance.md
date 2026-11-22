@@ -61,6 +61,12 @@ CPU was 31.42%; minimum/ending MemFree were 207.99/209.67 MiB. The earlier
 UI-failing attempt and setup failures remain explicit. The 0.56-second selector
 span is a measured reduction; stock parity and repeated gains remain unqualified.
 
+The [Services pilots](service-pilots.md) retain the subsequent single-boot
+voice-deferral and four-leaf experiments. Delayed voice startup showed no
+projection/RAM gain and is parked. Suppressing DAB, TV and two Stitcher services
+left roughly 6 MiB more free RAM in one matched Maps pair. That is candidate
+selection evidence; it does not establish repeated benefit or a CPU gain.
+
 ## Configurations to compare
 
 | Configuration | Purpose |

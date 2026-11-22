@@ -41,6 +41,19 @@ class NativeBootSelection(unittest.TestCase):
             check=True,
         )
 
+        subprocess.run(
+            [
+                "clang",
+                "-DOC_HOST",
+                ROOT / "cmu/startup/flush.c",
+                "-o",
+                Path(cls.build.name) / "flush",
+            ],
+            check=True,
+        )
+        if shutil.which("gstat"):
+            (Path(cls.build.name) / "stat").symlink_to(shutil.which("gstat"))
+
     @classmethod
     def tearDownClass(cls):
         cls.build.cleanup()
@@ -113,6 +126,9 @@ class NativeBootSelection(unittest.TestCase):
             "runtime.js",
             "dialog.js",
             "settings.js",
+            "preferences.awk",
+            "services.tsv",
+            "sm-profile.awk",
             "VERSION",
         ]
         for name in mandatory:
@@ -130,7 +146,7 @@ class NativeBootSelection(unittest.TestCase):
         baseline.mkdir(mode=0o700)
         for name, content in {
             "autostart": "stock autostart\n",
-            "config": f"-|0|0|absent|{self.mode}|1|0|0\n",
+            "config": f"-|0|0|absent|{self.mode}\n",
             "dependencies": "",
             "access": access,
             "runlogin": login.read_text(),
@@ -138,7 +154,25 @@ class NativeBootSelection(unittest.TestCase):
             "selector": "-\n",
         }.items():
             (baseline / name).write_text(content)
-        self.baseline = self.publish(baseline)
+        identity = subprocess.check_output(
+            [
+                "sh",
+                "-c",
+                'set -eu; umask 077; D=$1; P=$2; . "$3"; '
+                'snapshot_create "$4/autostart" - 0 0 absent "$5" "$4/dependencies" "$4"',
+                "dev9-baseline",
+                self.data,
+                Path(self.build.name),
+                ROOT / "tests/fixtures/dev9/state.sh",
+                baseline,
+                self.mode,
+            ],
+            text=True,
+            env={**os.environ, "PATH": self.build.name + os.pathsep + os.environ["PATH"]},
+        ).strip()
+        self.baseline = self.data / "snapshots" / identity
+        shutil.rmtree(baseline)
+        self.assertEqual((self.baseline / "config").read_text(), f"-|0|0|absent|{self.mode}\n")
 
         composed = self.data / "composed" / self.package_id
         composed.mkdir(mode=0o700)
@@ -178,7 +212,7 @@ class NativeBootSelection(unittest.TestCase):
         self.snapshot.mkdir(mode=0o700)
         contents = {
             "autostart": "installed autostart\n",
-            "config": f"{self.package_id}|1|1|disable|{self.mode}|1|0|1\n",
+            "config": f"OC2\nbase=0\nmetadata={self.mode}\nnvram=disable\npackage={self.package_id}\nservice.android-auto=1\nservice.pandora=1\ntouch=1\nwarning=1\nwireless=1\n",
             "access": access,
             "runlogin": login.read_text(),
             "sshd.conf": ssh.read_text(),
@@ -428,10 +462,13 @@ class NativeBootSelection(unittest.TestCase):
         self.assertEqual((self.data / "record").read_bytes(), before)
 
     def test_exhausted_budget_stages_observer_and_factory_behavior(self):
-        config = (self.snapshot / "config").read_text().split("|")
-        config[1] = "0"
-        config[3] = "absent"
-        self.change_current("config", "|".join(config))
+        config = (
+            (self.snapshot / "config")
+            .read_text()
+            .replace("touch=1", "touch=0")
+            .replace("nvram=disable", "nvram=absent")
+        )
+        self.change_current("config", config)
         (self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction").unlink()
         self.record[9] = "0"
         self.save_record()

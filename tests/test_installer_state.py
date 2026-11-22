@@ -42,15 +42,14 @@ class InstallerState(unittest.TestCase):
             'D=$1; P=$2; . "$3"\n'
             "uuid() { openssl rand -hex 16; }\n"
             'case "$4" in\n'
-            'create) base=$(snapshot_create "$5" - 0 0 absent "755:$(id -u):$(id -g)")\n'
+            'create) base=$(snapshot_create "$5" - absent "755:$(id -u):$(id -g)" - - "")\n'
             'R_PHASE=removed; R_BACKEND=$(printf "%064d" 0); R_BASE=$base; R_CURRENT=$base\n'
             "R_BEFORE=-; R_AFTER=-; R_UNDO=-; R_BUDGET=0; R_OFF=-; R_BOOT=-; R_NOTICE=-\n"
             "record_write;;\n"
             'read) record_read && snapshot_read "$R_CURRENT";;\n'
             "change) record_read; R_BUDGET=3; record_write;;\n"
             'manifest) verify_manifest "$5";;\n'
-            'create-dependencies) snapshot_create "$5" - 0 0 absent "755:$(id -u):$(id -g)" "$6";;\n'
-            'create-prefs) snapshot_create "$5" - 0 0 absent "755:$(id -u):$(id -g)" /dev/null - "$6";;\n'
+            'create-dependencies) snapshot_create "$5" - absent "755:$(id -u):$(id -g)" "$6" - "";;\n'
             'read-prefs) snapshot_read "$5" && printf "%s|%s|%s\\n" "$S_PANDORA" "$S_BASE" "$S_WIRELESS";;\n'
             'read-pair) snapshot_read "$5" && snapshot_read "$6" && printf "%s|%s|%s\\n" "$S_PANDORA" "$S_BASE" "$S_WIRELESS";;\n'
             'dependencies) . "${3%/*}/firmware.sh"; . "${3%/*}/transaction.sh"; dependencies_match "$5";;\n'
@@ -76,59 +75,93 @@ class InstallerState(unittest.TestCase):
             env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
         )
 
-    def test_service_base_and_legacy_snapshot_parsing(self):
-        for enabled in ("0", "1"):
-            result = self.run_command("create-prefs", None, enabled)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(
-                self.run_command("read-prefs", result.stdout.strip()).stdout, enabled + "|0|0\n"
-            )
-        for invalid in ("", "2"):
-            self.assertNotEqual(self.run_command("create-prefs", None, invalid).returncode, 0)
+    def config_snapshot(self, config):
         original = next((self.data / "snapshots").iterdir())
-        base = original.joinpath("config").read_text().strip().split("|")[:5]
-        identities = {}
-        for fields, expected in (
-            (base + ["0", "1"], "0|1|0\n"),
-            (base, "1|0|0\n"),
-            (base + ["0"], "0|0|0\n"),
-            (base + [""], None),
-            (base + ["2"], None),
-            (base + ["0", ""], None),
-            (base + ["0", "2"], None),
-            (base + ["0", "1", "0"], "0|1|0\n"),
-            (base + ["0", "1", "1"], "0|1|1\n"),
-            (base + ["0", "1", ""], None),
-            (base + ["0", "1", "2"], None),
-            (base + ["0", "1", "0", "0"], None),
+        content = {
+            name: original.joinpath(name).read_bytes()
+            for name in ("autostart", "config", "dependencies")
+        }
+        content["config"] = config
+        manifest = "".join(
+            hashlib.sha256(data).hexdigest() + "  " + name + "\n" for name, data in content.items()
+        ).encode()
+        identity = hashlib.sha256(manifest).hexdigest()
+        folder = self.data / "snapshots" / identity
+        folder.mkdir(mode=0o700, exist_ok=True)
+        for name, data in {**content, "files.sha256": manifest}.items():
+            folder.joinpath(name).write_bytes(data)
+        return identity
+
+    def test_stock5_and_active_dev9_fields_remain_distinct(self):
+        metadata = f"755:{os.getuid()}:{os.getgid()}"
+        stock = f"-|0|0|absent|{metadata}\n".encode()
+        active = f"{'a' * 64}|1|1|disable|{metadata}|0|1|1\n".encode()
+        stock_id = self.config_snapshot(stock)
+        active_id = self.config_snapshot(active)
+        self.assertEqual(self.run_command("read-prefs", stock_id).stdout, "1|0|0\n")
+        self.assertEqual(self.run_command("read-prefs", active_id).stdout, "0|1|1\n")
+        # Stock must reset policy fields after decoding an active record.
+        read = self.run_command("read-pair", active_id, stock_id)
+        self.assertEqual(read.returncode, 0, read.stderr)
+        self.assertEqual(read.stdout, "1|0|0\n")
+        for config in (
+            stock[:-1],
+            stock[:-1] + b"\0\n",
+            stock.replace(b"-|", b"a" * 64 + b"|", 1),
+            active.replace(b"|0|1|1\n", b"\n"),
+            active.replace(b"|0|1|1\n", b"|0\n"),
+            active.replace(b"|0|1|1\n", b"|0|1\n"),
+            active.replace(b"|0|1|1\n", b"|0|1|2\n"),
+            active.replace(b"|0|1|1\n", b"|0|1|1|0\n"),
         ):
-            # Authenticate each fixture so refusal exercises the schema parser.
-            content = {
-                name: original.joinpath(name).read_bytes()
-                for name in ("autostart", "config", "dependencies")
-            }
-            content["config"] = ("|".join(fields) + "\n").encode()
-            manifest = "".join(
-                hashlib.sha256(data).hexdigest() + "  " + name + "\n"
-                for name, data in content.items()
-            ).encode()
-            identity = hashlib.sha256(manifest).hexdigest()
-            folder = self.data / "snapshots" / identity
-            folder.mkdir(mode=0o700, exist_ok=True)
-            for name, data in {**content, "files.sha256": manifest}.items():
-                folder.joinpath(name).write_bytes(data)
-            read = self.run_command("read-prefs", identity)
-            if expected is None:
-                self.assertNotEqual(read.returncode, 0)
-            else:
-                self.assertEqual(read.returncode, 0, read.stderr)
-                self.assertEqual(read.stdout, expected)
-                identities[len(fields)] = identity
-        # Reading an older snapshot resets absent base/wireless flags.
-        for count, expected in ((5, "1|0|0\n"), (6, "0|0|0\n"), (7, "0|1|0\n")):
-            read = self.run_command("read-pair", identities[8], identities[count])
-            self.assertEqual(read.returncode, 0, read.stderr)
-            self.assertEqual(read.stdout, expected)
+            with self.subTest(config=config):
+                self.assertNotEqual(
+                    self.run_command("read-prefs", self.config_snapshot(config)).returncode, 0
+                )
+
+    def test_canonical_config_uses_only_manifest_pinned_target_interpreter(self):
+        packages = self.data / "packages"
+        packages.mkdir(mode=0o700)
+        folder = packages / "build"
+        folder.mkdir(mode=0o700)
+        for name in ("preferences.awk", "services.tsv"):
+            shutil.copyfile(ROOT / "cmu/installer" / name, folder / name)
+        manifest = "".join(
+            hashlib.sha256((folder / name).read_bytes()).hexdigest() + "  " + name + "\n"
+            for name in ("preferences.awk", "services.tsv")
+        )
+        (folder / "files.sha256").write_text(manifest)
+        identity = hashlib.sha256(manifest.encode()).hexdigest()
+        target = packages / identity
+        folder.rename(target)
+        config = subprocess.check_output(
+            [
+                "awk",
+                "-v",
+                "operation=write",
+                "-v",
+                f"catalog={target / 'services.tsv'}",
+                "-v",
+                f"package_id={identity}",
+                "-v",
+                "nvram_value=disable",
+                "-v",
+                f"metadata_value=755:{os.getuid()}:{os.getgid()}",
+                "-f",
+                target / "preferences.awk",
+            ]
+        )
+        current = self.config_snapshot(config)
+        read = self.run_command("read-prefs", current)
+        self.assertEqual(read.returncode, 0, read.stderr)
+        self.assertEqual(read.stdout, "1|0|0\n")
+        sentinel = self.root / "unverified-executed"
+        interpreter = target / "preferences.awk"
+        interpreter.write_text(
+            'BEGIN {system("touch ' + str(sentinel) + '")}\n' + interpreter.read_text()
+        )
+        self.assertNotEqual(self.run_command("read-prefs", current).returncode, 0)
+        self.assertFalse(sentinel.exists())
 
     def test_original_backup_changes_are_rejected(self):
         self.assertEqual(self.run_command("read").returncode, 0)

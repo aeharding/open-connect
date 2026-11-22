@@ -149,6 +149,32 @@ after successful uninstall. The original USB is not required.
 Arbitrary old-package compatibility, including cross-firmware maintenance, is
 not supported. Unknown edits are preserved even if restoration has partly completed.
 
+## Services data and composition
+
+The dev.10 payload stores active preferences as bounded, sorted `OC2` key/value
+text inside the existing immutable snapshot. `record` remains the only durable
+transaction authority; the six-field API and `OCBP1` boot-plan format are unchanged.
+The packaged `services.tsv` owns optional service IDs, defaults, labels,
+confirmations and exact SM members. `preferences.awk` validates those keys;
+`sm-profile.awk` is the single composer for both boards, wireless arguments,
+service choices, qualified Base leaves and the Settings worker.
+
+Both profiles are rendered before preparing a transaction. A missing or repeated
+claimed member therefore refuses the change while the prior state and Uninstall
+remain usable. Sealing later attests those rendered bytes after physical targets
+match. The native selector admits the same bounded preferences, without adding
+shell work to its settled fast path.
+
+Maintenance supports the actual dev.9 predecessor: its stock baseline and
+Uninstall output have five fields with package `-`; its active policy has eight.
+A newer client executes the verified target package's serializer and renderer for
+Set/import/recovery. Upgrade first emits `OC2` in its after-snapshot, retaining
+the original baseline and access/selector journals. Older five-, six- and
+seven-field active installs and arbitrary downgrades are outside this scope.
+The frozen original dev.9 test inputs exercise that handoff without requiring
+Git history at test time. Native selection tests use its actual stock writer and
+check a single durable debit, rather than treating plan validation as selection.
+
 ## Qualification
 
 The **0.3.0-dev.8** bundle from

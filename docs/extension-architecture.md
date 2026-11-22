@@ -164,6 +164,21 @@ The 44.434-second prepared maintenance recovery does not establish that a larger
 plugin set fits the current 25-second startup wrapper. Measure both boot and
 180/185-second service/client paths, RAM and storage as part of any migration.
 
+## Bounded Services groundwork
+
+The dev.10 Services slice replaces positional active preferences with named keys,
+a static packaged service catalog and one final SM composer. Android Auto and
+Pandora choices reach the backend and Settings through that catalog; composing
+both off and then restoring Android Auto yields the same profile as a clean
+Pandora-only selection. Missing or conflicting claims refuse before preparation.
+These reduce feature-specific branches while preserving the existing transaction,
+originals and independent Uninstall.
+
+This is one product package. It does not admit or independently remove external
+packages, define publisher trust, or satisfy the independent-package acceptance
+below. Keep those requirements open under
+[#117](https://github.com/aeharding/open-connect/issues/117).
+
 ## Dogfooding before marketplace work
 
 Use **built-in plugins** once our separately packaged features use the same

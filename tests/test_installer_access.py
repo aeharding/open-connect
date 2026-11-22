@@ -81,7 +81,9 @@ class InstallerAccess(unittest.TestCase):
                 "sh",
                 "-c",
                 'set -eu; umask 077; D=$1; P=$2; . "$3/state.sh"; . "$P/access.sh"\n'
-                "uuid() { openssl rand -hex 16; }\n" + body,
+                "uuid() { openssl rand -hex 16; }\n"
+                + (ROOT / "tests/fixtures/installer-snapshots.sh").read_text()
+                + body,
                 "test",
                 self.data,
                 self.tools,
@@ -157,9 +159,9 @@ class InstallerAccess(unittest.TestCase):
 key=$(access_key_import)
 access_capture "$D/plan" 0 0 -
 : > "$D/dependencies"
-R_BASE=$(snapshot_create "$4" - 0 0 absent "755:$(id -u):$(id -g)" "$D/dependencies" "$D/plan")
+R_BASE=$(fixture_snapshot "$4" - 0 0 absent "755:$(id -u):$(id -g)" "$D/dependencies" "$D/plan")
 access_compose "$D/plan" 1 1 "$key"
-snapshot=$(snapshot_create "$4" - 0 0 absent "755:$(id -u):$(id -g)" "$D/dependencies" "$D/plan")
+snapshot=$(fixture_snapshot "$4" - 0 0 absent "755:$(id -u):$(id -g)" "$D/dependencies" "$D/plan")
 snapshot_read "$snapshot"
 test "$S_SSH:$S_KEY" = "1:$key"
 printf '%s\n' "$snapshot"
@@ -202,20 +204,25 @@ root_publish() {
     if test "${CUT:-}:$1" = "ssh:SSHD"; then kill -KILL $$; fi
 }
 """.replace("STARTUP", str(self.bin / "autostart")).replace("SSHD", str(self.ssh / "sshd_config"))
+        from tests.test_installer_transaction import fixture_package
+
+        fixture_package(self.data, self.tools)
+        for name in ("preferences.awk", "services.tsv"):
+            shutil.copyfile(ASSETS / name, self.tools / name)
         initialize = r"""
 printf 'ro,noatime\n' > "$D/mount"; printf 'absent\n' > "$D/nvram"
 key=$(access_key_import)
 access_capture "$D/plan" 0 0 -
 : > "$D/dependencies"
-R_BASE=$(snapshot_create "$AUTOSTART" - 0 0 absent "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$D/dependencies" "$D/plan")
-R_BACKEND=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+R_BASE=$(fixture_snapshot "$AUTOSTART" - 0 0 absent "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$D/dependencies" "$D/plan")
+R_BACKEND=$(cat "$D/package-id")
 R_PHASE=removed; R_CURRENT=$R_BASE; R_BEFORE=-; R_AFTER=-; R_BUDGET=0; R_OFF=-; R_BOOT=-; R_NOTICE=-
 record_write
 access_compose "$D/plan" 1 1 "$key"
 printf 'installed startup\n' > "$D/installed"
 mkdir -p "$D/composed/$R_BACKEND"
 cp "$D/installed" "$D/composed/$R_BACKEND/autostart"
-after=$(snapshot_create "$D/installed" "$R_BACKEND" 0 0 absent "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$D/dependencies" "$D/plan")
+after=$(fixture_snapshot "$D/installed" "$R_BACKEND" 0 0 absent "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$D/dependencies" "$D/plan")
 transaction_prepare install "$R_CURRENT" "$after"
 CUT=ssh
 transaction_reconcile

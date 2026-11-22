@@ -1,5 +1,6 @@
 """Interrupt the maintained transaction code around real file publications."""
 
+import hashlib
 import json
 import os
 import shlex
@@ -18,6 +19,19 @@ D=$1; P=$2; SOURCE=$3; ACTION=$4; CUT=${5:-none}
 AUTOSTART=$D-target
 . "$SOURCE/state.sh"
 . "$SOURCE/transaction.sh"
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Readable scalar choices for physical-adapter fixtures. Invoke the actual
+# seven-argument writer with one canonical preferences payload; never installed.
+fixture_snapshot() (
+    local prefs= package=$2 dependencies=${7:--}
+    if test "$dependencies" = /dev/null; then dependencies=-; fi
+    if test "$package" != -; then
+        prefs=$(printf 'OC2\nbase=%s\nmetadata=%s\nnvram=%s\npackage=%s\nservice.android-auto=1\nservice.pandora=%s\ntouch=%s\nwarning=%s\nwireless=%s' \
+            "${10:-0}" "$6" "$5" "$package" "${9:-1}" "$3" "$4" "${11:-0}")
+    fi
+    snapshot_create "$1" "$package" "$5" "$6" "$dependencies" "${8:--}" "$prefs"
+)
+
 uuid() { openssl rand -hex 16; }
 root_mode() { printf 'ro,noatime\n'; }
 cleanup_mount_guard() { test "$CUT" != mount; }
@@ -41,7 +55,7 @@ if test "$ACTION" = init; then
     printf 'stock\n' > "$AUTOSTART"; chmod 755 "$AUTOSTART"
     printf 'absent\n' > "$D-nvram"
     printf 'dependency\n' > "$D-relevant"
-    R_BASE=$(state_capture - 0 0)
+    R_BASE=$(state_capture - - "")
     R_BACKEND=$(printf '%064d' 0); R_CURRENT=$R_BASE; R_PHASE=removed
     R_BEFORE=-; R_AFTER=-; R_BUDGET=0; R_OFF=-; R_BOOT=-; R_NOTICE=-
     record_write
@@ -71,27 +85,25 @@ if ! settled; then transaction_reconcile; exit; fi
 case "$ACTION" in
 service-off)
     snapshot_read "$R_CURRENT"
-    after=$(snapshot_create "$AUTOSTART" "$S_PACKAGE" "$S_TOUCH" "$S_WARNING" "$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 0 "$S_BASE")
+    prefs=$(preferences_change "$S_PREFS" "$S_PACKAGE" service.pandora 0 "$S_SCHEMA")
+    after=$(snapshot_create "$AUTOSTART" "$S_PACKAGE" "$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" "$prefs")
     transaction_prepare set "$R_CURRENT" "$after";;
-install|install-legacy|install-six|install-seven)
+install)
     printf 'installed\n' > "$D/installed"
-    package=$(printf '%064d' 1)
+    package=$(cat "$D/package-id")
     mkdir -p "$D/composed/$package"
     cp "$D/installed" "$D/composed/$package/autostart"
     service_choice=1; base_choice=0; wireless_choice=0
-    if test "$ACTION" = install-legacy; then service_choice=-; fi
-    if test "$ACTION" = install-legacy || test "$ACTION" = install-six; then base_choice=-; fi
-    if test "$ACTION" != install; then wireless_choice=-; fi
-    after=$(snapshot_create "$D/installed" "$package" 1 1 disable "755:$(id -u):$(id -g)" "$D/snapshots/$R_CURRENT/dependencies" - "$service_choice" "$base_choice" "$wireless_choice")
+    after=$(fixture_snapshot "$D/installed" "$package" 1 1 disable "755:$(id -u):$(id -g)" "$D/snapshots/$R_CURRENT/dependencies" - "$service_choice" "$base_choice" "$wireless_choice")
     transaction_prepare install "$R_CURRENT" "$after";;
 uninstall)
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
     before=$R_CURRENT
-    after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 absent "755:$(id -u):$(id -g)" "$D/snapshots/$before/dependencies")
+    after=$(fixture_snapshot "$D/snapshots/$R_BASE/autostart" - 0 0 absent "755:$(id -u):$(id -g)" "$D/snapshots/$before/dependencies")
     transaction_prepare uninstall "$before" "$after";;
 legacy-current)
     snapshot_read "$R_CURRENT"
-    R_CURRENT=$(state_capture "$S_PACKAGE" "$S_TOUCH" "$S_WARNING")
+    R_CURRENT=$(state_capture "$S_PACKAGE" "$D/snapshots/$R_CURRENT" "$S_PREFS")
     R_NOTICE=undone
     record_write
     exit;;
@@ -100,6 +112,34 @@ esac
 test "$CUT" != prepared || kill -KILL $$
 transaction_reconcile
 """
+
+
+def fixture_package(data, tools, selector=None):
+    package = data / "packages/.new"
+    package.mkdir(parents=True, mode=0o700)
+    for name in ("state.sh", "preferences.awk", "services.tsv", "sm-profile.awk"):
+        shutil.copyfile(ROOT / "cmu/installer" / name, package / name)
+    shutil.copyfile(tools / "flush", package / "flush")
+    (package / "flush").chmod(0o700)
+    (package / "VERSION").write_text("0.3.0-dev.10-fixture\n")
+    (package / "firmware.sh").write_text(
+        "boot_render_profiles() {\n"
+        ' config_decode "$2" || return 1\n'
+        ' for name in sm-normal.conf sm-wcp.conf index.html; do printf "%s\\n" "$S_SERVICES" > "$1/$name"; done\n'
+        "}\n"
+    )
+    if selector is not None:
+        (package / "boot-select").write_bytes(selector)
+        (package / "boot-select").chmod(0o700)
+    manifest = "".join(
+        hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+        for p in sorted(package.iterdir())
+    )
+    (package / "files.sha256").write_text(manifest)
+    identity = hashlib.sha256(manifest.encode()).hexdigest()
+    package.rename(package.with_name(identity))
+    (data / "package-id").write_text(identity + "\n")
+    return identity
 
 
 @unittest.skipUnless(shutil.which("clang"), "Clang required")
@@ -123,6 +163,7 @@ class InstallerTransaction(unittest.TestCase):
         data = self.root / name
         data.mkdir(mode=0o700)
         (data / "snapshots").mkdir(mode=0o700)
+        fixture_package(data, self.tools)
         self.run_ok(data, "init")
         return data
 
@@ -142,12 +183,67 @@ class InstallerTransaction(unittest.TestCase):
     def target(self, data, name):
         return data.with_name(data.name + "-" + name)
 
+    def test_snapshot_writer_requires_every_named_program_in_verified_manifest(self):
+        data = self.create("writer-members")
+        original = data / "packages" / (data / "package-id").read_text().strip()
+        record = (data / "record").read_bytes()
+        snapshots = set((data / "snapshots").iterdir())
+        for omitted in (
+            "state.sh",
+            "firmware.sh",
+            "flush",
+            "VERSION",
+            "preferences.awk",
+            "services.tsv",
+            "sm-profile.awk",
+        ):
+            with self.subTest(omitted=omitted):
+                package = data / "packages/.missing"
+                shutil.copytree(original, package)
+                manifest = "".join(
+                    hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                    for p in sorted(package.iterdir())
+                    if p.name not in (omitted, "files.sha256")
+                )
+                (package / "files.sha256").write_text(manifest)
+                identity = hashlib.sha256(manifest.encode()).hexdigest()
+                package.rename(package.with_name(identity))
+                result = subprocess.run(
+                    [
+                        "sh",
+                        "-c",
+                        'set -eu; umask 077; D=$1; P=$2; . "$3"; '
+                        'after=$(snapshot_create "$D-target" "$4" disable '
+                        '"755:$(id -u):$(id -g)" - - "") || exit 1',
+                        "writer",
+                        data,
+                        self.tools,
+                        ROOT / "cmu/installer/state.sh",
+                        identity,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("invalid_snapshot_package", result.stderr)
+                self.assertEqual((data / "record").read_bytes(), record)
+                self.assertEqual(set((data / "snapshots").iterdir()), snapshots)
+
     def backend_fixture(self, data):
         runtime = self.root / "runtime"
         runtime.mkdir(mode=0o700)
         (runtime / "lock").touch()
         (runtime / "runtime").symlink_to(self.tools)
-        for name in ("state.sh", "transaction.sh", "access.sh", "VERSION"):
+        for name in (
+            "state.sh",
+            "transaction.sh",
+            "access.sh",
+            "VERSION",
+            "preferences.awk",
+            "services.tsv",
+        ):
             shutil.copyfile(ROOT / "cmu/installer" / name, self.tools / name)
         state = (
             (self.tools / "state.sh")
@@ -221,31 +317,6 @@ class InstallerTransaction(unittest.TestCase):
         self.assertFalse(data.exists())
         self.assertEqual(self.target(data, "target").read_text(), "stock\n")
 
-    def test_older_snapshot_settings_stay_readable_and_services_require_update(self):
-        data = self.create("five-field-settings")
-        self.run_ok(data, "install-legacy")
-        self.backend_fixture(data)
-        _, status = self.api("status")
-        self.assertNotIn("pandora", status)
-        backend = (data / "record").read_text().split("|")[3]
-        for key, expected, desired in (("touch", "1", "0"), ("warning", "1", "0")):
-            result, status = self.api("set", status["revision"], key, expected, desired)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            current = data / "snapshots" / status["revision"] / "config"
-            # The immediate dev.5 selector requires exactly these five fields.
-            self.assertEqual(len(current.read_text().strip().split("|")), 5)
-            self.assertEqual((data / "record").read_text().split("|")[3], backend)
-            self.assertNotIn("pandora", status)
-        record = (data / "record").read_bytes()
-        result, error = self.api("set", status["revision"], "pandora", "1", "0")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(error["error"], "services_update_required")
-        self.assertEqual((data / "record").read_bytes(), record)
-        result, _ = self.api("uninstall", status["revision"])
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse(data.exists())
-        self.assertEqual(self.target(data, "target").read_text(), "stock\n")
-
     def test_wireless_choice_applied_status_and_other_choices_survive_until_uninstall(self):
         data = self.create("wireless-setting")
         self.run_ok(data, "install")
@@ -264,7 +335,7 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual((status["wireless"], status["pandora"], status["base"]), (1, 0, 1))
         self.assertEqual(status["wirelessCurrent"], 0)
         config = data / "snapshots" / status["revision"] / "config"
-        self.assertEqual(len(config.read_text().strip().split("|")), 8)
+        self.assertTrue(config.read_text().startswith("OC2\n"))
         runtime = self.root / "runtime"
         (runtime / "selected").write_text(status["revision"] + "\n")
         feature = runtime / "feature"
@@ -299,27 +370,6 @@ class InstallerTransaction(unittest.TestCase):
         _, status = self.api("status")
         self.assertFalse(status["wirelessFactory"])
 
-    def test_seven_field_selector_preserves_format_and_refuses_wireless_until_update(self):
-        data = self.create("seven-field-settings")
-        self.run_ok(data, "install-seven")
-        self.backend_fixture(data)
-        _, status = self.api("status")
-        self.assertNotIn("wireless", status)
-        for key, before, after in (("base", "0", "1"), ("pandora", "1", "0")):
-            result, status = self.api("set", status["revision"], key, before, after)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            config = data / "snapshots" / status["revision"] / "config"
-            self.assertEqual(len(config.read_text().strip().split("|")), 7)
-            self.assertNotIn("wireless", status)
-        record = (data / "record").read_bytes()
-        result, error = self.api("set", status["revision"], "wireless", "0", "1")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(error["error"], "wireless_update_required")
-        self.assertEqual((data / "record").read_bytes(), record)
-        result, _ = self.api("uninstall", status["revision"])
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse(data.exists())
-
     def test_base_setting_preserves_service_and_other_choices_through_uninstall(self):
         data = self.create("base-setting")
         self.run_ok(data, "install")
@@ -334,9 +384,7 @@ class InstallerTransaction(unittest.TestCase):
         result, status = self.api("set", status["revision"], "warning", "1", "0")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((status["base"], status["pandora"]), (1, 0))
-        self.assertEqual(
-            len((data / "snapshots" / status["revision"] / "config").read_text().split("|")), 8
-        )
+        self.assertIn("base=1\n", (data / "snapshots" / status["revision"] / "config").read_text())
         record = (data / "record").read_bytes()
         result, error = self.api("set", status["revision"], "base", "0", "1")
         self.assertNotEqual(result.returncode, 0)
@@ -362,31 +410,9 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(data.exists())
 
-    def test_six_field_selector_keeps_its_format_and_refuses_base_before_update(self):
-        data = self.create("six-field-settings")
-        self.run_ok(data, "install-six")
-        self.backend_fixture(data)
-        _, status = self.api("status")
-        self.assertNotIn("base", status)
-        for key, expected, desired in (("pandora", "1", "0"), ("touch", "1", "0")):
-            result, status = self.api("set", status["revision"], key, expected, desired)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            config = data / "snapshots" / status["revision"] / "config"
-            self.assertEqual(len(config.read_text().strip().split("|")), 6)
-            self.assertNotIn("base", status)
-        self.assertEqual(status["pandora"], 0)
-        record = (data / "record").read_bytes()
-        result, error = self.api("set", status["revision"], "base", "0", "1")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(error["error"], "services_update_required")
-        self.assertEqual((data / "record").read_bytes(), record)
-        result, _ = self.api("uninstall", status["revision"])
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse(data.exists())
-
-    def test_older_snapshot_uninstall_can_resume_after_durable_preparation(self):
+    def test_uninstall_preserves_current_identity_and_five_field_stock_after_preparation(self):
         data = self.create("five-field-removal")
-        self.run_ok(data, "install-legacy")
+        self.run_ok(data, "install")
         self.backend_fixture(data)
         _, status = self.api("status")
         current = status["revision"]
@@ -445,9 +471,7 @@ class InstallerTransaction(unittest.TestCase):
         dependency.write_bytes(original)
         self.run_ok(data, "service-off")
         current = (data / "record").read_text().split("|")[5]
-        self.assertEqual(
-            (data / "snapshots" / current / "config").read_text().strip().split("|")[5], "0"
-        )
+        self.assertIn("service.pandora=0\n", (data / "snapshots" / current / "config").read_text())
         self.assertEqual(self.target(data, "target").read_bytes(), target)
 
     def test_interrupted_install_and_uninstall_complete_from_each_target_boundary(self):
@@ -576,17 +600,15 @@ class InstallerTransaction(unittest.TestCase):
 
     def test_status_distinguishes_installed_and_maintenance_versions(self):
         data = self.create("versions")
-        package = data / "packages" / "1".zfill(64)
-        package.mkdir(parents=True, mode=0o700)
-        (package / "VERSION").write_text("0.3.0-dev.2\n")
+        package = data / "packages" / (data / "package-id").read_text().strip()
         self.run_ok(data, "install")
         self.backend_fixture(data)
         source_version = (self.tools / "VERSION").read_text().strip()
-        self.assertNotEqual(source_version, "0.3.0-dev.2")
+        self.assertNotEqual(source_version, "0.3.0-dev.10-fixture")
         result, state = self.api("status")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(state["version"], source_version)
-        self.assertEqual(state["installedVersion"], "0.3.0-dev.2")
+        self.assertEqual(state["installedVersion"], "0.3.0-dev.10-fixture")
         (package / "VERSION").unlink()
         result, state = self.api("status")
         self.assertEqual(result.returncode, 0, result.stderr)

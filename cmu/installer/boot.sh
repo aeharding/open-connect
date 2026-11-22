@@ -112,7 +112,7 @@ boot_select() {
         snapshot_read "$R_CURRENT" || fail invalid_snapshot
     fi
     package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; mode=$S_META
-    pandora=$S_PANDORA; base=$S_BASE; wireless=$S_WIRELESS
+    prefs=$S_PREFS; base=$S_BASE; wireless=$S_WIRELESS
 boot=$(cat /proc/sys/kernel/random/boot_id)
 boot_id "$boot" || fail invalid_boot
 test "$R_BOOT" != "$boot" || fail already_selected
@@ -129,7 +129,7 @@ if test "$S_ACCESS" = true; then printf '%s\n' "$R_CURRENT" > /tmp/open-connect/
 nvram=$base_nvram
 if test "$selected:$touch" = true:1; then nvram=disable; fi
 if test "$S_NVRAM" != "$nvram"; then
-    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" "$pandora" "$base" "$wireless") || fail startup_plan_failed
+    after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" "$prefs") || fail startup_plan_failed
     transaction_prepare apply "$R_CURRENT" "$after"
     transaction_reconcile
 fi
@@ -150,13 +150,9 @@ cp "$D/composed/$package/uia.so" "$D/composed/$package/mmui.so" \
     "$D/composed/$package/mmui.xml" "$D/composed/$package/system-app.js" "$work/"
 startup_stamp feature_copied
 if test "$warning" = 1; then setting=on; else setting=off; fi
-if file "$D/snapshots/$R_CURRENT/boot.plan"; then
-    cp "$D/snapshots/$R_CURRENT/sm-normal.conf" "$work/sm.conf" &&
-        cp "$D/snapshots/$R_CURRENT/sm-wcp.conf" "$work/sm_WCP.conf" || fail service_config_failed
-else
-    service_config "$D/composed/$package/sm-normal-$setting.conf" "$work/sm.conf" "$pandora" "$wireless" || fail service_config_failed
-    service_config "$D/composed/$package/sm-wcp-$setting.conf" "$work/sm_WCP.conf" "$pandora" "$wireless" || fail service_config_failed
-fi
+cp "$D/snapshots/$R_CURRENT/sm-normal.conf" "$work/sm.conf" &&
+    cp "$D/snapshots/$R_CURRENT/sm-wcp.conf" "$work/sm_WCP.conf" || fail service_config_failed
+
 if test "$wireless" = 1; then
     cp "$P/wireless.sh" "$work/wireless.sh"
     cp "$P/wireless-device.awk" "$work/wireless-device.awk"

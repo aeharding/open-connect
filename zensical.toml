@@ -35,6 +35,8 @@ nav = [
     { "Installed Base optimizations" = "base-comparison.md" },
     { "Wireless startup baseline" = "wireless-comparison.md" },
     { "Startup verification overhead" = "startup-overhead.md" },
+    { "Services pilots" = "service-pilots.md" },
+    { "Complete Services preset" = "services-comparison.md" },
     { "CarPlay measurements" = "carplay-testing.md" },
   ] },
   { "Development" = [

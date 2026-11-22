@@ -61,6 +61,20 @@ CPU was 31.42%; minimum/ending MemFree were 207.99/209.67 MiB. The earlier
 UI-failing attempt and setup failures remain explicit. The 0.56-second selector
 span is a measured reduction; stock parity and repeated gains remain unqualified.
 
+The [Services pilots](service-pilots.md) retain the subsequent single-boot
+voice-deferral and four-leaf experiments. Delayed voice startup showed no
+projection/RAM gain and is parked. Suppressing DAB, TV and two Stitcher services
+left roughly 6 MiB more free RAM in one matched Maps pair. That is candidate
+selection evidence; it does not establish repeated benefit or a CPU gain.
+
+The [complete dev.10 Services preset](services-comparison.md) compares two Base-off
+and two Base-on dashboard starts with Android Auto, Pandora and wireless held on.
+Median minimum MemFree was 14.21 MiB higher with Base; ending free RAM was 8.31 MiB
+higher. The dashboard median was about 3.2 seconds earlier. All four matched
+attempts completed; two preliminary native-foreground misses are retained
+separately. The small blocked sample and night/day rendering change limit
+attribution. This is a bundle comparison, not stock parity.
+
 ## Configurations to compare
 
 | Configuration | Purpose |
@@ -70,8 +84,8 @@ span is a measured reduction; stock parity and repeated gains remain unqualified
 | Base optimizations off/on, same individual service selections | Measure the installed bundle as one setting |
 | One service choice changed, other settings fixed | Attribute the effect and detect dependencies |
 
-The current development candidate groups the measured native Warn filter behind
-one optional **Base optimizations** choice, initially off. That default is an
+The current development candidate groups native Warn filtering and the four
+DAB, TV and Stitcher leaves behind one optional **Base optimizations** choice, initially off. That default is an
 implementation choice. Identify the exact bundle revision in every result and
 test the whole bundle; individual savings cannot simply be added together.
 Future preset contents and individual service choices need comparable measurements,

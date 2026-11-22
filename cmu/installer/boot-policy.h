@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later
- * Only a settled, fully attested dev.9 snapshot may take this path. Return 95
+ * Only a settled, fully attested snapshot may take this path. Return 95
  * before debit to request the embedded full verifier; never retry after debit.
  */
 #ifndef OC_BOOT_POLICY_H
@@ -14,7 +14,7 @@ typedef struct { OcMember rows[OC_MEMBERS]; unsigned count; } OcManifest;
 typedef struct { char *key,*path,*digest; OcMeta meta; int absent,used; } OcInput;
 typedef struct {
     int root,data,ram,lock,snapshot,baseline,package,composed,stage,observer,log;
-    char record[1024],next[1024],config[256],access[320],selector[256],base_config[256],base_access[320];
+    char record[1024],next[1024],config[1024],access[320],selector[256],base_config[1024],base_access[320];
     char current_manifest[4096],base_manifest[4096],package_manifest[8192],composed_manifest[4096],composed_digest[65];
     char dependencies[24576],plan_text[OC_PLAN_LIMIT+1],scratch[32768];
     char *record_fields[13],*flags[8],*access_fields[6],*base_flags[8],*base_access_fields[6];
@@ -131,23 +131,96 @@ static int oc_record(OcBoot *b) {
     if ((!oc_equal(f[10],"-")&&!oc_uuid(f[10]))||(!oc_equal(f[11],"-")&&!oc_uuid(f[11]))) return 0;
     return oc_equal(f[12],"-")||oc_equal(f[12],"installed")||oc_equal(f[12],"removed")||oc_equal(f[12],"undone")||oc_equal(f[12],"restart");
 }
-static int oc_config(char *text,char **f,int active) {
-    if (!oc_fields_line(text,f,8)) return 0;
-    if (active?!oc_hex(f[0],64):!oc_equal(f[0],"-")) return 0;
-    return oc_bit(f[1]) && oc_bit(f[2]) && oc_nvram_value(f[3]) && oc_bit(f[5]) && oc_bit(f[6]) && oc_bit(f[7]);
-}
 static int oc_metadata_mode(const char *text,unsigned *mode,unsigned *uid,unsigned *gid) {
     unsigned values[3]={0,0,0},field=0,n=0;
     while (*text) {
         unsigned c=(unsigned char)*text++;
         if (c==':') { if (!n||field==2) return 0; ++field; n=0; continue; }
         unsigned base=field?10:8;
-        if (c<'0'||c>='0'+base||++n>10) return 0;
+        if (c<'0'||c>='0'+base||++n>(field?10u:4u)) return 0;
         if (field ? (values[field]>429496729u||(values[field]==429496729u&&c>'5')) : values[field]>0x1fffffffu) return 0;
         values[field]=values[field]*base+c-'0';
     }
     if (field!=2||!n||values[0]>07777) return 0;
     *mode=values[0]; *uid=values[1]; *gid=values[2]; return 1;
+}
+/* The packaged catalog owns the admitted service keys; no per-service C map. */
+static int oc_order(const char *a,const char *b) {
+    while (*a && *a==*b) { ++a; ++b; }
+    return (unsigned char)*a-(unsigned char)*b;
+}
+static int oc_service_id(const char *p) {
+    unsigned n=0;
+    if (*p<'a'||*p>'z') return 0;
+    const char *reserved[]={"touch","warning","base","wireless","uart","ssh"};
+    for (unsigned i=0;i<sizeof reserved/sizeof *reserved;++i) if (oc_equal(p,reserved[i])) return 0;
+    while (*p) {
+        unsigned c=(unsigned char)*p++;
+        if (++n>32||!((c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='-')) return 0;
+    }
+    return n>0;
+}
+/* Maintenance validates this canonical key set against the catalog. It lives
+ * inside the already authenticated config, so selection needs no catalog I/O.
+ */
+static int oc_service_keys(char *text,char **ids,unsigned *count) {
+    *count=0;
+    while (*text) {
+        char *id=text;
+        while (*text && *text!=',') ++text;
+        if (*text) { *text++=0; if (!*text) return 0; }
+        if (*count==16||!oc_service_id(id)||(*count && oc_order(id,ids[*count-1])<=0)) return 0;
+        ids[(*count)++]=id;
+    }
+    return *count>0;
+}
+static int oc_config(OcBoot *b,char *text,char **f,int active) {
+    unsigned mode,uid,gid;
+    if (!oc_prefix(text,"OC2\n")) {
+        if (!oc_one_line(text)||oc_fields(text,f,8)!=(active?8u:5u)) return 0;
+        if (active?!oc_hex(f[0],64):!oc_equal(f[0],"-")) return 0;
+        return oc_bit(f[1])&&oc_bit(f[2])&&oc_nvram_value(f[3])&&
+            oc_metadata_mode(f[4],&mode,&uid,&gid)&&
+            (!active||(oc_bit(f[5])&&oc_bit(f[6])&&oc_bit(f[7])));
+    }
+    (void)b;
+    if (!active) return 0;
+    char *ids[16]; unsigned count=0,seen=0,service_seen=0;
+    const char *keys[]={"package","touch","warning","nvram","metadata","base","wireless"};
+    const unsigned slots[]={0,1,2,3,4,6,7};
+    char *previous="",*p=text+4;
+    f[5]="1";
+    while (*p) {
+        char *key=p,*value=0;
+        while (*p && *p!='\n') {
+            if ((unsigned char)*p<32||(unsigned char)*p==127) return 0;
+            if (*p=='=') { if (value) return 0; *p=0; value=p+1; }
+            ++p;
+        }
+        if (!*p||!value||!*value) return 0;
+        *p++=0;
+        if (oc_order(key,previous)<=0) return 0;
+        previous=key;
+        if (oc_equal(key,"service-ids")) {
+            if (!oc_service_keys(value,ids,&count)) return 0;
+            seen|=128; continue;
+        }
+        unsigned found=0;
+        for (unsigned i=0;i<sizeof keys/sizeof *keys;++i) if (oc_equal(key,keys[i])) {
+            f[slots[i]]=value; seen|=1u<<i; found=1; break;
+        }
+        if (found) continue;
+        if (!oc_prefix(key,"service.")||!oc_bit(value)) return 0;
+        for (unsigned i=0;i<count;++i) if (oc_equal(key+8,ids[i])) {
+            service_seen|=1u<<i; found=1;
+            if (oc_equal(ids[i],"pandora")) f[5]=value;
+            break;
+        }
+        if (!found) return 0;
+    }
+    return seen==255 && service_seen==((1u<<count)-1) && oc_hex(f[0],64)&&
+        oc_bit(f[1])&&oc_bit(f[2])&&oc_nvram_value(f[3])&&
+        oc_metadata_mode(f[4],&mode,&uid,&gid)&&oc_bit(f[6])&&oc_bit(f[7]);
 }
 static int oc_input_mode(OcInput *input,const char *text) {
     unsigned mode,uid,gid;
@@ -650,11 +723,13 @@ static int oc_load(OcBoot *b) {
     const char *mandatory[]={"boot-select","boot.sh","state.sh","transaction.sh","firmware.sh","access.sh","service.sh",
         "ignition.sh","flush","api","runtime.js","dialog.js","settings.js","VERSION","INSTANCE"};
     for (unsigned i=0;i<sizeof mandatory/sizeof *mandatory;++i) if (!oc_digest(&b->pkg,mandatory[i])) return 0;
-    if (!oc_saved_text(b->snapshot,&b->current,"config",b->config,sizeof b->config)||!oc_config(b->config,b->flags,1)||
+    if (!oc_saved_text(b->snapshot,&b->current,"config",b->config,sizeof b->config)) return 0;
+    if (oc_prefix(b->config,"OC2\n") && (!oc_digest(&b->pkg,"preferences.awk")||
+        !oc_digest(&b->pkg,"services.tsv")||!oc_digest(&b->pkg,"sm-profile.awk"))) return 0;
+    if (!oc_config(b,b->config,b->flags,1)||
         !oc_equal(b->flags[0],b->record_fields[3])||
-        !oc_saved_text(b->baseline,&b->base,"config",b->base_config,sizeof b->base_config)||!oc_one_line(b->base_config)) return 0;
-    unsigned n=oc_fields(b->base_config,b->base_flags,8);
-    if (n<5||n>8||!oc_equal(b->base_flags[0],"-")||!oc_nvram_value(b->base_flags[3])) return 0;
+        !oc_saved_text(b->baseline,&b->base,"config",b->base_config,sizeof b->base_config)||
+        !oc_config(b,b->base_config,b->base_flags,0)) return 0;
     b->access_present=oc_digest(&b->current,"access")!=0;
     b->base_access_present=oc_digest(&b->base,"access")!=0;
     if (b->access_present && (!oc_saved_text(b->snapshot,&b->current,"access",b->access,sizeof b->access)||!oc_access(b->access,b->access_fields))) return 0;

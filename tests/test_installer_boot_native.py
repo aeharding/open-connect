@@ -293,6 +293,16 @@ class NativeBootPlan(unittest.TestCase):
         source.write_text(source.read_text().replace("/jci/version.ini", str(version)))
         shutil.copyfile(self.program, fixture.source / "boot-select")
         (fixture.source / "boot-select").chmod(0o700)
+        real_flush = fixture.root / "flush-real"
+        shutil.copyfile(fixture.source / "flush", real_flush)
+        real_flush.chmod(0o700)
+        (fixture.source / "flush").write_text(
+            "#!/bin/sh\nset -eu\n" + shlex.quote(str(real_flush)) + ' "$@"\n'
+            'if test "$1" = f && test "${2##*/}" = boot.plan && test -f '
+            + shlex.quote(str(fixture.root / "cut-seal"))
+            + '; then kill -KILL "$PPID"; fi\n'
+        )
+        (fixture.source / "flush").chmod(0o700)
         (fixture.source / "INSTANCE").write_text("1" * 32 + "\n")
         manifest = "".join(
             hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n"
@@ -310,6 +320,68 @@ class NativeBootPlan(unittest.TestCase):
         fixture.shell('record_read; R_BACKEND="$3"; record_write')
         fixture.select_wireless(1, base=1)
         return fixture
+
+    def test_sealer_rejects_a_copy_that_differs_from_prepared_named_digest(self):
+        fixture = self.native_fixture()
+        before = fixture.record()[5]
+        cp = fixture.tools / "cp"
+        cp.write_text(
+            "#!/bin/sh\nset -eu\n" + shlex.quote(shutil.which("cp")) + ' "$@"\n'
+            "for destination; do :; done\n"
+            'case "$destination" in */snapshots/.new-*/sm-wcp.conf) printf "foreign copy\\n" >> "$destination";; esac\n'
+        )
+        cp.chmod(0o700)
+        with self.assertRaises(subprocess.CalledProcessError) as caught:
+            fixture.shell(
+                '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
+                'record_read; transaction_prepare set "$R_CURRENT" "$R_CURRENT"; transaction_reconcile'
+            )
+        self.assertIn("boot_profiles_changed", caught.exception.stderr)
+        self.assertEqual(fixture.record()[1], "set")
+        self.assertEqual(fixture.record()[5], before)
+        cp.unlink()
+        fixture.shell(
+            '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; record_read; transaction_reconcile'
+        )
+        self.assertEqual(fixture.record()[1], "active")
+        sealed = fixture.data / "snapshots" / fixture.record()[5]
+        original = fixture.data / "snapshots" / before
+        for name in ("sm-normal.conf", "sm-wcp.conf", "index.html"):
+            self.assertEqual((sealed / name).read_bytes(), (original / name).read_bytes())
+
+    def test_new_wcp_conflict_refuses_before_preparation_and_keeps_uninstall_usable(self):
+        fixture = self.native_fixture()
+        record = (fixture.data / "record").read_bytes()
+        target = (fixture.root / "data-target").read_bytes()
+        candidate = fixture.root / "candidate"
+        shutil.copytree(fixture.package, candidate)
+        (candidate / "INSTANCE").write_text("2" * 32 + "\n")
+        manifest = "".join(
+            hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+            for p in sorted(candidate.iterdir())
+            if p.name != "files.sha256"
+        )
+        (candidate / "files.sha256").write_text(manifest)
+        identity = hashlib.sha256(manifest.encode()).hexdigest()
+        candidate.rename(fixture.data / "packages" / identity)
+        composed = fixture.data / "composed" / identity
+        shutil.copytree(fixture.data / "composed" / fixture.package_id, composed)
+        bad = composed / "sm-wcp-on.conf"
+        bad.write_text(bad.read_text().replace('name="jciAAPA"', 'name="foreign"'))
+        fixture.composed_manifest(identity)
+        result = fixture.shell(
+            'AUTOSTART=$D-target; . "$P/access.sh"; . "$P/transaction.sh"; record_read; snapshot_read "$R_CURRENT"; '
+            'deps=$(mktemp "$D/.candidate-deps-XXXXXX"); dependencies_capture '
+            + identity
+            + ' > "$deps"; '
+            'if snapshot_create "$AUTOSTART" '
+            + identity
+            + ' "$S_NVRAM" "$S_META" "$deps" - "$S_PREFS"; then exit 99; fi; '
+            'targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" && uninstall_owned "$R_CURRENT"'
+        )
+        self.assertIn("boot_profiles_failed", result.stderr)
+        self.assertEqual((fixture.data / "record").read_bytes(), record)
+        self.assertEqual((fixture.root / "data-target").read_bytes(), target)
 
     def test_reconcile_publishes_plan_only_after_actual_after_state(self):
         fixture = self.native_fixture()
@@ -375,14 +447,11 @@ D=$1; P=$2; AUTOSTART=$D-target
 record_read
 if test "$3" = cut; then
     transaction_prepare set "$R_CURRENT" "$R_CURRENT"
-    snapshot_finish() {
-        test -s "$1/boot.plan" || exit 1
-        kill -KILL "$$"
-        exit 1
-    }
+
 fi
 transaction_reconcile
 """
+        (fixture.root / "cut-seal").touch()
         cut = subprocess.run(
             ["sh", "-c", driver, "cut", fixture.data, fixture.package, "cut"],
             env=fixture.env,
@@ -393,6 +462,7 @@ transaction_reconcile
         self.assertEqual(fixture.record()[1], "set")
         self.assertEqual(fixture.record()[5], before)
         self.assertFalse((fixture.data / "snapshots" / before / "boot.plan").exists())
+        (fixture.root / "cut-seal").unlink()
         recovered = subprocess.run(
             ["sh", "-c", driver, "resume", fixture.data, fixture.package, "resume"],
             env=fixture.env,
@@ -416,10 +486,11 @@ D=$1; P=$2; AUTOSTART=$D-target
 . "$P/access.sh"
 . "$P/transaction.sh"
 record_read; snapshot_read "$R_CURRENT"
-after=$(snapshot_create "$AUTOSTART" "$R_BACKEND" "$S_TOUCH" "$S_WARNING" "$S_NVRAM" "$S_META" /dev/null - "$S_PANDORA" "$S_BASE" "$S_WIRELESS")
+after=$(fixture_snapshot "$AUTOSTART" "$R_BACKEND" "$S_TOUCH" "$S_WARNING" "$S_NVRAM" "$S_META" /dev/null - "$S_PANDORA" "$S_BASE" "$S_WIRELESS")
 transaction_prepare set "$R_CURRENT" "$after"
 transaction_reconcile
 """
+        driver = (ROOT / "tests/fixtures/installer-snapshots.sh").read_text() + driver
         result = subprocess.run(
             ["sh", "-c", driver, "invalid", fixture.data, fixture.package],
             env=fixture.env,
@@ -446,7 +517,7 @@ transaction_reconcile
         fixture.populated_dependencies()
         fixture.shell(
             'record_read; snapshot_read "$R_CURRENT"; '
-            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 0 disable "$S_META" '
+            'R_CURRENT=$(fixture_snapshot "$D-target" "$R_BACKEND" 1 0 disable "$S_META" '
             '"$D/snapshots/$R_CURRENT/dependencies" - 0 0 0); record_write'
         )
         before = (fixture.data / "record").read_bytes()

@@ -9,8 +9,33 @@ var OpenConnectSettings = (function () {
     ];
     var own = Object.prototype.hasOwnProperty;
 
+    function validServices(rows) {
+        if (rows === undefined) { return true; }
+        if (!Array.isArray(rows) || rows.length < 1 || rows.length > 16) { return false; }
+        var previous = "";
+        return rows.every(function (row) {
+            if (!row || !/^[a-z][a-z0-9-]{0,31}$/.test(row.id) || row.id <= previous ||
+                    /^(touch|warning|base|wireless|uart|ssh)$/.test(row.id) ||
+                    (row.saved !== 0 && row.saved !== 1) ||
+                    (row.current !== null && row.current !== 0 && row.current !== 1)) { return false; }
+            previous = row.id;
+            return ["label", "enable", "disable"].every(function (key) {
+                return typeof row[key] === "string" && row[key].length > 0 &&
+                    row[key].length <= (key === "label" ? 64 : 256) && !/[\x00-\x1f\x7f]/.test(row[key]);
+            });
+        });
+    }
+    function service(values, key) {
+        var rows = values && values.services, i;
+        for (i = 0; rows && i < rows.length; i++) { if (rows[i].id === key) { return rows[i]; } }
+        return null;
+    }
+    function preference(values, key) {
+        var row = service(values, key);
+        return row ? row.saved : values[key];
+    }
     function valid(values) {
-        return values && (values.touch === 0 || values.touch === 1) &&
+        return values && validServices(values.services) && (values.touch === 0 || values.touch === 1) &&
             (values.warning === 0 || values.warning === 1) &&
             (values.pandora === undefined || values.pandora === 0 || values.pandora === 1) &&
             (values.base === undefined || values.base === 0 || values.base === 1) &&
@@ -58,13 +83,19 @@ var OpenConnectSettings = (function () {
                 wirelessFactory: saved.wirelessFactory, restart: saved.restart},
                 keys = ["touch", "warning", "uart", "ssh", "pandora", "base", "wireless"];
             keys.forEach(function (key) { values[key] = own.call(wanted, key) ? wanted[key] : saved[key]; });
+            if (saved.services) {
+                values.services = saved.services.map(function (row) {
+                    return {id: row.id, label: row.label, saved: own.call(wanted, row.id) ? wanted[row.id] : row.saved,
+                        current: row.current, enable: row.enable, disable: row.disable};
+                });
+            }
             return values;
         };
         function flush() {
             var keys = Object.keys(wanted);
             if (busy || !keys.length) { return; }
             var key = keys[0], requested = wanted[key];
-            if (saved[key] === requested) {
+            if (preference(saved, key) === requested) {
                 delete wanted[key]; flush();
                 if (prefs.changed) { prefs.changed(false); }
                 return;
@@ -79,7 +110,7 @@ var OpenConnectSettings = (function () {
                 // once before reporting it. Never resend the same request.
                 if (!valid(actual)) { actual = read(); }
                 if (valid(actual)) { saved = actual; }
-                var failed = !valid(actual) || (actual[key] !== requested && wanted[key] === requested);
+                var failed = !valid(actual) || (preference(actual, key) !== requested && wanted[key] === requested);
                 if (failed) {
                     delete wanted[key];
                     prefs.failure = key;
@@ -88,7 +119,7 @@ var OpenConnectSettings = (function () {
                 flush();
                 if (!failed && prefs.changed) { prefs.changed(false); }
             }
-            try { store.write(key, saved[key], requested, finish); }
+            try { store.write(key, preference(saved, key), requested, finish); }
             catch (error) { finish(null); }
         }
         prefs.pending = function () { return busy || Object.keys(wanted).length > 0; };
@@ -159,7 +190,7 @@ var OpenConnectSettings = (function () {
                         itemStyle: "styleOnOff", value: values.wirelessFactory || values.wireless ? 1 : 2,
                         disabled: values.wirelessFactory === true, hasCaret: false, appData: "wireless"});
                 }
-                if (values.pandora !== undefined || values.base !== undefined) {
+                if (values.services || values.pandora !== undefined || values.base !== undefined) {
                     rows.push({text1: "Services", itemStyle: "style01", hasCaret: true, appData: "services"});
                 }
                 if (values.developer) {
@@ -177,7 +208,14 @@ var OpenConnectSettings = (function () {
                     rows.push({text1: "Base optimizations", itemStyle: "styleOnOff", value: values.base ? 1 : 2,
                         hasCaret: false, appData: "base"});
                 }
-                if (values.pandora !== undefined) {
+                if (values.services) {
+                    values.services.forEach(function (serviceRow) {
+                        rows.push({text1: serviceRow.label + (serviceRow.current === null ? " (startup unknown)" :
+                            serviceRow.current !== serviceRow.saved ? " (restart needed)" : ""),
+                            itemStyle: "styleOnOff", value: serviceRow.saved ? 1 : 2,
+                            hasCaret: false, appData: serviceRow.id});
+                    });
+                } else if (values.pandora !== undefined) {
                     rows.push({text1: "Pandora", itemStyle: "styleOnOff", value: values.pandora ? 1 : 2,
                         hasCaret: false, appData: "pandora"});
                 }
@@ -236,19 +274,28 @@ var OpenConnectSettings = (function () {
                 return;
             }
             if (choice === "services") {
-                if ((item !== "pandora" && item !== "base") || !params ||
-                        (params.additionalData !== 1 && params.additionalData !== 2)) { return; }
+                if (!params || (params.additionalData !== 1 && params.additionalData !== 2)) { return; }
                 var enabled = params.additionalData === 1, desired = enabled ? 1 : 0;
                 var currentValues = prefs.values();
                 if (!currentValues) { render("unknown", 0); return; }
-                if (currentValues[item] === undefined || currentValues[item] === desired) { return; }
-                var serviceLabel = item === "base" ? "Base optimizations" : "Pandora";
+                var serviceRow = service(currentValues, item);
+                if (item !== "base" && !serviceRow && !(item === "pandora" && !currentValues.services)) { return; }
+                if (preference(currentValues, item) === undefined || preference(currentValues, item) === desired) { return; }
+                var serviceLabel = item === "base" ? "Base optimizations" : serviceRow ? serviceRow.label : "Pandora";
                 var serviceText = item === "base" ? (enabled ?
-                    "Reduces native diagnostic logging. Changes apply after restarting Mazda Connect." :
-                    "Restores original native logging after restarting Mazda Connect.") :
-                    (enabled ? "Changes apply after restarting Mazda Connect." :
-                    "Stops Mazda's built-in Pandora integration. Changes apply after restarting Mazda Connect.");
+                    (currentValues.services ? "Reduces native diagnostic logging and stops unused DAB, TV and Stitcher services." :
+                        "Reduces native diagnostic logging.") + " Changes apply after restarting Mazda Connect." :
+                    (currentValues.services ? "Restores original native logging, DAB, TV and Stitcher services after restarting Mazda Connect." :
+                        "Restores original native logging after restarting Mazda Connect.")) :
+                    serviceRow ? (enabled ? serviceRow.enable : serviceRow.disable) :
+                    "Changes apply after restarting Mazda Connect.";
                 var serviceFocus = item === "base" || currentValues.base === undefined ? 0 : 1;
+                if (serviceRow) {
+                    currentValues.services.some(function (row, index) {
+                        if (row.id !== item) { return false; }
+                        serviceFocus += index; return true;
+                    });
+                }
                 dismiss = OpenConnectInstaller.message(fw, (enabled ? "Enable " : "Disable ") + serviceLabel + "?",
                     serviceText,
                     {button1: {label: "Cancel", appData: "cancel"},

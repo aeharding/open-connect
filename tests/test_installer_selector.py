@@ -159,11 +159,12 @@ class SelectorTransaction(unittest.TestCase):
 
     def setUp(self):
         SelectorPublication.setUp(self)
-        from tests.test_installer_transaction import DRIVER
+        from tests.test_installer_transaction import DRIVER, fixture_package
 
         self.data = self.root / "state"
         self.data.mkdir(mode=0o700)
         (self.data / "snapshots").mkdir(mode=0o700)
+        fixture_package(self.data, self.tools, b"verified selector\n")
         firmware = self.firmware.read_text().replace("selector_apply()", "actual_selector_apply()")
         self.firmware.write_text(firmware)
         driver = (
@@ -186,16 +187,13 @@ class SelectorTransaction(unittest.TestCase):
                 ' printf "hook:%s\\n" "$(cat "$1")" >> "$D-order"\n',
             )
             .replace(
-                "R_BASE=$(state_capture - 0 0)",
+                'R_BASE=$(state_capture - - "")',
                 'mkdir "$D/resources"\n'
                 'selector_capture "$D/resources" || exit 1\n'
-                'R_BASE=$(state_capture - 0 0 "$D/resources")',
+                'R_BASE=$(state_capture - "$D/resources" "")',
             )
             .replace(
                 "service_choice=1; base_choice=0; wireless_choice=0",
-                'mkdir -p "$D/packages/$package"\n'
-                'printf "verified selector\\n" > "$D/packages/$package/boot-select"\n'
-                'chmod 700 "$D/packages/$package/boot-select"\n'
                 'digest=$(sha "$D/packages/$package/boot-select")\n'
                 "# The fixture supplies its known package, independent of selector_compose.\n"
                 'printf "%s|700:%s:%s|%s\\n" "$digest" "$(id -u)" "$(id -g)" "$package" > "$D/resources/selector"\n'

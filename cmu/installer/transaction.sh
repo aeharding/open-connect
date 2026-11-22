@@ -141,10 +141,12 @@ targets_match_loaded() {
 
 state_capture() (
     set -eu
+    # Package, preserved access resources, one preferences payload.
+    test "$#" = 3 || fail invalid_checkpoint
     local deps result
     deps=$(mktemp "$D/.dependencies-XXXXXX") || fail checkpoint_create_failed
     dependencies_capture "$1" > "$deps" || fail checkpoint_dependencies_failed
-    result=$(snapshot_create "$AUTOSTART" "$1" "$2" "$3" "$(nvram_read)" "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$deps" "${4:--}" "${5--}" "${6--}" "${7--}") || fail checkpoint_failed
+    result=$(snapshot_create "$AUTOSTART" "$1" "$(nvram_read)" "$(stat -c '%a:%u:%g' "$AUTOSTART")" "$deps" "$2" "$3") || fail checkpoint_failed
     rm "$deps"
     printf '%s\n' "$result"
 )

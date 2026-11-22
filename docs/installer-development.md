@@ -149,7 +149,65 @@ after successful uninstall. The original USB is not required.
 Arbitrary old-package compatibility, including cross-firmware maintenance, is
 not supported. Unknown edits are preserved even if restoration has partly completed.
 
+## Services data and composition
+
+The dev.10 payload stores active preferences as bounded, sorted `OC2` key/value
+text inside the existing immutable snapshot. `record` remains the only durable
+transaction authority; the six-field API and `OCBP1` boot-plan format are unchanged.
+The packaged `services.tsv` owns optional service IDs, defaults, labels,
+confirmations and exact SM members. `preferences.awk` validates those keys;
+`sm-profile.awk` is the single composer for both boards, wireless arguments,
+service choices, qualified Base leaves and the Settings worker.
+
+Both profiles are rendered before preparing a transaction. A missing or repeated
+claimed member therefore refuses the change while the prior state and Uninstall
+remain usable. Sealing later attests those rendered bytes after physical targets
+match. Maintenance validates the canonical `service-ids` list against that catalog.
+The native selector validates choices against this list in the already
+authenticated config, avoiding a separate catalog read before Service Manager.
+The existing OCBP1 package row still guards the catalog metadata.
+
+Maintenance supports the actual dev.9 predecessor: its stock baseline and
+Uninstall output have five fields with package `-`; its active policy has eight.
+A newer client executes the verified target package's serializer and renderer for
+Set/import/recovery. Upgrade first emits `OC2` in its after-snapshot, retaining
+the original baseline and access/selector journals. Older five-, six- and
+seven-field active installs and arbitrary downgrades are outside this scope.
+The frozen original dev.9 test inputs exercise that handoff without requiring
+Git history at test time. Native selection tests use its actual stock writer and
+check a single durable debit, rather than treating plan validation as selection.
+
 ## Qualification
+
+The **0.3.0-dev.10** Services candidate from
+[CI 45016577830](https://github.com/aeharding/open-connect/actions/runs/45016577830),
+source `0b5a4af74cdf8ab15014b3d6de63671fc4808666`, has live Settings and restoration
+checks. The actual upgrade path was dev.9 → dev.10 `8a4a22be` → dev.10 `0b5a4af7`:
+the first upgrade retained the choices and five-field stock baseline and emitted
+canonical active preferences; the later reviewed update qualified completion,
+Open settings and the corrected save path. Android Auto and
+Pandora were each disabled through Settings, applied after restart, then restored;
+the other integration remained running. Cancellation preserved the record and
+Settings re-entry retained the saved choice. Base on stopped exactly the four
+named DAB/TV/Stitcher members; Base off restored them. The original voice delay
+was retained. [The complete-preset comparison](services-comparison.md) records
+all timing attempts and their limits.
+
+Independent dev.10 maintenance was then prepared by extracting the exact CI ZIP
+again onto the existing SD, preserving the previous contents. The manually
+launched maintenance UI selected **Uninstall** once. Its new stock kernel restored
+the exact OEM hashes/modes, original startup and absent touchscreen NVRAM key;
+the original UIA/MMUI libraries, SM configuration and Opera entry were loaded.
+The boot helper, installed package/snapshot/record directory and product RAM
+runtime were absent. DAB, TV, both Stitcher services, both Android Auto members
+and Pandora were running. Physical root was read-only. The original five-field
+baseline identity was retained until restoration; existing bench SSH and startup
+instrumentation were preserved. This is as-found restoration, not a factory reset
+or another physical USB-insertion qualification. Private supporting records are
+`runs/services-pilots-20261122/independent-dev10-` preparation/prompt/camera and
+`independent-dev10-verify-stock.out`. Physical-input/audio, Android-phone and
+first-car checks remain open.
+
 
 The **0.3.0-dev.8** bundle from
 [CI 44942234519](https://github.com/aeharding/open-connect/actions/runs/44942234519),

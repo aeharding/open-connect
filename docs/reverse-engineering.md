@@ -804,7 +804,6 @@ from timings. Supporting records are `startup-mechanism-result.json` and
 `fresh-process-mechanism.json` under private `runs/logging-prefilter-20261121/`.
 OEM inputs, compiled OEM dependencies and raw process reads remain private.
 
-
 The installed dev.7 candidate publishes the Warn file only for a selected Base-on
 boot, after ordinary feature preparation. It checks the exact physical Info file
 and common library first. Base off skips publication; exhausted-budget fallback
@@ -931,3 +930,68 @@ allowance across retries. The transaction request deadline and rule against
 retrying writes are unchanged. Supporting records are private
 `fixed-status-latency.out`, `native-status-request.out` and the completion video
 under the same run directory. This setup observation is not a primary timing run.
+
+## SM service choices and composition on v74
+
+Both exact normal/WCP profiles declare Android Auto's `aap_service` and `jciAAPA`
+as separate startup services. The bounded Android Auto pilot suppressed only
+their `autorun` attributes, then independently restored both processes with the
+reviewed control bundle. Android-phone and audio behavior remain unqualified.
+DAB, TV and the two Stitcher leaves are a separate
+[RAM candidate](service-pilots.md#four-discontinued-or-non-na-services).
+The voice-delay experiment moved a resource burst and phone/voice lifecycle
+readiness later without a projection/RAM gain; its original delay is retained.
+
+The dev.10 source consolidates service selection, wireless argument changes and
+the Settings worker in one composer over verified frontend templates. The
+32-case exact-original matrix covers both boards and every Base, Wireless,
+Android Auto and Pandora combination. With Base off and Android Auto on, all
+eight outputs match the dev.9 composer byte for byte. Per-member checks reject
+missing/duplicate stanzas and existing worker/edge claims. Both boards render
+before transaction preparation, so a deterministic profile conflict does not
+strand recovery or block Uninstall. These are source/host checks, distinct from
+the pilot observations and installed lifecycle evidence.
+
+Dev.9 writes five-field stock baseline/Uninstall snapshots and eight-field
+active snapshots. Newer maintenance must retain the baseline identity and use
+the verified target package's writer and renderer for pending old work. Merely
+rebinding a package path leaves the newer shell functions in memory and is
+insufficient. The new active preferences are bounded named data inside the same
+snapshot and `OCBP1` plan, with the existing record as transaction authority;
+see [the data contract](installer-development.md#services-data-and-composition).
+
+The v74 BusyBox AWK parser treats `value (conditional)` as a function call,
+including when whitespace separates the tokens. Host AWK accepted that
+concatenation. The initial dev.10 maintenance attempt on `be66b573` refused before
+prepare, leaving the exact dev.9 record, selected snapshot and baseline unchanged.
+Constructing these strings in explicit steps passed a RAM-only target matrix:
+all 32 profile hashes matched the exact-original host outputs, Services JSON
+parsed, and malformed bit/key-set/UID cases refused. The maintained preferences
+and composition suite also runs through BusyBox when available. This was an
+installer compatibility failure, not a primary startup timing attempt.
+
+The subsequent `8a4a22be` upgrade retained the stock baseline and selected the
+dev.10 policy, but its first Android Auto save returned `plan_failed` before
+prepare. The browser sent the correct request. In the full target backend,
+`preferences_package`'s final `printf` returned 1 when redirected to `/dev/null`;
+the isolated writer had succeeded. The writer now captures one `package_programs`
+result that verifies the full manifest and every required interpreter/composer
+member before executing target code. A guarded target preparation with that
+change succeeded without changing the record or activating the new snapshot.
+
+The exact `0b5a4af7` CI bundle then passed the actual Settings saves and restarts:
+Android Auto off left Pandora running; Pandora off left both Android Auto members
+running; restoring each and switching Base verified the four Base member states.
+The existing stock-five baseline remained unchanged through the upgrade and saves.
+This is live lifecycle evidence, separate from Android-phone/audio qualification.
+Private supporting records are `runs/services-pilots-20261122/verify-reviewed-dev10.out`,
+`verify-reviewed-aa-restart.out`, `verify-reviewed-pandora-restart.out` and `verify-base-off-setup.out` /
+`verify-base-on-setup.out`. See the [complete-preset measurements](services-comparison.md).
+
+A fresh extraction of that exact CI payload, manually launched from the same SD,
+then passed independent UI Uninstall. The new kernel loaded the original UIA/MMUI,
+SM and Opera paths; all seven checked Base/Android Auto/Pandora members were
+running. The exact original hashes/modes, absent original touchscreen key,
+read-only physical root and removal of installed product state/helper/runtime
+were verified. Existing lab access and the independent startup observer remained.
+Supporting private record: `runs/services-pilots-20261122/independent-dev10-verify-stock.out`.

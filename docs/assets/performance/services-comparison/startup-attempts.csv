@@ -1,0 +1,5 @@
+condition,run,host_revision,observer_outcome,resource_trace_present,resource_postflight_verified,camera_verified,uart_boot_markers,kernel_boot_banners
+wireless-base-off,1,95f1eae00007e59fe5700a2ef08fd8107aa15bde,observed,True,True,True,1,1
+wireless-base-off,2,95f1eae00007e59fe5700a2ef08fd8107aa15bde,observed,True,True,True,1,1
+wireless-base-on,1,95f1eae00007e59fe5700a2ef08fd8107aa15bde,observed,True,True,True,1,1
+wireless-base-on,2,95f1eae00007e59fe5700a2ef08fd8107aa15bde,observed,True,True,True,1,1

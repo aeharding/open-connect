@@ -18,7 +18,8 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | `firmware.sh`, `mmui.S`, `intro.js`, `system-route.js` | Exact v74 guards and composition from this unit's saved originals |
 | `startup-hook.sh`, `boot.sh`, `ignition.sh` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
 | `boot-select.c`, `boot-*.h` | Seal verified boot inputs during maintenance and select an unchanged snapshot natively |
-| `wireless.sh`, `wireless-sm.awk`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step and narrow native wireless service arguments |
+| `services.tsv`, `preferences.awk`, `sm-profile.awk` | Built-in Services catalog, canonical preferences and one RAM Service Manager composer |
+| `wireless.sh`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step and narrow native wireless service arguments |
 
 The browser sends `POST /control` to `127.0.0.1:35555`, with `Content-Type:
 text/plain` and body `token|revision|operation|arg0|arg1|arg2`. Missing arguments

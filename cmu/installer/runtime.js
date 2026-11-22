@@ -15,8 +15,24 @@ var OpenConnect = (function (previous) {
     var timer = null, dialog = null, detach = null, app = null, usb = false;
     var nodes = [], queued = null, completionShown = false, ready = false, usbRequest = 0;
     var installer, settings, loading = null;
+    function validServices(rows) {
+        if (rows === undefined) { return true; }
+        if (!Array.isArray(rows) || rows.length < 1 || rows.length > 16) { return false; }
+        var previous = "";
+        return rows.every(function (row) {
+            if (!row || !/^[a-z][a-z0-9-]{0,31}$/.test(row.id) || row.id <= previous ||
+                    /^(touch|warning|base|wireless|uart|ssh)$/.test(row.id) ||
+                    (row.saved !== 0 && row.saved !== 1) ||
+                    (row.current !== null && row.current !== 0 && row.current !== 1)) { return false; }
+            previous = row.id;
+            return ["label", "enable", "disable"].every(function (key) {
+                return typeof row[key] === "string" && row[key].length > 0 &&
+                    row[key].length <= (key === "label" ? 64 : 256) && !/[\x00-\x1f\x7f]/.test(row[key]);
+            });
+        });
+    }
     function values() {
-        return state && state.installed ? {touch: state.touch, warning: state.warning, pandora: state.pandora,
+        return state && state.installed ? {services: state.services, touch: state.touch, warning: state.warning, pandora: state.pandora,
             base: state.base, wireless: state.wireless, wirelessCurrent: state.wirelessCurrent,
             wirelessFactory: state.wirelessFactory === true,
             developer: state.developer === true, uart: state.uart || 0, ssh: state.ssh || 0,
@@ -24,7 +40,7 @@ var OpenConnect = (function (previous) {
             uartCurrent: state.uartCurrent || 0, sshCurrent: state.sshCurrent || 0} : null;
     }
     function valid(s) {
-        return s && s.ok === true && /^(?:-|[a-f0-9]{32}|[a-f0-9]{64})$/.test(s.revision) &&
+        return s && s.ok === true && validServices(s.services) && /^(?:-|[a-f0-9]{32}|[a-f0-9]{64})$/.test(s.revision) &&
             typeof s.installed === "boolean" && typeof s.retained === "boolean" &&
             typeof s.restart === "boolean" && typeof s.conflict === "boolean" && typeof s.pending === "boolean" &&
             (s.touch === 0 || s.touch === 1) && (s.warning === 0 || s.warning === 1) &&

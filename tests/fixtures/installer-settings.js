@@ -303,6 +303,7 @@ const beforeBase = writes.length;
 baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 1});
 assert.equal(modal.props.title, "Enable Base optimizations?");
 assert.match(modal.props.text1, /native diagnostic logging/);
+assert.doesNotMatch(modal.props.text1, /DAB|TV|Stitcher/);
 assert.match(modal.props.text1, /after restarting/);
 modal.props.defaultSelectCallback(modal, "cancel"); idle();
 assert.equal(writes.length, beforeBase);
@@ -319,6 +320,7 @@ baseCtrl = pages.at(-1).ctrl;
 baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 2});
 assert.equal(modal.props.title, "Disable Base optimizations?");
 assert.match(modal.props.text1, /Restores original native logging/);
+assert.doesNotMatch(modal.props.text1, /DAB|TV|Stitcher/);
 modal.props.defaultSelectCallback(modal, "apply"); idle();
 assert.deepEqual(writes.at(-1), ["base", 1, 0]);
 values = {...values, base: 0}; reply(values);
@@ -429,3 +431,44 @@ freshReply(true);
 assert.equal(pages.length, beforeDeferred);
 fw._currTmpltInstance = selectedTemplate;
 deferredDetach(); delete store.refresh;
+
+// Current catalog rows carry their own saved bit through the real write queue.
+values = {...values, base: 0, services: [
+    {id: "android-auto", label: "Android Auto", saved: 1, current: 1,
+        enable: "Android Auto will load after restart.", disable: "Android Auto will stop after restart."},
+    {id: "pandora", label: "Pandora", saved: 0, current: null,
+        enable: "Pandora will load after restart.", disable: "Pandora will stop after restart."}
+]};
+settings.open(fw, store);
+let catalogMain = pages.at(-1).ctrl;
+catalogMain.selectCallback(catalogMain, "services");
+let catalogCtrl = pages.at(-1).ctrl;
+assert.deepEqual(Array.from(catalogCtrl.dataList.items, row => row.appData), ["base", "android-auto", "pandora"]);
+assert.match(catalogCtrl.dataList.items[2].text1, /startup unknown/);
+const beforeCatalog = writes.length;
+catalogCtrl.selectCallback(catalogCtrl, "android-auto", {additionalData: 2});
+assert.equal(modal.props.title, "Disable Android Auto?");
+assert.match(modal.props.text1, /Android Auto will stop/);
+modal.props.defaultSelectCallback(modal, "cancel"); idle();
+assert.equal(writes.length, beforeCatalog);
+assert.equal(pages.at(-1).ctrl.focussedItem, 1);
+catalogCtrl = pages.at(-1).ctrl;
+catalogCtrl.selectCallback(catalogCtrl, "android-auto", {additionalData: 2});
+modal.props.defaultSelectCallback(modal, "apply"); idle();
+assert.deepEqual(writes.at(-1), ["android-auto", 1, 0]);
+// State commits even when the response is lost; no duplicate request.
+values = {...values, services: values.services.map(row => row.id === "android-auto" ? {...row, saved: 0} : row)};
+reply(null); idle();
+assert.equal(writes.length, beforeCatalog + 1);
+assert.equal(pages.at(-1).ctrl.dataList.items[1].value, 2);
+assert.match(pages.at(-1).ctrl.dataList.items[1].text1, /restart needed/);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].value, 2);
+back(); back();
+assert.equal(settings.open(fw, {read: () => ({...values, services: [...values.services, values.services[0]]})}), false);
+
+// Current catalog-backed Base includes qualified leaves, unlike dev.9 scalar status.
+settings.open(fw, store);
+let newBaseMain = pages.at(-1).ctrl; newBaseMain.selectCallback(newBaseMain, "services");
+let newBaseCtrl = pages.at(-1).ctrl; newBaseCtrl.selectCallback(newBaseCtrl, "base", {additionalData: 1});
+assert.match(modal.props.text1, /DAB, TV and Stitcher/);
+modal.props.defaultSelectCallback(modal, "cancel"); back(); back();

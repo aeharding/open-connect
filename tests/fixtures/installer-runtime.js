@@ -351,3 +351,12 @@ f = fixture(null, true);
 f.ctx.OpenConnect.start(token, true);
 assert.deepEqual(f.loads, ["file:///tmp/open-connect/sessions/session-test/dialog.js",
     "file:///tmp/open-connect/sessions/session-test/settings.js"]);
+
+// Catalog data survives transport and supplies the expected bit to writes.
+f = fixture(); f.ctx.OpenConnect.start(token, false);
+const serviceRows = [{id: "android-auto", label: "Android Auto", saved: 1, current: null,
+    enable: "Load after restart.", disable: "Stop after restart."}];
+f.reply(f.requests[0], f.state({installed: true, services: serviceRows})); f.tick();
+assert.equal(f.store.read().services[0].current, null);
+f.store.write("android-auto", 1, 0, () => {});
+assert.equal(f.requests.at(-1).body, token + "|" + revision + "|set|android-auto|1|0");

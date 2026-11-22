@@ -65,7 +65,13 @@ class InstallerBoot(unittest.TestCase):
         (self.source / "state.sh").write_text(state)
         shutil.copyfile(ASSETS / "transaction.sh", self.source / "transaction.sh")
         shutil.copyfile(ASSETS / "access.sh", self.source / "access.sh")
-        for name in ("wireless-sm.awk", "wireless-device.awk", "wireless.sh"):
+        for name in (
+            "preferences.awk",
+            "services.tsv",
+            "sm-profile.awk",
+            "wireless-device.awk",
+            "wireless.sh",
+        ):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.manager = self.root / "manager.so"
         self.manager.write_bytes(b"synthetic pinned manager library\n")
@@ -174,17 +180,17 @@ startup_publish() {
             "index-off.html",
         ):
             (composed / name).write_text("synthetic feature @TOKEN@\n")
-        for profile in ("normal", "wcp"):
-            for setting in ("on", "off"):
-                (composed / f"sm-{profile}-{setting}.conf").write_text(f"{profile} {setting}\n")
+        self.write_profiles()
+        self.composed_manifest()
         self.env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
         self.shell(r"""
 printf 'stock\n' > "$D/stock"; chmod 755 "$D/stock"
-R_BASE=$(snapshot_create "$D/stock" - 0 0 absent "755:$(id -u):$(id -g)")
+R_BASE=$(fixture_snapshot "$D/stock" - 0 0 absent "755:$(id -u):$(id -g)")
 printf 'installed\n' > "$D-target"; chmod 755 "$D-target"
 cp "$D-target" "$D/composed/$R_BACKEND/autostart"
+(cd "$D/composed/$R_BACKEND"; for f in *; do test "$f" = files.sha256 || printf '%s  %s\n' "$(sha "$f")" "$f"; done) > "$D/composed/$R_BACKEND/files.sha256"
 printf 'disable\n' > "$D-nvram"
-R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "755:$(id -u):$(id -g)")
+R_CURRENT=$(fixture_snapshot "$D-target" "$R_BACKEND" 1 1 disable "755:$(id -u):$(id -g)")
 R_PHASE=active; R_BEFORE=-; R_AFTER=-; R_UNDO=-; R_BUDGET=3; R_OFF=-; R_BOOT=-; R_NOTICE=installed
 record_write
 """)
@@ -205,7 +211,9 @@ record_write
             [
                 "sh",
                 "-c",
-                'set -eu; umask 077; D=$1; P=$2; R_BACKEND=$3; . "$P/state.sh"\n' + script,
+                'set -eu; umask 077; D=$1; P=$2; R_BACKEND=$3; . "$P/state.sh"; . "$P/firmware.sh"\n'
+                + (ROOT / "tests/fixtures/installer-snapshots.sh").read_text()
+                + script,
                 "test",
                 self.data,
                 self.package,
@@ -239,7 +247,7 @@ record_write
             '. "$P/firmware.sh"; record_read; snapshot_read "$R_CURRENT"; '
             'deps=$(mktemp "$D/.deps-XXXXXX"); dependencies_capture "$R_BACKEND" > "$deps"; '
             + change
-            + 'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" "$S_TOUCH" "$S_WARNING" '
+            + 'R_CURRENT=$(fixture_snapshot "$D-target" "$R_BACKEND" "$S_TOUCH" "$S_WARNING" '
             '"$S_NVRAM" "$S_META" "$deps" - "$S_PANDORA" "$S_BASE" "$S_WIRELESS"); '
             'rm "$deps"; record_write'
         )
@@ -384,7 +392,7 @@ record_write
     def test_active_matching_snapshot_cannot_omit_all_dependencies(self):
         self.shell(
             'record_read; snapshot_read "$R_CURRENT"; '
-            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable '
+            'R_CURRENT=$(fixture_snapshot "$D-target" "$R_BACKEND" 1 1 disable '
             '"$S_META" /dev/null - 1 0 0); record_write'
         )
         result = self.boot(1)
@@ -507,72 +515,6 @@ record_write
             self.assertEqual(list(selected.iterdir()), [])
             self.assertFalse((self.root / "common/log/settings.txt").exists())
 
-    def test_new_hook_dispatches_verified_standalone_backend_for_pending_rollback(self):
-        try:
-            old_boot = subprocess.check_output(
-                ["git", "show", "764d76e0:cmu/installer/boot.sh"],
-                cwd=ROOT,
-                text=True,
-                stderr=subprocess.DEVNULL,
-            )
-        except subprocess.CalledProcessError:
-            self.skipTest("pinned dev.8 Git history required for rollback fixture")
-        folder = self.root / "legacy"
-        shutil.copytree(self.package, folder)
-        for old, new in {
-            "/tmp/mnt/data_persist/open-connect": str(self.data),
-            "/tmp/open-connect": str(self.runtime),
-            "/usr/bin/autostart": str(self.root / "data-target"),
-            "/proc/sys/kernel/random/boot_id": str(self.root / "boot-id"),
-            "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
-        }.items():
-            old_boot = old_boot.replace(old, new)
-        (folder / "boot.sh").write_text(old_boot)
-        (folder / "service.sh").write_text(
-            "printf '%s\\n' " + shlex.quote(str(self.runtime)) + "\n"
-        )
-        manifest = "".join(
-            hashlib.sha256(f.read_bytes()).hexdigest() + "  " + f.name + "\n"
-            for f in sorted(folder.iterdir())
-            if f.name != "files.sha256"
-        )
-        (folder / "files.sha256").write_text(manifest)
-        legacy_id = hashlib.sha256(manifest.encode()).hexdigest()
-        folder.rename(self.data / "packages" / legacy_id)
-        composed = self.data / "composed" / legacy_id
-        shutil.copytree(self.data / "composed" / self.package_id, composed)
-        (composed / "autostart").write_text("legacy restored\n")
-        self.composed_manifest(legacy_id)
-        self.shell(
-            '. "$P/firmware.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
-            "record_read; before=$R_CURRENT; "
-            'after=$(snapshot_create "$D/composed/'
-            + legacy_id
-            + '/autostart" '
-            + legacy_id
-            + ' 1 1 disable "755:$(id -u):$(id -g)" /dev/null - 1 0 0); '
-            "R_BACKEND=" + legacy_id + '; transaction_prepare install "$before" "$after"'
-        )
-        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
-        original_mounts = (self.root / "mounts").read_text()
-        before = (self.data / "record").read_bytes()
-        for mounts in (
-            original_mounts + f"tmpfs {self.data} tmpfs rw 0 0\n",
-            original_mounts.replace("ro,noatime", "rw,noatime"),
-        ):
-            (self.root / "mounts").write_text(mounts)
-            refused = self.hook()
-            self.assertIn("CONFIG|stock", refused.stdout)
-            self.assertEqual((self.data / "record").read_bytes(), before)
-        (self.root / "mounts").write_text(original_mounts)
-        result = self.hook()
-        self.assertIn(
-            "CONFIG|" + str(self.runtime / "feature/sm.conf"), result.stdout, result.stderr
-        )
-        self.assertEqual(self.record()[1], "active")
-        self.assertEqual(self.record()[3], legacy_id)
-        self.assertEqual((self.root / "data-target").read_text(), "legacy restored\n")
-
     def record(self):
         return (self.data / "record").read_text().strip().split("|")
 
@@ -581,19 +523,24 @@ record_write
             with self.subTest(warning=warning):
                 self.shell(
                     'record_read; snapshot_read "$R_CURRENT"; '
-                    'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 '
+                    'R_CURRENT=$(fixture_snapshot "$D-target" "$R_BACKEND" 1 '
                     + str(warning)
                     + ' disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT"); record_write'
                 )
                 result = self.boot(number)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                setting = "on" if warning else "off"
                 for profile, name in (("normal", "sm.conf"), ("wcp", "sm_WCP.conf")):
+                    selected = (
+                        self.data
+                        / "snapshots"
+                        / self.record()[5]
+                        / ("sm-normal.conf" if profile == "normal" else "sm-wcp.conf")
+                    )
                     self.assertEqual(
-                        (self.runtime / "feature" / name).read_text(), f"{profile} {setting}\n"
+                        (self.runtime / "feature" / name).read_bytes(), selected.read_bytes()
                     )
 
-    def select_wireless(self, value, *, base=0):
+    def write_profiles(self):
         for profile in ("normal", "wcp"):
             args = {
                 "jciMMUI": "mouse=filtered-mouse0, keyboard=filtered-keyboard0, display=filtered-touchscreen0",
@@ -607,6 +554,13 @@ record_write
             lines = ["<services>"]
             for name in (
                 "stage_1",
+                "jciVBS",
+                "aap_service",
+                "jciAAPA",
+                "jciDAB",
+                "jcitv",
+                "blm_ira_stitcher",
+                "irsstitcher_server",
                 "jciMMUI",
                 "start_network",
                 "bds",
@@ -637,9 +591,12 @@ record_write
             for setting in ("on", "off"):
                 path = self.data / "composed" / self.package_id / f"sm-{profile}-{setting}.conf"
                 path.write_text("\n".join(lines) + "\n")
+
+    def select_wireless(self, value, *, base=0):
+        self.write_profiles()
         self.shell(
             'record_read; snapshot_read "$R_CURRENT"; '
-            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - 1 '
+            'R_CURRENT=$(fixture_snapshot "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - 1 '
             + str(base)
             + " "
             + str(value)
@@ -698,7 +655,7 @@ record_write
     def select_base(self, value):
         self.shell(
             'record_read; snapshot_read "$R_CURRENT"; '
-            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - 1 '
+            'R_CURRENT=$(fixture_snapshot "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - 1 '
             + str(value)
             + "); record_write"
         )
@@ -735,39 +692,56 @@ record_write
 
     def test_service_policy_selects_both_ram_profiles_and_survives_fallback(self):
         composed = self.data / "composed" / self.package_id
-        original = '<service name="peer" autorun="yes" />\n<service name="blm_ira_pandora" autorun="yes" />\n'
-        for profile in ("normal", "wcp"):
-            (composed / f"sm-{profile}-on.conf").write_text(original)
-        self.populated_dependencies()
+        originals = {
+            profile: (composed / f"sm-{profile}-on.conf").read_bytes()
+            for profile in ("normal", "wcp")
+        }
         for enabled, number in ((0, 1), (1, 2), (0, 3)):
             self.shell(
                 'record_read; snapshot_read "$R_CURRENT"; '
-                'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - '
+                'R_CURRENT=$(fixture_snapshot "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - '
                 + str(enabled)
                 + "); record_write"
             )
             result = self.boot(number)
             self.assertEqual(result.returncode, 0, result.stderr)
             for name in ("sm.conf", "sm_WCP.conf"):
-                expected = (
-                    original
-                    if enabled
-                    else original.replace(
-                        'name="blm_ira_pandora" autorun="yes"',
-                        'name="blm_ira_pandora" autorun="no"',
-                    )
+                jobs = {
+                    node.get("name"): node
+                    for node in ET.parse(self.runtime / "feature" / name).iter("service")
+                }
+                self.assertEqual(jobs["blm_ira_pandora"].get("autorun"), "yes" if enabled else "no")
+                self.assertEqual(jobs["jciAAPA"].get("autorun"), "yes")
+            for profile in ("normal", "wcp"):
+                self.assertEqual(
+                    (composed / f"sm-{profile}-on.conf").read_bytes(), originals[profile]
                 )
-                self.assertEqual((self.runtime / "feature" / name).read_text(), expected)
-            self.assertEqual((composed / "sm-normal-on.conf").read_text(), original)
-            self.assertEqual((composed / "sm-wcp-on.conf").read_text(), original)
         self.assertNotEqual(self.boot(4).returncode, 0)
         self.assertFalse((self.runtime / "feature").exists())
         self.assertFalse((self.runtime / "selected").exists())
         self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
-        config = (
-            (self.data / "snapshots" / self.record()[5] / "config").read_text().strip().split("|")
+        config = (self.data / "snapshots" / self.record()[5] / "config").read_text()
+        self.assertIn("service.pandora=0\n", config)
+
+    def test_budget_nvram_apply_preserves_android_auto_off(self):
+        self.shell(
+            'record_read; snapshot_read "$R_CURRENT"; '
+            'prefs=$(preferences_change "$S_PREFS" "$S_PACKAGE" service.android-auto 0 "$S_SCHEMA"); '
+            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" "$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - "$prefs"); record_write'
         )
-        self.assertEqual(config[5], "0")
+        self.assertEqual(self.boot(1).returncode, 0)
+        jobs = {
+            node.get("name"): node
+            for node in ET.parse(self.runtime / "feature/sm.conf").iter("service")
+        }
+        self.assertEqual(jobs["jciAAPA"].get("autorun"), "no")
+        self.assertEqual(jobs["blm_ira_pandora"].get("autorun"), "yes")
+        self.shell("record_read; R_BUDGET=0; record_write")
+        self.assertNotEqual(self.boot(2).returncode, 0)
+        config = (self.data / "snapshots" / self.record()[5] / "config").read_text()
+        self.assertIn("nvram=absent\n", config)
+        self.assertIn("service.android-auto=0\n", config)
+        self.assertIn("service.pandora=1\n", config)
 
     def test_reset_budget_is_finite_and_fallback_restores_nvram_without_losing_preferences(self):
         for number in range(1, 4):
@@ -780,8 +754,9 @@ record_write
         self.assertFalse((self.runtime / "selected").exists())
         self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
         self.assertEqual(self.record()[9], "0")
-        config = (self.data / "snapshots" / self.record()[5] / "config").read_text().split("|")
-        self.assertEqual(config[1:4], ["1", "1", "absent"])
+        config = (self.data / "snapshots" / self.record()[5] / "config").read_text()
+        for line in ("touch=1\n", "warning=1\n", "nvram=absent\n", "service.android-auto=1\n"):
+            self.assertIn(line, config)
         self.assertNotEqual(self.boot(5).returncode, 0)
         self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
 

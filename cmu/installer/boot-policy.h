@@ -767,6 +767,8 @@ static int oc_select(OcBoot *b,int root) {
 #ifndef OC_HOST
     if (b->owner!=0||b->group!=0) return OC_REFUSE;
 #endif
+    /* The autostart parent stays on CPU0. Only its overlapping worker moves. */
+    if (b->gated&&oc_worker_cpu1()<0) return OC_SLOW;
     b->data=oc_open_private(root,OC_DATA);
     if (b->data<0) return OC_SLOW;
     long ram=oc_beneath(root,OC_RAM,OC_DIRECTORY,0);
@@ -777,6 +779,7 @@ static int oc_select(OcBoot *b,int root) {
     b->ram=(int)ram;
     if (b->ram<0||!oc_private(b->ram)) return OC_REFUSE;
     oc_stamp(b,"hook_entry");
+    if (b->gated) oc_stamp(b,"worker_cpu1");
     b->lock=(int)oc_openat(b->ram,"lock",OC_RW|OC_CREATE,0600);
     OcMeta lock_meta,record_meta;
     if (b->lock<0||oc_stat(b->lock,&lock_meta)<0||lock_meta.mode!=(OC_REGULAR|0600)||

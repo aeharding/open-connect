@@ -16,6 +16,8 @@
 #include <sys/prctl.h>
 #endif
 static long oc_parent(void) { return getppid(); }
+/* Host fixtures exercise policy, without changing the host's CPU placement. */
+static long oc_worker_cpu1(void) { return 0; }
 static long oc_watch_parent(void) {
 #ifdef __linux__
     return prctl(PR_SET_PDEATHSIG,SIGTERM)<0?-errno:0;
@@ -44,6 +46,10 @@ static void oc_cut(const char *phase) {
 }
 #else
 static long oc_parent(void) { return oc_syscall4(64,0,0,0,0); }
+static long oc_worker_cpu1(void) {
+    unsigned mask=2;
+    return oc_syscall4(241,0,sizeof mask,(long)&mask,0);
+}
 static long oc_watch_parent(void) { return oc_syscall4(172,1,15,0,0); }
 static long oc_owner(void) { return oc_syscall4(199,0,0,0,0); }
 static long oc_group(void) { return oc_syscall4(200,0,0,0,0); }

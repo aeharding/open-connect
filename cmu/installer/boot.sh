@@ -64,8 +64,8 @@ absent /tmp/open-connect/feature || fail feature_already_present
 work=$(mktemp -d /tmp/open-connect/.feature-XXXXXX)
 for name in uia.so mmui.so mmui.xml system-app.js; do cp "$D/composed/$package/$name" "$work/$name"; done
 if test "$warning" = 1; then setting=on; else setting=off; fi
-service_config "$D/composed/$package/sm-normal-$setting.conf" "$work/sm.conf" "$pandora" "$wireless" || fail service_config_failed
-service_config "$D/composed/$package/sm-wcp-$setting.conf" "$work/sm_WCP.conf" "$pandora" "$wireless" || fail service_config_failed
+service_config "$D/composed/$package/sm-normal-$setting.conf" "$work/sm.conf" "$pandora" "$wireless" "$base" || fail service_config_failed
+service_config "$D/composed/$package/sm-wcp-$setting.conf" "$work/sm_WCP.conf" "$pandora" "$wireless" "$base" || fail service_config_failed
 if test "$wireless" = 1; then
     cp "$P/wireless.sh" "$work/wireless.sh"
     cp "$P/wireless-device.awk" "$work/wireless-device.awk"

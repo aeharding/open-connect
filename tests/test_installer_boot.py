@@ -54,7 +54,7 @@ class InstallerBoot(unittest.TestCase):
         (self.source / "state.sh").write_text(state)
         shutil.copyfile(ASSETS / "transaction.sh", self.source / "transaction.sh")
         shutil.copyfile(ASSETS / "access.sh", self.source / "access.sh")
-        for name in ("wireless-sm.awk", "wireless-device.awk", "wireless.sh"):
+        for name in ("services-sm.awk", "wireless-device.awk", "wireless.sh"):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.log_original = b"synthetic original logging settings\n"
         self.log_library = b"synthetic exact common library\n"
@@ -218,6 +218,8 @@ record_write
                 "devicemanager",
                 "blm_ira_pandora",
                 "jciLDS",
+                "stage_wifi",
+                "blm_ira_aha",
             ):
                 attr = f'name="{name}" autorun="yes" reset_board="yes" retry_count="0"'
                 if name in args:
@@ -229,11 +231,15 @@ record_write
                     attr += ' args="wcp"'
                 elif name == "jciLDS":
                     attr += ' args="actual-gps-provider"'
-                lines += [
-                    "<service " + attr + ">",
-                    '<dependency type="service" value="existing"/>',
-                    "</service>",
-                ]
+                lines += ["<service " + attr + ">"]
+                if name == "stage_wifi":
+                    lines += [
+                        '<dependency type="service" value="stage_3"/>',
+                        '<dependency type="service" value="blm_ira_aha"/>',
+                    ]
+                else:
+                    lines += ['<dependency type="service" value="existing"/>']
+                lines += ["</service>"]
             lines += ["</services>"]
             for setting in ("on", "off"):
                 path = self.data / "composed" / self.package_id / f"sm-{profile}-{setting}.conf"
@@ -296,12 +302,41 @@ record_write
         self.assertFalse((self.root / "common/log/settings.txt").exists())
 
     def select_base(self, value):
-        self.shell(
-            'record_read; snapshot_read "$R_CURRENT"; '
-            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" /dev/null - 1 '
-            + str(value)
-            + "); record_write"
-        )
+        self.select_wireless(0, base=value)
+
+    def test_base_wifi_keeps_stage3_and_aha_running_without_forcing_wireless(self):
+        for wireless, number in ((0, 1), (1, 2)):
+            self.select_wireless(wireless, base=1)
+            result = self.boot(number)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            for name in ("sm.conf", "sm_WCP.conf"):
+                services = {
+                    s.get("name"): s
+                    for s in ET.parse(self.runtime / "feature" / name).iter("service")
+                }
+                self.assertEqual([d.get("value") for d in services["stage_wifi"]], ["stage_3"])
+                self.assertEqual(services["blm_ira_aha"].get("autorun"), "yes")
+                self.assertNotIn("configFilePath", services["bds"].get("args"))
+                self.assertEqual("open_connect_wireless" in services, bool(wireless))
+        self.select_base(0)
+        self.assertEqual(self.boot(3).returncode, 0)
+        services = ET.parse(self.runtime / "feature/sm.conf").iter("service")
+        wifi = next(s for s in services if s.get("name") == "stage_wifi")
+        self.assertEqual([d.get("value") for d in wifi], ["stage_3", "blm_ira_aha"])
+
+    def test_base_wifi_refuses_missing_required_dependency(self):
+        for number, dependency in enumerate(("stage_3", "blm_ira_aha"), 1):
+            self.select_base(1)
+            path = self.data / "composed" / self.package_id / "sm-normal-on.conf"
+            path.write_text(
+                path.read_text().replace(
+                    '<dependency type="service" value="' + dependency + '"/>\n', ""
+                )
+            )
+            self.assertNotEqual(self.boot(number).returncode, 0)
+            self.assertFalse((self.runtime / "feature").exists())
+            self.assertFalse((self.runtime / "selected").exists())
+            self.assertFalse((self.root / "common").exists())
 
     def test_logging_is_boot_only_and_disabled_again_on_fallback(self):
         target = self.root / "common/log/settings.txt"

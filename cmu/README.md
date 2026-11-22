@@ -17,7 +17,8 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | `backend.sh`, `transaction.sh`, `state.sh` | Install, preferences, complete uninstall and interrupted-operation reconciliation |
 | `firmware.sh`, `mmui.S`, `intro.js`, `system-route.js` | Exact v74 guards and composition from this unit's saved originals |
 | `startup-hook.sh`, `boot.sh`, `ignition.sh` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
-| `wireless.sh`, `wireless-sm.awk`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step and narrow native wireless service arguments |
+| `wireless.sh`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step for native wireless availability |
+| `services-sm.awk` | One selected SM composer for Pandora, native wireless arguments and the experimental Base Wi-Fi dependency change |
 
 The browser sends `POST /control` to `127.0.0.1:35555`, with `Content-Type:
 text/plain` and body `token|revision|operation|arg0|arg1|arg2`. Missing arguments

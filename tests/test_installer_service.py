@@ -237,6 +237,15 @@ class InstallerService(unittest.TestCase):
         self.assertFalse(marker.exists())
         self.assertFalse((self.runtime / "listener").exists())
 
+    def test_sm_worker_refuses_corrupt_backend_after_bootstrap(self):
+        worker, package, _ = self.installed_worker()
+        with (package / "backend.sh").open("a") as target:
+            target.write("\n# changed after package publication\n")
+        result = subprocess.run(["sh", worker, "boot"], capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.runtime / "listener").exists())
+        self.assertFalse((self.runtime / "runtime").exists())
+
     def test_sm_worker_yields_to_preceding_usb_without_replacing_its_listener(self):
         worker, _, _ = self.installed_worker()
         result = self.invoke()

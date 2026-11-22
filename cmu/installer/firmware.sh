@@ -30,6 +30,9 @@ firmware_dependencies() {
         '0b205e203510bef6d20b910f31c88a7f9c141048c41b1704eed20b880d67ac82 rungetty /usr/bin/rungetty' \
         'f83f7661e0ba41da379936ba319f40e228cd14d470c3081f19d8fbec8297a195 sshd /usr/sbin/sshd' \
         'b735d7dd9a9a45badf18b2a9d0e32ca791a4e582400e57378a27b2a2d92ae9c9 ssh-keygen /usr/bin/ssh-keygen'
+    printf '%s\n' \
+        'ca2889f7cb0361610e57b43004572fdd53c00d1d3003409bb92c744fcb253f70 framework.js /jci/gui/framework/js/GuiFramework.js' \
+        '19a56b9e7b9f7399b152dbc7e8bd8de3fa01f154e45e8981becec6e96d3f70eb lvds-service /jci/lvds/lvds_service'
 }
 
 firmware_guard() {
@@ -163,16 +166,20 @@ compose() (
     flush d "$D/composed"
 )
 
+native_log_inputs_verify() {
+    file /config/common/log/settings.txt &&
+        test "$(sha /config/common/log/settings.txt)" = 8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0 &&
+        file /jci/lib/libjcicommon.so &&
+        test "$(sha /jci/lib/libjcicommon.so)" = 637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d
+}
+
 native_log_prepare() {
     # Prepare only: no external logging policy becomes visible here.
     local folder
     LOG_STAGE=
     bit "$1" || return 1
     test "$1" = 1 || return 0
-    file /config/common/log/settings.txt &&
-        test "$(sha /config/common/log/settings.txt)" = 8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0 || return 1
-    file /jci/lib/libjcicommon.so &&
-        test "$(sha /jci/lib/libjcicommon.so)" = 637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d || return 1
+    native_log_inputs_verify || return 1
     for folder in /tmp/common /tmp/common/log; do
         if absent "$folder"; then mkdir -m 755 "$folder" || return 1; fi
         test -d "$folder" && test ! -L "$folder" &&
@@ -226,6 +233,99 @@ service_config() {
         END { if (n != 1) exit 1 }
     ' "$1" > "$2"
 }
+
+boot_render_profiles() {
+    # S_* belongs to the verified after-snapshot. Render only its saved policy.
+    local destination=$1 source=$D/composed/$S_PACKAGE setting=off
+    test "$S_WARNING" != 1 || setting=on
+    service_config "$source/sm-normal-$setting.conf" "$destination/sm-normal.conf" "$S_PANDORA" "$S_WIRELESS" &&
+        service_config "$source/sm-wcp-$setting.conf" "$destination/sm-wcp.conf" "$S_PANDORA" "$S_WIRELESS" &&
+        cp "$source/index-$setting.html" "$destination/index.html" || return 1
+    awk '{n+=gsub(/@TOKEN@/,"@TOKEN@")}END{exit n!=1}' "$destination/index.html"
+}
+
+boot_plan_inputs() {
+    local work=$1 snapshot=$2 digest name target extra
+    shift 2
+    printf 'OCBP1|%s|%s\n' "$R_BASE" "$S_PACKAGE"
+    while read -r digest name extra; do
+        test -z "$extra" && hex "$digest" 64 || return 1
+        target=$(dependency_path "$name") && file "$target" || return 1
+        printf '%s|%s|%s\n' "$name" "$target" "$digest"
+    done < "$D/snapshots/$snapshot/dependencies"
+    for name in "$@"; do printf 'current/%s|@/%s|%s\n' "$name" "$name" "$(sha "$work/$name")"; done
+    while read -r digest name extra; do
+        printf 'baseline/%s|%s/snapshots/%s/%s|%s\n' "$name" "$D" "$R_BASE" "$name" "$digest"
+    done < "$D/snapshots/$R_BASE/files.sha256"
+    printf 'baseline/files.sha256|%s/snapshots/%s/files.sha256|%s\n' "$D" "$R_BASE" "$R_BASE"
+    printf 'target/autostart|%s|%s\n' "$AUTOSTART" "$(sha "$work/autostart")"
+    for target in /jci/version.ini; do
+        printf 'guard/%s|%s|%s\n' "${target##*/}" "$target" "$(sha "$target")"
+    done
+    if test "$S_BASE" = 1; then
+        native_log_inputs_verify || return 1
+        for name in settings.txt libjcicommon.so; do
+            case "$name" in
+                settings.txt) target=/config/common/log/settings.txt;;
+                libjcicommon.so) target=/jci/lib/libjcicommon.so;;
+            esac
+            printf 'base/%s|%s|%s\n' "$name" "$target" "$(sha "$target")"
+        done
+    fi
+    if test "$S_ACCESS" = true; then
+        printf 'target/runlogin|/usr/bin/runlogin|%s\n' "$(sha "$work/runlogin")"
+        printf 'target/sshd.conf|/etc/ssh/sshd_config|%s\n' "$(sha "$work/sshd.conf")"
+        if test "$S_LOGIN_INODE" != -; then
+            target=/usr/bin/.open-connect-runlogin-$S_LOGIN_INODE
+            digest=-
+            if ! absent "$target"; then digest=$(sha "$D/snapshots/$R_BASE/runlogin") || return 1; fi
+            printf 'hold/runlogin|%s|%s\n' "$target" "$digest"
+        fi
+        if test "$S_KEY" != -; then
+            access_key_verify "$S_KEY" || return 1
+            printf 'key/owner|%s/keys/%s.cmu|%s\n' "$D" "$S_KEY" "$S_KEY"
+        fi
+    fi
+}
+
+boot_snapshot_seal() (
+    # Reconciliation has already applied and fully verified the after-state.
+    # Seal a new immutable snapshot before record can call it current. A cut
+    # leaves the existing prepared transaction recoverable, never a side flag.
+    set -eu
+    local snapshot=$1 package helper work name digest magic base backend
+    snapshot_read "$snapshot" || fail invalid_boot_snapshot
+    package=$S_PACKAGE
+    if test "$package" = - || absent "$D/packages/$package/boot-select"; then
+        printf '%s\n' "$snapshot"; exit 0
+    fi
+    test "$package" = "$R_BACKEND" && test "$S_CONFIG_FIELDS" = 8 || fail invalid_boot_package
+    P=$D/packages/$package
+    private_dir "$P" && test "$(sha "$P/files.sha256")" = "$R_BACKEND" &&
+        verify_manifest "$P" && boot_dependencies_match "$snapshot" || fail boot_dependencies_changed
+    helper=$P/boot-select
+    file "$helper" && test -x "$helper" || fail invalid_boot_selector
+    snapshot_verify "$R_BASE" && firmware_guard && test "$(root_mode)" = ro,noatime || fail invalid_boot_baseline
+    if file "$D/snapshots/$snapshot/boot.plan"; then
+        IFS='|' read -r magic base backend < "$D/snapshots/$snapshot/boot.plan"
+        if test "$magic:$base:$backend" = "OCBP1:$R_BASE:$package" &&
+            "$helper" check / "${D#/}/snapshots/$snapshot" < "$D/snapshots/$snapshot/boot.plan"; then
+            printf '%s\n' "$snapshot"; exit 0
+        fi
+    fi
+    work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail boot_snapshot_create_failed
+    set -- autostart config dependencies
+    if test "$S_ACCESS" = true; then set -- "$@" access runlogin sshd.conf; fi
+    for name in "$@"; do cp "$D/snapshots/$snapshot/$name" "$work/$name" || fail boot_snapshot_copy_failed; done
+    boot_render_profiles "$work" || fail boot_profiles_failed
+    set -- "$@" sm-normal.conf sm-wcp.conf index.html
+    for name in "$@"; do chmod 600 "$work/$name" || fail boot_snapshot_mode_failed; done
+    boot_plan_inputs "$work" "$snapshot" "$@" > "$work/inputs" || fail boot_inputs_failed
+    "$helper" seal / "${work#/}" < "$work/inputs" > "$work/boot.plan" || fail boot_plan_failed
+    rm "$work/inputs" || fail boot_inputs_cleanup_failed
+    chmod 600 "$work/boot.plan" || fail boot_snapshot_mode_failed
+    snapshot_finish "$work" "$@" boot.plan
+)
 
 root_mode() {
     awk '$1=="/dev/ffx01p1"&&$2=="/"&&$3=="relfs"{n++;m=$4}
@@ -392,7 +492,7 @@ package_save() (
         test "$name" != INSTANCE || continue
         cp "$P/$name" "$work/$name" || fail package_copy_failed
         chmod 600 "$work/$name" || fail package_mode_failed
-        case "$name" in api|flush) chmod 700 "$work/$name" || fail package_mode_failed;; esac
+        case "$name" in api|flush|boot-select) chmod 700 "$work/$name" || fail package_mode_failed;; esac
         test "$(sha "$work/$name")" = "$digest" || fail package_copy_changed
         printf '%s  %s\n' "$digest" "$name" || fail package_manifest_failed
         flush f "$work/$name"

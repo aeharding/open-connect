@@ -47,6 +47,13 @@ All attempts, the restart, Ethernet failures and the day/night-map drift remain
 explicit. These blocks do not establish isolated Base benefit, usable early
 input/audio, long-parked reliability or Miatafy reproduction.
 
+The [startup verification pilot](startup-overhead.md) then measured one revised
+dev.8 start against that sealed reference. Home and visible wireless projection
+appeared about 2.8 and 2.4 seconds earlier than the four non-restarting controls'
+conditional medians; CPU and MemFree remained within their spread. Individual
+attempts, remaining 3.64-second selector work and single-pilot limits are explicit.
+This does not meet or qualify the target of no added delay versus stock.
+
 ## Configurations to compare
 
 | Configuration | Purpose |

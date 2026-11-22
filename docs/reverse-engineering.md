@@ -861,3 +861,29 @@ Supporting records are the five `rx.bin` captures, original fetch failures,
 `runs/wireless-enable-20261121/wireless-base-off/`, with separate recovery
 observations. Raw logs and firmware sources remain private; the public comparison
 retains the failed attempts and numeric observations.
+
+## Native startup file metadata on v74
+
+**Observed on 74.00.324A NA:** a bounded RAM-only candidate using the Linux 3.0
+[ARM stat64 interface](https://github.com/torvalds/linux/blob/v3.0/arch/arm/include/asm/stat.h)
+matched BusyBox's device, inode, size, mode, UID, GID, modification time and
+change time for the GUI framework, LVDS service and a synthetic RAM file. The
+104-byte ARM layout and architecture-specific open flags were checked against
+the kernel interfaces. Streaming SHA-256 matched the pinned firmware files and
+independent host vectors. This did not install a hook or change product state.
+
+One subsequent ACC restart of the unchanged CI control preserved all ten sampled
+metadata fields, including available timestamp nanoseconds, for eight inputs:
+the two physical-root files, three persistent package files, composed UIA,
+current config and baseline autostart. Checking the earlier sealed plan and
+independently resealing the same source hashes both succeeded; the plans were
+byte-identical. The record, preferences, physical read-only root and normal
+wireless projection remained intact. The four-file SD probe was removed after
+exact hash/count checks.
+
+This supports metadata stability for those inputs across one kernel restart.
+It does not establish a fast-path hit rate or startup saving. Matching metadata
+does not prove uncopied file bytes are identical; maintenance retains full
+hashes and selected runtime bytes must be checked during copying. Supporting
+records are private `runs/native-boot-20261121/abi-result.json`, `abi-source/`,
+`cross-result.json`, the single ACC capture and `cross-cleanup.out`.

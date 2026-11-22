@@ -212,6 +212,13 @@ transaction_reconcile() {
         if test -e "$D/snapshots/$R_AFTER/access"; then access_hold_cleanup || fail access_cleanup_failed; fi
     fi
     targets_match "$R_AFTER" && dependencies_match "$R_AFTER" || fail final_verification_failed
+    # Only packages with the native-selector capability produce a sealed plan.
+    # Current installed dev.8 and interrupted older transactions stay valid.
+    if test "$phase" != uninstall && test "$S_PACKAGE" != - &&
+        ! absent "$D/packages/$S_PACKAGE/boot-select"; then
+        R_AFTER=$(boot_snapshot_seal "$R_AFTER") || fail boot_snapshot_failed
+        snapshot_read "$R_AFTER" || fail invalid_boot_snapshot
+    fi
     R_CURRENT=$R_AFTER
     case "$phase" in
         uninstall) R_PHASE=removed; R_NOTICE=removed; R_BUDGET=0;;

@@ -128,6 +128,39 @@ snapshot_decode() {
         S_ACCESS=true
     fi
 }
+snapshot_finish() (
+    # Publish either a plain transaction snapshot or its verified boot plan.
+    # The caller owns this private work directory and names every payload.
+    set -eu
+    local work=$1 id name digest seen='|'
+    shift
+    private_dir "$work" && test "$#" -gt 0 || fail invalid_snapshot_work
+    case "$work" in "$D"/snapshots/.new-*) ;; *) fail invalid_snapshot_work;; esac
+    absent "$work/files.sha256" || fail snapshot_manifest_exists
+    for name in "$@"; do
+        case "$name" in ''|.|..|files.sha256|*[!a-zA-Z0-9.-]*) fail invalid_snapshot_member;; esac
+        case "$seen" in *"|$name|"*) fail invalid_snapshot_member;; esac
+        seen="$seen$name|"
+        file "$work/$name" || fail snapshot_member_missing
+        digest=$(sha "$work/$name") && hex "$digest" 64 || fail snapshot_hash_failed
+        printf '%s  %s\n' "$digest" "$name" || fail snapshot_manifest_failed
+    done > "$work/files.sha256" || fail snapshot_manifest_failed
+    chmod 600 "$work/files.sha256" || fail snapshot_mode_failed
+    for name in "$@" files.sha256; do flush f "$work/$name"; done
+    flush d "$work"
+    id=$(sha "$work/files.sha256") && hex "$id" 64 || fail snapshot_hash_failed
+    if absent "$D/snapshots/$id"; then
+        mv "$work" "$D/snapshots/$id" || fail snapshot_publish_failed
+        flush d "$D/snapshots"
+    else
+        snapshot_verify "$id" || fail snapshot_conflict
+        for name in "$@" files.sha256; do rm "$work/$name" || fail snapshot_cleanup_failed; done
+        rmdir "$work" || fail snapshot_cleanup_failed
+    fi
+    snapshot_read "$id" || fail snapshot_invalid
+    printf '%s\n' "$id"
+)
+
 snapshot_create() (
     # Optional ninth/tenth/eleventh bits append Pandora/base/wireless. '-' preserves the older
     # installed selector's five/six/seven-field format until Install/update replaces it.
@@ -138,7 +171,7 @@ snapshot_create() (
         { test "${10--}" = - || { bit "${10--}" && test "${9--}" != -; }; } &&
         { test "${11--}" = - || { bit "${11--}" && test "${10--}" != -; }; } &&
         touch_value "$5" && metadata "$6" || fail invalid_snapshot
-    local work id name digest
+    local work name
     work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail snapshot_create_failed
     cp "$1" "$work/autostart" || fail snapshot_copy_failed
     if test "$#" -ge 7; then cp "$7" "$work/dependencies"; else : > "$work/dependencies"; fi || fail snapshot_copy_failed
@@ -159,22 +192,5 @@ snapshot_create() (
         done
         set -- autostart config dependencies access runlogin sshd.conf
     else set -- autostart config dependencies; fi
-    for name in "$@"; do
-        digest=$(sha "$work/$name") && hex "$digest" 64 || fail snapshot_hash_failed
-        printf '%s  %s\n' "$digest" "$name" || fail snapshot_manifest_failed
-    done > "$work/files.sha256" || fail snapshot_manifest_failed
-    chmod 600 "$work/files.sha256" || fail snapshot_mode_failed
-    for name in "$@" files.sha256; do flush f "$work/$name"; done
-    flush d "$work"
-    id=$(sha "$work/files.sha256") && hex "$id" 64 || fail snapshot_hash_failed
-    if absent "$D/snapshots/$id"; then
-        mv "$work" "$D/snapshots/$id" || fail snapshot_publish_failed
-        flush d "$D/snapshots"
-    else
-        snapshot_verify "$id" || fail snapshot_conflict
-        for name in "$@" files.sha256; do rm "$work/$name" || fail snapshot_cleanup_failed; done
-        rmdir "$work" || fail snapshot_cleanup_failed
-    fi
-    snapshot_read "$id" || fail snapshot_invalid
-    printf '%s\n' "$id"
+    snapshot_finish "$work" "$@"
 )

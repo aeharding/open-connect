@@ -198,6 +198,8 @@ class InstallerComposition(unittest.TestCase):
                 ("rungetty", "/usr/bin/rungetty"),
                 ("sshd", "/usr/sbin/sshd"),
                 ("ssh-keygen", "/usr/bin/ssh-keygen"),
+                ("framework.js", "/jci/gui/framework/js/GuiFramework.js"),
+                ("lvds-service", "/jci/lvds/lvds_service"),
             ):
                 fixture = root / name
                 fixture.write_bytes(b"synthetic dependency\n")

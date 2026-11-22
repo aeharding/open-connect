@@ -13,6 +13,7 @@ exclude_docs = "/bench-state.txt"
 nav = [
   { "Using Open Connect" = [
     { "Overview" = "index.md" },
+    { "How it works" = "how-it-works.md" },
     { "Quick start" = "usb-installer.md" },
     { "Settings" = "settings.md" },
     { "Uninstall" = "uninstall.md" },

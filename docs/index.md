@@ -17,6 +17,8 @@ whenever you want to restore your previous setup.
 [Settings](settings.md){ .md-button }
 [Uninstall](uninstall.md){ .md-button }
 
+[How Open Connect works](how-it-works.md) explains startup, fallback and restoration.
+
 ## Building Open Connect?
 
 Start with [contributing](development.md), [bench setup](bench-setup.md) or

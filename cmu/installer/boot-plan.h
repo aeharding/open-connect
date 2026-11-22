@@ -160,7 +160,7 @@ static int oc_plan_rows(int root, int snapshot, int input, int output, int seali
         OcMeta current,expected;
         int ok;
         if (sealing) {
-            ok=oc_hash_copy((int)fd,-1,33554432,digest,&current) && oc_equal(digest,fields[2]);
+            ok=oc_hash_copy((int)fd,-1,33554432,digest,&current)==OC_COPY_OK && oc_equal(digest,fields[2]);
         } else {
             ok=oc_meta_parse(fields+3,&expected) && oc_stat((int)fd,&current)>=0 && oc_meta_equal(&expected,&current);
         }

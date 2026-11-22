@@ -22,10 +22,11 @@ int main(int argc, char **argv) {
         if (*p<'0'||*p>'9'||limit>10000000) return 64;
         limit=limit*10+(unsigned)(*p-'0');
     }
-    int ok=oc_hash_copy((int)input,(int)output,limit,digest,&m);
+    int copied=oc_hash_copy((int)input,(int)output,limit,digest,&m);
+    int ok=copied==OC_COPY_OK;
     if (output>=0) { if (oc_sync((int)output)<0) ok=0; if (oc_close((int)output)<0) ok=0; }
     if (oc_close((int)input)<0 || oc_close((int)root)<0) ok=0;
-    if (!ok) return 4;
+    if (!ok) return copied==OC_COPY_DEST?5:4;
     printf("%s\n%llu %llu %llu %u %u %u %llu %u %llu %u\n",digest,
            m.device,m.inode,m.size,m.mode,m.uid,m.gid,m.modified,m.modified_ns,m.changed,m.changed_ns);
     return 0;
@@ -38,7 +39,7 @@ int entry(unsigned *stack) {
     long root=oc_openat(OC_CWD,"/",OC_DIRECTORY,0);
     if (root<0) return 1;
     long input=oc_beneath((int)root,"proc/version",OC_READ,0);
-    int result=input<0 || !oc_hash_copy((int)input,-1,4096,digest,&m);
+    int result=input<0 || oc_hash_copy((int)input,-1,4096,digest,&m)!=OC_COPY_OK;
     if (input>=0) (void)oc_close((int)input);
     (void)oc_sync((int)root); (void)oc_close((int)root);
     return result+(stack[0]==0);

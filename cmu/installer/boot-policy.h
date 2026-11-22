@@ -432,9 +432,12 @@ static int oc_copy_input(OcBoot *b,const char *key,int output,const char *name,u
     long target=oc_openat(output,name,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,mode);
     if (target<0) { (void)oc_close((int)input); return 0; }
     char digest[65]; OcMeta actual;
-    int ok=oc_hash_copy((int)input,(int)target,33554432,digest,&actual) &&
-        oc_equal(digest,row->digest) && oc_meta_equal(&row->meta,&actual);
-    if (!ok) b->input_failure=1;
+    int copied=oc_hash_copy((int)input,(int)target,33554432,digest,&actual);
+    int ok=copied==OC_COPY_OK;
+    if (copied==OC_COPY_SOURCE) b->input_failure=1;
+    if (ok && (!oc_equal(digest,row->digest)||!oc_meta_equal(&row->meta,&actual))) {
+        b->input_failure=1; ok=0;
+    }
     if (ok) ok=oc_mode((int)target,mode)>=0;
     if (oc_close((int)input)<0) { b->input_failure=1; ok=0; }
     if (oc_close((int)target)<0) ok=0;

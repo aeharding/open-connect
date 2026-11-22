@@ -49,6 +49,11 @@ class InstallerBoot(unittest.TestCase):
             shutil.copyfile(ASSETS / name, self.source / name)
         (self.root / "acc").write_text("1\n")
         (self.root / "uptime").write_text("1.00 0.00\n")
+        (self.root / "mounts").write_text(
+            "rootfs / rootfs rw 0 0\n"
+            "/dev/ffx01p1 / relfs ro,noatime 0 0\n"
+            "/dev/mmcblk0p2 /tmp/mnt/data_persist relfs rw,noatime 0 0\n"
+        )
         state = (
             (ASSETS / "state.sh")
             .read_text()
@@ -245,6 +250,7 @@ record_write
             "/tmp/mnt/data_persist/open-connect": str(self.data),
             "/tmp/open-connect": str(self.runtime),
             "/proc/uptime": str(self.root / "uptime"),
+            "/proc/self/mounts": str(self.root / "mounts"),
             "/usr/bin/open-connect-boot-select": str(self.root / "root-selector"),
             'test "$(id -u)" = 0': 'test "$(id -u)" = ' + str(os.getuid()),
             "700:0:0": f"700:{os.getuid()}:{os.getgid()}",
@@ -548,6 +554,17 @@ record_write
             "R_BACKEND=" + legacy_id + '; transaction_prepare install "$before" "$after"'
         )
         (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        original_mounts = (self.root / "mounts").read_text()
+        before = (self.data / "record").read_bytes()
+        for mounts in (
+            original_mounts + f"tmpfs {self.data} tmpfs rw 0 0\n",
+            original_mounts.replace("ro,noatime", "rw,noatime"),
+        ):
+            (self.root / "mounts").write_text(mounts)
+            refused = self.hook()
+            self.assertIn("CONFIG|stock", refused.stdout)
+            self.assertEqual((self.data / "record").read_bytes(), before)
+        (self.root / "mounts").write_text(original_mounts)
         result = self.hook()
         self.assertIn(
             "CONFIG|" + str(self.runtime / "feature/sm.conf"), result.stdout, result.stderr

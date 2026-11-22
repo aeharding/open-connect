@@ -105,12 +105,7 @@ boot_select() {
         startup_stamp targets_dependencies
     fi
     if test "$modern" = true && test -z "${observer:-}"; then boot_observer_stage; fi
-    if test "$modern" != true && absent "$R/runtime"; then
-        # Legacy installed hooks still get their listener when possible. A bind
-        # failure never prevents reconciliation or physical ignition observation.
-        ( service_listen "$runtime" ) || :
-    fi
-    if test "$modern" = true && test "${S_SELECTOR_RECORDED:-false}" = true; then
+    if test "${S_SELECTOR_RECORDED:-false}" = true; then
         # Re-attest unchanged bytes after ordinary inode drift. Fold the new
         # snapshot into the imminent budget commit, never a second authority.
         R_CURRENT=$(boot_snapshot_seal "$R_CURRENT") || fail boot_snapshot_failed
@@ -155,7 +150,7 @@ cp "$D/composed/$package/uia.so" "$D/composed/$package/mmui.so" \
     "$D/composed/$package/mmui.xml" "$D/composed/$package/system-app.js" "$work/"
 startup_stamp feature_copied
 if test "$warning" = 1; then setting=on; else setting=off; fi
-if test "$modern" = true && file "$D/snapshots/$R_CURRENT/boot.plan"; then
+if file "$D/snapshots/$R_CURRENT/boot.plan"; then
     cp "$D/snapshots/$R_CURRENT/sm-normal.conf" "$work/sm.conf" &&
         cp "$D/snapshots/$R_CURRENT/sm-wcp.conf" "$work/sm_WCP.conf" || fail service_config_failed
 else

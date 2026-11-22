@@ -270,7 +270,7 @@ class NativeBootSelection(unittest.TestCase):
         self.record[5] = self.snapshot.name
         self.save_record()
 
-    def invoke(self, cut=None, term=None):
+    def invoke(self, cut=None, term=None, output_limit=None):
         # A regular fixture models urandom's bytes, refreshing them per entry.
         self.put("dev/urandom", os.urandom(1024))
         env = {**os.environ}
@@ -278,8 +278,20 @@ class NativeBootSelection(unittest.TestCase):
             env["OC_BOOT_CUT"] = cut
         if term:
             env["OC_BOOT_TERM"] = term
+
+        def limit_output():
+            import resource
+            import signal
+
+            signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+            resource.setrlimit(resource.RLIMIT_FSIZE, (output_limit, output_limit))
+
         return subprocess.run(
-            [self.program, "select", self.root], env=env, capture_output=True, timeout=5
+            [self.program, "select", self.root],
+            env=env,
+            capture_output=True,
+            timeout=5,
+            preexec_fn=limit_output if output_limit is not None else None,
         )
 
     def test_selects_complete_policy_and_debits_once(self):
@@ -333,6 +345,16 @@ class NativeBootSelection(unittest.TestCase):
         (self.package / "foreign").write_text("external\n")
         self.assertEqual(self.invoke().returncode, 95)
         self.assertEqual((self.data / "record").read_text().split("|")[9], "3")
+
+    def test_ram_write_failure_returns_stock_without_handoff_or_debit(self):
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(output_limit=4096)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertFalse((self.ram / "selected").exists())
+        partial = list(self.ram.glob(".ignition-*/state.sh"))
+        self.assertEqual(len(partial), 1)
+        self.assertEqual(partial[0].stat().st_size, 4096)
 
     def test_protected_tree_overlay_requests_full_verifier_without_debit(self):
         mounts = self.root / "proc/self/mounts"

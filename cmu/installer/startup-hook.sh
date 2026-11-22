@@ -18,6 +18,20 @@
 umask 077
 read -r entered idle < /proc/uptime || entered=unknown
 test "$(id -u)" = 0
+awk '\''
+    $2=="/tmp/mnt/data_persist/open-connect" || index($2,"/tmp/mnt/data_persist/open-connect/")==1 ||
+    $2=="/tmp/open-connect" || index($2,"/tmp/open-connect/")==1 {bad=1}
+    $2=="/" {
+        if($1=="rootfs" && $3=="rootfs" && $4=="rw" && root==0 && rootfs==0)rootfs++
+        else if($1=="/dev/ffx01p1" && $3=="relfs" && $4=="ro,noatime")root++
+        else bad=1
+    }
+    $2=="/tmp/mnt/data_persist" {
+        if($1!="/dev/mmcblk0p2" || $3!="relfs")bad=1
+        data++;split($4,a,",");for(i in a)if(a[i]=="rw")rw++
+    }
+    END {exit bad || root!=1 || data!=1 || rw!=1}
+'\'' /proc/self/mounts || exit 1
 D=/tmp/mnt/data_persist/open-connect
 R=/tmp/open-connect
 test "$(readlink -f "$D")" = "$D"

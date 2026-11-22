@@ -11,6 +11,7 @@
 
 enum { OC_READ=0, OC_WRITE=1, OC_RW=2, OC_DIRECTORY=4, OC_CREATE=8, OC_EXCLUSIVE=16 };
 enum { OC_REGULAR=0100000, OC_DIR=0040000, OC_TYPE=0170000 };
+enum { OC_COPY_SOURCE=0, OC_COPY_OK=1, OC_COPY_DEST=-1 };
 typedef struct {
     oc_u64 device, inode, size, modified, changed;
     oc_u32 mode, uid, gid, modified_ns, changed_ns;
@@ -163,7 +164,7 @@ static int oc_hash_copy(int input, int output, oc_u64 limit, char digest[65], Oc
         total+=(unsigned)n;
         if (total>limit || total>before.size) return 0;
         oc_hash_add(&hash,buffer,(unsigned)n);
-        if (output>=0 && !oc_write_all(output,buffer,(unsigned)n)) return 0;
+        if (output>=0 && !oc_write_all(output,buffer,(unsigned)n)) return OC_COPY_DEST;
     }
     if (total!=before.size || oc_stat(input,&after)<0 || !oc_meta_equal(&before,&after)) return 0;
     oc_hash_finish(&hash,digest);

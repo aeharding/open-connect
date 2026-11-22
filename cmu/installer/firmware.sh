@@ -277,7 +277,18 @@ boot_render_profiles() {
 }
 
 boot_sm_profile() {
-    awk '
+    # Exploratory Base pilot: suppress only these discontinued/non-NA leaves.
+    awk -v base="${S_BASE:-0}" '
+        BEGIN {
+            split("jciDAB jcitv blm_ira_stitcher irsstitcher_server", names, " ")
+            for (i=1;i<=4;i++) hits[names[i]]=0
+        }
+        base==1 && /<service / {
+            for (name in hits) if (index($0,"name=\"" name "\"")) {
+                if (gsub(/autorun="yes"/, "autorun=\"no\"") != 1) exit 1
+                hits[name]++
+            }
+        }
         /<service / && /name="stage_1"/ {stage++}
         /name="open_connect_settings"/ {bad=1;exit 1}
         /<\/services>/ {
@@ -287,7 +298,10 @@ boot_sm_profile() {
             end++
         }
         {print}
-        END {if(bad || stage!=1 || end!=1)exit 1}
+        END {
+            if(base==1) for(name in hits) if(hits[name]!=1) bad=1
+            if(bad || stage!=1 || end!=1)exit 1
+        }
     ' "$1" > "$2"
 }
 

@@ -607,6 +607,10 @@ record_write
             lines = ["<services>"]
             for name in (
                 "stage_1",
+                "jciDAB",
+                "jcitv",
+                "blm_ira_stitcher",
+                "irsstitcher_server",
                 "jciMMUI",
                 "start_network",
                 "bds",

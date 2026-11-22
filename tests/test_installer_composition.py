@@ -15,6 +15,43 @@ ASSETS = ROOT / "cmu/installer"
 
 
 class InstallerComposition(unittest.TestCase):
+    def test_base_leaf_pilot_suppresses_exactly_four_and_preserves_vr_gate(self):
+        names = ("jciDAB", "jcitv", "blm_ira_stitcher", "irsstitcher_server")
+        leaves = {name: f'<service name="{name}" autorun="yes" />\n' for name in names}
+        gate = '<service name="stage_vr" args="5s" autorun="yes" />\n'
+        original = (
+            '<services>\n<service name="stage_1" />\n'
+            + gate
+            + "".join(leaves.values())
+            + "</services>\n"
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            source, selected = Path(temp) / "source", Path(temp) / "selected"
+            driver = 'set -eu; . "$1/firmware.sh"; S_BASE=$4; boot_sm_profile "$2" "$3"'
+
+            def render(text, base):
+                source.write_text(text)
+                return subprocess.run(
+                    ["sh", "-c", driver, "test", ASSETS, source, selected, str(base)],
+                    capture_output=True,
+                    timeout=5,
+                )
+
+            for base in (0, 1):
+                self.assertEqual(render(original, base).returncode, 0)
+                result = selected.read_text()
+                self.assertIn(gate, result)
+                for line in leaves.values():
+                    self.assertIn(
+                        line.replace('autorun="yes"', 'autorun="no"') if base else line, result
+                    )
+                self.assertEqual(result.count('name="open_connect_settings"'), 1)
+            for line in leaves.values():
+                for replacement in ("", line + line, line.replace('autorun="yes"', 'autorun="no"')):
+                    self.assertNotEqual(
+                        render(original.replace(line, replacement), 1).returncode, 0
+                    )
+
     def test_boot_mounts_allow_rootfs_but_refuse_protected_overlays(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()

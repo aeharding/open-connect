@@ -1,0 +1,17 @@
+candidate,phase,uptime_s,elapsed_from_previous_s
+unfixed-native-pilot,hook_entry,6.55,
+unfixed-native-pilot,inputs_checked,6.71,0.16
+unfixed-native-pilot,feature_copied,6.97,0.26
+unfixed-native-pilot,record_written,7.0,0.03
+unfixed-native-pilot,record_synced,7.61,0.61
+unfixed-native-pilot,record_renamed,7.61,0.0
+unfixed-native-pilot,directory_synced,7.62,0.01
+unfixed-native-pilot,selector_exit,7.62,0.0
+native-pilot,hook_entry,6.47,
+native-pilot,inputs_checked,6.62,0.15
+native-pilot,feature_copied,6.84,0.22
+native-pilot,record_written,6.87,0.03
+native-pilot,record_synced,7.03,0.16
+native-pilot,record_renamed,7.03,0.0
+native-pilot,directory_synced,7.03,0.0
+native-pilot,selector_exit,7.03,0.0

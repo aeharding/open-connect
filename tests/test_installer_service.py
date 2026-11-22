@@ -41,6 +41,8 @@ class InstallerService(unittest.TestCase):
         source = (ASSETS / "service.sh").read_text()
         source = source.replace("/tmp/open-connect", str(self.runtime))
         source = source.replace("/bin/busybox", self.busybox)
+        source = source.replace('test "$(id -u)" = 0', f'test "$(id -u)" = {os.getuid()}')
+        source = source.replace("700:0:0", f"700:{os.getuid()}:{os.getgid()}")
         # Modern host BusyBox replaced the target 1.19.2 timeout's -t syntax.
         source = source.replace("timeout -t 180", "timeout 180")
         (self.source / "service.sh").write_text(source)
@@ -140,6 +142,124 @@ class InstallerService(unittest.TestCase):
         self.assertIn("busy", result.stderr)
         self.assertEqual((self.runtime / "listener").read_bytes(), before)
         self.assertEqual(self.client()["backend"], "backend-one\n")
+
+    def installed_worker(self):
+        data = self.root / "data"
+        data.mkdir(mode=0o700)
+        (data / "packages").mkdir(mode=0o700)
+        service = self.source / "service.sh"
+        service.write_text(
+            service.read_text().replace("/tmp/mnt/data_persist/open-connect", str(data))
+        )
+        self.manifest()
+        package_id = hashlib.sha256((self.source / "files.sha256").read_bytes()).hexdigest()
+        package = data / "packages" / package_id
+        shutil.copytree(self.source, package)
+        boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        current = "c" * 64
+        (data / "record").write_text(
+            f"OC1|active|{'a' * 32}|{package_id}|{'b' * 64}|{current}|-|-|-|2|-|{boot}|-\n"
+        )
+        (data / "record").chmod(0o600)
+        self.runtime.mkdir(mode=0o700)
+        (self.runtime / "lock").touch(mode=0o600)
+        (self.runtime / "selected").write_text(current + "\n")
+        feature = self.runtime / "feature"
+        feature.mkdir(mode=0o700)
+        worker = feature / "service.sh"
+        shutil.copyfile(service, worker)
+        return worker, package, data
+
+    def test_sm_worker_verifies_installed_source_and_serves_settings(self):
+        worker, _, _ = self.installed_worker()
+        result = subprocess.run(["sh", worker, "boot"], capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.client()["backend"], "backend-one\n")
+        self.assertTrue((self.runtime / "selected").is_file())
+
+    def test_sm_worker_refuses_corrupt_library_before_sourcing(self):
+        worker, package, _ = self.installed_worker()
+        marker = self.root / "unverified-ran"
+        with (package / "state.sh").open("a") as target:
+            target.write("\ntouch " + str(marker) + "\n")
+        result = subprocess.run(["sh", worker, "boot"], capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(marker.exists())
+        self.assertFalse((self.runtime / "listener").exists())
+
+    def test_sm_worker_yields_to_preceding_usb_without_replacing_its_listener(self):
+        worker, _, _ = self.installed_worker()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        before = (self.runtime / "listener").read_bytes()
+        result = subprocess.run(["sh", worker, "boot"], capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.runtime / "listener").read_bytes(), before)
+        self.assertEqual(self.client()["backend"], "backend-one\n")
+
+    def test_ash_sm_worker_refuses_missing_or_symlinked_selection(self):
+        worker, _, _ = self.installed_worker()
+        selected = self.runtime / "selected"
+        selected.unlink()
+        for symlink in (False, True):
+            with self.subTest(symlink=symlink):
+                if symlink:
+                    selected.symlink_to(self.source / "state.sh")
+                result = subprocess.run(
+                    [self.busybox, "sh", worker, "boot"], capture_output=True, timeout=10
+                )
+                self.assertNotEqual(result.returncode, 0, result.stderr)
+                self.assertFalse((self.runtime / "listener").exists())
+                self.assertFalse((self.runtime / "runtime").exists())
+
+    def test_ash_sm_worker_refuses_nonprivate_prerequisite_directories(self):
+        worker, package, data = self.installed_worker()
+        for folder in (data, self.runtime, package):
+            with self.subTest(folder=folder.name):
+                folder.chmod(0o755)
+                result = subprocess.run(
+                    [self.busybox, "sh", worker, "boot"], capture_output=True, timeout=10
+                )
+                self.assertNotEqual(result.returncode, 0, result.stderr)
+                self.assertFalse((self.runtime / "listener").exists())
+                folder.chmod(0o700)
+
+    def recovery_files(self):
+        return subprocess.run(
+            [
+                "sh",
+                "-c",
+                'set -eu; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                'service_lock usb; service_files "$(sha "$P/files.sha256")"; printf "%s\\n" "$runtime"',
+                "test",
+                self.source,
+                self.runtime,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+    def test_recovery_files_preserve_existing_usb_listener(self):
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        before = (self.runtime / "listener").read_bytes()
+        result = self.recovery_files()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((Path(result.stdout.strip()) / "state.sh").is_file())
+        self.assertEqual((self.runtime / "listener").read_bytes(), before)
+        self.assertEqual(self.client()["backend"], "backend-one\n")
+
+    def test_recovery_files_do_not_require_an_available_port(self):
+        with socket.socket() as listener:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind(("127.0.0.1", 35555))
+            listener.listen()
+            result = self.recovery_files()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((Path(result.stdout.strip()) / "backend.sh").is_file())
+        self.assertFalse((self.runtime / "runtime").exists())
+        self.assertFalse((self.runtime / "listener").exists())
 
     def test_foreign_socket_causes_failure_without_publishing_new_runtime(self):
         self.runtime.mkdir(mode=0o700)

@@ -47,6 +47,20 @@ All attempts, the restart, Ethernet failures and the day/night-map drift remain
 explicit. These blocks do not establish isolated Base benefit, usable early
 input/audio, long-parked reliability or Miatafy reproduction.
 
+The [startup verification pilot](startup-overhead.md) then measured one revised
+dev.8 start against that sealed reference. Home and visible wireless projection
+appeared about 2.8 and 2.4 seconds earlier than the four non-restarting controls'
+conditional medians; CPU and MemFree remained within their spread. Individual
+attempts, remaining 3.64-second selector work and single-pilot limits are explicit.
+This does not meet or qualify the target of no added delay versus stock.
+
+The [native-selector follow-up](startup-overhead.md#native-selector-pilot-dev9)
+records one working dev.9 start: Home at 26.20–26.41 s and the wireless dashboard
+at 52.01–52.22 s, both about 2.22 seconds earlier than the verification pilot.
+CPU was 31.42%; minimum/ending MemFree were 207.99/209.67 MiB. The earlier
+UI-failing attempt and setup failures remain explicit. The 0.56-second selector
+span is a measured reduction; stock parity and repeated gains remain unqualified.
+
 ## Configurations to compare
 
 | Configuration | Purpose |

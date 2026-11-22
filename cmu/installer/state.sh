@@ -127,39 +127,35 @@ snapshot_decode() {
         (metadata "$S_LOGIN_META" && metadata "$S_SSH_META") || return 1
         S_ACCESS=true
     fi
+    S_SELECTOR_RECORDED=false; S_SELECTOR_HASH=-; S_SELECTOR_META=-; S_SELECTOR_PACKAGE=-
+    if ! absent "$D/snapshots/$1/selector"; then
+        file "$D/snapshots/$1/selector" &&
+            test "$(wc -l < "$D/snapshots/$1/selector")" -eq 1 &&
+            awk '$2=="selector"{n++}END{exit n!=1}' "$D/snapshots/$1/files.sha256" || return 1
+        S_SELECTOR_RECORDED=true
+        if test "$(cat "$D/snapshots/$1/selector")" != -; then
+            test "$(awk -F '|' '{print NF}' "$D/snapshots/$1/selector")" = 3 || return 1
+            IFS='|' read -r S_SELECTOR_HASH S_SELECTOR_META S_SELECTOR_PACKAGE extra < "$D/snapshots/$1/selector" || return 1
+            hex "$S_SELECTOR_HASH" 64 && hex "$S_SELECTOR_PACKAGE" 64 &&
+                test "$S_SELECTOR_PACKAGE" = "$S_PACKAGE" &&
+                test "$S_SELECTOR_META" = "700:$(id -u):$(id -g)" || return 1
+        fi
+    fi
 }
-snapshot_create() (
-    # Optional ninth/tenth/eleventh bits append Pandora/base/wireless. '-' preserves the older
-    # installed selector's five/six/seven-field format until Install/update replaces it.
-    # autostart, package, touch, warning, nvram, mode, dependencies, access, Pandora, base, wireless
+snapshot_finish() (
+    # Publish either a plain transaction snapshot or its verified boot plan.
+    # The caller owns this private work directory and names every payload.
     set -eu
-    file "$1" && { test "$2" = - || hex "$2" 64; } && bit "$3" && bit "$4" &&
-        { test "${9--}" = - || bit "${9--}"; } &&
-        { test "${10--}" = - || { bit "${10--}" && test "${9--}" != -; }; } &&
-        { test "${11--}" = - || { bit "${11--}" && test "${10--}" != -; }; } &&
-        touch_value "$5" && metadata "$6" || fail invalid_snapshot
-    local work id name digest
-    work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail snapshot_create_failed
-    cp "$1" "$work/autostart" || fail snapshot_copy_failed
-    if test "$#" -ge 7; then cp "$7" "$work/dependencies"; else : > "$work/dependencies"; fi || fail snapshot_copy_failed
-    if test "${11--}" != -; then
-        printf '%s|%s|%s|%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" "$9" "${10}" "${11}"
-    elif test "${10--}" != -; then
-        printf '%s|%s|%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" "$9" "${10}"
-    elif test "${9--}" = -; then
-        printf '%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6"
-    else
-        printf '%s|%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" "$9"
-    fi > "$work/config" || fail snapshot_config_failed
-    chmod 600 "$work/autostart" "$work/config" "$work/dependencies" || fail snapshot_mode_failed
-    set -- autostart config dependencies "${8:--}"
-    if test "$4" != - && ! absent "$4/access"; then
-        for name in access runlogin sshd.conf; do
-            file "$4/$name" && cp "$4/$name" "$work/$name" && chmod 600 "$work/$name" || fail snapshot_copy_failed
-        done
-        set -- autostart config dependencies access runlogin sshd.conf
-    else set -- autostart config dependencies; fi
+    local work=$1 id name digest seen='|'
+    shift
+    private_dir "$work" && test "$#" -gt 0 || fail invalid_snapshot_work
+    case "$work" in "$D"/snapshots/.new-*) ;; *) fail invalid_snapshot_work;; esac
+    absent "$work/files.sha256" || fail snapshot_manifest_exists
     for name in "$@"; do
+        case "$name" in ''|.|..|files.sha256|*[!a-zA-Z0-9.-]*) fail invalid_snapshot_member;; esac
+        case "$seen" in *"|$name|"*) fail invalid_snapshot_member;; esac
+        seen="$seen$name|"
+        file "$work/$name" || fail snapshot_member_missing
         digest=$(sha "$work/$name") && hex "$digest" 64 || fail snapshot_hash_failed
         printf '%s  %s\n' "$digest" "$name" || fail snapshot_manifest_failed
     done > "$work/files.sha256" || fail snapshot_manifest_failed
@@ -177,4 +173,43 @@ snapshot_create() (
     fi
     snapshot_read "$id" || fail snapshot_invalid
     printf '%s\n' "$id"
+)
+
+snapshot_create() (
+    # Optional ninth/tenth/eleventh bits append Pandora/base/wireless. '-' preserves the older
+    # installed selector's five/six/seven-field format until Install/update replaces it.
+    # autostart, package, touch, warning, nvram, mode, dependencies, access, Pandora, base, wireless
+    set -eu
+    file "$1" && { test "$2" = - || hex "$2" 64; } && bit "$3" && bit "$4" &&
+        { test "${9--}" = - || bit "${9--}"; } &&
+        { test "${10--}" = - || { bit "${10--}" && test "${9--}" != -; }; } &&
+        { test "${11--}" = - || { bit "${11--}" && test "${10--}" != -; }; } &&
+        touch_value "$5" && metadata "$6" || fail invalid_snapshot
+    local work name resources=${8:--}
+    work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail snapshot_create_failed
+    cp "$1" "$work/autostart" || fail snapshot_copy_failed
+    if test "$#" -ge 7; then cp "$7" "$work/dependencies"; else : > "$work/dependencies"; fi || fail snapshot_copy_failed
+    if test "${11--}" != -; then
+        printf '%s|%s|%s|%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" "$9" "${10}" "${11}"
+    elif test "${10--}" != -; then
+        printf '%s|%s|%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" "$9" "${10}"
+    elif test "${9--}" = -; then
+        printf '%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6"
+    else
+        printf '%s|%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" "$9"
+    fi > "$work/config" || fail snapshot_config_failed
+    chmod 600 "$work/autostart" "$work/config" "$work/dependencies" || fail snapshot_mode_failed
+    set -- autostart config dependencies
+    if test "$resources" != - && ! absent "$resources/access"; then
+        for name in access runlogin sshd.conf; do
+            file "$resources/$name" && cp "$resources/$name" "$work/$name" && chmod 600 "$work/$name" || fail snapshot_copy_failed
+        done
+        set -- autostart config dependencies access runlogin sshd.conf
+    fi
+    if test "$resources" != - && ! absent "$resources/selector"; then
+        file "$resources/selector" && cp "$resources/selector" "$work/selector" &&
+            chmod 600 "$work/selector" || fail snapshot_copy_failed
+        set -- "$@" selector
+    fi
+    snapshot_finish "$work" "$@"
 )

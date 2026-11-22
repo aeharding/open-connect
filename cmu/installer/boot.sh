@@ -33,12 +33,33 @@ boot_load() {
     . "$P/transaction.sh"
 }
 
+boot_copy_package() {
+    local destination=$1 name expected
+    shift
+    for name in "$@"; do
+        expected=$(awk -v name="$name" '$2==name{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
+        hex "$expected" 64 && cp "$P/$name" "$destination/$name" &&
+            test "$(sha "$destination/$name")" = "$expected" || return 1
+    done
+}
+
+boot_observer_stage() {
+    absent "$R/ignition" || fail observer_already_present
+    observer=$(mktemp -d "$R/.ignition-XXXXXX") || fail observer_create_failed
+    boot_copy_package "$observer" ignition.sh state.sh flush || fail observer_copy_failed
+    chmod 600 "$observer/ignition.sh" "$observer/state.sh" && chmod 700 "$observer/flush" || fail observer_mode_failed
+    runtime=$observer
+}
+
 boot_select() {
     D=/tmp/mnt/data_persist/open-connect
     R=/tmp/open-connect
     AUTOSTART=/usr/bin/autostart
     boot_load
     firmware_guard
+    boot_mount_guard || fail invalid_boot_mounts
+    test "$(root_mode)" = ro,noatime || fail root_mount_changed
+    absent "$R/feature" && absent "$R/selected" || fail already_selected
     private_dir "$D" && record_read || fail invalid_state
     test "$P" = "$D/packages/$R_BACKEND" || fail damaged_package
     if test "$R_PHASE" = active; then
@@ -60,8 +81,14 @@ boot_select() {
         fi
     fi
     if test "$fast" = false; then native_guard; fi
-    . "$P/service.sh"
-    service_stage boot "$R_BACKEND"
+    modern=${oc_outer_observer:-false}
+    if test "$modern:$fast" = true:true; then
+        # Ordinary verified fallback stages only the observer; SM owns Settings.
+        boot_observer_stage
+    else
+        . "$P/service.sh"
+        service_files "$R_BACKEND"
+    fi
     startup_stamp session_ready
     if test "$fast" = false; then
         if test "$R_PHASE" != purge; then transaction_reconcile; fi
@@ -76,6 +103,13 @@ boot_select() {
         hex "$S_PACKAGE" 64 && private_dir "$D/packages/$S_PACKAGE" && private_dir "$D/composed/$S_PACKAGE" || fail damaged_feature
         test "$(sha "$D/packages/$S_PACKAGE/files.sha256")" = "$S_PACKAGE" || fail damaged_feature
         startup_stamp targets_dependencies
+    fi
+    if test "$modern" = true && test -z "${observer:-}"; then boot_observer_stage; fi
+    if test "${S_SELECTOR_RECORDED:-false}" = true; then
+        # Re-attest unchanged bytes after ordinary inode drift. Fold the new
+        # snapshot into the imminent budget commit, never a second authority.
+        R_CURRENT=$(boot_snapshot_seal "$R_CURRENT") || fail boot_snapshot_failed
+        snapshot_read "$R_CURRENT" || fail invalid_snapshot
     fi
     package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; mode=$S_META
     pandora=$S_PANDORA; base=$S_BASE; wireless=$S_WIRELESS
@@ -99,25 +133,47 @@ if test "$S_NVRAM" != "$nvram"; then
     transaction_prepare apply "$R_CURRENT" "$after"
     transaction_reconcile
 fi
-# Observe ACC even in baseline mode so a later genuine ignition cycle can retry.
-( exec 9>&-; exec sh "$runtime/ignition.sh" "$boot" ) </dev/null >/dev/null 2>&1 &
-test "$selected" = true || exit 1
+# Modern autostart launches the verified observer outside its timeout, on both
+# valid outcomes. Legacy installed hooks retain their standalone behavior.
+if test "$modern" = true; then
+    absent "$R/ignition" && mv "$observer" "$R/ignition" || fail observer_publish_failed
+    runtime=$R/ignition
+else
+    ( exec 9>&-; exec sh "$runtime/ignition.sh" "$boot" ) </dev/null >/dev/null 2>&1 &
+fi
+if test "$selected" != true; then
+    if test "$modern" = true; then return 2; else return 1; fi
+fi
 absent /tmp/open-connect/feature || fail feature_already_present
 work=$(mktemp -d /tmp/open-connect/.feature-XXXXXX)
 cp "$D/composed/$package/uia.so" "$D/composed/$package/mmui.so" \
     "$D/composed/$package/mmui.xml" "$D/composed/$package/system-app.js" "$work/"
 startup_stamp feature_copied
 if test "$warning" = 1; then setting=on; else setting=off; fi
-service_config "$D/composed/$package/sm-normal-$setting.conf" "$work/sm.conf" "$pandora" "$wireless" || fail service_config_failed
-service_config "$D/composed/$package/sm-wcp-$setting.conf" "$work/sm_WCP.conf" "$pandora" "$wireless" || fail service_config_failed
+if file "$D/snapshots/$R_CURRENT/boot.plan"; then
+    cp "$D/snapshots/$R_CURRENT/sm-normal.conf" "$work/sm.conf" &&
+        cp "$D/snapshots/$R_CURRENT/sm-wcp.conf" "$work/sm_WCP.conf" || fail service_config_failed
+else
+    service_config "$D/composed/$package/sm-normal-$setting.conf" "$work/sm.conf" "$pandora" "$wireless" || fail service_config_failed
+    service_config "$D/composed/$package/sm-wcp-$setting.conf" "$work/sm_WCP.conf" "$pandora" "$wireless" || fail service_config_failed
+fi
 if test "$wireless" = 1; then
     cp "$P/wireless.sh" "$work/wireless.sh"
     cp "$P/wireless-device.awk" "$work/wireless-device.awk"
     printf '%s\n' "$boot" > "$work/boot-id"
     printf '0\n' > "$work/wireless-applied"
 fi
-token=$(cat "$runtime/token"); hex "$token" 32 || fail invalid_token
-sed "s/@TOKEN@/$token/" "$D/composed/$package/index-$setting.html" > "$work/index.html"
+if absent "$R/token"; then
+    token=$(uuid); hex "$token" 32 || fail invalid_token
+    (set -C; printf '%s\n' "$token" > "$R/token") || fail invalid_token
+fi
+file "$R/token" && test "$(wc -c < "$R/token")" -eq 33 || fail invalid_token
+token=$(cat "$R/token"); hex "$token" 32 || fail invalid_token
+boot_copy_package "$work" runtime.js dialog.js settings.js service.sh || fail feature_ui_failed
+version=$(cat "$P/VERSION")
+case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
+sed -e "s/@TOKEN@/$token/" -e "s/@VERSION@/$version/" -e "s/@NOTICE@/$R_NOTICE/" \
+    "$D/composed/$package/index-$setting.html" > "$work/index.html"
 mv "$work" /tmp/open-connect/feature
 # Preparation can be cancelled. Keep it in this shell, not a detached mutation.
 boot_cancelled=false; LOG_STAGE=

@@ -15,6 +15,36 @@ ASSETS = ROOT / "cmu/installer"
 
 
 class InstallerComposition(unittest.TestCase):
+    def test_boot_mounts_allow_rootfs_but_refuse_protected_overlays(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            mounts = root / "mounts"
+            firmware = root / "firmware.sh"
+            firmware.write_text(
+                (ASSETS / "firmware.sh").read_text().replace("/proc/self/mounts", str(mounts))
+            )
+            physical = "/dev/ffx01p1 / relfs ro,noatime 0 0\n"
+            persistence = "/dev/mmcblk0p2 /tmp/mnt/data_persist relfs rw,noatime 0 0\n"
+            for extra, valid in (("", True), ("rootfs / rootfs rw 0 0\n", True)):
+                mounts.write_text(extra + physical + persistence)
+                result = subprocess.run(["sh", "-c", '. "$1"; boot_mount_guard', "test", firmware])
+                self.assertEqual(result.returncode == 0, valid)
+            for overlay in (
+                "/tmp/open-connect",
+                "/tmp/open-connect/feature",
+                "/tmp/mnt/data_persist/open-connect",
+            ):
+                mounts.write_text(physical + persistence + f"tmpfs {overlay} tmpfs rw 0 0\n")
+                result = subprocess.run(["sh", "-c", '. "$1"; boot_mount_guard', "test", firmware])
+                self.assertNotEqual(result.returncode, 0)
+            mounts.write_text(physical.replace("ro,noatime", "rw,noatime") + persistence)
+            strict = subprocess.run(["sh", "-c", '. "$1"; boot_mount_guard', "test", firmware])
+            maintenance = subprocess.run(
+                ["sh", "-c", '. "$1"; boot_mount_guard maintenance', "test", firmware]
+            )
+            self.assertNotEqual(strict.returncode, 0)
+            self.assertEqual(maintenance.returncode, 0)
+
     def test_factory_wireless_uses_only_the_verified_oem_board_branch(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
@@ -198,6 +228,8 @@ class InstallerComposition(unittest.TestCase):
                 ("rungetty", "/usr/bin/rungetty"),
                 ("sshd", "/usr/sbin/sshd"),
                 ("ssh-keygen", "/usr/bin/ssh-keygen"),
+                ("framework.js", "/jci/gui/framework/js/GuiFramework.js"),
+                ("lvds-service", "/jci/lvds/lvds_service"),
             ):
                 fixture = root / name
                 fixture.write_bytes(b"synthetic dependency\n")

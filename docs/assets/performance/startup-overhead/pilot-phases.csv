@@ -1,0 +1,8 @@
+phase,uptime_s,elapsed_from_previous_s
+hook_entry,6.49,
+package_verified,7.08,0.59
+targets_dependencies,9.21,2.13
+session_ready,9.6,0.39
+budget_committed,9.85,0.25
+feature_copied,9.88,0.03
+selector_exit,10.13,0.25

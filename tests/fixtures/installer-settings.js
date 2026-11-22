@@ -410,3 +410,22 @@ settings.open(fw, store);
 assert.equal(pages.at(-1).ctrl.dataList.items[2].value, 2);
 assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, false);
 back();
+
+// A fresh-status response must not reopen Settings after detach or navigation.
+appName = "syssettings"; context = "SystemTab";
+let freshReply;
+store.refresh = done => { freshReply = done; };
+let deferredDetach = settings.attach(fw, app, store);
+let beforeDeferred = pages.length;
+list.properties.selectCallback(list, "open-connect-settings");
+assert.equal(pages.length, beforeDeferred);
+deferredDetach(); freshReply(true);
+assert.equal(pages.length, beforeDeferred);
+deferredDetach = settings.attach(fw, app, store);
+list.properties.selectCallback(list, "open-connect-settings");
+const selectedTemplate = fw._currTmpltInstance;
+fw._currTmpltInstance = {divElt: host.divElt, list2Ctrl: {}};
+freshReply(true);
+assert.equal(pages.length, beforeDeferred);
+fw._currTmpltInstance = selectedTemplate;
+deferredDetach(); delete store.refresh;

@@ -3,23 +3,29 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const source = fs.readFileSync(process.argv[2], "utf8");
 const token = "a".repeat(32), revision = "b".repeat(32);
-function fixture(previous, loadingUSB) {
-    const requests = [], intervals = [], timeouts = [], choices = [], messages = [];
+function fixture(previous, loadingUSB, boot) {
+    const requests = [], intervals = [], timeouts = [], choices = [], messages = [], loads = [];
     const fw = {_browserShown: true, getAppInstance() { return app; }};
     const app = {}, nodes = {};
-    if (loadingUSB) { nodes["oc-usb-loader"] = {ocToken: token}; }
+    if (loadingUSB) { nodes["oc-usb-loader"] = {ocToken: token,
+        src: "file:///tmp/open-connect/sessions/session-test/loader.js"}; }
     let store, now = 0;
     const ctx = {
         OpenConnect: previous,
-        document: {querySelector() { return null; }, getElementById(id) { return nodes[id]; }},
+        document: {querySelector(selector) {
+            const match = selector.match(/open-connect-(token|version|notice)/);
+            return boot && match ? {getAttribute() { return match[1] === "token" ? token : boot[match[1]]; }} : null;
+        }, getElementById(id) { return nodes[id]; }},
         framework: fw,
         utility: {loadScript(url, attrs, done) {
+            loads.push(url);
             nodes[attrs.id] = {parentNode: {removeChild() { delete nodes[attrs.id]; }}};
             done();
         }},
         setTimeout(fn, ms) { const timer = {fn, ms, at: now + ms, active: true}; timeouts.push(timer); return timer; },
         clearTimeout(timer) { if (timer) { timer.active = false; } },
         setInterval(fn) { intervals.push(fn); return fn; }, clearInterval() {},
+        Date: {now() { return now; }},
         XMLHttpRequest: function () {
             this.open = (method, url) => { this.method = method; this.url = url; };
             this.setRequestHeader = (name, value) => { this.type = value; };
@@ -47,7 +53,7 @@ function fixture(previous, loadingUSB) {
         return {ok: true, revision, installed: false, retained: false, conflict: false,
             restart: false, pending: false, touch: 0, warning: 0, notice: "-", version: "0.2.0-dev.1", ...extra};
     }
-    return {ctx, requests, choices, messages, reply, state,
+    return {ctx, requests, choices, messages, loads, reply, state,
         tick() { intervals.forEach(fn => fn()); },
         advance(ms) {
             const end = now + ms;
@@ -262,6 +268,7 @@ f.store.write("wireless", 1, 0, () => {});
 assert.equal(f.requests[1].body, token + "|" + revision + "|set|wireless|1|0");
 f.reply(f.requests[1], f.state({installed: true, wireless: 0, wirelessCurrent: 1, restart: true}));
 assert.equal(f.store.read().wireless, 0);
+
 assert.equal(f.store.read().wirelessCurrent, 1);
 assert.equal(f.store.read().restart, true);
 
@@ -271,3 +278,76 @@ f.reply(f.requests[0], f.state({installed: true, wireless: 0, wirelessCurrent: 0
 f.tick();
 assert.equal(f.store.read().wirelessFactory, true);
 assert.equal(f.store.read().wireless, 0);
+
+// A normal installed boot attaches its RAM-only menu without backend work.
+f = fixture(null, false, {version: "0.3.0-dev.9", notice: "-"});
+f.tick();
+assert.equal(f.requests.length, 0);
+assert.deepEqual(f.loads, ["file:///tmp/open-connect/feature/dialog.js",
+    "file:///tmp/open-connect/feature/settings.js"]);
+assert.equal(f.store.version, "0.3.0-dev.9");
+assert.equal(f.store.read(), null);
+let refreshed;
+f.store.refresh(ok => { refreshed = ok; });
+assert.equal(f.requests[0].body, token + "|-|status|-|-|-");
+f.reply(f.requests[0], null); // SM's listener has not bound yet.
+assert.equal(refreshed, undefined);
+f.retry();
+f.reply(f.requests[1], f.state({installed: true, revision: "d".repeat(32)}));
+assert.equal(refreshed, true);
+f.store.write("touch", 0, 1, () => {});
+assert.equal(f.requests[2].body, token + "|" + "d".repeat(32) + "|set|touch|0|1");
+// Re-enter the existing preference session while its save is still pending.
+let reopen;
+f.store.refresh(ok => { reopen = ok; });
+assert.equal(reopen, true);
+assert.equal(f.requests.length, 3);
+
+// Completion is local boot data; its action obtains a fresh revision first.
+f = fixture(null, false, {version: "0.3.0-dev.9", notice: "installed"});
+f.tick();
+assert.equal(f.requests.length, 0);
+assert.equal(f.choices[0].complete, true);
+f.choices[0].done("done");
+assert.equal(f.requests.length, 1);
+f.reply(f.requests[0], f.state({installed: true, revision: "e".repeat(32)}));
+assert.equal(f.requests[1].body, token + "|" + "e".repeat(32) + "|dismiss|-|-|-");
+
+// Mazda navigation can cancel completion without selecting either action.
+f = fixture(null, false, {version: "0.3.0-dev.9", notice: "installed"});
+f.tick();
+f.choices[0].done("cancel");
+assert.equal(f.requests.length, 0);
+assert.equal(f.messages.length, 0);
+
+// Full hardware verification can exceed four seconds. One shared twelve-second
+// read budget permits a slow answer, including after a briefly unavailable worker.
+f = fixture(null, false, {version: "0.3.0-dev.9", notice: "-"});
+f.tick();
+refreshed = undefined;
+f.store.refresh(ok => { refreshed = ok; });
+f.advance(5000);
+assert.equal(f.requests[0].aborted, undefined);
+f.reply(f.requests[0], f.state({installed: true}));
+assert.equal(refreshed, true);
+
+f = fixture(null, false, {version: "0.3.0-dev.9", notice: "-"});
+f.tick();
+refreshed = undefined;
+f.store.refresh(ok => { refreshed = ok; });
+f.advance(3000);
+f.reply(f.requests[0], null);
+f.advance(500); // Retry gets only the remainder, not another complete allowance.
+assert.equal(f.requests.length, 2);
+f.advance(8500);
+assert.equal(f.requests[1].aborted, true);
+assert.equal(refreshed, null);
+f.advance(1000);
+assert.equal(f.requests.length, 2);
+assert.ok(f.requests.every(request => request.body.includes("|status|")));
+
+// USB client dependencies stay within their own verified session.
+f = fixture(null, true);
+f.ctx.OpenConnect.start(token, true);
+assert.deepEqual(f.loads, ["file:///tmp/open-connect/sessions/session-test/dialog.js",
+    "file:///tmp/open-connect/sessions/session-test/settings.js"]);

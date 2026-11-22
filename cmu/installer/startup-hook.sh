@@ -1,8 +1,37 @@
         # Open Connect: failed selection retains Mazda's normal configuration.
-        if timeout -t 25 sh -c 'set -eu
+        oc_result=1
+        if read -r oc_tick oc_idle < /proc/uptime; then
+            oc_deadline=$((${oc_tick%.*} * 100 + 1${oc_tick#*.} - 100 + 2500))
+            oc_result=95
+        fi
+        if test "$oc_result" = 95 && test -f /usr/bin/open-connect-boot-select && test ! -L /usr/bin/open-connect-boot-select && test -x /usr/bin/open-connect-boot-select; then
+            if timeout -t 25 /usr/bin/open-connect-boot-select select; then oc_result=0
+            else oc_result=$?; fi
+        fi
+        if test "$oc_result" = 95; then
+            oc_wait=0
+            if read -r oc_tick oc_idle < /proc/uptime; then
+                oc_wait=$(((oc_deadline - (${oc_tick%.*} * 100 + 1${oc_tick#*.} - 100)) / 100))
+            fi
+            if test "$oc_wait" -gt 0; then
+        if timeout -t "$oc_wait" sh -c 'set -eu
 umask 077
 read -r entered idle < /proc/uptime || entered=unknown
 test "$(id -u)" = 0
+awk '\''
+    $2=="/tmp/mnt/data_persist/open-connect" || index($2,"/tmp/mnt/data_persist/open-connect/")==1 ||
+    $2=="/tmp/open-connect" || index($2,"/tmp/open-connect/")==1 {bad=1}
+    $2=="/" {
+        if($1=="rootfs" && $3=="rootfs" && $4=="rw" && root==0 && rootfs==0)rootfs++
+        else if($1=="/dev/ffx01p1" && $3=="relfs" && $4=="ro,noatime")root++
+        else bad=1
+    }
+    $2=="/tmp/mnt/data_persist" {
+        if($1!="/dev/mmcblk0p2" || $3!="relfs")bad=1
+        data++;split($4,a,",");for(i in a)if(a[i]=="rw")rw++
+    }
+    END {exit bad || root!=1 || data!=1 || rw!=1}
+'\'' /proc/self/mounts || exit 1
 D=/tmp/mnt/data_persist/open-connect
 R=/tmp/open-connect
 test "$(readlink -f "$D")" = "$D"
@@ -57,13 +86,23 @@ if awk '\''$0=="# Open Connect locked selector interface 1"{n++}END{exit n!=1}'\
     oc_times="hook_entry|$entered
 "; oc_stamp_count=1
     startup_stamp package_verified
+    oc_outer_observer=true
     boot_select
     startup_stamps_publish
 else
     exec 9>&-
     exec sh "$P/boot.sh"
 fi
-'; then
+'; then oc_result=0
+        else oc_result=$?; fi
+            else oc_result=1; fi
+        fi
+        if test "$oc_result" = 0; then
             SMCFG_NORMALMODE=/tmp/open-connect/feature/sm.conf
             SMCFG_WCPMODE=/tmp/open-connect/feature/sm_WCP.conf
         fi
+        case "$oc_result" in 0|2)
+            if test -d /tmp/open-connect/ignition && test ! -L /tmp/open-connect/ignition; then
+                ( exec 8>&- 9>&-; exec sh /tmp/open-connect/ignition/ignition.sh ) </dev/null >/dev/null 2>&1 &
+            fi;;
+        esac

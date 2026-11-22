@@ -135,7 +135,8 @@ targets_match_loaded() {
         test "$(sha "$AUTOSTART")" = "$(sha "$D/snapshots/$1/autostart")" &&
         test "$(stat -c '%a:%u:%g' "$AUTOSTART")" = "$S_META" &&
         test "$(nvram_read)" = "$S_NVRAM" || return 1
-    if test "$S_ACCESS" = true; then access_files_match_loaded "$1"; fi
+    if test "$S_ACCESS" = true; then access_files_match_loaded "$1" || return 1; fi
+    if test "${S_SELECTOR_RECORDED:-false}" = true; then selector_matches_loaded || return 1; fi
 }
 
 state_capture() (
@@ -198,9 +199,15 @@ transaction_reconcile() {
     case "$actual_nv" in "$before_nv"|"$after_nv") ;; *) fail nvram_changed;; esac
     if test ! -e "$D/snapshots/$R_BEFORE/access" && test ! -e "$D/snapshots/$R_AFTER/access"; then :
     else access_pair_check "$R_BEFORE" "$R_AFTER" || fail access_changed; fi
+    selector_pair=false
+    if ! absent "$D/snapshots/$R_BEFORE/selector" || ! absent "$D/snapshots/$R_AFTER/selector"; then
+        selector_pair_check "$R_BEFORE" "$R_AFTER" || fail selector_changed
+        selector_pair=true
+    fi
     # Install the recovery entry before changing NVRAM. Remove it last on
     # uninstall. Re-committing a matching NVRAM value repairs an interrupted commit.
     if test "$phase" != uninstall; then
+        if test "$selector_pair" = true; then selector_apply "$R_BEFORE" "$R_AFTER" || fail selector_apply_failed; fi
         startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
     fi
     if test -e "$D/snapshots/$R_AFTER/access"; then
@@ -210,8 +217,19 @@ transaction_reconcile() {
     if test "$phase" = uninstall; then
         startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
         if test -e "$D/snapshots/$R_AFTER/access"; then access_hold_cleanup || fail access_cleanup_failed; fi
+        if test "$selector_pair" = true; then selector_apply "$R_BEFORE" "$R_AFTER" || fail selector_remove_failed; fi
+    fi
+    if test "$selector_pair" = true; then
+        selector_pair_check "$R_AFTER" "$R_AFTER" || fail selector_verification_failed
     fi
     targets_match "$R_AFTER" && dependencies_match "$R_AFTER" || fail final_verification_failed
+    # Only packages with the native-selector capability produce a sealed plan.
+    # Current installed dev.8 and interrupted older transactions stay valid.
+    if test "$phase" != uninstall && test "$S_PACKAGE" != - &&
+        ! absent "$D/packages/$S_PACKAGE/boot-select"; then
+        R_AFTER=$(boot_snapshot_seal "$R_AFTER") || fail boot_snapshot_failed
+        snapshot_read "$R_AFTER" || fail invalid_boot_snapshot
+    fi
     R_CURRENT=$R_AFTER
     case "$phase" in
         uninstall) R_PHASE=removed; R_NOTICE=removed; R_BUDGET=0;;

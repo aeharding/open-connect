@@ -44,6 +44,7 @@ STATIC = (
 COMPILED = (
     "api",
     "flush",
+    "boot-select",
     "native.bin",
     "branch.bin",
     "sizes.bin",

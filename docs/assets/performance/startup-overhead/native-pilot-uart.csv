@@ -1,0 +1,10 @@
+candidate,event,native_logged_s,occurrence,uart_boot_markers,kernel_boot_banners
+native-pilot,dhcp_server_started,41.873,1,1,1
+native-pilot,dhcp_server_started,41.875,2,1,1
+native-pilot,wifi_authenticated,46.098,1,1,1
+native-pilot,wifi_associated,46.111,1,1,1
+native-pilot,wifi_key_handshake,46.284,1,1,1
+native-pilot,carplay_control_started,42.512,1,1,1
+native-pilot,carplay_control_connected,49.813,1,1,1
+native-pilot,carplay_session_started,50.376,1,1,1
+native-pilot,mmui_session_active_event,50.412,1,1,1

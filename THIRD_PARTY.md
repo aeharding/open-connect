@@ -65,6 +65,13 @@ under MIT, copyright 2026 Loc Le Van. The full notice is preserved in
 The Open Connect launcher and UI payload are original AGPL-3.0-or-later code.
 No CarPlay patches or reconstructed OEM files are included.
 
+## Development checks
+
+The optional Node.js UI checks use [Acorn](https://github.com/acornjs/acorn)
+8.15.0, under MIT, to parse target JavaScript as ES5. Its version and package
+integrity are pinned in `package-lock.json`; its license stays in the installed
+development dependency. Acorn is not included in CMU release bundles.
+
 ## Comparison research
 
 The inspected [piotrmocko/mzd-v74-tweaks](https://github.com/piotrmocko/mzd-v74-tweaks)

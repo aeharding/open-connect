@@ -19,12 +19,13 @@ NATIVE_FLAGS = --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard \
     -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector
 
 .PHONY: release native check-ui
-release: native $(OUT)/api $(OUT)/flush $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin count-pointer.bin)
+release: native $(OUT)/api $(OUT)/flush $(OUT)/boot-select $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin count-pointer.bin)
 	sh tooling/package-usb.sh "$(OUT)"
 
 native: $(OUT)/native.bin $(OUT)/branch.bin $(OUT)/sizes.bin $(OUT)/layout.bin
 
 check-ui:
+	node tests/fixtures/installer-es5.js cmu/installer
 	node tests/fixtures/installer-dialog.js cmu/installer/dialog.js
 	node tests/fixtures/installer-settings.js cmu/installer/dialog.js cmu/installer/settings.js
 	node tests/fixtures/installer-runtime.js cmu/installer/runtime.js
@@ -37,6 +38,9 @@ $(OUT)/api: cmu/installer/api.c | $(OUT)
 	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
 
 $(OUT)/flush: cmu/startup/flush.c | $(OUT)
+	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
+
+$(OUT)/boot-select: cmu/installer/boot-select.c cmu/installer/boot-policy.h cmu/installer/boot-system.h cmu/installer/boot-plan.h cmu/installer/boot-io.h cmu/installer/boot-hash.h | $(OUT)
 	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
 
 $(OUT)/mmui.o: cmu/installer/mmui.S | $(OUT)

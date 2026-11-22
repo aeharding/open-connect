@@ -58,14 +58,23 @@ unqualified. Next expand Services and optimization research beyond Miatafy's
 documented changes before deep long-parked lag work.
 The owner requested this broader research; candidate selection and
 defaults still require dependency, benefit and restoration evidence.
-Immediate priority: complete the single Android Auto leaf pilot, then recover
-Open Connect's own pre-Service-Manager overhead toward the owner's bar of no
-measurable delay against stock. Retain synchronous verified staging and recovery;
-use phase timings and matched visible milestones to guide any remaining work.
-The first comparison keeps the current wireless fixture; stock parity requires
-matched conditions. Further Services expansion and the voice-start deferral
-pilot follow this work. Active optional services remain individual choices;
-qualified discontinued/non-NA changes may enter Base optimizations.
+Immediate priority: recover Open Connect's own pre-Service-Manager overhead
+toward the owner's bar of no measurable delay against stock. The
+[verification pilot](docs/startup-overhead.md) provides a single-start improvement
+and phase data, with residual work and comparison limits explicit. The dev.9
+native selector now selects a verified settled snapshot, stages synchronous
+checked RAM features and gives Service Manager ownership of Settings staging;
+the full shell path handles mismatches and recovery. Its single working pilot
+reached Home at 26.20–26.41 s and wireless projection at 52.01–52.22 s, both
+about 2.22 s earlier than the preceding pilot. Compatible Uninstall independently
+restored the as-found stock paths and removed the helper and product state.
+The selector still recorded 0.56 s; the no-added-delay target remains open.
+Preserve durable budget
+barriers, original restoration and independent USB undo. Use phase timings and
+matched visible milestones to guide remaining work. Wireless results alone do
+not qualify stock parity. Further Services expansion and the voice-start
+deferral pilot follow this work. Active optional services remain individual
+choices; qualified discontinued/non-NA changes may enter Base optimizations.
 
 The deferred phase-1 manual and first-car checks remain separate.
 

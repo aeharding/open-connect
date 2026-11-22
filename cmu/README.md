@@ -17,6 +17,7 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | `backend.sh`, `transaction.sh`, `state.sh` | Install, preferences, complete uninstall and interrupted-operation reconciliation |
 | `firmware.sh`, `mmui.S`, `intro.js`, `system-route.js` | Exact v74 guards and composition from this unit's saved originals |
 | `startup-hook.sh`, `boot.sh`, `ignition.sh` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
+| `boot-select.c`, `boot-*.h` | Seal verified boot inputs during maintenance and select an unchanged snapshot natively |
 | `wireless.sh`, `wireless-sm.awk`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step and narrow native wireless service arguments |
 
 The browser sends `POST /control` to `127.0.0.1:35555`, with `Content-Type:
@@ -47,6 +48,33 @@ The native libraries, service configuration, index and paired JavaScript are
 composed privately and copied into a fixed RAM directory for the selected boot.
 Update and uninstall leave that boot's mapped native bytes intact until restart.
 The root filesystem is returned to read-only after startup-file publication.
+
+The dev.9 startup path installs `/usr/bin/open-connect-boot-select` as a trusted
+root helper. Its optional snapshot descriptor records the digest, mode and
+package; the baseline records absence. An unknown existing path is refused.
+The transaction installs the helper before activating its hook. Uninstall
+restores the original hook before removing the helper, preserving the explicit
+absence check through cleanup. Independent undo uses a compatible dev.9 USB;
+unpublished dev.8 downgrade behavior is not supported.
+
+Maintenance fully hashes the OEM, package and composed files, renders both board
+profiles, and seals their metadata in `boot.plan` before committing the current
+snapshot. The native selector hashes the small snapshot manifest and plan,
+checks complete member coverage and metadata, and checks selected executable/UI
+bytes while copying them to RAM. It checks firmware identity, physical mounts,
+NVRAM, login holds and the actual boot ID. Metadata reuse detects ordinary drift;
+it cannot prove uncopied bytes against silent corruption or privileged changes.
+Mismatches before debit use the embedded full shell verifier. Lock contention,
+duplicate selection and ambiguous durable writes select factory behavior.
+
+Both record flushes precede feature publication. The sole durable record retains
+the same attempt budget and ignition rules. A Service Manager one-shot after
+`stage_1` verifies and stages the Settings listener, yielding to an existing USB
+session. Autostart launches a separately verified RAM ignition observer on both
+selected and valid exhausted-budget boots. The installed UI loads its own RAM
+assets and attaches locally; opening Settings fetches fresh backend status.
+These implementation checks do not establish startup parity; see the
+[measured overhead and limits](../docs/startup-overhead.md).
 
 Wireless selection changes service arguments in the selected RAM profile. After
 VBS renders its normal Device Manager XML, one bounded process changes only its

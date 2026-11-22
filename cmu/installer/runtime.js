@@ -3,7 +3,15 @@
 var OpenConnect = (function (previous) {
     "use strict";
     var entry = document.getElementById("oc-usb-loader");
-    var stopped = false, started = false, token = entry && entry.ocToken, state = null, busy = false;
+    var base = entry && entry.src ? entry.src.slice(0, entry.src.lastIndexOf("/") + 1) :
+        "file:///tmp/open-connect/feature/";
+    var versionMeta = document.querySelector('meta[name="open-connect-version"]');
+    var noticeMeta = document.querySelector('meta[name="open-connect-notice"]');
+    var boot = !entry && versionMeta && noticeMeta && {
+        version: versionMeta.getAttribute("content"), notice: noticeMeta.getAttribute("content")};
+    if (!boot || !/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(boot.version) ||
+            !/^(?:-|installed|removed|undone|restart)$/.test(boot.notice)) { boot = null; }
+    var stopped = false, started = false, token = entry && entry.ocToken, state = null, busy = false, saving = false;
     var timer = null, dialog = null, detach = null, app = null, usb = false;
     var nodes = [], queued = null, completionShown = false, ready = false, usbRequest = 0;
     var installer, settings, loading = null;
@@ -33,11 +41,11 @@ var OpenConnect = (function (previous) {
             (s.installedVersion === undefined || s.installedVersion === "-" ||
                 /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(s.installedVersion));
     }
-    function request(operation, args, done) {
+    function request(operation, args, done, waitMs) {
         if (stopped) { return; }
         var xhr = new XMLHttpRequest(), answered = false;
         // Leave the server's bounded transaction time plus response headroom.
-        var deadline = setTimeout(function () { finish(null); xhr.abort(); }, 185000);
+        var deadline = setTimeout(function () { finish(null); xhr.abort(); }, waitMs || 185000);
         function finish(answer) {
             if (answered) { return; }
             answered = true;
@@ -67,12 +75,16 @@ var OpenConnect = (function (previous) {
         dialog = null;
         if (cancel) { cancel(); }
     }
-    function readStatus(done, attempts) {
+    function readStatus(done, attempts, began) {
+        began = began === undefined ? Date.now() : began;
+        var remaining = boot ? 12000 - (Date.now() - began) : 185000;
+        if (remaining <= 0) { done(null); return; }
         request("status", null, function (answer) {
-            if (answer && answer.error === "busy" && (attempts || 0) < 8) {
-                setTimeout(function () { if (!stopped) { readStatus(done, (attempts || 0) + 1); } }, 500);
+            if ((answer && answer.error === "busy" || (!answer && boot)) &&
+                    (attempts || 0) < 8 && (!boot || Date.now() - began < 12000)) {
+                setTimeout(function () { if (!stopped) { readStatus(done, (attempts || 0) + 1, began); } }, 500);
             } else { done(answer); }
-        });
+        }, remaining);
     }
     function message(title, text, buttons, chosen) {
         queued = function () {
@@ -116,11 +128,15 @@ var OpenConnect = (function (previous) {
     }
     var store = {
         read: values,
+        refresh: function (reply) {
+            if (busy) { reply(saving && !!state && state.installed); return; }
+            readStatus(function (answer) { reply(valid(answer) && answer.installed); });
+        },
         write: function (key, from, to, reply) {
             if (busy || !state) { reply(null); return; }
-            busy = true;
+            busy = saving = true;
             request("set", [key, String(from), String(to)], function (answer) {
-                busy = false;
+                busy = saving = false;
                 if (valid(answer)) { reply(values()); }
                 else {
                     state = null;
@@ -130,9 +146,9 @@ var OpenConnect = (function (previous) {
         },
         importKey: function (reply) {
             if (busy || !state) { reply(null); return; }
-            busy = true;
+            busy = saving = true;
             request("import", null, function (answer) {
-                busy = false;
+                busy = saving = false;
                 if (valid(answer)) { reply(values()); }
                 else {
                     readStatus(function (fresh) { reply(valid(fresh) ? values() : null, true); });
@@ -153,14 +169,14 @@ var OpenConnect = (function (previous) {
     }
     function tick() {
         if (stopped || !window.framework || !framework._browserShown) { return; }
-        if (!state) {
+        if (!state && !boot) {
             if (queued && !dialog) {
                 dialog = queued();
                 if (dialog) { queued = null; }
             }
             return;
         }
-        if (state.installed) {
+        if (state ? state.installed : boot) {
             var current = framework.getAppInstance("syssettings");
             if (current && current !== app) {
                 if (detach) { detach(); }
@@ -168,14 +184,22 @@ var OpenConnect = (function (previous) {
                 detach = settings.attach(framework, app, store);
             }
         }
-        if (state.installed && !state.restart && state.notice === "installed") { usb = false; }
+        var installed = state ? state.installed : !!boot;
+        var restart = state ? state.restart : false;
+        var notice = state ? state.notice : boot.notice;
+        if (installed && !restart && notice === "installed") { usb = false; }
         if (usb && !busy && !dialog && !queued) { choose(); }
-        if (!usb && !completionShown && !queued && !dialog && state.installed && !state.restart && state.notice === "installed") {
+        if (!usb && !completionShown && !queued && !dialog && installed && !restart && notice === "installed") {
             queued = function () {
-                return installer.complete(framework, state.version, function (action) {
+                return installer.complete(framework, state ? state.version : boot.version, function (action) {
                     dialog = null;
-                    if (action === "done" || action === "settings") { dismiss(); }
-                    if (action === "settings") { settings.fromHome(framework, store, function () {}); }
+                    if (action !== "done" && action !== "settings") { return; }
+                    function complete() {
+                        dismiss();
+                        if (action === "settings") { settings.fromHome(framework, store, function () {}); }
+                    }
+                    if (state) { complete(); }
+                    else { readStatus(function (answer) { if (valid(answer)) { complete(); } else { error(answer); } }); }
                 });
             };
             completionShown = true;
@@ -188,7 +212,7 @@ var OpenConnect = (function (previous) {
     }
     function load(name, next) {
         var id = "oc-runtime-" + name;
-        utility.loadScript("../../tmp/open-connect/runtime/" + name + ".js", {id: id}, function () {
+        utility.loadScript(base + name + ".js", {id: id}, function () {
             if (!stopped) { next(); }
         });
         nodes.push(document.getElementById(id));
@@ -202,6 +226,15 @@ var OpenConnect = (function (previous) {
             installer = OpenConnectInstaller;
             load("settings", function () {
                 settings = OpenConnectSettings;
+                if (!fromUSB && boot) {
+                    clearTimeout(loading);
+                    ready = true;
+                    store.version = boot.version;
+                    if (previous && previous.dispose) { previous.dispose(); }
+                    previous = null;
+                    timer = setInterval(tick, 500);
+                    return;
+                }
                 readStatus(function (answer) {
                     clearTimeout(loading);
                     if (!valid(answer)) {

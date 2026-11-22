@@ -861,3 +861,73 @@ Supporting records are the five `rx.bin` captures, original fetch failures,
 `runs/wireless-enable-20261121/wireless-base-off/`, with separate recovery
 observations. Raw logs and firmware sources remain private; the public comparison
 retains the failed attempts and numeric observations.
+
+## Native startup file metadata on v74
+
+**Observed on 74.00.324A NA:** a bounded RAM-only candidate using the Linux 3.0
+[ARM stat64 interface](https://github.com/torvalds/linux/blob/v3.0/arch/arm/include/asm/stat.h)
+matched BusyBox's device, inode, size, mode, UID, GID, modification time and
+change time for the GUI framework, LVDS service and a synthetic RAM file. The
+104-byte ARM layout and architecture-specific open flags were checked against
+the kernel interfaces. Streaming SHA-256 matched the pinned firmware files and
+independent host vectors. This did not install a hook or change product state.
+
+One subsequent ACC restart of the unchanged CI control preserved all ten sampled
+metadata fields, including available timestamp nanoseconds, for eight inputs:
+the two physical-root files, three persistent package files, composed UIA,
+current config and baseline autostart. Checking the earlier sealed plan and
+independently resealing the same source hashes both succeeded; the plans were
+byte-identical. The record, preferences, physical read-only root and normal
+wireless projection remained intact. The four-file SD probe was removed after
+exact hash/count checks.
+
+This supports metadata stability for those inputs across one kernel restart.
+It does not establish a fast-path hit rate or startup saving. Matching metadata
+does not prove uncopied file bytes are identical; maintenance retains full
+hashes and selected runtime bytes must be checked during copying. Supporting
+records are private `runs/native-boot-20261121/abi-result.json`, `abi-source/`,
+`cross-result.json`, the single ACC capture and `cross-cleanup.out`.
+
+The v74 NVRAM sysfs leaf `keys/lvds_speed_restriction` returned `disable` followed
+by a terminal NUL byte (`64 69 73 61 62 6c 65 00`); ACC returned `31 0a`.
+The native NVRAM reader must handle this driver convention separately from
+immutable text files, while rejecting interior NULs or trailing data. A read-only
+pre-install check recorded these bytes in private `sysfs-byte-intake.out`; it
+changed no device state.
+
+## Opera rejects block function declarations in strict code
+
+The dev.9 CI candidate `06ae21f` reached native wireless projection, but its
+installed Settings client did not initialize. The actual Opera engine rejected
+`settings.js` with `FunctionDeclaration in Statement context` at line 393:
+`function show` was declared inside an `if` block in strict code. Modern Node
+accepted the same source. The resulting missing `OpenConnectSettings` prevented
+runtime initialization and the maintenance prompt. That startup is retained as
+a failed UI qualification attempt; its earlier visible timing alone cannot
+establish the benefit of the complete working candidate.
+
+Use a function expression in that branch. The maintained UI checks now parse
+every installer JavaScript file as ES5 and reject declarations outside source
+or function bodies, including legacy extensions Acorn otherwise accepts. The
+intro property fragment is checked inside its object context. This is a host
+syntax check, not an emulation of Opera or proof of hardware behavior.
+
+During diagnosis, script loads issued directly inside a D-Bus `Navigate`
+JavaScript URL did not complete. Deferring the same probe with `setTimeout`
+loaded the OEM control and runtime and exposed the Settings parse error. The
+existing USB session already defers its loader. Do not infer a file-permission
+or URL-hostname defect from those immediate navigation probes. Private supporting
+records are `runs/native-boot-20261121/ui-diagnostic-v6.out` and the preceding
+failed UI observations; raw DOM and captures remain private.
+
+The corrected `152bc77` bundle displayed the maintenance prompt and initialized
+the installed client. Navigating away from completion nevertheless caused an
+unrequested status read and an error alert. A warm loopback status read took
+3.78 seconds; the same request through actual Opera XHR took 3.717 seconds,
+leaving little margin under the installed client's four-second timeout. These
+measurements do not prove the duration of the earlier failed request. Cancellation
+now performs no backend action, and installed status reads share one twelve-second
+allowance across retries. The transaction request deadline and rule against
+retrying writes are unchanged. Supporting records are private
+`fixed-status-latency.out`, `native-status-request.out` and the completion video
+under the same run directory. This setup observation is not a primary timing run.

@@ -919,3 +919,15 @@ existing USB session already defers its loader. Do not infer a file-permission
 or URL-hostname defect from those immediate navigation probes. Private supporting
 records are `runs/native-boot-20261121/ui-diagnostic-v6.out` and the preceding
 failed UI observations; raw DOM and captures remain private.
+
+The corrected `152bc77` bundle displayed the maintenance prompt and initialized
+the installed client. Navigating away from completion nevertheless caused an
+unrequested status read and an error alert. A warm loopback status read took
+3.78 seconds; the same request through actual Opera XHR took 3.717 seconds,
+leaving little margin under the installed client's four-second timeout. These
+measurements do not prove the duration of the earlier failed request. Cancellation
+now performs no backend action, and installed status reads share one twelve-second
+allowance across retries. The transaction request deadline and rule against
+retrying writes are unchanged. Supporting records are private
+`fixed-status-latency.out`, `native-status-request.out` and the completion video
+under the same run directory. This setup observation is not a primary timing run.

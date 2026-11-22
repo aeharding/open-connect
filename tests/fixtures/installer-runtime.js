@@ -313,6 +313,39 @@ assert.equal(f.requests.length, 1);
 f.reply(f.requests[0], f.state({installed: true, revision: "e".repeat(32)}));
 assert.equal(f.requests[1].body, token + "|" + "e".repeat(32) + "|dismiss|-|-|-");
 
+// Mazda navigation can cancel completion without selecting either action.
+f = fixture(null, false, {version: "0.3.0-dev.9", notice: "installed"});
+f.tick();
+f.choices[0].done("cancel");
+assert.equal(f.requests.length, 0);
+assert.equal(f.messages.length, 0);
+
+// Full hardware verification can exceed four seconds. One shared twelve-second
+// read budget permits a slow answer, including after a briefly unavailable worker.
+f = fixture(null, false, {version: "0.3.0-dev.9", notice: "-"});
+f.tick();
+refreshed = undefined;
+f.store.refresh(ok => { refreshed = ok; });
+f.advance(5000);
+assert.equal(f.requests[0].aborted, undefined);
+f.reply(f.requests[0], f.state({installed: true}));
+assert.equal(refreshed, true);
+
+f = fixture(null, false, {version: "0.3.0-dev.9", notice: "-"});
+f.tick();
+refreshed = undefined;
+f.store.refresh(ok => { refreshed = ok; });
+f.advance(3000);
+f.reply(f.requests[0], null);
+f.advance(500); // Retry gets only the remainder, not another complete allowance.
+assert.equal(f.requests.length, 2);
+f.advance(8500);
+assert.equal(f.requests[1].aborted, true);
+assert.equal(refreshed, null);
+f.advance(1000);
+assert.equal(f.requests.length, 2);
+assert.ok(f.requests.every(request => request.body.includes("|status|")));
+
 // USB client dependencies stay within their own verified session.
 f = fixture(null, true);
 f.ctx.OpenConnect.start(token, true);

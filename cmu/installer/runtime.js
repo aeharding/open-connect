@@ -41,12 +41,11 @@ var OpenConnect = (function (previous) {
             (s.installedVersion === undefined || s.installedVersion === "-" ||
                 /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(s.installedVersion));
     }
-    function request(operation, args, done) {
+    function request(operation, args, done, waitMs) {
         if (stopped) { return; }
         var xhr = new XMLHttpRequest(), answered = false;
         // Leave the server's bounded transaction time plus response headroom.
-        var deadline = setTimeout(function () { finish(null); xhr.abort(); },
-            operation === "status" && boot ? 4000 : 185000);
+        var deadline = setTimeout(function () { finish(null); xhr.abort(); }, waitMs || 185000);
         function finish(answer) {
             if (answered) { return; }
             answered = true;
@@ -78,12 +77,14 @@ var OpenConnect = (function (previous) {
     }
     function readStatus(done, attempts, began) {
         began = began === undefined ? Date.now() : began;
+        var remaining = boot ? 12000 - (Date.now() - began) : 185000;
+        if (remaining <= 0) { done(null); return; }
         request("status", null, function (answer) {
             if ((answer && answer.error === "busy" || (!answer && boot)) &&
                     (attempts || 0) < 8 && (!boot || Date.now() - began < 12000)) {
                 setTimeout(function () { if (!stopped) { readStatus(done, (attempts || 0) + 1, began); } }, 500);
             } else { done(answer); }
-        });
+        }, remaining);
     }
     function message(title, text, buttons, chosen) {
         queued = function () {
@@ -192,8 +193,9 @@ var OpenConnect = (function (previous) {
             queued = function () {
                 return installer.complete(framework, state ? state.version : boot.version, function (action) {
                     dialog = null;
+                    if (action !== "done" && action !== "settings") { return; }
                     function complete() {
-                        if (action === "done" || action === "settings") { dismiss(); }
+                        dismiss();
                         if (action === "settings") { settings.fromHome(framework, store, function () {}); }
                     }
                     if (state) { complete(); }

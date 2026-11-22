@@ -163,31 +163,50 @@ compose() (
     flush d "$D/composed"
 )
 
-native_log_config() (
-    # Boot-only RAM override. Preserve physical settings and other providers.
-    set -eu
-    bit "$1" || exit 1
-    test "$1" = 1 || exit 0
+native_log_prepare() {
+    # Prepare only: no external logging policy becomes visible here.
+    local folder
+    LOG_STAGE=
+    bit "$1" || return 1
+    test "$1" = 1 || return 0
     file /config/common/log/settings.txt &&
-        test "$(sha /config/common/log/settings.txt)" = 8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0 || exit 1
+        test "$(sha /config/common/log/settings.txt)" = 8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0 || return 1
     file /jci/lib/libjcicommon.so &&
-        test "$(sha /jci/lib/libjcicommon.so)" = 637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d || exit 1
+        test "$(sha /jci/lib/libjcicommon.so)" = 637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d || return 1
     for folder in /tmp/common /tmp/common/log; do
-        if absent "$folder"; then mkdir -m 755 "$folder" || exit 1; fi
+        if absent "$folder"; then mkdir -m 755 "$folder" || return 1; fi
         test -d "$folder" && test ! -L "$folder" &&
-            test "$(readlink -f "$folder")" = "$folder" || exit 1
+            test "$(readlink -f "$folder")" = "$folder" || return 1
     done
-    target=/tmp/common/log/settings.txt
-    absent "$target" || exit 1
-    stage=
-    trap 'test -z "$stage" || rm -f "$stage" || :' EXIT
-    stage=$(mktemp /tmp/common/log/.open-connect-log-XXXXXX) || exit 1
-    printf 'COMMON_LOG_LEVEL=Warn\n' > "$stage" || exit 1
-    chmod 644 "$stage" || exit 1
-    # Link is the final commit: atomically refuse even a concurrently created
-    # target. Later best-effort staging cleanup cannot undo cached log levels.
-    "$P/flush" l "$stage" "$target" || exit 1
-    exit 0
+    absent /tmp/common/log/settings.txt || return 1
+    LOG_STAGE=$(mktemp /tmp/common/log/.open-connect-log-XXXXXX) || return 1
+    printf 'COMMON_LOG_LEVEL=Warn\n' > "$LOG_STAGE" && chmod 644 "$LOG_STAGE"
+}
+
+native_log_commit() {
+    test -n "$LOG_STAGE" || return 0
+    "$P/flush" l "$LOG_STAGE" /tmp/common/log/settings.txt
+}
+
+native_log_discard() {
+    # The retained hardlink identifies our publication, never another provider.
+    if test -n "${LOG_STAGE:-}"; then
+        if test -f /tmp/common/log/settings.txt && test ! -L /tmp/common/log/settings.txt &&
+            test "$(stat -c '%d:%i' "$LOG_STAGE")" = "$(stat -c '%d:%i' /tmp/common/log/settings.txt)"; then
+            rm /tmp/common/log/settings.txt || return 1
+        fi
+        rm -f "$LOG_STAGE" || return 1
+        LOG_STAGE=
+    fi
+}
+
+# Standalone callers retain the original one-shot operation. Boot uses the
+# prepare/commit functions in its own signal-protected final publication.
+native_log_config() (
+    set -eu
+    LOG_STAGE=
+    trap 'test -z "$LOG_STAGE" || rm -f "$LOG_STAGE" || :' EXIT
+    native_log_prepare "$1" && native_log_commit
 )
 
 service_config() {

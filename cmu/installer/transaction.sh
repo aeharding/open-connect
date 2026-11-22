@@ -39,17 +39,36 @@ dependencies_match() {
 boot_dependencies_match() {
     local snapshot=$1 digest name extra scope leaf target parent checked= seen='|' mapping pin key path
     local members='|' member_count=1 package_count=0 manager=0 found expected= actual
+    local composed='|' composed_count=0 composed_expected=1 root_count=0 root_expected=0
     while read -r digest name extra; do
         members="$members$name:$digest|"; member_count=$((member_count+1))
     done < "$P/files.sha256"
     members="${members}files.sha256:$R_BACKEND|"
     mapping=$(firmware_dependencies) || return 1
+    while read -r pin key path; do
+        if test "$key" != autostart; then root_expected=$((root_expected+1)); fi
+    done <<PATHS
+$mapping
+PATHS
+    parent=$D/composed/$R_BACKEND
+    private_dir "$parent" && file "$parent/files.sha256" || return 1
+    checked="|$parent|"
+    while read -r digest name extra; do
+        hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1
+        case "$name" in .|..|*[!a-zA-Z0-9_.-]*) return 1;; esac
+        case "$composed" in *"|$name:"*) return 1;; esac
+        composed="$composed$name:$digest|"; composed_expected=$((composed_expected+1))
+    done < "$parent/files.sha256"
+    for name in uia.so mmui.so mmui.xml system-app.js index-on.html index-off.html \
+        sm-normal-on.conf sm-normal-off.conf sm-wcp-on.conf sm-wcp-off.conf autostart; do
+        case "$composed" in *"|$name:"*) ;; *) return 1;; esac
+    done
     set --
     while read -r digest name extra; do
         hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1
         scope=${name%%/*}; leaf=${name#*/}
         test "$scope/$leaf" = "$name" || return 1
-        case "$leaf" in ''|.|..|*[!a-zA-Z0-9.-]*) return 1;; esac
+        case "$leaf" in ''|.|..|*[!a-zA-Z0-9_.-]*) return 1;; esac
         case "$seen" in *"|$name|"*) return 1;; esac
         seen="$seen$name|"
         case "$scope" in
@@ -63,6 +82,7 @@ boot_dependencies_match() {
 $mapping
 PATHS
             test "$found" = 1 && file "$target" || return 1
+            root_count=$((root_count+1))
             if test "$leaf" = manager.so; then native_dependency_guard "$digest" || return 1; manager=$((manager+1)); fi;;
           package-*|composed-*)
             if test "$scope" = "package-$R_BACKEND"; then parent=$P
@@ -75,14 +95,20 @@ PATHS
             if test "$scope" = "package-$R_BACKEND"; then
                 case "$members" in *"|$leaf:$digest|"*) ;; *) return 1;; esac
                 package_count=$((package_count+1)); continue
-            fi;;
+            fi
+            if test "$leaf" != files.sha256; then
+                case "$composed" in *"|$leaf:$digest|"*) ;; *) return 1;; esac
+            fi
+            composed_count=$((composed_count+1));;
           *) return 1;;
         esac
         set -- "$@" "$target"
         expected="$expected$digest *$target
 "
     done < "$D/snapshots/$snapshot/dependencies"
-    test "$package_count" = "$member_count" && test "$manager" = 1 && test "$#" -gt 0 || return 1
+    test "$package_count" = "$member_count" && test "$manager" = 1 &&
+        test "$root_count" = "$root_expected" && test "$composed_count" = "$composed_expected" &&
+        test "$#" -gt 0 || return 1
     actual=$(openssl dgst -sha256 -r "$@") || return 1
     test "$actual" = "${expected%?}"
 }

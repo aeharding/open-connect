@@ -61,9 +61,10 @@ jobs:
             image=busybox@sha256:3c6ae8008e2c2eedd141725c30b20d9c36b026eb796688f88205845ef17aa213
             container=$(docker create "$image")
             trap 'docker rm "$container" >/dev/null' EXIT
-            docker cp "$container:/bin/busybox" "$RUNNER_TEMP/oc-test-busybox"
-            chmod 700 "$RUNNER_TEMP/oc-test-busybox"
-            echo "OC_TEST_BUSYBOX=$RUNNER_TEMP/oc-test-busybox" >> "$GITHUB_ENV"
+            mkdir -p "$RUNNER_TEMP/oc-test-tools"
+            docker cp "$container:/bin/busybox" "$RUNNER_TEMP/oc-test-tools/busybox"
+            chmod 700 "$RUNNER_TEMP/oc-test-tools/busybox"
+            echo "OC_TEST_BUSYBOX=$RUNNER_TEMP/oc-test-tools/busybox" >> "$GITHUB_ENV"
           fi
       - name: Offline host tests
         run: python tests/run_offline.py

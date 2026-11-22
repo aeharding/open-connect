@@ -3,10 +3,27 @@
 # The embedded hook verifies the whole package before sourcing this selector.
 # Standalone execution retains full verification for older installed hooks.
 
+# Open Connect locked selector interface 1
 startup_stamp() {
     local tick idle
-    read -r tick idle < /proc/uptime
-    printf '%s|%s\n' "$1" "$tick" >> /tmp/open-connect/startup-times
+    test "${oc_stamp_count:-0}" -lt 12 || return 0
+    if read -r tick idle < /proc/uptime; then
+        oc_times="${oc_times-}$1|$tick
+"
+        oc_stamp_count=$((${oc_stamp_count:-0}+1))
+    fi
+    return 0
+}
+
+startup_stamps_publish() {
+    # First bounded receipt only. Never open a pre-existing diagnostic path.
+    local receipt
+    if test -e /tmp/open-connect/startup-times || test -L /tmp/open-connect/startup-times; then return 0; fi
+    receipt=$(mktemp /tmp/open-connect/.startup-times-XXXXXX) || return 0
+    printf '%s' "${oc_times-}" > "$receipt" || :
+    ln "$receipt" /tmp/open-connect/startup-times 2>/dev/null || :
+    rm -f "$receipt" || :
+    return 0
 }
 
 boot_load() {
@@ -102,36 +119,98 @@ fi
 token=$(cat "$runtime/token"); hex "$token" 32 || fail invalid_token
 sed "s/@TOKEN@/$token/" "$D/composed/$package/index-$setting.html" > "$work/index.html"
 mv "$work" /tmp/open-connect/feature
-printf '%s\n' "$R_CURRENT" > /tmp/open-connect/selected
-# Publish the optional external RAM resource last. A failed atomic link cannot
-# overwrite another provider, and must not leave our selected marker claiming it.
-if ! native_log_config "$base"; then
-    rm /tmp/open-connect/selected
+# Preparation can be cancelled. Keep it in this shell, not a detached mutation.
+boot_cancelled=false; LOG_STAGE=
+trap 'boot_cancelled=true' HUP INT TERM
+if ! native_log_prepare "$base"; then
+    native_log_discard || :
     fail logging_config_failed
 fi
+if test "$boot_cancelled" = true; then
+    native_log_discard || :
+    fail selection_cancelled
+fi
+marker=$(mktemp /tmp/open-connect/.selected-XXXXXX) || fail selection_marker_failed
+printf '%s\n' "$R_CURRENT" > "$marker" || fail selection_marker_failed
+# Only RAM link/publication syscalls remain. Finish this short commit despite
+# TERM, or return stock after removing our exact logging inode. Never hash or
+# launch an unbounded worker in this signal-protected section.
+trap '' HUP INT TERM
+if test "$boot_cancelled" = true; then
+    rm -f "$marker" || :
+    native_log_discard || :
+    fail selection_cancelled
+fi
+if ! native_log_commit || ! ln "$marker" /tmp/open-connect/selected; then
+    rm -f "$marker" || :
+    native_log_discard || :
+    fail selection_commit_failed
+fi
+rm -f "$marker" || :
+if test -n "$LOG_STAGE"; then rm -f "$LOG_STAGE" || :; LOG_STAGE=; fi
 startup_stamp selector_exit
 return 0
 }
 
 boot_main() {
-    set -eu
-    umask 077
-    P=$(dirname "$(readlink -f "$0")")
-    D=/tmp/mnt/data_persist/open-connect
-    R=/tmp/open-connect
-    boot_load
-    if absent "$R"; then mkdir -m 700 "$R"; fi
-    private_dir "$R" || fail invalid_runtime
-    if absent "$R/lock"; then (set -C; : > "$R/lock") || fail invalid_lock; fi
-    file "$R/lock" || fail invalid_lock
-    exec 9<>"$R/lock"
-    flock -n -x 9 || fail busy
-    private_dir "$D" && record_read || fail invalid_state
-    test "$(sha "$P/files.sha256")" = "$R_BACKEND" && verify_package "$P" || fail damaged_package
-    if absent "$R/startup-times"; then : > "$R/startup-times"; fi
-    file "$R/startup-times" || fail invalid_runtime
+    # This bootstrap cannot call package libraries: older installed hooks exec
+    # this entry. Keep verification independent until the lock and hashes pass.
+    entry=$(dirname "$(readlink -f "$0")")
+set -eu
+umask 077
+read -r entered idle < /proc/uptime || entered=unknown
+test "$(id -u)" = 0
+D=/tmp/mnt/data_persist/open-connect
+R=/tmp/open-connect
+test "$(readlink -f "$D")" = "$D"
+test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0
+if test ! -e "$R" && test ! -L "$R"; then mkdir -m 700 "$R"; fi
+test "$(readlink -f "$R")" = "$R"
+test "$(stat -c '%a:%u:%g' "$R")" = 700:0:0
+if test ! -e "$R/lock" && test ! -L "$R/lock"; then (set -C; : > "$R/lock"); fi
+test -f "$R/lock" && test ! -L "$R/lock" || exit 1
+exec 9<>"$R/lock"
+flock -n -x 9
+test -f "$D/record" && test ! -L "$D/record" || exit 1
+test "$(wc -l < "$D/record")" -eq 1
+IFS="|" read -r format phase rev package rest < "$D/record"
+test "$format" = OC1 && test "${#package}" -eq 64 || exit 1
+case "$package" in *[!a-f0-9]*) exit 1;; esac
+P=$D/packages/$package
+test "$P" = "$entry" || exit 1
+test "$(readlink -f "$P")" = "$P"
+test -f "$P/files.sha256" && test ! -L "$P/files.sha256" || exit 1
+digest=$(openssl dgst -sha256 < "$P/files.sha256")
+test "${digest##* }" = "$package"
+expected=; seen='|'; mandatory=0; count=0
+set --
+while read -r digest name extra; do
+    test "${#digest}" = 64 && test -n "$name" && test -z "$extra" || exit 1
+    case "$digest" in *[!a-f0-9]*) exit 1;; esac
+    case "$name" in .|..|*[!a-zA-Z0-9.-]*) exit 1;; esac
+    case "$seen" in *"|$name|"*) exit 1;; esac
+    seen="$seen$name|"
+    case "$name" in boot.sh|state.sh|firmware.sh|access.sh|transaction.sh|service.sh) mandatory=$((mandatory+1));; esac
+    test -f "$P/$name" && test ! -L "$P/$name" || exit 1
+    set -- "$@" "$P/$name"
+    expected="$expected$digest *$P/$name
+"
+    count=$((count+1)); test "$count" -le 64
+done < "$P/files.sha256"
+test "$mandatory" = 6
+actual_count=0
+for item in "$P"/* "$P"/.[!.]* "$P"/..?*; do
+    if test ! -e "$item" && test ! -L "$item"; then continue; fi
+    test -f "$item" && test ! -L "$item" || exit 1
+    actual_count=$((actual_count+1))
+done
+test "$actual_count" -eq "$((count+1))"
+actual=$(openssl dgst -sha256 -r "$@")
+test "$actual" = "${expected%?}" || { printf 'damaged_package\n' >&2; exit 1; }
+    oc_times=; oc_stamp_count=0
     startup_stamp standalone_verified
     boot_select
+    startup_stamps_publish
 }
 
 case "${0##*/}" in boot.sh) boot_main;; esac

@@ -203,12 +203,10 @@ class InstallerService(unittest.TestCase):
             self.assertTrue(out.strip())
             self.assertEqual(self.client()["backend"], "backend-one\n")
 
-    def test_signal_during_unpublished_start_reaps_child_and_cannot_publish_later(self):
+    def assert_interrupted_start(self, needle):
         script = self.source / "service.sh"
         script.write_text(
-            script.read_text().replace(
-                "service_tick; deadline=", self.busybox + " usleep 500000\nservice_tick; deadline="
-            )
+            script.read_text().replace(needle, self.busybox + " usleep 500000\n" + needle, 1)
         )
         self.manifest()
         process = subprocess.Popen(
@@ -233,3 +231,9 @@ class InstallerService(unittest.TestCase):
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             probe.bind(("127.0.0.1", 35555))
+
+    def test_signal_during_unpublished_start_reaps_child_and_cannot_publish_later(self):
+        self.assert_interrupted_start("service_tick; deadline=")
+
+    def test_parent_term_between_fork_and_pid_capture_reaps_unpublished_child(self):
+        self.assert_interrupted_start("pid=$!")

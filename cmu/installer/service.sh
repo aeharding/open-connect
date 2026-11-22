@@ -116,15 +116,20 @@ token=$(cat "$R/token"); hex "$token" 32 || fail token_failed
 cp "$R/token" "$work/token"
 stop_listener
 if ! absent "$R/runtime"; then test -L "$R/runtime" || fail invalid_runtime_pointer; fi
+# Catch cancellation before fork; defer exit until $! and its birth time are
+# captured. A parent-only TERM must not strand an unrecorded listening child.
+pending_pid=; pending_start=; pending_work=$work; pending_cancel=false
+trap 'service_discard_child "$pending_pid" "$pending_start" "$pending_work"' EXIT
+trap 'pending_cancel=true' HUP INT TERM
 ( exec 8>&- 9>&-; exec /bin/busybox tcpsvd -E -c 4 127.0.0.1 35555 \
     /bin/busybox timeout -t 180 "$work/api" "$work/token" "$work/backend.sh" ) </dev/null >"$work/service.log" 2>&1 &
 pid=$!
 start=$(awk '{print $22}' "/proc/$pid/stat" 2>/dev/null) || start=
-pending_pid=$pid; pending_start=$start; pending_work=$work
-trap 'service_discard_child "$pending_pid" "$pending_start" "$pending_work"' EXIT
-trap 'exit 1' HUP INT TERM
+pending_pid=$pid; pending_start=$start
+if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
 service_tick; deadline=$((service_now+100))
 until test -n "$start" && service_owns_listener "$pid" "$start" "$work"; do
+    if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
     service_tick
     if test "$service_now" -ge "$deadline" || ! test -d "/proc/$pid"; then
         # EXIT also handles selector timeout/signals before publication.
@@ -132,13 +137,15 @@ until test -n "$start" && service_owns_listener "$pid" "$start" "$work"; do
     fi
     /bin/busybox usleep 10000
 done
+if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
 # Publish only after identity and owned socket readiness are established.
 printf '%s %s %s\n' "$pid" "$start" "$work" > "$R/listener.next"
 ln -sfn "$work" "$R/runtime"
 mv -f "$R/listener.next" "$R/listener"
 runtime=$work
+if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
 trap - EXIT HUP INT TERM
-unset pending_pid pending_start pending_work
+unset pending_pid pending_start pending_work pending_cancel
 }
 
 service_main() {

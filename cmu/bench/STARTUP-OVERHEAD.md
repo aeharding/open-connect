@@ -12,7 +12,10 @@ the same locked source proof; OEM and composed paths are independently hashed.
 Copies into the private RAM session are independently verified. Recovery,
 pending work, different feature/backend IDs and NVRAM transitions retain their
 full transaction checks. Standalone selection remains available to the older
-embedded hook during update. No persistent verification cache is introduced.
+embedded hook during update. The hook explicitly dispatches a verified older
+standalone backend after closing its lock for interrupted rollback; standalone
+bootstrap verifies independently before importing any package library. No
+persistent verification cache is introduced.
 
 The listener must own the loopback LISTEN socket and match its PID, birth time,
 BusyBox executable and API argument before publication. Readiness has a one-second
@@ -48,7 +51,12 @@ input or connect SSH during primary collection. After capture, retrieve
 entry, source verification, targets/dependencies, session readiness, budget
 commit, feature copy and selector exit. Their order follows the executed path;
 standalone recovery has its own verification stamp. They are diagnostic data,
-not startup authority. Keep clock and phase resolution limits explicit.
+not startup authority. Only the first bounded receipt is published; an existing
+special/foreign diagnostic path is skipped and a failed diagnostic write cannot
+change selection. Base data is prepared in the selector process. Its final RAM
+links and selected marker finish together under a short signal guard, so a
+parent-only timeout cannot select stock and leave a late Base worker. Keep clock
+and phase resolution limits explicit.
 
 Compare the early collector sample, visible Home/dashboard, matched CPU/RAM/I/O,
 API/Settings readiness and loaded feature identities with the sealed same-config

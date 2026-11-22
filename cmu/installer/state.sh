@@ -43,18 +43,6 @@ verify_manifest() {
     test "$actual" = "${expected%?}"
 }
 
-verify_package() {
-    local item count=0 folder=$1
-    verify_manifest "$folder" || return 1
-    for item in "$folder"/* "$folder"/.[!.]* "$folder"/..?*; do
-        if absent "$item"; then continue; fi
-        test -f "$item" && test ! -L "$item" || return 1
-        count=$((count+1))
-    done
-    test "$count" -eq "$(($(wc -l < "$folder/files.sha256")+1))" || return 1
-    awk '$2=="boot.sh"||$2=="state.sh"||$2=="firmware.sh"||$2=="access.sh"||$2=="transaction.sh"||$2=="service.sh"{n++}END{exit n!=6}' "$folder/files.sha256"
-}
-
 record_read() {
     local format extra legacy_undo
     file "$D/record" && test "$(wc -l < "$D/record")" -eq 1 || return 1

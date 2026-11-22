@@ -4,8 +4,10 @@ import hashlib
 import os
 import shlex
 import shutil
+import signal
 import subprocess
 import tempfile
+import time
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -59,13 +61,37 @@ class InstallerBoot(unittest.TestCase):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.manager = self.root / "manager.so"
         self.manager.write_bytes(b"synthetic pinned manager library\n")
+        self.wcp_original = self.root / "sm_WCP.conf"
+        self.wcp_original.write_bytes(b"synthetic pinned WCP service profile\n")
         self.log_original = b"synthetic original logging settings\n"
         self.log_library = b"synthetic exact common library\n"
         (self.root / "physical-log-settings").write_bytes(self.log_original)
         (self.root / "common-library").write_bytes(self.log_library)
         firmware = (ASSETS / "firmware.sh").read_text()
+        # Use every real v74 dependency name/path mapping with synthetic bytes.
+        # Keeping only manager.so here concealed sm_WCP.conf's valid underscore.
+        oem_map = subprocess.check_output(
+            ["sh", "-c", '. "$1"; firmware_dependencies', "fixture", ASSETS / "firmware.sh"],
+            text=True,
+        )
+        (self.root / "oem").mkdir()
+        self.oem_adapters = {}
+        for row in oem_map.splitlines():
+            digest, name, target = row.split()
+            if name == "autostart":
+                continue
+            if name == "manager.so":
+                fake = self.manager
+            elif name == "sm_WCP.conf":
+                fake = self.wcp_original
+            else:
+                fake = self.root / "oem" / name
+                fake.write_bytes(("synthetic OEM dependency " + name + "\n").encode())
+            self.oem_adapters[target] = str(fake)
+            firmware = firmware.replace(target, str(fake))
         for old, new in {
             "/jci/lib/libjciuiamgr.so": str(self.manager),
+            "/jci/sm/sm_WCP.conf": str(self.wcp_original),
             "1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29": hashlib.sha256(
                 self.manager.read_bytes()
             ).hexdigest(),
@@ -111,6 +137,8 @@ startup_publish() {
             "/proc/sys/kernel/random/boot_id": str(self.root / "boot-id"),
             "/proc/uptime": str(self.root / "uptime"),
             "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
+            'test "$(id -u)" = 0': 'test "$(id -u)" = ' + str(os.getuid()),
+            "700:0:0": f"700:{os.getuid()}:{os.getgid()}",
         }.items():
             script = script.replace(old, new)
         (self.source / "boot.sh").write_text(script)
@@ -150,6 +178,16 @@ R_PHASE=active; R_BEFORE=-; R_AFTER=-; R_UNDO=-; R_BUDGET=3; R_OFF=-; R_BOOT=-; 
 record_write
 """)
 
+    def composed_manifest(self, package=None):
+        folder = self.data / "composed" / (package or self.package_id)
+        (folder / "files.sha256").write_text(
+            "".join(
+                hashlib.sha256(f.read_bytes()).hexdigest() + "  " + f.name + "\n"
+                for f in sorted(folder.iterdir())
+                if f.name != "files.sha256"
+            )
+        )
+
     def shell(self, script):
         return subprocess.run(
             [
@@ -184,13 +222,9 @@ record_write
         )
 
     def populated_dependencies(self, change=""):
+        self.composed_manifest()
         self.shell(
             '. "$P/firmware.sh"; record_read; snapshot_read "$R_CURRENT"; '
-            'firmware_dependencies() { printf "%s  manager.so %s\\n" "$(sha '
-            + shlex.quote(str(self.manager))
-            + ')" '
-            + shlex.quote(str(self.manager))
-            + "; }; "
             'deps=$(mktemp "$D/.deps-XXXXXX"); dependencies_capture "$R_BACKEND" > "$deps"; '
             + change
             + 'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" "$S_TOUCH" "$S_WARNING" '
@@ -268,22 +302,171 @@ record_write
         self.assertEqual(self.record()[9], "2")
         phases = (self.runtime / "startup-times").read_text()
         self.assertLess(phases.index("targets_dependencies|"), phases.index("session_ready|"))
-        self.manager.write_bytes(b"foreign manager\n")
+        self.wcp_original.write_bytes(b"foreign WCP profile\n")
         result = self.boot(2)
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.runtime / "selected").exists())
         self.assertEqual(self.record()[9], "2")
 
+    def test_fast_path_keeps_compiled_native_pin_when_snapshot_matches_foreign_bytes(self):
+        self.manager.write_bytes(b"foreign manager adopted by snapshot\n")
+        self.populated_dependencies()
+        result = self.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertEqual(self.record()[9], "3")
+
     def test_fast_path_refuses_missing_and_duplicate_package_dependencies(self):
         for change in (
             'sed \'/package-.*\\/boot.sh$/d\' "$deps" > "$deps.next"; mv "$deps.next" "$deps"; ',
             'grep \'package-.*\\/boot.sh$\' "$deps" >> "$deps.copy"; cat "$deps.copy" >> "$deps"; ',
+            'sed \'/composed-.*\\/uia.so$/d\' "$deps" > "$deps.next"; mv "$deps.next" "$deps"; ',
+            'sed \'/root\\/sm.conf$/d\' "$deps" > "$deps.next"; mv "$deps.next" "$deps"; ',
         ):
             self.populated_dependencies(change)
             result = self.boot(1)
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse((self.runtime / "selected").exists())
             self.assertEqual(self.record()[9], "3")
+
+    def test_standalone_refuses_each_corrupt_library_without_sourcing_it(self):
+        marker = self.root / "unverified-library"
+        for name in ("state.sh", "firmware.sh", "access.sh", "transaction.sh"):
+            path = self.package / name
+            original = path.read_bytes()
+            path.write_bytes(original + ("\ntouch " + shlex.quote(str(marker)) + "\n").encode())
+            result = self.boot(1)
+            self.assertNotEqual(result.returncode, 0, name)
+            self.assertFalse(marker.exists(), name)
+            self.assertEqual(self.record()[9], "3")
+            path.write_bytes(original)
+
+    def test_hook_and_standalone_refuse_dangling_or_special_operation_lock(self):
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        lock = self.runtime / "lock"
+        outside = self.root / "must-not-create"
+        for special in (False, True):
+            lock.unlink()
+            if special:
+                os.mkfifo(lock)
+            else:
+                lock.symlink_to(outside)
+            result = self.hook()
+            self.assertIn("CONFIG|stock", result.stdout)
+            self.assertNotEqual(self.boot(1).returncode, 0)
+            self.assertFalse(outside.exists())
+            self.assertEqual(self.record()[9], "3")
+
+    def test_diagnostic_special_path_cannot_block_or_fail_selection(self):
+        receipt = self.runtime / "startup-times"
+        os.mkfifo(receipt)
+        result = self.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.runtime / "selected").exists())
+        self.assertTrue(receipt.is_fifo())
+
+    def test_parent_only_term_during_base_preparation_cannot_publish_after_stock(self):
+        self.select_base(1)
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        marker = self.root / "base-preparing"
+        chmod = self.tools / "chmod"
+        chmod.write_text(
+            '#!/bin/sh\ncase "$*" in *".open-connect-log-"*) '
+            + "printf ready > "
+            + shlex.quote(str(marker))
+            + "; sleep 0.4;; esac\n"
+            + shutil.which("chmod")
+            + ' "$@"\n'
+        )
+        chmod.chmod(0o700)
+        process = subprocess.Popen(
+            ["sh", self.package / "boot.sh"],
+            env=self.env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        deadline = time.monotonic() + 5
+        while not marker.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(marker.exists())
+        process.send_signal(signal.SIGTERM)
+        out, err = process.communicate(timeout=5)
+        self.assertNotEqual(process.returncode, 0, (out, err))
+        time.sleep(0.5)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertFalse((self.root / "common/log/settings.txt").exists())
+
+    def test_marker_failure_rolls_back_only_our_base_publication(self):
+        self.select_base(1)
+        link = self.tools / "ln"
+        link.write_text(
+            "#!/bin/sh\nfor dest; do :; done\n"
+            + 'test "$dest" != '
+            + shlex.quote(str(self.runtime / "selected"))
+            + " || exit 1\nexec "
+            + shutil.which("ln")
+            + ' "$@"\n'
+        )
+        link.chmod(0o700)
+        result = self.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertFalse((self.root / "common/log/settings.txt").exists())
+
+    def test_new_hook_dispatches_verified_standalone_backend_for_pending_rollback(self):
+        try:
+            old_boot = subprocess.check_output(
+                ["git", "show", "764d76e0:cmu/installer/boot.sh"],
+                cwd=ROOT,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError:
+            self.skipTest("pinned dev.8 Git history required for rollback fixture")
+        folder = self.root / "legacy"
+        shutil.copytree(self.package, folder)
+        for old, new in {
+            "/tmp/mnt/data_persist/open-connect": str(self.data),
+            "/tmp/open-connect": str(self.runtime),
+            "/usr/bin/autostart": str(self.root / "data-target"),
+            "/proc/sys/kernel/random/boot_id": str(self.root / "boot-id"),
+            "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
+        }.items():
+            old_boot = old_boot.replace(old, new)
+        (folder / "boot.sh").write_text(old_boot)
+        (folder / "service.sh").write_text(
+            "printf '%s\\n' " + shlex.quote(str(self.runtime)) + "\n"
+        )
+        manifest = "".join(
+            hashlib.sha256(f.read_bytes()).hexdigest() + "  " + f.name + "\n"
+            for f in sorted(folder.iterdir())
+            if f.name != "files.sha256"
+        )
+        (folder / "files.sha256").write_text(manifest)
+        legacy_id = hashlib.sha256(manifest.encode()).hexdigest()
+        folder.rename(self.data / "packages" / legacy_id)
+        composed = self.data / "composed" / legacy_id
+        shutil.copytree(self.data / "composed" / self.package_id, composed)
+        (composed / "autostart").write_text("legacy restored\n")
+        self.composed_manifest(legacy_id)
+        self.shell(
+            '. "$P/firmware.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
+            "record_read; before=$R_CURRENT; "
+            'after=$(snapshot_create "$D/composed/'
+            + legacy_id
+            + '/autostart" '
+            + legacy_id
+            + ' 1 1 disable "755:$(id -u):$(id -g)" /dev/null - 1 0 0); '
+            "R_BACKEND=" + legacy_id + '; transaction_prepare install "$before" "$after"'
+        )
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        result = self.hook()
+        self.assertIn(
+            "CONFIG|" + str(self.runtime / "feature/sm.conf"), result.stdout, result.stderr
+        )
+        self.assertEqual(self.record()[1], "active")
+        self.assertEqual(self.record()[3], legacy_id)
+        self.assertEqual((self.root / "data-target").read_text(), "legacy restored\n")
 
     def record(self):
         return (self.data / "record").read_text().strip().split("|")

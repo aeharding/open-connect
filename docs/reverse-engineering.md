@@ -933,6 +933,15 @@ under the same run directory. This setup observation is not a primary timing run
 
 ## SM service choices and composition on v74
 
+The exact v74 SM service-attribute parser does not recognize
+`delay_before_start`; it is not a supported process-start delay setting.
+This was checked in `sm_ReadConfigServicesAttributes` at `0x5f0c0` in the
+SM binary with SHA-256
+`d442cefe28d6cc5d914ad661ce965f6ee644588cf89d8298a2be59a10852231c`,
+also matched against the running bench's file. The factory `stage_vr` profile
+passes `5s` to its shell wrapper, which sleeps before publishing its readiness
+flag. That delay comes from the wrapper, not an SM XML delay attribute.
+
 Both exact normal/WCP profiles declare Android Auto's `aap_service` and `jciAAPA`
 as separate startup services. The bounded Android Auto pilot suppressed only
 their `autorun` attributes, then independently restored both processes with the

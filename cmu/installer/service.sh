@@ -213,6 +213,7 @@ service_boot() {
     test "$(readlink -f "$D")" = "$D" && test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0 || exit 1
     test "$(readlink -f "$R")" = "$R" && test "$(stat -c '%a:%u:%g' "$R")" = 700:0:0 || exit 1
     test -f "$R/lock" && test ! -L "$R/lock" || exit 1
+    sleep 4
     exec 9<>"$R/lock"
     tries=0
     until flock -n -x 9; do

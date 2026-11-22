@@ -41,6 +41,13 @@ retains the measured CI candidate and its complete maintenance checks. The earli
 optimization and original artifact identity. Deferred physical-input/audio and
 matching-car checks still prevent a qualified v74 release.
 
+The dev.9 candidate adds a native settled-boot selector and stages Settings after
+Service Manager starts. Its [implementation and restoration contract](https://github.com/aeharding/open-connect/blob/main/cmu/README.md#standalone-installer)
+describe the root helper, sealed snapshot, full-verifier fallback and metadata
+limits. Earlier dev.8 lifecycle and timing evidence does not qualify this new
+path. Independent restoration must use a compatible dev.9 Uninstall; there is
+no unpublished dev.8 downgrade bridge. Native startup timing remains unmeasured.
+
 ## Private firmware checks
 
 The optional checker builds the same public bundle, composes it with exact

@@ -512,25 +512,25 @@ static int oc_stage(OcBoot *b) {
             !oc_join(b->scratch,sizeof b->scratch,b->boot,"\n")||
             !oc_new_text(b->stage,"boot-id",b->scratch,0600)||!oc_new_text(b->stage,"wireless-applied","0\n",0600)) return 0;
     }
-    if (!oc_saved_text(b->snapshot,&b->current,"index.html",b->scratch,sizeof b->scratch)) return 0;
-    char output[32768]; unsigned used=0,slots=0;
-    for (const char *p=b->scratch;*p;) {
-        if (oc_prefix(p,"@TOKEN@")) {
-            if (used+32>=sizeof output) return 0;
-            for (unsigned i=0;i<32;++i) output[used++]=b->token[i];
-            ++slots; p+=7;
-        } else { if (used+1>=sizeof output) return 0; output[used++]=*p++; }
-    }
-    output[used]=0;
-    if (slots!=1||!oc_new_text(b->stage,"index.html",output,0600)) return 0;
-    /* Values are bounded verified data. The installed client attaches locally;
-     * current backend status is fetched only for an explicit UI action. */
     char version[64];
     if (!oc_saved_text(b->package,&b->pkg,"VERSION",version,sizeof version)||!oc_one_line(version)) return 0;
     for (const char *p=version;*p;++p) if (!((*p>='0'&&*p<='9')||(*p>='a'&&*p<='z')||(*p>='A'&&*p<='Z')||*p=='.'||*p=='-')) return 0;
-    if (!oc_join(output,sizeof output,"window.OpenConnectBoot={version:\"",version)||
-        !oc_join(output,sizeof output,output,"\",notice:\"")||!oc_join(output,sizeof output,output,b->record_fields[12])||
-        !oc_join(output,sizeof output,output,"\"};\n")||!oc_new_text(b->stage,"boot.js",output,0600)) return 0;
+    if (!oc_saved_text(b->snapshot,&b->current,"index.html",b->scratch,sizeof b->scratch)) return 0;
+    char output[32768]; unsigned used=0,slots[3]={0,0,0};
+    const char *needles[]={"@TOKEN@","@VERSION@","@NOTICE@"};
+    const char *values[]={b->token,version,b->record_fields[12]};
+    for (const char *p=b->scratch;*p;) {
+        unsigned i=0;
+        while (i<3 && !oc_prefix(p,needles[i])) ++i;
+        if (i<3) {
+            unsigned n=oc_length(values[i]);
+            if (used+n>=sizeof output) return 0;
+            for (unsigned j=0;j<n;++j) output[used++]=values[i][j];
+            ++slots[i]; p+=oc_length(needles[i]);
+        } else { if (used+1>=sizeof output) return 0; output[used++]=*p++; }
+    }
+    output[used]=0;
+    if (slots[0]!=1||slots[1]!=1||slots[2]!=1||!oc_new_text(b->stage,"index.html",output,0600)) return 0;
     return 1;
 }
 static int oc_record_commit(OcBoot *b) {
@@ -586,7 +586,9 @@ static int oc_publish(OcBoot *b) {
         !oc_new_text(b->ram,".native-selected",selected,0600)) return 0;
     if (b->access_present && !oc_new_text(b->ram,"access-selected",selected,0600)) return 0;
     /* Only RAM publication syscalls remain after blocking cancellation. */
+    oc_cut("before_publication");
     if (oc_block()<0) return 0;
+    oc_cut("publication");
     if (oc_rename(b->ram,b->observer_name,"ignition")<0) return 0;
     if (!b->selected) return 1;
     if (oc_rename(b->ram,b->stage_name,"feature")<0) return 0;

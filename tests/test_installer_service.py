@@ -41,6 +41,8 @@ class InstallerService(unittest.TestCase):
         source = (ASSETS / "service.sh").read_text()
         source = source.replace("/tmp/open-connect", str(self.runtime))
         source = source.replace("/bin/busybox", self.busybox)
+        source = source.replace('test "$(id -u)" = 0', f'test "$(id -u)" = {os.getuid()}')
+        source = source.replace("700:0:0", f"700:{os.getuid()}:{os.getgid()}")
         # Modern host BusyBox replaced the target 1.19.2 timeout's -t syntax.
         source = source.replace("timeout -t 180", "timeout 180")
         (self.source / "service.sh").write_text(source)
@@ -138,6 +140,60 @@ class InstallerService(unittest.TestCase):
         result = self.boot()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("busy", result.stderr)
+        self.assertEqual((self.runtime / "listener").read_bytes(), before)
+        self.assertEqual(self.client()["backend"], "backend-one\n")
+
+    def installed_worker(self):
+        data = self.root / "data"
+        data.mkdir(mode=0o700)
+        (data / "packages").mkdir(mode=0o700)
+        service = self.source / "service.sh"
+        service.write_text(
+            service.read_text().replace("/tmp/mnt/data_persist/open-connect", str(data))
+        )
+        self.manifest()
+        package_id = hashlib.sha256((self.source / "files.sha256").read_bytes()).hexdigest()
+        package = data / "packages" / package_id
+        shutil.copytree(self.source, package)
+        boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        current = "c" * 64
+        (data / "record").write_text(
+            f"OC1|active|{'a' * 32}|{package_id}|{'b' * 64}|{current}|-|-|-|2|-|{boot}|-\n"
+        )
+        (data / "record").chmod(0o600)
+        self.runtime.mkdir(mode=0o700)
+        (self.runtime / "lock").touch(mode=0o600)
+        (self.runtime / "selected").write_text(current + "\n")
+        feature = self.runtime / "feature"
+        feature.mkdir(mode=0o700)
+        worker = feature / "service.sh"
+        shutil.copyfile(service, worker)
+        return worker, package, data
+
+    def test_sm_worker_verifies_installed_source_and_serves_settings(self):
+        worker, _, _ = self.installed_worker()
+        result = subprocess.run(["sh", worker, "boot"], capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.client()["backend"], "backend-one\n")
+        self.assertTrue((self.runtime / "selected").is_file())
+
+    def test_sm_worker_refuses_corrupt_library_before_sourcing(self):
+        worker, package, _ = self.installed_worker()
+        marker = self.root / "unverified-ran"
+        with (package / "state.sh").open("a") as target:
+            target.write("\ntouch " + str(marker) + "\n")
+        result = subprocess.run(["sh", worker, "boot"], capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(marker.exists())
+        self.assertFalse((self.runtime / "listener").exists())
+
+    def test_sm_worker_yields_to_preceding_usb_without_replacing_its_listener(self):
+        worker, _, _ = self.installed_worker()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        before = (self.runtime / "listener").read_bytes()
+        result = subprocess.run(["sh", worker, "boot"], capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.runtime / "listener").read_bytes(), before)
         self.assertEqual(self.client()["backend"], "backend-one\n")
 

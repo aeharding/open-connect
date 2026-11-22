@@ -338,6 +338,21 @@ printf '%s\n' "$R_CURRENT"
         for name in ("sm-normal.conf", "sm-wcp.conf", "index.html"):
             self.assertTrue((snapshot / name).is_file())
             self.assertIn(("current/" + name + "|@/" + name).encode(), plan)
+        for profile in ("sm-normal.conf", "sm-wcp.conf"):
+            services = list(ET.parse(snapshot / profile).iter("service"))
+            worker = [s for s in services if s.attrib["name"] == "open_connect_settings"]
+            self.assertEqual(len(worker), 1)
+            self.assertEqual(worker[0].attrib["reset_board"], "no")
+            self.assertEqual(worker[0].attrib["retry_count"], "0")
+            self.assertEqual(worker[0].attrib["exit_allowed"], "yes")
+            self.assertEqual(worker[0].find("dependency").attrib["value"], "stage_1")
+            self.assertFalse(
+                any(
+                    dependency.attrib.get("value") == "open_connect_settings"
+                    for service in services
+                    for dependency in service.iter("dependency")
+                )
+            )
         check = subprocess.run(
             [self.program, "check", "/", str(snapshot).lstrip("/")],
             input=plan,

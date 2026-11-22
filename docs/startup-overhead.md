@@ -61,6 +61,13 @@ than the selector's duration. These quantities must not be interchanged.
 Historical stock measurements used a different wired fixture; they cannot
 establish stock parity for this wireless pilot.
 
+The dev.9 candidate replaces ordinary pre-Service-Manager verification with a
+native selection of sealed inputs and moves the Settings listener after
+`stage_1`. It retains the durable budget barriers and the full verifier for
+drift or recovery. Its stamps distinguish input checks, feature copying, record
+write, file flush, rename, directory flush and selector exit. No dev.9 timing or
+stock-parity result is claimed here; the measurements above remain PR #119's.
+
 ## Reproduce the observation
 
 Product source is [`3bfda748`](https://github.com/aeharding/open-connect/tree/3bfda748ccc7435247c1feade06d2daa3e515fb9),

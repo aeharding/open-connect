@@ -6,8 +6,13 @@ set -eu
 P=$(dirname "$(readlink -f "$0")")
 D=/tmp/mnt/data_persist/open-connect
 . "$P/state.sh"
-boot=$1
+boot=${1:-$(cat /proc/sys/kernel/random/boot_id)}
 boot_id "$boot" && test "$(cat /proc/sys/kernel/random/boot_id)" = "$boot" || exit 1
+# One observer per kernel, independent of USB or listener readiness.
+if absent /tmp/open-connect/ignition.lock; then (set -C; : > /tmp/open-connect/ignition.lock) || exit 1; fi
+file /tmp/open-connect/ignition.lock || exit 1
+exec 8<>/tmp/open-connect/ignition.lock
+flock -n -x 8 || exit 0
 seen_on=false
 off_samples=0
 recorded=-
@@ -25,7 +30,7 @@ while test "$(cat /proc/sys/kernel/random/boot_id)" = "$boot"; do
         exec 9<>/tmp/open-connect/lock
         flock -n -x 9 || exit 75
         record_read || exit 1
-        test "$R_PHASE" = active || exit 0
+        test "$R_PHASE:$R_BOOT" = "active:$boot" || exit 1
         if test "$R_OFF" != "$wanted"; then R_OFF=$wanted; record_write; fi
     ); then
         recorded=$wanted

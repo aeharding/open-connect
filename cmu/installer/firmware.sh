@@ -131,9 +131,17 @@ compose() (
     test "$(sha "$work/system-app.js")" = 61cb4085195bcc1ea6f0efdd01ab691a10b9f9cee45d32e8a78b4410c9b07f40 || fail javascript_composition_failed
     for setting in on off; do
         awk -v route="$package/system-route.js" -v selected="$setting" '
-            /<head>/{print;print "        <base href=\"file:///jci/gui/\" />";print "        <meta name=\"open-connect-token\" content=\"@TOKEN@\" />";next}
+            /<head>/{
+                print;print "        <base href=\"file:///jci/gui/\" />"
+                print "        <meta name=\"open-connect-token\" content=\"@TOKEN@\" />"
+                print "        <meta name=\"open-connect-version\" content=\"@VERSION@\" />"
+                print "        <meta name=\"open-connect-notice\" content=\"@NOTICE@\" />"
+                next
+            }
             /var utility = new Utility\(\);/{print;if(selected=="on"){while((r=getline line < route)>0)print line;if(r<0)exit 1;close(route)};next}
-            /<\/body>/{print "        <script src=\"file:///tmp/open-connect/runtime/runtime.js\" type=\"text/javascript\"></script>"}
+            /<\/body>/{
+                print "        <script src=\"file:///tmp/open-connect/feature/runtime.js\" type=\"text/javascript\"></script>"
+            }
             {print}
         ' "$D/originals/index.html" > "$work/index-$setting.html" || fail compose_index_failed
         for profile in normal wcp; do
@@ -236,12 +244,30 @@ service_config() {
 
 boot_render_profiles() {
     # S_* belongs to the verified after-snapshot. Render only its saved policy.
-    local destination=$1 source=$D/composed/$S_PACKAGE setting=off
+    local destination=$1 source=$D/composed/$S_PACKAGE setting=off profile
     test "$S_WARNING" != 1 || setting=on
-    service_config "$source/sm-normal-$setting.conf" "$destination/sm-normal.conf" "$S_PANDORA" "$S_WIRELESS" &&
-        service_config "$source/sm-wcp-$setting.conf" "$destination/sm-wcp.conf" "$S_PANDORA" "$S_WIRELESS" &&
-        cp "$source/index-$setting.html" "$destination/index.html" || return 1
+    for profile in normal wcp; do
+        service_config "$source/sm-$profile-$setting.conf" "$destination/.sm-$profile" "$S_PANDORA" "$S_WIRELESS" &&
+            boot_sm_profile "$destination/.sm-$profile" "$destination/sm-$profile.conf" &&
+            rm "$destination/.sm-$profile" || return 1
+    done
+    cp "$source/index-$setting.html" "$destination/index.html" || return 1
     awk '{n+=gsub(/@TOKEN@/,"@TOKEN@")}END{exit n!=1}' "$destination/index.html"
+}
+
+boot_sm_profile() {
+    awk '
+        /<service / && /name="stage_1"/ {stage++}
+        /name="open_connect_settings"/ {bad=1;exit 1}
+        /<\/services>/ {
+            print "        <service type=\"process\" name=\"open_connect_settings\" path=\"/bin/busybox\" args=\"timeout -t 20 sh /tmp/open-connect/feature/service.sh boot\" autorun=\"yes\" retry_count=\"0\" reset_board=\"no\" exit_allowed=\"yes\" started_after_exit_allowed=\"yes\">"
+            print "            <dependency type=\"service\" value=\"stage_1\"/>"
+            print "        </service>"
+            end++
+        }
+        {print}
+        END {if(bad || stage!=1 || end!=1)exit 1}
+    ' "$1" > "$2"
 }
 
 boot_plan_inputs() {

@@ -184,7 +184,7 @@ class NativeBootSelection(unittest.TestCase):
             "selector": f"{sha(self.program.read_bytes())}|700:{os.getuid()}:{os.getgid()}|{self.package_id}\n",
             "sm-normal.conf": "prepared normal\n",
             "sm-wcp.conf": "prepared WCP\n",
-            "index.html": '<meta content="@TOKEN@">\n',
+            "index.html": '<meta content="@TOKEN@"><meta content="@VERSION@"><meta content="@NOTICE@">\n',
         }
         dependencies = []
         self.inputs = []
@@ -269,12 +269,14 @@ class NativeBootSelection(unittest.TestCase):
         self.record[5] = self.snapshot.name
         self.save_record()
 
-    def invoke(self, cut=None):
+    def invoke(self, cut=None, term=None):
         # A regular fixture models urandom's bytes, refreshing them per entry.
         self.put("dev/urandom", os.urandom(1024))
         env = {**os.environ}
         if cut:
             env["OC_BOOT_CUT"] = cut
+        if term:
+            env["OC_BOOT_TERM"] = term
         return subprocess.run(
             [self.program, "select", self.root], env=env, capture_output=True, timeout=5
         )
@@ -386,3 +388,17 @@ class NativeBootSelection(unittest.TestCase):
                 if committed:
                     self.assertEqual(self.invoke().returncode, 1)
                     self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
+    def test_term_before_publication_returns_stock_after_one_durable_debit(self):
+        import signal
+
+        self.assertEqual(self.invoke(term="before_publication").returncode, -signal.SIGTERM)
+        self.assertFalse((self.ram / "selected").exists())
+        self.assertFalse((self.ram / "feature").exists())
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
+    def test_term_during_short_publication_finishes_selected_before_return(self):
+        self.assertEqual(self.invoke(term="publication").returncode, 0)
+        self.assertTrue((self.ram / "selected").is_file())
+        self.assertTrue((self.ram / "feature/index.html").is_file())
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")

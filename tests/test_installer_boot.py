@@ -44,6 +44,9 @@ class InstallerBoot(unittest.TestCase):
         (self.runtime / "lock").touch()
         (self.runtime / "token").write_text("a" * 32 + "\n")
         (self.runtime / "ignition.sh").write_text("exit 0\n")
+        (self.source / "ignition.sh").write_text("exit 0\n")
+        for name in ("runtime.js", "dialog.js", "settings.js", "VERSION"):
+            shutil.copyfile(ASSETS / name, self.source / name)
         (self.root / "acc").write_text("1\n")
         (self.root / "uptime").write_text("1.00 0.00\n")
         state = (
@@ -523,6 +526,7 @@ record_write
                 args["bds"] += " -wcp"
             lines = ["<services>"]
             for name in (
+                "stage_1",
                 "jciMMUI",
                 "start_network",
                 "bds",

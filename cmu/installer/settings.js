@@ -389,8 +389,13 @@ var OpenConnectSettings = (function () {
             var ctrl = list, set = ctrl.setDataList, select = ctrl.properties.selectCallback;
             var undoSelect = replace(ctrl.properties, "selectCallback", function (control, value) {
                 if (control === ctrl && value === id) {
-                    var opened = open(fw, store);
-                    if (opened) { closePage = opened; }
+                    var selectedHost = app._currentContextTemplate;
+                    function show(fresh) {
+                        if (!fresh || app._currentContextTemplate !== selectedHost) { return; }
+                        var opened = open(fw, store);
+                        if (opened) { closePage = opened; }
+                    }
+                    if (store.refresh) { store.refresh(show); } else { show(true); }
                     return;
                 }
                 return select.apply(this, arguments);

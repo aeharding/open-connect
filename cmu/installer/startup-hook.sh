@@ -1,4 +1,10 @@
         # Open Connect: failed selection retains Mazda's normal configuration.
+        oc_result=95
+        if test -f /usr/bin/open-connect-boot-select && test ! -L /usr/bin/open-connect-boot-select && test -x /usr/bin/open-connect-boot-select; then
+            if timeout -t 25 /usr/bin/open-connect-boot-select select; then oc_result=0
+            else oc_result=$?; fi
+        fi
+        if test "$oc_result" = 95; then
         if timeout -t 25 sh -c 'set -eu
 umask 077
 read -r entered idle < /proc/uptime || entered=unknown
@@ -57,13 +63,22 @@ if awk '\''$0=="# Open Connect locked selector interface 1"{n++}END{exit n!=1}'\
     oc_times="hook_entry|$entered
 "; oc_stamp_count=1
     startup_stamp package_verified
+    oc_outer_observer=true
     boot_select
     startup_stamps_publish
 else
     exec 9>&-
     exec sh "$P/boot.sh"
 fi
-'; then
+'; then oc_result=0
+        else oc_result=$?; fi
+        fi
+        if test "$oc_result" = 0; then
             SMCFG_NORMALMODE=/tmp/open-connect/feature/sm.conf
             SMCFG_WCPMODE=/tmp/open-connect/feature/sm_WCP.conf
         fi
+        case "$oc_result" in 0|2)
+            if test -d /tmp/open-connect/ignition && test ! -L /tmp/open-connect/ignition; then
+                ( exec 8>&- 9>&-; exec sh /tmp/open-connect/ignition/ignition.sh ) </dev/null >/dev/null 2>&1 &
+            fi;;
+        esac

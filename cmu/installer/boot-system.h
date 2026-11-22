@@ -28,6 +28,8 @@ static long oc_block(void) {
 static void oc_cut(const char *phase) {
     const char *cut=getenv("OC_BOOT_CUT");
     if (cut && oc_equal(cut,phase)) _exit(97);
+    const char *term=getenv("OC_BOOT_TERM");
+    if (term && oc_equal(term,phase)) (void)raise(SIGTERM);
 }
 #else
 static long oc_owner(void) { return oc_syscall4(199,0,0,0,0); }

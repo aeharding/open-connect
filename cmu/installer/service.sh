@@ -151,7 +151,69 @@ trap - EXIT HUP INT TERM
 unset pending_pid pending_start pending_work pending_cancel
 }
 
+service_boot() {
+    # This verified RAM entry must establish package trust without sourcing
+    # writable code first. SM owns this bounded worker, outside boot selection.
+    set -eu
+    umask 077
+    D=/tmp/mnt/data_persist/open-connect
+    R=/tmp/open-connect
+    test "$(id -u)" = 0
+    test "$(readlink -f "$D")" = "$D" && test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0
+    test "$(readlink -f "$R")" = "$R" && test "$(stat -c '%a:%u:%g' "$R")" = 700:0:0
+    test -f "$R/lock" && test ! -L "$R/lock" || exit 1
+    exec 9<>"$R/lock"
+    tries=0
+    until flock -n -x 9; do
+        tries=$((tries+1)); test "$tries" -lt 80 || exit 0
+        /bin/busybox usleep 100000
+    done
+    # USB may already serve Settings; never replace its live session.
+    if test -e "$R/runtime" || test -L "$R/runtime"; then exit 0; fi
+    test -f "$D/record" && test ! -L "$D/record" && test "$(wc -l < "$D/record")" -eq 1
+    IFS='|' read -r format phase rev package base current before after undo budget off boot notice extra < "$D/record"
+    test "$format:$phase:$before:$after" = OC1:active:-:- && test -z "$extra"
+    test "$boot" = "$(cat /proc/sys/kernel/random/boot_id)"
+    test "${#package}:${#current}" = 64:64
+    case "$package$current" in *[!a-f0-9]*) exit 1;; esac
+    test -f "$R/selected" && test ! -L "$R/selected" && test "$(cat "$R/selected")" = "$current"
+    P=$D/packages/$package
+    test "$(readlink -f "$P")" = "$P" && test "$(stat -c '%a:%u:%g' "$P")" = 700:0:0
+    test -f "$P/files.sha256" && test ! -L "$P/files.sha256"
+    digest=$(openssl dgst -sha256 < "$P/files.sha256")
+    test "${digest##* }" = "$package"
+    seen='|'; expected=; count=0; mandatory=0
+    set --
+    while read -r digest name extra; do
+        test "${#digest}" = 64 && test -n "$name" && test -z "$extra"
+        case "$digest" in *[!a-f0-9]*) exit 1;; esac
+        case "$name" in .|..|*[!a-zA-Z0-9.-]*) exit 1;; esac
+        case "$seen" in *"|$name|"*) exit 1;; esac
+        seen="$seen$name|"
+        case "$name" in state.sh|backend.sh|service.sh|api|flush) mandatory=$((mandatory+1));; esac
+        test -f "$P/$name" && test ! -L "$P/$name"
+        set -- "$@" "$P/$name"
+        expected="$expected$digest *$P/$name
+"
+        count=$((count+1)); test "$count" -le 64
+    done < "$P/files.sha256"
+    test "$mandatory" = 5
+    actual_count=0
+    for item in "$P"/* "$P"/.[!.]* "$P"/..?*; do
+        if test ! -e "$item" && test ! -L "$item"; then continue; fi
+        test -f "$item" && test ! -L "$item"
+        actual_count=$((actual_count+1))
+    done
+    test "$actual_count" -eq "$((count+1))"
+    actual=$(openssl dgst -sha256 -r "$@")
+    test "$actual" = "${expected%?}"
+    . "$P/state.sh"
+    record_read && test "$R_PHASE:$R_BACKEND:$R_CURRENT:$R_BOOT" = "active:$package:$current:$boot" || fail state_changed
+    service_stage boot "$package"
+}
+
 service_main() {
+    if test "${1:-}" = boot; then service_boot; return; fi
     set -eu
     umask 077
     P=$(dirname "$(readlink -f "$0")")

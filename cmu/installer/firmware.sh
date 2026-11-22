@@ -185,7 +185,7 @@ native_log_prepare() {
 
 native_log_commit() {
     test -n "$LOG_STAGE" || return 0
-    "$P/flush" l "$LOG_STAGE" /tmp/common/log/settings.txt
+    "${1:-$P/flush}" l "$LOG_STAGE" /tmp/common/log/settings.txt
 }
 
 native_log_discard() {

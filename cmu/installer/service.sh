@@ -143,6 +143,9 @@ printf '%s %s %s\n' "$pid" "$start" "$work" > "$R/listener.next"
 ln -sfn "$work" "$R/runtime"
 mv -f "$R/listener.next" "$R/listener"
 runtime=$work
+# End the deferred fork window before checking its flag. EXIT cleanup remains
+# armed until no cancellation can be forgotten at the completion handoff.
+trap 'exit 1' HUP INT TERM
 if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
 trap - EXIT HUP INT TERM
 unset pending_pid pending_start pending_work pending_cancel

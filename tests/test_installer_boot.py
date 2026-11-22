@@ -177,6 +177,7 @@ R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "755:$(id -u):$
 R_PHASE=active; R_BEFORE=-; R_AFTER=-; R_UNDO=-; R_BUDGET=3; R_OFF=-; R_BOOT=-; R_NOTICE=installed
 record_write
 """)
+        self.populated_dependencies()
 
     def composed_manifest(self, package=None):
         folder = self.data / "composed" / (package or self.package_id)
@@ -308,6 +309,17 @@ record_write
         self.assertFalse((self.runtime / "selected").exists())
         self.assertEqual(self.record()[9], "2")
 
+    def test_active_matching_snapshot_cannot_omit_all_dependencies(self):
+        self.shell(
+            'record_read; snapshot_read "$R_CURRENT"; '
+            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable '
+            '"$S_META" /dev/null - 1 0 0); record_write'
+        )
+        result = self.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertEqual(self.record()[9], "3")
+
     def test_fast_path_keeps_compiled_native_pin_when_snapshot_matches_foreign_bytes(self):
         self.manager.write_bytes(b"foreign manager adopted by snapshot\n")
         self.populated_dependencies()
@@ -396,22 +408,32 @@ record_write
         self.assertFalse((self.runtime / "selected").exists())
         self.assertFalse((self.root / "common/log/settings.txt").exists())
 
-    def test_marker_failure_rolls_back_only_our_base_publication(self):
-        self.select_base(1)
-        link = self.tools / "ln"
-        link.write_text(
-            "#!/bin/sh\nfor dest; do :; done\n"
-            + 'test "$dest" != '
-            + shlex.quote(str(self.runtime / "selected"))
-            + " || exit 1\nexec "
-            + shutil.which("ln")
-            + ' "$@"\n'
-        )
-        link.chmod(0o700)
-        result = self.boot(1)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertFalse((self.runtime / "selected").exists())
-        self.assertFalse((self.root / "common/log/settings.txt").exists())
+    def test_selected_directory_or_symlink_cannot_report_success_or_retain_base(self):
+        for number, symlink in enumerate((False, True), 1):
+            self.select_base(1)
+            (self.root / "boot-id").write_text("00000000-0000-0000-0000-" + f"{number:012x}\n")
+            shutil.rmtree(self.runtime / "feature", ignore_errors=True)
+            shutil.rmtree(self.root / "common", ignore_errors=True)
+            selected = self.runtime / "selected"
+            if selected.exists():
+                shutil.rmtree(selected)
+            foreign = self.root / ("foreign-" + str(number))
+            foreign.mkdir()
+            if symlink:
+                selected.symlink_to(foreign, target_is_directory=True)
+            else:
+                selected.mkdir()
+            result = subprocess.run(
+                ["sh", self.package / "boot.sh"],
+                env=self.env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertNotEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(selected.is_dir())
+            self.assertEqual(list(selected.iterdir()), [])
+            self.assertFalse((self.root / "common/log/settings.txt").exists())
 
     def test_new_hook_dispatches_verified_standalone_backend_for_pending_rollback(self):
         try:
@@ -478,7 +500,7 @@ record_write
                     'record_read; snapshot_read "$R_CURRENT"; '
                     'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 '
                     + str(warning)
-                    + ' disable "$S_META"); record_write'
+                    + ' disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT"); record_write'
                 )
                 result = self.boot(number)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -533,12 +555,13 @@ record_write
                 path.write_text("\n".join(lines) + "\n")
         self.shell(
             'record_read; snapshot_read "$R_CURRENT"; '
-            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" /dev/null - 1 '
+            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - 1 '
             + str(base)
             + " "
             + str(value)
             + "); record_write"
         )
+        self.populated_dependencies()
 
     def test_wireless_boot_composes_both_profiles_and_preserves_native_services(self):
         self.select_wireless(1)
@@ -591,7 +614,7 @@ record_write
     def select_base(self, value):
         self.shell(
             'record_read; snapshot_read "$R_CURRENT"; '
-            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" /dev/null - 1 '
+            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - 1 '
             + str(value)
             + "); record_write"
         )
@@ -631,10 +654,11 @@ record_write
         original = '<service name="peer" autorun="yes" />\n<service name="blm_ira_pandora" autorun="yes" />\n'
         for profile in ("normal", "wcp"):
             (composed / f"sm-{profile}-on.conf").write_text(original)
+        self.populated_dependencies()
         for enabled, number in ((0, 1), (1, 2), (0, 3)):
             self.shell(
                 'record_read; snapshot_read "$R_CURRENT"; '
-                'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" /dev/null - '
+                'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - '
                 + str(enabled)
                 + "); record_write"
             )

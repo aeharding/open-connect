@@ -237,3 +237,29 @@ class InstallerService(unittest.TestCase):
 
     def test_parent_term_between_fork_and_pid_capture_reaps_unpublished_child(self):
         self.assert_interrupted_start("pid=$!")
+
+    def test_term_at_ready_handoff_is_not_forgotten(self):
+        script = self.source / "service.sh"
+        script.write_text(
+            script.read_text().replace(
+                "trap - EXIT HUP INT TERM",
+                self.busybox + " usleep 500000\ntrap - EXIT HUP INT TERM",
+                1,
+            )
+        )
+        self.manifest()
+        process = subprocess.Popen(
+            ["sh", self.source / "service.sh"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        deadline = time.monotonic() + 2
+        while not (self.runtime / "runtime").exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue((self.runtime / "runtime").exists())
+        process.send_signal(signal.SIGTERM)
+        process.communicate(timeout=3)
+        self.assertNotEqual(process.returncode, 0)
+        self.assertFalse((self.runtime / "runtime").exists())
+        self.assertFalse((self.runtime / "listener").exists())
+        with socket.socket() as probe:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            probe.bind(("127.0.0.1", 35555))

@@ -21,7 +21,7 @@ startup_stamps_publish() {
     if test -e /tmp/open-connect/startup-times || test -L /tmp/open-connect/startup-times; then return 0; fi
     receipt=$(mktemp /tmp/open-connect/.startup-times-XXXXXX) || return 0
     printf '%s' "${oc_times-}" > "$receipt" || :
-    ln "$receipt" /tmp/open-connect/startup-times 2>/dev/null || :
+    "$runtime/flush" l "$receipt" /tmp/open-connect/startup-times 2>/dev/null || :
     rm -f "$receipt" || :
     return 0
 }
@@ -45,7 +45,7 @@ boot_select() {
         test "$R_BOOT" != "$(cat /proc/sys/kernel/random/boot_id)" || fail already_selected
     fi
     fast=false
-    if test "$R_PHASE" = active && test -s "$D/snapshots/$R_CURRENT/dependencies"; then
+    if test "$R_PHASE" = active; then
         snapshot_read "$R_BASE" || fail originals_changed
         base_nvram=$S_NVRAM
         base_login_ok=true
@@ -141,7 +141,7 @@ if test "$boot_cancelled" = true; then
     native_log_discard || :
     fail selection_cancelled
 fi
-if ! native_log_commit || ! ln "$marker" /tmp/open-connect/selected; then
+if ! native_log_commit "$runtime/flush" || ! "$runtime/flush" l "$marker" /tmp/open-connect/selected; then
     rm -f "$marker" || :
     native_log_discard || :
     fail selection_commit_failed

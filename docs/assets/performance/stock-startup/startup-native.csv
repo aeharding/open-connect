@@ -1,0 +1,7 @@
+condition,run,stage1_start_native_s,stage1_started_native_s,mmui_start_native_s,mmui_started_native_s,stage3_start_native_s,settings_start_native_s
+stock,1,8.333,8.424,18.65,22.578,22.599,
+stock,2,8.368,8.461,18.599,22.566,22.566,
+stock,3,8.37,8.451,18.649,22.523,22.533,
+open-connect,1,9.46,9.508,19.916,23.696,23.701,24.198
+open-connect,2,8.989,9.042,19.362,23.244,23.251,23.758
+open-connect,3,8.98,9.024,19.417,23.224,23.244,23.709

@@ -554,6 +554,7 @@ record_write
             lines = ["<services>"]
             for name in (
                 "stage_1",
+                "stage_3",
                 "jciVBS",
                 "aap_service",
                 "jciAAPA",

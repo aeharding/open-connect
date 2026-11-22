@@ -78,11 +78,16 @@ The [complete dev.10 preset](docs/services-comparison.md) has two starts per set
 with Android Auto and Pandora held on; controls and restoration have their own
 qualification evidence. Active optional services remain individual choices.
 
-After the Services slice, the owner's next priority is a matched stock startup
-comparison under [#9](https://github.com/aeharding/open-connect/issues/9), then
-removing any measured Open Connect delay. Preserve the clean stock result of the
-independent uninstall as the starting fixture; retain bench instrumentation and
-do not reinstall merely to prepare that baseline.
+The subsequent [matched stock/dev.11 comparison](docs/stock-startup-comparison.md)
+retains three complete starts per condition, with Base/Wireless off and stock
+Services. Median Home appeared about 0.83 s later and native SM `stage_1` started
+0.621 s later with Open Connect. Both exceed the declared parity margins; CPU
+was slightly higher and MemFree lower in the shared window. Settings staging now
+waits until `stage_3`, with bounded boot-status retries for the delayed listener.
+Removing the residual startup delay remains the priority under
+[#9](https://github.com/aeharding/open-connect/issues/9), preserving durable
+attempt-record flushes, recovery and independent restoration. Further changes
+need a concrete measured hypothesis rather than another speculative selector pilot.
 
 The deferred phase-1 manual and first-car checks remain separate.
 

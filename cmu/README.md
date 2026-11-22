@@ -70,12 +70,14 @@ duplicate selection and ambiguous durable writes select factory behavior.
 
 Both record flushes precede feature publication. The sole durable record retains
 the same attempt budget and ignition rules. A Service Manager one-shot after
-`stage_1` verifies and stages the Settings listener, yielding to an existing USB
+`stage_3` verifies and stages the Settings listener, yielding to an existing USB
 session. Autostart launches a separately verified RAM ignition observer on both
 selected and valid exhausted-budget boots. The installed UI loads its own RAM
 assets and attaches locally; opening Settings fetches fresh backend status.
+Installed boot-status requests retry within one shared twelve-second deadline
+while the listener becomes available.
 These implementation checks do not establish startup parity; see the
-[measured overhead and limits](../docs/startup-overhead.md).
+[matched stock comparison and limits](../docs/stock-startup-comparison.md).
 
 Wireless selection changes service arguments in the selected RAM profile. After
 VBS renders its normal Device Manager XML, one bounded process changes only its

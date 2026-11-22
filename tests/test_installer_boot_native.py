@@ -417,7 +417,7 @@ printf '%s\n' "$R_CURRENT"
             self.assertEqual(worker[0].attrib["reset_board"], "no")
             self.assertEqual(worker[0].attrib["retry_count"], "0")
             self.assertEqual(worker[0].attrib["exit_allowed"], "yes")
-            self.assertEqual(worker[0].find("dependency").attrib["value"], "stage_1")
+            self.assertEqual(worker[0].find("dependency").attrib["value"], "stage_3")
             self.assertFalse(
                 any(
                     dependency.attrib.get("value") == "open_connect_settings"

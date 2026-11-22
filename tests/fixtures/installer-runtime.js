@@ -346,6 +346,50 @@ f.advance(1000);
 assert.equal(f.requests.length, 2);
 assert.ok(f.requests.every(request => request.body.includes("|status|")));
 
+// A worker deferred until Home can refuse connections for over four seconds.
+// Fast failures must use the shared boot budget, rather than an earlier retry cap.
+f = fixture(null, false, {version: "0.3.0-dev.10", notice: "-"});
+f.tick();
+refreshed = undefined;
+f.store.refresh(ok => { refreshed = ok; });
+for (let attempt = 0; attempt < 10; attempt++) {
+    assert.equal(f.requests.length, attempt + 1);
+    f.reply(f.requests[attempt], null);
+    f.advance(500);
+    assert.equal(refreshed, undefined);
+}
+f.reply(f.requests[10], f.state({installed: true}));
+assert.equal(refreshed, true);
+
+// Repeated immediate failures still stop at twelve seconds without a new XHR.
+f = fixture(null, false, {version: "0.3.0-dev.10", notice: "-"});
+f.tick();
+refreshed = undefined;
+f.store.refresh(ok => { refreshed = ok; });
+for (let attempt = 0; attempt < 24; attempt++) {
+    assert.equal(f.requests.length, attempt + 1);
+    f.reply(f.requests[attempt], null);
+    f.advance(500);
+}
+assert.equal(refreshed, null);
+f.advance(1000);
+assert.equal(f.requests.length, 24);
+
+// A last-millisecond refusal or busy answer cannot push backoff past the budget.
+for (const answer of [null, {ok: false, error: "busy"}]) {
+    f = fixture(null, false, {version: "0.3.0-dev.11", notice: "-"});
+    f.tick();
+    refreshed = undefined;
+    f.store.refresh(ok => { refreshed = ok; });
+    f.advance(11999);
+    f.reply(f.requests[0], answer);
+    assert.equal(refreshed, undefined);
+    f.advance(1);
+    assert.equal(refreshed, null);
+    f.advance(500);
+    assert.equal(f.requests.length, 1);
+}
+
 // USB client dependencies stay within their own verified session.
 f = fixture(null, true);
 f.ctx.OpenConnect.start(token, true);

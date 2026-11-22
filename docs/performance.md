@@ -4,6 +4,13 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
+The latest [matched stock/dev.11 comparison](stock-startup-comparison.md) retains
+three complete starts per condition, without projection. Median fully spaced
+Home appeared about **0.83 seconds later** with Open Connect; native SM `stage_1`
+started **0.621 seconds later**. Both exceed the declared parity margins. CPU
+was slightly higher and MemFree lower in the shared window. The no-added-delay
+target remains open; the results below trace the preceding work.
+
 The [first stock/Open Connect comparison](startup-comparison.md) found **slower
 startup with the development candidate**: the median wired CarPlay dashboard
 milestone moved from about 48.3 to 56.7 seconds after ACC-on. CPU busy increased;

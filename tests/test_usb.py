@@ -32,6 +32,7 @@ STATIC = (
     "console.sh",
     "boot.sh",
     "startup-hook.sh",
+    "startup-join.sh",
     "ignition.sh",
     "intro.js",
     "system-route.js",

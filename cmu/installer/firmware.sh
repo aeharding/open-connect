@@ -176,10 +176,19 @@ compose() (
             fi
         done
     done
-    awk -v hook="$package/startup-hook.sh" '
+    file "$package/startup-hook.sh" && test -s "$package/startup-hook.sh" &&
+        file "$package/startup-join.sh" && test -s "$package/startup-join.sh" || fail startup_fragment_missing
+    awk -v hook="$package/startup-hook.sh" -v join="$package/startup-join.sh" '
+        $0=="                $(/jci/scripts/get_board_type.sh)" && previous=="                sleep 1" {
+            if(n!=1)exit 1
+            while((r=getline line < join)>0){print line;join_lines++}
+            if(r<0)exit 1
+            close(join);joined++
+        }
         {print}
-        $0=="        echo $MESSAGE_NORMALMODE" {while((r=getline line < hook)>0)print line;if(r<0)exit 1;close(hook);n++}
-        END{if(n!=1)exit 1}
+        $0=="        echo $MESSAGE_NORMALMODE" {while((r=getline line < hook)>0){print line;hook_lines++};if(r<0)exit 1;close(hook);n++}
+        {previous=$0}
+        END{if(n!=1 || joined!=1 || !hook_lines || !join_lines)exit 1}
     ' "$D/originals/autostart" > "$work/autostart" || fail startup_anchor_missing
     sh -n "$work/autostart" || fail startup_syntax
     for name in autostart uia.so mmui.so mmui.xml system-app.js index-on.html index-off.html \

@@ -160,10 +160,21 @@ class PrivateFirmware(unittest.TestCase):
                 )
         original = (self.originals / "autostart").read_bytes()
         hook = (ROOT / "cmu/installer/startup-hook.sh").read_bytes()
+        join = (ROOT / "cmu/installer/startup-join.sh").read_bytes()
         anchor = b"        echo $MESSAGE_NORMALMODE\n"
+        join_anchor = (
+            b"                sleep 1\n                $(/jci/scripts/get_board_type.sh)\n"
+        )
         self.assertEqual(original.count(anchor), 1)
+        self.assertEqual(original.count(join_anchor), 1)
         self.assertEqual(
-            (self.composed / "autostart").read_bytes(), original.replace(anchor, anchor + hook)
+            (self.composed / "autostart").read_bytes(),
+            original.replace(anchor, anchor + hook).replace(
+                join_anchor,
+                b"                sleep 1\n"
+                + join
+                + b"                $(/jci/scripts/get_board_type.sh)\n",
+            ),
         )
 
     def test_renderer_insertion_is_the_only_edit_and_host_contract_passed(self):

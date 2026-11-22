@@ -58,6 +58,21 @@ class InstallerService(unittest.TestCase):
         )
         (self.source / "flush").write_text("#!/bin/sh\nexit 0\n")
         (self.source / "backend.sh").write_text("backend-one\n")
+        for name in (
+            "firmware.sh",
+            "access.sh",
+            "transaction.sh",
+            "console.sh",
+            "preferences.awk",
+            "services.tsv",
+            "sm-profile.awk",
+            "VERSION",
+            "runtime.js",
+            "dialog.js",
+            "settings.js",
+        ):
+            shutil.copyfile(ASSETS / name, self.source / name)
+        shutil.copyfile(ROOT / "cmu/features/touch/setting.sh", self.source / "touch.sh")
         self.manifest()
         self.addCleanup(self.stop_listener)
 
@@ -116,6 +131,41 @@ class InstallerService(unittest.TestCase):
             return json.loads(reply.read())
         finally:
             conn.close()
+
+    def test_boot_closure_omits_build_files_and_shares_verified_ui_inodes(self):
+        self.runtime.mkdir(mode=0o700)
+        feature = self.runtime / "feature"
+        feature.mkdir(mode=0o700)
+        for name in ("runtime.js", "dialog.js", "settings.js", "service.sh"):
+            shutil.copyfile(self.source / name, feature / name)
+            (feature / name).chmod(0o600)
+        for name in ("LICENSE", "boot-select", "native.bin"):
+            (self.source / name).write_text("not needed by the installed listener\n")
+        self.manifest()
+        result = self.boot()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        session = (self.runtime / "runtime").resolve()
+        for name in ("LICENSE", "boot-select", "native.bin"):
+            self.assertFalse((session / name).exists())
+        for name in ("runtime.js", "dialog.js", "settings.js", "service.sh"):
+            self.assertEqual((session / name).stat().st_ino, (feature / name).stat().st_ino)
+        self.assertEqual(
+            (session / "files.sha256").read_bytes(), (self.source / "files.sha256").read_bytes()
+        )
+        self.assertEqual(self.client()["backend"], "backend-one\n")
+
+    def test_boot_closure_rejects_wrong_shared_bytes_before_listener(self):
+        self.runtime.mkdir(mode=0o700)
+        feature = self.runtime / "feature"
+        feature.mkdir(mode=0o700)
+        shared = feature / "runtime.js"
+        shared.write_text("foreign bytes\n")
+        shared.chmod(0o400)
+        result = self.boot()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.runtime / "listener").exists())
+        self.assertEqual(shared.read_text(), "foreign bytes\n")
+        self.assertEqual(shared.stat().st_mode & 0o777, 0o400)
 
     def test_ready_session_serves_first_client_and_replacement_preserves_old_bytes(self):
         first = self.invoke()

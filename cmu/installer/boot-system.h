@@ -12,6 +12,17 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
+static long oc_parent(void) { return getppid(); }
+static long oc_watch_parent(void) {
+#ifdef __linux__
+    return prctl(PR_SET_PDEATHSIG,SIGTERM)<0?-errno:0;
+#else
+    return 0;
+#endif
+}
 static long oc_owner(void) { return getuid(); }
 static long oc_group(void) { return getgid(); }
 static long oc_lock(int fd) { return flock(fd,LOCK_EX|LOCK_NB)<0?-errno:0; }
@@ -32,6 +43,8 @@ static void oc_cut(const char *phase) {
     if (term && oc_equal(term,phase)) (void)raise(SIGTERM);
 }
 #else
+static long oc_parent(void) { return oc_syscall4(64,0,0,0,0); }
+static long oc_watch_parent(void) { return oc_syscall4(172,1,15,0,0); }
 static long oc_owner(void) { return oc_syscall4(199,0,0,0,0); }
 static long oc_group(void) { return oc_syscall4(200,0,0,0,0); }
 static long oc_lock(int fd) { return oc_syscall4(143,fd,6,0,0); }

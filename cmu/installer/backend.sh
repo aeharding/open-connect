@@ -151,6 +151,9 @@ recover)
     if test "$empty_state" = true; then finish_removal; fi
     ;;
 install)
+    # Installation needs the complete maintenance bundle, not the boot listener's
+    # smaller verified RAM closure. Refuse before any persistent operation.
+    verify_manifest "$P" || fail incomplete_maintenance_bundle
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
     if test "$exists" = true && test "$R_PHASE" = active; then
         targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed

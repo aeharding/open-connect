@@ -6,14 +6,14 @@
 
 static int run(int argc, char **argv) {
 #ifdef OC_HOST
-    if (argc==3 && oc_equal(argv[1],"select")) {
+    if (argc==3 && (oc_equal(argv[1],"select")||oc_equal(argv[1],"select-gated"))) {
         long root=oc_openat(OC_CWD,argv[2],OC_DIRECTORY,0);
 #else
-    if (argc==2 && oc_equal(argv[1],"select")) {
+    if (argc==2 && (oc_equal(argv[1],"select")||oc_equal(argv[1],"select-gated"))) {
         long root=oc_openat(OC_CWD,"/",OC_DIRECTORY,0);
 #endif
         if (root<0) return OC_REFUSE;
-        int result=oc_selection((int)root);
+        int result=oc_selection((int)root,oc_equal(argv[1],"select-gated"));
         (void)oc_close((int)root);
         return result;
     }

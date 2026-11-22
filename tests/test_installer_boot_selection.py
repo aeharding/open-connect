@@ -304,7 +304,7 @@ class NativeBootSelection(unittest.TestCase):
         self.record[5] = self.snapshot.name
         self.save_record()
 
-    def invoke(self, cut=None, term=None, output_limit=None):
+    def invoke(self, cut=None, term=None, output_limit=None, mode="select"):
         # A regular fixture models urandom's bytes, refreshing them per entry.
         self.put("dev/urandom", os.urandom(1024))
         env = {**os.environ}
@@ -321,12 +321,62 @@ class NativeBootSelection(unittest.TestCase):
             resource.setrlimit(resource.RLIMIT_FSIZE, (output_limit, output_limit))
 
         return subprocess.run(
-            [self.program, "select", self.root],
+            [self.program, mode, self.root],
             env=env,
             capture_output=True,
             timeout=5,
             preexec_fn=limit_output if output_limit is not None else None,
         )
+
+    def test_gate_releases_before_staging_for_both_base_settings(self):
+        for base in (0, 1):
+            with self.subTest(base=base):
+                config = (self.snapshot / "config").read_text().replace("base=0", f"base={base}")
+                self.change_current("config", config)
+                before = (self.data / "record").read_bytes()
+                result = self.invoke(cut="gate_released", mode="select-gated")
+                self.assertEqual((result.stdout, result.returncode), (b"G", 97), result.stderr)
+                self.assertEqual((self.data / "record").read_bytes(), before)
+                self.assertFalse((self.ram / "feature").exists())
+                self.assertFalse(list(self.ram.glob(".feature-*")))
+
+    def test_gate_requests_early_join_for_nvram_recovery(self):
+        self.put("sys/class/nvram/nv-config/keys/lvds_speed_restriction", "enable\n")
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"J", 95), result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_gate_late_metadata_refusal_never_requests_shell_recovery(self):
+        target = self.root / "jci/gui/framework/js/GuiFramework.js"
+        target.write_bytes(target.read_bytes())
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"G", 1), result.stderr)
+        self.assertIn(b"late_verification_refused", result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertFalse((self.ram / "selected").exists())
+
+    def test_gate_joins_on_competing_lock_without_debit(self):
+        import fcntl
+
+        lock = self.ram / "lock"
+        lock.touch(mode=0o600)
+        before = (self.data / "record").read_bytes()
+        with lock.open("r+") as held:
+            fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"J", 1), result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_gate_selects_once_and_refuses_same_kernel(self):
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"G", 0), result.stderr)
+        self.assertIn("gate_released|", (self.ram / "startup-times").read_text())
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"J", 1), result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
 
     def test_selects_complete_policy_and_debits_once(self):
         result = self.invoke()

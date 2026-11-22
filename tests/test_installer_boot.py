@@ -252,8 +252,16 @@ record_write
             'rm "$deps"; record_write'
         )
 
-    def hook(self):
-        hook = (ASSETS / "startup-hook.sh").read_text()
+    def hook(self, oem="", after=""):
+        hook = (
+            (ASSETS / "startup-hook.sh").read_text()
+            + oem
+            + (ASSETS / "startup-join.sh").read_text()
+            + after
+        )
+        # Bash supplies read -n/-t for these host adapter cases. The actual
+        # target BusyBox controller is also exercised on Linux separately.
+        hook = hook.replace("/bin/busybox timeout", "timeout").replace("/bin/busybox sh", "sh")
         for old, new in {
             "/tmp/mnt/data_persist/open-connect": str(self.data),
             "/tmp/open-connect": str(self.runtime),
@@ -276,7 +284,7 @@ record_write
         shim.chmod(0o700)
         return subprocess.run(
             [
-                "sh",
+                "bash",
                 "-c",
                 "SMCFG_NORMALMODE=stock; " + hook + '\nprintf "CONFIG|%s\\n" "$SMCFG_NORMALMODE"',
             ],
@@ -295,6 +303,29 @@ record_write
         )
         self.assertTrue((self.runtime / "selected").exists())
         self.assertIn("package_verified|", (self.runtime / "startup-times").read_text())
+
+    def test_gate_retains_worker_pid_across_oem_jobs_and_joins_before_selection(self):
+        helper = self.root / "root-selector"
+        complete = self.root / "worker-complete"
+        helper.write_text(
+            "#!/bin/sh\nprintf G\nexec 1>&-\n/bin/sleep 0.15\n"
+            ": > " + shlex.quote(str(complete)) + "\nexit 0\n"
+        )
+        helper.chmod(0o700)
+        result = self.hook(
+            oem="\n" + ": &\n" * 8 + "/bin/sleep 0.02\n",
+            after="\ntest -f " + shlex.quote(str(complete)) + " || exit 31\n",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("CONFIG|" + str(self.runtime / "feature/sm.conf"), result.stdout)
+
+    def test_gate_malformed_frame_never_selects_features(self):
+        helper = self.root / "root-selector"
+        helper.write_text("#!/bin/sh\nprintf X\nexit 0\n")
+        helper.chmod(0o700)
+        result = self.hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("CONFIG|stock", result.stdout)
 
     def test_pending_recovery_and_observer_do_not_require_a_listener(self):
         for fixture in ("usb", "blocked-port"):
@@ -341,7 +372,7 @@ record_write
         (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
         helper = self.root / "root-selector"
         helper.write_text(
-            '#!/bin/sh\nprintf "20.00 0.00\\n" > '
+            '#!/bin/sh\nprintf J\nprintf "20.00 0.00\\n" > '
             + shlex.quote(str(self.root / "uptime"))
             + "\nexit 95\n"
         )

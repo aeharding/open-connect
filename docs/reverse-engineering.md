@@ -894,6 +894,50 @@ immutable text files, while rejecting interior NULs or trailing data. A read-onl
 pre-install check recorded these bytes in private `sysfs-byte-intake.out`; it
 changed no device state.
 
+## Overlapping the native selector with Mazda startup
+
+The dev.12 candidate uses one locked native worker across two exact autostart
+anchors: before normal-mode setup and after its original one-second sleep,
+immediately before board detection. An authenticated policy check samples ACC
+and touchscreen NVRAM before releasing the worker. Remaining checks, selected
+file staging and both durable record barriers overlap Mazda's existing work.
+The original shell always joins that worker before choosing SM profiles. There
+is no delayed shell recovery or second NVRAM read after release. Recovery stays
+before Mazda's profile and HDCP/NVRAM jobs.
+
+Both Base settings use this path. Warn is published before SM starts. Mazda's
+earlier `cpugauge` job can initialize logging during the overlap; the owner chose
+this tradeoff over adding synchronous Base-on delay. Three readbacks from both
+initialized gauge and MMUI processes reported Warn in each checked Base-on pilot. Those observations
+do not prove every possible initialization order.
+
+A byte-identical inode or timestamp change refuses selection for that boot.
+Only after all covered digests still match can it save a root-private request
+for full verification on the next boot. The request names the current snapshot;
+it cannot select files, change NVRAM or spend an attempt. The verified shell
+reseals inputs and commits the authoritative record before removing a matching
+request. Stale requests are ignored; corrupt bytes do not create requests.
+
+UIA and the modified system-app script remain in their immutable, verified
+package directory on persistence. Small RAM symlinks select them without
+duplicating their contents in tmpfs. Native UIA mappings confirmed this path.
+Independent installed-Settings Uninstall then restored the original loaded
+UIA/MMUI, original startup and touch state, and removed both persistent and RAM
+Open Connect directories. Private supporting evidence is
+`runs/stock-parity-20261122/dev12-uninstall-stock-verify-retry.out` and
+`dev12-installed-ui-uninstall-retry/`, at source `1ff3fe2` before the later
+read-only hint/plan-verification fixes.
+
+The [matched dev.12 comparison](stock-startup-comparison.md) on reviewed CI
+`2fedfcdf` recorded zero join wait in all three Base-off starts, with native SM
+`stage_1` median +0.085 s versus stock. Home was still about +0.397 s later,
+shared-window CPU +0.831 percentage points and minimum MemFree 3180 KiB lower.
+One separate Base-on warm restart confirmed zero join wait and three current
+Warn readbacks each for MMUI/cpugauge; it does not qualify Base-on performance.
+Unique allocated runtime tmpfs measured 408 KiB, with 208 KiB private pages in
+the listener/ignition processes in one postflight. These observations do not
+establish the no-overhead/no-unapproved-RAM target.
+
 ## Opera rejects block function declarations in strict code
 
 The dev.9 CI candidate `06ae21f` reached native wireless projection, but its
@@ -932,6 +976,15 @@ retrying writes are unchanged. Supporting records are private
 under the same run directory. This setup observation is not a primary timing run.
 
 ## SM service choices and composition on v74
+
+The exact v74 SM service-attribute parser does not recognize
+`delay_before_start`; it is not a supported process-start delay setting.
+This was checked in `sm_ReadConfigServicesAttributes` at `0x5f0c0` in the
+SM binary with SHA-256
+`d442cefe28d6cc5d914ad661ce965f6ee644588cf89d8298a2be59a10852231c`,
+also matched against the running bench's file. The factory `stage_vr` profile
+passes `5s` to its shell wrapper, which sleeps before publishing its readiness
+flag. That delay comes from the wrapper, not an SM XML delay attribute.
 
 Both exact normal/WCP profiles declare Android Auto's `aap_service` and `jciAAPA`
 as separate startup services. The bounded Android Auto pilot suppressed only

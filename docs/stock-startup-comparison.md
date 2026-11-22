@@ -1,118 +1,171 @@
-# Stock startup comparison — dev.11
+# Stock startup comparison — dev.12
 
-Open Connect reached fully spaced Home about **0.83 seconds later than stock**
-in this three-start-per-condition comparison. Native Service Manager's
-`stage_1` started **0.621 seconds later**. Both exceed the predeclared margins,
-so [stock startup parity remains open](https://github.com/aeharding/open-connect/issues/9).
+Open Connect's native Service Manager `stage_1` started **0.085 seconds later
+than stock**, within the declared 0.10 s margin, in this three-complete-starts-per-
+condition comparison. The fully spaced Home
+**midpoint estimate was about 0.40 seconds later**, above the 0.20 s margin; its
+frame-bound interval straddles that margin. CPU was higher and free RAM lower
+with Base off.
+[Stock startup parity remains open](https://github.com/aeharding/open-connect/issues/9);
+this is a reduction in overhead, not a parity result.
 
-Dev.11 defers Settings staging until `stage_3` and handles a delayed Settings
-backend within the existing twelve-second status budget. It retains the native
-selector, synchronous startup placement, integrity checks and both durable
-attempt-record flushes. The [earlier pilots](startup-overhead.md#stock-comparison-and-settings-staging)
-include the parked compiler/buffer experiment; that change is absent here.
+Dev.12 overlaps one verified CPU1 selector with Mazda's existing normal-mode
+preparation, then always joins it before Service Manager. Both durable attempt-
+record flushes remain. Immutable UIA/JavaScript files use verified persistence
+instead of duplicate RAM copies; Settings staging waits until after `stage_3`
+on CPU1, with a four-second pause. See [how selection works](how-it-works.md).
+The preceding [dev.11 comparison](https://github.com/aeharding/open-connect/blob/79d018d8c5dfa3216dc830ca5c5df53414641036/docs/stock-startup-comparison.md)
+retains its own results and original assets; it is not relabeled here.
 
-## Results and limits
+## Results and attempts
 
-All **six primary attempts completed** with video, UART, resource retrieval,
-same-boot clock mapping and postflight verification. Each had one kernel banner
-and one syslog boot marker. There were no primary restarts, failed recordings,
-missing traces or discarded attempts. Installation and the separate Settings
-readiness check were setup work, outside these six starts.
+There were **four stock attempts and three active attempts**. Stock attempt 2
+retained healthy Home video and one kernel/syslog boot, but SSH retrieval failed
+with connection refused. Its RAM trace and clock mapping are unavailable. One
+unmeasured ACC recovery restored SSH; stock attempts 3 and 4 completed. All three
+active primary attempts completed. There were no observed primary CMU restarts
+or failed recordings. Installation, transport recovery and the later Base-on
+confirmation are separate setup/check work.
 
-| Median observation | Stock | Open Connect dev.11 |
-| --- | --- | --- |
-| First fully spaced Home, after ACC command | 25.39–25.60 s | 26.22–26.43 s |
-| Native SM `stage_1` start, logged clock | 8.368 s | 8.989 s |
-| CPU busy, contained 20–170 s window | 24.91% | 26.10% |
-| Minimum MemFree, same window | 201.25 MiB | 199.22 MiB |
-| Last MemFree, same window | 210.08 MiB | 208.04 MiB |
-
-The Home midpoint difference is 0.83016 s. Subtracting the median interval
-endpoints conservatively gives **0.62–1.04 s added delay**, beyond the fixed
-0.20 s Home margin. The native `stage_1` difference exceeds its separate 0.10 s
-margin. These are observed sample medians and frame bounds, not population
-confidence intervals. Timing bounds round outward; CPU and RAM round to the
-nearest displayed value. [Unrounded frame observations](assets/performance/stock-startup/startup-timings.csv)
-and [per-run resources](assets/performance/stock-startup/startup-runs.csv) retain
-individual values and actual sampling endpoints.
-
-| Condition / acquisition order | Home after ACC command | Native SM `stage_1` start |
-| --- | --- | --- |
-| Stock 1 | 25.39–25.60 s | 8.333 s |
-| Stock 2 | 25.59–25.80 s | 8.368 s |
-| Stock 3 | 25.39–25.60 s | 8.370 s |
-| Dev.11 1 | 26.79–27.00 s | 9.460 s |
-| Dev.11 2 | 26.22–26.43 s | 8.989 s |
-| Dev.11 3 | 26.20–26.41 s | 8.980 s |
-
-The sampled CPU median was 1.19 percentage points higher, and both shared-window
-MemFree medians were about 2.04 MiB lower with Open Connect. There is no CPU or
-RAM saving claim. Whole-trace minimum MemFree medians were also 201.25/199.22 MiB;
-whole-trace final-sample medians were 209.93/207.91 MiB. See the
-[full-coverage RAM summary](assets/performance/stock-startup/startup-full-memory.csv).
-MemFree measures free kernel pages; it is not application PSS or reclaimable RAM.
-
-![Three complete resource traces per condition, with the analysis window shaded](assets/performance/stock-startup/startup-resources.svg)
-
-[Numeric samples](assets/performance/stock-startup/startup-samples.csv) and
-[per-device I/O](assets/performance/stock-startup/startup-io.csv) support the plot.
-For example, median `mmcblk0` reads in the shared window were about 31.16 MiB
-on stock and 31.36 MiB with Open Connect. Whole devices and their partitions
-overlap; do not sum them. These counters start after boot selection and cannot
-explain its earlier storage latency.
-
-Three stock starts preceded installation and three active starts. One bench,
-small samples, acquisition order, storage history and unmeasured environmental
-drift limit attribution. The comparison covers this Allow/Skip configuration,
-not other presets, physical-input responsiveness, audio or long-parked behavior.
-There was no projection workload, so these measurements do not qualify CarPlay
-performance or reproduce Miatafy's wireless timings.
-
-## Remaining selector work
-
-The three active selector spans were **0.96, 0.58 and 0.56 seconds** at 10 ms
-stamp resolution. [All phase stamps](assets/performance/stock-startup/selector-phases.csv)
-retain the kernel uptime values.
-
-| Elapsed selector phase | Dev.11 1 | Dev.11 2 | Dev.11 3 |
+| Median observation, complete traces | Stock | Open Connect dev.12, Base off | Active − stock |
 | --- | --- | --- | --- |
-| Inputs and policy | 0.15 s | 0.18 s | 0.14 s |
-| Checked RAM staging | 0.23 s | 0.23 s | 0.24 s |
-| Record written → directory synced | 0.57 s | 0.17 s | 0.18 s |
+| Fully spaced Home, after ACC command | 25.39–25.61 s | 25.79–26.00 s | about +0.40 s |
+| Native SM `stage_1` start, logged clock | 8.319 s | 8.404 s | +0.085 s |
+| CPU busy, contained 20–170 s window | 24.55% | 25.38% | +0.83 percentage points |
+| Minimum MemFree, same window | 203.30 MiB | 200.19 MiB | −3.11 MiB |
+| Last MemFree, same window | 211.78 MiB | 209.00 MiB | −2.78 MiB |
 
-Record serialization accounts for the remaining 0.01 s in the first start.
-Shared stamps indicate sub-resolution work, including completed barriers.
-The record is written to a new inode, flushed, closed, renamed and followed by
-a parent-directory flush before publication. The observed variation does not
-identify its storage cause. Pre-selector CPU, RAM and queue state are unobserved.
+The Home midpoint difference is 0.39664 s. Subtracting the median frame-interval
+endpoints conservatively gives approximately **+0.196 to +0.598 s**, straddling
+the +0.20 s margin. These are observed frame
+bounds, not population confidence intervals. The comparison does not establish
+Home parity. Including the incomplete stock attempt's valid camera result changes
+the midpoint difference to about +0.305 s; it does not supply missing resources
+or establish parity either. Camera intervals in tables round outward; displayed
+differences round to the nearest stated precision.
 
-[Native SM events](assets/performance/stock-startup/startup-native.csv), kernel
-uptime and ACC-relative camera bounds are separate clocks. The visible delay
-must not be equated with the selector span or a later sampler-launch stamp.
+| Acquisition order | Home after ACC command | Native SM `stage_1` start | Resource trace |
+| --- | --- | --- | --- |
+| Stock 1 | 25.58–25.79 s | 8.318 s | complete |
+| Stock 2 | 25.80–26.01 s | unavailable | unavailable: SSH fetch failed |
+| Stock 3 | 25.39–25.61 s | 8.438 s | complete |
+| Stock 4 | 25.20–25.41 s | 8.319 s | complete |
+| Dev.12 1 | 25.79–26.00 s | 8.404 s | complete |
+| Dev.12 2 | 25.39–25.60 s | 8.390 s | complete |
+| Dev.12 3 | 25.79–26.00 s | 8.556 s | complete |
 
-## Setup checks
+The [attempt table](assets/performance/stock-startup-dev12/startup-attempts.csv)
+keeps all seven attempts and maps complete stock trace numbers 1/2/3 to
+acquisition attempts 1/3/4. [Unrounded timings](assets/performance/stock-startup-dev12/startup-timings.csv)
+and [per-run resources](assets/performance/stock-startup-dev12/startup-runs.csv)
+retain individual values. Stock attempt 2's UART contains an sshd bind failure;
+the port holder and cause were not identified. It is a transport/retrieval
+failure, not evidence of a CMU restart or an Open Connect failure on stock.
 
-The exact CI bundle installed with default Allow/Skip, Base/Wireless off,
-Android Auto/Pandora on and developer access off. All 40 public members matched;
-the root helper and other native members were byte-identical to qualified
-dev.10. The as-found stock-five-field baseline, selected snapshot and physical
-read-only root were verified.
+![Three complete resource traces per condition; shared analysis window shaded](assets/performance/stock-startup-dev12/startup-resources.svg)
 
-A separate real-Opera check exercised completion's **Open settings** action
-while its verified RAM listener was stopped for a nominal five-second interval.
-The same session was restored, Settings opened, the completion notice cleared
-and preferences stayed unchanged. Restoration was verified 5.67 s after the
-input transmission; the replacement listener's process began after 5.02 s.
-This simulates delayed backend availability, rather than observing a click at
-the instant Home renders. Mock-clock checks additionally cover refusal/busy at
-11,999 ms completing at 12,000 ms without another request.
+[Numeric samples](assets/performance/stock-startup-dev12/startup-samples.csv) and
+[per-device I/O](assets/performance/stock-startup-dev12/startup-io.csv) support the
+plot. Whole devices and partitions overlap; do not sum them. These sampled
+counters start after boot selection and cannot explain earlier storage latency.
+As a supplementary settled window, CPU over 50–170 s was 14.38% stock versus
+14.73% active (+0.35 percentage points); this does not replace the declared
+20–170 s result. See [its endpoints and values](assets/performance/stock-startup-dev12/startup-settled-cpu.csv).
 
-Independent compatible dev.10 maintenance restored the preceding experimental
-installation to stock before acquisition: all 20 pinned original hashes/modes,
-original loaded libraries, saved access/NVRAM state and read-only root matched;
-Open Connect's helper and state were removed. The unchanged transaction and
-Uninstall mechanism reuse that qualification. Physical-input/audio/car checks
-remain deferred.
+## RAM accounting
+
+MemFree measures free kernel pages, not application PSS or reclaimable RAM.
+Its lower active median does not by itself attribute the entire difference to
+Open Connect's files or processes. Whole-trace minimum medians were likewise
+203.30/200.19 MiB; final-sample medians were 211.69/208.86 MiB. The
+[full-coverage summary](assets/performance/stock-startup-dev12/startup-full-memory.csv)
+keeps the actual coverage.
+
+| End-of-window median, KiB | Stock | Dev.12 Base off | Difference |
+| --- | --- | --- | --- |
+| AnonPages | 238308 | 239192 | +884 |
+| Cached | 208128 | 209264 | +1136 |
+| Shmem | 4188 | 4596 | +408 |
+| Slab | 19176 | 19356 | +180 |
+| Buffers | 1836 | 1888 | +52 |
+
+These counters describe different, sometimes overlapping categories. Do not
+sum them, or add process RSS/PSS to cache and call that an independently measured
+private footprint. [Per-run memory accounting](assets/performance/stock-startup-dev12/startup-memory-accounting.csv)
+includes first, last, minimum and maximum values; the samples retain AnonPages
+as well as the original export fields. This kernel provides no MemAvailable.
+
+A separate Base-off postflight at uptime 277.70 s measured **408 KiB of unique
+allocated runtime tmpfs**, including directories and symlink blocks, with shared
+hardlinks counted once. The listener had **76 KiB private pages** and the ignition
+observer **132 KiB** (208 KiB together). Their alternative PSS values were 86 and
+154 KiB; their larger RSS values include shared pages. The
+[own-RAM table](assets/performance/stock-startup-dev12/own-ram.csv) keeps these
+measurements separate. They are one postflight observation, not another matched
+stock subtraction.
+
+Allocated runtime tmpfs fell from the preceding dev.11 layout's 1516 KiB to
+408 KiB, about 73%. Serving immutable UIA and system-app.js from verified
+persistence saves 844 KiB allocated tmpfs versus the intermediate copied layout.
+File-backed mappings still consume resident RAM when used; persistence links do
+not make that usage disappear. No zero-RAM-cost claim or owner approval of the
+remaining increase is implied.
+
+## Selection and Base-on confirmation
+
+The complete native selector spans were **0.78, 0.64 and 0.80 s**, but all three
+finished before Mazda reached the join. Each recorded **0.00 s join wait** at
+10 ms stamp resolution. Gate release was 0.02–0.03 s after hook entry. The
+[phase CSV](assets/performance/stock-startup-dev12/selector-phases.csv) retains
+all stamps, including both durability barriers and OEM-window/join stamps.
+The native SM median difference still measured +0.085 s. Selector elapsed time
+is not the same quantity as added startup delay.
+
+[Native SM events](assets/performance/stock-startup-dev12/startup-native.csv),
+kernel uptime and ACC-relative camera bounds are separate clocks. Do not
+subtract across them or equate Home timing with the sampler's launch stamp.
+
+A separate **warm software restart with Base on** confirmed the same CI bundle:
+0.81 s selector span, gate at uptime 5.73 s, join at 7.32 s with no recorded wait,
+all four DAB/TV/Stitcher leaves stopped, Android Auto/Pandora running, healthy
+attempt budget and physical root read-only. Three readbacks each from initialized
+MMUI and cpugauge reported enabled level 3 (Warn), retained in
+[the logging table](assets/performance/stock-startup-dev12/base-on-logging.csv).
+These current readbacks do not prove every initialization order. This is a
+functional overlap/logging confirmation, **not a matched Base-on timing, CPU or
+RAM qualification**.
+
+## Setup, restoration and limits
+
+The exact CI bundle installed with Allow/Skip enabled, Base/Wireless off,
+Android Auto/Pandora on and developer access off. All 41 public member hashes,
+the installed instance, original stock-five-field baseline, selected snapshot
+and physical read-only root were verified. All static members matched the
+reviewed source; six generated assets differed from the Mac build as expected.
+The actual CI assets passed the private exact-v74 composition checks before
+installation. Live installed Settings opened through Mazda's System page and
+Base's actual enable/confirm/restart path worked. The earlier dev.11 delayed-
+listener and twelve-second boot-status UI qualification is reused; completion's
+Open settings action was not independently requalified in this batch.
+
+Independent installed **dev.12 UI Uninstall at 1ff3fe2**, before the later
+read-only plan/hint verification fixes, restored all 20 pinned original hashes
+and modes, original loaded UIA/MMUI, saved touchscreen/access state and read-only
+root. The helper, product state, runtime and persistence mappings were absent;
+all seven checked services ran. It used installed Settings without maintenance
+media and qualifies the changed persistent-file/17-member restoration mechanism.
+The later advisory-hint and verification changes have affected host/BusyBox tests;
+this is not a claim of another final-code Uninstall cycle.
+
+Three complete stock traces preceded installation and three active traces.
+One bench, small blocked samples, storage history, recovery and unmeasured drift
+limit attribution. The setup restart also needed one unmeasured ACC cycle to
+restore SSH despite healthy completion video; it is retained separately from
+primary attempts, without an identified product cause. Initial host guard/build
+fixture failures and exploratory pilots remain separate evidence, not discarded
+primary starts. No projection, audio, route, physical-input, real-car or
+long-parked qualification is provided. This does not reproduce Miatafy's wireless
+milestone or establish the owner's no-overhead/no-unapproved-RAM requirement.
 
 ## Reproduce
 
@@ -121,21 +174,22 @@ Use exactly **74.00.324A NA / cmu150_NA** and the same
 gain32, Ethernet and reference FAT SD present, and the paired phone attached to
 the Mac. Use native Home with Communication selected, no playing audio or route,
 30 seconds ACC-off before each full start, and no input or SSH during primary
-collection. Active settings are Allow/Skip1, Base0, Wireless0, Android Auto1,
-Pandora1 and UART/SSH0; all seven checked service members must be running.
+collection. Active choices are Allow/Skip1, Base0, Wireless0, Android Auto1,
+Pandora1 and UART/SSH0; all seven checked service members must run.
 
-The tested product is [`db11c8c4`](https://github.com/aeharding/open-connect/tree/db11c8c4a0a92acd171d970e9c60ca6693361d36),
-[CI 45037634732](https://github.com/aeharding/open-connect/actions/runs/45037634732),
-artifact `14759963605`. ZIP SHA-256:
-`e9f87712968b3b7ffbddff08c645dc28b0d08520ccc5735b3eef09961a832c4a`.
-The 40-member public manifest is
-`cc0b1dd77e30669360a611ec31e2fb2fdbe522ae9bfe63b901c2bd6ca4b82e94`.
-Only VERSION, runtime.js and sm-profile.awk differ from the dev.10 control.
-Per-install instance manifests differ on another CMU.
+The measured product is [`2fedfcdf`](https://github.com/aeharding/open-connect/tree/2fedfcdf41644e3d888b096838f87227b2d6f275),
+[CI 45067694902](https://github.com/aeharding/open-connect/actions/runs/45067694902).
+ZIP SHA-256:
+`426f9a3e0b527e8aa4abac947c106d00e0eb6f4700c8f344239a64e0e9a2fa6f`.
+The 41-member public manifest is
+`3e1da846e6ea1f5e8023361f4116753584b0380e0298cb37971480e5f55c608e`.
+The installed private instance manifest was
+`7d29f83cbe83a6d55060c33b778098e4c4af05155839dce6f93afba985cf5cbf`;
+it differs on another CMU.
 
 Use frozen [`95f1eae` capture](https://github.com/aeharding/open-connect/tree/95f1eae00007e59fe5700a2ef08fd8107aa15bde)
 and [`802dfcf` annotation/analysis/export](https://github.com/aeharding/open-connect/tree/802dfcf95057785019bc1607c365886bffe849b0).
-For each of three stock starts, collect into `BATCH/stock/trial-N`:
+Capture three complete stock starts, retaining any incomplete attempts:
 
 ```sh
 python -m open_connect.startup_reference --live --host my-cmu \
@@ -144,8 +198,7 @@ python -m open_connect.startup_reference --live --host my-cmu \
 ```
 
 Install the pinned bundle, check completion/Settings and return to matched Home.
-Exclude that setup restart. Then collect three ordinary active starts into
-`BATCH/open-connect-matched/trial-N`:
+Exclude the setup restart. Collect three ordinary active starts:
 
 ```sh
 python -m open_connect.startup_reference --live --host my-cmu \
@@ -154,40 +207,51 @@ python -m open_connect.startup_reference --live --host my-cmu \
   --bundle BATCH/open-connect-matched/trial-N
 ```
 
-Capture starts UART/video before ACC. Resource collection starts after the
-stage-1 observer's guards and runs for 180 s; SSH retrieval begins at ACC+225 s.
-The complete traces covered uptime 10.78–191.03 s across the six starts, with
-170–172 samples each. CPU excludes idle and iowait. Shared CPU, RAM and I/O use
-only samples wholly inside uptime 20–170 s; actual endpoints remain in the CSV.
-Earlier resource use is unobserved. Relay-command and camera-sensor latency have
-not been calibrated.
+Capture opens UART/video before ACC. The local stage-1 collector runs for 180 s;
+SSH retrieval starts at ACC+225 s. The six traces have 172 samples each, covering
+uptime 10.78–190.65 s across the batch. CPU excludes idle and iowait. Shared CPU,
+RAM and I/O use only samples wholly inside uptime 20–170 s. Earlier resource use
+is unobserved; relay-command and sensor latency are uncalibrated.
 
 After each capture closes, obtain the seven-exchange `clock_reference` for its
-actual boot into `BATCH/CONDITION/clock-N`. Retrieve `/tmp/smevents.txt` and, for
-active boots, `/tmp/open-connect/startup-times` for that same boot. The native
-CSV selects START/STARTED rows for stage_1 and jciMMUI, START for stage_3,
-and the active Settings worker's START. The phase CSV transcribes the eight named selector
-stamps without mixing clocks. Review adjacent video frames: score all five Home
-icons in their final positions; label, clock and highlight fades are not required.
+actual boot into `BATCH/CONDITION/clock-N`. Retrieve `/tmp/smevents.txt` and active
+`/tmp/open-connect/startup-times` from that same boot. Select native START/STARTED
+for stage_1 and jciMMUI, START for stage_3 and the active Settings worker. Keep
+the native and kernel clocks distinct. Score adjacent video frames against a
+settled reference: **all five Home icons in their final geometric positions**;
+label, clock and highlight fades are not required. The last-before/first-settled
+frame pairs were stock 282→283, 283→284 (incomplete), 281→282, 280→281 and active
+283→284, 281→282, 283→284. Each interval is about 0.201 s.
 
 ```sh
 python -m open_connect.startup_annotate TRIAL BEFORE_PTS FIRST_PTS --no-projection
-python -m open_connect.startup_export BATCH EXPORT --runs 3
+python -m open_connect.startup_export COMPLETE_VIEW EXPORT --runs 3
 ```
 
-Independently validate each raw preflight and postflight with `validate_condition`:
-`stock` for stock; `open-connect`, Pandora1/Base0/Wireless0 for active. Check saved
-and applied choices, fresh boot, one kernel/syslog marker and no restart/conflict.
-The generic exporter alone does not impose those active feature selections.
-Its `startup-runs.csv` RAM fields cover the shared window; `startup_analysis`
-reports whole-trace memory for the full-coverage table.
+For this export, COMPLETE_VIEW maps stock trial/clock/extra numbers 1/2/3 to
+original acquisitions 1/3/4 and active 1/2/3 to 1/2/3, using links without editing
+the raw bundles. Published CSV line endings are normalized to LF. The attempt table keeps the missing acquisition. Independently
+validate every raw preflight/postflight with `validate_condition`: `stock` for
+stock, or `open-connect` with Pandora1/Base0/Wireless0 for active. All twelve
+checks passed. Verify fresh boot, one kernel/syslog marker, applied choices and
+no conflict/restart; the exporter alone does not impose active selections.
 
-Render from the public samples with
+The four generic exported tables are runs, samples, I/O and timings. Add raw
+AnonPages from each sample's `/proc/meminfo` by condition/run/sample. For the
+memory-accounting table, select the same wholly-contained 20–170 s samples and
+report first/last/min/max of MemFree, AnonPages, Cached, Shmem, Slab and Buffers.
+For full-memory use all samples; for supplementary CPU use contained 50–170 s
+samples. Compute CPU as `100 × (total − idle − iowait) / total` from first/last
+aggregate tick deltas; take the median of per-run results, not a pooled sample
+median. Record the separate postflight unique-tree `du -sk` and process `smaps`
+private/PSS totals without double-counting hardlinks or shared pages.
+
+Render from public samples with
 [`b111f19` plotting](https://github.com/aeharding/open-connect/tree/b111f19b24355568e3be066b153a87785ab12434)
 and Matplotlib 3.10.9:
 
 ```sh
 python -m open_connect.startup_plot EXPORT/startup-samples.csv \
   EXPORT/startup-resources.svg \
-  --title 'Stock and Open Connect dev.11: three passive starts each; no projection'
+  --title 'Stock and Open Connect dev.12: three complete passive traces each; Base off'
 ```

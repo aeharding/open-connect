@@ -85,7 +85,8 @@ service_discard_child() {
 service_files() {
     # A verified RAM closure can recover/purge even when USB owns the listener
     # or the loopback port is unavailable. This does not publish a session.
-    local package_id=$1 work digest name extra token
+    local package_id=$1 kind=${2:-full} work digest name extra token expected= actual count=0 linked shared
+    local seen='|' copied=
 if absent "$R/sessions"; then mkdir -m 700 "$R/sessions"; fi
 private_dir "$R/sessions" || fail invalid_sessions
 work=$(mktemp -d "$R/sessions/session-XXXXXX")
@@ -95,15 +96,53 @@ set --
 while read -r digest name extra; do
     hex "$digest" 64 && test -n "$name" && test -z "$extra" || fail invalid_manifest
     case "$name" in .|..|*[!a-zA-Z0-9.-]*) fail invalid_manifest;; esac
+    case "$seen" in *"|$name|"*) fail invalid_manifest;; esac
+    seen="$seen$name|"
     test -f "$P/$name" && test ! -L "$P/$name" || fail invalid_source
-    set -- "$@" "$P/$name"
+    if test "$kind" = boot; then
+        case "$name" in
+            backend.sh|state.sh|firmware.sh|access.sh|transaction.sh|service.sh|console.sh|touch.sh|preferences.awk|services.tsv|sm-profile.awk|VERSION|api|flush|runtime.js|dialog.js|settings.js) ;;
+            *) continue;;
+        esac
+    fi
+    count=$((count+1))
+    expected="$expected$digest *$work/$name
+"
+    linked=false
+    case "$kind:$name" in boot:runtime.js|boot:dialog.js|boot:settings.js|boot:service.sh|boot:state.sh)
+        for shared in "$R/feature/$name" "$R/ignition/$name"; do
+            if test -f "$shared" && test ! -L "$shared"; then
+                ln "$shared" "$work/$name" || fail runtime_link_failed
+                linked=true
+                break
+            fi
+        done
+        ;;
+    esac
+    if test "$linked" = false; then
+        set -- "$@" "$P/$name"
+        copied="$copied$name
+"
+    fi
 done < "$P/files.sha256"
+if test "$kind" = boot; then test "$count" -eq 17 || fail incomplete_runtime; fi
 cp "$@" "$P/files.sha256" "$work/"
 set -- "$work/files.sha256"
-while read -r digest name extra; do set -- "$@" "$work/$name"; done < "$P/files.sha256"
+while IFS= read -r name; do
+    if test -n "$name"; then set -- "$@" "$work/$name"; fi
+done <<COPIED
+$copied
+COPIED
+# Do not change the mode of an existing feature inode shared by a hardlink.
 chmod 600 "$@"
 chmod 700 "$work/api" "$work/flush"
-test "$(sha "$work/files.sha256")" = "$package_id" && verify_manifest "$work" || fail damaged_runtime
+set --
+while read -r digest name extra; do
+    if test -f "$work/$name" && test ! -L "$work/$name"; then set -- "$@" "$work/$name"; fi
+done < "$P/files.sha256"
+test "$(sha "$work/files.sha256")" = "$package_id" || fail damaged_runtime
+actual=$(openssl dgst -sha256 -r "$@") || fail damaged_runtime
+test "$actual" = "${expected%?}" || fail damaged_runtime
 # One capability per boot keeps the installed Settings client usable while a
 # replacement USB service is staged, even if its UI loading is cancelled.
 if absent "$R/token"; then
@@ -159,7 +198,7 @@ service_stage() {
     # A USB session can release its lock while its UI remains live. Ordinary
     # boot staging must yield to it; recovery uses service_files independently.
     if test "$1" = boot; then absent "$R/runtime" || fail busy; fi
-    service_files "$2"
+    service_files "$2" "$1"
     service_listen "$runtime"
 }
 
@@ -174,6 +213,7 @@ service_boot() {
     test "$(readlink -f "$D")" = "$D" && test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0 || exit 1
     test "$(readlink -f "$R")" = "$R" && test "$(stat -c '%a:%u:%g' "$R")" = 700:0:0 || exit 1
     test -f "$R/lock" && test ! -L "$R/lock" || exit 1
+    sleep 4
     exec 9<>"$R/lock"
     tries=0
     until flock -n -x 9; do

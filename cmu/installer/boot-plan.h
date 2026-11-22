@@ -121,7 +121,8 @@ static int oc_absent_at(int root, const char *path) {
 /* The command is also a read-only diagnostic for an already sealed plan.
  * Successful metadata checking alone never selects features or writes record.
  */
-static int oc_plan_rows(int root, int snapshot, int input, int output, int sealing) {
+static int oc_plan_rows(int root, int snapshot, int input, int output, int mode) {
+    int sealing=mode==1;
     OcLines reader;
     char line[OC_LINE_SIZE],original[OC_LINE_SIZE],seen[OC_PLAN_ROWS][192];
     char *fields[13],digest[65],meta[131];
@@ -161,6 +162,13 @@ static int oc_plan_rows(int root, int snapshot, int input, int output, int seali
         int ok;
         if (sealing) {
             ok=oc_hash_copy((int)fd,-1,33554432,digest,&current)==OC_COPY_OK && oc_equal(digest,fields[2]);
+        } else if (mode>=2) {
+            /* Recovery keeps every old pin except inode/time; selection keeps
+             * those too. Both hash the opened, stable source, including version.ini.
+             */
+            ok=oc_meta_parse(fields+3,&expected)&&
+                oc_hash_copy((int)fd,-1,33554432,digest,&current)==OC_COPY_OK&&oc_equal(digest,fields[2])&&
+                (mode==2?oc_meta_resealable(&expected,&current):oc_meta_equal(&expected,&current));
         } else {
             ok=oc_meta_parse(fields+3,&expected) && oc_stat((int)fd,&current)>=0 && oc_meta_equal(&expected,&current);
         }

@@ -304,7 +304,7 @@ class NativeBootSelection(unittest.TestCase):
         self.record[5] = self.snapshot.name
         self.save_record()
 
-    def invoke(self, cut=None, term=None, output_limit=None):
+    def invoke(self, cut=None, term=None, output_limit=None, mode="select"):
         # A regular fixture models urandom's bytes, refreshing them per entry.
         self.put("dev/urandom", os.urandom(1024))
         env = {**os.environ}
@@ -321,12 +321,122 @@ class NativeBootSelection(unittest.TestCase):
             resource.setrlimit(resource.RLIMIT_FSIZE, (output_limit, output_limit))
 
         return subprocess.run(
-            [self.program, "select", self.root],
+            [self.program, mode, self.root],
             env=env,
             capture_output=True,
             timeout=5,
             preexec_fn=limit_output if output_limit is not None else None,
         )
+
+    def test_gate_releases_before_staging_for_both_base_settings(self):
+        for base in (0, 1):
+            with self.subTest(base=base):
+                config = (self.snapshot / "config").read_text().replace("base=0", f"base={base}")
+                self.change_current("config", config)
+                before = (self.data / "record").read_bytes()
+                result = self.invoke(cut="gate_released", mode="select-gated")
+                self.assertEqual((result.stdout, result.returncode), (b"G", 97), result.stderr)
+                self.assertEqual((self.data / "record").read_bytes(), before)
+                self.assertFalse((self.ram / "feature").exists())
+                self.assertFalse(list(self.ram.glob(".feature-*")))
+
+    def test_gate_requests_early_join_for_nvram_recovery(self):
+        self.put("sys/class/nvram/nv-config/keys/lvds_speed_restriction", "enable\n")
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"J", 95), result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_gate_late_metadata_refusal_never_requests_shell_recovery(self):
+        target = self.root / "jci/gui/framework/js/GuiFramework.js"
+        target.write_bytes(target.read_bytes())
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"G", 1), result.stderr)
+        self.assertIn(b"late_verification_refused", result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertFalse((self.ram / "selected").exists())
+        self.assertEqual((self.data / "reseal").read_text(), self.snapshot.name + "\n")
+        self.assertEqual((self.data / "reseal").stat().st_mode & 0o777, 0o600)
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"J", 95), result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_reseal_request_requires_every_input_digest_and_preserves_plan(self):
+        plan = (self.snapshot / "boot.plan").read_bytes()
+        target = self.root / "jci/gui/framework/js/GuiFramework.js"
+        target.write_bytes(target.read_bytes())
+        runtime = self.package / "runtime.js"
+        original = runtime.read_bytes()
+        runtime.write_bytes(bytes([original[0] ^ 1]) + original[1:])
+        before = (self.data / "record").read_bytes()
+        for _ in range(2):
+            result = self.invoke(mode="select-gated")
+            self.assertEqual((result.stdout, result.returncode), (b"G", 1), result.stderr)
+            self.assertFalse((self.data / "reseal").exists())
+        self.assertEqual((self.snapshot / "boot.plan").read_bytes(), plan)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_stale_reseal_request_does_not_change_selection_authority(self):
+        hint = self.data / "reseal"
+        hint.write_text("0" * 64 + "\n")
+        hint.chmod(0o600)
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"G", 0), result.stderr)
+        self.assertEqual(hint.read_text(), "0" * 64 + "\n")
+
+    def test_foreign_reseal_request_refuses_before_gate_without_debit(self):
+        hint = self.data / "reseal"
+        before = (self.data / "record").read_bytes()
+        for kind in ("malformed", "wrong-mode", "symlink", "fifo"):
+            with self.subTest(kind=kind):
+                if hint.exists() or hint.is_symlink():
+                    hint.unlink()
+                if kind == "symlink":
+                    hint.symlink_to(self.data / "record")
+                elif kind == "fifo":
+                    os.mkfifo(hint)
+                else:
+                    hint.write_text("bad\n" if kind == "malformed" else self.snapshot.name + "\n")
+                    hint.chmod(0o644 if kind == "wrong-mode" else 0o600)
+                result = self.invoke(mode="select-gated")
+                self.assertEqual((result.stdout, result.returncode), (b"J", 1), result.stderr)
+                self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_reseal_request_power_cuts_never_debit_or_publish(self):
+        target = self.root / "jci/gui/framework/js/GuiFramework.js"
+        target.write_bytes(target.read_bytes())
+        before = (self.data / "record").read_bytes()
+        for phase in ("reseal_synced", "reseal_published"):
+            with self.subTest(phase=phase):
+                result = self.invoke(cut=phase, mode="select-gated")
+                self.assertEqual((result.stdout, result.returncode), (b"G", 97), result.stderr)
+                self.assertEqual((self.data / "record").read_bytes(), before)
+                self.assertFalse((self.ram / "selected").exists())
+                self.assertFalse((self.ram / "feature").exists())
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"J", 95), result.stderr)
+
+    def test_gate_joins_on_competing_lock_without_debit(self):
+        import fcntl
+
+        lock = self.ram / "lock"
+        lock.touch(mode=0o600)
+        before = (self.data / "record").read_bytes()
+        with lock.open("r+") as held:
+            fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"J", 1), result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_gate_selects_once_and_refuses_same_kernel(self):
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"G", 0), result.stderr)
+        self.assertIn("gate_released|", (self.ram / "startup-times").read_text())
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"J", 1), result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
 
     def test_selects_complete_policy_and_debits_once(self):
         result = self.invoke()
@@ -337,6 +447,10 @@ class NativeBootSelection(unittest.TestCase):
         self.assertEqual(
             (self.ram / "feature/uia.so").read_bytes(), (self.composed / "uia.so").read_bytes()
         )
+        for name in ("uia.so", "system-app.js"):
+            feature = self.ram / "feature" / name
+            self.assertTrue(feature.is_symlink())
+            self.assertEqual(feature.resolve(), self.composed / name)
         self.assertNotIn("@TOKEN@", (self.ram / "feature/index.html").read_text())
         self.assertEqual(
             (self.ram / "ignition/state.sh").read_bytes(), (ASSETS / "state.sh").read_bytes()

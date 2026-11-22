@@ -12,6 +12,19 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
+static long oc_parent(void) { return getppid(); }
+/* Host fixtures exercise policy, without changing the host's CPU placement. */
+static long oc_worker_cpu1(void) { return 0; }
+static long oc_watch_parent(void) {
+#ifdef __linux__
+    return prctl(PR_SET_PDEATHSIG,SIGTERM)<0?-errno:0;
+#else
+    return 0;
+#endif
+}
 static long oc_owner(void) { return getuid(); }
 static long oc_group(void) { return getgid(); }
 static long oc_lock(int fd) { return flock(fd,LOCK_EX|LOCK_NB)<0?-errno:0; }
@@ -19,6 +32,7 @@ static long oc_mkdir(int fd,const char *name,unsigned mode) { return mkdirat(fd,
 static long oc_unlink(int fd,const char *name) { return unlinkat(fd,name,0)<0?-errno:0; }
 static long oc_rename(int fd,const char *from,const char *to) { return renameat(fd,from,fd,to)<0?-errno:0; }
 static long oc_link(int from,const char *name,int to,const char *target) { return linkat(from,name,to,target,0)<0?-errno:0; }
+static long oc_symlink(const char *source,int folder,const char *name) { return symlinkat(source,folder,name)<0?-errno:0; }
 static long oc_mode(int fd,unsigned mode) { return fchmod(fd,mode)<0?-errno:0; }
 static long oc_block(void) {
     sigset_t mask;
@@ -32,6 +46,12 @@ static void oc_cut(const char *phase) {
     if (term && oc_equal(term,phase)) (void)raise(SIGTERM);
 }
 #else
+static long oc_parent(void) { return oc_syscall4(64,0,0,0,0); }
+static long oc_worker_cpu1(void) {
+    unsigned mask=2;
+    return oc_syscall4(241,0,sizeof mask,(long)&mask,0);
+}
+static long oc_watch_parent(void) { return oc_syscall4(172,1,15,0,0); }
 static long oc_owner(void) { return oc_syscall4(199,0,0,0,0); }
 static long oc_group(void) { return oc_syscall4(200,0,0,0,0); }
 static long oc_lock(int fd) { return oc_syscall4(143,fd,6,0,0); }
@@ -47,6 +67,9 @@ static long oc_link(int from,const char *name,int to,const char *target) {
     register long r7 __asm__("r7")=330;
     __asm__ volatile("svc 0" : "+r"(r0) : "r"(r1),"r"(r2),"r"(r3),"r"(r4),"r"(r7) : "memory","cc");
     return r0;
+}
+static long oc_symlink(const char *source,int folder,const char *name) {
+    return oc_syscall4(331,(long)source,folder,(long)name,0);
 }
 static long oc_mode(int fd,unsigned mode) { return oc_syscall4(94,fd,mode,0,0); }
 static long oc_block(void) {

@@ -213,6 +213,41 @@ class NativeBootPlan(unittest.TestCase):
         self.source.write_bytes(b"foreign equal-length!\n")
         self.seal(success=False)
 
+    def test_recheck_allows_only_byte_identical_inode_and_timestamp_drift(self):
+        plan = self.seal()
+        original = self.source.read_bytes()
+        self.source.write_bytes(original)
+        for mode, success in (("recheck", True), ("verify", False)):
+            result = subprocess.run(
+                [self.program, mode, self.root, "snapshot"],
+                input=plan,
+                capture_output=True,
+                timeout=3,
+            )
+            self.assertEqual(result.returncode == 0, success, result.stderr)
+        self.source.write_bytes(bytes([original[0] ^ 1]) + original[1:])
+        result = subprocess.run(
+            [self.program, "recheck", self.root, "snapshot"],
+            input=plan,
+            capture_output=True,
+            timeout=3,
+        )
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_recheck_preserves_old_mode_uid_and_gid(self):
+        plan = self.seal()
+        for index in (6, 7, 8):
+            fields = plan.splitlines()[1].split(b"|")
+            fields[index] = f"{int(fields[index], 16) ^ 1:08x}".encode()
+            changed = plan.splitlines()[0] + b"\n" + b"|".join(fields) + b"\n"
+            result = subprocess.run(
+                [self.program, "recheck", self.root, "snapshot"],
+                input=changed,
+                capture_output=True,
+                timeout=3,
+            )
+            self.assertNotEqual(result.returncode, 0)
+
     def test_metadata_refuses_replacement_and_same_size_edits_with_restored_mtime(self):
         for operation in ("replace", "inplace", "chmod"):
             with self.subTest(operation=operation):
@@ -320,6 +355,71 @@ class NativeBootPlan(unittest.TestCase):
         fixture.shell('record_read; R_BACKEND="$3"; record_write')
         fixture.select_wireless(1, base=1)
         return fixture
+
+    def sealed_fixture(self):
+        fixture = self.native_fixture()
+        fixture.shell(
+            '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
+            'record_read; transaction_prepare set "$R_CURRENT" "$R_CURRENT"; transaction_reconcile'
+        )
+        return fixture
+
+    def test_hinted_recovery_preserves_old_permissions_and_version_digest(self):
+        for changed in ("permissions", "version"):
+            with self.subTest(changed=changed):
+                fixture = self.sealed_fixture()
+                before = (fixture.data / "record").read_bytes()
+                hint = fixture.data / "reseal"
+                hint.write_text(fixture.record()[5] + "\n")
+                hint.chmod(0o600)
+                if changed == "permissions":
+                    uia = fixture.data / "composed" / fixture.package_id / "uia.so"
+                    uia.chmod((uia.stat().st_mode & 0o777) ^ 0o040)
+                else:
+                    version = fixture.root / "version.ini"
+                    version.write_bytes(version.read_bytes().replace(b"identity", b"identitY"))
+                result = fixture.boot(1)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("reseal_inputs_changed", result.stderr)
+                self.assertEqual((fixture.data / "record").read_bytes(), before)
+                self.assertTrue(hint.exists())
+                self.assertFalse((fixture.runtime / "selected").exists())
+
+    def test_hinted_recovery_reseals_identical_bytes_and_shell_links_resolve(self):
+        fixture = self.sealed_fixture()
+        old = fixture.record()[5]
+        hint = fixture.data / "reseal"
+        hint.write_text(old + "\n")
+        hint.chmod(0o600)
+        uia = fixture.data / "composed" / fixture.package_id / "uia.so"
+        uia.write_bytes(uia.read_bytes())
+        result = fixture.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotEqual(fixture.record()[5], old)
+        self.assertFalse(hint.exists())
+        self.assertEqual(fixture.record()[9], "2")
+        for name in ("uia.so", "system-app.js"):
+            link = fixture.runtime / "feature" / name
+            self.assertTrue(link.is_symlink())
+            self.assertEqual(link.resolve(), fixture.data / "composed" / fixture.package_id / name)
+            self.assertEqual(link.read_bytes(), link.resolve().read_bytes())
+
+    def test_unlisted_boot_plan_cannot_authorize_reseal_or_shell_links(self):
+        fixture = self.native_fixture()
+        snapshot = fixture.data / "snapshots" / fixture.record()[5]
+        (snapshot / "boot.plan").write_text("unlisted plan\n")
+        before = (fixture.data / "record").read_bytes()
+        with self.assertRaises(subprocess.CalledProcessError) as caught:
+            fixture.shell('record_read; AUTOSTART=$D-target; boot_snapshot_seal "$R_CURRENT"')
+        self.assertIn("invalid_boot_plan", caught.exception.stderr)
+        hint = fixture.data / "reseal"
+        hint.write_text(fixture.record()[5] + "\n")
+        hint.chmod(0o600)
+        result = fixture.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("reseal_inputs_changed", result.stderr)
+        self.assertEqual((fixture.data / "record").read_bytes(), before)
+        self.assertFalse((fixture.runtime / "selected").exists())
 
     def test_sealer_rejects_a_copy_that_differs_from_prepared_named_digest(self):
         fixture = self.native_fixture()

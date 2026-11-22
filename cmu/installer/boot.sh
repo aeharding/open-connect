@@ -51,6 +51,15 @@ boot_observer_stage() {
     runtime=$observer
 }
 
+boot_plan_verify() {
+    local snapshot=$1 mode=$2 magic base backend dir=$D/snapshots/$1
+    snapshot_verify "$snapshot" && file "$dir/boot.plan" &&
+        awk '$2=="boot.plan"{n++}END{exit n!=1}' "$dir/files.sha256" || return 1
+    IFS='|' read -r magic base backend < "$dir/boot.plan" || return 1
+    test "$magic:$base:$backend" = "OCBP1:$R_BASE:$R_BACKEND" || return 1
+    "$P/boot-select" "$mode" / "${dir#/}" < "$dir/boot.plan"
+}
+
 boot_select() {
     D=/tmp/mnt/data_persist/open-connect
     R=/tmp/open-connect
@@ -61,6 +70,7 @@ boot_select() {
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
     absent "$R/feature" && absent "$R/selected" || fail already_selected
     private_dir "$D" && record_read || fail invalid_state
+    reseal_before=$R_CURRENT
     test "$P" = "$D/packages/$R_BACKEND" || fail damaged_package
     if test "$R_PHASE" = active; then
         test "$R_BOOT" != "$(cat /proc/sys/kernel/random/boot_id)" || fail already_selected
@@ -105,7 +115,13 @@ boot_select() {
         startup_stamp targets_dependencies
     fi
     if test "$modern" = true && test -z "${observer:-}"; then boot_observer_stage; fi
-    if test "${S_SELECTOR_RECORDED:-false}" = true; then
+    hinted=false
+    if file "$D/reseal" && test "$(stat -c '%a:%u:%g' "$D/reseal")" = "600:$(id -u):$(id -g)" &&
+        test "$(wc -c < "$D/reseal")" -eq 65 && test "$(cat "$D/reseal")" = "$R_CURRENT"; then
+        boot_plan_verify "$R_CURRENT" recheck || fail reseal_inputs_changed
+        hinted=true
+    fi
+    if test "${S_SELECTOR_RECORDED:-false}" = true || test "$hinted" = true; then
         # Re-attest unchanged bytes after ordinary inode drift. Fold the new
         # snapshot into the imminent budget commit, never a second authority.
         R_CURRENT=$(boot_snapshot_seal "$R_CURRENT") || fail boot_snapshot_failed
@@ -124,6 +140,12 @@ fi
 R_OFF=-; R_BOOT=$boot
 if test "$R_BUDGET" -gt 0; then R_BUDGET=$((R_BUDGET-1)); selected=true; else selected=false; fi
 record_write
+if file "$D/reseal" && test "$(stat -c '%a:%u:%g' "$D/reseal")" = "600:$(id -u):$(id -g)" &&
+    test "$(wc -c < "$D/reseal")" -eq 65 && test "$(cat "$D/reseal")" = "$reseal_before"; then
+    # Only after verified resealing and the durable record commit. This request
+    # never replaces OC1 or grants permission to activate a changed input.
+    rm "$D/reseal" && flush d "$D" || fail reseal_hint_cleanup_failed
+fi
 startup_stamp budget_committed
 if test "$S_ACCESS" = true; then printf '%s\n' "$R_CURRENT" > /tmp/open-connect/access-selected; fi
 nvram=$base_nvram
@@ -146,8 +168,18 @@ if test "$selected" != true; then
 fi
 absent /tmp/open-connect/feature || fail feature_already_present
 work=$(mktemp -d /tmp/open-connect/.feature-XXXXXX)
-cp "$D/composed/$package/uia.so" "$D/composed/$package/mmui.so" \
-    "$D/composed/$package/mmui.xml" "$D/composed/$package/system-app.js" "$work/"
+if test "$warning" = 1; then
+    cp "$D/composed/$package/mmui.so" "$D/composed/$package/mmui.xml" "$work/"
+    if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then
+        boot_plan_verify "$R_CURRENT" verify || fail feature_inputs_changed
+        for name in uia.so system-app.js; do
+            ln -s "../../mnt/data_persist/open-connect/composed/$package/$name" "$work/$name" || fail feature_link_failed
+        done
+    else
+        # Older unsealed snapshots retain their original RAM-copy path.
+        cp "$D/composed/$package/uia.so" "$D/composed/$package/system-app.js" "$work/" || fail feature_copy_failed
+    fi
+fi
 startup_stamp feature_copied
 if test "$warning" = 1; then setting=on; else setting=off; fi
 cp "$D/snapshots/$R_CURRENT/sm-normal.conf" "$work/sm.conf" &&

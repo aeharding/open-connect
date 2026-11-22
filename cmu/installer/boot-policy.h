@@ -21,8 +21,8 @@ typedef struct {
     OcManifest current,base,pkg,composition;
     OcInput inputs[OC_PLAN_ROWS]; unsigned input_count;
     char boot[40],token[34],nonce[33],stage_name[64],observer_name[64],log_name[64],times[1024]; unsigned time_count;
-    long owner,group;
-    int selected,access_present,base_access_present,debited,input_failure;
+    long owner,group,parent;
+    int selected,access_present,base_access_present,debited,input_failure,gated,gate_sent,released,metadata_drift;
 } OcBoot;
 static OcBoot oc_boot;
 
@@ -269,9 +269,17 @@ static int oc_plan(OcBoot *b) {
             long fd=oc_beneath(parent,path,OC_READ,0);
             if (fd<0) return 0;
             OcMeta actual;
-            int ok=oc_stat((int)fd,&actual)>=0 && oc_meta_equal(&row->meta,&actual);
+            int ok=oc_stat((int)fd,&actual)>=0;
             if (oc_close((int)fd)<0) ok=0;
             if (!ok) return 0;
+            if (!oc_meta_equal(&row->meta,&actual)) {
+                /* Only identical-byte inode/time drift may request resealing.
+                 * Keep permission, identity and coverage checks; never activate
+                 * from these replacement metadata, even if every hash matches.
+                 */
+                if (!b->gated||!oc_meta_resealable(&row->meta,&actual)) return 0;
+                row->meta=actual; b->metadata_drift=1;
+            }
         }
     }
     return rows>1;
@@ -486,6 +494,19 @@ static void oc_stamp(OcBoot *b,const char *phase) {
         !oc_join(line,sizeof line,line,"\n")||!oc_join(b->times,sizeof b->times,b->times,line)) return;
     ++b->time_count;
 }
+/* One waitable process retains the lock and decision across the OEM interval.
+ * A frame grants only permission to continue Mazda startup, never selection.
+ */
+static int oc_gate(OcBoot *b,int release) {
+    if (!b->gated||b->gate_sent) return 1;
+    b->gate_sent=1;
+    if (b->parent<=1||oc_parent()!=b->parent) return 0;
+    char frame=release?'G':'J';
+    int ok=oc_write_all(1,&frame,1);
+    if (oc_close(1)<0) ok=0;
+    if (ok&&release) { b->released=1; oc_stamp(b,"gate_released"); oc_cut("gate_released"); }
+    return ok;
+}
 static int oc_new_text(int folder,const char *name,const char *text,unsigned mode) {
     long fd=oc_openat(folder,name,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,mode);
     if (fd<0) return 0;
@@ -502,8 +523,11 @@ static int oc_copy_input(OcBoot *b,const char *key,int output,const char *name,u
     else ++path;
     long input=oc_beneath(parent,path,OC_READ,0);
     if (input<0) { b->input_failure=1; return 0; }
-    long target=oc_openat(output,name,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,mode);
-    if (target<0) { (void)oc_close((int)input); return 0; }
+    long target=-1;
+    if (output>=0) {
+        target=oc_openat(output,name,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,mode);
+        if (target<0) { (void)oc_close((int)input); return 0; }
+    }
     char digest[65]; OcMeta actual;
     int copied=oc_hash_copy((int)input,(int)target,33554432,digest,&actual);
     int ok=copied==OC_COPY_OK;
@@ -511,9 +535,45 @@ static int oc_copy_input(OcBoot *b,const char *key,int output,const char *name,u
     if (ok && (!oc_equal(digest,row->digest)||!oc_meta_equal(&row->meta,&actual))) {
         b->input_failure=1; ok=0;
     }
-    if (ok) ok=oc_mode((int)target,mode)>=0;
+    if (ok && target>=0) ok=oc_mode((int)target,mode)>=0;
     if (oc_close((int)input)<0) { b->input_failure=1; ok=0; }
-    if (oc_close((int)target)<0) ok=0;
+    if (target>=0 && oc_close((int)target)<0) ok=0;
+    return ok;
+}
+/* Advisory only: a matching request forces the verified shell before Mazda's
+ * profile/NVRAM jobs. Stale IDs cannot authorize anything and are ignored.
+ */
+static int oc_reseal_hint(OcBoot *b) {
+    long fd=oc_openat(b->data,"reseal",OC_READ,0);
+    if (fd==-2) return 0;
+    if (fd<0) return -1;
+    OcMeta before,after; char text[66];
+    int ok=oc_stat((int)fd,&before)>=0&&before.mode==(OC_REGULAR|0600)&&before.size==65&&
+        before.uid==(unsigned)b->owner&&before.gid==(unsigned)b->group;
+    if (ok) ok=oc_text_fd((int)fd,text,sizeof text)==65&&oc_one_line(text)&&oc_hex(text,64)&&
+        oc_stat((int)fd,&after)>=0&&oc_meta_equal(&before,&after);
+    if (oc_close((int)fd)<0) ok=0;
+    return ok?oc_equal(text,b->record_fields[5]):-1;
+}
+static int oc_request_reseal(OcBoot *b) {
+    /* Hash ALL covered inputs. An unrelated corrupt member must not turn a
+     * recoverable inode change into repeated expensive shell verification.
+     */
+    for (unsigned i=0;i<b->input_count;++i) {
+        OcInput *row=&b->inputs[i];
+        if (!row->absent&&!oc_copy_input(b,row->key,-1,0,0)) return 0;
+    }
+    if (oc_reseal_hint(b)<0||!oc_random(b->root,b->nonce)) return 0;
+    char name[64],text[66];
+    if (!oc_join(name,sizeof name,".reseal-",b->nonce)||!oc_join(text,sizeof text,b->record_fields[5],"\n")) return 0;
+    long fd=oc_openat(b->data,name,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
+    if (fd<0) return 0;
+    int ok=oc_write_all((int)fd,text,65)&&oc_mode((int)fd,0600)>=0&&oc_sync((int)fd)>=0;
+    oc_cut("reseal_synced");
+    if (oc_close((int)fd)<0) ok=0;
+    if (ok) ok=oc_rename(b->data,name,"reseal")>=0&&oc_sync(b->data)>=0;
+    if (!ok) (void)oc_unlink(b->data,name);
+    oc_cut("reseal_published");
     return ok;
 }
 static int oc_package_copy(OcBoot *b,const char *name,int output,const char *destination,unsigned mode) {
@@ -525,6 +585,19 @@ static int oc_composed_copy(OcBoot *b,const char *name,int output,unsigned mode)
     char key[192];
     return oc_join(key,sizeof key,"composed-",b->record_fields[3]) && oc_join(key,sizeof key,key,"/") &&
         oc_join(key,sizeof key,key,name) && oc_copy_input(b,key,output,name,mode);
+}
+static int oc_composed_link(OcBoot *b,const char *name) {
+    char key[192],target[192];
+    /* The private source stays immutable across Set and package upgrades.
+     * Hash the opened source exactly as for RAM copies before publishing a link.
+     * Both staging and final feature directories have the same parent depth.
+     */
+    return oc_join(key,sizeof key,"composed-",b->record_fields[3]) &&
+        oc_join(key,sizeof key,key,"/") && oc_join(key,sizeof key,key,name) &&
+        oc_copy_input(b,key,-1,0,0) &&
+        oc_join(target,sizeof target,"../../mnt/data_persist/open-connect/composed/",b->record_fields[3]) &&
+        oc_join(target,sizeof target,target,"/") && oc_join(target,sizeof target,target,name) &&
+        oc_symlink(target,b->stage,name)>=0;
 }
 static int oc_nvram(OcBoot *b,char value[16]) {
     /* These class parents are kernel-owned sysfs links, unlike durable paths.
@@ -597,7 +670,8 @@ static int oc_stage(OcBoot *b) {
     if (b->stage<0||!oc_copy_input(b,"current/sm-normal.conf",b->stage,"sm.conf",0600)||
         !oc_copy_input(b,"current/sm-wcp.conf",b->stage,"sm_WCP.conf",0600)) return 0;
     if (oc_equal(b->flags[2],"1")) {
-        for (unsigned i=1;i<5;++i) if (!oc_composed_copy(b,oc_composed_names[i],b->stage,0600)) return 0;
+        if (!oc_composed_link(b,"uia.so")||!oc_composed_link(b,"system-app.js")||
+            !oc_composed_copy(b,"mmui.so",b->stage,0600)||!oc_composed_copy(b,"mmui.xml",b->stage,0600)) return 0;
     }
     const char *ui[]={"runtime.js","dialog.js","settings.js"};
     for (unsigned i=0;i<3;++i) if (!oc_package_copy(b,ui[i],b->stage,ui[i],0600)) return 0;
@@ -677,6 +751,7 @@ static int oc_log_stage(OcBoot *b) {
         oc_new_text(b->log,b->log_name,"COMMON_LOG_LEVEL=Warn\n",0644);
 }
 static int oc_publish(OcBoot *b) {
+    if (b->gated&&oc_parent()!=b->parent) return 0;
     if (!oc_absent_at(b->ram,"selected")||!oc_absent_at(b->ram,"feature")||!oc_absent_at(b->ram,"ignition")) return 0;
     char selected[66];
     if (!oc_join(selected,sizeof selected,b->record_fields[5],"\n")||
@@ -706,30 +781,34 @@ static int oc_publish(OcBoot *b) {
     if (b->log>=0) (void)oc_unlink(b->log,b->log_name);
     return 1;
 }
-static int oc_load(OcBoot *b) {
+static int oc_policy_load(OcBoot *b) {
     char path[192];
     if (!oc_join(path,sizeof path,"snapshots/",b->record_fields[5])) return 0;
     b->snapshot=oc_open_private(b->data,path);
     if (!oc_join(path,sizeof path,"snapshots/",b->record_fields[4])) return 0;
     b->baseline=oc_open_private(b->data,path);
+    if (b->snapshot<0||b->baseline<0||
+        !oc_load_manifest(b->snapshot,b->record_fields[5],b->current_manifest,sizeof b->current_manifest,&b->current)||
+        !oc_load_manifest(b->baseline,b->record_fields[4],b->base_manifest,sizeof b->base_manifest,&b->base)||
+        !oc_saved_text(b->snapshot,&b->current,"config",b->config,sizeof b->config)||
+        !oc_config(b,b->config,b->flags,1)||!oc_equal(b->flags[0],b->record_fields[3])||
+        !oc_saved_text(b->baseline,&b->base,"config",b->base_config,sizeof b->base_config)||
+        !oc_config(b,b->base_config,b->base_flags,0)) return 0;
+    return 1;
+}
+static int oc_load(OcBoot *b) {
+    char path[192];
     if (!oc_join(path,sizeof path,"packages/",b->record_fields[3])) return 0;
     b->package=oc_open_private(b->data,path);
     if (!oc_join(path,sizeof path,"composed/",b->record_fields[3])) return 0;
     b->composed=oc_open_private(b->data,path);
-    if (b->snapshot<0||b->baseline<0||b->package<0||b->composed<0) return 0;
-    if (!oc_load_manifest(b->snapshot,b->record_fields[5],b->current_manifest,sizeof b->current_manifest,&b->current)||
-        !oc_load_manifest(b->baseline,b->record_fields[4],b->base_manifest,sizeof b->base_manifest,&b->base)||
+    if (b->package<0||b->composed<0||
         !oc_load_manifest(b->package,b->record_fields[3],b->package_manifest,sizeof b->package_manifest,&b->pkg)||b->pkg.count>64) return 0;
     const char *mandatory[]={"boot-select","boot.sh","state.sh","transaction.sh","firmware.sh","access.sh","service.sh",
         "ignition.sh","flush","api","runtime.js","dialog.js","settings.js","VERSION","INSTANCE"};
     for (unsigned i=0;i<sizeof mandatory/sizeof *mandatory;++i) if (!oc_digest(&b->pkg,mandatory[i])) return 0;
-    if (!oc_saved_text(b->snapshot,&b->current,"config",b->config,sizeof b->config)) return 0;
     if (oc_prefix(b->config,"OC2\n") && (!oc_digest(&b->pkg,"preferences.awk")||
         !oc_digest(&b->pkg,"services.tsv")||!oc_digest(&b->pkg,"sm-profile.awk"))) return 0;
-    if (!oc_config(b,b->config,b->flags,1)||
-        !oc_equal(b->flags[0],b->record_fields[3])||
-        !oc_saved_text(b->baseline,&b->base,"config",b->base_config,sizeof b->base_config)||
-        !oc_config(b,b->base_config,b->base_flags,0)) return 0;
     b->access_present=oc_digest(&b->current,"access")!=0;
     b->base_access_present=oc_digest(&b->base,"access")!=0;
     if (b->access_present && (!oc_saved_text(b->snapshot,&b->current,"access",b->access,sizeof b->access)||!oc_access(b->access,b->access_fields))) return 0;
@@ -744,9 +823,13 @@ static int oc_load(OcBoot *b) {
 static int oc_select(OcBoot *b,int root) {
     b->root=root; b->data=b->ram=b->lock=b->snapshot=b->baseline=b->package=b->composed=b->stage=b->observer=b->log=-1;
     b->owner=oc_owner(); b->group=oc_group();
+    b->parent=oc_parent();
+    if (b->gated&&(b->parent<=1||oc_watch_parent()<0||oc_parent()!=b->parent)) return OC_REFUSE;
 #ifndef OC_HOST
     if (b->owner!=0||b->group!=0) return OC_REFUSE;
 #endif
+    /* The autostart parent stays on CPU0. Only its overlapping worker moves. */
+    if (b->gated&&oc_worker_cpu1()<0) return OC_SLOW;
     b->data=oc_open_private(root,OC_DATA);
     if (b->data<0) return OC_SLOW;
     long ram=oc_beneath(root,OC_RAM,OC_DIRECTORY,0);
@@ -757,6 +840,7 @@ static int oc_select(OcBoot *b,int root) {
     b->ram=(int)ram;
     if (b->ram<0||!oc_private(b->ram)) return OC_REFUSE;
     oc_stamp(b,"hook_entry");
+    if (b->gated) oc_stamp(b,"worker_cpu1");
     b->lock=(int)oc_openat(b->ram,"lock",OC_RW|OC_CREATE,0600);
     OcMeta lock_meta,record_meta;
     if (b->lock<0||oc_stat(b->lock,&lock_meta)<0||lock_meta.mode!=(OC_REGULAR|0600)||
@@ -771,19 +855,44 @@ static int oc_select(OcBoot *b,int root) {
     if (oc_equal(b->record_fields[11],b->boot)||!oc_absent_at(b->ram,"selected")||
         !oc_absent_at(b->ram,"feature")||!oc_absent_at(b->ram,"ignition")||!oc_absent_at(b->ram,"access-selected")||
         !oc_absent_at(b->ram,".native-selected")) return OC_REFUSE;
-    if (!oc_mounts(b)||!oc_load(b)||!oc_budget_policy(b)) return OC_SLOW;
+    if (!oc_mounts(b)||!oc_policy_load(b)) return OC_SLOW;
+    if (b->gated) {
+        int hint=oc_reseal_hint(b);
+        if (hint<0) return OC_REFUSE;
+        if (hint) return OC_SLOW;
+    }
+    if (!oc_budget_policy(b)) return OC_SLOW;
+    if (b->gated) {
+        oc_stamp(b,"policy_checked");
+        if (!oc_gate(b,1)) return OC_REFUSE;
+    }
+    if (!oc_load(b)) return OC_SLOW;
+    if (b->metadata_drift) {
+        (void)oc_request_reseal(b);
+        return OC_SLOW;
+    }
     oc_stamp(b,"inputs_checked");
     if (!oc_stage(b)) return b->input_failure?OC_SLOW:OC_REFUSE;
     if (!oc_log_stage(b)) return OC_REFUSE;
     oc_stamp(b,"feature_copied");
+    if (b->gated&&oc_parent()!=b->parent) return OC_REFUSE;
     if (!oc_record_commit(b)) return OC_REFUSE;
     if (!oc_publish(b)) return OC_REFUSE;
     oc_stamp(b,"selector_exit");
     (void)oc_new_text(b->ram,"startup-times",b->times,0600);
     return b->selected?0:OC_STOCK;
 }
-static int oc_selection(int root) {
+static int oc_selection(int root,int gated) {
+    oc_boot.gated=gated;
     int result=oc_select(&oc_boot,root);
+    if (gated&&!oc_boot.gate_sent&&!oc_gate(&oc_boot,0)) result=OC_REFUSE;
+    if (oc_boot.released&&result==OC_SLOW) {
+        /* No shell/NVRAM recovery after release. Verified byte-identical
+         * metadata drift requests full verification before the NEXT gate.
+         */
+        (void)oc_write_all(2,"late_verification_refused\n",26);
+        result=OC_REFUSE;
+    }
     int handles[]={oc_boot.log,oc_boot.observer,oc_boot.stage,oc_boot.composed,oc_boot.package,
         oc_boot.baseline,oc_boot.snapshot,oc_boot.lock,oc_boot.ram,oc_boot.data};
     for (unsigned i=0;i<sizeof handles/sizeof *handles;++i) if (handles[i]>=0) (void)oc_close(handles[i]);

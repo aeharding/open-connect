@@ -136,6 +136,9 @@ static int oc_meta_equal(const OcMeta *a, const OcMeta *b) {
         a->modified==b->modified && a->modified_ns==b->modified_ns &&
         a->changed==b->changed && a->changed_ns==b->changed_ns;
 }
+static inline int oc_meta_resealable(const OcMeta *a,const OcMeta *b) {
+    return a->device==b->device&&a->size==b->size&&a->mode==b->mode&&a->uid==b->uid&&a->gid==b->gid;
+}
 static int oc_write_all(int fd, const void *input, unsigned n) {
     const char *p=input;
     while (n) {

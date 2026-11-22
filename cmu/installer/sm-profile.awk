@@ -87,7 +87,7 @@ prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="devicemanager" {
     next
 }
 /<\/services>/ {
-    print "        <service type=\"process\" name=\"open_connect_settings\" path=\"/bin/busybox\" args=\"timeout -t 20 sh /tmp/open-connect/feature/service.sh boot\" autorun=\"yes\" retry_count=\"0\" reset_board=\"no\" exit_allowed=\"yes\" started_after_exit_allowed=\"yes\">"
+    print "        <service type=\"process\" name=\"open_connect_settings\" path=\"/bin/busybox\" args=\"timeout -t 20 sh /tmp/open-connect/feature/service.sh boot\" autorun=\"yes\" retry_count=\"0\" reset_board=\"no\" affinity_mask=\"0x02\" exit_allowed=\"yes\" started_after_exit_allowed=\"yes\">"
     print "            <dependency type=\"service\" value=\"stage_3\"/>"
     print "        </service>"
     end++

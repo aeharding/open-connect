@@ -1,0 +1,7 @@
+condition,run,acquisition_attempt,window_first_sample_s,window_last_sample_end_s,cpu_busy_pct
+stock,1,1,50.1,169.31,14.378564240187856
+stock,2,3,50.51,170.0,14.4751704806928
+stock,3,4,50.37,169.87,14.34487951807229
+open-connect,1,1,50.35,169.87,14.781663041659696
+open-connect,2,2,50.58,169.15,14.687407782133974
+open-connect,3,3,50.3,169.74,14.73173181551854

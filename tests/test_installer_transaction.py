@@ -272,6 +272,13 @@ class InstallerTransaction(unittest.TestCase):
         }.items():
             script = script.replace(old, new)
         (self.tools / "backend.sh").write_text(script)
+        (self.tools / "files.sha256").write_text(
+            "".join(
+                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                for p in sorted(self.tools.iterdir())
+                if p.is_file() and not p.is_symlink() and p.name != "files.sha256"
+            )
+        )
 
     def api(self, operation, revision="-", argument="-", expected="-", desired="-"):
         result = subprocess.run(

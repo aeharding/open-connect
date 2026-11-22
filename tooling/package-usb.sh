@@ -13,7 +13,7 @@ cp "$1" cmu/installer/usb-root/jci-autoupdate "$out/usb/"
 package=$out/usb/open-connect
 mkdir "$package"
 for file in run.sh session.sh service.sh loader.js runtime.js dialog.js settings.js \
-    backend.sh state.sh transaction.sh firmware.sh access.sh console.sh boot.sh startup-hook.sh ignition.sh \
+    backend.sh state.sh transaction.sh firmware.sh access.sh console.sh boot.sh startup-hook.sh startup-join.sh ignition.sh \
     intro.js system-route.js wireless.sh wireless-device.awk preferences.awk services.tsv sm-profile.awk VERSION KENATIA-LICENSE; do
     cp "cmu/installer/$file" "$package/$file"
 done

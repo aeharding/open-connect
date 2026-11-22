@@ -1,5 +1,19 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # One final SM writer. preferences.awk loads the verified catalog and OC2 data.
+function attribute_count(name, probe) {
+    probe=$0
+    return gsub("[ \t]" name "[ \t]*=", "", probe)
+}
+function attribute(name, value) {
+    if(attribute_count(name)!=1 || !match($0,"[ \t]" name "=\"[^\"]*\"")) refuse()
+    value=substr($0,RSTART,RLENGTH)
+    sub("^[ \t]" name "=\"", "", value);sub(/"$/, "", value)
+    return value
+}
+function put_attribute(name, value, previous, at, size, space) {
+    previous=attribute(name);at=RSTART;size=RLENGTH;space=substr($0,at,1)
+    $0=substr($0,1,at-1) space name "=\"" value "\"" substr($0,at+size)
+}
 BEGIN {
     if(operation!="compose" || invalid) refuse()
     split("jciDAB jcitv blm_ira_stitcher irsstitcher_server",base_names," ")
@@ -11,52 +25,58 @@ BEGIN {
     split("jciUSBMGR jciCARPLAY jciBCA blm_nms_svc",wireless_names," ")
     for(i=1;i<=4;i++) wireless_hits[wireless_names[i]]=0
 }
-/name="open_connect_settings"|value="open_connect_settings"|name="open_connect_wireless"|value="open_connect_wireless"/ {refuse()}
-/^[ \t]*<service / {
-    probe=$0
-    if(gsub(/[ \t]name="/,"",probe)!=1 || !match($0,/[ \t]name="[^"]*"/)) refuse()
-    sm_name=substr($0,RSTART,RLENGTH)
-    sub(/^[ \t]name="/,"",sm_name);sub(/"$/,"",sm_name)
+/[ \t](name|value)[ \t]*=[ \t]*["']open_connect_(settings|wireless)["']/ {refuse()}
+/^[ \t]*<service[ \t]/ {
+    sm_name=attribute("name")
     if(sm_name in service_owner) {
         name=sm_name
         service_hits[name]++
-        probe=$0
-        if(gsub(/autorun="yes"/,"",probe)!=1) refuse()
-        if(prefs["service." service_owner[name]]=="0") sub(/autorun="yes"/,"autorun=\"no\"")
+        if(attribute("autorun")!="yes") refuse()
+        if(prefs["service." service_owner[name]]=="0") put_attribute("autorun","no")
     }
     if(prefs["base"]=="1" && sm_name in base_hits) {
         name=sm_name
         base_hits[name]++
-        if(gsub(/autorun="yes"/,"autorun=\"no\"")!=1) refuse()
+        if(attribute("autorun")!="yes") refuse()
+        put_attribute("autorun","no")
     }
     if(sm_name=="stage_1") stage++
+    if(sm_name=="jciVBS") vbs++
 }
-prefs["wireless"]=="1" && /^[ \t]*<service / && sm_name=="jciMMUI" {
+prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="jciMMUI" {
     mmui++
-    probe=$0;if(gsub(/[ \t]args="/,"",probe)!=1) refuse()
-    if($0!~/display=filtered-touchscreen0, wcp"/ &&
-        sub(/display=filtered-touchscreen0"/,"display=filtered-touchscreen0, wcp\"")!=1) refuse()
+    args=attribute("args")
+    if(args!~/display=filtered-touchscreen0, wcp$/) {
+        if(sub(/display=filtered-touchscreen0$/,"display=filtered-touchscreen0, wcp",args)!=1) refuse()
+        put_attribute("args",args)
+    }
 }
-prefs["wireless"]=="1" && /^[ \t]*<service / {
+prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ {
     if(sm_name in wireless_hits) {
         name=sm_name
         wireless_hits[name]++
-        probe=$0;if(gsub(/[ \t]args="/,"",probe)>1) refuse()
-        if($0!~/ args="wcp"/ && ($0~/ args=/ || sub(/>$/," args=\"wcp\">")!=1)) refuse()
+        if(attribute_count("args")) {
+            if(attribute("args")!="wcp") refuse()
+        } else if($0~/\/>[ \t]*$/ || sub(/>$/," args=\"wcp\">")!=1) refuse()
     }
 }
-prefs["wireless"]=="1" && /^[ \t]*<service / && sm_name=="bds" {
+prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="bds" {
     bds++
-    probe=$0;if(gsub(/[ \t]args="/,"",probe)!=1) refuse()
-    if($0!~/args="-interface dbus -wcp"/ &&
-        sub(/args="-interface dbus"/,"args=\"-interface dbus -wcp\"")!=1) refuse()
+    args=attribute("args")
+    if(args!="-interface dbus -wcp") {
+        if(args!="-interface dbus") refuse()
+        put_attribute("args","-interface dbus -wcp")
+    }
 }
-prefs["wireless"]=="1" && /^[ \t]*<service / && sm_name=="start_network" {
+prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="start_network" {
     network++
-    probe=$0;if(gsub(/[ \t]args="/,"",probe)!=1) refuse()
-    if($0!~/args=""/ && sub(/args="UCP"/,"args=\"\"")!=1) refuse()
+    args=attribute("args")
+    if(args!="") {
+        if(args!="UCP") refuse()
+        put_attribute("args","")
+    }
 }
-prefs["wireless"]=="1" && /^[ \t]*<service / && sm_name=="devicemanager" {
+prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="devicemanager" {
     manager++
     print "        <service type=\"process\" name=\"open_connect_wireless\" path=\"/bin/busybox\" args=\"timeout -t 15 sh /tmp/open-connect/feature/wireless.sh\" autorun=\"yes\" retry_count=\"0\" reset_board=\"no\" ready_flag=\"/tmp/open-connect/feature/wireless-ready\" exit_allowed=\"yes\" started_after_exit_allowed=\"yes\">"
     print "            <dependency type=\"service\" value=\"jciVBS\"/>"
@@ -77,7 +97,7 @@ END {
     for(name in service_owner) if(service_hits[name]!=1) exit 1
     if(prefs["base"]=="1") for(name in base_hits) if(base_hits[name]!=1) exit 1
     if(prefs["wireless"]=="1") {
-        if(mmui!=1 || bds!=1 || network!=1 || manager!=1) exit 1
+        if(mmui!=1 || bds!=1 || network!=1 || manager!=1 || vbs!=1) exit 1
         for(name in wireless_hits) if(wireless_hits[name]!=1) exit 1
     }
 }

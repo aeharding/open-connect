@@ -105,6 +105,10 @@ class InstallerState(unittest.TestCase):
         self.assertEqual(read.returncode, 0, read.stderr)
         self.assertEqual(read.stdout, "1|0|0\n")
         for config in (
+            stock.replace(metadata.encode(), b"755:4294967296:0"),
+            stock.replace(metadata.encode(), b"755:0:4294967296"),
+            active.replace(metadata.encode(), b"755:4294967296:0"),
+            active.replace(metadata.encode(), b"755:0:4294967296"),
             stock[:-1],
             stock[:-1] + b"\0\n",
             stock.replace(b"-|", b"a" * 64 + b"|", 1),
@@ -141,6 +145,8 @@ class InstallerState(unittest.TestCase):
                 "operation=write",
                 "-v",
                 f"catalog={target / 'services.tsv'}",
+                "-v",
+                f"catalog_bytes={(target / 'services.tsv').stat().st_size}",
                 "-v",
                 f"package_id={identity}",
                 "-v",

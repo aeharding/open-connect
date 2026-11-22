@@ -160,33 +160,17 @@ static int oc_service_id(const char *p) {
     }
     return n>0;
 }
-static int oc_catalog(char *text,char **ids,unsigned *count) {
-    char *members[128]; unsigned member_count=0;
+/* Maintenance validates this canonical key set against the catalog. It lives
+ * inside the already authenticated config, so selection needs no catalog I/O.
+ */
+static int oc_service_keys(char *text,char **ids,unsigned *count) {
     *count=0;
     while (*text) {
-        char *line=text,*f[6];
-        while (*text && *text!='\n') ++text;
-        if (!*text) return 0;
-        *text++=0;
-        if (!*line||*line=='#') continue;
-        for (const char *p=line;*p;++p) if ((unsigned char)*p<32||(unsigned char)*p==127) return 0;
-        if (oc_fields(line,f,6)!=6||*count==16||!oc_service_id(f[0])||
-            (*count && oc_order(f[0],ids[*count-1])<=0)||!oc_bit(f[2])||
-            !*f[1]||oc_length(f[1])>64||!*f[4]||oc_length(f[4])>256||!*f[5]||oc_length(f[5])>256) return 0;
-        ids[(*count)++]=f[0];
-        char *p=f[3]; unsigned row_count=0;
-        do {
-            char *member=p; unsigned n=0;
-            while (*p && *p!=' ') {
-                unsigned c=(unsigned char)*p++;
-                int alpha=(c>='A'&&c<='Z')||(c>='a'&&c<='z')||c=='_';
-                if (++n>64||!(alpha||(n>1&&c>='0'&&c<='9'))) return 0;
-            }
-            if (!n||++row_count>8||member_count==128) return 0;
-            if (*p) { *p++=0; if (!*p) return 0; }
-            for (unsigned i=0;i<member_count;++i) if (oc_equal(member,members[i])) return 0;
-            members[member_count++]=member;
-        } while (*p);
+        char *id=text;
+        while (*text && *text!=',') ++text;
+        if (*text) { *text++=0; if (!*text) return 0; }
+        if (*count==16||!oc_service_id(id)||(*count && oc_order(id,ids[*count-1])<=0)) return 0;
+        ids[(*count)++]=id;
     }
     return *count>0;
 }
@@ -199,9 +183,9 @@ static int oc_config(OcBoot *b,char *text,char **f,int active) {
             oc_metadata_mode(f[4],&mode,&uid,&gid)&&
             (!active||(oc_bit(f[5])&&oc_bit(f[6])&&oc_bit(f[7])));
     }
-    if (!active||!oc_saved_text(b->package,&b->pkg,"services.tsv",b->scratch,16385)) return 0;
+    (void)b;
+    if (!active) return 0;
     char *ids[16]; unsigned count=0,seen=0,service_seen=0;
-    if (!oc_catalog(b->scratch,ids,&count)) return 0;
     const char *keys[]={"package","touch","warning","nvram","metadata","base","wireless"};
     const unsigned slots[]={0,1,2,3,4,6,7};
     char *previous="",*p=text+4;
@@ -217,6 +201,10 @@ static int oc_config(OcBoot *b,char *text,char **f,int active) {
         *p++=0;
         if (oc_order(key,previous)<=0) return 0;
         previous=key;
+        if (oc_equal(key,"service-ids")) {
+            if (!oc_service_keys(value,ids,&count)) return 0;
+            seen|=128; continue;
+        }
         unsigned found=0;
         for (unsigned i=0;i<sizeof keys/sizeof *keys;++i) if (oc_equal(key,keys[i])) {
             f[slots[i]]=value; seen|=1u<<i; found=1; break;
@@ -230,7 +218,7 @@ static int oc_config(OcBoot *b,char *text,char **f,int active) {
         }
         if (!found) return 0;
     }
-    return seen==127 && service_seen==((1u<<count)-1) && oc_hex(f[0],64)&&
+    return seen==255 && service_seen==((1u<<count)-1) && oc_hex(f[0],64)&&
         oc_bit(f[1])&&oc_bit(f[2])&&oc_nvram_value(f[3])&&
         oc_metadata_mode(f[4],&mode,&uid,&gid)&&oc_bit(f[6])&&oc_bit(f[7]);
 }

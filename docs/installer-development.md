@@ -162,8 +162,10 @@ service choices, qualified Base leaves and the Settings worker.
 Both profiles are rendered before preparing a transaction. A missing or repeated
 claimed member therefore refuses the change while the prior state and Uninstall
 remain usable. Sealing later attests those rendered bytes after physical targets
-match. The native selector admits the same bounded preferences, without adding
-shell work to its settled fast path.
+match. Maintenance validates the canonical `service-ids` list against that catalog.
+The native selector validates choices against this list in the already
+authenticated config, avoiding a separate catalog read before Service Manager.
+The existing OCBP1 package row still guards the catalog metadata.
 
 Maintenance supports the actual dev.9 predecessor: its stock baseline and
 Uninstall output have five fields with package `-`; its active policy has eight.

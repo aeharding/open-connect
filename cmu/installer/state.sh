@@ -79,7 +79,7 @@ record_write() {
 }
 
 # A snapshot contains an autostart file and data, not executable operation state.
-# config = package | touch | warning | actual NVRAM | mode:uid:gid | Pandora | base | wireless
+# Active config is bounded OC2 named data. Dev.9 active8 and stock5 are read-only predecessor forms.
 metadata() {
     S_META=$1
     S_MODE=${S_META%%:*}; local rest=${S_META#*:}
@@ -88,7 +88,8 @@ metadata() {
     case "$S_MODE" in [0-7]|[0-7][0-7]|[0-7][0-7][0-7]|[0-7][0-7][0-7][0-7]) ;; *) return 1;; esac
     case "$S_UID" in ''|*[!0-9]*) return 1;; esac
     case "$S_GID" in ''|*[!0-9]*) return 1;; esac
-    test "${#S_UID}" -le 10 && test "${#S_GID}" -le 10
+    test "${#S_UID}" -le 10 && test "${#S_GID}" -le 10 &&
+        awk -v uid="$S_UID" -v gid="$S_GID" 'BEGIN{exit uid+0>4294967295 || gid+0>4294967295}'
 }
 snapshot_verify() {
     local dir=$D/snapshots/$1
@@ -139,7 +140,7 @@ preferences_change() (
     if test "$schema" = OC2; then folder=$(preferences_package "$package") || return 1
     elif test "$schema" = dev9; then legacy=1
     else return 1; fi
-    printf '%s\n' "$prefs" | awk -v operation=set -v catalog="$folder/services.tsv" \
+    printf '%s\n' "$prefs" | awk -v operation=set -v catalog="$folder/services.tsv" -v catalog_bytes="$(wc -c < "$folder/services.tsv")" \
         -v input=/dev/stdin -v input_bytes="$((${#prefs}+1))" -v legacy="$legacy" \
         -v key="$key" -v value="$value" -f "$folder/preferences.awk"
 )
@@ -150,7 +151,7 @@ config_decode() {
     if test "$header" = OC2; then
         package=$(awk -F = '$1=="package"{n++;p=$2}END{if(n!=1)exit 1;print p}' "$source") || return 1
         folder=$(preferences_package "$package") || return 1
-        decoded=$(awk -v operation=decode -v catalog="$folder/services.tsv" -v input="$source" \
+        decoded=$(awk -v operation=decode -v catalog="$folder/services.tsv" -v catalog_bytes="$(wc -c < "$folder/services.tsv")" -v input="$source" \
             -v input_bytes="$(wc -c < "$source")" -f "$folder/preferences.awk") || return 1
         IFS='|' read -r S_PACKAGE S_TOUCH S_WARNING S_NVRAM S_META S_PANDORA S_BASE S_WIRELESS S_SERVICES extra <<VALUES
 $decoded
@@ -267,7 +268,7 @@ snapshot_create() (
         # The one supported predecessor owns its eight-field active encoding.
         # Its stock before/after snapshots remain five fields, as recorded.
         file "$target/VERSION" && test "$(cat "$target/VERSION")" = 0.3.0-dev.9 || fail unsupported_snapshot_package
-        fields=$(printf '%s\n' "$7" | awk -v operation=legacy -v catalog="$P/services.tsv" \
+        fields=$(printf '%s\n' "$7" | awk -v operation=legacy -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" \
             -v input=/dev/stdin -v input_bytes="$((${#7}+1))" -f "$P/preferences.awk") || fail invalid_preferences
         IFS='|' read -r touch warning pandora base wireless <<VALUES
 $fields
@@ -295,10 +296,10 @@ _snapshot_create() (
         test -z "$prefs" || fail invalid_stock_preferences
         printf '%s|0|0|%s|%s\n' - "$nvram" "$mode" > "$work/config" || fail snapshot_config_failed
     elif test -z "$prefs"; then
-        awk -v operation=write -v catalog="$P/services.tsv" -v package_id="$package" \
+        awk -v operation=write -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v package_id="$package" \
             -v nvram_value="$nvram" -v metadata_value="$mode" -f "$P/preferences.awk" > "$work/config" || fail snapshot_config_failed
     else
-        printf '%s\n' "$prefs" | awk -v operation=write -v catalog="$P/services.tsv" \
+        printf '%s\n' "$prefs" | awk -v operation=write -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" \
             -v package_id="$package" -v nvram_value="$nvram" -v metadata_value="$mode" \
             -v input=/dev/stdin -v input_bytes="$((${#prefs}+1))" -f "$P/preferences.awk" > "$work/config" || fail snapshot_config_failed
     fi

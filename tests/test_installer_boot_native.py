@@ -321,6 +321,34 @@ class NativeBootPlan(unittest.TestCase):
         fixture.select_wireless(1, base=1)
         return fixture
 
+    def test_sealer_rejects_a_copy_that_differs_from_prepared_named_digest(self):
+        fixture = self.native_fixture()
+        before = fixture.record()[5]
+        cp = fixture.tools / "cp"
+        cp.write_text(
+            "#!/bin/sh\nset -eu\n" + shlex.quote(shutil.which("cp")) + ' "$@"\n'
+            "for destination; do :; done\n"
+            'case "$destination" in */snapshots/.new-*/sm-wcp.conf) printf "foreign copy\\n" >> "$destination";; esac\n'
+        )
+        cp.chmod(0o700)
+        with self.assertRaises(subprocess.CalledProcessError) as caught:
+            fixture.shell(
+                '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
+                'record_read; transaction_prepare set "$R_CURRENT" "$R_CURRENT"; transaction_reconcile'
+            )
+        self.assertIn("boot_profiles_changed", caught.exception.stderr)
+        self.assertEqual(fixture.record()[1], "set")
+        self.assertEqual(fixture.record()[5], before)
+        cp.unlink()
+        fixture.shell(
+            '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; record_read; transaction_reconcile'
+        )
+        self.assertEqual(fixture.record()[1], "active")
+        sealed = fixture.data / "snapshots" / fixture.record()[5]
+        original = fixture.data / "snapshots" / before
+        for name in ("sm-normal.conf", "sm-wcp.conf", "index.html"):
+            self.assertEqual((sealed / name).read_bytes(), (original / name).read_bytes())
+
     def test_new_wcp_conflict_refuses_before_preparation_and_keeps_uninstall_usable(self):
         fixture = self.native_fixture()
         record = (fixture.data / "record").read_bytes()

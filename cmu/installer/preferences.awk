@@ -40,7 +40,7 @@ function load_catalog(path, line, columns, fields, id, members, count, i, member
         if(joined!=columns[4]) refuse()
     }
     close(path)
-    if(catalog_read<0 || service_count<1) refuse()
+    if(catalog_read<0 || service_count<1 || catalog_bytes+0!=bytes) refuse()
 }
 function metadata(value, fields, n, i) {
     n=split(value,fields,":")
@@ -50,12 +50,12 @@ function metadata(value, fields, n, i) {
     return 1
 }
 function known_key(key, id) {
-    if(key~/^(package|touch|warning|nvram|metadata|base|wireless)$/) return 1
+    if(key~/^(package|touch|warning|nvram|metadata|base|wireless|service-ids)$/) return 1
     if(index(key,"service.")!=1) return 0
     id=substr(key,9)
     return id in service_default
 }
-function load_preferences(path, partial, line, key, value, separator, previous, bytes, i, id) {
+function load_preferences(path, partial, line, key, value, separator, previous, bytes, i, id, count, keys, listed) {
     if((getline line < path)!=1 || line!="OC2") refuse()
     bytes=4
     while((preferences_read=getline line < path)>0) {
@@ -76,13 +76,23 @@ function load_preferences(path, partial, line, key, value, separator, previous, 
         id=service_ids[i]
         if(!partial && !seen["service." id]) refuse()
     }
+    if(seen["service-ids"]) {
+        count=split(prefs["service-ids"],keys,",");previous=""
+        if(count<1 || count>16) refuse()
+        for(i=1;i<=count;i++) {
+            id=keys[i]
+            if(!(id in service_default) || id<=previous || !seen["service." id]) refuse()
+            previous=id;listed[id]=1
+        }
+        for(id in service_default) if(seen["service." id] && !(id in listed)) refuse()
+    } else if(!partial) refuse()
 }
 function validate_preferences(key, value) {
     value=prefs["package"]
     if(length(value)!=64 || value~/[^a-f0-9]/ || !metadata(prefs["metadata"]) ||
         prefs["nvram"]!~/^(absent|enable|disable)$/) refuse()
     for(key in prefs)
-        if(key!~/^(package|metadata|nvram)$/ && !bit(prefs[key])) refuse()
+        if(key!~/^(package|metadata|nvram|service-ids)$/ && !bit(prefs[key])) refuse()
 }
 function write_preferences(key, keys, count, i, j, swap, bytes, line) {
     for(key in prefs) keys[++count]=key
@@ -111,6 +121,9 @@ BEGIN {
     load_catalog(catalog)
     prefs["base"]="0";prefs["wireless"]="0";prefs["touch"]="1";prefs["warning"]="1"
     for(id in service_default) prefs["service." id]=service_default[id]
+    service_keys=""
+    for(i=1;i<=service_count;i++) service_keys=service_keys (i==1 ? "" : ",") service_ids[i]
+    prefs["service-ids"]=service_keys
     if(input!="") load_preferences(input,operation=="write" || operation=="legacy" || (operation=="set" && legacy=="1"))
     else if(operation!="write") refuse()
     if(input!="") validate_preferences()
@@ -165,5 +178,5 @@ BEGIN {
             prefs["base"] "|" prefs["wireless"] "|" choices
         exit
     }
-    if(operation=="write" || operation=="set") {write_preferences();exit}
+    if(operation=="write" || operation=="set") {prefs["service-ids"]=service_keys;write_preferences();exit}
 }

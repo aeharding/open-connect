@@ -58,6 +58,8 @@ class NativePreferences(unittest.TestCase):
                 "-v",
                 f"catalog={catalog}",
                 "-v",
+                f"catalog_bytes={len(self.catalog)}",
+                "-v",
                 "package_id=" + "a" * 64,
                 "-v",
                 "nvram_value=disable",
@@ -101,9 +103,18 @@ class NativePreferences(unittest.TestCase):
             self.decode(config.replace(b"service.z00-long-service-name=1\n", b"")), 0
         )
 
-    def test_malformed_config_and_catalog_refuse_before_selection(self):
+    def test_malformed_config_refuses_before_selection(self):
         config = self.fresh()
         for changed in (
+            config.replace(b"service-ids=android-auto,pandora", b"service-ids=pandora"),
+            config.replace(
+                b"service-ids=android-auto,pandora",
+                b"service-ids=android-auto,android-auto,pandora",
+            ),
+            config.replace(
+                b"service-ids=android-auto,pandora", b"service-ids=pandora,android-auto"
+            ),
+            config.replace(b"service-ids=android-auto,pandora\n", b""),
             config[:-1],
             config + b"\n",
             config.replace(b"base=0\n", b"base=0\nbase=0\n"),
@@ -117,14 +128,11 @@ class NativePreferences(unittest.TestCase):
         ):
             with self.subTest(config=changed[:80]):
                 self.assertNotEqual(self.decode(changed), 0)
-        original = self.catalog
-        for changed in (
-            original.replace(b"blm_ira_pandora", b"aap_service"),
-            original.replace(b"android-auto|", b"touch|"),
-            original.replace(b"aap_service jciAAPA", b"aap_service aap_service"),
-        ):
-            self.catalog = changed
-            self.assertNotEqual(self.decode(config), 0)
+
+    def test_decoder_consumes_the_authenticated_key_set_without_catalog_io(self):
+        config = self.fresh()
+        self.catalog = b"catalog validation belongs to maintenance, not the native decoder"
+        self.assertEqual(self.decode(config), 0)
 
     def test_only_actual_dev9_stock_and_active_forms_are_admitted(self):
         self.assertEqual(self.decode(b"-|0|0|absent|755:0:0\n", False), 0)

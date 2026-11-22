@@ -254,7 +254,7 @@ boot_render_profiles() {
     private_dir "$source" && verify_manifest "$source" || return 1
     test "$S_WARNING" != 1 || setting=on
     for profile in normal wcp; do
-        awk -v operation=compose -v catalog="$P/services.tsv" -v input="$config" \
+        awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" \
             -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" \
             "$source/sm-$profile-$setting.conf" > "$destination/sm-$profile.conf" || return 1
     done
@@ -263,15 +263,19 @@ boot_render_profiles() {
 }
 
 boot_plan_inputs() {
-    local work=$1 snapshot=$2 digest name target extra
-    shift 2
+    local work=$1 snapshot=$2 manifest=$3 digest name target extra
+    shift 3
     printf 'OCBP1|%s|%s\n' "$R_BASE" "$S_PACKAGE"
     while read -r digest name extra; do
         test -z "$extra" && hex "$digest" 64 || return 1
         target=$(dependency_path "$name") && file "$target" || return 1
         printf '%s|%s|%s\n' "$name" "$target" "$digest"
     done < "$D/snapshots/$snapshot/dependencies"
-    for name in "$@"; do printf 'current/%s|@/%s|%s\n' "$name" "$name" "$(sha "$work/$name")"; done
+    for name in "$@"; do
+        digest=$(printf '%s\n' "$manifest" | awk -v name="$name" '$2==name{n++;print $1}END{exit n!=1}') || return 1
+        hex "$digest" 64 || return 1
+        printf 'current/%s|@/%s|%s\n' "$name" "$name" "$digest"
+    done
     while read -r digest name extra; do
         printf 'baseline/%s|%s/snapshots/%s/%s|%s\n' "$name" "$D" "$R_BASE" "$name" "$digest"
     done < "$D/snapshots/$R_BASE/files.sha256"
@@ -338,7 +342,7 @@ _boot_snapshot_seal() (
     # Seal a new immutable snapshot before record can call it current. A cut
     # leaves the existing prepared transaction recoverable, never a side flag.
     set -eu
-    local snapshot=$1 package helper work name digest magic base backend
+    local snapshot=$1 package helper work name digest magic base backend manifest expected
     snapshot_read "$snapshot" || fail invalid_boot_snapshot
     package=$S_PACKAGE
     if test "$package" = - || absent "$D/packages/$package/boot-select"; then
@@ -362,16 +366,20 @@ _boot_snapshot_seal() (
     set -- autostart config dependencies
     if test "$S_ACCESS" = true; then set -- "$@" access runlogin sshd.conf; fi
     if test "${S_SELECTOR_RECORDED:-false}" = true; then set -- "$@" selector; fi
-    for name in "$@"; do cp "$D/snapshots/$snapshot/$name" "$work/$name" || fail boot_snapshot_copy_failed; done
-    # These bytes were composed before transaction_prepare. A later seal only
-    # attests metadata after the physical targets match; it never rerenders.
-    for name in sm-normal.conf sm-wcp.conf index.html; do
-        file "$D/snapshots/$snapshot/$name" &&
-            cp "$D/snapshots/$snapshot/$name" "$work/$name" || fail boot_profiles_missing
-    done
     set -- "$@" sm-normal.conf sm-wcp.conf index.html
-    for name in "$@"; do chmod 600 "$work/$name" || fail boot_snapshot_mode_failed; done
-    boot_plan_inputs "$work" "$snapshot" "$@" > "$work/inputs" || fail boot_inputs_failed
+    # Capture the authenticated manifest, then keep each copied member bound to
+    # its original named digest. A copied replacement must never be re-blessed.
+    manifest=$(cat "$D/snapshots/$snapshot/files.sha256") || fail boot_profiles_missing
+    digest=$(printf '%s\n' "$manifest" | openssl dgst -sha256) || fail boot_profiles_missing
+    test "${digest##* }" = "$snapshot" || fail boot_profiles_changed
+    for name in "$@"; do
+        expected=$(printf '%s\n' "$manifest" | awk -v name="$name" '$2==name{n++;print $1}END{exit n!=1}') || fail boot_profiles_missing
+        hex "$expected" 64 && file "$D/snapshots/$snapshot/$name" &&
+            cp "$D/snapshots/$snapshot/$name" "$work/$name" &&
+            test "$(sha "$work/$name")" = "$expected" || fail boot_profiles_changed
+        chmod 600 "$work/$name" || fail boot_snapshot_mode_failed
+    done
+    boot_plan_inputs "$work" "$snapshot" "$manifest" "$@" > "$work/inputs" || fail boot_inputs_failed
     "$helper" seal / "${work#/}" < "$work/inputs" > "$work/boot.plan" || fail boot_plan_failed
     rm "$work/inputs" || fail boot_inputs_cleanup_failed
     chmod 600 "$work/boot.plan" || fail boot_snapshot_mode_failed

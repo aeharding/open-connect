@@ -25,7 +25,12 @@ class InstallerPreferences(unittest.TestCase):
         self.config = self.root / "config"
 
     def run_preferences(self, operation, data=None, **values):
-        arguments = {"operation": operation, "catalog": str(self.catalog), **values}
+        arguments = {
+            "operation": operation,
+            "catalog": str(self.catalog),
+            "catalog_bytes": str(self.catalog.stat().st_size),
+            **values,
+        }
         if data is not None:
             data = data.encode() if isinstance(data, str) else data
             self.config.write_bytes(data)
@@ -65,7 +70,9 @@ class InstallerPreferences(unittest.TestCase):
 
     def test_missing_new_choice_defaults_only_during_upgrade_write(self):
         original = self.fresh()
-        older = original.replace(b"service.android-auto=1\n", b"")
+        older = original.replace(b"service.android-auto=1\n", b"").replace(
+            b"service-ids=android-auto,pandora", b"service-ids=pandora"
+        )
         self.assertNotEqual(self.run_preferences("decode", older).returncode, 0)
         updated = self.run_preferences(
             "write", older, package_id="b" * 64, nvram_value="enable", metadata_value="775:0:0"
@@ -114,6 +121,41 @@ class InstallerPreferences(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(result.stdout, b"")
 
+    def test_catalog_requires_final_lf_and_config_binds_its_exact_key_set(self):
+        config = self.fresh()
+        for changed in (
+            config.replace(b"service-ids=android-auto,pandora", b"service-ids=pandora"),
+            config.replace(
+                b"service-ids=android-auto,pandora",
+                b"service-ids=android-auto,android-auto,pandora",
+            ),
+            config.replace(
+                b"service-ids=android-auto,pandora", b"service-ids=pandora,android-auto"
+            ),
+            config.replace(b"service-ids=android-auto,pandora\n", b""),
+        ):
+            self.assertNotEqual(self.run_preferences("decode", changed).returncode, 0)
+        self.catalog.write_bytes(self.catalog.read_bytes()[:-1])
+        self.assertNotEqual(self.run_preferences("decode", config).returncode, 0)
+
+    def test_attributes_are_named_once_and_tabbed_wcp_args_do_not_duplicate(self):
+        config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
+        for board in (False, True):
+            source = self.profile(board)
+            for name in ("jciAAPA", "jciDAB"):
+                needle = 'name="' + name + '" autorun="yes"'
+                for changed in (
+                    source.replace(needle, 'name="' + name + '" autorun="no" autorun="yes"'),
+                    source.replace(needle, 'name="' + name + '" old_autorun="yes"'),
+                    source.replace(needle, 'name="' + name + '" autorun=\'no\' autorun="yes"'),
+                ):
+                    self.assertNotEqual(self.compose(changed, config).returncode, 0)
+            tabbed = self.profile(True).replace(' args="wcp"', '\targs="wcp"')
+            result = self.compose(tabbed, config)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            ET.fromstring(result.stdout)
+            self.assertEqual(result.stdout.count(b'\targs="wcp"'), tabbed.count('\targs="wcp"'))
+
     def test_rows_escape_catalog_text_and_keep_unknown_selection_explicit(self):
         config = self.fresh()
         self.catalog.write_text(
@@ -132,7 +174,11 @@ class InstallerPreferences(unittest.TestCase):
             )
 
     def test_dev9_changes_retain_supported_policy_and_reject_new_service_writes(self):
-        legacy = self.fresh().replace(b"service.android-auto=1\n", b"")
+        legacy = (
+            self.fresh()
+            .replace(b"service.android-auto=1\n", b"")
+            .replace(b"service-ids=android-auto,pandora\n", b"")
+        )
         changed = self.run_preferences("set", legacy, legacy="1", key="service.pandora", value="0")
         self.assertEqual(changed.returncode, 0, changed.stderr)
         self.assertEqual(self.run_preferences("legacy", changed.stdout).stdout, b"1|1|0|0|0\n")
@@ -147,6 +193,7 @@ class InstallerPreferences(unittest.TestCase):
         root = ET.Element("services")
         names = (
             "stage_1",
+            "jciVBS",
             "jciMMUI",
             "jciUSBMGR",
             "jciCARPLAY",
@@ -199,6 +246,8 @@ class InstallerPreferences(unittest.TestCase):
                 "operation=compose",
                 "-v",
                 f"catalog={self.catalog}",
+                "-v",
+                f"catalog_bytes={self.catalog.stat().st_size}",
                 "-v",
                 f"input={self.config}",
                 "-v",
@@ -276,6 +325,7 @@ class InstallerPreferences(unittest.TestCase):
         config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
         for name in (
             "stage_1",
+            "jciVBS",
             "aap_service",
             "jciAAPA",
             "blm_ira_pandora",

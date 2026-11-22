@@ -303,6 +303,7 @@ const beforeBase = writes.length;
 baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 1});
 assert.equal(modal.props.title, "Enable Base optimizations?");
 assert.match(modal.props.text1, /native diagnostic logging/);
+assert.doesNotMatch(modal.props.text1, /DAB|TV|Stitcher/);
 assert.match(modal.props.text1, /after restarting/);
 modal.props.defaultSelectCallback(modal, "cancel"); idle();
 assert.equal(writes.length, beforeBase);
@@ -319,6 +320,7 @@ baseCtrl = pages.at(-1).ctrl;
 baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 2});
 assert.equal(modal.props.title, "Disable Base optimizations?");
 assert.match(modal.props.text1, /Restores original native logging/);
+assert.doesNotMatch(modal.props.text1, /DAB|TV|Stitcher/);
 modal.props.defaultSelectCallback(modal, "apply"); idle();
 assert.deepEqual(writes.at(-1), ["base", 1, 0]);
 values = {...values, base: 0}; reply(values);
@@ -463,3 +465,10 @@ assert.match(pages.at(-1).ctrl.dataList.items[1].text1, /restart needed/);
 assert.equal(pages.at(-1).ctrl.dataList.items[2].value, 2);
 back(); back();
 assert.equal(settings.open(fw, {read: () => ({...values, services: [...values.services, values.services[0]]})}), false);
+
+// Current catalog-backed Base includes qualified leaves, unlike dev.9 scalar status.
+settings.open(fw, store);
+let newBaseMain = pages.at(-1).ctrl; newBaseMain.selectCallback(newBaseMain, "services");
+let newBaseCtrl = pages.at(-1).ctrl; newBaseCtrl.selectCallback(newBaseCtrl, "base", {additionalData: 1});
+assert.match(modal.props.text1, /DAB, TV and Stitcher/);
+modal.props.defaultSelectCallback(modal, "cancel"); back(); back();

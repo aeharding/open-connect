@@ -212,7 +212,7 @@ class NativeBootSelection(unittest.TestCase):
         self.snapshot.mkdir(mode=0o700)
         contents = {
             "autostart": "installed autostart\n",
-            "config": f"OC2\nbase=0\nmetadata={self.mode}\nnvram=disable\npackage={self.package_id}\nservice.android-auto=1\nservice.pandora=1\ntouch=1\nwarning=1\nwireless=1\n",
+            "config": f"OC2\nbase=0\nmetadata={self.mode}\nnvram=disable\npackage={self.package_id}\nservice-ids=android-auto,pandora\nservice.android-auto=1\nservice.pandora=1\ntouch=1\nwarning=1\nwireless=1\n",
             "access": access,
             "runlogin": login.read_text(),
             "sshd.conf": ssh.read_text(),

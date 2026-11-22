@@ -106,7 +106,7 @@ status() {
         test "$wireless" = "$wireless_current" || restart=true
     fi
     if test "$saved_schema" = OC2; then
-        rows=$(awk -v operation=rows -v catalog="$saved_catalog/services.tsv" -v input="$saved_config" \
+        rows=$(awk -v operation=rows -v catalog="$saved_catalog/services.tsv" -v catalog_bytes="$(wc -c < "$saved_catalog/services.tsv")" -v input="$saved_config" \
             -v input_bytes="$(wc -c < "$saved_config")" -v selected_services="$selected_services" \
             -f "$saved_catalog/preferences.awk") || fail invalid_services_status
         service_status=$service_status',"services":'$rows

@@ -181,9 +181,11 @@ check a single durable debit, rather than treating plan validation as selection.
 
 The **0.3.0-dev.10** Services candidate from
 [CI 45016577830](https://github.com/aeharding/open-connect/actions/runs/45016577830),
-source `0b5a4af74cdf8ab15014b3d6de63671fc4808666`, has live checks for the
-actual dev.9 → dev.10 upgrade, retained choices and five-field stock baseline,
-canonical active preferences, completion and Open settings. Android Auto and
+source `0b5a4af74cdf8ab15014b3d6de63671fc4808666`, has live Settings and restoration
+checks. The actual upgrade path was dev.9 → dev.10 `8a4a22be` → dev.10 `0b5a4af7`:
+the first upgrade retained the choices and five-field stock baseline and emitted
+canonical active preferences; the later reviewed update qualified completion,
+Open settings and the corrected save path. Android Auto and
 Pandora were each disabled through Settings, applied after restart, then restored;
 the other integration remained running. Cancellation preserved the record and
 Settings re-entry retained the saved choice. Base on stopped exactly the four

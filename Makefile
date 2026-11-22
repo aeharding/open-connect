@@ -41,7 +41,7 @@ $(OUT)/flush: cmu/startup/flush.c | $(OUT)
 	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
 
 $(OUT)/boot-select: cmu/installer/boot-select.c cmu/installer/boot-policy.h cmu/installer/boot-system.h cmu/installer/boot-plan.h cmu/installer/boot-io.h cmu/installer/boot-hash.h | $(OUT)
-	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
+	$(CLANG) $(filter-out -Os,$(ARM_FLAGS)) -O2 $(LINK_FLAGS) "$<" -o "$@"
 
 $(OUT)/mmui.o: cmu/installer/mmui.S | $(OUT)
 	$(CLANG) --target=armv7-none-eabi -marm -c "$<" -o "$@"

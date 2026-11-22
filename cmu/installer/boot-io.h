@@ -152,7 +152,8 @@ static int oc_write_all(int fd, const void *input, unsigned n) {
 static int oc_hash_copy(int input, int output, oc_u64 limit, char digest[65], OcMeta *metadata) {
     OcHash hash;
     OcMeta before,after;
-    oc_u8 buffer[4096];
+    /* Copies are serial; keep the larger streaming buffer off the boot stack. */
+    static oc_u8 buffer[32768];
     oc_u64 total=0;
     if (oc_stat(input,&before)<0 || (before.mode&OC_TYPE)!=OC_REGULAR || before.size>limit) return 0;
     oc_hash_init(&hash);

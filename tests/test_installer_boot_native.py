@@ -56,7 +56,23 @@ class NativeBootIO(unittest.TestCase):
 
     def test_hash_vectors_padding_and_stream_boundaries(self):
         rows = [b"", b"abc", b"a" * 1_000_000]
-        for length in (55, 56, 63, 64, 65, 127, 128, 4095, 4096, 4097, 8193):
+        for length in (
+            55,
+            56,
+            63,
+            64,
+            65,
+            127,
+            128,
+            4095,
+            4096,
+            4097,
+            8193,
+            32767,
+            32768,
+            32769,
+            65537,
+        ):
             rows.append(bytes((i * 37 + 19) % 256 for i in range(length)))
         for data in rows:
             with self.subTest(length=len(data)):
@@ -66,12 +82,18 @@ class NativeBootIO(unittest.TestCase):
                 self.assertEqual(result.stdout.splitlines()[0], hashlib.sha256(data).hexdigest())
 
     def test_copy_matches_digest_and_opened_file_metadata(self):
-        data = bytes(range(256)) * 37
+        for length in (0, 1, 9472, 32767, 32768, 32769, 65537, 1_000_003):
+            with self.subTest(length=length):
+                self.copy_matches_digest_and_opened_file_metadata(length)
+
+    def copy_matches_digest_and_opened_file_metadata(self, length):
+        data = (bytes(range(256)) * (length // 256 + 1))[:length]
         path = self.root / "input"
         path.write_bytes(data)
-        result = self.invoke(output="copy")
+        output = "copy-" + str(length)
+        result = self.invoke(output=output)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual((self.root / "copy").read_bytes(), data)
+        self.assertEqual((self.root / output).read_bytes(), data)
         self.assertEqual(result.stdout.splitlines()[0], hashlib.sha256(data).hexdigest())
         stat = path.stat()
         fields = [int(v) for v in result.stdout.splitlines()[1].split()]

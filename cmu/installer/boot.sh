@@ -146,8 +146,12 @@ if test "$selected" != true; then
 fi
 absent /tmp/open-connect/feature || fail feature_already_present
 work=$(mktemp -d /tmp/open-connect/.feature-XXXXXX)
-cp "$D/composed/$package/uia.so" "$D/composed/$package/mmui.so" \
-    "$D/composed/$package/mmui.xml" "$D/composed/$package/system-app.js" "$work/"
+if test "$warning" = 1; then
+    cp "$D/composed/$package/mmui.so" "$D/composed/$package/mmui.xml" "$work/"
+    for name in uia.so system-app.js; do
+        ln -s "../../mnt/data_persist/open-connect/composed/$package/$name" "$work/$name" || fail feature_link_failed
+    done
+fi
 startup_stamp feature_copied
 if test "$warning" = 1; then setting=on; else setting=off; fi
 cp "$D/snapshots/$R_CURRENT/sm-normal.conf" "$work/sm.conf" &&

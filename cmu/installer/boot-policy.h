@@ -515,8 +515,11 @@ static int oc_copy_input(OcBoot *b,const char *key,int output,const char *name,u
     else ++path;
     long input=oc_beneath(parent,path,OC_READ,0);
     if (input<0) { b->input_failure=1; return 0; }
-    long target=oc_openat(output,name,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,mode);
-    if (target<0) { (void)oc_close((int)input); return 0; }
+    long target=-1;
+    if (output>=0) {
+        target=oc_openat(output,name,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,mode);
+        if (target<0) { (void)oc_close((int)input); return 0; }
+    }
     char digest[65]; OcMeta actual;
     int copied=oc_hash_copy((int)input,(int)target,33554432,digest,&actual);
     int ok=copied==OC_COPY_OK;
@@ -524,9 +527,9 @@ static int oc_copy_input(OcBoot *b,const char *key,int output,const char *name,u
     if (ok && (!oc_equal(digest,row->digest)||!oc_meta_equal(&row->meta,&actual))) {
         b->input_failure=1; ok=0;
     }
-    if (ok) ok=oc_mode((int)target,mode)>=0;
+    if (ok && target>=0) ok=oc_mode((int)target,mode)>=0;
     if (oc_close((int)input)<0) { b->input_failure=1; ok=0; }
-    if (oc_close((int)target)<0) ok=0;
+    if (target>=0 && oc_close((int)target)<0) ok=0;
     return ok;
 }
 static int oc_package_copy(OcBoot *b,const char *name,int output,const char *destination,unsigned mode) {
@@ -538,6 +541,19 @@ static int oc_composed_copy(OcBoot *b,const char *name,int output,unsigned mode)
     char key[192];
     return oc_join(key,sizeof key,"composed-",b->record_fields[3]) && oc_join(key,sizeof key,key,"/") &&
         oc_join(key,sizeof key,key,name) && oc_copy_input(b,key,output,name,mode);
+}
+static int oc_composed_link(OcBoot *b,const char *name) {
+    char key[192],target[192];
+    /* The private source stays immutable across Set and package upgrades.
+     * Hash the opened source exactly as for RAM copies before publishing a link.
+     * Both staging and final feature directories have the same parent depth.
+     */
+    return oc_join(key,sizeof key,"composed-",b->record_fields[3]) &&
+        oc_join(key,sizeof key,key,"/") && oc_join(key,sizeof key,key,name) &&
+        oc_copy_input(b,key,-1,0,0) &&
+        oc_join(target,sizeof target,"../../mnt/data_persist/open-connect/composed/",b->record_fields[3]) &&
+        oc_join(target,sizeof target,target,"/") && oc_join(target,sizeof target,target,name) &&
+        oc_symlink(target,b->stage,name)>=0;
 }
 static int oc_nvram(OcBoot *b,char value[16]) {
     /* These class parents are kernel-owned sysfs links, unlike durable paths.
@@ -610,7 +626,8 @@ static int oc_stage(OcBoot *b) {
     if (b->stage<0||!oc_copy_input(b,"current/sm-normal.conf",b->stage,"sm.conf",0600)||
         !oc_copy_input(b,"current/sm-wcp.conf",b->stage,"sm_WCP.conf",0600)) return 0;
     if (oc_equal(b->flags[2],"1")) {
-        for (unsigned i=1;i<5;++i) if (!oc_composed_copy(b,oc_composed_names[i],b->stage,0600)) return 0;
+        if (!oc_composed_link(b,"uia.so")||!oc_composed_link(b,"system-app.js")||
+            !oc_composed_copy(b,"mmui.so",b->stage,0600)||!oc_composed_copy(b,"mmui.xml",b->stage,0600)) return 0;
     }
     const char *ui[]={"runtime.js","dialog.js","settings.js"};
     for (unsigned i=0;i<3;++i) if (!oc_package_copy(b,ui[i],b->stage,ui[i],0600)) return 0;

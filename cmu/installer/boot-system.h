@@ -32,6 +32,7 @@ static long oc_mkdir(int fd,const char *name,unsigned mode) { return mkdirat(fd,
 static long oc_unlink(int fd,const char *name) { return unlinkat(fd,name,0)<0?-errno:0; }
 static long oc_rename(int fd,const char *from,const char *to) { return renameat(fd,from,fd,to)<0?-errno:0; }
 static long oc_link(int from,const char *name,int to,const char *target) { return linkat(from,name,to,target,0)<0?-errno:0; }
+static long oc_symlink(const char *source,int folder,const char *name) { return symlinkat(source,folder,name)<0?-errno:0; }
 static long oc_mode(int fd,unsigned mode) { return fchmod(fd,mode)<0?-errno:0; }
 static long oc_block(void) {
     sigset_t mask;
@@ -66,6 +67,9 @@ static long oc_link(int from,const char *name,int to,const char *target) {
     register long r7 __asm__("r7")=330;
     __asm__ volatile("svc 0" : "+r"(r0) : "r"(r1),"r"(r2),"r"(r3),"r"(r4),"r"(r7) : "memory","cc");
     return r0;
+}
+static long oc_symlink(const char *source,int folder,const char *name) {
+    return oc_syscall4(331,(long)source,folder,(long)name,0);
 }
 static long oc_mode(int fd,unsigned mode) { return oc_syscall4(94,fd,mode,0,0); }
 static long oc_block(void) {

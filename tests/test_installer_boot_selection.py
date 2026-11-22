@@ -387,6 +387,10 @@ class NativeBootSelection(unittest.TestCase):
         self.assertEqual(
             (self.ram / "feature/uia.so").read_bytes(), (self.composed / "uia.so").read_bytes()
         )
+        for name in ("uia.so", "system-app.js"):
+            feature = self.ram / "feature" / name
+            self.assertTrue(feature.is_symlink())
+            self.assertEqual(feature.resolve(), self.composed / name)
         self.assertNotIn("@TOKEN@", (self.ram / "feature/index.html").read_text())
         self.assertEqual(
             (self.ram / "ignition/state.sh").read_bytes(), (ASSETS / "state.sh").read_bytes()

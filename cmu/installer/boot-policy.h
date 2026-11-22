@@ -463,9 +463,21 @@ static int oc_nvram(OcBoot *b,char value[16]) {
     int ok=0;
     if (fd==-2) ok=oc_join(value,16,"","absent");
     else if (fd>=0) {
-        int n=oc_text_fd((int)fd,value,16);
-        if (n>0 && value[n-1]=='\n') value[--n]=0;
-        ok=n>0 && (oc_equal(value,"enable")||oc_equal(value,"disable"));
+        /* This v74 driver returns a terminal NUL, unlike ordinary proc text.
+         * Keep that binary convention local; immutable text still rejects NUL.
+         */
+        unsigned n=0; int read_ok=1;
+        while (n<15) {
+            long got=oc_read((int)fd,value+n,15-n);
+            if (got==-4) continue;
+            if (got<0) { read_ok=0; break; }
+            if (!got) break;
+            n+=(unsigned)got;
+        }
+        if (n && value[n-1]==0) --n;
+        if (n && value[n-1]=='\n') --n;
+        value[n]=0;
+        ok=read_ok && oc_length(value)==n && (oc_equal(value,"enable")||oc_equal(value,"disable"));
         if (oc_close((int)fd)<0) ok=0;
     }
     if (oc_close((int)parent)<0) ok=0;

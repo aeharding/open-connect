@@ -887,3 +887,10 @@ does not prove uncopied file bytes are identical; maintenance retains full
 hashes and selected runtime bytes must be checked during copying. Supporting
 records are private `runs/native-boot-20261121/abi-result.json`, `abi-source/`,
 `cross-result.json`, the single ACC capture and `cross-cleanup.out`.
+
+The v74 NVRAM sysfs leaf `keys/lvds_speed_restriction` returned `disable` followed
+by a terminal NUL byte (`64 69 73 61 62 6c 65 00`); ACC returned `31 0a`.
+The native NVRAM reader must handle this driver convention separately from
+immutable text files, while rejecting interior NULs or trailing data. A read-only
+pre-install check recorded these bytes in private `sysfs-byte-intake.out`; it
+changed no device state.

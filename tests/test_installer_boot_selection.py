@@ -346,6 +346,18 @@ class NativeBootSelection(unittest.TestCase):
         self.assertEqual(self.invoke().returncode, 95)
         self.assertEqual((self.data / "record").read_text().split("|")[9], "3")
 
+    def test_nvram_accepts_observed_terminal_nul_but_rejects_interior_data(self):
+        path = self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction"
+        before = (self.data / "record").read_bytes()
+        for raw in (b"disable\0extra", b"dis\0able", b"disable \0"):
+            with self.subTest(raw=raw):
+                path.write_bytes(raw)
+                self.assertEqual(self.invoke().returncode, 95)
+                self.assertEqual((self.data / "record").read_bytes(), before)
+        path.write_bytes(b"disable\0")
+        self.assertEqual(self.invoke().returncode, 0)
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
     def test_ram_write_failure_returns_stock_without_handoff_or_debit(self):
         before = (self.data / "record").read_bytes()
         result = self.invoke(output_limit=4096)

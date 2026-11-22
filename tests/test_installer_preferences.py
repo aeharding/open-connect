@@ -306,6 +306,8 @@ class InstallerPreferences(unittest.TestCase):
                             expected.set("args", expected.get("args") + ", wcp")
                         if name in ("jciUSBMGR", "jciCARPLAY", "jciBCA", "blm_nms_svc"):
                             expected.set("args", "wcp")
+                        if name == "jciCARPLAY" and base:
+                            expected.set("affinity_mask", "0x03")
                         if name == "bds":
                             expected.set("args", "-interface dbus -wcp")
                         if name == "start_network":
@@ -384,6 +386,15 @@ class InstallerPreferences(unittest.TestCase):
         self.assertNotEqual(self.compose(source, config).returncode, 0)
         source = self.profile().replace('name="jciUSBMGR"', 'name="jciUSBMGR" name="jciBCA"')
         self.assertNotEqual(self.compose(source, config).returncode, 0)
+
+    def test_carplay_affinity_refuses_an_existing_attribute(self):
+        config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
+        for wcp, mask in itertools.product((False, True), ("0x01", "0x02", "0x03")):
+            with self.subTest(wcp=wcp, mask=mask):
+                source = self.profile(wcp).replace(
+                    'name="jciCARPLAY"', f'name="jciCARPLAY" affinity_mask="{mask}"'
+                )
+                self.assertNotEqual(self.compose(source, config).returncode, 0)
 
     def test_restoring_android_auto_leaves_clean_pandora_only_profile(self):
         original = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")

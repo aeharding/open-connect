@@ -130,6 +130,80 @@ product state, runtime and owned holds were absent. The independent bench
 observer profile was preserved. This is as-found restoration; physical-input,
 audio, broader interruption and matching-car qualification remain deferred.
 
+## Stock comparison and Settings staging
+
+Four separate one-start pilots used the same 30-second ACC-off procedure,
+Allow/Skip on the installed candidates, Base and Wireless off, Android Auto and
+Pandora on, and the phone connected to the Mac. Ethernet, reference SD, the
+stage-1 observer, supply and camera settings stayed fixed. All four primary
+attempts retained complete video, UART, resource retrieval and postflight checks,
+with one kernel banner and one syslog boot marker each. Installation and notice
+restarts were excluded. There was no input or SSH traffic during primary startup.
+
+| Candidate | First fully spaced Home, after ACC | Selector span | Minimum / ending MemFree |
+| --- | --- | --- | --- |
+| Stock | 25.18–25.39 s | — | 201.09 / 209.95 MiB |
+| Unchanged dev.10 | 26.80–27.02 s | 1.04 s | 199.26 / 207.98 MiB |
+| Settings worker after `stage_3` | 26.58–26.79 s | 1.06 s | 200.27 / 208.66 MiB |
+| Experimental `-O2` / 32 KiB copy buffer | 26.58–26.79 s | 1.06 s | 199.33 / 208.20 MiB |
+
+Timing endpoints round outward; [individual results](assets/performance/startup-overhead/stock-followup-runs.csv)
+retain unrounded bounds, CPU, sampling coverage and source identities. These are
+one-start pilots, not repeated estimates. Stock's first Home precedes its later
+automatic disclaimer: that disclaimer became fully visible at 32.22–32.43 s and
+was gone by 36.65 s. Skip bypassed it. The common comparison above scores the
+same carousel position, without waiting for the label, clock or red fade.
+
+Moving the Settings worker from `stage_1` to `stage_3` put Home about **0.22 s
+earlier** than unchanged dev.10 in this pair. The native `stage_1`-to-MMUI-start
+interval shortened by 0.267 s. Home still appeared about 1.41 s later than stock;
+the no-measurable-added-delay target remains open. CPU and RAM varied across the
+four starts; these samples establish no resource saving.
+
+The selector retained its synchronous placement, integrity checks, lock and both
+durable flushes. [Phase data](assets/performance/startup-overhead/stock-followup-phases.csv)
+show that the compiler/buffer experiment did not reduce staging: its copy phase
+was 0.26 s versus 0.24 s for the Settings-only pilot. A separate balanced 3+3
+RAM-only comparison used each released helper's existing `seal` command on
+891,373 bytes of staged native inputs. Both median hash durations were 50 ms at
+10 ms clock resolution, with identical resulting plans. That check measures warm
+hash reads, not cold storage or startup. The compiler/buffer experiment is parked.
+
+Deferred staging also exposed a readiness edge: Home appeared at kernel uptime
+26.436–26.676 s, while the listener process started at 30.87 s. Eight half-second
+retries could exhaust before the listener was ready, despite a twelve-second
+overall status budget. The follow-up client uses that existing deadline for boot
+retries. Mock-clock checks cover a worker becoming available after five seconds
+and continued fast failures stopping at twelve seconds without another request.
+The original pilot's later completion-to-Settings check passed; it did not
+qualify an immediate click at Home.
+
+### Reproduce these pilots
+
+Use frozen capture [`95f1eae`](https://github.com/aeharding/open-connect/tree/95f1eae00007e59fe5700a2ef08fd8107aa15bde)
+and analysis [`802dfcf`](https://github.com/aeharding/open-connect/tree/802dfcf95057785019bc1607c365886bffe849b0).
+The stock start used untouched firmware. Unchanged dev.10 used merged
+[`e35304c1`](https://github.com/aeharding/open-connect/tree/e35304c149121d068d89353b7c09808481d0e67f),
+[CI 45026374135](https://github.com/aeharding/open-connect/actions/runs/45026374135).
+The Settings experiment used [`e888453`](https://github.com/aeharding/open-connect/tree/e888453a5ca866020313b69cb9b3e63736576897):
+Make/shell packaging reused all compiled CI members, changing only
+`sm-profile.awk` among the 40 public payload members. The compiler/buffer
+experiment used [`7fde28f`](https://github.com/aeharding/open-connect/tree/7fde28f8dd3ef3e754360b11b65546b62b8d5615),
+[CI 45034012389](https://github.com/aeharding/open-connect/actions/runs/45034012389),
+changing only `boot-select` versus the Settings experiment. The CSV records each
+public manifest; per-install instance identities differ on another CMU.
+
+Follow the capture, seven-exchange clock bridge, adjacent-frame annotation and
+analysis procedure above. Use `--condition stock` for the untouched baseline.
+For each installed candidate use its actual instance manifest, with
+`--condition open-connect --pandora 1 --base 0 --wireless 0`. Annotate only the
+common Home milestone with `startup_annotate TRIAL BEFORE_PTS FIRST_PTS
+--no-projection`; no projection time is inferred. Retain every primary attempt.
+After capture closes, retrieve `/tmp/open-connect/startup-times` and
+`/tmp/smevents.txt` for the same boot. Native SM event times, kernel uptime and
+ACC-relative camera bounds are separate clocks. The resource trace starts after
+the stage-1 observer's guards, so earlier RAM and CPU remain unobserved.
+
 ## Reproduce the observation
 
 Product source is [`3bfda748`](https://github.com/aeharding/open-connect/tree/3bfda748ccc7435247c1feade06d2daa3e515fb9),

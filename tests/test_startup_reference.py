@@ -187,6 +187,34 @@ class StartupReferenceTests(unittest.TestCase):
             ),
             boot,
         )
+        canonical = {
+            **wireless_state,
+            "pandora": 1,
+            "services": [
+                {"id": "android-auto", "saved": 1, "current": 1},
+                {"id": "pandora", "saved": 1, "current": 1},
+            ],
+        }
+        canonical_rows = wireless_rows.replace(b"|8|", b"|OC2|")
+        self.assertEqual(
+            m.validate_condition(output(canonical) + canonical_rows, "open-connect", wireless=1),
+            boot,
+        )
+        for rows in (
+            None,
+            [],
+            canonical["services"][:1],
+            list(reversed(canonical["services"])),
+            [{"id": "android-auto", "saved": 0, "current": 1}, canonical["services"][1]],
+            [{"id": "android-auto", "saved": 1, "current": None}, canonical["services"][1]],
+            [{"id": "android-auto", "saved": True, "current": 1}, canonical["services"][1]],
+        ):
+            with self.assertRaisesRegex(ValueError, "Services choices"):
+                m.validate_condition(
+                    output({**canonical, "services": rows}) + canonical_rows,
+                    "open-connect",
+                    wireless=1,
+                )
         for bad in (
             output({**wireless_state, "wirelessCurrent": 0}) + wireless_rows,
             output({**wireless_state, "wireless": True}) + wireless_rows,

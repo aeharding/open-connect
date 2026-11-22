@@ -32,7 +32,12 @@
             # Keep both endpoints valid until a delayed frame has been resolved.
             oc_wait_worker
             if test "$oc_read" != true && test -z "$oc_frame"; then
-                if IFS= read -r -n 1 -t 1 oc_frame <&7; then oc_read=true; fi
+                oc_remaining
+                case "$oc_result" in
+                    0|2|95) if test "$oc_wait" -gt 0; then
+                        if IFS= read -r -n 1 -t 1 oc_frame <&7; then oc_read=true; fi
+                    fi;;
+                esac
             fi
             case "$oc_read:$oc_frame:$oc_result" in
                 true:J:95|true:J:0|true:J:2|true:G:0|true:G:2) ;;

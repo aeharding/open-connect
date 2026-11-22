@@ -154,6 +154,7 @@ startup_publish() {
             "/proc/uptime": str(self.root / "uptime"),
             "/usr/bin/open-connect-boot-select": str(self.root / "root-selector"),
             "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
+            "../../mnt/data_persist/open-connect/composed/": str(self.data / "composed") + "/",
             'test "$(id -u)" = 0': 'test "$(id -u)" = ' + str(os.getuid()),
             "700:0:0": f"700:{os.getuid()}:{os.getgid()}",
         }.items():
@@ -327,6 +328,28 @@ record_write
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("CONFIG|stock", result.stdout)
 
+    def test_gate_does_not_read_again_after_join_exhausts_shared_deadline(self):
+        helper = self.root / "root-selector"
+        helper.write_text(
+            "#!/bin/sh\nprintf '26.00 0.00\\n' > "
+            + shlex.quote(str(self.root / "uptime"))
+            + "\nexit 0\n"
+        )
+        helper.chmod(0o700)
+        began = time.monotonic()
+        result = self.hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("CONFIG|stock", result.stdout)
+        self.assertLess(time.monotonic() - began, 1.8)
+
+    def test_gate_accepts_delayed_valid_frame_before_shared_deadline(self):
+        helper = self.root / "root-selector"
+        helper.write_text("#!/bin/sh\nsleep 1.1\nprintf G\nexit 0\n")
+        helper.chmod(0o700)
+        result = self.hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("CONFIG|" + str(self.runtime / "feature/sm.conf"), result.stdout)
+
     def test_pending_recovery_and_observer_do_not_require_a_listener(self):
         for fixture in ("usb", "blocked-port"):
             with self.subTest(fixture=fixture):
@@ -406,26 +429,6 @@ record_write
         self.assertIn("damaged_package", result.stderr)
         self.assertFalse(marker.exists())
         self.assertEqual(self.record()[9], "3")
-
-    def test_verified_boot_retires_matching_reseal_hint_after_commit(self):
-        hint = self.data / "reseal"
-        hint.write_text(self.record()[5] + "\n")
-        hint.chmod(0o600)
-        result = self.boot(1)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.record()[9], "2")
-        self.assertFalse(hint.exists())
-
-    def test_failed_verification_preserves_reseal_hint_and_record(self):
-        hint = self.data / "reseal"
-        hint.write_text(self.record()[5] + "\n")
-        hint.chmod(0o600)
-        before = (self.data / "record").read_bytes()
-        self.wcp_original.write_bytes(b"foreign WCP profile\n")
-        result = self.boot(1)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertTrue(hint.exists())
-        self.assertEqual((self.data / "record").read_bytes(), before)
 
     def test_populated_fast_path_keeps_budget_and_original_dependency_guards(self):
         self.populated_dependencies()

@@ -277,8 +277,7 @@ static int oc_plan(OcBoot *b) {
                  * Keep permission, identity and coverage checks; never activate
                  * from these replacement metadata, even if every hash matches.
                  */
-                if (!b->gated||row->meta.device!=actual.device||row->meta.size!=actual.size||
-                    row->meta.mode!=actual.mode||row->meta.uid!=actual.uid||row->meta.gid!=actual.gid) return 0;
+                if (!b->gated||!oc_meta_resealable(&row->meta,&actual)) return 0;
                 row->meta=actual; b->metadata_drift=1;
             }
         }

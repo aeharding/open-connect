@@ -258,13 +258,12 @@ snapshot_create() (
     if test "$2" = -; then _snapshot_create "$@"; exit; fi
     local target fields touch warning pandora base wireless
     hex "$2" 64 || fail invalid_snapshot
-    target=$(package_programs "$2" state.sh firmware.sh flush VERSION) || fail invalid_snapshot_package
-    if ! absent "$target/preferences.awk"; then
-        preferences_package "$2" >/dev/null &&
-            awk '$2=="sm-profile.awk"{n++}END{exit n!=1}' "$target/files.sha256" || fail invalid_snapshot_package
+    if ! absent "$D/packages/$2/preferences.awk"; then
+        target=$(package_programs "$2" state.sh firmware.sh flush VERSION preferences.awk services.tsv sm-profile.awk) || fail invalid_snapshot_package
         sh -c 'set -eu; D=$1; P=$2; shift 2; . "$P/state.sh"; . "$P/firmware.sh"; _snapshot_create "$@"' \
             snapshot "$D" "$target" "$@"
     else
+        target=$(package_programs "$2" state.sh firmware.sh flush VERSION) || fail invalid_snapshot_package
         # The one supported predecessor owns its eight-field active encoding.
         # Its stock before/after snapshots remain five fields, as recorded.
         file "$target/VERSION" && test "$(cat "$target/VERSION")" = 0.3.0-dev.9 || fail unsupported_snapshot_package

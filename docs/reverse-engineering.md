@@ -970,3 +970,12 @@ all 32 profile hashes matched the exact-original host outputs, Services JSON
 parsed, and malformed bit/key-set/UID cases refused. The maintained preferences
 and composition suite also runs through BusyBox when available. This was an
 installer compatibility failure, not a primary startup timing attempt.
+
+The subsequent `8a4a22be` upgrade retained the stock baseline and selected the
+dev.10 policy, but its first Android Auto save returned `plan_failed` before
+prepare. The browser sent the correct request. In the full target backend,
+`preferences_package`'s final `printf` returned 1 when redirected to `/dev/null`;
+the isolated writer had succeeded. The writer now captures one `package_programs`
+result that verifies the full manifest and every required interpreter/composer
+member before executing target code. A guarded target preparation with that
+change succeeded without changing the record or activating the new snapshot.

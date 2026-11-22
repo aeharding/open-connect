@@ -183,6 +183,54 @@ class InstallerTransaction(unittest.TestCase):
     def target(self, data, name):
         return data.with_name(data.name + "-" + name)
 
+    def test_snapshot_writer_requires_every_named_program_in_verified_manifest(self):
+        data = self.create("writer-members")
+        original = data / "packages" / (data / "package-id").read_text().strip()
+        record = (data / "record").read_bytes()
+        snapshots = set((data / "snapshots").iterdir())
+        for omitted in (
+            "state.sh",
+            "firmware.sh",
+            "flush",
+            "VERSION",
+            "preferences.awk",
+            "services.tsv",
+            "sm-profile.awk",
+        ):
+            with self.subTest(omitted=omitted):
+                package = data / "packages/.missing"
+                shutil.copytree(original, package)
+                manifest = "".join(
+                    hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                    for p in sorted(package.iterdir())
+                    if p.name not in (omitted, "files.sha256")
+                )
+                (package / "files.sha256").write_text(manifest)
+                identity = hashlib.sha256(manifest.encode()).hexdigest()
+                package.rename(package.with_name(identity))
+                result = subprocess.run(
+                    [
+                        "sh",
+                        "-c",
+                        'set -eu; umask 077; D=$1; P=$2; . "$3"; '
+                        'after=$(snapshot_create "$D-target" "$4" disable '
+                        '"755:$(id -u):$(id -g)" - - "") || exit 1',
+                        "writer",
+                        data,
+                        self.tools,
+                        ROOT / "cmu/installer/state.sh",
+                        identity,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("invalid_snapshot_package", result.stderr)
+                self.assertEqual((data / "record").read_bytes(), record)
+                self.assertEqual(set((data / "snapshots").iterdir()), snapshots)
+
     def backend_fixture(self, data):
         runtime = self.root / "runtime"
         runtime.mkdir(mode=0o700)

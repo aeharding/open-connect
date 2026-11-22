@@ -98,6 +98,17 @@ class WirelessEvents(unittest.TestCase):
             self.assertEqual([row["milestone"] for row in maps], ["home_spaced", "carplay_maps"])
             self.assertEqual(maps[1]["acc_lower_s"], 19.0)
             self.assertEqual(maps[1]["kernel_lower_s"], "")
+            with (
+                patch(
+                    "sys.argv",
+                    ["annotate", str(path), "10", "10.2", "--camera-only", "--no-projection"],
+                ),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                startup_annotate.main()
+            home_only = list(startup_export.timing_rows(path, "wireless-base-off", 4, None, False))
+            self.assertEqual([row["milestone"] for row in home_only], ["home_spaced"])
+            self.assertNotIn("carplay_maps", [row["milestone"] for row in home_only])
             rows[0]["relative_kernel_s"] = [0, 0]
             (path / "annotations.json").write_text(json.dumps(rows))
             with self.assertRaises(AssertionError):

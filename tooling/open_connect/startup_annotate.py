@@ -13,12 +13,19 @@ def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trial", type=Path)
-    parser.add_argument("bounds", type=float, nargs=4)
+    parser.add_argument("bounds", type=float, nargs="+")
     parser.add_argument("--projection", choices=PROJECTION_DEFINITIONS, default="dashboard")
+    parser.add_argument(
+        "--no-projection",
+        action="store_true",
+        help="retain Home without inventing a projection observation",
+    )
     parser.add_argument(
         "--camera-only", action="store_true", help="retain ACC bounds with unknown kernel time"
     )
     args = parser.parse_args()
+    if len(args.bounds) != (2 if args.no_projection else 4):
+        parser.error("supply two Home bounds, plus two projection bounds unless --no-projection")
     p, requested = args.trial, args.bounds
     pts = [
         float(f["best_effort_timestamp_time"])
@@ -46,9 +53,10 @@ def main():
     else:
         clock = json.loads(clock_path.read_text())
     rows = []
-    for index, name in enumerate(
-        ["Home carousel fully spaced", PROJECTION_DEFINITIONS[args.projection]]
-    ):
+    definitions = ["Home carousel fully spaced"]
+    if not args.no_projection:
+        definitions.append(PROJECTION_DEFINITIONS[args.projection])
+    for index, name in enumerate(definitions):
         before, after = requested[2 * index : 2 * index + 2]
         a, b = pts.index(before), pts.index(after)
         assert b == a + 1

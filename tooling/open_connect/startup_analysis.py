@@ -60,8 +60,9 @@ def verified_annotations(path, clocks):
     assert pts and all(math.isfinite(v) for v in pts)
     assert all(a < b for a, b in zip(pts, pts[1:]))
     rows = json.loads((path / "annotations.json").read_text())
-    assert len(rows) == 2 and rows[0]["definition"] == "Home carousel fully spaced"
-    assert rows[1]["definition"] in PROJECTION_DEFINITIONS.values()
+    assert len(rows) in (1, 2) and rows[0]["definition"] == "Home carousel fully spaced"
+    if len(rows) == 2:
+        assert rows[1]["definition"] in PROJECTION_DEFINITIONS.values()
     for row in rows:
         a, b = row["before_frame"], row["first_frame"]
         assert type(a) is int and type(b) is int and 0 <= a < b < len(pts) and b == a + 1

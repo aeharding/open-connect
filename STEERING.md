@@ -118,6 +118,22 @@ independent recovery. The exact firmware mechanism and delivery slot remain
 unqualified; this does not expand the initial two-feature release. See
 [#87](https://github.com/aeharding/open-connect/issues/87).
 
+The owner's startup bar is **no measurable added delay compared with stock
+(approximately zero seconds)**. Recover Open Connect's own pre-Service-Manager
+startup overhead before expanding Services further. Finish the current single
+Android Auto leaf pilot, then measure and remove redundant work in startup
+verification and RAM staging while preserving integrity, locking, bounded
+recovery and factory fallback. Measure phase costs and visible startup results;
+a partial reduction does not establish stock parity. First keep the current
+wireless fixture fixed; a stock-parity claim still needs matched conditions.
+
+Discontinued or non-NA services such as DAB, TV, Stitcher and Aha may join Base
+optimizations if their measured benefit and dependencies qualify. Active optional
+services such as Pandora, Android Auto, SiriusXM and DVD remain individual
+Services choices. CarPlay has priority when testing delayed voice startup;
+explicitly name and measure delayed voice/phone/message readiness. Do that
+pilot after the startup-overhead work and Android Auto pilot.
+
 Every performance or optimization change needs comparable baseline and modified
 timing trials. Define the timed operation and conditions before the change, run
 repeated trials, and retain failures as well as successes. Report the spread and

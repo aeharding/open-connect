@@ -4,8 +4,10 @@ import hashlib
 import os
 import shlex
 import shutil
+import signal
 import subprocess
 import tempfile
+import time
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -43,6 +45,7 @@ class InstallerBoot(unittest.TestCase):
         (self.runtime / "token").write_text("a" * 32 + "\n")
         (self.runtime / "ignition.sh").write_text("exit 0\n")
         (self.root / "acc").write_text("1\n")
+        (self.root / "uptime").write_text("1.00 0.00\n")
         state = (
             (ASSETS / "state.sh")
             .read_text()
@@ -56,12 +59,42 @@ class InstallerBoot(unittest.TestCase):
         shutil.copyfile(ASSETS / "access.sh", self.source / "access.sh")
         for name in ("wireless-sm.awk", "wireless-device.awk", "wireless.sh"):
             shutil.copyfile(ASSETS / name, self.source / name)
+        self.manager = self.root / "manager.so"
+        self.manager.write_bytes(b"synthetic pinned manager library\n")
+        self.wcp_original = self.root / "sm_WCP.conf"
+        self.wcp_original.write_bytes(b"synthetic pinned WCP service profile\n")
         self.log_original = b"synthetic original logging settings\n"
         self.log_library = b"synthetic exact common library\n"
         (self.root / "physical-log-settings").write_bytes(self.log_original)
         (self.root / "common-library").write_bytes(self.log_library)
         firmware = (ASSETS / "firmware.sh").read_text()
+        # Use every real v74 dependency name/path mapping with synthetic bytes.
+        # Keeping only manager.so here concealed sm_WCP.conf's valid underscore.
+        oem_map = subprocess.check_output(
+            ["sh", "-c", '. "$1"; firmware_dependencies', "fixture", ASSETS / "firmware.sh"],
+            text=True,
+        )
+        (self.root / "oem").mkdir()
+        self.oem_adapters = {}
+        for row in oem_map.splitlines():
+            digest, name, target = row.split()
+            if name == "autostart":
+                continue
+            if name == "manager.so":
+                fake = self.manager
+            elif name == "sm_WCP.conf":
+                fake = self.wcp_original
+            else:
+                fake = self.root / "oem" / name
+                fake.write_bytes(("synthetic OEM dependency " + name + "\n").encode())
+            self.oem_adapters[target] = str(fake)
+            firmware = firmware.replace(target, str(fake))
         for old, new in {
+            "/jci/lib/libjciuiamgr.so": str(self.manager),
+            "/jci/sm/sm_WCP.conf": str(self.wcp_original),
+            "1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29": hashlib.sha256(
+                self.manager.read_bytes()
+            ).hexdigest(),
             "/config/common/log/settings.txt": str(self.root / "physical-log-settings"),
             "/jci/lib/libjcicommon.so": str(self.root / "common-library"),
             "/tmp/common": str(self.root / "common"),
@@ -94,7 +127,7 @@ startup_publish() {
 """
         )
         (self.source / "service.sh").write_text(
-            "printf '%s\\n' " + shlex.quote(str(self.runtime)) + "\n"
+            "service_stage() { runtime=" + shlex.quote(str(self.runtime)) + "; }\n"
         )
         script = (ASSETS / "boot.sh").read_text()
         for old, new in {
@@ -102,7 +135,10 @@ startup_publish() {
             "/tmp/open-connect": str(self.runtime),
             "/usr/bin/autostart": str(self.root / "data-target"),
             "/proc/sys/kernel/random/boot_id": str(self.root / "boot-id"),
+            "/proc/uptime": str(self.root / "uptime"),
             "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
+            'test "$(id -u)" = 0': 'test "$(id -u)" = ' + str(os.getuid()),
+            "700:0:0": f"700:{os.getuid()}:{os.getgid()}",
         }.items():
             script = script.replace(old, new)
         (self.source / "boot.sh").write_text(script)
@@ -141,6 +177,17 @@ R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "755:$(id -u):$
 R_PHASE=active; R_BEFORE=-; R_AFTER=-; R_UNDO=-; R_BUDGET=3; R_OFF=-; R_BOOT=-; R_NOTICE=installed
 record_write
 """)
+        self.populated_dependencies()
+
+    def composed_manifest(self, package=None):
+        folder = self.data / "composed" / (package or self.package_id)
+        (folder / "files.sha256").write_text(
+            "".join(
+                hashlib.sha256(f.read_bytes()).hexdigest() + "  " + f.name + "\n"
+                for f in sorted(folder.iterdir())
+                if f.name != "files.sha256"
+            )
+        )
 
     def shell(self, script):
         return subprocess.run(
@@ -175,6 +222,274 @@ record_write
             timeout=10,
         )
 
+    def populated_dependencies(self, change=""):
+        self.composed_manifest()
+        self.shell(
+            '. "$P/firmware.sh"; record_read; snapshot_read "$R_CURRENT"; '
+            'deps=$(mktemp "$D/.deps-XXXXXX"); dependencies_capture "$R_BACKEND" > "$deps"; '
+            + change
+            + 'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" "$S_TOUCH" "$S_WARNING" '
+            '"$S_NVRAM" "$S_META" "$deps" - "$S_PANDORA" "$S_BASE" "$S_WIRELESS"); '
+            'rm "$deps"; record_write'
+        )
+
+    def hook(self):
+        hook = (ASSETS / "startup-hook.sh").read_text()
+        for old, new in {
+            "/tmp/mnt/data_persist/open-connect": str(self.data),
+            "/tmp/open-connect": str(self.runtime),
+            "/proc/uptime": str(self.root / "uptime"),
+            'test "$(id -u)" = 0': 'test "$(id -u)" = ' + str(os.getuid()),
+            "700:0:0": f"700:{os.getuid()}:{os.getgid()}",
+        }.items():
+            hook = hook.replace(old, new)
+        timeout = shutil.which("gtimeout") or shutil.which("timeout")
+        self.assertIsNotNone(timeout)
+        shim = self.tools / "timeout"
+        shim.write_text(
+            '#!/bin/sh\nif test "$1" = -t; then shift; fi\nexec ' + shlex.quote(timeout) + ' "$@"\n'
+        )
+        shim.chmod(0o700)
+        return subprocess.run(
+            [
+                "sh",
+                "-c",
+                "SMCFG_NORMALMODE=stock; " + hook + '\nprintf "CONFIG|%s\\n" "$SMCFG_NORMALMODE"',
+            ],
+            env=self.env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_embedded_hook_selects_only_after_complete_source_verification(self):
+        self.populated_dependencies()
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        result = self.hook()
+        self.assertIn(
+            "CONFIG|" + str(self.runtime / "feature/sm.conf"), result.stdout, result.stderr
+        )
+        self.assertTrue((self.runtime / "selected").exists())
+        self.assertIn("package_verified|", (self.runtime / "startup-times").read_text())
+
+    def test_embedded_hook_refuses_corrupt_or_unlisted_package_before_execution(self):
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        original = (self.package / "boot.sh").read_bytes()
+        (self.package / "boot.sh").write_bytes(original + b"\nfalse\n")
+        result = self.hook()
+        self.assertIn("CONFIG|stock", result.stdout)
+        self.assertFalse((self.runtime / "selected").exists())
+        (self.package / "boot.sh").write_bytes(original)
+        (self.package / "undeclared").write_text("unlisted\n")
+        result = self.hook()
+        self.assertIn("CONFIG|stock", result.stdout)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertEqual(self.record()[9], "3")
+
+    def test_standalone_entry_checks_service_bytes_before_loading_them(self):
+        marker = self.root / "unverified-service-ran"
+        with (self.package / "service.sh").open("a") as f:
+            f.write("\ntouch " + shlex.quote(str(marker)) + "\n")
+        result = self.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("damaged_package", result.stderr)
+        self.assertFalse(marker.exists())
+        self.assertEqual(self.record()[9], "3")
+
+    def test_populated_fast_path_keeps_budget_and_original_dependency_guards(self):
+        self.populated_dependencies()
+        result = self.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.record()[9], "2")
+        phases = (self.runtime / "startup-times").read_text()
+        self.assertLess(phases.index("targets_dependencies|"), phases.index("session_ready|"))
+        self.wcp_original.write_bytes(b"foreign WCP profile\n")
+        result = self.boot(2)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertEqual(self.record()[9], "2")
+
+    def test_active_matching_snapshot_cannot_omit_all_dependencies(self):
+        self.shell(
+            'record_read; snapshot_read "$R_CURRENT"; '
+            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable '
+            '"$S_META" /dev/null - 1 0 0); record_write'
+        )
+        result = self.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertEqual(self.record()[9], "3")
+
+    def test_fast_path_keeps_compiled_native_pin_when_snapshot_matches_foreign_bytes(self):
+        self.manager.write_bytes(b"foreign manager adopted by snapshot\n")
+        self.populated_dependencies()
+        result = self.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertEqual(self.record()[9], "3")
+
+    def test_fast_path_refuses_missing_and_duplicate_package_dependencies(self):
+        for change in (
+            'sed \'/package-.*\\/boot.sh$/d\' "$deps" > "$deps.next"; mv "$deps.next" "$deps"; ',
+            'grep \'package-.*\\/boot.sh$\' "$deps" >> "$deps.copy"; cat "$deps.copy" >> "$deps"; ',
+            'sed \'/composed-.*\\/uia.so$/d\' "$deps" > "$deps.next"; mv "$deps.next" "$deps"; ',
+            'sed \'/root\\/sm.conf$/d\' "$deps" > "$deps.next"; mv "$deps.next" "$deps"; ',
+        ):
+            self.populated_dependencies(change)
+            result = self.boot(1)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse((self.runtime / "selected").exists())
+            self.assertEqual(self.record()[9], "3")
+
+    def test_standalone_refuses_each_corrupt_library_without_sourcing_it(self):
+        marker = self.root / "unverified-library"
+        for name in ("state.sh", "firmware.sh", "access.sh", "transaction.sh"):
+            path = self.package / name
+            original = path.read_bytes()
+            path.write_bytes(original + ("\ntouch " + shlex.quote(str(marker)) + "\n").encode())
+            result = self.boot(1)
+            self.assertNotEqual(result.returncode, 0, name)
+            self.assertFalse(marker.exists(), name)
+            self.assertEqual(self.record()[9], "3")
+            path.write_bytes(original)
+
+    def test_hook_and_standalone_refuse_dangling_or_special_operation_lock(self):
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        lock = self.runtime / "lock"
+        outside = self.root / "must-not-create"
+        for special in (False, True):
+            lock.unlink()
+            if special:
+                os.mkfifo(lock)
+            else:
+                lock.symlink_to(outside)
+            result = self.hook()
+            self.assertIn("CONFIG|stock", result.stdout)
+            self.assertNotEqual(self.boot(1).returncode, 0)
+            self.assertFalse(outside.exists())
+            self.assertEqual(self.record()[9], "3")
+
+    def test_diagnostic_special_path_cannot_block_or_fail_selection(self):
+        receipt = self.runtime / "startup-times"
+        os.mkfifo(receipt)
+        result = self.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.runtime / "selected").exists())
+        self.assertTrue(receipt.is_fifo())
+
+    def test_parent_only_term_during_base_preparation_cannot_publish_after_stock(self):
+        self.select_base(1)
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        marker = self.root / "base-preparing"
+        chmod = self.tools / "chmod"
+        chmod.write_text(
+            '#!/bin/sh\ncase "$*" in *".open-connect-log-"*) '
+            + "printf ready > "
+            + shlex.quote(str(marker))
+            + "; sleep 0.4;; esac\n"
+            + shutil.which("chmod")
+            + ' "$@"\n'
+        )
+        chmod.chmod(0o700)
+        process = subprocess.Popen(
+            ["sh", self.package / "boot.sh"],
+            env=self.env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        deadline = time.monotonic() + 5
+        while not marker.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(marker.exists())
+        process.send_signal(signal.SIGTERM)
+        out, err = process.communicate(timeout=5)
+        self.assertNotEqual(process.returncode, 0, (out, err))
+        time.sleep(0.5)
+        self.assertFalse((self.runtime / "selected").exists())
+        self.assertFalse((self.root / "common/log/settings.txt").exists())
+
+    def test_selected_directory_or_symlink_cannot_report_success_or_retain_base(self):
+        for number, symlink in enumerate((False, True), 1):
+            self.select_base(1)
+            (self.root / "boot-id").write_text("00000000-0000-0000-0000-" + f"{number:012x}\n")
+            shutil.rmtree(self.runtime / "feature", ignore_errors=True)
+            shutil.rmtree(self.root / "common", ignore_errors=True)
+            selected = self.runtime / "selected"
+            if selected.exists():
+                shutil.rmtree(selected)
+            foreign = self.root / ("foreign-" + str(number))
+            foreign.mkdir()
+            if symlink:
+                selected.symlink_to(foreign, target_is_directory=True)
+            else:
+                selected.mkdir()
+            result = subprocess.run(
+                ["sh", self.package / "boot.sh"],
+                env=self.env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertNotEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(selected.is_dir())
+            self.assertEqual(list(selected.iterdir()), [])
+            self.assertFalse((self.root / "common/log/settings.txt").exists())
+
+    def test_new_hook_dispatches_verified_standalone_backend_for_pending_rollback(self):
+        try:
+            old_boot = subprocess.check_output(
+                ["git", "show", "764d76e0:cmu/installer/boot.sh"],
+                cwd=ROOT,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError:
+            self.skipTest("pinned dev.8 Git history required for rollback fixture")
+        folder = self.root / "legacy"
+        shutil.copytree(self.package, folder)
+        for old, new in {
+            "/tmp/mnt/data_persist/open-connect": str(self.data),
+            "/tmp/open-connect": str(self.runtime),
+            "/usr/bin/autostart": str(self.root / "data-target"),
+            "/proc/sys/kernel/random/boot_id": str(self.root / "boot-id"),
+            "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
+        }.items():
+            old_boot = old_boot.replace(old, new)
+        (folder / "boot.sh").write_text(old_boot)
+        (folder / "service.sh").write_text(
+            "printf '%s\\n' " + shlex.quote(str(self.runtime)) + "\n"
+        )
+        manifest = "".join(
+            hashlib.sha256(f.read_bytes()).hexdigest() + "  " + f.name + "\n"
+            for f in sorted(folder.iterdir())
+            if f.name != "files.sha256"
+        )
+        (folder / "files.sha256").write_text(manifest)
+        legacy_id = hashlib.sha256(manifest.encode()).hexdigest()
+        folder.rename(self.data / "packages" / legacy_id)
+        composed = self.data / "composed" / legacy_id
+        shutil.copytree(self.data / "composed" / self.package_id, composed)
+        (composed / "autostart").write_text("legacy restored\n")
+        self.composed_manifest(legacy_id)
+        self.shell(
+            '. "$P/firmware.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
+            "record_read; before=$R_CURRENT; "
+            'after=$(snapshot_create "$D/composed/'
+            + legacy_id
+            + '/autostart" '
+            + legacy_id
+            + ' 1 1 disable "755:$(id -u):$(id -g)" /dev/null - 1 0 0); '
+            "R_BACKEND=" + legacy_id + '; transaction_prepare install "$before" "$after"'
+        )
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        result = self.hook()
+        self.assertIn(
+            "CONFIG|" + str(self.runtime / "feature/sm.conf"), result.stdout, result.stderr
+        )
+        self.assertEqual(self.record()[1], "active")
+        self.assertEqual(self.record()[3], legacy_id)
+        self.assertEqual((self.root / "data-target").read_text(), "legacy restored\n")
+
     def record(self):
         return (self.data / "record").read_text().strip().split("|")
 
@@ -185,7 +500,7 @@ record_write
                     'record_read; snapshot_read "$R_CURRENT"; '
                     'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 '
                     + str(warning)
-                    + ' disable "$S_META"); record_write'
+                    + ' disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT"); record_write'
                 )
                 result = self.boot(number)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -240,12 +555,13 @@ record_write
                 path.write_text("\n".join(lines) + "\n")
         self.shell(
             'record_read; snapshot_read "$R_CURRENT"; '
-            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" /dev/null - 1 '
+            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - 1 '
             + str(base)
             + " "
             + str(value)
             + "); record_write"
         )
+        self.populated_dependencies()
 
     def test_wireless_boot_composes_both_profiles_and_preserves_native_services(self):
         self.select_wireless(1)
@@ -298,7 +614,7 @@ record_write
     def select_base(self, value):
         self.shell(
             'record_read; snapshot_read "$R_CURRENT"; '
-            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" /dev/null - 1 '
+            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - 1 '
             + str(value)
             + "); record_write"
         )
@@ -338,10 +654,11 @@ record_write
         original = '<service name="peer" autorun="yes" />\n<service name="blm_ira_pandora" autorun="yes" />\n'
         for profile in ("normal", "wcp"):
             (composed / f"sm-{profile}-on.conf").write_text(original)
+        self.populated_dependencies()
         for enabled, number in ((0, 1), (1, 2), (0, 3)):
             self.shell(
                 'record_read; snapshot_read "$R_CURRENT"; '
-                'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" /dev/null - '
+                'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" 1 1 disable "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - '
                 + str(enabled)
                 + "); record_write"
             )
@@ -395,6 +712,7 @@ record_write
         self.assertEqual(self.record()[9], "1")
         self.shell("record_read; R_OFF=$R_BOOT; record_write")
         (self.root / "acc").write_text("1\n")
+        (self.root / "uptime").write_text("1.00 0.00\n")
         self.assertEqual(self.boot(3).returncode, 0)
         self.assertEqual(self.record()[9], "2")
 
@@ -406,6 +724,7 @@ record_write
             "/tmp/mnt/data_persist/open-connect": str(self.data),
             "/tmp/open-connect": str(self.runtime),
             "/proc/sys/kernel/random/boot_id": str(self.root / "boot-id"),
+            "/proc/uptime": str(self.root / "uptime"),
             "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
         }.items():
             script = script.replace(old, new)

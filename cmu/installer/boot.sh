@@ -1,41 +1,84 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# A successful exit selects one complete RAM configuration. Nothing modifies
-# these files during this boot, including update, uninstall or preference writes.
-set -eu
-umask 077
-P=$(dirname "$(readlink -f "$0")")
-D=/tmp/mnt/data_persist/open-connect
-AUTOSTART=/usr/bin/autostart
-. "$P/state.sh"
-. "$P/firmware.sh"
-. "$P/access.sh"
-. "$P/transaction.sh"
-firmware_guard
-native_guard
-private_dir "$D" && record_read || fail invalid_state
-test "$(sha "$P/files.sha256")" = "$R_BACKEND" && verify_manifest "$P" || fail damaged_package
-runtime=$(sh "$P/service.sh") || fail service_failed
-exec 9<>/tmp/open-connect/lock
-flock -n -x 9 || fail busy
-record_read || fail invalid_record
-if test "$R_PHASE" != purge; then transaction_reconcile; fi
-case "$R_PHASE" in
-    removed|purge)
-        # Recovery restored startup. Finish from the already-verified RAM copy
-        # before allowing Mazda's original configuration to start.
-        P=$runtime
-        uninstall_cleanup
-        exit 1;;
-esac
-test "$R_PHASE" = active || exit 1
-targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
-snapshot_read "$R_CURRENT" || fail invalid_snapshot
-package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; mode=$S_META; pandora=$S_PANDORA; base=$S_BASE; wireless=$S_WIRELESS
-# The current snapshot pins every package/composed file, including manifests;
-# dependencies_match above has just checked those exact bytes.
-hex "$package" 64 && private_dir "$D/packages/$package" && private_dir "$D/composed/$package" || fail damaged_feature
-test "$(sha "$D/packages/$package/files.sha256")" = "$package" || fail damaged_feature
+# The embedded hook verifies the whole package before sourcing this selector.
+# Standalone execution retains full verification for older installed hooks.
+
+# Open Connect locked selector interface 1
+startup_stamp() {
+    local tick idle
+    test "${oc_stamp_count:-0}" -lt 12 || return 0
+    if read -r tick idle < /proc/uptime; then
+        oc_times="${oc_times-}$1|$tick
+"
+        oc_stamp_count=$((${oc_stamp_count:-0}+1))
+    fi
+    return 0
+}
+
+startup_stamps_publish() {
+    # First bounded receipt only. Never open a pre-existing diagnostic path.
+    local receipt
+    if test -e /tmp/open-connect/startup-times || test -L /tmp/open-connect/startup-times; then return 0; fi
+    receipt=$(mktemp /tmp/open-connect/.startup-times-XXXXXX) || return 0
+    printf '%s' "${oc_times-}" > "$receipt" || :
+    "$runtime/flush" l "$receipt" /tmp/open-connect/startup-times 2>/dev/null || :
+    rm -f "$receipt" || :
+    return 0
+}
+
+boot_load() {
+    . "$P/state.sh"
+    . "$P/firmware.sh"
+    . "$P/access.sh"
+    . "$P/transaction.sh"
+}
+
+boot_select() {
+    D=/tmp/mnt/data_persist/open-connect
+    R=/tmp/open-connect
+    AUTOSTART=/usr/bin/autostart
+    boot_load
+    firmware_guard
+    private_dir "$D" && record_read || fail invalid_state
+    test "$P" = "$D/packages/$R_BACKEND" || fail damaged_package
+    if test "$R_PHASE" = active; then
+        test "$R_BOOT" != "$(cat /proc/sys/kernel/random/boot_id)" || fail already_selected
+    fi
+    fast=false
+    if test "$R_PHASE" = active; then
+        snapshot_read "$R_BASE" || fail originals_changed
+        base_nvram=$S_NVRAM
+        base_login_ok=true
+        access_login_check_loaded || base_login_ok=false
+        snapshot_read "$R_CURRENT" || fail invalid_snapshot
+        if test "$S_PACKAGE" = "$R_BACKEND"; then
+            targets_match_loaded "$R_CURRENT" || fail state_changed
+            if test "$S_ACCESS" = true; then test "$base_login_ok" = true || fail state_changed; fi
+            boot_dependencies_match "$R_CURRENT" || fail state_changed
+            fast=true
+            startup_stamp targets_dependencies
+        fi
+    fi
+    if test "$fast" = false; then native_guard; fi
+    . "$P/service.sh"
+    service_stage boot "$R_BACKEND"
+    startup_stamp session_ready
+    if test "$fast" = false; then
+        if test "$R_PHASE" != purge; then transaction_reconcile; fi
+        case "$R_PHASE" in
+          removed|purge) P=$runtime; uninstall_cleanup; return 1;;
+        esac
+        test "$R_PHASE" = active || return 1
+        targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
+        snapshot_read "$R_BASE" || fail originals_changed
+        base_nvram=$S_NVRAM
+        snapshot_read "$R_CURRENT" || fail invalid_snapshot
+        hex "$S_PACKAGE" 64 && private_dir "$D/packages/$S_PACKAGE" && private_dir "$D/composed/$S_PACKAGE" || fail damaged_feature
+        test "$(sha "$D/packages/$S_PACKAGE/files.sha256")" = "$S_PACKAGE" || fail damaged_feature
+        startup_stamp targets_dependencies
+    fi
+    package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; mode=$S_META
+    pandora=$S_PANDORA; base=$S_BASE; wireless=$S_WIRELESS
 boot=$(cat /proc/sys/kernel/random/boot_id)
 boot_id "$boot" || fail invalid_boot
 test "$R_BOOT" != "$boot" || fail already_selected
@@ -47,11 +90,10 @@ fi
 R_OFF=-; R_BOOT=$boot
 if test "$R_BUDGET" -gt 0; then R_BUDGET=$((R_BUDGET-1)); selected=true; else selected=false; fi
 record_write
+startup_stamp budget_committed
 if test "$S_ACCESS" = true; then printf '%s\n' "$R_CURRENT" > /tmp/open-connect/access-selected; fi
-snapshot_read "$R_BASE" || fail originals_changed
-nvram=$S_NVRAM
+nvram=$base_nvram
 if test "$selected:$touch" = true:1; then nvram=disable; fi
-snapshot_read "$R_CURRENT" || fail invalid_snapshot
 if test "$S_NVRAM" != "$nvram"; then
     after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$touch" "$warning" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" "$pandora" "$base" "$wireless") || fail startup_plan_failed
     transaction_prepare apply "$R_CURRENT" "$after"
@@ -62,7 +104,9 @@ fi
 test "$selected" = true || exit 1
 absent /tmp/open-connect/feature || fail feature_already_present
 work=$(mktemp -d /tmp/open-connect/.feature-XXXXXX)
-for name in uia.so mmui.so mmui.xml system-app.js; do cp "$D/composed/$package/$name" "$work/$name"; done
+cp "$D/composed/$package/uia.so" "$D/composed/$package/mmui.so" \
+    "$D/composed/$package/mmui.xml" "$D/composed/$package/system-app.js" "$work/"
+startup_stamp feature_copied
 if test "$warning" = 1; then setting=on; else setting=off; fi
 service_config "$D/composed/$package/sm-normal-$setting.conf" "$work/sm.conf" "$pandora" "$wireless" || fail service_config_failed
 service_config "$D/composed/$package/sm-wcp-$setting.conf" "$work/sm_WCP.conf" "$pandora" "$wireless" || fail service_config_failed
@@ -75,11 +119,98 @@ fi
 token=$(cat "$runtime/token"); hex "$token" 32 || fail invalid_token
 sed "s/@TOKEN@/$token/" "$D/composed/$package/index-$setting.html" > "$work/index.html"
 mv "$work" /tmp/open-connect/feature
-printf '%s\n' "$R_CURRENT" > /tmp/open-connect/selected
-# Publish the optional external RAM resource last. A failed atomic link cannot
-# overwrite another provider, and must not leave our selected marker claiming it.
-if ! native_log_config "$base"; then
-    rm /tmp/open-connect/selected
+# Preparation can be cancelled. Keep it in this shell, not a detached mutation.
+boot_cancelled=false; LOG_STAGE=
+trap 'boot_cancelled=true' HUP INT TERM
+if ! native_log_prepare "$base"; then
+    native_log_discard || :
     fail logging_config_failed
 fi
-exit 0
+if test "$boot_cancelled" = true; then
+    native_log_discard || :
+    fail selection_cancelled
+fi
+marker=$(mktemp /tmp/open-connect/.selected-XXXXXX) || fail selection_marker_failed
+printf '%s\n' "$R_CURRENT" > "$marker" || fail selection_marker_failed
+# Only RAM link/publication syscalls remain. Finish this short commit despite
+# TERM, or return stock after removing our exact logging inode. Never hash or
+# launch an unbounded worker in this signal-protected section.
+trap '' HUP INT TERM
+if test "$boot_cancelled" = true; then
+    rm -f "$marker" || :
+    native_log_discard || :
+    fail selection_cancelled
+fi
+if ! native_log_commit "$runtime/flush" || ! "$runtime/flush" l "$marker" /tmp/open-connect/selected; then
+    rm -f "$marker" || :
+    native_log_discard || :
+    fail selection_commit_failed
+fi
+rm -f "$marker" || :
+if test -n "$LOG_STAGE"; then rm -f "$LOG_STAGE" || :; LOG_STAGE=; fi
+startup_stamp selector_exit
+return 0
+}
+
+boot_main() {
+    # This bootstrap cannot call package libraries: older installed hooks exec
+    # this entry. Keep verification independent until the lock and hashes pass.
+    entry=$(dirname "$(readlink -f "$0")")
+set -eu
+umask 077
+read -r entered idle < /proc/uptime || entered=unknown
+test "$(id -u)" = 0
+D=/tmp/mnt/data_persist/open-connect
+R=/tmp/open-connect
+test "$(readlink -f "$D")" = "$D"
+test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0
+if test ! -e "$R" && test ! -L "$R"; then mkdir -m 700 "$R"; fi
+test "$(readlink -f "$R")" = "$R"
+test "$(stat -c '%a:%u:%g' "$R")" = 700:0:0
+if test ! -e "$R/lock" && test ! -L "$R/lock"; then (set -C; : > "$R/lock"); fi
+test -f "$R/lock" && test ! -L "$R/lock" || exit 1
+exec 9<>"$R/lock"
+flock -n -x 9
+test -f "$D/record" && test ! -L "$D/record" || exit 1
+test "$(wc -l < "$D/record")" -eq 1
+IFS="|" read -r format phase rev package rest < "$D/record"
+test "$format" = OC1 && test "${#package}" -eq 64 || exit 1
+case "$package" in *[!a-f0-9]*) exit 1;; esac
+P=$D/packages/$package
+test "$P" = "$entry" || exit 1
+test "$(readlink -f "$P")" = "$P"
+test -f "$P/files.sha256" && test ! -L "$P/files.sha256" || exit 1
+digest=$(openssl dgst -sha256 < "$P/files.sha256")
+test "${digest##* }" = "$package"
+expected=; seen='|'; mandatory=0; count=0
+set --
+while read -r digest name extra; do
+    test "${#digest}" = 64 && test -n "$name" && test -z "$extra" || exit 1
+    case "$digest" in *[!a-f0-9]*) exit 1;; esac
+    case "$name" in .|..|*[!a-zA-Z0-9.-]*) exit 1;; esac
+    case "$seen" in *"|$name|"*) exit 1;; esac
+    seen="$seen$name|"
+    case "$name" in boot.sh|state.sh|firmware.sh|access.sh|transaction.sh|service.sh) mandatory=$((mandatory+1));; esac
+    test -f "$P/$name" && test ! -L "$P/$name" || exit 1
+    set -- "$@" "$P/$name"
+    expected="$expected$digest *$P/$name
+"
+    count=$((count+1)); test "$count" -le 64
+done < "$P/files.sha256"
+test "$mandatory" = 6
+actual_count=0
+for item in "$P"/* "$P"/.[!.]* "$P"/..?*; do
+    if test ! -e "$item" && test ! -L "$item"; then continue; fi
+    test -f "$item" && test ! -L "$item" || exit 1
+    actual_count=$((actual_count+1))
+done
+test "$actual_count" -eq "$((count+1))"
+actual=$(openssl dgst -sha256 -r "$@")
+test "$actual" = "${expected%?}" || { printf 'damaged_package\n' >&2; exit 1; }
+    oc_times=; oc_stamp_count=0
+    startup_stamp standalone_verified
+    boot_select
+    startup_stamps_publish
+}
+
+case "${0##*/}" in boot.sh) boot_main;; esac

@@ -58,6 +58,15 @@ unqualified. Next expand Services and optimization research beyond Miatafy's
 documented changes before deep long-parked lag work.
 The owner requested this broader research; candidate selection and
 defaults still require dependency, benefit and restoration evidence.
+Immediate priority: complete the single Android Auto leaf pilot, then recover
+Open Connect's own pre-Service-Manager overhead toward the owner's bar of no
+measurable delay against stock. Retain synchronous verified staging and recovery;
+use phase timings and matched visible milestones to guide any remaining work.
+The first comparison keeps the current wireless fixture; stock parity requires
+matched conditions. Further Services expansion and the voice-start deferral
+pilot follow this work. Active optional services remain individual choices;
+qualified discontinued/non-NA changes may enter Base optimizations.
+
 The deferred phase-1 manual and first-car checks remain separate.
 
 | Phase | Outcome | Done when | Work |

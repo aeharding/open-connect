@@ -1,6 +1,6 @@
 # Open Connect — living steering agreement
 
-Last updated: 2026-11-21. User direction and implementation choices are
+Last updated: 2026-11-22. User direction and implementation choices are
 identified separately.
 
 Read this first when starting or resuming work. It records product intent and how
@@ -118,14 +118,20 @@ independent recovery. The exact firmware mechanism and delivery slot remain
 unqualified; this does not expand the initial two-feature release. See
 [#87](https://github.com/aeharding/open-connect/issues/87).
 
-The owner's startup bar is **no measurable added delay compared with stock
-(approximately zero seconds)**. Recover Open Connect's own pre-Service-Manager
-startup overhead before expanding Services further. Finish the current single
-Android Auto leaf pilot, then measure and remove redundant work in startup
-verification and RAM staging while preserving integrity, locking, bounded
-recovery and factory fallback. Measure phase costs and visible startup results;
-a partial reduction does not establish stock parity. First keep the current
-wireless fixture fixed; a stock-parity claim still needs matched conditions.
+**Hard owner rule: Open Connect must not add overhead that slows boot or general
+use. It must not increase RAM usage without the owner's explicit approval.**
+This applies with Base optimizations off or on and to every optimization
+configuration; meeting the bar in one preset does not qualify another. The
+startup target is no measurable added delay compared with stock (approximately
+zero seconds). No RAM increase has been approved by this rule.
+
+Recover Open Connect's own startup and runtime overhead before expanding
+Services further. Measure and remove redundant verification, staging and
+background work while preserving integrity, locking, bounded recovery and
+factory restoration. Compare timing, CPU and named RAM metrics under matched
+conditions. Quantify any remaining RAM cost for an explicit owner decision;
+do not infer approval from a performance improvement or from implementation
+necessity. A partial reduction does not establish stock parity.
 
 Discontinued or non-NA services such as DAB, TV, Stitcher and Aha may join Base
 optimizations if their measured benefit and dependencies qualify. Active optional

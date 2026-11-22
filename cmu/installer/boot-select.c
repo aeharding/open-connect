@@ -2,9 +2,21 @@
  * Native settled-boot selector and maintenance-time plan sealer.
  * No shell or target libc is part of the native file-verification path.
  */
-#include "boot-plan.h"
+#include "boot-policy.h"
 
 static int run(int argc, char **argv) {
+#ifdef OC_HOST
+    if (argc==3 && oc_equal(argv[1],"select")) {
+        long root=oc_openat(OC_CWD,argv[2],OC_DIRECTORY,0);
+#else
+    if (argc==2 && oc_equal(argv[1],"select")) {
+        long root=oc_openat(OC_CWD,"/",OC_DIRECTORY,0);
+#endif
+        if (root<0) return OC_REFUSE;
+        int result=oc_selection((int)root);
+        (void)oc_close((int)root);
+        return result;
+    }
     if (argc!=4 || argv[2][0]!='/') return 64;
     int sealing=oc_equal(argv[1],"seal");
     if (!sealing && !oc_equal(argv[1],"check")) return 64;

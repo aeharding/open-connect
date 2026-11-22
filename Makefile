@@ -39,7 +39,7 @@ $(OUT)/api: cmu/installer/api.c | $(OUT)
 $(OUT)/flush: cmu/startup/flush.c | $(OUT)
 	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
 
-$(OUT)/boot-select: cmu/installer/boot-select.c cmu/installer/boot-plan.h cmu/installer/boot-io.h cmu/installer/boot-hash.h | $(OUT)
+$(OUT)/boot-select: cmu/installer/boot-select.c cmu/installer/boot-policy.h cmu/installer/boot-system.h cmu/installer/boot-plan.h cmu/installer/boot-io.h cmu/installer/boot-hash.h | $(OUT)
 	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
 
 $(OUT)/mmui.o: cmu/installer/mmui.S | $(OUT)

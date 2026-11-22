@@ -259,6 +259,9 @@ boot_plan_inputs() {
     done < "$D/snapshots/$R_BASE/files.sha256"
     printf 'baseline/files.sha256|%s/snapshots/%s/files.sha256|%s\n' "$D" "$R_BASE" "$R_BASE"
     printf 'target/autostart|%s|%s\n' "$AUTOSTART" "$(sha "$work/autostart")"
+    if test "${S_SELECTOR_HASH:--}" != -; then
+        printf 'target/boot-select|/usr/bin/open-connect-boot-select|%s\n' "$S_SELECTOR_HASH"
+    fi
     for target in /jci/version.ini; do
         printf 'guard/%s|%s|%s\n' "${target##*/}" "$target" "$(sha "$target")"
     done
@@ -316,6 +319,7 @@ boot_snapshot_seal() (
     work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail boot_snapshot_create_failed
     set -- autostart config dependencies
     if test "$S_ACCESS" = true; then set -- "$@" access runlogin sshd.conf; fi
+    if test "${S_SELECTOR_RECORDED:-false}" = true; then set -- "$@" selector; fi
     for name in "$@"; do cp "$D/snapshots/$snapshot/$name" "$work/$name" || fail boot_snapshot_copy_failed; done
     boot_render_profiles "$work" || fail boot_profiles_failed
     set -- "$@" sm-normal.conf sm-wcp.conf index.html
@@ -345,13 +349,72 @@ remount() {
         test "$(root_mode)" = "$1,noatime"
 }
 startup_publish() { root_publish "$AUTOSTART" "$@"; }
+
+selector_matches_loaded() {
+    local target=/usr/bin/open-connect-boot-select
+    if test "${S_SELECTOR_HASH:--}" = -; then absent "$target"
+    else
+        file "$target" && test "$(sha "$target")" = "$S_SELECTOR_HASH" &&
+            test "$(stat -c '%a:%u:%g' "$target")" = "$S_SELECTOR_META"
+    fi
+}
+
+selector_capture() {
+    selector_matches_loaded || return 1
+    if test "${S_SELECTOR_HASH:--}" = -; then printf '%s\n' -
+    else printf '%s|%s|%s\n' "$S_SELECTOR_HASH" "$S_SELECTOR_META" "$S_SELECTOR_PACKAGE"; fi > "$1/selector"
+}
+
+selector_compose() {
+    local folder=$D/packages/$2 expected
+    hex "$2" 64 && private_dir "$folder" &&
+        test "$(sha "$folder/files.sha256")" = "$2" && file "$folder/boot-select" || return 1
+    expected=$(awk '$2=="boot-select"{n++;print $1}END{exit n!=1}' "$folder/files.sha256") || return 1
+    hex "$expected" 64 && test "$(sha "$folder/boot-select")" = "$expected" || return 1
+    printf '%s|700:%s:%s|%s\n' "$expected" "$(id -u)" "$(id -g)" "$2" > "$1/selector"
+}
+
+selector_keep() {
+    if ! absent "$1/selector"; then
+        file "$1/selector" && cp "$1/selector" "$2/selector"
+    fi
+}
+
+selector_pair_check() (
+    local before_hash before_mode after_hash after_mode actual=- actual_mode=-
+    snapshot_read "$1" || return 1
+    before_hash=$S_SELECTOR_HASH; before_mode=$S_SELECTOR_META
+    snapshot_read "$2" || return 1
+    after_hash=$S_SELECTOR_HASH; after_mode=$S_SELECTOR_META
+    if ! absent /usr/bin/open-connect-boot-select; then
+        file /usr/bin/open-connect-boot-select || return 1
+        actual=$(sha /usr/bin/open-connect-boot-select) &&
+            actual_mode=$(stat -c '%a:%u:%g' /usr/bin/open-connect-boot-select) || return 1
+    fi
+    case "$actual:$actual_mode" in "$before_hash:$before_mode"|"$after_hash:$after_mode") ;; *) return 1;; esac
+)
+
+selector_apply() (
+    local source=- actual=- actual_mode=-
+    selector_pair_check "$1" "$2" && snapshot_read "$2" || return 1
+    if test "$S_SELECTOR_HASH" != -; then
+        source=$D/packages/$S_SELECTOR_PACKAGE/boot-select
+        file "$source" && test "$(sha "$source")" = "$S_SELECTOR_HASH" || return 1
+    fi
+    if ! absent /usr/bin/open-connect-boot-select; then
+        actual=$(sha /usr/bin/open-connect-boot-select) &&
+            actual_mode=$(stat -c '%a:%u:%g' /usr/bin/open-connect-boot-select) || return 1
+    fi
+    root_publish /usr/bin/open-connect-boot-select "$source" "$S_SELECTOR_META" "$actual" "$actual_mode"
+)
+
 root_publish() (
     set -eu
     # BusyBox ash unwinds function locals before this subshell's EXIT trap.
     # Keep trap inputs in the subshell scope so cleanup can still read them.
     target=$1; source=$2; mode=$3; expected=$4; expected_mode=$5; identity=
     held=${6:-}; hold_mode=${7:-}
-    case "$target" in /usr/bin/autostart|/usr/bin/runlogin|/etc/ssh/sshd_config) ;; *) fail invalid_target;; esac
+    case "$target" in /usr/bin/autostart|/usr/bin/runlogin|/etc/ssh/sshd_config|/usr/bin/open-connect-boot-select) ;; *) fail invalid_target;; esac
     case "$hold_mode" in
         '') test -z "$held" || fail invalid_hold;;
         keep|restore)
@@ -361,7 +424,14 @@ root_publish() (
         *) fail invalid_hold;;
     esac
     parent=${target%/*}
-    hex "$R_REV" 32 && file "$source" || fail invalid_startup_plan
+    directory "$parent" || fail invalid_startup_parent
+    hex "$R_REV" 32 || fail invalid_startup_plan
+    if test "$source" = -; then
+        test "$target:$mode:$hold_mode" = /usr/bin/open-connect-boot-select:-: || fail invalid_startup_plan
+    else file "$source" || fail invalid_startup_plan; fi
+    if test "$expected" = -; then
+        test "$target:$expected_mode" = /usr/bin/open-connect-boot-select:- || fail invalid_startup_plan
+    else hex "$expected" 64 && metadata "$expected_mode" || fail invalid_startup_plan; fi
     # The durable pending revision names this exact staging file across retries.
     if test "$target" = "$AUTOSTART"; then work=/usr/bin/.open-connect-$R_REV
     else work=$parent/.open-connect-$R_REV-${target##*/}; fi
@@ -373,6 +443,13 @@ root_publish() (
         test "$size" -le "$(stat -c %s "$source")" || return 1
         prefix=$(head -c "$size" "$source" | openssl dgst -sha256) || return 1
         test "$(sha "$work")" = "${prefix##* }"
+    }
+    target_matches() {
+        if test "$expected" = -; then absent "$target"
+        else
+            file "$target" && test "$(sha "$target")" = "$expected" &&
+                test "$(stat -c '%a:%u:%g' "$target")" = "$expected_mode"
+        fi
     }
     # An already-written target still needs the directory flush and read-only
     # restoration if a preceding process was killed between those steps.
@@ -389,8 +466,15 @@ root_publish() (
     }
     trap finish EXIT
     trap 'exit 1' HUP INT TERM
-    file "$target" && test "$(sha "$target")" = "$expected" &&
-        test "$(stat -c '%a:%u:%g' "$target")" = "$expected_mode" || fail startup_changed
+    target_matches || fail startup_changed
+    if test "$source" = -; then
+        absent "$work" || fail startup_stage_changed
+        if test "$expected" != -; then
+            remount rw && target_matches && rm "$target" || fail selector_remove_failed
+        fi
+        flush d "$parent"
+        exit 0
+    fi
     if ! absent "$work"; then
         stage_matches || fail startup_stage_changed
         if test "$hold_mode" = restore; then
@@ -424,8 +508,7 @@ root_publish() (
         fi
         test "$(sha "$work")" = "$(sha "$source")" || fail startup_copy_changed
         flush f "$work"
-        file "$target" && test "$(sha "$target")" = "$expected" &&
-            test "$(stat -c '%a:%u:%g' "$target")" = "$expected_mode" || fail startup_changed
+        target_matches || fail startup_changed
         mv -f "$work" "$target" || fail startup_rename_failed
     fi
     flush f "$target"

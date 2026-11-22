@@ -127,6 +127,20 @@ snapshot_decode() {
         (metadata "$S_LOGIN_META" && metadata "$S_SSH_META") || return 1
         S_ACCESS=true
     fi
+    S_SELECTOR_RECORDED=false; S_SELECTOR_HASH=-; S_SELECTOR_META=-; S_SELECTOR_PACKAGE=-
+    if ! absent "$D/snapshots/$1/selector"; then
+        file "$D/snapshots/$1/selector" &&
+            test "$(wc -l < "$D/snapshots/$1/selector")" -eq 1 &&
+            awk '$2=="selector"{n++}END{exit n!=1}' "$D/snapshots/$1/files.sha256" || return 1
+        S_SELECTOR_RECORDED=true
+        if test "$(cat "$D/snapshots/$1/selector")" != -; then
+            test "$(awk -F '|' '{print NF}' "$D/snapshots/$1/selector")" = 3 || return 1
+            IFS='|' read -r S_SELECTOR_HASH S_SELECTOR_META S_SELECTOR_PACKAGE extra < "$D/snapshots/$1/selector" || return 1
+            hex "$S_SELECTOR_HASH" 64 && hex "$S_SELECTOR_PACKAGE" 64 &&
+                test "$S_SELECTOR_PACKAGE" = "$S_PACKAGE" &&
+                test "$S_SELECTOR_META" = "700:$(id -u):$(id -g)" || return 1
+        fi
+    fi
 }
 snapshot_finish() (
     # Publish either a plain transaction snapshot or its verified boot plan.
@@ -171,7 +185,7 @@ snapshot_create() (
         { test "${10--}" = - || { bit "${10--}" && test "${9--}" != -; }; } &&
         { test "${11--}" = - || { bit "${11--}" && test "${10--}" != -; }; } &&
         touch_value "$5" && metadata "$6" || fail invalid_snapshot
-    local work name
+    local work name resources=${8:--}
     work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail snapshot_create_failed
     cp "$1" "$work/autostart" || fail snapshot_copy_failed
     if test "$#" -ge 7; then cp "$7" "$work/dependencies"; else : > "$work/dependencies"; fi || fail snapshot_copy_failed
@@ -185,12 +199,17 @@ snapshot_create() (
         printf '%s|%s|%s|%s|%s|%s\n' "$2" "$3" "$4" "$5" "$6" "$9"
     fi > "$work/config" || fail snapshot_config_failed
     chmod 600 "$work/autostart" "$work/config" "$work/dependencies" || fail snapshot_mode_failed
-    set -- autostart config dependencies "${8:--}"
-    if test "$4" != - && ! absent "$4/access"; then
+    set -- autostart config dependencies
+    if test "$resources" != - && ! absent "$resources/access"; then
         for name in access runlogin sshd.conf; do
-            file "$4/$name" && cp "$4/$name" "$work/$name" && chmod 600 "$work/$name" || fail snapshot_copy_failed
+            file "$resources/$name" && cp "$resources/$name" "$work/$name" && chmod 600 "$work/$name" || fail snapshot_copy_failed
         done
         set -- autostart config dependencies access runlogin sshd.conf
-    else set -- autostart config dependencies; fi
+    fi
+    if test "$resources" != - && ! absent "$resources/selector"; then
+        file "$resources/selector" && cp "$resources/selector" "$work/selector" &&
+            chmod 600 "$work/selector" || fail snapshot_copy_failed
+        set -- "$@" selector
+    fi
     snapshot_finish "$work" "$@"
 )

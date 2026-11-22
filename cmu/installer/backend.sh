@@ -165,6 +165,7 @@ install)
         fi
         if test "$S_LOGIN_INODE" = -; then login_inode=$(stat -c %i /usr/bin/runlogin); else login_inode=$S_LOGIN_INODE; fi
         access_capture "$access_work" "$uart" "$owner_ssh" "$key" "$login_inode" || fail access_backup_failed
+        selector_capture "$access_work" || fail selector_backup_failed
         before=$(state_capture "$old_package" "$touch" "$warning" "$access_work" "$before_pandora" "$before_base" "$before_wireless") || fail checkpoint_failed
         snapshot_read "$R_BASE" || fail originals_changed
         if test "$S_ACCESS" = false; then
@@ -175,12 +176,14 @@ install)
         test "$(sha /usr/bin/runlogin)" = b77e4dadaa1173578e58d319dd3d37bb24117cb9b3baf73731c401f5a47360b8 || fail unsupported_console
         absent "/usr/bin/.open-connect-runlogin-$(stat -c %i /usr/bin/runlogin)" || fail console_hold_conflict
         access_capture "$access_work" 0 0 - || fail access_backup_failed
+        selector_capture "$access_work" || fail selector_backup_failed
         before=$(state_capture - 0 0 "$access_work") || fail checkpoint_failed
         R_BASE=$before
     fi
     package=$(package_save) || fail package_failed
     compose "$package" >/dev/null || fail composition_failed
     access_compose "$access_work" "$uart" "$owner_ssh" "$key" || fail access_plan_failed
+    selector_compose "$access_work" "$package" || fail selector_plan_failed
     snapshot_read "$R_BASE" || fail originals_changed
     nvram=$S_NVRAM; mode=$S_META
     test "$touch" = 0 || nvram=disable
@@ -224,6 +227,7 @@ set|import)
             esac
         fi
         access_compose "$access_work" "$uart" "$owner_ssh" "$key" || fail access_plan_failed
+        selector_keep "$D/snapshots/$R_CURRENT" "$access_work" || fail selector_plan_failed
         access_source=$access_work
     else
         case "$argument:$expected:$desired" in
@@ -257,8 +261,20 @@ uninstall)
     # Reserializing an older schema would change its ID and break recovery's
     # deliberate R_BEFORE == R_CURRENT ownership check.
     before=$R_CURRENT
+    selector_recorded=$S_SELECTOR_RECORDED
     snapshot_read "$R_BASE" || fail originals_changed
-    after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 "$S_NVRAM" "$S_META" "$D/snapshots/$before/dependencies" "$D/snapshots/$R_BASE") || fail plan_failed
+    resources=$D/snapshots/$R_BASE
+    if test "$selector_recorded" = true && test "$S_SELECTOR_RECORDED" = false; then
+        # An upgrade can retain a dev.8 baseline. Keep the new helper's known
+        # original absence explicit through removed/purge cleanup as well.
+        resources=$(mktemp -d "$D/.access-XXXXXX") || fail selector_plan_failed
+        trap 'rm -rf "$resources"' EXIT
+        if test "$S_ACCESS" = true; then
+            for name in access runlogin sshd.conf; do cp "$D/snapshots/$R_BASE/$name" "$resources/$name" || fail selector_plan_failed; done
+        fi
+        printf '%s\n' - > "$resources/selector"
+    fi
+    after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - 0 0 "$S_NVRAM" "$S_META" "$D/snapshots/$before/dependencies" "$resources") || fail plan_failed
     transaction_prepare uninstall "$before" "$after"
     transaction_reconcile
     finish_removal

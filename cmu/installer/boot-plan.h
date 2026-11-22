@@ -14,6 +14,7 @@ typedef struct { char bytes[4096]; unsigned at,filled,total; int fd; } OcLines;
 
 static unsigned oc_length(const char *p) { unsigned n=0; while (p[n]) ++n; return n; }
 static int oc_equal(const char *a, const char *b) {
+    if (!a || !b) return 0;
     while (*a && *a==*b) { ++a; ++b; }
     return *a==*b;
 }

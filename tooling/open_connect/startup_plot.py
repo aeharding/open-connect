@@ -3,9 +3,9 @@
 
 
 def main():
+    import argparse
     import csv
     import math
-    import sys
     from pathlib import Path
 
     import matplotlib
@@ -13,8 +13,12 @@ def main():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    source = Path(sys.argv[1])
-    output = Path(sys.argv[2])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", type=Path)
+    parser.add_argument("output", type=Path)
+    parser.add_argument("--title")
+    args = parser.parse_args()
+    source, output = args.source, args.output
     rows = list(csv.DictReader(source.open()))
     plt.rcdefaults()
     plt.rcParams.update(
@@ -50,12 +54,18 @@ def main():
             "Controlled ACC startup: wireless CarPlay, Base optimizations\n"
             f"Resource traces: Base off {counts[0]}, Base on {counts[1]}; see attempt table for missing data"
         )
-    for condition in colors:
-        runs = (
-            sorted({int(r["run"]) for r in rows if r["condition"] == condition})
-            if wireless
-            else list(range(1, 6))
+    counts = [len({r["run"] for r in rows if r["condition"] == c}) for c in colors]
+    if not wireless and counts != [5, 5]:
+        title = (
+            title.split("\n")[0]
+            + "\nResource traces: "
+            + ", ".join(f"{labels[c]} {n}" for c, n in zip(colors, counts))
+            + "; see methods for workload"
         )
+    if args.title:
+        title = args.title
+    for condition in colors:
+        runs = sorted({int(r["run"]) for r in rows if r["condition"] == condition})
         for run in runs:
             group = [r for r in rows if r["condition"] == condition and int(r["run"]) == run]
             assert len(group) > 100

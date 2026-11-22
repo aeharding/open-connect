@@ -64,12 +64,17 @@ SSH or a host computer. See [the steering agreement](STEERING.md#release-impleme
 ~~~sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
+# If Node.js is installed, also install the UI test dependency:
+npm ci --ignore-scripts
 .venv/bin/ruff check tooling tests
 .venv/bin/ruff format --check tooling tests
 .venv/bin/python tests/run_offline.py
 ~~~
 
-For UI iteration, run `make check-ui` with Node.js. It exercises the maintained
+For UI iteration, run `npm ci --ignore-scripts` once, then `make check-ui` with
+Node.js. The pinned Acorn development dependency checks target JavaScript against
+ES5 syntax, including strict-mode block declarations that modern Node accepts.
+It is not part of release builds or the installed bundle. The checks exercise the maintained
 dialog, Settings, runtime and loader fixtures without a CMU, release build or
 private inputs. Batch small UI edits and use targeted native layout checks where
 needed. Select hardware checks from the behavior changed. Complete lifecycle

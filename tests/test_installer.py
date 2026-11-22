@@ -12,6 +12,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class InstallerControls(unittest.TestCase):
     @unittest.skipUnless(shutil.which("node"), "Node.js required")
+    def test_installer_javascript_es5_syntax(self):
+        subprocess.run(
+            ["node", ROOT / "tests/fixtures/installer-es5.js", ROOT / "cmu/installer"],
+            check=True,
+        )
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js required")
     def test_oem_dialog_choice_lifecycle(self):
         subprocess.run(
             [

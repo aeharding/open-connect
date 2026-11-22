@@ -80,6 +80,7 @@ private/
 
 # Generated documentation website.
 /site/
+/node_modules/
 
 /experiments/disclaimer/
 /experiments/disclaimer-native/

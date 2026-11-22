@@ -1,0 +1,7 @@
+{
+  "name": "open-connect-development",
+  "private": true,
+  "devDependencies": {
+    "acorn": "8.15.0"
+  }
+}

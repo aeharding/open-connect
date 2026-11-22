@@ -25,6 +25,7 @@ release: native $(OUT)/api $(OUT)/flush $(OUT)/boot-select $(addprefix $(OUT)/mm
 native: $(OUT)/native.bin $(OUT)/branch.bin $(OUT)/sizes.bin $(OUT)/layout.bin
 
 check-ui:
+	node tests/fixtures/installer-es5.js cmu/installer
 	node tests/fixtures/installer-dialog.js cmu/installer/dialog.js
 	node tests/fixtures/installer-settings.js cmu/installer/dialog.js cmu/installer/settings.js
 	node tests/fixtures/installer-runtime.js cmu/installer/runtime.js

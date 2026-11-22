@@ -894,3 +894,28 @@ The native NVRAM reader must handle this driver convention separately from
 immutable text files, while rejecting interior NULs or trailing data. A read-only
 pre-install check recorded these bytes in private `sysfs-byte-intake.out`; it
 changed no device state.
+
+## Opera rejects block function declarations in strict code
+
+The dev.9 CI candidate `06ae21f` reached native wireless projection, but its
+installed Settings client did not initialize. The actual Opera engine rejected
+`settings.js` with `FunctionDeclaration in Statement context` at line 393:
+`function show` was declared inside an `if` block in strict code. Modern Node
+accepted the same source. The resulting missing `OpenConnectSettings` prevented
+runtime initialization and the maintenance prompt. That startup is retained as
+a failed UI qualification attempt; its earlier visible timing alone cannot
+establish the benefit of the complete working candidate.
+
+Use a function expression in that branch. The maintained UI checks now parse
+every installer JavaScript file as ES5 and reject declarations outside source
+or function bodies, including legacy extensions Acorn otherwise accepts. The
+intro property fragment is checked inside its object context. This is a host
+syntax check, not an emulation of Opera or proof of hardware behavior.
+
+During diagnosis, script loads issued directly inside a D-Bus `Navigate`
+JavaScript URL did not complete. Deferring the same probe with `setTimeout`
+loaded the OEM control and runtime and exposed the Settings parse error. The
+existing USB session already defers its loader. Do not infer a file-permission
+or URL-hostname defect from those immediate navigation probes. Private supporting
+records are `runs/native-boot-20261121/ui-diagnostic-v6.out` and the preceding
+failed UI observations; raw DOM and captures remain private.

@@ -46,6 +46,27 @@ firmware_guard() {
     awk '$1=="/dev/mmcblk0p2"&&$2=="/tmp/mnt/data_persist"&&$3=="relfs"{
         n++;split($4,a,",");for(i in a)if(a[i]=="rw")rw++} END{exit !(n==1&&rw==1)}' /proc/mounts || fail persistence_unavailable
     for path in /tmp /tmp/mnt /tmp/mnt/data_persist; do directory "$path" || fail invalid_persistence_path; done
+    # Maintenance must be able to finish a known publication interrupted while
+    # root was writable. Boot selection separately requires the strict RO mode.
+    boot_mount_guard maintenance || fail invalid_boot_mounts
+}
+
+boot_mount_guard() {
+    awk -v writable="${1:-no}" '
+        $2=="/tmp/mnt/data_persist/open-connect" || index($2,"/tmp/mnt/data_persist/open-connect/")==1 ||
+        $2=="/tmp/open-connect" || index($2,"/tmp/open-connect/")==1 {bad=1}
+        $2=="/" {
+            if($1=="rootfs" && $3=="rootfs" && $4=="rw" && root==0 && rootfs==0)rootfs++
+            else if($1=="/dev/ffx01p1" && $3=="relfs" &&
+                    ($4=="ro,noatime" || (writable=="maintenance" && $4=="rw,noatime")))root++
+            else bad=1
+        }
+        $2=="/tmp/mnt/data_persist" {
+            if($1!="/dev/mmcblk0p2" || $3!="relfs")bad=1
+            data++;split($4,a,",");for(i in a)if(a[i]=="rw")rw++
+        }
+        END {exit bad || root!=1 || data!=1 || rw!=1}
+    ' /proc/self/mounts
 }
 
 native_dependency_guard() { test "$1" = 1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29; }

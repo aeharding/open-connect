@@ -57,6 +57,7 @@ boot_select() {
     AUTOSTART=/usr/bin/autostart
     boot_load
     firmware_guard
+    boot_mount_guard || fail invalid_boot_mounts
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
     absent "$R/feature" && absent "$R/selected" || fail already_selected
     private_dir "$D" && record_read || fail invalid_state
@@ -86,7 +87,7 @@ boot_select() {
         boot_observer_stage
     else
         . "$P/service.sh"
-        service_stage boot "$R_BACKEND"
+        service_files "$R_BACKEND"
     fi
     startup_stamp session_ready
     if test "$fast" = false; then
@@ -104,6 +105,11 @@ boot_select() {
         startup_stamp targets_dependencies
     fi
     if test "$modern" = true && test -z "${observer:-}"; then boot_observer_stage; fi
+    if test "$modern" != true && absent "$R/runtime"; then
+        # Legacy installed hooks still get their listener when possible. A bind
+        # failure never prevents reconciliation or physical ignition observation.
+        ( service_listen "$runtime" ) || :
+    fi
     if test "$modern" = true && test "${S_SELECTOR_RECORDED:-false}" = true; then
         # Re-attest unchanged bytes after ordinary inode drift. Fold the new
         # snapshot into the imminent budget commit, never a second authority.

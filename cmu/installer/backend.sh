@@ -180,6 +180,7 @@ install)
         before=$(state_capture - 0 0 "$access_work") || fail checkpoint_failed
         R_BASE=$before
     fi
+    if test "$base" = 1; then native_log_inputs_verify || fail base_inputs_changed; fi
     package=$(package_save) || fail package_failed
     compose "$package" >/dev/null || fail composition_failed
     access_compose "$access_work" "$uart" "$owner_ssh" "$key" || fail access_plan_failed
@@ -240,6 +241,7 @@ set|import)
         esac
     fi
     if test "$operation" = set && test "$expected" = "$desired"; then status; exit; fi
+    if test "$base" = 1; then native_log_inputs_verify || fail base_inputs_changed; fi
     snapshot_read "$R_BASE" || fail originals_changed
     nvram=$S_NVRAM; test "$touch" = 0 || nvram=disable
     service_choice=$pandora; base_choice=$base; wireless_choice=$wireless

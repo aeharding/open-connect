@@ -81,10 +81,11 @@ class NativeBootSelection(unittest.TestCase):
         self.put("proc/sys/kernel/random/boot_id", BOOT + "\n")
         self.put("proc/uptime", "8.00 1.00\n")
         self.put(
-            "proc/mounts",
-            "/dev/ffx01p1 / relfs ro,noatime 0 0\n"
+            "proc/self/mounts",
+            "rootfs / rootfs rw 0 0\n/dev/ffx01p1 / relfs ro,noatime 0 0\n"
             "/dev/mmcblk0p2 /tmp/mnt/data_persist relfs rw,noatime 0 0\n",
         )
+        (self.root / "proc/mounts").symlink_to("self/mounts")
         self.put("sys/class/gpio/ACC_Sense/value", "1\n")
         self.put("sys/class/nvram/nv-config/keys/lvds_speed_restriction", "disable\n")
         self.put("dev/urandom", os.urandom(1024))
@@ -305,10 +306,43 @@ class NativeBootSelection(unittest.TestCase):
         self.assertEqual((self.data / "record").read_bytes(), before)
         self.assertFalse((self.ram / "selected").exists())
 
+    def test_inflight_digest_failure_requests_full_verifier_before_debit(self):
+        key = f"package-{self.package_id}/runtime.js"
+        path = self.package / "runtime.js"
+        original = sha(path.read_bytes())
+        path.write_bytes(path.read_bytes() + b"\nchanged after metadata check\n")
+        changed = sha(path.read_bytes())
+        rows = [(k, p, changed if k == key else digest) for k, p, digest in self.inputs]
+        self.seal(rows)
+        # Model a source changing after stat by retaining expected bytes but
+        # using its new stat fields. The required in-flight hash must catch it.
+        plan = (self.snapshot / "boot.plan").read_text()
+        prefix = next(p for k, p, _ in rows if k == key)
+        old = f"{key}|{prefix}|{changed}|"
+        self.assertEqual(plan.count(old), 1)
+        (self.snapshot / "boot.plan").write_text(plan.replace(old, f"{key}|{prefix}|{original}|"))
+        self.snapshot = self.publish(self.snapshot)
+        self.record[5] = self.snapshot.name
+        self.save_record()
+        before = (self.data / "record").read_bytes()
+        self.assertEqual(self.invoke().returncode, 95)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertFalse((self.ram / "selected").exists())
+
     def test_extra_package_member_refuses_before_debit(self):
         (self.package / "foreign").write_text("external\n")
         self.assertEqual(self.invoke().returncode, 95)
         self.assertEqual((self.data / "record").read_text().split("|")[9], "3")
+
+    def test_protected_tree_overlay_requests_full_verifier_without_debit(self):
+        mounts = self.root / "proc/self/mounts"
+        original = mounts.read_text()
+        before = (self.data / "record").read_bytes()
+        for path in ("/tmp/open-connect/feature", "/tmp/mnt/data_persist/open-connect"):
+            with self.subTest(path=path):
+                mounts.write_text(original + f"tmpfs {path} tmpfs rw 0 0\n")
+                self.assertEqual(self.invoke().returncode, 95)
+                self.assertEqual((self.data / "record").read_bytes(), before)
 
     def test_missing_oem_row_cannot_be_authorized_by_a_valid_plan_hash(self):
         rows = [row for row in self.inputs if row[0] != "root/sm_WCP.conf"]
@@ -321,7 +355,7 @@ class NativeBootSelection(unittest.TestCase):
 
     def test_mount_nvram_and_pending_state_use_full_verifier_without_debit(self):
         cases = [
-            ("proc/mounts", "/dev/ffx01p1 / relfs rw,noatime 0 0\n"),
+            ("proc/self/mounts", "/dev/ffx01p1 / relfs rw,noatime 0 0\n"),
             ("sys/class/nvram/nv-config/keys/lvds_speed_restriction", "enable\n"),
             ("jci/version.ini", "foreign version\n"),
         ]

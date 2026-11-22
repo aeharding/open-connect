@@ -163,7 +163,7 @@ class InstallerTransaction(unittest.TestCase):
         adapters = DRIVER[DRIVER.index("root_mode()") : DRIVER.index('if test "$ACTION" = init;')]
         (self.tools / "firmware.sh").write_text(
             'CUT=none\nfirmware_guard() { :; }\nfactory_wireless() { test -f "$D-factory-wireless"; }\n'
-            + adapters
+            'native_log_inputs_verify() { test ! -e "$D-base-changed"; }\n' + adapters
         )
         (self.tools / "flock").write_text("#!/bin/sh\nexit 0\n")
         (self.tools / "flock").chmod(0o700)
@@ -346,6 +346,21 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(data.exists())
         self.assertEqual(self.target(data, "target").read_text(), "stock\n")
+
+    def test_rejected_base_inputs_leave_active_record_and_uninstall_usable(self):
+        data = self.create("base-prerequisite")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        _, status = self.api("status")
+        before = (data / "record").read_bytes()
+        self.target(data, "base-changed").touch()
+        result, error = self.api("set", status["revision"], "base", "0", "1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "base_inputs_changed")
+        self.assertEqual((data / "record").read_bytes(), before)
+        result, _ = self.api("uninstall", status["revision"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(data.exists())
 
     def test_six_field_selector_keeps_its_format_and_refuses_base_before_update(self):
         data = self.create("six-field-settings")

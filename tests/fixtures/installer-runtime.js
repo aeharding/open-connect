@@ -297,6 +297,11 @@ f.reply(f.requests[1], f.state({installed: true, revision: "d".repeat(32)}));
 assert.equal(refreshed, true);
 f.store.write("touch", 0, 1, () => {});
 assert.equal(f.requests[2].body, token + "|" + "d".repeat(32) + "|set|touch|0|1");
+// Re-enter the existing preference session while its save is still pending.
+let reopen;
+f.store.refresh(ok => { reopen = ok; });
+assert.equal(reopen, true);
+assert.equal(f.requests.length, 3);
 
 // Completion is local boot data; its action obtains a fresh revision first.
 f = fixture(null, false, {version: "0.3.0-dev.9", notice: "installed"});

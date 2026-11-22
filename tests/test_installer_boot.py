@@ -113,6 +113,7 @@ class InstallerBoot(unittest.TestCase):
             firmware
             + r"""
 firmware_guard() { :; }
+boot_mount_guard() { test ! -e "$D-overmount"; }
 native_guard() { :; }
 root_mode() { printf 'ro,noatime\n'; }
 cleanup_mount_guard() { :; }
@@ -130,7 +131,8 @@ startup_publish() {
 """
         )
         (self.source / "service.sh").write_text(
-            "service_stage() { runtime=" + shlex.quote(str(self.runtime)) + "; }\n"
+            "service_files() { runtime=" + shlex.quote(str(self.runtime)) + "; }\n"
+            'service_listen() { : > "$R/listen-attempted"; test ! -e "$R/port-blocked"; }\n'
         )
         script = (ASSETS / "boot.sh").read_text()
         for old, new in {
@@ -139,6 +141,7 @@ startup_publish() {
             "/usr/bin/autostart": str(self.root / "data-target"),
             "/proc/sys/kernel/random/boot_id": str(self.root / "boot-id"),
             "/proc/uptime": str(self.root / "uptime"),
+            "/usr/bin/open-connect-boot-select": str(self.root / "root-selector"),
             "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
             'test "$(id -u)" = 0': 'test "$(id -u)" = ' + str(os.getuid()),
             "700:0:0": f"700:{os.getuid()}:{os.getgid()}",
@@ -242,6 +245,7 @@ record_write
             "/tmp/mnt/data_persist/open-connect": str(self.data),
             "/tmp/open-connect": str(self.runtime),
             "/proc/uptime": str(self.root / "uptime"),
+            "/usr/bin/open-connect-boot-select": str(self.root / "root-selector"),
             'test "$(id -u)" = 0': 'test "$(id -u)" = ' + str(os.getuid()),
             "700:0:0": f"700:{os.getuid()}:{os.getgid()}",
         }.items():
@@ -250,7 +254,10 @@ record_write
         self.assertIsNotNone(timeout)
         shim = self.tools / "timeout"
         shim.write_text(
-            '#!/bin/sh\nif test "$1" = -t; then shift; fi\nexec ' + shlex.quote(timeout) + ' "$@"\n'
+            '#!/bin/sh\nprintf "%s\\n" "$2" >> '
+            + shlex.quote(str(self.root / "timeout-allowances"))
+            + "\n"
+            'if test "$1" = -t; then shift; fi\nexec ' + shlex.quote(timeout) + ' "$@"\n'
         )
         shim.chmod(0o700)
         return subprocess.run(
@@ -274,6 +281,62 @@ record_write
         )
         self.assertTrue((self.runtime / "selected").exists())
         self.assertIn("package_verified|", (self.runtime / "startup-times").read_text())
+
+    def test_pending_recovery_and_observer_do_not_require_a_listener(self):
+        for fixture in ("usb", "blocked-port"):
+            with self.subTest(fixture=fixture):
+                self.populated_dependencies()
+                self.shell(
+                    '. "$P/transaction.sh"; . "$P/firmware.sh"; AUTOSTART=$D-target; '
+                    'record_read; transaction_prepare set "$R_CURRENT" "$R_CURRENT"'
+                )
+                if fixture == "usb":
+                    (self.runtime / "runtime").symlink_to(self.runtime, target_is_directory=True)
+                    (self.runtime / "listener").write_text("owned USB session\n")
+                else:
+                    (self.runtime / "port-blocked").touch()
+                (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+                result = self.hook()
+                self.assertIn(
+                    "CONFIG|" + str(self.runtime / "feature/sm.conf"), result.stdout, result.stderr
+                )
+                self.assertEqual(self.record()[1], "active")
+                self.assertEqual(self.record()[9], "2")
+                self.assertTrue((self.runtime / "ignition/ignition.sh").is_file())
+                self.assertFalse((self.runtime / "listen-attempted").exists())
+                if fixture == "usb":
+                    self.assertEqual((self.runtime / "listener").read_text(), "owned USB session\n")
+                    (self.runtime / "runtime").unlink()
+                for name in ("selected", "startup-times"):
+                    (self.runtime / name).unlink(missing_ok=True)
+                shutil.rmtree(self.runtime / "feature")
+                shutil.rmtree(self.runtime / "ignition")
+
+    def test_shell_entry_refuses_overmount_before_any_budget_write(self):
+        self.populated_dependencies()
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        (self.root / "data-overmount").touch()
+        before = (self.data / "record").read_bytes()
+        result = self.hook()
+        self.assertIn("CONFIG|stock", result.stdout)
+        self.assertIn("invalid_boot_mounts", result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_native_handoff_uses_only_the_remaining_deadline(self):
+        self.populated_dependencies()
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        helper = self.root / "root-selector"
+        helper.write_text(
+            '#!/bin/sh\nprintf "20.00 0.00\\n" > '
+            + shlex.quote(str(self.root / "uptime"))
+            + "\nexit 95\n"
+        )
+        helper.chmod(0o700)
+        result = self.hook()
+        self.assertIn(
+            "CONFIG|" + str(self.runtime / "feature/sm.conf"), result.stdout, result.stderr
+        )
+        self.assertEqual((self.root / "timeout-allowances").read_text().splitlines(), ["25", "6"])
 
     def test_embedded_hook_refuses_corrupt_or_unlisted_package_before_execution(self):
         (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")

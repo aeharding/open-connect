@@ -1,11 +1,20 @@
         # Open Connect: failed selection retains Mazda's normal configuration.
-        oc_result=95
-        if test -f /usr/bin/open-connect-boot-select && test ! -L /usr/bin/open-connect-boot-select && test -x /usr/bin/open-connect-boot-select; then
+        oc_result=1
+        if read -r oc_tick oc_idle < /proc/uptime; then
+            oc_deadline=$((${oc_tick%.*} * 100 + 1${oc_tick#*.} - 100 + 2500))
+            oc_result=95
+        fi
+        if test "$oc_result" = 95 && test -f /usr/bin/open-connect-boot-select && test ! -L /usr/bin/open-connect-boot-select && test -x /usr/bin/open-connect-boot-select; then
             if timeout -t 25 /usr/bin/open-connect-boot-select select; then oc_result=0
             else oc_result=$?; fi
         fi
         if test "$oc_result" = 95; then
-        if timeout -t 25 sh -c 'set -eu
+            oc_wait=0
+            if read -r oc_tick oc_idle < /proc/uptime; then
+                oc_wait=$(((oc_deadline - (${oc_tick%.*} * 100 + 1${oc_tick#*.} - 100)) / 100))
+            fi
+            if test "$oc_wait" -gt 0; then
+        if timeout -t "$oc_wait" sh -c 'set -eu
 umask 077
 read -r entered idle < /proc/uptime || entered=unknown
 test "$(id -u)" = 0
@@ -72,6 +81,7 @@ else
 fi
 '; then oc_result=0
         else oc_result=$?; fi
+            else oc_result=1; fi
         fi
         if test "$oc_result" = 0; then
             SMCFG_NORMALMODE=/tmp/open-connect/feature/sm.conf

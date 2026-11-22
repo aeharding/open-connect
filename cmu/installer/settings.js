@@ -391,7 +391,8 @@ var OpenConnectSettings = (function () {
                 if (control === ctrl && value === id) {
                     var selectedHost = app._currentContextTemplate;
                     function show(fresh) {
-                        if (!fresh || app._currentContextTemplate !== selectedHost) { return; }
+                        if (!fresh || list !== ctrl || fw._currTmpltInstance !== selectedHost ||
+                                app._currentContextTemplate !== selectedHost) { return; }
                         var opened = open(fw, store);
                         if (opened) { closePage = opened; }
                     }

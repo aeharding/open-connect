@@ -22,7 +22,7 @@ typedef struct {
     OcInput inputs[OC_PLAN_ROWS]; unsigned input_count;
     char boot[40],token[34],nonce[33],stage_name[64],observer_name[64],log_name[64],times[1024]; unsigned time_count;
     long owner,group;
-    int selected,access_present,base_access_present,debited;
+    int selected,access_present,base_access_present,debited,input_failure;
 } OcBoot;
 static OcBoot oc_boot;
 
@@ -248,8 +248,8 @@ static int oc_dependency_coverage(OcBoot *b) {
 }
 
 static int oc_mounts(OcBoot *b) {
-    if (oc_text(b->root,"proc/mounts",b->scratch,sizeof b->scratch,1)<0) return 0;
-    unsigned root=0,data=0;
+    if (oc_text(b->root,"proc/self/mounts",b->scratch,sizeof b->scratch,1)<0) return 0;
+    unsigned root=0,data=0,rootfs=0;
     char *p=b->scratch;
     while (*p) {
         char *f[6]; unsigned n=0;
@@ -263,8 +263,11 @@ static int oc_mounts(OcBoot *b) {
         if (!*p || n!=6) return 0;
         *p++=0;
         if (oc_equal(f[1],"/")) {
-            if (!oc_equal(f[0],"/dev/ffx01p1")||!oc_equal(f[2],"relfs")||!oc_equal(f[3],"ro,noatime")) return 0;
-            ++root;
+            if (oc_equal(f[0],"rootfs")&&oc_equal(f[2],"rootfs")&&oc_equal(f[3],"rw")&&!root&&!rootfs) ++rootfs;
+            else {
+                if (!oc_equal(f[0],"/dev/ffx01p1")||!oc_equal(f[2],"relfs")||!oc_equal(f[3],"ro,noatime")) return 0;
+                ++root;
+            }
         }
         if (oc_equal(f[1],"/tmp/mnt/data_persist")) {
             if (!oc_equal(f[0],"/dev/mmcblk0p2")||!oc_equal(f[2],"relfs")) return 0;
@@ -419,19 +422,21 @@ static int oc_new_text(int folder,const char *name,const char *text,unsigned mod
 }
 static int oc_copy_input(OcBoot *b,const char *key,int output,const char *name,unsigned mode) {
     OcInput *row=oc_find(b,key);
-    if (!row||row->absent) return 0;
+    if (!row||row->absent) { b->input_failure=1; return 0; }
     int parent=b->root;
     const char *path=row->path;
     if (oc_prefix(path,"@/")) { parent=b->snapshot; path+=2; }
     else ++path;
     long input=oc_beneath(parent,path,OC_READ,0);
-    if (input<0) return 0;
+    if (input<0) { b->input_failure=1; return 0; }
     long target=oc_openat(output,name,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,mode);
     if (target<0) { (void)oc_close((int)input); return 0; }
     char digest[65]; OcMeta actual;
     int ok=oc_hash_copy((int)input,(int)target,33554432,digest,&actual) &&
-        oc_equal(digest,row->digest) && oc_meta_equal(&row->meta,&actual) && oc_mode((int)target,mode)>=0;
-    if (oc_close((int)input)<0) ok=0;
+        oc_equal(digest,row->digest) && oc_meta_equal(&row->meta,&actual);
+    if (!ok) b->input_failure=1;
+    if (ok) ok=oc_mode((int)target,mode)>=0;
+    if (oc_close((int)input)<0) { b->input_failure=1; ok=0; }
     if (oc_close((int)target)<0) ok=0;
     return ok;
 }
@@ -513,9 +518,9 @@ static int oc_stage(OcBoot *b) {
             !oc_new_text(b->stage,"boot-id",b->scratch,0600)||!oc_new_text(b->stage,"wireless-applied","0\n",0600)) return 0;
     }
     char version[64];
-    if (!oc_saved_text(b->package,&b->pkg,"VERSION",version,sizeof version)||!oc_one_line(version)) return 0;
+    if (!oc_saved_text(b->package,&b->pkg,"VERSION",version,sizeof version)||!oc_one_line(version)) { b->input_failure=1; return 0; }
     for (const char *p=version;*p;++p) if (!((*p>='0'&&*p<='9')||(*p>='a'&&*p<='z')||(*p>='A'&&*p<='Z')||*p=='.'||*p=='-')) return 0;
-    if (!oc_saved_text(b->snapshot,&b->current,"index.html",b->scratch,sizeof b->scratch)) return 0;
+    if (!oc_saved_text(b->snapshot,&b->current,"index.html",b->scratch,sizeof b->scratch)) { b->input_failure=1; return 0; }
     char output[32768]; unsigned used=0,slots[3]={0,0,0};
     const char *needles[]={"@TOKEN@","@VERSION@","@NOTICE@"};
     const char *values[]={b->token,version,b->record_fields[12]};
@@ -530,7 +535,8 @@ static int oc_stage(OcBoot *b) {
         } else { if (used+1>=sizeof output) return 0; output[used++]=*p++; }
     }
     output[used]=0;
-    if (slots[0]!=1||slots[1]!=1||slots[2]!=1||!oc_new_text(b->stage,"index.html",output,0600)) return 0;
+    if (slots[0]!=1||slots[1]!=1||slots[2]!=1) { b->input_failure=1; return 0; }
+    if (!oc_new_text(b->stage,"index.html",output,0600)) return 0;
     return 1;
 }
 static int oc_record_commit(OcBoot *b) {
@@ -674,7 +680,8 @@ static int oc_select(OcBoot *b,int root) {
         !oc_absent_at(b->ram,".native-selected")) return OC_REFUSE;
     if (!oc_mounts(b)||!oc_load(b)||!oc_budget_policy(b)) return OC_SLOW;
     oc_stamp(b,"inputs_checked");
-    if (!oc_stage(b)||!oc_log_stage(b)) return OC_REFUSE;
+    if (!oc_stage(b)) return b->input_failure?OC_SLOW:OC_REFUSE;
+    if (!oc_log_stage(b)) return OC_REFUSE;
     oc_stamp(b,"feature_copied");
     if (!oc_record_commit(b)) return OC_REFUSE;
     if (!oc_publish(b)) return OC_REFUSE;

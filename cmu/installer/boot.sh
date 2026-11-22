@@ -61,6 +61,7 @@ boot_select() {
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
     absent "$R/feature" && absent "$R/selected" || fail already_selected
     private_dir "$D" && record_read || fail invalid_state
+    reseal_before=$R_CURRENT
     test "$P" = "$D/packages/$R_BACKEND" || fail damaged_package
     if test "$R_PHASE" = active; then
         test "$R_BOOT" != "$(cat /proc/sys/kernel/random/boot_id)" || fail already_selected
@@ -124,6 +125,12 @@ fi
 R_OFF=-; R_BOOT=$boot
 if test "$R_BUDGET" -gt 0; then R_BUDGET=$((R_BUDGET-1)); selected=true; else selected=false; fi
 record_write
+if file "$D/reseal" && test "$(stat -c '%a:%u:%g' "$D/reseal")" = "600:$(id -u):$(id -g)" &&
+    test "$(wc -c < "$D/reseal")" -eq 65 && test "$(cat "$D/reseal")" = "$reseal_before"; then
+    # Only after verified resealing and the durable record commit. This request
+    # never replaces OC1 or grants permission to activate a changed input.
+    rm "$D/reseal" && flush d "$D" || fail reseal_hint_cleanup_failed
+fi
 startup_stamp budget_committed
 if test "$S_ACCESS" = true; then printf '%s\n' "$R_CURRENT" > /tmp/open-connect/access-selected; fi
 nvram=$base_nvram

@@ -356,6 +356,66 @@ class NativeBootSelection(unittest.TestCase):
         self.assertIn(b"late_verification_refused", result.stderr)
         self.assertEqual((self.data / "record").read_bytes(), before)
         self.assertFalse((self.ram / "selected").exists())
+        self.assertEqual((self.data / "reseal").read_text(), self.snapshot.name + "\n")
+        self.assertEqual((self.data / "reseal").stat().st_mode & 0o777, 0o600)
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"J", 95), result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_reseal_request_requires_every_input_digest_and_preserves_plan(self):
+        plan = (self.snapshot / "boot.plan").read_bytes()
+        target = self.root / "jci/gui/framework/js/GuiFramework.js"
+        target.write_bytes(target.read_bytes())
+        runtime = self.package / "runtime.js"
+        original = runtime.read_bytes()
+        runtime.write_bytes(bytes([original[0] ^ 1]) + original[1:])
+        before = (self.data / "record").read_bytes()
+        for _ in range(2):
+            result = self.invoke(mode="select-gated")
+            self.assertEqual((result.stdout, result.returncode), (b"G", 1), result.stderr)
+            self.assertFalse((self.data / "reseal").exists())
+        self.assertEqual((self.snapshot / "boot.plan").read_bytes(), plan)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_stale_reseal_request_does_not_change_selection_authority(self):
+        hint = self.data / "reseal"
+        hint.write_text("0" * 64 + "\n")
+        hint.chmod(0o600)
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"G", 0), result.stderr)
+        self.assertEqual(hint.read_text(), "0" * 64 + "\n")
+
+    def test_foreign_reseal_request_refuses_before_gate_without_debit(self):
+        hint = self.data / "reseal"
+        before = (self.data / "record").read_bytes()
+        for kind in ("malformed", "wrong-mode", "symlink", "fifo"):
+            with self.subTest(kind=kind):
+                if hint.exists() or hint.is_symlink():
+                    hint.unlink()
+                if kind == "symlink":
+                    hint.symlink_to(self.data / "record")
+                elif kind == "fifo":
+                    os.mkfifo(hint)
+                else:
+                    hint.write_text("bad\n" if kind == "malformed" else self.snapshot.name + "\n")
+                    hint.chmod(0o644 if kind == "wrong-mode" else 0o600)
+                result = self.invoke(mode="select-gated")
+                self.assertEqual((result.stdout, result.returncode), (b"J", 1), result.stderr)
+                self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_reseal_request_power_cuts_never_debit_or_publish(self):
+        target = self.root / "jci/gui/framework/js/GuiFramework.js"
+        target.write_bytes(target.read_bytes())
+        before = (self.data / "record").read_bytes()
+        for phase in ("reseal_synced", "reseal_published"):
+            with self.subTest(phase=phase):
+                result = self.invoke(cut=phase, mode="select-gated")
+                self.assertEqual((result.stdout, result.returncode), (b"G", 97), result.stderr)
+                self.assertEqual((self.data / "record").read_bytes(), before)
+                self.assertFalse((self.ram / "selected").exists())
+                self.assertFalse((self.ram / "feature").exists())
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.stdout, result.returncode), (b"J", 95), result.stderr)
 
     def test_gate_joins_on_competing_lock_without_debit(self):
         import fcntl

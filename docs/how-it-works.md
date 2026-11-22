@@ -1,7 +1,7 @@
 # How Open Connect works
 
-Open Connect keeps Mazda's interface and saves your choices. At startup, it loads
-selected file copies from temporary memory (RAM).
+Open Connect keeps Mazda's interface and saves your choices. At startup, it
+selects prepared files, keeping only the necessary temporary copies in RAM.
 
 ## Original files, selected copies
 
@@ -9,7 +9,7 @@ selected file copies from temporary memory (RAM).
 flowchart TD
     choices["Install or save choices"] --> saved["Verify inputs and save a launch plan"]
     originals["Original Mazda apps and service files"] --> saved
-    saved --> ram["Startup: check the plan and copy selected files to RAM"]
+    saved --> ram["Startup: check the plan and select prepared files"]
     ram --> screen["Mazda interface with your choices"]
     originals --> screen
 ```
@@ -40,8 +40,11 @@ added files. It preserves unrelated Mazda preferences; it isn't a factory reset.
 
 Installation and Settings saves perform full verification and prepare the launch
 files. Normal startup uses a small compiled selector: it checks the saved plan
-and file details, and verifies selected bytes while copying them to RAM. Changed
-inputs take a full-check or fallback path.
+and file details, and verifies selected bytes. Some prepared files are used
+directly from Open Connect's private storage; the rest are copied to RAM. Changed
+inputs take a full-check or fallback path. The selector can work alongside
+Mazda's existing startup preparation, and must finish before the selected apps
+start.
 
 The recorded selector span was **0.56 seconds in one dev.9 bench start**. Timing
 varies, and approximately zero added delay versus stock remains a target. See

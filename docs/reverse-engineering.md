@@ -894,6 +894,40 @@ immutable text files, while rejecting interior NULs or trailing data. A read-onl
 pre-install check recorded these bytes in private `sysfs-byte-intake.out`; it
 changed no device state.
 
+## Overlapping the native selector with Mazda startup
+
+The dev.12 candidate uses one locked native worker across two exact autostart
+anchors: before normal-mode setup and after its original one-second sleep,
+immediately before board detection. An authenticated policy check samples ACC
+and touchscreen NVRAM before releasing the worker. Remaining checks, selected
+file staging and both durable record barriers overlap Mazda's existing work.
+The original shell always joins that worker before choosing SM profiles. There
+is no delayed shell recovery or second NVRAM read after release. Recovery stays
+before Mazda's profile and HDCP/NVRAM jobs.
+
+Both Base settings use this path. Warn is published before SM starts. Mazda's
+earlier `cpugauge` job can initialize logging during the overlap; the owner chose
+this tradeoff over adding synchronous Base-on delay. Three readbacks from both
+initialized gauge and MMUI processes reported Warn in each checked Base-on pilot. Those observations
+do not prove every possible initialization order.
+
+A byte-identical inode or timestamp change refuses selection for that boot.
+Only after all covered digests still match can it save a root-private request
+for full verification on the next boot. The request names the current snapshot;
+it cannot select files, change NVRAM or spend an attempt. The verified shell
+reseals inputs and commits the authoritative record before removing a matching
+request. Stale requests are ignored; corrupt bytes do not create requests.
+
+UIA and the modified system-app script remain in their immutable, verified
+package directory on persistence. Small RAM symlinks select them without
+duplicating their contents in tmpfs. Native UIA mappings confirmed this path.
+Independent installed-Settings Uninstall then restored the original loaded
+UIA/MMUI, original startup and touch state, and removed both persistent and RAM
+Open Connect directories. Private supporting evidence is
+`runs/stock-parity-20261122/dev12-uninstall-stock-verify-retry.out` and
+`dev12-installed-ui-uninstall-retry/`. Startup/RAM parity remains unqualified
+pending the matched measurements.
+
 ## Opera rejects block function declarations in strict code
 
 The dev.9 CI candidate `06ae21f` reached native wireless projection, but its

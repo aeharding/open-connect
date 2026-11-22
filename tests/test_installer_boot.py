@@ -407,6 +407,26 @@ record_write
         self.assertFalse(marker.exists())
         self.assertEqual(self.record()[9], "3")
 
+    def test_verified_boot_retires_matching_reseal_hint_after_commit(self):
+        hint = self.data / "reseal"
+        hint.write_text(self.record()[5] + "\n")
+        hint.chmod(0o600)
+        result = self.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.record()[9], "2")
+        self.assertFalse(hint.exists())
+
+    def test_failed_verification_preserves_reseal_hint_and_record(self):
+        hint = self.data / "reseal"
+        hint.write_text(self.record()[5] + "\n")
+        hint.chmod(0o600)
+        before = (self.data / "record").read_bytes()
+        self.wcp_original.write_bytes(b"foreign WCP profile\n")
+        result = self.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(hint.exists())
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
     def test_populated_fast_path_keeps_budget_and_original_dependency_guards(self):
         self.populated_dependencies()
         result = self.boot(1)

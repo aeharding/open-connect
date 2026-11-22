@@ -22,7 +22,7 @@ typedef struct {
     OcInput inputs[OC_PLAN_ROWS]; unsigned input_count;
     char boot[40],token[34],nonce[33],stage_name[64],observer_name[64],log_name[64],times[1024]; unsigned time_count;
     long owner,group,parent;
-    int selected,access_present,base_access_present,debited,input_failure,gated,gate_sent,released;
+    int selected,access_present,base_access_present,debited,input_failure,gated,gate_sent,released,metadata_drift;
 } OcBoot;
 static OcBoot oc_boot;
 
@@ -269,9 +269,18 @@ static int oc_plan(OcBoot *b) {
             long fd=oc_beneath(parent,path,OC_READ,0);
             if (fd<0) return 0;
             OcMeta actual;
-            int ok=oc_stat((int)fd,&actual)>=0 && oc_meta_equal(&row->meta,&actual);
+            int ok=oc_stat((int)fd,&actual)>=0;
             if (oc_close((int)fd)<0) ok=0;
             if (!ok) return 0;
+            if (!oc_meta_equal(&row->meta,&actual)) {
+                /* Only identical-byte inode/time drift may request resealing.
+                 * Keep permission, identity and coverage checks; never activate
+                 * from these replacement metadata, even if every hash matches.
+                 */
+                if (!b->gated||row->meta.device!=actual.device||row->meta.size!=actual.size||
+                    row->meta.mode!=actual.mode||row->meta.uid!=actual.uid||row->meta.gid!=actual.gid) return 0;
+                row->meta=actual; b->metadata_drift=1;
+            }
         }
     }
     return rows>1;
@@ -530,6 +539,42 @@ static int oc_copy_input(OcBoot *b,const char *key,int output,const char *name,u
     if (ok && target>=0) ok=oc_mode((int)target,mode)>=0;
     if (oc_close((int)input)<0) { b->input_failure=1; ok=0; }
     if (target>=0 && oc_close((int)target)<0) ok=0;
+    return ok;
+}
+/* Advisory only: a matching request forces the verified shell before Mazda's
+ * profile/NVRAM jobs. Stale IDs cannot authorize anything and are ignored.
+ */
+static int oc_reseal_hint(OcBoot *b) {
+    long fd=oc_openat(b->data,"reseal",OC_READ,0);
+    if (fd==-2) return 0;
+    if (fd<0) return -1;
+    OcMeta before,after; char text[66];
+    int ok=oc_stat((int)fd,&before)>=0&&before.mode==(OC_REGULAR|0600)&&before.size==65&&
+        before.uid==(unsigned)b->owner&&before.gid==(unsigned)b->group;
+    if (ok) ok=oc_text_fd((int)fd,text,sizeof text)==65&&oc_one_line(text)&&oc_hex(text,64)&&
+        oc_stat((int)fd,&after)>=0&&oc_meta_equal(&before,&after);
+    if (oc_close((int)fd)<0) ok=0;
+    return ok?oc_equal(text,b->record_fields[5]):-1;
+}
+static int oc_request_reseal(OcBoot *b) {
+    /* Hash ALL covered inputs. An unrelated corrupt member must not turn a
+     * recoverable inode change into repeated expensive shell verification.
+     */
+    for (unsigned i=0;i<b->input_count;++i) {
+        OcInput *row=&b->inputs[i];
+        if (!row->absent&&!oc_copy_input(b,row->key,-1,0,0)) return 0;
+    }
+    if (oc_reseal_hint(b)<0||!oc_random(b->root,b->nonce)) return 0;
+    char name[64],text[66];
+    if (!oc_join(name,sizeof name,".reseal-",b->nonce)||!oc_join(text,sizeof text,b->record_fields[5],"\n")) return 0;
+    long fd=oc_openat(b->data,name,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
+    if (fd<0) return 0;
+    int ok=oc_write_all((int)fd,text,65)&&oc_mode((int)fd,0600)>=0&&oc_sync((int)fd)>=0;
+    oc_cut("reseal_synced");
+    if (oc_close((int)fd)<0) ok=0;
+    if (ok) ok=oc_rename(b->data,name,"reseal")>=0&&oc_sync(b->data)>=0;
+    if (!ok) (void)oc_unlink(b->data,name);
+    oc_cut("reseal_published");
     return ok;
 }
 static int oc_package_copy(OcBoot *b,const char *name,int output,const char *destination,unsigned mode) {
@@ -811,12 +856,22 @@ static int oc_select(OcBoot *b,int root) {
     if (oc_equal(b->record_fields[11],b->boot)||!oc_absent_at(b->ram,"selected")||
         !oc_absent_at(b->ram,"feature")||!oc_absent_at(b->ram,"ignition")||!oc_absent_at(b->ram,"access-selected")||
         !oc_absent_at(b->ram,".native-selected")) return OC_REFUSE;
-    if (!oc_mounts(b)||!oc_policy_load(b)||!oc_budget_policy(b)) return OC_SLOW;
+    if (!oc_mounts(b)||!oc_policy_load(b)) return OC_SLOW;
+    if (b->gated) {
+        int hint=oc_reseal_hint(b);
+        if (hint<0) return OC_REFUSE;
+        if (hint) return OC_SLOW;
+    }
+    if (!oc_budget_policy(b)) return OC_SLOW;
     if (b->gated) {
         oc_stamp(b,"policy_checked");
         if (!oc_gate(b,1)) return OC_REFUSE;
     }
     if (!oc_load(b)) return OC_SLOW;
+    if (b->metadata_drift) {
+        (void)oc_request_reseal(b);
+        return OC_SLOW;
+    }
     oc_stamp(b,"inputs_checked");
     if (!oc_stage(b)) return b->input_failure?OC_SLOW:OC_REFUSE;
     if (!oc_log_stage(b)) return OC_REFUSE;
@@ -833,8 +888,8 @@ static int oc_selection(int root,int gated) {
     int result=oc_select(&oc_boot,root);
     if (gated&&!oc_boot.gate_sent&&!oc_gate(&oc_boot,0)) result=OC_REFUSE;
     if (oc_boot.released&&result==OC_SLOW) {
-        /* Exploratory small-gate mode: no shell/NVRAM recovery after release.
-         * A shipping path must also preserve next-boot metadata resealing.
+        /* No shell/NVRAM recovery after release. Verified byte-identical
+         * metadata drift requests full verification before the NEXT gate.
          */
         (void)oc_write_all(2,"late_verification_refused\n",26);
         result=OC_REFUSE;

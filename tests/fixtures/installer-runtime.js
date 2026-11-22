@@ -375,6 +375,21 @@ assert.equal(refreshed, null);
 f.advance(1000);
 assert.equal(f.requests.length, 24);
 
+// A last-millisecond refusal or busy answer cannot push backoff past the budget.
+for (const answer of [null, {ok: false, error: "busy"}]) {
+    f = fixture(null, false, {version: "0.3.0-dev.11", notice: "-"});
+    f.tick();
+    refreshed = undefined;
+    f.store.refresh(ok => { refreshed = ok; });
+    f.advance(11999);
+    f.reply(f.requests[0], answer);
+    assert.equal(refreshed, undefined);
+    f.advance(1);
+    assert.equal(refreshed, null);
+    f.advance(500);
+    assert.equal(f.requests.length, 1);
+}
+
 // USB client dependencies stay within their own verified session.
 f = fixture(null, true);
 f.ctx.OpenConnect.start(token, true);

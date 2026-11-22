@@ -81,6 +81,31 @@ def verified_annotations(path, clocks):
     return rows
 
 
+def memory_summary(samples):
+    """Summarize exactly the supplied samples; preserve the kernel's kB units."""
+    import re
+
+    values = [
+        {
+            m[1]: int(m[2])
+            for m in re.finditer(
+                r"^([A-Za-z_()]+):\s+(\d+) kB$", sample["files"]["/proc/meminfo"][0], re.M
+            )
+        }
+        for sample in samples
+    ]
+    assert values
+    return {
+        name: dict(
+            first=values[0][name],
+            last=values[-1][name],
+            min=min(row[name] for row in values),
+            max=max(row[name] for row in values),
+        )
+        for name in ("MemFree", "Buffers", "Cached", "Shmem", "Slab")
+    }
+
+
 def main():
     import hashlib
     import json
@@ -89,14 +114,6 @@ def main():
     from pathlib import Path
 
     from open_connect import metrics
-
-    def memory(sample):
-        return {
-            m[1]: int(m[2])
-            for m in re.finditer(
-                r"^([A-Za-z_()]+):\s+(\d+) kB$", sample["files"]["/proc/meminfo"][0], re.M
-            )
-        }
 
     def cpu(sample):
         lines = [
@@ -170,7 +187,6 @@ def main():
                 )
             )
         clocks = verified_clock(path, trace["boot_id"])
-        values = [memory(sample) for sample in samples]
         result = dict(
             trial=str(path),
             condition=meta["condition"],
@@ -185,15 +201,8 @@ def main():
             window_last_uptime_s=last["uptime_end_s"],
             cpu_busy_percent=100 * (sum(delta) - delta[3] - delta[4]) / sum(delta),
             cpu_delta_ticks=delta,
-            memory_kB={
-                name: dict(
-                    first=values[0][name],
-                    last=values[-1][name],
-                    min=min(row[name] for row in values),
-                    max=max(row[name] for row in values),
-                )
-                for name in ("MemFree", "Buffers", "Cached", "Shmem", "Slab")
-            },
+            memory_kB=memory_summary(samples),
+            memory_window_kB=memory_summary(window),
             disk_deltas=disk_rows,
             kernel_zero_host_bounds=[
                 clocks["kernel_zero_host_lower_s"],

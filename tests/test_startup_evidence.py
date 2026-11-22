@@ -7,7 +7,31 @@ import unittest
 from pathlib import Path
 
 from open_connect.clock_reference import bounds
-from open_connect.startup_analysis import verified_annotations, verified_clock
+from open_connect.startup_analysis import memory_summary, verified_annotations, verified_clock
+
+
+class StartupMemoryTests(unittest.TestCase):
+    def sample(self, free):
+        return {
+            "files": {
+                "/proc/meminfo": [
+                    f"MemFree: {free} kB\nBuffers: 7 kB\nCached: 9 kB\nShmem: 2 kB\nSlab: 5 kB\n"
+                ]
+            }
+        }
+
+    def test_window_stats_do_not_include_earlier_or_later_startup_samples(self):
+        samples = [self.sample(value) for value in (1, 30, 20, 40, 0)]
+        self.assertEqual(memory_summary(samples)["MemFree"], dict(first=1, last=0, min=0, max=40))
+        window = memory_summary(samples[1:4])
+        self.assertEqual(window["MemFree"], dict(first=30, last=40, min=20, max=40))
+        self.assertEqual(window["Cached"], dict(first=9, last=9, min=9, max=9))
+
+    def test_empty_or_missing_memory_is_not_reported_as_zero(self):
+        with self.assertRaises(AssertionError):
+            memory_summary([])
+        with self.assertRaises(KeyError):
+            memory_summary([{"files": {"/proc/meminfo": ["MemFree: 0 kB\n"]}}])
 
 
 class StartupEvidenceTests(unittest.TestCase):

@@ -358,6 +358,20 @@ class NativeBootSelection(unittest.TestCase):
         self.assertEqual(self.invoke().returncode, 0)
         self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
 
+    def test_nvram_nonregular_or_symlink_leaf_falls_back_without_debit(self):
+        path = self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction"
+        before = (self.data / "record").read_bytes()
+        path.unlink()
+        os.mkfifo(path)
+        self.assertEqual(self.invoke().returncode, 95)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        path.unlink()
+        target = self.root / "foreign-nvram"
+        target.write_bytes(b"disable\0")
+        path.symlink_to(target)
+        self.assertEqual(self.invoke().returncode, 95)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
     def test_ram_write_failure_returns_stock_without_handoff_or_debit(self):
         before = (self.data / "record").read_bytes()
         result = self.invoke(output_limit=4096)

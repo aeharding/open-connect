@@ -466,8 +466,11 @@ static int oc_nvram(OcBoot *b,char value[16]) {
         /* This v74 driver returns a terminal NUL, unlike ordinary proc text.
          * Keep that binary convention local; immutable text still rejects NUL.
          */
-        unsigned n=0; int read_ok=1;
-        while (n<15) {
+        OcMeta metadata;
+        unsigned n=0;
+        /* oc_openat is nonblocking and refuses a symlink at the leaf. */
+        int read_ok=oc_stat((int)fd,&metadata)>=0 && (metadata.mode&OC_TYPE)==OC_REGULAR;
+        while (read_ok && n<15) {
             long got=oc_read((int)fd,value+n,15-n);
             if (got==-4) continue;
             if (got<0) { read_ok=0; break; }

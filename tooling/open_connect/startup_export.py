@@ -3,16 +3,16 @@
 
 
 def timing_rows(path, condition, run, clocks, postflight_verified=None):
-    from open_connect.startup_analysis import verified_annotations
+    from open_connect.startup_analysis import PROJECTION_DEFINITIONS, verified_annotations
 
+    milestones = {value: "carplay_" + key for key, value in PROJECTION_DEFINITIONS.items()}
+    milestones["Home carousel fully spaced"] = "home_spaced"
     for annotation in verified_annotations(path, clocks):
         kernel = annotation["relative_kernel_s"]
         row = dict(
             condition=condition,
             run=run,
-            milestone="home_spaced"
-            if annotation["definition"] == "Home carousel fully spaced"
-            else "carplay_dashboard",
+            milestone=milestones[annotation["definition"]],
             before_frame=annotation["before_frame"],
             first_frame=annotation["first_frame"],
             video_before_s=annotation["video_pts_bounds_s"][0],
@@ -38,12 +38,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("base", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--runs", type=int, default=5)
     comparison = parser.add_mutually_exclusive_group()
     comparison.add_argument("--services", action="store_true")
     comparison.add_argument("--logging", action="store_true")
     comparison.add_argument("--base-optimizations", action="store_true")
     comparison.add_argument("--wireless", action="store_true")
     args = parser.parse_args()
+    if not 1 <= args.runs <= 20:
+        parser.error("--runs must be between 1 and 20 per condition")
     base = args.base.resolve()
     output = args.output
     output.mkdir(mode=0o700)
@@ -72,7 +75,9 @@ def main():
             ("stock", base / "stock", "stock", None, None, None),
             ("open-connect", base / "open-connect-matched", "open-connect", None, None, None),
         ]
-    paths = [root / f"trial-{n}" for _, root, _, _, _, _ in cohorts for n in range(1, 6)]
+    paths = [
+        root / f"trial-{n}" for _, root, _, _, _, _ in cohorts for n in range(1, args.runs + 1)
+    ]
     metadata = {p: json.loads((p / "trial.json").read_text()) for p in paths}
     assert all(
         meta.get("outcome") in ("observed", "incomplete_preserved") for meta in metadata.values()
@@ -93,7 +98,7 @@ def main():
     timings = []
     attempts = []
     for condition, root, recorded_condition, pandora, log_level, base_choice in cohorts:
-        for run in range(1, 6):
+        for run in range(1, args.runs + 1):
             path = root / f"trial-{run}"
             if args.wireless:
                 from open_connect.startup_reference import validate_condition

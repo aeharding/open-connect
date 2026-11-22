@@ -15,29 +15,34 @@ from open_connect.startup_wireless import BOOT_MARKER, native_events, trial_rows
 
 class WirelessEvents(unittest.TestCase):
     def test_partial_export_rejects_unverified_preflight(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            for base, condition in [(0, "wireless-base-off"), (1, "wireless-base-on")]:
-                for number in range(1, 6):
-                    path = root / condition / f"trial-{number}"
-                    path.mkdir(parents=True)
-                    (path / "trial.json").write_text(
-                        json.dumps(
-                            {
-                                "outcome": "incomplete_preserved",
-                                "condition": "open-connect",
-                                "base": base,
-                                "wireless": 1,
-                                "pandora": 1,
-                            }
+        for runs in (3, 5):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for base, condition in [(0, "wireless-base-off"), (1, "wireless-base-on")]:
+                    for number in range(1, runs + 1):
+                        path = root / condition / f"trial-{number}"
+                        path.mkdir(parents=True)
+                        (path / "trial.json").write_text(
+                            json.dumps(
+                                {
+                                    "outcome": "incomplete_preserved",
+                                    "condition": "open-connect",
+                                    "base": base,
+                                    "wireless": 1,
+                                    "pandora": 1,
+                                }
+                            )
                         )
-                    )
-                    (path / "preflight.out").write_bytes(b"unverified policy\n")
-            with (
-                patch("sys.argv", ["export", str(root), str(root / "public"), "--wireless"]),
-                self.assertRaisesRegex(ValueError, "missing"),
-            ):
-                startup_export.main()
+                        (path / "preflight.out").write_bytes(b"unverified policy\n")
+                with (
+                    patch(
+                        "sys.argv",
+                        ["export", str(root), str(root / "public"), "--wireless"]
+                        + (["--runs", "3"] if runs == 3 else []),
+                    ),
+                    self.assertRaisesRegex(ValueError, "missing"),
+                ):
+                    startup_export.main()
 
     def test_camera_only_keeps_missing_kernel_time_unknown(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -71,6 +76,28 @@ class WirelessEvents(unittest.TestCase):
             self.assertEqual(rows[0]["relative_acc_command_s"][0], 9.0)
             self.assertAlmostEqual(rows[0]["relative_acc_command_s"][1], 9.2)
             self.assertTrue(all(row["relative_kernel_s"] is None for row in rows))
+            with (
+                patch(
+                    "sys.argv",
+                    [
+                        "annotate",
+                        str(path),
+                        "10",
+                        "10.2",
+                        "20",
+                        "20.2",
+                        "--camera-only",
+                        "--projection",
+                        "maps",
+                    ],
+                ),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                startup_annotate.main()
+            maps = list(startup_export.timing_rows(path, "wireless-base-off", 4, None, False))
+            self.assertEqual([row["milestone"] for row in maps], ["home_spaced", "carplay_maps"])
+            self.assertEqual(maps[1]["acc_lower_s"], 19.0)
+            self.assertEqual(maps[1]["kernel_lower_s"], "")
             rows[0]["relative_kernel_s"] = [0, 0]
             (path / "annotations.json").write_text(json.dumps(rows))
             with self.assertRaises(AssertionError):

@@ -9,9 +9,12 @@ def main():
     import re
     from pathlib import Path
 
+    from open_connect.startup_analysis import PROJECTION_DEFINITIONS
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trial", type=Path)
     parser.add_argument("bounds", type=float, nargs=4)
+    parser.add_argument("--projection", choices=PROJECTION_DEFINITIONS, default="dashboard")
     parser.add_argument(
         "--camera-only", action="store_true", help="retain ACC bounds with unknown kernel time"
     )
@@ -44,7 +47,7 @@ def main():
         clock = json.loads(clock_path.read_text())
     rows = []
     for index, name in enumerate(
-        ["Home carousel fully spaced", "CarPlay dashboard fully rendered; map still loading"]
+        ["Home carousel fully spaced", PROJECTION_DEFINITIONS[args.projection]]
     ):
         before, after = requested[2 * index : 2 * index + 2]
         a, b = pts.index(before), pts.index(after)

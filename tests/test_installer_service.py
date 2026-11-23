@@ -154,17 +154,55 @@ class InstallerService(unittest.TestCase):
         )
         self.assertEqual(self.client()["backend"], "backend-one\n")
 
-    def test_boot_listener_survives_oem_outbound_port_collision(self):
+    def legacy_selected_client(self):
+        self.runtime.mkdir(mode=0o700)
+        feature = self.runtime / "feature"
+        feature.mkdir(mode=0o700)
+        (self.runtime / "selected").write_text("a" * 64 + "\n")
+        (feature / "runtime.js").write_text(
+            'xhr.open("POST", "http://127.0.0.1:35555/control", true);\n'
+        )
+
+    def test_usb_before_delayed_legacy_worker_preserves_client_endpoint(self):
+        self.legacy_selected_client()
+        (self.runtime / "lock").touch(mode=0o600)
+        data = self.root / "data"
+        data.mkdir(mode=0o700)
+        script = self.source / "service.sh"
+        script.write_text(
+            script.read_text().replace("/tmp/mnt/data_persist/open-connect", str(data))
+        )
+        self.manifest()
+        worker = subprocess.Popen(
+            ["sh", script, "boot"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        try:
+            time.sleep(0.1)
+            result = self.invoke()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            before = (self.runtime / "listener").read_bytes()
+            out, error = worker.communicate(timeout=7)
+            self.assertEqual(worker.returncode, 0, (out, error))
+            self.assertEqual((self.runtime / "listener").read_bytes(), before)
+            self.assertEqual(self.client(35555)["backend"], "backend-one\n")
+        finally:
+            if worker.poll() is None:
+                worker.terminate()
+                worker.communicate(timeout=3)
+
+    def test_usb_collision_recovery_uses_new_port_with_selected_legacy_client(self):
         # Reproduce the real MMUI -> SM connection that occupied our former
         # listener port. An established client socket is absent from LISTEN rows.
+        self.legacy_selected_client()
         with socket.socket() as peer, socket.socket() as mmui:
+            mmui.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             mmui.bind(("127.0.0.1", 35555))
             peer.bind(("127.0.0.1", 0))
             peer.listen()
             mmui.connect(peer.getsockname())
             connection, _ = peer.accept()
             with connection:
-                result = self.boot()
+                result = self.invoke()
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(self.client()["backend"], "backend-one\n")
 

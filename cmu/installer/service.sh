@@ -19,6 +19,15 @@ service_lock() {
 
 stop_listener() {
 service_port=15555
+# USB can beat the selected dev.12 Settings worker's four-second delay.
+# Its client is already in RAM; keep that endpoint when it is available.
+if test "${1:-}" = usb && absent "$R/listener" && file "$R/selected" &&
+    private_dir "$R/feature" && file "$R/feature/runtime.js" &&
+    grep -F -q 'http://127.0.0.1:35555/control' "$R/feature/runtime.js"; then
+    set -- /proc/net/tcp
+    if test -f /proc/net/tcp6; then set -- "$@" /proc/net/tcp6; fi
+    if awk '$2~/:8AE3$/{busy=1}END{exit busy}' "$@"; then service_port=35555; fi
+fi
 if ! absent "$R/listener"; then
     file "$R/listener" || fail invalid_listener
     read -r pid start old extra < "$R/listener" || fail invalid_listener
@@ -168,7 +177,7 @@ runtime=$work
 
 service_listen() {
 local work=$1 pid start deadline
-stop_listener
+stop_listener "${2:-boot}"
 if ! absent "$R/runtime"; then test -L "$R/runtime" || fail invalid_runtime_pointer; fi
 # Catch cancellation before fork; defer exit until $! and its birth time are
 # captured. A parent-only TERM must not strand an unrecorded listening child.
@@ -210,7 +219,7 @@ service_stage() {
     # boot staging must yield to it; recovery uses service_files independently.
     if test "$1" = boot; then absent "$R/runtime" || fail busy; fi
     service_files "$2" "$1"
-    service_listen "$runtime"
+    service_listen "$runtime" "$1"
 }
 
 service_boot() {

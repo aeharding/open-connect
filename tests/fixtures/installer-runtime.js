@@ -75,7 +75,7 @@ assert.equal(f.choices.length, 1);
 f.choices[0].done("install");
 const install = f.requests[1];
 assert.equal(install.method, "POST");
-assert.equal(install.url, "http://127.0.0.1:35555/control");
+assert.equal(install.url, "http://127.0.0.1:15555/control");
 assert.equal(install.type, "text/plain");
 assert.equal(install.body, token + "|" + revision + "|install|-|-|-");
 f.ctx.OpenConnect.cancelUSB(token); // Removing USB cannot abort an in-flight mutation.

@@ -123,7 +123,7 @@ class InstallerService(unittest.TestCase):
         )
 
     def client(self):
-        conn = http.client.HTTPConnection("127.0.0.1", 35555, timeout=2)
+        conn = http.client.HTTPConnection("127.0.0.1", 15555, timeout=2)
         try:
             conn.request("GET", "/")
             reply = conn.getresponse()
@@ -153,6 +153,20 @@ class InstallerService(unittest.TestCase):
             (session / "files.sha256").read_bytes(), (self.source / "files.sha256").read_bytes()
         )
         self.assertEqual(self.client()["backend"], "backend-one\n")
+
+    def test_boot_listener_survives_oem_outbound_port_collision(self):
+        # Reproduce the real MMUI -> SM connection that occupied our former
+        # listener port. An established client socket is absent from LISTEN rows.
+        with socket.socket() as peer, socket.socket() as mmui:
+            peer.bind(("127.0.0.1", 0))
+            peer.listen()
+            mmui.bind(("127.0.0.1", 35555))
+            mmui.connect(peer.getsockname())
+            connection, _ = peer.accept()
+            with connection:
+                result = self.boot()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.client()["backend"], "backend-one\n")
 
     def test_boot_closure_rejects_wrong_shared_bytes_before_listener(self):
         self.runtime.mkdir(mode=0o700)
@@ -303,7 +317,7 @@ class InstallerService(unittest.TestCase):
     def test_recovery_files_do_not_require_an_available_port(self):
         with socket.socket() as listener:
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            listener.bind(("127.0.0.1", 35555))
+            listener.bind(("127.0.0.1", 15555))
             listener.listen()
             result = self.recovery_files()
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -318,7 +332,7 @@ class InstallerService(unittest.TestCase):
         (self.runtime / "runtime").symlink_to(old)
         with socket.socket() as listener:
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            listener.bind(("127.0.0.1", 35555))
+            listener.bind(("127.0.0.1", 15555))
             listener.listen()
             started = time.monotonic()
             result = self.invoke()
@@ -386,7 +400,7 @@ class InstallerService(unittest.TestCase):
         )
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline:
-            if "0100007F:8AE3" in Path("/proc/net/tcp").read_text():
+            if "0100007F:3CC3" in Path("/proc/net/tcp").read_text():
                 break
             time.sleep(0.01)
         else:
@@ -400,7 +414,7 @@ class InstallerService(unittest.TestCase):
         self.assertFalse((self.runtime / "listener").exists())
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            probe.bind(("127.0.0.1", 35555))
+            probe.bind(("127.0.0.1", 15555))
 
     def test_signal_during_unpublished_start_reaps_child_and_cannot_publish_later(self):
         self.assert_interrupted_start("service_tick; deadline=")
@@ -432,4 +446,4 @@ class InstallerService(unittest.TestCase):
         self.assertFalse((self.runtime / "listener").exists())
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            probe.bind(("127.0.0.1", 35555))
+            probe.bind(("127.0.0.1", 15555))

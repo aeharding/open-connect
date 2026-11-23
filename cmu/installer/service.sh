@@ -44,10 +44,12 @@ service_child_matches() {
         tr '\0' '\n' < "/proc/$1/cmdline" | awk -v api="$3/api" '$0==api{n++}END{exit n!=1}'
 }
 
+# Keep the fixed loopback listener below the OEM ephemeral range (32768..61000).
+# MMUI keeps a client socket to SM:9091 for the session; its source can be 35555.
 service_owns_listener() {
     local inode fd
     service_child_matches "$1" "$2" "$3" || return 1
-    inode=$(awk '$2=="0100007F:8AE3"&&$4=="0A"{n++;i=$10}END{if(n!=1)exit 1;print i}' /proc/net/tcp) || return 1
+    inode=$(awk '$2=="0100007F:3CC3"&&$4=="0A"{n++;i=$10}END{if(n!=1)exit 1;print i}' /proc/net/tcp) || return 1
     for fd in /proc/"$1"/fd/*; do
         if test "$(readlink "$fd")" = "socket:[$inode]"; then
             service_child_matches "$1" "$2" "$3"
@@ -164,7 +166,7 @@ if ! absent "$R/runtime"; then test -L "$R/runtime" || fail invalid_runtime_poin
 pending_pid=; pending_start=; pending_work=$work; pending_cancel=false
 trap 'service_discard_child "$pending_pid" "$pending_start" "$pending_work"' EXIT
 trap 'pending_cancel=true' HUP INT TERM
-( exec 8>&- 9>&-; exec /bin/busybox tcpsvd -E -c 4 127.0.0.1 35555 \
+( exec 8>&- 9>&-; exec /bin/busybox tcpsvd -E -c 4 127.0.0.1 15555 \
     /bin/busybox timeout -t 180 "$work/api" "$work/token" "$work/backend.sh" ) </dev/null >"$work/service.log" 2>&1 &
 pid=$!
 start=$(awk '{print $22}' "/proc/$pid/stat" 2>/dev/null) || start=

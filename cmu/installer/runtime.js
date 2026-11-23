@@ -81,7 +81,7 @@ var OpenConnect = (function (previous) {
             finish(answer);
         };
         try {
-            xhr.open("POST", "http://127.0.0.1:35555/control", true);
+            xhr.open("POST", "http://127.0.0.1:15555/control", true);
             xhr.setRequestHeader("Content-Type", "text/plain");
             xhr.send([token, operation === "status" || !state ? "-" : state.revision, operation].concat(args || ["-", "-", "-"]).join("|"));
         } catch (error) { finish(null); }

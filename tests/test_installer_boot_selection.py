@@ -210,7 +210,6 @@ class NativeBootSelection(unittest.TestCase):
             "mmui.so",
             "mmui.xml",
             "system-app.js",
-            "log-defaults.js",
             "index-on.html",
             "index-off.html",
             "sm-normal-on.conf",
@@ -338,7 +337,7 @@ class NativeBootSelection(unittest.TestCase):
         self.record[5] = self.snapshot.name
         self.save_record()
 
-    def invoke(self, cut=None, term=None, output_limit=None, mode="select"):
+    def invoke(self, cut=None, term=None, output_limit=None, mode="select", stderr_fd=None):
         # A regular fixture models urandom's bytes, refreshing them per entry.
         self.put("dev/urandom", os.urandom(1024))
         env = {**os.environ}
@@ -357,7 +356,8 @@ class NativeBootSelection(unittest.TestCase):
         return subprocess.run(
             [self.program, mode, self.root],
             env=env,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE if stderr_fd is None else stderr_fd,
             timeout=5,
             preexec_fn=limit_output if output_limit is not None else None,
         )
@@ -384,15 +384,13 @@ class NativeBootSelection(unittest.TestCase):
         self.put("sys/devices/virtual/block/ffx01/dev", "253:16\n")
         return self.put("sys/devices/virtual/block/ffx01/queue/read_ahead_kb", "128\n", 0o644)
 
-    def test_base_publication_links_logging_and_diagnostic_io_never_reverses_it(self):
+    def test_base_publication_and_diagnostic_io_never_reverses_it(self):
         queue = self.base_fixture()
         queue.write_text("4\n")
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn(b"base_read_ahead_unavailable", result.stderr)
-        self.assertEqual(
-            (self.ram / "feature/log-defaults.js").resolve(), self.composed / "log-defaults.js"
-        )
+        self.assertFalse((self.ram / "feature/log-defaults.js").exists())
         self.assertTrue((self.ram / "feature/defer-gap2.sh").is_file())
 
     def test_queue_readback_failure_keeps_the_committed_selection(self):
@@ -415,6 +413,18 @@ class NativeBootSelection(unittest.TestCase):
         self.assertTrue((self.ram / "selected").is_file())
         self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
 
+    def test_closed_diagnostic_pipe_cannot_kill_a_published_selection(self):
+        self.base_fixture().unlink()
+        read_fd, write_fd = os.pipe()
+        os.close(read_fd)
+        try:
+            result = self.invoke(stderr_fd=write_fd)
+        finally:
+            os.close(write_fd)
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue((self.ram / "selected").is_file())
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
     def test_no_queue_write_after_guard_refusal(self):
         queue = self.base_fixture()
         before = (self.data / "record").read_bytes()
@@ -431,19 +441,21 @@ class NativeBootSelection(unittest.TestCase):
         self.assertEqual(queue.read_text(), "128\n")
         self.assertFalse((self.ram / "selected").exists())
 
-    def test_base_logging_routes_and_links_with_disclaimer_disabled(self):
+    def test_base_logging_index_is_staged_with_disclaimer_disabled(self):
         queue = self.base_fixture()
         queue.write_text("4\n")
         config = (self.snapshot / "config").read_text().replace("warning=1", "warning=0")
         self.change_current("config", config)
         self.change_current(
             "index.html",
-            '<script src="file:///tmp/open-connect/feature/log-defaults.js"></script>@TOKEN@ @VERSION@ @NOTICE@\n',
+            '<script src="common/js/logDefaults.js"></script><script>logDefaults.__global__ = "warn";</script>@TOKEN@ @VERSION@ @NOTICE@\n',
         )
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("feature/log-defaults.js", (self.ram / "feature/index.html").read_text())
-        self.assertTrue((self.ram / "feature/log-defaults.js").is_symlink())
+        self.assertIn(
+            'logDefaults.__global__ = "warn"', (self.ram / "feature/index.html").read_text()
+        )
+        self.assertFalse((self.ram / "feature/log-defaults.js").exists())
         self.assertFalse((self.ram / "feature/mmui.so").exists())
 
     def test_base_off_never_changes_an_existing_queue_choice(self):

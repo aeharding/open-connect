@@ -185,15 +185,6 @@ if test "$warning" = 1; then
     fi
 fi
 if test "$base" = 1; then
-    for name in log-defaults.js; do
-        if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then
-            ln -s "../../mnt/data_persist/open-connect/composed/$package/$name" "$work/$name" || fail feature_link_failed
-        else
-            cp "$D/composed/$package/$name" "$work/$name" || fail feature_copy_failed
-            ui_digest=$(awk -v name="$name" '$2==name{n++;print $1}END{exit n!=1}' "$D/composed/$package/files.sha256") || fail feature_inputs_changed
-            test "$(sha "$work/$name")" = "$ui_digest" || fail feature_inputs_changed
-        fi
-    done
     if test "$wireless" = 1; then
         boot_copy_package "$work" defer-gap2.sh || fail background_stage_failed
     fi
@@ -239,7 +230,7 @@ printf '%s\n' "$R_CURRENT" > "$marker" || fail selection_marker_failed
 # Only RAM link/publication syscalls remain. Finish this short commit despite
 # TERM, or return stock after removing our exact logging inode. Never hash or
 # launch an unbounded worker in this signal-protected section.
-trap '' HUP INT TERM
+trap '' HUP INT TERM PIPE
 if test "$boot_cancelled" = true; then
     rm -f "$marker" || :
     native_log_discard || :

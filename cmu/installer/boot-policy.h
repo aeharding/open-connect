@@ -41,7 +41,7 @@ static const char *const oc_root_paths[]={
     "/jci/gui/framework/js/GuiFramework.js","/jci/lvds/lvds_service"
 };
 static const char *const oc_composed_names[]={
-    "autostart","uia.so","mmui.so","mmui.xml","system-app.js","log-defaults.js","index-on.html","index-off.html",
+    "autostart","uia.so","mmui.so","mmui.xml","system-app.js","index-on.html","index-off.html",
     "sm-normal-on.conf","sm-normal-off.conf","sm-wcp-on.conf","sm-wcp-off.conf"
 };
 
@@ -674,8 +674,6 @@ static int oc_stage(OcBoot *b) {
         if (!oc_composed_link(b,"uia.so")||!oc_composed_link(b,"system-app.js")||
             !oc_composed_copy(b,"mmui.so",b->stage,0600)||!oc_composed_copy(b,"mmui.xml",b->stage,0600)) return 0;
     }
-    if (oc_equal(b->flags[6],"1") &&
-        !oc_composed_link(b,"log-defaults.js")) return 0;
     if (oc_equal(b->flags[6],"1") && oc_equal(b->flags[7],"1") &&
         !oc_package_copy(b,"defer-gap2.sh",b->stage,"defer-gap2.sh",0600)) return 0;
     const char *ui[]={"runtime.js","dialog.js","settings.js"};

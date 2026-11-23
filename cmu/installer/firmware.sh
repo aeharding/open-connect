@@ -119,19 +119,6 @@ base_ui_inputs_verify() {
     done
 }
 
-compose_base_ui() {
-    local work=$1 digest name target
-    base_ui_inputs_verify || return 1
-    base_ui_files | while read -r digest name target; do
-        test "$name" = log-defaults.js || exit 1
-        awk '
-            {n+=gsub(/"__global__": "info"/,"\"__global__\": \"warn\"");print}
-            END {if(n!=1)exit 1}
-        ' "$target" > "$work/$name" || exit 1
-        test "$(sha "$work/$name")" = 07bf9bc649e5787814368a5d46c1c6a8d5b41c1cfcaf395fcaacbb9dca65d3dd || exit 1
-    done
-}
-
 compose_native() {
     local package=$1 original=$2 target=$3 destination source extra
     # Retain all original virtual addresses. The exact v74 ELF has no file
@@ -177,7 +164,6 @@ compose() (
     rm "$work/intro" || fail compose_cleanup_failed
     dd if="$D/originals/system-app.js" bs=1 skip=17463 2>/dev/null >> "$work/system-app.js" || fail compose_javascript_failed
     test "$(sha "$work/system-app.js")" = 61cb4085195bcc1ea6f0efdd01ab691a10b9f9cee45d32e8a78b4410c9b07f40 || fail javascript_composition_failed
-    compose_base_ui "$work" || fail base_javascript_composition_failed
     for setting in on off; do
         awk -v route="$package/system-route.js" -v selected="$setting" '
             /<head>/{
@@ -219,7 +205,7 @@ compose() (
         END{if(n!=1 || joined!=1 || !hook_lines || !join_lines)exit 1}
     ' "$D/originals/autostart" > "$work/autostart" || fail startup_anchor_missing
     sh -n "$work/autostart" || fail startup_syntax
-    for name in autostart uia.so mmui.so mmui.xml system-app.js log-defaults.js index-on.html index-off.html \
+    for name in autostart uia.so mmui.so mmui.xml system-app.js index-on.html index-off.html \
         sm-normal-on.conf sm-normal-off.conf sm-wcp-on.conf sm-wcp-off.conf; do
         chmod 600 "$work/$name" || fail compose_mode_failed
         digest=$(sha "$work/$name") && hex "$digest" 64 || fail compose_hash_failed
@@ -298,21 +284,33 @@ base_read_ahead() (
 
 boot_render_profiles() {
     # This function runs from the verified target package, before prepare.
-    local destination=$1 config=$2 source setting=off profile
+    local destination=$1 config=$2 source setting=off profile logging_digest
     config_decode "$config" && test "$S_SCHEMA" = OC2 &&
         test "$P" = "$D/packages/$S_PACKAGE" || return 1
     source=$D/composed/$S_PACKAGE
     private_dir "$source" && verify_manifest "$source" || return 1
     test "$S_WARNING" != 1 || setting=on
-    test "$S_BASE" != 1 || base_ui_inputs_verify || return 1
+    if test "$S_BASE" = 1; then
+        base_ui_inputs_verify && file "$P/base-logging.js" || return 1
+        logging_digest=$(awk '$2=="base-logging.js"{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
+        test "$(sha "$P/base-logging.js")" = "$logging_digest" || return 1
+    fi
     for profile in normal wcp; do
         awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" \
             -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" \
             "$source/sm-$profile-$setting.conf" > "$destination/sm-$profile.conf" || return 1
     done
-    awk -v base="$S_BASE" '
-        base=="1" {
-            logging+=gsub(/src="common\/js\/logDefaults[.]js"/,"src=\"file:///tmp/open-connect/feature/log-defaults.js\"")
+    # Keep the OEM script available through compatible-media purge and browser
+    # reload. The authored override lives inside the already RAM-owned index.
+    awk -v base="$S_BASE" -v logger="$P/base-logging.js" '
+        base=="1" && /src="common\/js\/logDefaults[.]js"/ {
+            print
+            print "        <script type=\"text/javascript\">"
+            while((r=getline line < logger)>0)print line
+            if(r<0)exit 1
+            close(logger)
+            print "        </script>"
+            logging++;next
         }
         {print}
         END {if(base=="1" && logging!=1)exit 1}

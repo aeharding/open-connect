@@ -72,6 +72,7 @@ class InstallerBoot(unittest.TestCase):
             "wireless-device.awk",
             "wireless.sh",
             "defer-gap2.sh",
+            "base-logging.js",
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.manager = self.root / "manager.so"
@@ -111,7 +112,7 @@ class InstallerBoot(unittest.TestCase):
         for row in ui_map.splitlines():
             digest, name, target = row.split()
             fake = self.root / "oem" / name
-            fake.write_bytes(("synthetic Base UI dependency " + name + "\n").encode())
+            fake.write_bytes(b'var logDefaults = {"__global__": "info"};\n')
             firmware = firmware.replace(target, str(fake)).replace(
                 digest, hashlib.sha256(fake.read_bytes()).hexdigest()
             )
@@ -124,6 +125,7 @@ class InstallerBoot(unittest.TestCase):
             "/config/common/log/settings.txt": str(self.root / "physical-log-settings"),
             "/jci/lib/libjcicommon.so": str(self.root / "common-library"),
             "/tmp/common": str(self.root / "common"),
+            "/sys/devices/virtual/block/ffx01": str(self.root / "flash"),
             "8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0": hashlib.sha256(
                 self.log_original
             ).hexdigest(),
@@ -132,6 +134,11 @@ class InstallerBoot(unittest.TestCase):
             ).hexdigest(),
         }.items():
             firmware = firmware.replace(old, new)
+        (self.root / "flash/queue").mkdir(parents=True)
+        (self.root / "flash/dev").write_text("253:16\n")
+        queue = self.root / "flash/queue/read_ahead_kb"
+        queue.write_text("128\n")
+        queue.chmod(0o644)
         (self.source / "firmware.sh").write_text(
             firmware
             + r"""
@@ -187,7 +194,6 @@ startup_publish() {
             "mmui.so",
             "mmui.xml",
             "system-app.js",
-            "log-defaults.js",
             "sm-normal-on.conf",
             "sm-wcp-on.conf",
             "index-on.html",
@@ -196,7 +202,8 @@ startup_publish() {
             (composed / name).write_text("synthetic feature @TOKEN@\n")
         for name in ("index-on.html", "index-off.html"):
             (composed / name).write_text(
-                '<script src="common/js/logDefaults.js"></script>\nsynthetic feature @TOKEN@\n'
+                '<script src="common/js/logDefaults.js"></script>\n'
+                '<script src="framework/js/Log.js"></script>\nsynthetic feature @TOKEN@\n'
             )
         self.write_profiles()
         self.composed_manifest()
@@ -244,7 +251,7 @@ record_write
             timeout=10,
         )
 
-    def boot(self, number, *, preserve_log=False):
+    def boot(self, number, *, preserve_log=False, stderr_fd=None, shell_args=None):
         boot_id = "00000000-0000-0000-0000-" + f"{number:012x}"
         (self.root / "boot-id").write_text(boot_id + "\n")
         shutil.rmtree(self.runtime / "feature", ignore_errors=True)
@@ -252,9 +259,10 @@ record_write
         if not preserve_log:
             shutil.rmtree(self.root / "common", ignore_errors=True)
         return subprocess.run(
-            ["sh", self.package / "boot.sh"],
+            [*(shell_args or ["sh"]), self.package / "boot.sh"],
             env=self.env,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE if stderr_fd is None else stderr_fd,
             text=True,
             timeout=10,
         )
@@ -470,6 +478,52 @@ record_write
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.runtime / "selected").exists())
         self.assertEqual(self.record()[9], "3")
+
+    def test_fast_path_refuses_authenticated_extra_composed_member(self):
+        folder = self.data / "composed" / self.package_id
+        (folder / "foreign").write_text("not a composition output\n")
+        self.populated_dependencies()
+        before = (self.data / "record").read_bytes()
+        result = self.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertFalse((self.runtime / "selected").exists())
+
+    def test_fast_path_refuses_unlisted_composed_file_and_directory(self):
+        folder = self.data / "composed" / self.package_id
+        for directory in (False, True):
+            path = folder / ("foreign-directory" if directory else ".unlisted")
+            if directory:
+                path.mkdir()
+            else:
+                path.write_text("not listed\n")
+            before = (self.data / "record").read_bytes()
+            result = self.boot(1)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual((self.data / "record").read_bytes(), before)
+            if directory:
+                path.rmdir()
+            else:
+                path.unlink()
+
+    def test_closed_diagnostic_pipe_keeps_shell_selection(self):
+        self.select_base(1)
+        (self.root / "flash/queue/read_ahead_kb").unlink()
+        shells = [["sh"]]
+        busybox = os.environ.get("OC_TEST_BUSYBOX") or shutil.which("busybox")
+        if busybox:
+            shells.append([busybox, "ash"])
+        for number, shell in enumerate(shells, 1):
+            with self.subTest(shell=shell):
+                read_fd, write_fd = os.pipe()
+                os.close(read_fd)
+                try:
+                    result = self.boot(number, stderr_fd=write_fd, shell_args=shell)
+                finally:
+                    os.close(write_fd)
+                self.assertEqual(result.returncode, 0)
+                self.assertTrue((self.runtime / "selected").is_file())
+                self.assertEqual(self.record()[9], str(3 - number))
 
     def test_fast_path_keeps_compiled_native_pin_when_snapshot_matches_foreign_bytes(self):
         self.manager.write_bytes(b"foreign manager adopted by snapshot\n")

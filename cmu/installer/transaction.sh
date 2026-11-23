@@ -39,7 +39,7 @@ dependencies_match() {
 boot_dependencies_match() {
     local snapshot=$1 digest name extra scope leaf target parent checked= seen='|' mapping pin key path
     local members='|' member_count=1 package_count=0 manager=0 found expected= actual
-    local composed='|' composed_count=0 composed_expected=1 root_count=0 root_expected=0
+    local composed='|' composed_count=0 composed_expected=1 root_count=0 root_expected=0 directory_count=0
     while read -r digest name extra; do
         members="$members$name:$digest|"; member_count=$((member_count+1))
     done < "$P/files.sha256"
@@ -59,10 +59,23 @@ PATHS
         case "$composed" in *"|$name:"*) return 1;; esac
         composed="$composed$name:$digest|"; composed_expected=$((composed_expected+1))
     done < "$parent/files.sha256"
-    for name in uia.so mmui.so mmui.xml system-app.js log-defaults.js index-on.html index-off.html \
+    for name in uia.so mmui.so mmui.xml system-app.js index-on.html index-off.html \
         sm-normal-on.conf sm-normal-off.conf sm-wcp-on.conf sm-wcp-off.conf autostart; do
         case "$composed" in *"|$name:"*) ;; *) return 1;; esac
     done
+    # Exactly eleven immutable outputs plus their manifest, matching native
+    # selection. Include hidden entries; a listed hash never blesses extras.
+    test "$composed_expected" -eq 12 || return 1
+    for target in "$parent"/* "$parent"/.[!.]* "$parent"/..?*; do
+        absent "$target" && continue
+        file "$target" || return 1
+        leaf=${target##*/}
+        if test "$leaf" != files.sha256; then
+            case "$composed" in *"|$leaf:"*) ;; *) return 1;; esac
+        fi
+        directory_count=$((directory_count+1))
+    done
+    test "$directory_count" = "$composed_expected" || return 1
     set --
     while read -r digest name extra; do
         hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1

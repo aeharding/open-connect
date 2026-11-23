@@ -376,9 +376,34 @@ class NativeBootPlan(unittest.TestCase):
         result = fixture.boot(1)
         self.assertEqual(result.returncode, 0, result.stderr)
         index = (fixture.runtime / "feature/index.html").read_text()
-        self.assertIn("file:///tmp/open-connect/feature/log-defaults.js", index)
-        self.assertTrue((fixture.runtime / "feature/log-defaults.js").is_symlink())
+        self.assertIn('src="common/js/logDefaults.js"', index)
+        self.assertIn('logDefaults.__global__ = "warn"', index)
+        self.assertFalse((fixture.runtime / "feature/log-defaults.js").exists())
         self.assertFalse((fixture.runtime / "feature/mmui.so").exists())
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js required")
+    def test_logging_survives_compatible_dev13_purge_before_restart(self):
+        fixture = self.sealed_fixture()
+        result = fixture.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        index = fixture.runtime / "feature/index.html"
+        replay = [
+            "node",
+            ROOT / "tests/fixtures/base-logging.js",
+            index,
+            fixture.root / "oem/log-defaults.js",
+        ]
+        subprocess.run(replay, check=True, capture_output=True, timeout=5)
+        # Exercise the actual dev.13 purge body after restoration has reached
+        # its committed purge phase. It knows nothing of dev.14 logging.
+        fixture.shell(
+            "record_read; R_PHASE=purge; record_write; "
+            "P=" + shlex.quote(str(fixture.source)) + "; "
+            ". " + shlex.quote(str(ROOT / "tests/fixtures/dev13-purge.sh")) + "; "
+            "uninstall_cleanup"
+        )
+        self.assertFalse(fixture.data.exists())
+        subprocess.run(replay, check=True, capture_output=True, timeout=5)
 
     def test_hinted_recovery_preserves_old_permissions_and_version_digest(self):
         for changed in ("permissions", "version"):

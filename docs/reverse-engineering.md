@@ -190,7 +190,11 @@ included Open Connect's former fixed port, 35555. Checking only listening socket
 would miss this collision.
 
 The candidate uses **127.0.0.1:15555**, below that observed range, for the same
-authenticated local POST contract. A Linux regression holds an established
+authenticated local POST contract. During USB replacement of a verified live
+35555 listener, it retains that endpoint for the current boot so cancelling UI
+loading leaves the installed client usable. The next boot selects 15555. The
+three-field listener record stays compatible; the USB client receives its port
+as bounded launch data after actual socket ownership is verified. A Linux regression holds an established
 outbound socket on 35555 while starting the Settings service and serving its
 first request. Foreign occupancy of the new port still refuses publication.
 Private evidence: `runs/carplay-speed-20261122/port-collision-proof.out`,

@@ -3,12 +3,12 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const source = fs.readFileSync(process.argv[2], "utf8");
 const token = "a".repeat(32), revision = "b".repeat(32);
-function fixture(previous, loadingUSB, boot) {
+function fixture(previous, loadingUSB, boot, port) {
     const requests = [], intervals = [], timeouts = [], choices = [], messages = [], loads = [];
     const fw = {_browserShown: true, getAppInstance() { return app; }};
     const app = {}, nodes = {};
     if (loadingUSB) { nodes["oc-usb-loader"] = {ocToken: token,
-        src: "file:///tmp/open-connect/sessions/session-test/loader.js"}; }
+        src: "file:///tmp/open-connect/sessions/session-test/loader.js", ocPort: port}; }
     let store, now = 0;
     const ctx = {
         OpenConnect: previous,
@@ -404,3 +404,10 @@ f.reply(f.requests[0], f.state({installed: true, services: serviceRows})); f.tic
 assert.equal(f.store.read().services[0].current, null);
 f.store.write("android-auto", 1, 0, () => {});
 assert.equal(f.requests.at(-1).body, token + "|" + revision + "|set|android-auto|1|0");
+
+// A same-boot USB upgrade retains a live dev.12 endpoint, including cancellation.
+f = fixture(previous, true, null, 35555);
+f.ctx.OpenConnect.start(token, true);
+assert.equal(f.requests[0].url, "http://127.0.0.1:35555/control");
+f.ctx.OpenConnect.cancelUSB(token);
+assert.equal(f.ctx.OpenConnect, previous);

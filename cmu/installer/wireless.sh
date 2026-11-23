@@ -47,7 +47,7 @@ prepare() (
 )
 if test "${1:-}" = --prepare; then prepare; exit; fi
 
-worker=; worker_done=0; worker_succeeded=0; group_ready=0
+worker=; worker_done=0; group_ready=0
 stop_worker() {
     test "$worker_done" = 0 || return 0
     # $! also closes the signal window between starting and assigning the PID.
@@ -96,12 +96,6 @@ finish() {
     # the actual policy released to Device Manager, rather than worker status.
     applied=0
     if applied_policy; then applied=1; fi
-    # This is the completed transform's input, not uninstall/recovery state.
-    # Failed or interrupted workers retain it; never remove a foreign symlink.
-    if test "$worker_succeeded:$applied" = 1:1 &&
-        test -f "$R/wireless-original.xml" && test ! -L "$R/wireless-original.xml"; then
-        rm "$R/wireless-original.xml" || :
-    fi
     absent "$R/wireless-applied.next" || exit 1
     (set -C; printf '%s\n' "$applied" > "$R/wireless-applied.next") || exit 1
     mv "$R/wireless-applied.next" "$R/wireless-applied" || exit 1
@@ -131,5 +125,5 @@ test "$#" -ge 4 && test "$2:$3:$4" = "$$:$worker:$worker"
 # This assignment must precede GO: from here cancellation kills the group.
 group_ready=1
 printf 'go\n' >&4
-if wait "$worker"; then worker_succeeded=1; fi
+wait "$worker" || :
 worker_done=1

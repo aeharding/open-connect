@@ -122,8 +122,8 @@ class InstallerService(unittest.TestCase):
             timeout=5,
         )
 
-    def client(self):
-        conn = http.client.HTTPConnection("127.0.0.1", 15555, timeout=2)
+    def client(self, port=15555):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
         try:
             conn.request("GET", "/")
             reply = conn.getresponse()
@@ -158,9 +158,9 @@ class InstallerService(unittest.TestCase):
         # Reproduce the real MMUI -> SM connection that occupied our former
         # listener port. An established client socket is absent from LISTEN rows.
         with socket.socket() as peer, socket.socket() as mmui:
+            mmui.bind(("127.0.0.1", 35555))
             peer.bind(("127.0.0.1", 0))
             peer.listen()
-            mmui.bind(("127.0.0.1", 35555))
             mmui.connect(peer.getsockname())
             connection, _ = peer.accept()
             with connection:
@@ -180,6 +180,34 @@ class InstallerService(unittest.TestCase):
         self.assertFalse((self.runtime / "listener").exists())
         self.assertEqual(shared.read_text(), "foreign bytes\n")
         self.assertEqual(shared.stat().st_mode & 0o777, 0o400)
+
+    def test_usb_replacement_preserves_live_legacy_client_endpoint_on_cancel(self):
+        script = self.source / "service.sh"
+        current = script.read_text()
+        # Model the installed dev.12 listener with the same real identity/record.
+        script.write_text(current.replace("service_port=15555", "service_port=35555"))
+        self.manifest()
+        first = self.invoke()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        token = self.client(35555)["token"]
+        script.write_text(current)
+        (self.source / "backend.sh").write_text("replacement-backend\n")
+        self.manifest()
+        replacement = self.invoke()
+        self.assertEqual(replacement.returncode, 0, replacement.stderr)
+        runtime = Path(replacement.stdout.strip())
+        self.assertEqual(len((self.runtime / "listener").read_text().split()), 3)
+        self.assertFalse((runtime / "port").exists())
+        # Cancelling script loading restores the previous browser client. Its
+        # unchanged URL/capability still reaches the replacement RAM service.
+        self.assertEqual(self.client(35555), {"token": token, "backend": "replacement-backend\n"})
+        self.assertFalse(
+            any(
+                fields[1] == "0100007F:3CC3" and fields[3] == "0A"
+                for line in Path("/proc/net/tcp").read_text().splitlines()[1:]
+                if len(fields := line.split()) > 3
+            )
+        )
 
     def test_ready_session_serves_first_client_and_replacement_preserves_old_bytes(self):
         first = self.invoke()
@@ -400,7 +428,11 @@ class InstallerService(unittest.TestCase):
         )
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline:
-            if "0100007F:3CC3" in Path("/proc/net/tcp").read_text():
+            if any(
+                fields[1] == "0100007F:3CC3" and fields[3] == "0A"
+                for line in Path("/proc/net/tcp").read_text().splitlines()[1:]
+                if len(fields := line.split()) > 3
+            ):
                 break
             time.sleep(0.01)
         else:

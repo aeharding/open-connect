@@ -525,6 +525,7 @@ record_write
         for changed in (
             original + b"0" * 64 + b"  foreign",
             original[:-1],
+            original[:-1] + b"\0",
             original.replace(b"  ", b" ", 1),
             original.replace(b"  ", b"\t", 1),
             b" " + original,

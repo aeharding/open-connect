@@ -244,7 +244,7 @@ fi
 rm -f "$marker" || :
 if test -n "$LOG_STAGE"; then rm -f "$LOG_STAGE" || :; LOG_STAGE=; fi
 if test "$base" = 1; then
-    base_read_ahead || { printf 'base_read_ahead_unavailable\n' >&2 || :; }
+    base_read_ahead 2>/dev/null || startup_stamp base_read_ahead_unavailable
 fi
 startup_stamp selector_exit
 return 0

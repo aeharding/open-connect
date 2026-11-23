@@ -1,6 +1,7 @@
 """Run the actual selector with real records and simulated physical adapters."""
 
 import hashlib
+import json
 import os
 import shlex
 import shutil
@@ -179,6 +180,14 @@ startup_publish() {
         }.items():
             script = script.replace(old, new)
         (self.source / "boot.sh").write_text(script)
+        backend = (ASSETS / "backend.sh").read_text()
+        for old, new in {
+            "/tmp/mnt/data_persist/open-connect": str(self.data),
+            "/tmp/open-connect": str(self.runtime),
+            "/usr/bin/autostart": str(self.root / "data-target"),
+        }.items():
+            backend = backend.replace(old, new)
+        (self.source / "backend.sh").write_text(backend)
         manifest = "".join(
             hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
             for p in sorted(self.source.iterdir())
@@ -479,11 +488,13 @@ record_write
         self.assertFalse((self.runtime / "selected").exists())
         self.assertEqual(self.record()[9], "3")
 
-    def test_fast_path_refuses_authenticated_extra_composed_member(self):
+    def test_preparation_refuses_authenticated_extra_composed_member(self):
         folder = self.data / "composed" / self.package_id
-        (folder / "foreign").write_text("not a composition output\n")
-        self.populated_dependencies()
         before = (self.data / "record").read_bytes()
+        (folder / "foreign").write_text("not a composition output\n")
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.populated_dependencies()
+        self.assertEqual((self.data / "record").read_bytes(), before)
         result = self.boot(1)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual((self.data / "record").read_bytes(), before)
@@ -524,6 +535,68 @@ record_write
                 self.assertEqual(result.returncode, 0)
                 self.assertTrue((self.runtime / "selected").is_file())
                 self.assertEqual(self.record()[9], str(3 - number))
+
+    def test_full_diagnostic_pipe_keeps_shell_selection(self):
+        self.select_base(1)
+        (self.root / "flash/queue/read_ahead_kb").unlink()
+        shells = [["sh"]]
+        busybox = os.environ.get("OC_TEST_BUSYBOX") or shutil.which("busybox")
+        if busybox:
+            shells.append([busybox, "ash"])
+        for number, shell in enumerate(shells, 1):
+            with self.subTest(shell=shell):
+                read_fd, write_fd = os.pipe()
+                try:
+                    os.set_blocking(write_fd, False)
+                    with self.assertRaises(BlockingIOError):
+                        while True:
+                            os.write(write_fd, b"x" * 4096)
+                    os.set_blocking(write_fd, True)
+                    result = self.boot(number, stderr_fd=write_fd, shell_args=shell)
+                finally:
+                    os.close(read_fd)
+                    os.close(write_fd)
+                self.assertEqual(result.returncode, 0)
+                self.assertTrue((self.runtime / "selected").is_file())
+                self.assertEqual(self.record()[9], str(3 - number))
+                self.assertIn(
+                    "base_read_ahead_unavailable|", (self.runtime / "startup-times").read_text()
+                )
+
+    def test_set_refuses_unlisted_composed_entry_before_record_or_nvram_change(self):
+        client = self.runtime / "client"
+        shutil.copytree(self.package, client)
+        (self.runtime / "runtime").symlink_to(client)
+        current = self.record()[5]
+        record = (self.data / "record").read_bytes()
+        nvram = (self.root / "data-nvram").read_bytes()
+        folder = self.data / "composed" / self.package_id
+        foreign = folder / ".unlisted"
+        foreign.write_text("not a composed member\n")
+        result = subprocess.run(
+            ["sh", client / "backend.sh", "api", current, "set", "touch", "1", "0"],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            timeout=15,
+        )
+        self.assertEqual(json.loads(result.stdout), {"ok": False, "error": "plan_failed"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((self.data / "record").read_bytes(), record)
+        self.assertEqual((self.root / "data-nvram").read_bytes(), nvram)
+        # Unlisted files were never part of the authenticated installed state.
+        # Refusing a Set must not prevent removing that installation.
+        result = subprocess.run(
+            ["sh", client / "backend.sh", "api", current, "uninstall", "-", "-", "-"],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(self.data.exists())
+        self.assertEqual((self.root / "data-target").read_text(), "stock\n")
+        self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
 
     def test_fast_path_keeps_compiled_native_pin_when_snapshot_matches_foreign_bytes(self):
         self.manager.write_bytes(b"foreign manager adopted by snapshot\n")

@@ -399,7 +399,7 @@ class NativeBootSelection(unittest.TestCase):
         # An ordinary host file retains its old suffix, unlike kernel sysfs.
         # This deliberately exercises a failed readback AFTER the real write.
         self.assertEqual(queue.read_bytes(), b"4\n8\n")
-        self.assertIn(b"base_read_ahead_unavailable\n", result.stderr)
+        self.assertIn("base_read_ahead_unavailable|", (self.ram / "startup-times").read_text())
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((self.ram / "selected").is_file())
         self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
@@ -409,7 +409,7 @@ class NativeBootSelection(unittest.TestCase):
         queue.unlink()
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn(b"base_read_ahead_unavailable\n", result.stderr)
+        self.assertIn("base_read_ahead_unavailable|", (self.ram / "startup-times").read_text())
         self.assertTrue((self.ram / "selected").is_file())
         self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
 
@@ -424,6 +424,24 @@ class NativeBootSelection(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertTrue((self.ram / "selected").is_file())
         self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
+    def test_full_diagnostic_pipe_cannot_hang_a_published_selection(self):
+        self.base_fixture().unlink()
+        read_fd, write_fd = os.pipe()
+        try:
+            os.set_blocking(write_fd, False)
+            with self.assertRaises(BlockingIOError):
+                while True:
+                    os.write(write_fd, b"x" * 4096)
+            os.set_blocking(write_fd, True)
+            result = self.invoke(stderr_fd=write_fd)
+        finally:
+            os.close(read_fd)
+            os.close(write_fd)
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue((self.ram / "selected").is_file())
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+        self.assertIn("base_read_ahead_unavailable|", (self.ram / "startup-times").read_text())
 
     def test_no_queue_write_after_guard_refusal(self):
         queue = self.base_fixture()

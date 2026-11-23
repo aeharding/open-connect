@@ -906,7 +906,7 @@ static int oc_select(OcBoot *b,int root) {
     if (b->gated&&oc_parent()!=b->parent) return OC_REFUSE;
     if (!oc_record_commit(b)) return OC_REFUSE;
     if (!oc_publish(b)) return OC_REFUSE;
-    if (!oc_base_read_ahead(b)) (void)oc_write_all(2,"base_read_ahead_unavailable\n",sizeof "base_read_ahead_unavailable\n"-1);
+    if (!oc_base_read_ahead(b)) oc_stamp(b,"base_read_ahead_unavailable");
     oc_stamp(b,"selector_exit");
     (void)oc_new_text(b->ram,"startup-times",b->times,0600);
     return b->selected?0:OC_STOCK;

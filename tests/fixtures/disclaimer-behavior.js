@@ -1,6 +1,6 @@
 // Exercise the real private OEM context and completed-frame dispatchers.
 const fs = require('fs'), vm = require('vm'), assert = require('assert/strict');
-const [candidate, base, frameworkFile] = process.argv.slice(2);
+const [candidate, base, frameworkFile, hookFile] = process.argv.slice(2);
 const source = fs.readFileSync(candidate, 'utf8');
 const start = source.indexOf('"IntroAnimation" : {');
 const stop = source.indexOf('"QuickStartLoop" : {', start);
@@ -34,6 +34,8 @@ function fixture(withIntro = false) {
         const a = {};
         new box.BaseApp().init(a, id);
         box.app = a;
+        a._masterEntertainmentDataList = {items: []};
+        a._masterApplicationDataList = {items: []};
         a._contextTable = id === 'system' ? vm.runInContext('(function(){return ' + literal + '}).call(app)', box) : {};
         for (const name of ['HomeScreen', 'Disclaimer', 'NoteOnUseData', 'QuickStartLoop']) {
             a._contextTable[name] = {displayedFunction(){order.push('displayed:' + id + '.' + name)}};
@@ -41,7 +43,9 @@ function fixture(withIntro = false) {
         fw._appInstances[id] = a;
         return a;
     }
-    const system = app('system'), original = fw._templateTransitionCompleteCallback;
+    fw._initApp = app;
+    vm.runInContext(fs.readFileSync(hookFile, 'utf8').replace('/*OPEN_CONNECT_APPLIED*/', '1,""'), box);
+    const system = fw._initApp('system'), original = fw._templateTransitionCompleteCallback;
     system.handleContext({ctxtId: 'IntroAnimation'});
     const intro = {divElt:{id:'intro'}, contextInfo:{uiaId:'system',ctxtId:'IntroAnimation'},
         properties:{}, cleanUp(){order.push('intro-cleaned')}};

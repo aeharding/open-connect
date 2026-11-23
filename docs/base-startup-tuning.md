@@ -83,6 +83,10 @@ present with Base off. The diagnostic Base-off/Wireless-off snapshot is included
 in [own-ram.csv](assets/performance/base-startup-tuning/own-ram.csv); it has no
 matched dev.13 Base-off snapshot and is not a Base-off RAM-parity result.
 
+On November 23, the owner [explicitly accepted this candidate's RAM cost](https://github.com/aeharding/open-connect/pull/128#issuecomment-7103096499):
++12 KiB allocated tmpfs, including +4 KiB with Base off. This approval applies to
+dev.14; it does not waive the general no-unapproved-RAM rule or close #9.
+
 The combined CPU median moved **30.97% → 30.30%**. The observed ranges were
 **28.27–31.56%** and **30.23–30.69%**. CPU0's median moved **39.99% → 38.70%**;
 CPU1 was nearly unchanged at **22.03% → 22.06%**. The later 60–170 s split is a

@@ -177,13 +177,12 @@ class PrivateFirmware(unittest.TestCase):
             ),
         )
 
-    def test_renderer_insertion_is_the_only_edit_and_host_contract_passed(self):
-        original = (self.originals / "system-app.js").read_bytes()
-        candidate = (self.composed / "system-app.js").read_bytes()
-        anchor = b'        "IntroAnimation" : {'
-        at = original.index(anchor) + len(anchor)
-        fragment = (ROOT / "cmu/installer/intro.js").read_bytes().replace(b"\n", b"\r\n")[:-2]
-        self.assertEqual(candidate, original[:at] + fragment + original[at:])
+    def test_stock_system_url_and_host_contract_passed(self):
+        self.assertFalse((self.composed / "system-app.js").exists())
+        for name in ("index-on.html", "index-off.html"):
+            index = (self.composed / name).read_text()
+            self.assertNotIn("feature/system-app.js", index)
+            self.assertNotIn("utility.loadScript =", index)
         contract = (self.output / "host-contract.stdout").read_text()
         self.assertEqual(contract.count("PASS "), 4)
         self.assertIn("HOST MODEL ONLY", contract)

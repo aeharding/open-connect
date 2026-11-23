@@ -470,5 +470,5 @@ assert.equal(settings.open(fw, {read: () => ({...values, services: [...values.se
 settings.open(fw, store);
 let newBaseMain = pages.at(-1).ctrl; newBaseMain.selectCallback(newBaseMain, "services");
 let newBaseCtrl = pages.at(-1).ctrl; newBaseCtrl.selectCallback(newBaseCtrl, "base", {additionalData: 1});
-assert.match(modal.props.text1, /DAB, TV and Stitcher/);
+assert.match(modal.props.text1, /DAB, TV and discontinued integrations/);
 modal.props.defaultSelectCallback(modal, "cancel"); back(); back();

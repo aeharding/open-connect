@@ -1,6 +1,6 @@
 # Open Connect — living steering agreement
 
-Last updated: 2026-11-22. User direction and implementation choices are
+Last updated: 2026-11-23. User direction and implementation choices are
 identified separately.
 
 Read this first when starting or resuming work. It records product intent and how
@@ -133,6 +133,13 @@ port fix. This decision applies to [PR #127](https://github.com/aeharding/open-c
 reviewed candidate; it is not a general waiver. Keep #9 open and continue removing
 overhead. The [matched evidence](docs/wireless-startup-speed.md) records the limits.
 
+Specific owner acceptance (2026-11-23): merge [PR #128](https://github.com/aeharding/open-connect/pull/128)'s
+reviewed dev.14 candidate with its +12 KiB allocated tmpfs (436→448 KiB), including
++4 KiB with Base off. Listener/ignition private memory and PSS were unchanged in
+the matched snapshots. This is candidate-specific acceptance, not a general RAM
+waiver; keep #9 open. The [matched evidence](docs/base-startup-tuning.md) retains
+the timing, CPU, memory and workload limits.
+
 Recover Open Connect's own startup and runtime overhead before expanding
 Services further. Measure and remove redundant verification, staging and
 background work while preserving integrity, locking, bounded recovery and
@@ -144,7 +151,9 @@ necessity. A partial reduction does not establish stock parity.
 Discontinued or non-NA services such as DAB, TV, Stitcher and Aha may join Base
 optimizations if their measured benefit and dependencies qualify. Active optional
 services such as Pandora, Android Auto, SiriusXM and DVD remain individual
-Services choices. CarPlay has priority when testing delayed voice startup;
+Services choices. The owner explicitly chose SiriusXM default on and DVD default
+off for the next Services expansion; both remain configurable. The owner uses
+SiriusXM in their car. CarPlay has priority when testing delayed voice startup;
 explicitly name and measure delayed voice/phone/message readiness. Do that
 pilot after the startup-overhead work and Android Auto pilot.
 

@@ -74,6 +74,7 @@ class InstallerBoot(unittest.TestCase):
             "wireless.sh",
             "defer-gap2.sh",
             "base-logging.js",
+            "system-hook.js",
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.manager = self.root / "manager.so"
@@ -202,7 +203,6 @@ startup_publish() {
             "uia.so",
             "mmui.so",
             "mmui.xml",
-            "system-app.js",
             "sm-normal-on.conf",
             "sm-wcp-on.conf",
             "index-on.html",
@@ -212,7 +212,7 @@ startup_publish() {
         for name in ("index-on.html", "index-off.html"):
             (composed / name).write_text(
                 '<script src="common/js/logDefaults.js"></script>\n'
-                '<script src="framework/js/Log.js"></script>\nsynthetic feature @TOKEN@\n'
+                '<script src="framework/js/Log.js"></script>\nframework.init();\nsynthetic feature @TOKEN@\n'
             )
         self.write_profiles()
         self.composed_manifest()
@@ -773,8 +773,21 @@ record_write
                 "devicemanager",
                 "blm_ira_pandora",
                 "jciLDS",
+                "stage_vr",
+                "stage_ir",
+                "jcidvd",
+                "jciSXMS",
+                "jciXMMGR",
+                "jcixm",
+                "jcixmad",
+                "jciXMDATA",
+                "blm_ira_aha",
+                "offboard_service",
+                "irs_server",
             ):
                 attr = f'name="{name}" autorun="yes" reset_board="yes" retry_count="0"'
+                if name in ("jcixm", "jcixmad", "jciXMDATA"):
+                    attr = attr.replace('autorun="yes"', 'autorun="no"')
                 if name in args:
                     attr += f' args="{args[name]}"'
                 elif (
@@ -789,6 +802,7 @@ record_write
                     "bds": ("stage_3", "settings", "dmserver"),
                     "stage_wifi": ("stage_3", "blm_ira_aha"),
                     "stage_gap2": ("stage_3", "blm_ira_aha"),
+                    "stage_vr": ("existing", "blm_ira_aha"),
                 }.get(name, ("existing",))
                 lines += [f'<dependency type="service" value="{parent}"/>' for parent in parents]
                 lines += ["</service>"]

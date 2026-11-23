@@ -33,9 +33,7 @@ assert.throws(() => parse("const value = 1;"), SyntaxError);
 const folder = process.argv[2];
 for (const name of fs.readdirSync(folder).filter(name => name.endsWith(".js"))) {
     const source = fs.readFileSync(path.join(folder, name), "utf8");
-    // intro.js supplies one property in Mazda's existing context object.
-    const script = name === "intro.js" ? '"use strict"; ({\n' + source + "\n});" : source;
-    try { parse(script); }
+    try { parse(source); }
     catch (error) { throw new Error(name + ": " + error.message, {cause: error}); }
 }
 console.log("Installer JavaScript parses as ES5");

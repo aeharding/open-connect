@@ -117,6 +117,10 @@ function json_string(value, result, i, character) {
     }
     return result "\""
 }
+function legacy_policy(id) {
+    if(!seen["service.pandora"]) refuse()
+    for(id in service_default) if(id!="pandora" && prefs["service." id]!="1") refuse()
+}
 BEGIN {
     if(operation!~/^(decode|write|set|compose|legacy|rows)$/) refuse()
     load_catalog(catalog)
@@ -130,6 +134,9 @@ BEGIN {
     prefs["service-ids"]=service_keys
     if(input!="") load_preferences(input,operation=="write" || operation=="legacy" || (operation=="set" && legacy=="1"))
     else if(operation!="write") refuse()
+    # Preserve legacy DVD-on.
+    if((operation=="legacy" || (operation=="set" && legacy=="1")) && !seen["service.dvd"])
+        prefs["service.dvd"]="1"
     if(input!="") validate_preferences()
     if(operation=="write") {
         prefs["package"]=package_id;prefs["nvram"]=nvram_value;prefs["metadata"]=metadata_value
@@ -138,16 +145,14 @@ BEGIN {
         if(!bit(value) || (key!~/^(touch|warning|base|wireless)$/ && index(key,"service.")!=1) ||
             !known_key(key)) refuse()
         if(legacy=="1") {
-            if(!seen["service.pandora"] || (index(key,"service.")==1 && key!="service.pandora")) refuse()
-            for(id in service_default) if(id!="pandora" && prefs["service." id]!="1") refuse()
+            legacy_policy()
+            if(index(key,"service.")==1 && key!="service.pandora") refuse()
         }
         prefs[key]=value
     }
     validate_preferences()
     if(operation=="legacy") {
-        if(!seen["service.pandora"]) refuse()
-        for(id in service_default)
-            if(id!="pandora" && prefs["service." id]!="1") refuse()
+        legacy_policy()
         print prefs["touch"] "|" prefs["warning"] "|" prefs["service.pandora"] "|" prefs["base"] "|" prefs["wireless"]
         exit
     }

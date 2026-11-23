@@ -91,6 +91,13 @@ matched Base-on performance. Keep [#9](https://github.com/aeharding/open-connect
 open and require an explicit owner decision on the remaining tradeoff, preserving
 durable attempt-record flushes, recovery and independent restoration.
 
+The subsequent [dev.12/dev.13 wireless-startup comparison](docs/wireless-startup-speed.md)
+retains three starts per version: median visible Maps was 2.21 s earlier, Home
+change was unresolved, and CPU busy increased 1.16 percentage points. Measured
+own-RAM components were unchanged; total memory differences were within the
+spread. The owner accepted this specific tradeoff. Keep #9 and long-parked #8
+open; this does not qualify a production release.
+
 The deferred phase-1 manual and first-car checks remain separate.
 
 | Phase | Outcome | Done when | Work |

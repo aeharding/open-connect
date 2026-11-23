@@ -1,0 +1,3 @@
+cohort,snapshot_uptime_s,unique_tmpfs_file_KiB,unique_file_inodes,listener_private_KiB,listener_PSS_KiB,listener_RSS_KiB,ignition_private_KiB,ignition_PSS_KiB,ignition_RSS_KiB
+dev12,300.26,436.0,39,72,84,492,132,153,660
+dev13,300.31,436.0,39,72,84,492,132,153,660

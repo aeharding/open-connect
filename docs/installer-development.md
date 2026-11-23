@@ -179,6 +179,17 @@ check a single durable debit, rather than treating plan validation as selection.
 
 ## Qualification
 
+The **0.3.0-dev.13** candidate from
+[CI 45101730725](https://github.com/aeharding/open-connect/actions/runs/45101730725),
+source `54ee059d504107af7cb00d6b4168fc0e4addf496`, passed the exact-CI dev.12 update
+with choices and the stock-five baseline retained, normal installed Settings on
+15555, a Base-off/Wireless-off sanity restart, and installed-UI Uninstall followed
+by independent as-found stock verification. The
+[matched wireless comparison](wireless-startup-speed.md) records all six timing
+attempts, RAM components, the accepted CPU tradeoff and the checks' precise scope.
+This does not qualify physical input/audio, long-parked behavior or a real-car release.
+
+
 The **0.3.0-dev.10** Services candidate from
 [CI 45016577830](https://github.com/aeharding/open-connect/actions/runs/45016577830),
 source `0b5a4af74cdf8ab15014b3d6de63671fc4808666`, has live Settings and restoration

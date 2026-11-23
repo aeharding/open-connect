@@ -4,7 +4,14 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
-The latest [matched stock/dev.12 comparison](stock-startup-comparison.md) retains
+The [dev.12/dev.13 wireless-startup comparison](wireless-startup-speed.md) retains
+three starts per version with Base and Wireless enabled. Median visible Maps was
+about **2.21 seconds earlier**, while Home was unresolved at camera resolution.
+CPU busy rose **1.16 percentage points**; measured own-RAM components were
+identical and MemFree differences were within the run spread. The owner accepted
+this specific tradeoff. It does not close the no-overhead or long-parked targets.
+
+The [matched stock/dev.12 comparison](stock-startup-comparison.md) retains
 four stock attempts (three complete traces) and three complete active starts,
 without projection. Native SM `stage_1` started **0.085 seconds later**, within
 its declared margin, but Home's **midpoint estimate was about 0.40 seconds later**;

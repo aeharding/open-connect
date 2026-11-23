@@ -38,6 +38,11 @@ Android Auto and Pandora keep their own selections when you change Base.
 The [complete-preset comparison](services-comparison.md) records its measured
 RAM and startup observations, configurations and limits.
 
+The dev.13 candidate also changes wireless startup scheduling when Base and
+Wireless CarPlay are enabled together. Its [matched comparison](wireless-startup-speed.md)
+records earlier visible Maps and the accepted CPU tradeoff; other selections
+retain their existing launch policy.
+
 ## Android Auto
 
 Clear **Android Auto** and confirm **Disable** if you do not use that integration.

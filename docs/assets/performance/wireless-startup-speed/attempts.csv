@@ -1,0 +1,7 @@
+cohort,run,acquisition_order,outcome,camera_verified,kernel_boot_banners,uart_boot_markers,resource_samples,trace_sha256
+dev12,1,1,observed,True,1,1,172,ffb2bba22d4282d81d5befb73330254641c6d78888e286b94cb61b4aa5f0159e
+dev12,2,2,observed,True,1,1,169,72ecea43f44ed3c3920b80917ecf48450a38fb3e396249cc7676faf40131bfcb
+dev12,3,3,observed,True,1,1,172,c3f5ef1e9cec572719b906dfdcb550efabf7b9e6092c642820e81f5282eef8ba
+dev13,1,4,observed,True,1,1,173,1e773d1388a917d357c3dabdf46cb2c41c26a3b84f1410bf27c2012f7be80aeb
+dev13,2,5,observed,True,1,1,173,15eda838137cd36c05ff2a56e4d178087a97f9018b1b1757fa0940d6c6aabc59
+dev13,3,6,observed,True,1,1,172,d46ae4a3123f8b0edbfb262d69cb5f9ee4d7b12f47b576a4b0141922cae638d4

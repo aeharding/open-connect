@@ -61,6 +61,11 @@ On factory-wireless hardware, factory availability remains intact.
   <figcaption>Disable restores the original availability after a full restart.</figcaption>
 </figure>
 
+With both Base optimizations and Wireless CarPlay enabled, dev.13 also adjusts
+wireless startup scheduling. A [three-start-per-version comparison](wireless-startup-speed.md)
+reached visible Maps about 2.21 seconds earlier, with higher CPU use and no resolved
+Home or RAM improvement. This does not qualify long-parked startup or usable input.
+
 A separate [wireless startup baseline](wireless-comparison.md) compares Base
 optimizations off/on, including its failed attempts. Long-parked startup
 improvement remains unqualified.

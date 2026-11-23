@@ -125,6 +125,14 @@ configuration; meeting the bar in one preset does not qualify another. The
 startup target is no measurable added delay compared with stock (approximately
 zero seconds). No RAM increase has been approved by this rule.
 
+Specific owner acceptance (2026-11-22): integrate dev.13's wireless-startup change
+with its measured +1.15 percentage-point CPU increase in the later 60–170 s window
+(+1.16 points across 20–170 s), in exchange for 2.21 s earlier visible Maps,
+unresolved Home change, unchanged measured own-RAM components and the Settings
+port fix. This decision applies to [PR #127](https://github.com/aeharding/open-connect/pull/127)'s
+reviewed candidate; it is not a general waiver. Keep #9 open and continue removing
+overhead. The [matched evidence](docs/wireless-startup-speed.md) records the limits.
+
 Recover Open Connect's own startup and runtime overhead before expanding
 Services further. Measure and remove redundant verification, staging and
 background work while preserving integrity, locking, bounded recovery and

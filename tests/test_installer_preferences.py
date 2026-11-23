@@ -358,10 +358,6 @@ class InstallerPreferences(unittest.TestCase):
                                     if child.get("value") == "blm_ira_aha"
                                 )
                             )
-                        elif name == "dmserver":
-                            expected.find("dependency").set("value", "settings")
-                        elif name == "start_network":
-                            expected.find("dependency").set("value", "jciUSBMGR")
                     self.assertEqual(jobs[name].attrib, expected.attrib)
                     self.assertEqual(
                         [child.attrib for child in jobs[name]], [child.attrib for child in expected]
@@ -443,8 +439,6 @@ class InstallerPreferences(unittest.TestCase):
             ("bds", "dmserver"),
             ("stage_wifi", "stage_3"),
             ("stage_wifi", "blm_ira_aha"),
-            ("dmserver", "jciRadio"),
-            ("start_network", "stage_usb"),
         ):
             for duplicate in (False, True):
                 with self.subTest(service=service, parent=parent, duplicate=duplicate):

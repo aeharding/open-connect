@@ -1075,10 +1075,12 @@ Supporting private record: `runs/services-pilots-20261122/independent-dev10-veri
 
 The dev.14 complete-preset [comparison](base-startup-tuning.md) retains three
 dev.13 and three dev.14 starts with Base/Wireless/Android Auto/Pandora enabled.
-Lowering `ffx01` read-ahead from 128 to 4 KiB reduced shared-window read volume;
-most of the higher MemFree corresponded to a smaller file cache. It is not an
-equivalent reduction in application footprint. Unique tmpfs allocations grew
-12 KiB while listener/ignition private pages and PSS were unchanged.
+The complete dev.14 preset, including 4 KiB `ffx01` read-ahead, browser logging
+and service scheduling, had lower shared-window read volume. This comparison
+does not isolate read-ahead's contribution. Most of the higher MemFree
+corresponded to a smaller file cache, rather than an equivalent reduction in
+application footprint. Unique tmpfs allocations grew 12 KiB while
+listener/ignition private pages and PSS were unchanged.
 
 Only the six children of `stage_gap2` receive the new twelve-second gate, with
 their original dependencies retained. A live gate started at native 35.341 s,

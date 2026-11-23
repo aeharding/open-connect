@@ -89,11 +89,20 @@ CPU1 was nearly unchanged at **22.03% → 22.06%**. The later 60–170 s split i
 post-hoc diagnostic in the CSV, not another predeclared benchmark.
 
 `ffx01` is the whole flash device; its partition rows overlap and must not be
-summed with it. In the shared window, `ffx01p4` read **0.918 MiB in every run**.
-During the later 60–170 s interval it read **48–56 sectors** in both cohorts;
-writes ranged **16–72 sectors** for dev.13 and **16–80** for dev.14. This small
-settled workload showed no large data-partition increase; it does not qualify
-arbitrary sequential I/O or every vehicle workload.
+summed with it. Its lower read volume is a **complete-preset observation**:
+read-ahead, logging and service scheduling changed together, so these starts
+do not isolate each component's contribution.
+
+In 20–170 s, `ffx01p4` read **1,880 sectors (0.918 MiB) in every run**, but
+completed read requests were **65/63/63** for dev.13 and **227/205/215** for
+dev.14. The median rose **63 → 215 (3.4×)**, with smaller average requests.
+Unchanged volume does not establish unchanged application latency; latency was
+not measured here.
+
+In the later 60–170 s interval, p4 read **56/56/56 sectors** for dev.13 and
+**48/56/48** for dev.14. Writes ranged **16–72 sectors** and **16–80**, respectively.
+The later window showed no large read-volume increase in this small settled
+workload. It does not qualify arbitrary sequential I/O or every vehicle workload.
 
 ## Build and live checks
 

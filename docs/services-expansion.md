@@ -47,7 +47,7 @@ Maps observation.
 Home's median midpoint difference was **+0.200 s**, with differences of median
 frame endpoints **−0.001..+0.401 s**. Maps' difference was **+1.407 s**, bounded by
 **+1.206..+1.608 s**. These are frame brackets, not confidence intervals. Individual
-Maps midpoint ranges overlap: **43.835–45.277 s** and **44.059–46.250 s**.
+Maps midpoint ranges overlap: **43.836–45.277 s** and **44.058–46.250 s**.
 The blocked order and three runs per version limit attribution and drift claims.
 Neither stock parity nor a universal no-overhead result is established.
 
@@ -104,7 +104,7 @@ moved; report them separately. AnonPages is a system aggregate, not per-process
 private/PSS attribution. Higher MemFree alone is not proof of an equivalent
 application-memory saving.
 
-| Own RAM component (KiB) | dev.14 | dev.15 |
+| Own RAM component (KiB; PSS medians) | dev.14 | dev.15 |
 | --- | --- | --- |
 | Unique allocated tmpfs files | 448 | 444 |
 | Listener private / PSS | 72 / 83 | 72 / 83 |
@@ -115,13 +115,17 @@ including hardlinked session members only once. Matched snapshots were taken
 at kernel uptime **235.68–236.47 s**, after the timing/resource capture.
 Dev.15's selected page was **3,899 B / 4 KiB allocated**, versus dev.14's
 **4,228 B / 8 KiB**; this explains the **−4 KiB** allocation difference.
-Helper private pages/PSS stayed unchanged in all matched snapshots.
+Helper private pages were unchanged in all matched snapshots. Listener PSS was
+83 KiB throughout. Ignition PSS was **153/153/153 KiB** for dev.14 and
+**153/155/153 KiB** for dev.15: both medians were 153 KiB, with one 2 KiB higher
+sample. Keep that PSS variation separate from the unchanged private pages.
 
 The separate Base-off/Wireless-off snapshot had **404 KiB** allocated files,
 listener **76/87 KiB private/PSS**, and ignition **132/154 KiB**. Those components
 match the earlier dev.14 off-state snapshot. This is a single diagnostic, not a
-matched Base-off timing or total-memory comparison. No new RAM increase or
-broad RAM waiver is claimed.
+matched Base-off timing or total-memory comparison. The measured allocations
+and helper private pages did not increase; neither total-RAM parity nor a broad
+RAM waiver is claimed.
 
 ## Build, controls and restoration
 

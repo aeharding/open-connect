@@ -145,8 +145,9 @@ reviewed dev.15 Services candidate despite the +1.407 s median visible-Maps tail
 in the blocked three-start cohorts. Run ranges overlap and several native CMU
 connection milestones were earlier; neither phone-only causation nor stock
 parity is established. Home's midpoint was +0.200 s, with frame-endpoint
-differences −0.001..+0.401 s. Own allocated tmpfs fell 4 KiB and helper private/PSS
-snapshots were unchanged. The [recorded owner disposition](https://github.com/aeharding/open-connect/pull/129#issuecomment-7108804856)
+differences −0.001..+0.401 s. Own allocated tmpfs fell 4 KiB and helper private
+pages were unchanged. Ignition PSS medians were 153 KiB in both cohorts, with
+one 155 KiB candidate sample. The [recorded owner disposition](https://github.com/aeharding/open-connect/pull/129#issuecomment-7108804856)
 applies to this candidate, not a general overhead/RAM waiver. Keep #9 open and
 retain the [complete evidence and reload limit](docs/services-expansion.md).
 

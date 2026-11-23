@@ -46,7 +46,7 @@ results selected this candidate; they are outside the matched result below.
 | dev.13 / 3 | 25.01–25.21 | 49.21–49.41 | 31.33 | 217.04 | 218.89 |
 
 The median Home midpoint difference was **−0.019 s**, with frame-difference
-bounds **−0.221..+0.182 s**. The Maps difference was **−2.210 s**, bounded by
+bounds **−0.220..+0.182 s**. The Maps difference was **−2.210 s**, bounded by
 **−2.412..−2.009 s**. These are frame brackets, not statistical confidence
 intervals. Individual midpoint ranges overlap: dev.12 Maps 48.29–50.53 s and
 dev.13 47.90–49.31 s. Three starts per condition are a small sample.

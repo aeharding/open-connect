@@ -132,6 +132,18 @@ class NativeBootPlan(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
         cls.program = Path(cls.temp.name).resolve() / "boot-select"
+        # These shell fixtures remap all OEM paths onto a private temporary
+        # volume. Remap only the physical stock-root device reference as well;
+        # the sealer still compares every selected source's actual device.
+        for source in (*ASSETS.glob("boot-*.h"), ASSETS / "boot-select.c"):
+            text = source.read_text()
+            text = text.replace(
+                "static int oc_stock_meta(int root,OcMeta *stock) { return oc_stat(root,stock)>=0; }",
+                'static int oc_stock_meta(int root,OcMeta *stock) { (void)root; long fd=oc_openat(OC_CWD,"'
+                + str(cls.program.parent)
+                + '",OC_DIRECTORY,0); if(fd<0)return 0; int ok=oc_stat((int)fd,stock)>=0; return oc_close((int)fd)>=0&&ok; }',
+            )
+            (cls.program.parent / source.name).write_text(text)
         subprocess.run(
             [
                 "clang",
@@ -142,7 +154,7 @@ class NativeBootPlan(unittest.TestCase):
                 "-Wall",
                 "-Wextra",
                 "-Werror",
-                ASSETS / "boot-select.c",
+                cls.program.parent / "boot-select.c",
                 "-o",
                 cls.program,
             ],

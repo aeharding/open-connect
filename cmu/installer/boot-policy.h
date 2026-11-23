@@ -475,6 +475,10 @@ static int oc_identity_coverage(OcBoot *b) {
     }
     if (found[0]!=1||found[1]!=1||found[2]!=1) return 0;
     if (oc_equal(b->flags[6],"1")) {
+        OcMeta stock;
+        if (!oc_stock_meta(b->root,&stock)) return 0;
+        for (unsigned i=0;i<b->input_count;++i)
+            if (oc_prefix(b->inputs[i].key,"base/vui/")&&b->inputs[i].meta.device!=stock.device) return 0;
         if (!oc_expect(b,"base/settings.txt","/config/common/log/settings.txt","8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0")||
             !oc_expect(b,"base/libjcicommon.so","/jci/lib/libjcicommon.so","637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d")||
             !oc_expect(b,"base/log-defaults.js","/jci/gui/common/js/logDefaults.js","83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a")||
@@ -636,7 +640,7 @@ static int oc_ui_stage(OcBoot *b) {
         if (!oc_join(path,sizeof path,"/jci/vui/plugins/",name)||oc_symlink(path,(int)folder,name)<0) {ok=0;break;}
     }
     if (oc_close((int)folder)<0) ok=0;
-    return ok;
+    return ok && oc_symlink("feature/vui-plugins",b->stage,".vui-link")>=0;
 }
 static const char *const oc_ui_alias_names[]={"v.xml","vui-hold.so","vui-plugins"};
 static void oc_ui_unwind(OcBoot *b) {
@@ -649,15 +653,19 @@ static void oc_ui_unwind(OcBoot *b) {
 }
 static int oc_ui_alias(OcBoot *b) {
     if (!b->selected||!oc_equal(b->flags[6],"1")) return 1;
-    const char *sources[]={"vui.xml","vui.so",0};
+    const char *sources[]={"vui.xml","vui.so",".vui-link"};
     for (unsigned i=0;i<3;++i) {
-        long r=i==2?oc_symlink("feature/vui-plugins",b->ram,oc_ui_alias_names[i]):
-            oc_link(b->stage,sources[i],b->ram,oc_ui_alias_names[i]);
-        if (r<0) return 0;
-        if (oc_metadata(b->ram,oc_ui_alias_names[i],&b->ui_identity[i])<0) return 0;
+        /* Keep ownership evidence before any root name can become visible,
+         * including an uncertain link failure or a failed post-link lookup.
+         */
+        if (oc_metadata(b->stage,sources[i],&b->ui_identity[i])<0) return 0;
         b->ui_aliases|=1u<<i;
+        if (oc_link(b->stage,sources[i],b->ram,oc_ui_alias_names[i])<0) return 0;
+        OcMeta actual;
+        if (oc_metadata(b->ram,oc_ui_alias_names[i],&actual)<0||
+            actual.device!=b->ui_identity[i].device||actual.inode!=b->ui_identity[i].inode) return 0;
     }
-    return 1;
+    return oc_unlink(b->stage,".vui-link")>=0;
 }
 static int oc_nvram(OcBoot *b,char value[16]) {
     /* These class parents are kernel-owned sysfs links, unlike durable paths.

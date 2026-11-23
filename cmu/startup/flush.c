@@ -17,7 +17,7 @@ static long open_readonly(const char *path, int directory) {
 static long flush_fd(int fd) { return fsync(fd) < 0 ? -errno : 0; }
 static long close_fd(int fd) { return close(fd) < 0 ? -errno : 0; }
 static long link_path(const char *source, const char *target) {
-    return link(source, target) < 0 ? -errno : 0;
+    return linkat(AT_FDCWD, source, AT_FDCWD, target, 0) < 0 ? -errno : 0;
 }
 static void report(const char *s, unsigned n) { (void)write(2, s, n); }
 #else

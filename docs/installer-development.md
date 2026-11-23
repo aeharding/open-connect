@@ -168,6 +168,11 @@ stay unchanged. The stock System UIA path remains in use when disclaimer bypass
 is off. The composed set has twelve payload members; snapshots additionally pin
 the rendered MMUI XML and retained plugin list before transaction preparation.
 Selected stock plugin hashes are checked before preparation and again at sealing.
+VUI inputs must reside on the verified OEM root filesystem even when another
+device presents identical bytes. Rendering checks the saved MMUI source against
+its stock pin before preparation; an unrelated damaged backup does not prevent
+Uninstall. Root alias ownership is captured from staged private inodes before
+linking, so a failed lookup or publication can remove only owned names.
 The bounded OCBP1 format is unchanged; its row limit is 192, with a planned maximum
 of 160 inputs including the Nav helper (80 dependency rows).
 

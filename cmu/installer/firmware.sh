@@ -311,6 +311,7 @@ vui_sources_verify() {
         file "$target" && test "$(sha "$target")" = "$digest" || exit 1
     done
 }
+vui_stock_device() { stat -c %d /; }
 vui_input_files() {
     # The target package's authenticated list names only retained stock leaves.
     local list=$1 name digest bytes=0 count=0 seen='|'
@@ -328,10 +329,12 @@ vui_input_files() {
     test "$count" -ge 36 && test "$(wc -c < "$list")" -eq "$bytes"
 }
 vui_inputs_verify() {
-    local inputs
+    local inputs device
     inputs=$(vui_input_files "$1") || return 1
+    device=$(vui_stock_device) || return 1
     printf '%s\n' "$inputs" | while read -r digest name target; do
-        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+        file "$target" && test "$(stat -c %d "$target")" = "$device" &&
+            test "$(sha "$target")" = "$digest" || exit 1
     done
 }
 
@@ -362,7 +365,7 @@ composed_members_verify() {
 
 boot_render_profiles() {
     # This function runs from the verified target package, before prepare.
-    local destination=$1 config=$2 source setting=off profile digest asset
+    local destination=$1 config=$2 source setting=off profile digest asset xml
     config_decode "$config" && test "$S_SCHEMA" = OC2 &&
         test "$P" = "$D/packages/$S_PACKAGE" || return 1
     source=$D/composed/$S_PACKAGE
@@ -375,13 +378,20 @@ boot_render_profiles() {
         digest=$(awk -v name="$asset" '$2==name{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
         test "$(sha "$P/$asset")" = "$digest" || return 1
     done
+    # Saved originals are writable data. Render only a private copy whose bytes
+    # still match the supported stock pin, not a hash-then-reopened pathname.
+    xml=$destination/.mmui-source
+    digest=$(original_files | awk '$2=="mmui.xml"{n++;print $1}END{exit n!=1}') || return 1
+    file "$D/originals/mmui.xml" && cp "$D/originals/mmui.xml" "$xml" &&
+        test "$(sha "$xml")" = "$digest" || return 1
     for asset in mmui plugins; do
         if test "$asset" = mmui; then profile=mmui.xml; else profile=vui-plugins.list; fi
         awk -v operation=compose -v ui_mode="$asset" -v modules="$P/ui-modules.tsv" \
             -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" \
             -v input="$config" -v input_bytes="$(wc -c < "$config")" \
-            -f "$P/preferences.awk" -f "$P/ui-profile.awk" "$D/originals/mmui.xml" > "$destination/$profile" || return 1
+            -f "$P/preferences.awk" -f "$P/ui-profile.awk" "$xml" > "$destination/$profile" || return 1
     done
+    rm "$xml" || return 1
     if test "$S_BASE" = 1; then vui_inputs_verify "$destination/vui-plugins.list" || return 1; fi
     for profile in normal wcp; do
         awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" \
@@ -399,7 +409,8 @@ boot_render_profiles() {
             if(choice["pandora"]=="0") hidden=hidden "pandora,"
             if(choice["siriusxm"]=="0") hidden=hidden "satradio,xmaudio,xmdata,"
             if(choice["dvd"]=="0") hidden=hidden "dvd,"
-            if(choice["android-auto"]=="0") hidden=hidden "androidauto,"
+            aa_guard=(base=="1" && choice["android-auto"]=="0")
+            if(aa_guard) hidden=hidden "androidauto,"
             sub(/,$/,"",hidden)
             needed=(warning=="1" || hidden!="")
         }
@@ -416,7 +427,7 @@ boot_render_profiles() {
             while((r=getline line < hook)>0) {
                 if(index(line,"/* OPEN_CONNECT_AA_BEGIN */")) {aa_block=1;continue}
                 if(index(line,"/* OPEN_CONNECT_AA_END */")) {aa_block=0;continue}
-                if(choice["android-auto"]!="0" && (aa_block || index(line,"/* OPEN_CONNECT_AA_CALL */"))) continue
+                if(!aa_guard && (aa_block || index(line,"/* OPEN_CONNECT_AA_CALL */"))) continue
                 sub(/ \/[*] OPEN_CONNECT_AA_CALL [*]\//,"",line)
                 if(index(line,"/*OPEN_CONNECT_APPLIED*/")) {
                     if(sub(/\/[*]OPEN_CONNECT_APPLIED[*]\//,warning ",\"" hidden "\"",line)!=1)exit 1

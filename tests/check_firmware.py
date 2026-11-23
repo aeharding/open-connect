@@ -133,7 +133,15 @@ def build(output, paths):
     # Host-only physical-path adapter. Public package bytes remain unchanged.
     adapter = output / "firmware-adapter.sh"
     adapter.write_text(
-        (ASSETS / "firmware.sh").read_text().replace("/jci/vui", str(paths["vui.so"].parent))
+        (ASSETS / "firmware.sh")
+        .read_text()
+        .replace("/jci/vui/svcjcivui.so", str(paths["vui.so"]))
+        .replace("/jci/vui/vui_config.xml", str(paths["vui.xml"]))
+        .replace(" /jci/vui/plugins/%s", " " + str(paths["vui.so"].parent / "plugins") + "/%s")
+        .replace(
+            "vui_stock_device() { stat -c %d /; }",
+            'vui_stock_device() { stat -c %d "' + str(paths["manager.so"]) + '"; }',
+        )
     )
     run(
         [

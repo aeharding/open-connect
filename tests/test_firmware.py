@@ -56,6 +56,18 @@ class PrivateFirmware(unittest.TestCase):
         changed = [i for i, (a, b) in enumerate(zip(old, new)) if a != b]
         self.assertEqual(len(changed), 17)
         self.assertTrue(all(0x10A64 <= i < 0x10A64 + 24 for i in changed))
+        original_xml = (self.originals / "vui.xml").read_bytes()
+        candidate_xml = (self.composed / "vui.xml").read_bytes()
+        self.assertEqual(
+            ET.fromstring(candidate_xml).find("PluginsFolder").get("value"),
+            "/tmp/open-connect/vui-plugins/",
+        )
+        self.assertEqual(
+            candidate_xml,
+            original_xml.replace(
+                b'value="/jci/vui/plugins"', b'value="/tmp/open-connect/vui-plugins/"'
+            ),
+        )
 
     def test_all_board_choice_graphs_keep_nav_independent_of_projection(self):
         assets = ROOT / "cmu/installer"

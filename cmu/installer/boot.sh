@@ -69,15 +69,23 @@ boot_ui_unwind() {
         fi
     done
 }
-boot_ui_publish() {
+boot_ui_prepare() {
+    ui_xml=; ui_elf=; ui_folder=
     test "$base" = 1 || return 0
     absent "$R/v.xml" && absent "$R/vui-hold.so" && absent "$R/vui-plugins" || return 1
+    ui_xml=$(stat -c '%d:%i' "$R/feature/vui.xml") || return 1
+    ui_elf=$(stat -c '%d:%i' "$R/feature/vui.so") || return 1
+    ui_folder=$(stat -c '%d:%i' "$R/feature/.vui-link") || return 1
+}
+boot_ui_publish() {
+    test "$base" = 1 || return 0
+    test -n "$ui_xml" && test -n "$ui_elf" && test -n "$ui_folder" || return 1
     "$runtime/flush" l "$R/feature/vui.xml" "$R/v.xml" || return 1
-    ui_xml=$(stat -c '%d:%i' "$R/v.xml") || return 1
+    test "$(stat -c '%d:%i' "$R/v.xml")" = "$ui_xml" || return 1
     "$runtime/flush" l "$R/feature/vui.so" "$R/vui-hold.so" || return 1
-    ui_elf=$(stat -c '%d:%i' "$R/vui-hold.so") || return 1
-    ln -s feature/vui-plugins "$R/vui-plugins" || return 1
-    ui_folder=$(stat -c '%d:%i' "$R/vui-plugins")
+    test "$(stat -c '%d:%i' "$R/vui-hold.so")" = "$ui_elf" || return 1
+    "$runtime/flush" l "$R/feature/.vui-link" "$R/vui-plugins" || return 1
+    test "$(stat -c '%d:%i' "$R/vui-plugins")" = "$ui_folder" || return 1
 }
 boot_ui_stage() {
     "$P/boot-select" copy-ui / "$R_CURRENT" "${work##*/}"
@@ -243,6 +251,10 @@ if ! native_log_prepare "$base"; then
     native_log_discard || :
     fail logging_config_failed
 fi
+if ! boot_ui_prepare; then
+    native_log_discard || :
+    fail ui_identity_failed
+fi
 if test "$boot_cancelled" = true; then
     native_log_discard || :
     fail selection_cancelled
@@ -266,6 +278,7 @@ if ! boot_ui_publish || ! native_log_commit "$runtime/flush" || ! "$runtime/flus
 fi
 rm -f "$marker" || :
 if test -n "$LOG_STAGE"; then rm -f "$LOG_STAGE" || :; LOG_STAGE=; fi
+if test "$base" = 1; then rm -f "$R/feature/.vui-link" 2>/dev/null || :; fi
 if test "$base" = 1; then
     base_read_ahead 2>/dev/null || startup_stamp base_read_ahead_unavailable
 fi

@@ -184,8 +184,12 @@ startup_publish() {
             (self.source / "firmware.sh")
             .read_text()
             .replace("/jci/vui/plugins/", str(vui_root / "plugins") + "/")
+            .replace(
+                "ef9550fa084a34b6a997d2e488c41e50667b409fa2e6ad9c896429c74dc705f0",
+                hashlib.sha256((originals / "mmui.xml").read_bytes()).hexdigest(),
+            )
         )
-        text += "\nvui_source_files() { :; }\n"
+        text += '\nvui_source_files() { :; }\nvui_stock_device() { stat -c %d "$D"; }\n'
         (self.source / "firmware.sh").write_text(text)
         with (self.source / "firmware.sh").open("a") as stream:
             stream.write(r"""
@@ -196,6 +200,7 @@ boot_ui_stage() {
     if test "$base" = 1; then
         cp "$D/composed/$package/vui.so" "$D/composed/$package/vui.xml" "$work/"
         mkdir "$work/vui-plugins"
+        ln -s feature/vui-plugins "$work/.vui-link"
         while read -r name; do ln -s "/jci/vui/plugins/$name" "$work/vui-plugins/$name"; done < "$D/snapshots/$R_CURRENT/vui-plugins.list"
     fi
 }
@@ -555,6 +560,188 @@ record_write
             '. "$P/transaction.sh"; AUTOSTART=$D-target; record_read; targets_match "$R_CURRENT"; dependencies_match "$R_CURRENT"; uninstall_owned "$R_CURRENT"'
         )
         self.assertEqual(result.returncode, 0)
+
+    def test_damaged_saved_xml_set_refuses_without_blocking_uninstall(self):
+        client = self.runtime / "client"
+        shutil.copytree(self.package, client)
+        (self.runtime / "runtime").symlink_to(client)
+        current = self.record()[5]
+        record = (self.data / "record").read_bytes()
+        nvram = (self.root / "data-nvram").read_bytes()
+        source = self.data / "originals/mmui.xml"
+        source.write_bytes(source.read_bytes().replace(b"</MmuiLoadConfiguration>", b""))
+        result = subprocess.run(
+            ["sh", client / "backend.sh", "api", current, "set", "warning", "1", "0"],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            timeout=15,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), {"ok": False, "error": "plan_failed"})
+        self.assertEqual((self.data / "record").read_bytes(), record)
+        self.assertEqual((self.root / "data-nvram").read_bytes(), nvram)
+        removed = subprocess.run(
+            ["sh", client / "backend.sh", "api", current, "uninstall", "-", "-", "-"],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            timeout=15,
+        )
+        self.assertEqual(removed.returncode, 0, removed.stdout + removed.stderr)
+        self.assertFalse(self.data.exists())
+
+    def test_foreign_device_plugin_refuses_set_before_prepare_and_keeps_uninstall(self):
+        client = self.runtime / "client"
+        shutil.copytree(self.package, client)
+        (self.runtime / "runtime").symlink_to(client)
+        current = self.record()[5]
+        record = (self.data / "record").read_bytes()
+        nvram = (self.root / "data-nvram").read_bytes()
+        # Only the device response changes; canonical path and pinned bytes do
+        # not. The target-owned renderer reaches this through its real PATH.
+        tool = self.tools / "stat"
+        real = str(tool.resolve()) if tool.exists() else shutil.which("stat")
+        tool.unlink(missing_ok=True)
+        plugin = str(self.root / "vui/plugins/vui_plugin_common.so")
+        tool.write_text(
+            '#!/bin/sh\nif test "$1:$2:$3" = '
+            + shlex.quote("-c:%d:" + plugin)
+            + '; then printf "999999\\n"; else exec '
+            + shlex.quote(real)
+            + ' "$@"; fi\n'
+        )
+        tool.chmod(0o700)
+        result = subprocess.run(
+            ["sh", client / "backend.sh", "api", current, "set", "base", "0", "1"],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            timeout=15,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), {"ok": False, "error": "plan_failed"})
+        self.assertEqual((self.data / "record").read_bytes(), record)
+        self.assertEqual((self.root / "data-nvram").read_bytes(), nvram)
+        removed = subprocess.run(
+            ["sh", client / "backend.sh", "api", current, "uninstall", "-", "-", "-"],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            timeout=15,
+        )
+        self.assertEqual(removed.returncode, 0, removed.stdout + removed.stderr)
+        self.assertFalse(self.data.exists())
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js required")
+    def test_rendered_base_off_aa_off_preserves_both_oem_callbacks(self):
+        for base in (0, 1):
+            for warning in (0, 1):
+                result = self.shell(
+                    'record_read; snapshot_read "$R_CURRENT"; prefs=$(preferences_change "$S_PREFS" "$S_PACKAGE" service.android-auto 0 "$S_SCHEMA"); '
+                    + f'prefs=$(preferences_change "$prefs" "$S_PACKAGE" base {base} OC2); prefs=$(preferences_change "$prefs" "$S_PACKAGE" warning {warning} OC2); '
+                    + 'snapshot_create "$D-target" "$S_PACKAGE" "$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - "$prefs"'
+                )
+                index = self.data / "snapshots" / result.stdout.strip() / "index.html"
+                subprocess.run(
+                    ["node", ROOT / "tests/fixtures/system-hook-rendered.js", index, str(base)],
+                    check=True,
+                    capture_output=True,
+                    timeout=5,
+                )
+
+    def test_shell_alias_failure_boundaries_remove_owned_names_and_preserve_foreign(self):
+        for mode in ("metadata", "before", "after", "foreign"):
+            for alias in ("v.xml", "vui-hold.so", "vui-plugins"):
+                with self.subTest(mode=mode, alias=alias):
+                    root = self.root / f"alias-{mode}-{alias}"
+                    feature = root / "feature"
+                    feature.mkdir(parents=True)
+                    (feature / "vui.xml").write_text("config\n")
+                    (feature / "vui.so").write_bytes(b"ELF fixture\n")
+                    (feature / ".vui-link").symlink_to("feature/vui-plugins")
+                    runtime = root / "tools"
+                    runtime.mkdir()
+                    helper = runtime / "flush"
+                    helper.write_text(
+                        '#!/bin/sh\nif test "$1:$3" = "l:$OC_ALIAS_ROOT/$OC_ALIAS_NAME"; then\n'
+                        ' case "$OC_ALIAS_MODE" in before) exit 1;; foreign) printf "foreign\\n" > "$3"; exit 1;; after) '
+                        + shlex.quote(str(self.source / "flush"))
+                        + ' "$@"; exit 1;; esac\nfi\nexec '
+                        + shlex.quote(str(self.source / "flush"))
+                        + ' "$@"\n'
+                    )
+                    helper.chmod(0o700)
+                    script = r"""
+. "${1%/*}/state.sh"
+. "$1"
+R=$2; runtime=$3; base=1
+stat() {
+    if test "$OC_ALIAS_MODE" = metadata && test "$3" = "$R/$OC_ALIAS_NAME" && test ! -e "$R/fault-used"; then
+        : > "$R/fault-used"; return 1
+    fi
+    command stat "$@"
+}
+boot_ui_prepare || exit 67
+if boot_ui_publish; then exit 55; fi
+boot_ui_unwind
+"""
+                    result = subprocess.run(
+                        ["sh", "-c", script, "alias-check", ASSETS / "boot.sh", root, runtime],
+                        capture_output=True,
+                        text=True,
+                        env={
+                            **self.env,
+                            "OC_ALIAS_ROOT": str(root),
+                            "OC_ALIAS_NAME": alias,
+                            "OC_ALIAS_MODE": mode,
+                        },
+                        timeout=5,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    for name in ("v.xml", "vui-hold.so", "vui-plugins"):
+                        if mode == "foreign" and name == alias:
+                            self.assertEqual((root / name).read_bytes(), b"foreign\n")
+                        else:
+                            self.assertFalse(os.path.lexists(root / name))
+
+    def test_shell_post_link_metadata_failure_rolls_back_after_one_debit(self):
+        self.select_base(1)
+        script = (
+            (self.package / "boot.sh")
+            .read_text()
+            .replace(
+                "    boot_load\n",
+                r"""
+    boot_load
+    stat() {
+        if test "$3" = "$R/vui-hold.so" && test ! -e "$R/metadata-fault"; then
+            : > "$R/metadata-fault"; return 1
+        fi
+        command stat "$@"
+    }
+""",
+            )
+        )
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        result = subprocess.run(
+            [
+                "sh",
+                "-c",
+                script.replace('case "${0##*/}" in boot.sh) boot_main;; esac', "boot_select"),
+                "injected",
+            ],
+            env={**self.env, "P": str(self.package)},
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("selection_commit_failed", result.stderr)
+        self.assertEqual(self.record()[9], "2")
+        self.assertTrue((self.runtime / "metadata-fault").exists())
+        for name in ("selected", "v.xml", "vui-hold.so", "vui-plugins"):
+            self.assertFalse(os.path.lexists(self.runtime / name))
 
     def test_forced_shell_copy_failure_consumes_one_attempt_without_alias_publication(self):
         self.select_base(1)

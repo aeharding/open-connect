@@ -63,6 +63,46 @@ class NativeBootSelection(unittest.TestCase):
             text = source.read_text()
             for _, _, data, original in cls.BASE_INPUTS:
                 text = text.replace(original, sha(data.encode()))
+            # Inject syscall failures in the private host adapter, not in the
+            # shipped selector. All policy/publication/unwind code stays real.
+            if source.name == "boot-io.h":
+                text = text.replace(
+                    "#include <errno.h>",
+                    "#include <errno.h>\n#include <stdlib.h>\n#include <string.h>",
+                )
+                text = text.replace(
+                    "static long oc_metadata(int fd, const char *path, OcMeta *m)",
+                    "static long oc_metadata_raw(int fd, const char *path, OcMeta *m)",
+                    1,
+                )
+                text = text.replace(
+                    "#else\n#define OC_CWD",
+                    """static long oc_metadata(int fd,const char *path,OcMeta *m) {
+    static int failed;
+    const char *fault=getenv("OC_ALIAS_META_FAIL");
+    if(path&&fault&&!failed&&!strcmp(path,fault)) { failed=1; return -5; }
+    return oc_metadata_raw(fd,path,m);
+}
+#else
+#define OC_CWD""",
+                    1,
+                )
+            if source.name == "boot-system.h":
+                text = text.replace(
+                    "static long oc_link(int from,const char *name,int to,const char *target) { return linkat(from,name,to,target,0)<0?-errno:0; }",
+                    """static long oc_link(int from,const char *name,int to,const char *target) {
+    const char *foreign=getenv("OC_ALIAS_FOREIGN"),*fault=getenv("OC_ALIAS_LINK_FAIL"),*after=getenv("OC_ALIAS_LINK_AFTER");
+    if(foreign&&!strcmp(target,foreign)) {
+        long fd=oc_openat(to,target,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
+        if(fd>=0) { (void)oc_write_all((int)fd,"foreign\\n",8); (void)oc_close((int)fd); }
+        return -17;
+    }
+    if(fault&&!strcmp(target,fault)) return -5;
+    if(linkat(from,name,to,target,0)<0) return -errno;
+    return after&&!strcmp(target,after)?-5:0;
+}""",
+                    1,
+                )
             (folder / source.name).write_text(text)
         subprocess.run(
             [
@@ -359,10 +399,13 @@ class NativeBootSelection(unittest.TestCase):
         self.record[5] = self.snapshot.name
         self.save_record()
 
-    def invoke(self, cut=None, term=None, output_limit=None, mode="select", stderr_fd=None):
+    def invoke(
+        self, cut=None, term=None, output_limit=None, mode="select", stderr_fd=None, extra_env=None
+    ):
         # A regular fixture models urandom's bytes, refreshing them per entry.
         self.put("dev/urandom", os.urandom(1024))
         env = {**os.environ}
+        env.update(extra_env or {})
         if cut:
             env["OC_BOOT_CUT"] = cut
         if term:
@@ -454,6 +497,54 @@ class NativeBootSelection(unittest.TestCase):
         self.assertEqual((result.returncode, result.stdout), (1, b"J"))
         self.assertEqual((self.data / "record").read_bytes(), before)
         self.assertEqual(os.readlink(foreign), "foreign")
+
+    def test_wave_c_alias_failures_unwind_every_owned_root_name(self):
+        for fault in (
+            "OC_ALIAS_META_FAIL",
+            "OC_ALIAS_LINK_FAIL",
+            "OC_ALIAS_LINK_AFTER",
+            "OC_ALIAS_FOREIGN",
+        ):
+            for alias in ("v.xml", "vui-hold.so", "vui-plugins"):
+                with self.subTest(fault=fault, alias=alias):
+                    self.setUp()
+                    self.base_fixture()
+                    result = self.invoke(mode="select-gated", extra_env={fault: alias})
+                    self.assertEqual((result.returncode, result.stdout), (1, b"G"), result.stderr)
+                    self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+                    self.assertFalse((self.ram / "selected").exists())
+                    for name in ("v.xml", "vui-hold.so", "vui-plugins"):
+                        if fault == "OC_ALIAS_FOREIGN" and name == alias:
+                            self.assertEqual((self.ram / name).read_bytes(), b"foreign\n")
+                        else:
+                            self.assertFalse(os.path.lexists(self.ram / name))
+
+    @unittest.skipUnless(os.path.isdir("/dev/shm"), "a separate Linux tmpfs is required")
+    def test_sealer_refuses_byte_identical_plugin_from_another_filesystem(self):
+        if os.stat("/").st_dev == os.stat("/dev/shm").st_dev:
+            self.skipTest("tmpfs shares the stock filesystem")
+        with tempfile.NamedTemporaryFile(dir="/dev/shm") as plugin:
+            plugin.write(b"byte-identical plugin\n")
+            plugin.flush()
+            text = f"OCBP1|{'b' * 64}|{'c' * 64}\nbase/vui/plugin.so|{plugin.name}|{sha(b'byte-identical plugin' + bytes([10]))}\n"
+            with (self.root / "foreign-device-plan").open("wb") as output:
+                result = subprocess.run(
+                    [self.program, "seal", "/", str(self.snapshot).lstrip("/")],
+                    input=text.encode(),
+                    stdout=output,
+                    stderr=subprocess.PIPE,
+                    timeout=5,
+                )
+            self.assertNotEqual(result.returncode, 0)
+            with (self.root / "ordinary-device-plan").open("wb") as output:
+                control = subprocess.run(
+                    [self.program, "seal", "/", str(self.snapshot).lstrip("/")],
+                    input=text.replace("base/vui/plugin.so|", "guard/plugin.so|").encode(),
+                    stdout=output,
+                    stderr=subprocess.PIPE,
+                    timeout=5,
+                )
+            self.assertEqual(control.returncode, 0, control.stderr)
 
     def test_wave_c_late_plugin_refusal_does_not_debit_or_publish_aliases(self):
         self.base_fixture()

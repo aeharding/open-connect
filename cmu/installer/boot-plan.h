@@ -18,6 +18,11 @@ static int oc_equal(const char *a, const char *b) {
     while (*a && *a==*b) { ++a; ++b; }
     return *a==*b;
 }
+static int oc_prefix(const char *p,const char *prefix) {
+    while (*prefix) if (*p++!=*prefix++) return 0;
+    return 1;
+}
+static int oc_stock_meta(int root,OcMeta *stock) { return oc_stat(root,stock)>=0; }
 static int oc_hex(const char *p, unsigned n) {
     unsigned i;
     for (i=0; i<n; ++i) if (!((p[i]>='0'&&p[i]<='9')||(p[i]>='a'&&p[i]<='f'))) return 0;
@@ -174,6 +179,10 @@ static int oc_plan_rows(int root, int snapshot, int input, int output, int mode)
         }
         if (oc_close((int)fd)<0) ok=0;
         if (!ok) return 0;
+        if (oc_prefix(fields[0],"base/vui/")) {
+            OcMeta stock;
+            if (!oc_stock_meta(root,&stock) || current.device!=stock.device) return 0;
+        }
         if (sealing) {
             n=oc_meta_text(meta,&current);
             if (!oc_write_all(output,original,length) || !oc_write_all(output,meta,n) || !oc_write_all(output,"\n",1)) return 0;

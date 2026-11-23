@@ -51,7 +51,13 @@ def private_output(path):
 def inputs(firmware):
     """The maintained target guard is the authority for original-file hashes."""
     rows = subprocess.check_output(
-        ["sh", "-c", '. "$1"; firmware_dependencies', "check", ASSETS / "firmware.sh"],
+        [
+            "sh",
+            "-c",
+            '. "$1"; firmware_dependencies; base_ui_files',
+            "check",
+            ASSETS / "firmware.sh",
+        ],
         text=True,
     )
     paths = {}
@@ -104,17 +110,31 @@ def build(output, paths):
         if shutil.which("g" + name):
             (data / "tools" / name).symlink_to(shutil.which("g" + name))
     env = {**os.environ, "PATH": str(data / "tools") + os.pathsep + os.environ["PATH"]}
+    # Remap only the physical input path for host composition. Their names
+    # and exact digests still come from the maintained firmware adapter.
+    base_inputs = subprocess.check_output(
+        ["sh", "-c", '. "$1"; base_ui_files', "check", ASSETS / "firmware.sh"],
+        text=True,
+    )
+    (output / "base-ui-inputs").write_text(
+        "".join(
+            f"{digest} {name} {paths[name]}\n"
+            for digest, name, _ in (row.split() for row in base_inputs.splitlines())
+        )
+    )
     run(
         [
             "sh",
             "-c",
             'set -eu; D=$1; P=$2; . "$3/state.sh"; . "$3/firmware.sh"; '
+            'base_fixture=$5; base_ui_files() { cat "$base_fixture/base-ui-inputs"; }; '
             'flush() { :; }; compose "$4"',
             "check",
             data,
             source,
             ASSETS,
             package,
+            output,
         ],
         output,
         "compose",

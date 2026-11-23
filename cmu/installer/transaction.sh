@@ -59,7 +59,7 @@ PATHS
         case "$composed" in *"|$name:"*) return 1;; esac
         composed="$composed$name:$digest|"; composed_expected=$((composed_expected+1))
     done < "$parent/files.sha256"
-    for name in uia.so mmui.so mmui.xml system-app.js index-on.html index-off.html \
+    for name in uia.so mmui.so mmui.xml system-app.js log-defaults.js index-on.html index-off.html \
         sm-normal-on.conf sm-normal-off.conf sm-wcp-on.conf sm-wcp-off.conf autostart; do
         case "$composed" in *"|$name:"*) ;; *) return 1;; esac
     done

@@ -71,6 +71,7 @@ class InstallerBoot(unittest.TestCase):
             "sm-profile.awk",
             "wireless-device.awk",
             "wireless.sh",
+            "defer-gap2.sh",
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.manager = self.root / "manager.so"
@@ -103,6 +104,17 @@ class InstallerBoot(unittest.TestCase):
                 fake.write_bytes(("synthetic OEM dependency " + name + "\n").encode())
             self.oem_adapters[target] = str(fake)
             firmware = firmware.replace(target, str(fake))
+        ui_map = subprocess.check_output(
+            ["sh", "-c", '. "$1"; base_ui_files', "fixture", ASSETS / "firmware.sh"],
+            text=True,
+        )
+        for row in ui_map.splitlines():
+            digest, name, target = row.split()
+            fake = self.root / "oem" / name
+            fake.write_bytes(("synthetic Base UI dependency " + name + "\n").encode())
+            firmware = firmware.replace(target, str(fake)).replace(
+                digest, hashlib.sha256(fake.read_bytes()).hexdigest()
+            )
         for old, new in {
             "/jci/lib/libjciuiamgr.so": str(self.manager),
             "/jci/sm/sm_WCP.conf": str(self.wcp_original),
@@ -175,12 +187,17 @@ startup_publish() {
             "mmui.so",
             "mmui.xml",
             "system-app.js",
+            "log-defaults.js",
             "sm-normal-on.conf",
             "sm-wcp-on.conf",
             "index-on.html",
             "index-off.html",
         ):
             (composed / name).write_text("synthetic feature @TOKEN@\n")
+        for name in ("index-on.html", "index-off.html"):
+            (composed / name).write_text(
+                '<script src="common/js/logDefaults.js"></script>\nsynthetic feature @TOKEN@\n'
+            )
         self.write_profiles()
         self.composed_manifest()
         self.env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
@@ -610,7 +627,9 @@ record_write
                 "stage_1",
                 "stage_3",
                 "stage_wifi",
+                "stage_gap2",
                 "jciVBS",
+                "system_mazda_my14",
                 "aap_service",
                 "jciAAPA",
                 "jciDAB",
@@ -642,6 +661,7 @@ record_write
                 parents = {
                     "bds": ("stage_3", "settings", "dmserver"),
                     "stage_wifi": ("stage_3", "blm_ira_aha"),
+                    "stage_gap2": ("stage_3", "blm_ira_aha"),
                 }.get(name, ("existing",))
                 lines += [f'<dependency type="service" value="{parent}"/>' for parent in parents]
                 lines += ["</service>"]

@@ -283,9 +283,9 @@ var OpenConnectSettings = (function () {
                 if (preference(currentValues, item) === undefined || preference(currentValues, item) === desired) { return; }
                 var serviceLabel = item === "base" ? "Base optimizations" : serviceRow ? serviceRow.label : "Pandora";
                 var serviceText = item === "base" ? (enabled ?
-                    (currentValues.services ? "Reduces native diagnostic logging and stops unused DAB, TV and Stitcher services." :
+                    (currentValues.services ? "Reduces logging and startup work. Stops unused DAB, TV and Stitcher services." :
                         "Reduces native diagnostic logging.") + " Changes apply after restarting Mazda Connect." :
-                    (currentValues.services ? "Restores original native logging, DAB, TV and Stitcher services after restarting Mazda Connect." :
+                    (currentValues.services ? "Restores original logging and startup behavior after restarting Mazda Connect." :
                         "Restores original native logging after restarting Mazda Connect.")) :
                     serviceRow ? (enabled ? serviceRow.enable : serviceRow.disable) :
                     "Changes apply after restarting Mazda Connect.";

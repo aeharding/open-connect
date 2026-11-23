@@ -7,7 +7,7 @@ and apply after a full Mazda Connect restart.
 
 | Choice | Fresh-install default | Effect |
 | --- | --- | --- |
-| Base optimizations | **Off** | Reduce native logging to Warn and stop unused DAB, TV and Stitcher services |
+| Base optimizations | **Off** | Reduce logging and startup work; stop unused DAB, TV and Stitcher services |
 | Android Auto | **On** | Load Mazda's built-in Android Auto integration |
 | Pandora | **On** | Load Mazda's built-in Pandora integration |
 
@@ -19,20 +19,28 @@ and apply after a full Mazda Connect restart.
 ## Base optimizations
 
 Check **Base optimizations** and confirm **Enable** to apply the preset at the
-next full restart. The preset combines the native Warn logging filter with
+next full restart. The preset combines native and browser Warn logging with
 stopping DAB, TV and the two Stitcher services on the supported NA firmware.
-Native warnings/errors remain available; early services and other
-logging sources retain their separate behavior. Service selections stay as you
-chose them.
+Warnings and errors remain available. Other logging sources retain their
+separate behavior. Service selections stay as you chose them.
+
+The dev.14 preset also reduces unnecessary flash read-ahead and lets two busy
+Mazda services use both CPU cores. With **Wireless CarPlay** enabled, it waits
+twelve seconds after the CarPlay and network services are ready before releasing
+six background fuel, maintenance and driver-data services. These services become
+available later in startup; the delay starts at service readiness, independently
+of whether a phone connects. It does not wait for a CarPlay session.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/base-enable.png" alt="Enable Base optimizations confirmation explaining reduced logging, stopped DAB, TV and Stitcher services, and the restart requirement." width="800" height="480" loading="lazy"></div>
   <figcaption>Confirm Enable to save the choice.</figcaption>
 </figure>
 
-Clear it and confirm **Disable** to return to the original logging and service policy
+Clear it and confirm **Disable** to return to the original logging and startup policy
 after the next full restart. Updating preserves your choice. Uninstall restores
-the pre-install startup configuration; its restart clears the temporary filter.
+the pre-install startup configuration; its restart clears the temporary policies.
+An immediate ignition off/on can resume the same running kernel, so allow a full
+Mazda Connect shutdown for changes to take effect.
 
 Android Auto and Pandora keep their own selections when you change Base.
 The [complete-preset comparison](services-comparison.md) records its measured

@@ -40,6 +40,7 @@ STATIC = (
     "preferences.awk",
     "services.tsv",
     "sm-profile.awk",
+    "defer-gap2.sh",
     "wireless-device.awk",
     "VERSION",
     "KENATIA-LICENSE",

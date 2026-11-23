@@ -64,8 +64,8 @@ originals using the maintained shell, and validates the result on the host:
 ~~~
 
 The input is a private filesystem-shaped tree containing the original paths
-listed by firmware_dependencies in cmu/installer/firmware.sh, plus GuiFramework.js
-and lvds_service. No credentials are needed. Unknown hashes and public output
+listed by firmware_dependencies and base_ui_files in cmu/installer/firmware.sh,
+plus GuiFramework.js and lvds_service. No credentials are needed. Unknown hashes and public output
 paths are refused before building; OEM-containing outputs stay under ignored runs/.
 Use a fresh output directory for each run so failures and source snapshots remain.
 

@@ -105,6 +105,33 @@ originals_save() {
     originals_verify || fail originals_changed
 }
 
+base_ui_files() {
+    # Read-only sources: these are never replaced or added to uninstall targets.
+    cat <<'BASE_UI'
+83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a log-defaults.js /jci/gui/common/js/logDefaults.js
+BASE_UI
+}
+
+base_ui_inputs_verify() {
+    local digest name target
+    base_ui_files | while read -r digest name target; do
+        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+    done
+}
+
+compose_base_ui() {
+    local work=$1 digest name target
+    base_ui_inputs_verify || return 1
+    base_ui_files | while read -r digest name target; do
+        test "$name" = log-defaults.js || exit 1
+        awk '
+            {n+=gsub(/"__global__": "info"/,"\"__global__\": \"warn\"");print}
+            END {if(n!=1)exit 1}
+        ' "$target" > "$work/$name" || exit 1
+        test "$(sha "$work/$name")" = 07bf9bc649e5787814368a5d46c1c6a8d5b41c1cfcaf395fcaacbb9dca65d3dd || exit 1
+    done
+}
+
 compose_native() {
     local package=$1 original=$2 target=$3 destination source extra
     # Retain all original virtual addresses. The exact v74 ELF has no file
@@ -150,6 +177,7 @@ compose() (
     rm "$work/intro" || fail compose_cleanup_failed
     dd if="$D/originals/system-app.js" bs=1 skip=17463 2>/dev/null >> "$work/system-app.js" || fail compose_javascript_failed
     test "$(sha "$work/system-app.js")" = 61cb4085195bcc1ea6f0efdd01ab691a10b9f9cee45d32e8a78b4410c9b07f40 || fail javascript_composition_failed
+    compose_base_ui "$work" || fail base_javascript_composition_failed
     for setting in on off; do
         awk -v route="$package/system-route.js" -v selected="$setting" '
             /<head>/{
@@ -191,7 +219,7 @@ compose() (
         END{if(n!=1 || joined!=1 || !hook_lines || !join_lines)exit 1}
     ' "$D/originals/autostart" > "$work/autostart" || fail startup_anchor_missing
     sh -n "$work/autostart" || fail startup_syntax
-    for name in autostart uia.so mmui.so mmui.xml system-app.js index-on.html index-off.html \
+    for name in autostart uia.so mmui.so mmui.xml system-app.js log-defaults.js index-on.html index-off.html \
         sm-normal-on.conf sm-normal-off.conf sm-wcp-on.conf sm-wcp-off.conf; do
         chmod 600 "$work/$name" || fail compose_mode_failed
         digest=$(sha "$work/$name") && hex "$digest" 64 || fail compose_hash_failed
@@ -254,6 +282,20 @@ native_log_config() (
     native_log_prepare "$1" && native_log_commit
 )
 
+base_read_ahead() (
+    # Diagnostic-only after successful selection; never a durable setting.
+    set -eu
+    local block=/sys/devices/virtual/block/ffx01 value
+    directory "$block" && directory "$block/queue" &&
+        test "$(readlink -f "$block")" = "$block" &&
+        file "$block/dev" && test "$(cat "$block/dev")" = 253:16 &&
+        file "$block/queue/read_ahead_kb" &&
+        test "$(stat -c '%a:%u:%g' "$block/queue/read_ahead_kb")" = "644:$(id -u):$(id -g)" || exit 1
+    value=$(cat "$block/queue/read_ahead_kb")
+    case "$value" in 4) ;; 128) printf '4\n' > "$block/queue/read_ahead_kb";; *) exit 1;; esac
+    test "$(cat "$block/queue/read_ahead_kb")" = 4
+)
+
 boot_render_profiles() {
     # This function runs from the verified target package, before prepare.
     local destination=$1 config=$2 source setting=off profile
@@ -262,12 +304,19 @@ boot_render_profiles() {
     source=$D/composed/$S_PACKAGE
     private_dir "$source" && verify_manifest "$source" || return 1
     test "$S_WARNING" != 1 || setting=on
+    test "$S_BASE" != 1 || base_ui_inputs_verify || return 1
     for profile in normal wcp; do
         awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" \
             -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" \
             "$source/sm-$profile-$setting.conf" > "$destination/sm-$profile.conf" || return 1
     done
-    cp "$source/index-$setting.html" "$destination/index.html" || return 1
+    awk -v base="$S_BASE" '
+        base=="1" {
+            logging+=gsub(/src="common\/js\/logDefaults[.]js"/,"src=\"file:///tmp/open-connect/feature/log-defaults.js\"")
+        }
+        {print}
+        END {if(base=="1" && logging!=1)exit 1}
+    ' "$source/index-$setting.html" > "$destination/index.html" || return 1
     awk '{n+=gsub(/@TOKEN@/,"@TOKEN@")}END{exit n!=1}' "$destination/index.html"
 }
 
@@ -305,6 +354,10 @@ boot_plan_inputs() {
             esac
             printf 'base/%s|%s|%s\n' "$name" "$target" "$(sha "$target")"
         done
+        base_ui_files | while read -r digest name target; do
+            file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+            printf 'base/%s|%s|%s\n' "$name" "$target" "$digest"
+        done || return 1
     fi
     if test "$S_ACCESS" = true; then
         printf 'target/runlogin|/usr/bin/runlogin|%s\n' "$(sha "$work/runlogin")"

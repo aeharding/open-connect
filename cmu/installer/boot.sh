@@ -168,16 +168,34 @@ if test "$selected" != true; then
 fi
 absent /tmp/open-connect/feature || fail feature_already_present
 work=$(mktemp -d /tmp/open-connect/.feature-XXXXXX)
+if test "$warning" = 1 || test "$base" = 1; then
+    if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then
+        boot_plan_verify "$R_CURRENT" verify || fail feature_inputs_changed
+    fi
+fi
 if test "$warning" = 1; then
     cp "$D/composed/$package/mmui.so" "$D/composed/$package/mmui.xml" "$work/"
     if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then
-        boot_plan_verify "$R_CURRENT" verify || fail feature_inputs_changed
         for name in uia.so system-app.js; do
             ln -s "../../mnt/data_persist/open-connect/composed/$package/$name" "$work/$name" || fail feature_link_failed
         done
     else
         # Older unsealed snapshots retain their original RAM-copy path.
         cp "$D/composed/$package/uia.so" "$D/composed/$package/system-app.js" "$work/" || fail feature_copy_failed
+    fi
+fi
+if test "$base" = 1; then
+    for name in log-defaults.js; do
+        if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then
+            ln -s "../../mnt/data_persist/open-connect/composed/$package/$name" "$work/$name" || fail feature_link_failed
+        else
+            cp "$D/composed/$package/$name" "$work/$name" || fail feature_copy_failed
+            ui_digest=$(awk -v name="$name" '$2==name{n++;print $1}END{exit n!=1}' "$D/composed/$package/files.sha256") || fail feature_inputs_changed
+            test "$(sha "$work/$name")" = "$ui_digest" || fail feature_inputs_changed
+        fi
+    done
+    if test "$wireless" = 1; then
+        boot_copy_package "$work" defer-gap2.sh || fail background_stage_failed
     fi
 fi
 startup_stamp feature_copied
@@ -200,8 +218,10 @@ token=$(cat "$R/token"); hex "$token" 32 || fail invalid_token
 boot_copy_package "$work" runtime.js dialog.js settings.js service.sh || fail feature_ui_failed
 version=$(cat "$P/VERSION")
 case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
+index=$D/composed/$package/index-$setting.html
+if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then index=$D/snapshots/$R_CURRENT/index.html; fi
 sed -e "s/@TOKEN@/$token/" -e "s/@VERSION@/$version/" -e "s/@NOTICE@/$R_NOTICE/" \
-    "$D/composed/$package/index-$setting.html" > "$work/index.html"
+    "$index" > "$work/index.html"
 mv "$work" /tmp/open-connect/feature
 # Preparation can be cancelled. Keep it in this shell, not a detached mutation.
 boot_cancelled=false; LOG_STAGE=
@@ -232,6 +252,9 @@ if ! native_log_commit "$runtime/flush" || ! "$runtime/flush" l "$marker" /tmp/o
 fi
 rm -f "$marker" || :
 if test -n "$LOG_STAGE"; then rm -f "$LOG_STAGE" || :; LOG_STAGE=; fi
+if test "$base" = 1; then
+    base_read_ahead || { printf 'base_read_ahead_unavailable\n' >&2 || :; }
+fi
 startup_stamp selector_exit
 return 0
 }

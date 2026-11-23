@@ -156,7 +156,7 @@ class InstallerWireless(unittest.TestCase):
         self.assertEqual(self.target.stat().st_mode & 0o777, 0o640)
         self.assertEqual(self.target.stat().st_uid, os.getuid())
         self.assertEqual(self.target.stat().st_gid, os.getgid())
-        self.assertEqual((self.feature / "wireless-original.xml").read_bytes(), XML)
+        self.assertFalse((self.feature / "wireless-original.xml").exists())
         for path, content in self.originals:
             self.assertEqual(path.read_bytes(), content)
         self.assert_released(1)
@@ -196,6 +196,15 @@ class InstallerWireless(unittest.TestCase):
 
     def test_foreign_stage_is_preserved(self):
         stage = self.feature / "wireless-new.xml"
+        stage.write_text("another provider\n")
+        result = self.run_helper()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(stage.read_text(), "another provider\n")
+        self.assertEqual(self.target.read_bytes(), XML)
+        self.assert_released(0)
+
+    def test_foreign_original_stage_is_preserved(self):
+        stage = self.feature / "wireless-original.xml"
         stage.write_text("another provider\n")
         result = self.run_helper()
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -316,6 +325,7 @@ class InstallerWireless(unittest.TestCase):
         )
         wrapper.chmod(0o700)
         self.assertEqual(self.interrupt_at(marker, 0), XML)
+        self.assertEqual((self.feature / "wireless-original.xml").read_bytes(), XML)
 
     def test_positive_pid_termination_after_xml_rename_reports_applied_policy(self):
         marker = self.root / "after-rename"
@@ -328,3 +338,4 @@ class InstallerWireless(unittest.TestCase):
         wrapper.chmod(0o700)
         content = self.interrupt_at(marker, 1)
         self.assertEqual(content, XML.replace(b">FALSE<", b">TRUE<"))
+        self.assertEqual((self.feature / "wireless-original.xml").read_bytes(), XML)

@@ -61,16 +61,23 @@ boot_plan_verify() {
 }
 
 boot_ui_unwind() {
-    local name identity
+    local name identity linked
     for name in v.xml vui-hold.so vui-plugins; do
-        case "$name" in v.xml) identity=${ui_xml:-};; vui-hold.so) identity=${ui_elf:-};; *) identity=${ui_folder:-};; esac
-        if test -n "$identity" && test "$(stat -c '%d:%i' "$R/$name" 2>/dev/null || :)" = "$identity"; then
+        case "$name" in
+            v.xml) identity=${ui_xml:-}; linked=${ui_xml_linked:-false};;
+            vui-hold.so) identity=${ui_elf:-}; linked=${ui_elf_linked:-false};;
+            *) identity=${ui_folder:-}; linked=${ui_folder_linked:-false};;
+        esac
+        # The held lock and successful atomic link establish ownership without
+        # another metadata read. Uncertain links still require an inode match.
+        if test "$linked" = true || { test -n "$identity" && test "$(stat -c '%d:%i' "$R/$name" 2>/dev/null || :)" = "$identity"; }; then
             rm "$R/$name" || :
         fi
     done
 }
 boot_ui_prepare() {
     ui_xml=; ui_elf=; ui_folder=
+    ui_xml_linked=false; ui_elf_linked=false; ui_folder_linked=false
     test "$base" = 1 || return 0
     absent "$R/v.xml" && absent "$R/vui-hold.so" && absent "$R/vui-plugins" || return 1
     ui_xml=$(stat -c '%d:%i' "$R/feature/vui.xml") || return 1
@@ -81,11 +88,11 @@ boot_ui_publish() {
     test "$base" = 1 || return 0
     test -n "$ui_xml" && test -n "$ui_elf" && test -n "$ui_folder" || return 1
     "$runtime/flush" l "$R/feature/vui.xml" "$R/v.xml" || return 1
-    test "$(stat -c '%d:%i' "$R/v.xml")" = "$ui_xml" || return 1
+    ui_xml_linked=true
     "$runtime/flush" l "$R/feature/vui.so" "$R/vui-hold.so" || return 1
-    test "$(stat -c '%d:%i' "$R/vui-hold.so")" = "$ui_elf" || return 1
+    ui_elf_linked=true
     "$runtime/flush" l "$R/feature/.vui-link" "$R/vui-plugins" || return 1
-    test "$(stat -c '%d:%i' "$R/vui-plugins")" = "$ui_folder" || return 1
+    ui_folder_linked=true
 }
 boot_ui_stage() {
     "$P/boot-select" copy-ui / "$R_CURRENT" "${work##*/}"

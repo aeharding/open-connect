@@ -24,7 +24,8 @@ typedef struct {
     char boot[40],token[34],nonce[33],stage_name[64],observer_name[64],log_name[64],times[1024]; unsigned time_count;
     long owner,group,parent;
     int selected,access_present,base_access_present,debited,input_failure,gated,gate_sent,released,metadata_drift;
-    unsigned ui_aliases; OcMeta ui_identity[3];
+    unsigned ui_aliases; /* Low three bits: attempted; next three: linked. */
+    OcMeta ui_identity[3];
 } OcBoot;
 static OcBoot oc_boot;
 
@@ -646,8 +647,12 @@ static const char *const oc_ui_alias_names[]={"v.xml","vui-hold.so","vui-plugins
 static void oc_ui_unwind(OcBoot *b) {
     for (unsigned i=0;i<3;++i) if (b->ui_aliases&(1u<<i)) {
         OcMeta now;
-        if (oc_metadata(b->ram,oc_ui_alias_names[i],&now)>=0&&
-            now.device==b->ui_identity[i].device&&now.inode==b->ui_identity[i].inode)
+        /* A successful atomic link proves ownership under the held lock.
+         * Only an uncertain link needs another lookup to exclude foreign data.
+         */
+        if ((b->ui_aliases&(8u<<i)) ||
+            (oc_metadata(b->ram,oc_ui_alias_names[i],&now)>=0&&
+             now.device==b->ui_identity[i].device&&now.inode==b->ui_identity[i].inode))
             (void)oc_unlink(b->ram,oc_ui_alias_names[i]);
     }
 }
@@ -655,15 +660,13 @@ static int oc_ui_alias(OcBoot *b) {
     if (!b->selected||!oc_equal(b->flags[6],"1")) return 1;
     const char *sources[]={"vui.xml","vui.so",".vui-link"};
     for (unsigned i=0;i<3;++i) {
-        /* Keep ownership evidence before any root name can become visible,
-         * including an uncertain link failure or a failed post-link lookup.
+        /* Keep staged identity for uncertain failures; successful links need
+         * no fallible root-name readback, including during rollback.
          */
         if (oc_metadata(b->stage,sources[i],&b->ui_identity[i])<0) return 0;
         b->ui_aliases|=1u<<i;
         if (oc_link(b->stage,sources[i],b->ram,oc_ui_alias_names[i])<0) return 0;
-        OcMeta actual;
-        if (oc_metadata(b->ram,oc_ui_alias_names[i],&actual)<0||
-            actual.device!=b->ui_identity[i].device||actual.inode!=b->ui_identity[i].inode) return 0;
+        b->ui_aliases|=8u<<i;
     }
     return oc_unlink(b->stage,".vui-link")>=0;
 }

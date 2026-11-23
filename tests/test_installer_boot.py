@@ -677,13 +677,16 @@ record_write
 . "$1"
 R=$2; runtime=$3; base=1
 stat() {
-    if test "$OC_ALIAS_MODE" = metadata && test "$3" = "$R/$OC_ALIAS_NAME" && test ! -e "$R/fault-used"; then
-        : > "$R/fault-used"; return 1
+    if test "$OC_ALIAS_MODE" = metadata && test "$3" = "$R/$OC_ALIAS_NAME"; then
+        faults=0
+        if test -f "$R/fault-used"; then read -r faults < "$R/fault-used"; fi
+        if test "$faults" -lt 2; then printf '%s\n' "$((faults+1))" > "$R/fault-used"; return 1; fi
     fi
     command stat "$@"
 }
 boot_ui_prepare || exit 67
-if boot_ui_publish; then exit 55; fi
+if boot_ui_publish; then test "$OC_ALIAS_MODE" = metadata || exit 55
+else test "$OC_ALIAS_MODE" != metadata || exit 56; fi
 boot_ui_unwind
 """
                     result = subprocess.run(
@@ -705,43 +708,60 @@ boot_ui_unwind
                         else:
                             self.assertFalse(os.path.lexists(root / name))
 
-    def test_shell_post_link_metadata_failure_rolls_back_after_one_debit(self):
-        self.select_base(1)
-        script = (
-            (self.package / "boot.sh")
-            .read_text()
-            .replace(
-                "    boot_load\n",
-                r"""
+    def test_shell_completed_links_do_not_depend_on_two_root_metadata_reads(self):
+        for late_failure in (False, True):
+            with self.subTest(late_failure=late_failure):
+                self.setUp()
+                self.select_base(1)
+                script = (
+                    (self.package / "boot.sh")
+                    .read_text()
+                    .replace(
+                        "    boot_load\n",
+                        r"""
     boot_load
     stat() {
-        if test "$3" = "$R/vui-hold.so" && test ! -e "$R/metadata-fault"; then
-            : > "$R/metadata-fault"; return 1
+        if test "$3" = "$R/vui-hold.so"; then
+            faults=0
+            if test -f "$R/metadata-fault"; then read -r faults < "$R/metadata-fault"; fi
+            if test "$faults" -lt 2; then printf '%s\n' "$((faults+1))" > "$R/metadata-fault"; return 1; fi
         fi
         command stat "$@"
     }
+    if test "$OC_ALIAS_LATE_FAIL" = true; then native_log_commit() { return 1; }; fi
 """,
-            )
-        )
-        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
-        result = subprocess.run(
-            [
-                "sh",
-                "-c",
-                script.replace('case "${0##*/}" in boot.sh) boot_main;; esac', "boot_select"),
-                "injected",
-            ],
-            env={**self.env, "P": str(self.package)},
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("selection_commit_failed", result.stderr)
-        self.assertEqual(self.record()[9], "2")
-        self.assertTrue((self.runtime / "metadata-fault").exists())
-        for name in ("selected", "v.xml", "vui-hold.so", "vui-plugins"):
-            self.assertFalse(os.path.lexists(self.runtime / name))
+                    )
+                )
+                (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+                result = subprocess.run(
+                    [
+                        "sh",
+                        "-c",
+                        script.replace(
+                            'case "${0##*/}" in boot.sh) boot_main;; esac', "boot_select"
+                        ),
+                        "injected",
+                    ],
+                    env={
+                        **self.env,
+                        "P": str(self.package),
+                        "OC_ALIAS_LATE_FAIL": str(late_failure).lower(),
+                    },
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                self.assertEqual(result.returncode, int(late_failure), result.stderr)
+                self.assertEqual(self.record()[9], "2")
+                for name in ("selected", "v.xml", "vui-hold.so", "vui-plugins"):
+                    self.assertEqual(os.path.lexists(self.runtime / name), not late_failure)
+                if late_failure:
+                    self.assertIn("selection_commit_failed", result.stderr)
+                else:
+                    self.assertEqual(
+                        (self.runtime / "vui-hold.so").stat().st_ino,
+                        (self.runtime / "feature/vui.so").stat().st_ino,
+                    )
 
     def test_forced_shell_copy_failure_consumes_one_attempt_without_alias_publication(self):
         self.select_base(1)

@@ -80,7 +80,7 @@ class NativeBootSelection(unittest.TestCase):
                     """static long oc_metadata(int fd,const char *path,OcMeta *m) {
     static int failed;
     const char *fault=getenv("OC_ALIAS_META_FAIL");
-    if(path&&fault&&!failed&&!strcmp(path,fault)) { failed=1; return -5; }
+    if(path&&fault&&failed<2&&!strcmp(path,fault)) { ++failed; return -5; }
     return oc_metadata_raw(fd,path,m);
 }
 #else
@@ -500,7 +500,6 @@ class NativeBootSelection(unittest.TestCase):
 
     def test_wave_c_alias_failures_unwind_every_owned_root_name(self):
         for fault in (
-            "OC_ALIAS_META_FAIL",
             "OC_ALIAS_LINK_FAIL",
             "OC_ALIAS_LINK_AFTER",
             "OC_ALIAS_FOREIGN",
@@ -518,6 +517,28 @@ class NativeBootSelection(unittest.TestCase):
                             self.assertEqual((self.ram / name).read_bytes(), b"foreign\n")
                         else:
                             self.assertFalse(os.path.lexists(self.ram / name))
+
+    def test_wave_c_completed_links_do_not_depend_on_two_root_metadata_reads(self):
+        for late_failure in (False, True):
+            with self.subTest(late_failure=late_failure):
+                self.setUp()
+                self.base_fixture()
+                env = {"OC_ALIAS_META_FAIL": "vui-hold.so"}
+                if late_failure:
+                    env["OC_ALIAS_LINK_FAIL"] = "vui-plugins"
+                result = self.invoke(mode="select-gated", extra_env=env)
+                self.assertEqual(
+                    (result.returncode, result.stdout), (int(late_failure), b"G"), result.stderr
+                )
+                self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+                self.assertEqual((self.ram / "selected").exists(), not late_failure)
+                for name in ("v.xml", "vui-hold.so", "vui-plugins"):
+                    self.assertEqual(os.path.lexists(self.ram / name), not late_failure)
+                if not late_failure:
+                    self.assertEqual(
+                        (self.ram / "vui-hold.so").stat().st_ino,
+                        (self.ram / "feature/vui.so").stat().st_ino,
+                    )
 
     @unittest.skipUnless(os.path.isdir("/dev/shm"), "a separate Linux tmpfs is required")
     def test_sealer_refuses_byte_identical_plugin_from_another_filesystem(self):

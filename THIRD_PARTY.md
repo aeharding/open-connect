@@ -21,13 +21,15 @@ its received SHA-256 and was reviewed for personal data, credentials and
 diagnostic overlays. The separately authored `cmu-frame.svg` is a decorative
 bezel displayed around the captures by the website; it is not part of the screen.
 
-Current dev.10 and retained dev.8 build identities, capture dates and per-file
+Current dev.14, dev.10 and retained dev.8 build identities, capture dates and per-file
 hashes are recorded in the
 [guide asset notes](docs/assets/guide/README.md). The current Services, Android Auto
-and Pandora confirmations, Base confirmation, completion and same-version update
+and Pandora confirmations, completion and same-version update
 captures show **0.3.0-dev.10** from
 [CI 45016577830](https://github.com/aeharding/open-connect/actions/runs/45016577830),
-source `0b5a4af74cdf8ab15014b3d6de63671fc4808666`. Retained install, Settings,
+source `0b5a4af74cdf8ab15014b3d6de63671fc4808666`. The Base confirmation shows **0.3.0-dev.14** from
+[CI 45157300285](https://github.com/aeharding/open-connect/actions/runs/45157300285),
+source `1e4a26c4cbcee3f1383d4a418819716a5927a73f`. Retained install, Settings,
 developer, wireless and uninstall captures have their separate **0.3.0-dev.8**
 provenance in that same per-file record. Replacing one image does not relabel
 unchanged captures or historical evidence.

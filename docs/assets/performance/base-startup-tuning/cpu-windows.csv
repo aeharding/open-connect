@@ -1,0 +1,13 @@
+cohort,run,capture_attempt,version,analysis,nominal_start_s,nominal_end_s,first_uptime_s,last_uptime_s,cpu_busy_pct
+control,1,2,dev13,post_hoc,20,60,20.47,59.79,52.53333333333333
+control,1,2,dev13,post_hoc,60,170,60.8,169.63,19.72378469840399
+control,2,3,dev13,post_hoc,20,60,20.52,59.09,60.76424870466321
+control,2,3,dev13,post_hoc,60,170,60.1,169.01,20.610791563955082
+control,3,4,dev13,post_hoc,20,60,20.43,59.1,61.93490054249548
+control,3,4,dev13,post_hoc,60,170,60.12,169.95,21.01042138649751
+active,1,1,dev14,post_hoc,20,60,20.95,59.47,60.3918007265179
+active,1,1,dev14,post_hoc,60,170,60.49,169.84,19.813381884387802
+active,2,2,dev14,post_hoc,20,60,20.71,59.93,58.955414012738856
+active,2,2,dev14,post_hoc,60,170,60.96,169.78,19.92217898832685
+active,3,3,dev14,post_hoc,20,60,21.01,59.11,60.33036182485579
+active,3,3,dev14,post_hoc,60,170,60.13,170.0,20.50387421269654

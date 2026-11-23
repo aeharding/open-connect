@@ -1,0 +1,8 @@
+cohort,run,capture_attempt,version,acquisition_order,outcome,camera_verified,kernel_boot_banners,uart_boot_markers,resource_samples,trace_sha256,timed_start
+control,0,1,dev13,0,preflight_refused_before_devices,False,0,0,0,,False
+control,1,2,dev13,1,observed,True,1,1,173,59daf61ad34dbeba9d4d10c823db2f2f59267694342e55c3793ec148bf12796b,True
+control,2,3,dev13,2,observed,True,1,1,173,1920c3b2b841af3069ddae95583a7a5ca9e6d3ba308dd7a5d29ab5e942af152f,True
+control,3,4,dev13,3,observed,True,1,1,173,418f281662e323d7286d69929c11d480d4d6c63e23d69bc90763242c0b499398,True
+active,1,1,dev14,4,observed,True,1,1,171,253f87cc2f53a7a18ba306b6c348c9afad4314c2d671cdc1ae49ec3e7f1a2918,True
+active,2,2,dev14,5,observed,True,1,1,173,812700f41ff0ec798dd030d20c2c0aa18f30731645086589326572305739d2e5,True
+active,3,3,dev14,6,observed,True,1,1,173,81b8e927383e1d0d937647c13ffc820841cc2cc0285560a3598a3b1d49a59962,True

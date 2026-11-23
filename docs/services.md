@@ -43,8 +43,10 @@ An immediate ignition off/on can resume the same running kernel, so allow a full
 Mazda Connect shutdown for changes to take effect.
 
 Android Auto and Pandora keep their own selections when you change Base.
-The [complete-preset comparison](services-comparison.md) records its measured
-RAM and startup observations, configurations and limits.
+The [dev.14 startup comparison](base-startup-tuning.md) records its timings,
+CPU, flash reads and RAM cost. The earlier
+[complete-preset comparison](services-comparison.md) retains its own configuration
+and results.
 
 The dev.13 candidate also changes wireless startup scheduling when Base and
 Wireless CarPlay are enabled together. Its [matched comparison](wireless-startup-speed.md)

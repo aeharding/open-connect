@@ -4,6 +4,13 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
+The [dev.13/dev.14 Base startup comparison](base-startup-tuning.md) retains three
+starts per version. Median visible Maps moved **47.09 → 44.67 s**, Home
+**24.97 → 24.70 s**, and shared-window flash reads **86.85 → 52.17 MiB**.
+CPU's median was 0.67 percentage points lower with overlapping ranges. Own tmpfs
+rose **12 KiB**; the roughly 57 MiB higher MemFree mostly replaced file cache.
+The slow control, all attempts, memory categories and restoration checks are explicit.
+
 The [dev.12/dev.13 wireless-startup comparison](wireless-startup-speed.md) retains
 three starts per version with Base and Wireless enabled. Median visible Maps was
 about **2.21 seconds earlier**, while Home was unresolved at camera resolution.

@@ -1,0 +1,4 @@
+cohort,snapshot_uptime_s,unique_tmpfs_file_KiB,unique_regular_inodes,listener_private_KiB,listener_PSS_KiB,listener_RSS_KiB,ignition_private_KiB,ignition_PSS_KiB,ignition_RSS_KiB
+control,281.59,436.0,39,72,84,492,132,153,660
+active,278.17,448.0,40,72,84,492,132,153,660
+base0_sanity,198.44,404.0,34,76,87,492,132,154,660

@@ -1,6 +1,6 @@
 # Open Connect — roadmap
 
-Updated 2026-11-22. [STEERING.md](STEERING.md) defines product intent; GitHub
+Updated 2026-11-23. [STEERING.md](STEERING.md) defines product intent; GitHub
 issues track implementation. This roadmap sets delivery order and completion
 criteria, without calendar promises. One primary owns each complete release.
 
@@ -97,6 +97,14 @@ change was unresolved, and CPU busy increased 1.16 percentage points. Measured
 own-RAM components were unchanged; total memory differences were within the
 spread. The owner accepted this specific tradeoff. Keep #9 and long-parked #8
 open; this does not qualify a production release.
+
+The [dev.13/dev.14 Base startup comparison](docs/base-startup-tuning.md) now
+retains three starts per version, including the slow control. Median Maps moved
+47.09→44.67 s, Home 24.97→24.70 s and shared-window flash reads 86.85→52.17 MiB.
+CPU's median was 0.67 percentage points lower, with overlapping ranges. Own tmpfs
+grew 12 KiB; higher MemFree mostly reflects a smaller file cache. Fresh Base-off
+behavior and compatible dev.13-media Uninstall restored the as-found stock state.
+The RAM cost requires the owner's explicit disposition; #9 remains open.
 
 The deferred phase-1 manual and first-car checks remain separate.
 

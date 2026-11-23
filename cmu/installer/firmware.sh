@@ -154,6 +154,15 @@ compose() (
     dd if="$package/mmui-count-pointer.bin" of="$work/mmui.so" bs=1 seek=7368 conv=notrunc 2>/dev/null || fail compose_patch_failed
     dd if="$package/mmui-length.bin" of="$work/mmui.so" bs=1 seek=10688 conv=notrunc 2>/dev/null || fail compose_patch_failed
     dd if="$package/mmui-pointer.bin" of="$work/mmui.so" bs=1 seek=12540 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    vui_sources_verify || fail vui_inputs_changed
+    cp /jci/vui/svcjcivui.so "$work/vui.so" || fail compose_copy_failed
+    test "$(wc -c < "$package/vui-path.bin")" -eq 24 || fail compose_patch_failed
+    dd if="$package/vui-path.bin" of="$work/vui.so" bs=1 seek=68196 conv=notrunc 2>/dev/null || fail compose_patch_failed
+    test "$(sha "$work/vui.so")" = 6cc31cd92167624093f95924a15a27536aec2e40cecc170b47cce72d703ba18f || fail compose_patch_failed
+    cp /jci/vui/vui_config.xml "$work/vui-source.xml" &&
+        test "$(sha "$work/vui-source.xml")" = d2511533b59bc9773f92d8fff9cbcf591d9ff461c33839ff4eaaae6f5d0aaef0 || fail compose_copy_failed
+    sed 's@value="/jci/vui/plugins"@value="/tmp/open-connect/vui-plugins/"@' "$work/vui-source.xml" > "$work/vui.xml" || fail compose_xml_failed
+    rm "$work/vui-source.xml" || fail compose_xml_failed
     sed 's@name="system" libpath="/jci/mmui/uia/" lib="libjciuiasystem.so"@name="system" libpath="/tmp/open-connect/feature/" lib="uia.so"@' \
         "$D/originals/mmui.xml" > "$work/mmui.xml" || fail compose_xml_failed
     for setting in on off; do
@@ -216,7 +225,7 @@ compose() (
     ' "$D/originals/autostart" > "$work/autostart" || fail startup_anchor_missing
     sh -n "$work/autostart" || fail startup_syntax
     for name in autostart uia.so mmui.so mmui.xml index-on.html index-off.html \
-        sm-normal-on.conf sm-normal-off.conf sm-wcp-on.conf sm-wcp-off.conf; do
+        sm-normal-on.conf sm-normal-off.conf sm-wcp-on.conf sm-wcp-off.conf vui.so vui.xml; do
         chmod 600 "$work/$name" || fail compose_mode_failed
         digest=$(sha "$work/$name") && hex "$digest" 64 || fail compose_hash_failed
         printf '%s  %s\n' "$digest" "$name" || fail compose_manifest_failed
@@ -292,9 +301,43 @@ base_read_ahead() (
     test "$(cat "$block/queue/read_ahead_kb")" = 4
 )
 
+vui_source_files() {
+    printf '%s\n' \
+        'ba72171a04dcc264ff5f690ac25ac2b009624158499159cdb6aebb08a9ab34f4 vui.so /jci/vui/svcjcivui.so' \
+        'd2511533b59bc9773f92d8fff9cbcf591d9ff461c33839ff4eaaae6f5d0aaef0 vui.xml /jci/vui/vui_config.xml'
+}
+vui_sources_verify() {
+    vui_source_files | while read -r digest name target; do
+        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+    done
+}
+vui_input_files() {
+    # The target package's authenticated list names only retained stock leaves.
+    local list=$1 name digest bytes=0 count=0 seen='|'
+    file "$list" || return 1
+    vui_source_files
+    while IFS= read -r name; do
+        case "$name" in ''|*[!a-z0-9_.-]*) return 1;; esac
+        case "$seen" in *"|$name|"*) return 1;; esac
+        seen="$seen$name|"; count=$((count+1)); bytes=$((bytes+${#name}+1))
+        test "$count" -le 48 || return 1
+        digest=$(awk -F '\t' -v name="$name" '$1=="vui" && $2==name{n++;print $4}END{exit n!=1}' "$P/ui-modules.tsv") || return 1
+        hex "$digest" 64 || return 1
+        printf '%s %s /jci/vui/plugins/%s\n' "$digest" "$name" "$name"
+    done < "$list"
+    test "$count" -ge 36 && test "$(wc -c < "$list")" -eq "$bytes"
+}
+vui_inputs_verify() {
+    local inputs
+    inputs=$(vui_input_files "$1") || return 1
+    printf '%s\n' "$inputs" | while read -r digest name target; do
+        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+    done
+}
+
 composed_members_verify() {
     local folder=$1 digest name line target rows=0 bytes=0 entries=0 seen='|'
-    local allowed='|autostart|uia.so|mmui.so|mmui.xml|index-on.html|index-off.html|sm-normal-on.conf|sm-normal-off.conf|sm-wcp-on.conf|sm-wcp-off.conf|'
+    local allowed='|autostart|uia.so|mmui.so|mmui.xml|index-on.html|index-off.html|sm-normal-on.conf|sm-normal-off.conf|sm-wcp-on.conf|sm-wcp-off.conf|vui.so|vui.xml|'
     private_dir "$folder" && file "$folder/files.sha256" || return 1
     while IFS= read -r line; do
         digest=${line%% *}; name=${line#"$digest  "}
@@ -304,7 +347,7 @@ composed_members_verify() {
         seen="$seen$name|"; rows=$((rows+1)); bytes=$((bytes+${#line}+1))
     done < "$folder/files.sha256"
     # Count only LF-terminated reads; reject discarded bytes or EOF residue.
-    test "$rows" -eq 10 && test "$(wc -c < "$folder/files.sha256")" -eq "$bytes" || return 1
+    test "$rows" -eq 12 && test "$(wc -c < "$folder/files.sha256")" -eq "$bytes" || return 1
     for target in "$folder"/* "$folder"/.[!.]* "$folder"/..?*; do
         absent "$target" && continue
         file "$target" || return 1
@@ -314,7 +357,7 @@ composed_members_verify() {
         fi
         entries=$((entries+1))
     done
-    test "$entries" -eq 11
+    test "$entries" -eq 13
 }
 
 boot_render_profiles() {
@@ -325,13 +368,21 @@ boot_render_profiles() {
     source=$D/composed/$S_PACKAGE
     composed_members_verify "$source" && verify_manifest "$source" || return 1
     test "$S_WARNING" != 1 || setting=on
-    set -- system-hook.js
+    set -- system-hook.js ui-profile.awk ui-modules.tsv
     if test "$S_BASE" = 1; then base_ui_inputs_verify || return 1; set -- "$@" base-logging.js; fi
     for asset in "$@"; do
         file "$P/$asset" || return 1
         digest=$(awk -v name="$asset" '$2==name{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
         test "$(sha "$P/$asset")" = "$digest" || return 1
     done
+    for asset in mmui plugins; do
+        if test "$asset" = mmui; then profile=mmui.xml; else profile=vui-plugins.list; fi
+        awk -v operation=compose -v ui_mode="$asset" -v modules="$P/ui-modules.tsv" \
+            -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" \
+            -v input="$config" -v input_bytes="$(wc -c < "$config")" \
+            -f "$P/preferences.awk" -f "$P/ui-profile.awk" "$D/originals/mmui.xml" > "$destination/$profile" || return 1
+    done
+    if test "$S_BASE" = 1; then vui_inputs_verify "$destination/vui-plugins.list" || return 1; fi
     for profile in normal wcp; do
         awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" \
             -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" \
@@ -348,6 +399,7 @@ boot_render_profiles() {
             if(choice["pandora"]=="0") hidden=hidden "pandora,"
             if(choice["siriusxm"]=="0") hidden=hidden "satradio,xmaudio,xmdata,"
             if(choice["dvd"]=="0") hidden=hidden "dvd,"
+            if(choice["android-auto"]=="0") hidden=hidden "androidauto,"
             sub(/,$/,"",hidden)
             needed=(warning=="1" || hidden!="")
         }
@@ -362,6 +414,10 @@ boot_render_profiles() {
         }
         /framework[.]init[(][)][;]/ && needed {
             while((r=getline line < hook)>0) {
+                if(index(line,"/* OPEN_CONNECT_AA_BEGIN */")) {aa_block=1;continue}
+                if(index(line,"/* OPEN_CONNECT_AA_END */")) {aa_block=0;continue}
+                if(choice["android-auto"]!="0" && (aa_block || index(line,"/* OPEN_CONNECT_AA_CALL */"))) continue
+                sub(/ \/[*] OPEN_CONNECT_AA_CALL [*]\//,"",line)
                 if(index(line,"/*OPEN_CONNECT_APPLIED*/")) {
                     if(sub(/\/[*]OPEN_CONNECT_APPLIED[*]\//,warning ",\"" hidden "\"",line)!=1)exit 1
                     applied++
@@ -414,6 +470,10 @@ boot_plan_inputs() {
         base_ui_files | while read -r digest name target; do
             file "$target" && test "$(sha "$target")" = "$digest" || exit 1
             printf 'base/%s|%s|%s\n' "$name" "$target" "$digest"
+        done || return 1
+        vui_inputs_verify "$work/vui-plugins.list" || return 1
+        vui_input_files "$work/vui-plugins.list" | while read -r digest name target; do
+            printf 'base/vui/%s|%s|%s\n' "$name" "$target" "$digest"
         done || return 1
     fi
     if test "$S_ACCESS" = true; then
@@ -487,7 +547,7 @@ _boot_snapshot_seal() (
     set -- autostart config dependencies
     if test "$S_ACCESS" = true; then set -- "$@" access runlogin sshd.conf; fi
     if test "${S_SELECTOR_RECORDED:-false}" = true; then set -- "$@" selector; fi
-    set -- "$@" sm-normal.conf sm-wcp.conf index.html
+    set -- "$@" sm-normal.conf sm-wcp.conf index.html mmui.xml vui-plugins.list
     # Capture the authenticated manifest, then keep each copied member bound to
     # its original named digest. A copied replacement must never be re-blessed.
     manifest=$(cat "$D/snapshots/$snapshot/files.sha256") || fail boot_profiles_missing

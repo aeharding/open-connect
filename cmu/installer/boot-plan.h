@@ -9,7 +9,7 @@
 #define OC_BOOT_PLAN_H
 #include "boot-io.h"
 
-enum { OC_PLAN_ROWS=128, OC_LINE_SIZE=1024, OC_PLAN_LIMIT=131072 };
+enum { OC_PLAN_ROWS=192, OC_LINE_SIZE=1024, OC_PLAN_LIMIT=131072 };
 typedef struct { char bytes[4096]; unsigned at,filled,total; int fd; } OcLines;
 
 static unsigned oc_length(const char *p) { unsigned n=0; while (p[n]) ++n; return n; }

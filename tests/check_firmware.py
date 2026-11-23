@@ -54,7 +54,7 @@ def inputs(firmware):
         [
             "sh",
             "-c",
-            '. "$1"; firmware_dependencies; base_ui_files',
+            '. "$1"; firmware_dependencies; base_ui_files; vui_source_files',
             "check",
             ASSETS / "firmware.sh",
         ],
@@ -67,6 +67,13 @@ def inputs(firmware):
         if sha(source) != digest:
             raise ValueError("unsupported exact original: " + target)
         paths[name] = source
+    for row in (ASSETS / "ui-modules.tsv").read_text().splitlines():
+        if row.startswith("vui\t"):
+            _, name, _, digest = row.split("\t")
+            source = firmware / "jci/vui/plugins" / name
+            if sha(source) != digest:
+                raise ValueError("unsupported plugin " + name)
+            paths[name] = source
     guard = (ASSETS / "firmware.sh").read_text()
     for name, target in (
         ("framework", "/jci/gui/framework/js/GuiFramework.js"),
@@ -123,12 +130,17 @@ def build(output, paths):
             for digest, name, _ in (row.split() for row in base_inputs.splitlines())
         )
     )
+    # Host-only physical-path adapter. Public package bytes remain unchanged.
+    adapter = output / "firmware-adapter.sh"
+    adapter.write_text(
+        (ASSETS / "firmware.sh").read_text().replace("/jci/vui", str(paths["vui.so"].parent))
+    )
     run(
         [
             "sh",
             "-c",
             'set -eu; D=$1; P=$2; . "$3/state.sh"; . "$3/firmware.sh"; '
-            'base_fixture=$5; base_ui_files() { cat "$base_fixture/base-ui-inputs"; }; '
+            'base_fixture=$5; . "$base_fixture/firmware-adapter.sh"; base_ui_files() { cat "$base_fixture/base-ui-inputs"; }; '
             'flush() { :; }; compose "$4"',
             "check",
             data,
@@ -170,7 +182,7 @@ def base_logging_contract(output, paths, node, composed):
                     "sh",
                     "-c",
                     "set -eu; D=$1; P=$2; base_fixture=$3; "
-                    '. "$P/state.sh"; . "$P/firmware.sh"; '
+                    '. "$P/state.sh"; . "$base_fixture/firmware-adapter.sh"; '
                     'base_ui_files() { cat "$base_fixture/base-ui-inputs"; }; '
                     'boot_render_profiles "$4" "$5"',
                     "logging",

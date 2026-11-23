@@ -5,6 +5,23 @@
 #include "boot-policy.h"
 
 static int run(int argc, char **argv) {
+    if (argc==5&&oc_equal(argv[1],"copy-ui")&&argv[2][0]=='/'&&oc_hex(argv[3],64)&&
+        oc_prefix(argv[4],".feature-")&&oc_key(argv[4])) {
+        /* The verified shell owns fd9's operation lock. No debit, NVRAM,
+         * publication, aliases or side effects outside its private stage.
+         */
+        for (const char *p=argv[4];*p;++p) if (*p=='/') return 64;
+        OcBoot *b=&oc_boot;
+        b->owner=oc_owner();b->group=oc_group();
+        b->root=(int)oc_openat(OC_CWD,argv[2],OC_DIRECTORY,0);
+        if (b->root<0) return 1;
+        b->data=oc_open_private(b->root,OC_DATA);b->ram=oc_open_private(b->root,OC_RAM);
+        if (b->data<0||b->ram<0||!oc_record(b)||!oc_equal(b->record_fields[5],argv[3])||
+            !oc_mounts(b)||!oc_policy_load(b)||!oc_load(b)||b->metadata_drift||
+            !oc_absent_at(b->ram,"selected")||!oc_absent_at(b->ram,"feature")) return 1;
+        b->stage=oc_open_private(b->ram,argv[4]);
+        return b->stage>=0&&oc_ui_stage(b)?0:1;
+    }
 #ifdef OC_HOST
     if (argc==3 && (oc_equal(argv[1],"select")||oc_equal(argv[1],"select-gated"))) {
         long root=oc_openat(OC_CWD,argv[2],OC_DIRECTORY,0);

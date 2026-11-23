@@ -159,6 +159,14 @@ conditions. Quantify any remaining RAM cost for an explicit owner decision;
 do not infer approval from a performance improvement or from implementation
 necessity. A partial reduction does not establish stock parity.
 
+Development authorization (2026-11-23): implement dev.16 sparse MMUI/VUI loading
+and an independent bounded Navigation delay with Base and Wireless on. The owner
+pre-authorized the expected approximately +100/+144 KiB allocated tmpfs (depending
+on disclaimer bypass), contingent on measuring the proposed MMUI/VUI PSS benefit.
+This is permission for live qualification after source review, not final merge
+acceptance or a Base-off RAM waiver. Confirm actual per-configuration costs and
+the final owner disposition before merge.
+
 Discontinued or non-NA services such as DAB, TV, Stitcher and Aha may join Base
 optimizations if their measured benefit and dependencies qualify. Active optional
 services such as Pandora, Android Auto, SiriusXM and DVD remain individual

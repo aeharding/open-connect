@@ -17,12 +17,14 @@ typedef struct {
     char record[1024],next[1024],config[1024],access[320],selector[256],base_config[1024],base_access[320];
     char current_manifest[4096],base_manifest[4096],package_manifest[8192],composed_manifest[4096],composed_digest[65];
     char dependencies[24576],plan_text[OC_PLAN_LIMIT+1],scratch[32768];
+    char *plugins; /* Reuse parsed dependency storage after coverage checks. */
     char *record_fields[13],*flags[8],*access_fields[6],*base_flags[8],*base_access_fields[6];
     OcManifest current,base,pkg,composition;
     OcInput inputs[OC_PLAN_ROWS]; unsigned input_count;
     char boot[40],token[34],nonce[33],stage_name[64],observer_name[64],log_name[64],times[1024]; unsigned time_count;
     long owner,group,parent;
     int selected,access_present,base_access_present,debited,input_failure,gated,gate_sent,released,metadata_drift;
+    unsigned ui_aliases; OcMeta ui_identity[3];
 } OcBoot;
 static OcBoot oc_boot;
 
@@ -42,7 +44,7 @@ static const char *const oc_root_paths[]={
 };
 static const char *const oc_composed_names[]={
     "autostart","uia.so","mmui.so","mmui.xml","index-on.html","index-off.html",
-    "sm-normal-on.conf","sm-normal-off.conf","sm-wcp-on.conf","sm-wcp-off.conf"
+    "sm-normal-on.conf","sm-normal-off.conf","sm-wcp-on.conf","sm-wcp-off.conf","vui.so","vui.xml"
 };
 
 static char *oc_digest(OcManifest *manifest,const char *name) {
@@ -391,8 +393,8 @@ static int oc_access(char *text,char **fields) {
 }
 static int oc_snapshot_coverage(OcBoot *b) {
     char key[192],path[192];
-    const char *required[]={"autostart","config","dependencies","selector","sm-normal.conf","sm-wcp.conf","index.html","boot.plan"};
-    if (b->current.count!=(b->access_present?11u:8u)) return 0;
+    const char *required[]={"autostart","config","dependencies","selector","sm-normal.conf","sm-wcp.conf","index.html","boot.plan","mmui.xml","vui-plugins.list"};
+    if (b->current.count!=(b->access_present?13u:10u)) return 0;
     for (unsigned i=0;i<sizeof required/sizeof *required;++i) if (!oc_digest(&b->current,required[i])) return 0;
     for (unsigned i=0;i<b->current.count;++i) {
         OcMember *m=&b->current.rows[i];
@@ -475,8 +477,26 @@ static int oc_identity_coverage(OcBoot *b) {
     if (oc_equal(b->flags[6],"1")) {
         if (!oc_expect(b,"base/settings.txt","/config/common/log/settings.txt","8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0")||
             !oc_expect(b,"base/libjcicommon.so","/jci/lib/libjcicommon.so","637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d")||
-            !oc_expect(b,"base/log-defaults.js","/jci/gui/common/js/logDefaults.js","83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a")) return 0;
+            !oc_expect(b,"base/log-defaults.js","/jci/gui/common/js/logDefaults.js","83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a")||
+            !oc_expect(b,"base/vui/vui.so","/jci/vui/svcjcivui.so","ba72171a04dcc264ff5f690ac25ac2b009624158499159cdb6aebb08a9ab34f4")||
+            !oc_expect(b,"base/vui/vui.xml","/jci/vui/vui_config.xml","d2511533b59bc9773f92d8fff9cbcf591d9ff461c33839ff4eaaae6f5d0aaef0")) return 0;
     }
+    b->plugins=b->dependencies;
+    if (!oc_saved_text(b->snapshot,&b->current,"vui-plugins.list",b->plugins,4096)) return 0;
+    char *plugin=b->plugins; unsigned count=0;
+    while (*plugin) {
+        char *name=plugin;
+        while (*plugin&&*plugin!='\n') ++plugin;
+        if (!*plugin) return 0;
+        *plugin++=0;
+        if (!oc_equal(b->flags[6],"1")||!oc_key(name)||++count>48) return 0;
+        for (const char *q=name;*q;++q) if (*q=='/') return 0;
+        char key[192],path[192];
+        if (!oc_join(key,sizeof key,"base/vui/",name)||!oc_join(path,sizeof path,"/jci/vui/plugins/",name)) return 0;
+        OcInput *row=oc_find(b,key);
+        if (!row||!oc_hex(row->digest,64)||!oc_expect(b,key,path,row->digest)) return 0;
+    }
+    if (oc_equal(b->flags[6],"1")&&count<36) return 0;
     for (unsigned i=0;i<b->input_count;++i) if (!b->inputs[i].used) return 0;
     return 1;
 }
@@ -600,6 +620,45 @@ static int oc_composed_link(OcBoot *b,const char *name) {
         oc_join(target,sizeof target,target,"/") && oc_join(target,sizeof target,target,name) &&
         oc_symlink(target,b->stage,name)>=0;
 }
+static int oc_ui_stage(OcBoot *b) {
+    int base=oc_equal(b->flags[6],"1"),warning=oc_equal(b->flags[2],"1");
+    if (warning&&!oc_composed_link(b,"uia.so")) return 0;
+    if ((base||warning)&&(!oc_composed_copy(b,"mmui.so",b->stage,0600)||
+        !oc_copy_input(b,"current/mmui.xml",b->stage,"mmui.xml",0600))) return 0;
+    if (!base) return 1;
+    if (!oc_composed_copy(b,"vui.so",b->stage,0600)||!oc_composed_copy(b,"vui.xml",b->stage,0600)||
+        oc_mkdir(b->stage,"vui-plugins",0700)<0) return 0;
+    long folder=oc_open_private(b->stage,"vui-plugins");
+    if (folder<0) return 0;
+    int ok=1;
+    for (char *name=b->plugins;*name;name+=oc_length(name)+1) {
+        char path[192];
+        if (!oc_join(path,sizeof path,"/jci/vui/plugins/",name)||oc_symlink(path,(int)folder,name)<0) {ok=0;break;}
+    }
+    if (oc_close((int)folder)<0) ok=0;
+    return ok;
+}
+static const char *const oc_ui_alias_names[]={"v.xml","vui-hold.so","vui-plugins"};
+static void oc_ui_unwind(OcBoot *b) {
+    for (unsigned i=0;i<3;++i) if (b->ui_aliases&(1u<<i)) {
+        OcMeta now;
+        if (oc_metadata(b->ram,oc_ui_alias_names[i],&now)>=0&&
+            now.device==b->ui_identity[i].device&&now.inode==b->ui_identity[i].inode)
+            (void)oc_unlink(b->ram,oc_ui_alias_names[i]);
+    }
+}
+static int oc_ui_alias(OcBoot *b) {
+    if (!b->selected||!oc_equal(b->flags[6],"1")) return 1;
+    const char *sources[]={"vui.xml","vui.so",0};
+    for (unsigned i=0;i<3;++i) {
+        long r=i==2?oc_symlink("feature/vui-plugins",b->ram,oc_ui_alias_names[i]):
+            oc_link(b->stage,sources[i],b->ram,oc_ui_alias_names[i]);
+        if (r<0) return 0;
+        if (oc_metadata(b->ram,oc_ui_alias_names[i],&b->ui_identity[i])<0) return 0;
+        b->ui_aliases|=1u<<i;
+    }
+    return 1;
+}
 static int oc_nvram(OcBoot *b,char value[16]) {
     /* These class parents are kernel-owned sysfs links, unlike durable paths.
      * Open the keys directory first so inaccessible parents cannot mean absent.
@@ -670,12 +729,10 @@ static int oc_stage(OcBoot *b) {
     b->stage=oc_open_private(b->ram,b->stage_name);
     if (b->stage<0||!oc_copy_input(b,"current/sm-normal.conf",b->stage,"sm.conf",0600)||
         !oc_copy_input(b,"current/sm-wcp.conf",b->stage,"sm_WCP.conf",0600)) return 0;
-    if (oc_equal(b->flags[2],"1")) {
-        if (!oc_composed_link(b,"uia.so")||
-            !oc_composed_copy(b,"mmui.so",b->stage,0600)||!oc_composed_copy(b,"mmui.xml",b->stage,0600)) return 0;
-    }
+    if (!oc_ui_stage(b)) return 0;
     if (oc_equal(b->flags[6],"1") && oc_equal(b->flags[7],"1") &&
-        !oc_package_copy(b,"defer-gap2.sh",b->stage,"defer-gap2.sh",0600)) return 0;
+        (!oc_package_copy(b,"defer-gap2.sh",b->stage,"defer-gap2.sh",0600)||
+         !oc_package_copy(b,"defer-nav.sh",b->stage,"defer-nav.sh",0600))) return 0;
     const char *ui[]={"runtime.js","dialog.js","settings.js"};
     for (unsigned i=0;i<3;++i) if (!oc_package_copy(b,ui[i],b->stage,ui[i],0600)) return 0;
     if (!oc_package_copy(b,"service.sh",b->stage,"service.sh",0600)) return 0;
@@ -764,6 +821,7 @@ static int oc_publish(OcBoot *b) {
     oc_cut("before_publication");
     if (oc_block()<0) return 0;
     oc_cut("publication");
+    if (!oc_ui_alias(b)) return 0;
     if (oc_rename(b->ram,b->observer_name,"ignition")<0) return 0;
     if (!b->selected) return 1;
     if (oc_rename(b->ram,b->stage_name,"feature")<0) return 0;
@@ -884,6 +942,8 @@ static int oc_select(OcBoot *b,int root) {
         !oc_absent_at(b->ram,"feature")||!oc_absent_at(b->ram,"ignition")||!oc_absent_at(b->ram,"access-selected")||
         !oc_absent_at(b->ram,".native-selected")) return OC_REFUSE;
     if (!oc_mounts(b)||!oc_policy_load(b)) return OC_SLOW;
+    if (oc_equal(b->flags[6],"1")) for (unsigned i=0;i<3;++i)
+        if (!oc_absent_at(b->ram,oc_ui_alias_names[i])) return OC_REFUSE;
     if (b->gated) {
         int hint=oc_reseal_hint(b);
         if (hint<0) return OC_REFUSE;
@@ -922,6 +982,7 @@ static int oc_selection(int root,int gated) {
         (void)oc_write_all(2,"late_verification_refused\n",26);
         result=OC_REFUSE;
     }
+    if (result!=0) oc_ui_unwind(&oc_boot);
     int handles[]={oc_boot.log,oc_boot.observer,oc_boot.stage,oc_boot.composed,oc_boot.package,
         oc_boot.baseline,oc_boot.snapshot,oc_boot.lock,oc_boot.ram,oc_boot.data};
     for (unsigned i=0;i<sizeof handles/sizeof *handles;++i) if (handles[i]>=0) (void)oc_close(handles[i]);

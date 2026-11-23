@@ -33,6 +33,14 @@ six background fuel, maintenance and driver-data services. These services become
 available later in startup; the delay starts at service readiness, independently
 of whether a phone connects. It does not wait for a CarPlay session.
 
+The dev.16 candidate additionally avoids loading native UI and voice plugins for
+disabled integrations. With Base and Wireless CarPlay enabled together, it delays
+Mazda Navigation startup by about twenty seconds to prioritize projection.
+Navigation's delay expires independently of CarPlay or network readiness.
+Early Navigation, compass and related vehicle displays can therefore become
+available later. Live qualification and measured dev.16 results are pending;
+the screenshots and comparisons below retain their recorded earlier versions.
+
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/base-enable.png" alt="Enable Base optimizations confirmation explaining reduced logging, stopped unused integrations and the restart requirement." width="800" height="480" loading="lazy"></div>
   <figcaption>Confirm Enable to save the choice.</figcaption>

@@ -1,11 +1,14 @@
 """Private exact-original checks of the maintained USB composition, never a CMU."""
 
+import hashlib
+import itertools
 import json
 import os
 import re
 import struct
 import subprocess
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from open_connect.elf import ELF
@@ -35,6 +38,119 @@ class PrivateFirmware(unittest.TestCase):
         cls.old, cls.new = ELF(cls.original), ELF(cls.candidate)
         cls.linked = ELF((cls.build / "patch.elf").read_bytes())
         cls.payload = (cls.build / "native.bin").read_bytes()
+
+    def test_voice_redirect_changes_only_the_exact_data_span(self):
+        old = (self.originals / "vui.so").read_bytes()
+        new = (self.composed / "vui.so").read_bytes()
+        self.assertEqual(len(old), 95537)
+        self.assertEqual(len(old), len(new))
+        self.assertEqual(
+            hashlib.sha256(new).hexdigest(),
+            "6cc31cd92167624093f95924a15a27536aec2e40cecc170b47cce72d703ba18f",
+        )
+        self.assertEqual(old[0x10A64 : 0x10A64 + 24], b"/jci/vui/vui_config.xml\0")
+        self.assertEqual(new[0x10A64 : 0x10A64 + 24], b"/tmp/open-connect/v.xml\0")
+        self.assertEqual(ELF(old).h, ELF(new).h)
+        self.assertEqual(ELF(old).programs, ELF(new).programs)
+        self.assertEqual(ELF(old).sections, ELF(new).sections)
+        changed = [i for i, (a, b) in enumerate(zip(old, new)) if a != b]
+        self.assertEqual(len(changed), 17)
+        self.assertTrue(all(0x10A64 <= i < 0x10A64 + 24 for i in changed))
+
+    def test_all_board_choice_graphs_keep_nav_independent_of_projection(self):
+        assets = ROOT / "cmu/installer"
+        config = self.output / "matrix-config"
+        for board, base, wireless, aa, pandora, dvd, sxm, warning in itertools.product(
+            (0, 1), repeat=8
+        ):
+            with self.subTest(
+                board=board,
+                base=base,
+                wireless=wireless,
+                aa=aa,
+                pandora=pandora,
+                dvd=dvd,
+                sxm=sxm,
+                warning=warning,
+            ):
+                fields = {
+                    "base": base,
+                    "wireless": wireless,
+                    "warning": warning,
+                    "touch": 1,
+                    "service.android-auto": aa,
+                    "service.pandora": pandora,
+                    "service.dvd": dvd,
+                    "service.siriusxm": sxm,
+                    "service-ids": "android-auto,dvd,pandora,siriusxm",
+                    "metadata": "755:0:0",
+                    "nvram": "disable",
+                    "package": self.composed.name,
+                }
+                config.write_text(
+                    "OC2\n" + "".join(f"{k}={v}\n" for k, v in sorted(fields.items()))
+                )
+                path = self.composed / (
+                    "sm-"
+                    + ("wcp" if board else "normal")
+                    + "-"
+                    + ("on" if warning else "off")
+                    + ".conf"
+                )
+                rendered = subprocess.check_output(
+                    [
+                        "awk",
+                        "-v",
+                        "operation=compose",
+                        "-v",
+                        "catalog=" + str(assets / "services.tsv"),
+                        "-v",
+                        "catalog_bytes=" + str((assets / "services.tsv").stat().st_size),
+                        "-v",
+                        "input=" + str(config),
+                        "-v",
+                        "input_bytes=" + str(config.stat().st_size),
+                        "-f",
+                        assets / "preferences.awk",
+                        "-f",
+                        assets / "sm-profile.awk",
+                        path,
+                    ],
+                    timeout=5,
+                )
+                jobs = {n.get("name"): n for n in ET.fromstring(rendered).iter("service")}
+                parents = {
+                    name: [
+                        n.get("value")
+                        for n in node.findall("dependency")
+                        if n.get("type") == "service"
+                    ]
+                    for name, node in jobs.items()
+                }
+                visiting, visited = set(), set()
+
+                def visit(name):
+                    self.assertIn(name, jobs)
+                    self.assertNotIn(name, visiting)
+                    if name in visited:
+                        return
+                    visiting.add(name)
+                    for parent in parents[name]:
+                        visit(parent)
+                    visiting.remove(name)
+                    visited.add(name)
+
+                for name in jobs:
+                    visit(name)
+                if base and wireless:
+                    self.assertEqual(parents["open_connect_nav"], ["stage_3"])
+                    self.assertIn("open_connect_nav", parents["jcinavi"])
+                    self.assertNotIn("stage_gap2", parents["jcinavi"])
+                    self.assertNotIn("jciCARPLAY", parents["jcinavi"])
+                    self.assertNotIn("blm_nms_svc", parents["jcinavi"])
+                else:
+                    self.assertNotIn("open_connect_nav", jobs)
+                self.assertEqual(jobs["NNG"].get("autorun"), "no")
 
     def test_all_original_sections_symbols_addresses_and_segment_alignment(self):
         self.assertEqual(len(self.candidate), len(self.original) + ALIGN)

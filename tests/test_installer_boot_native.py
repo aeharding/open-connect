@@ -379,7 +379,7 @@ class NativeBootPlan(unittest.TestCase):
         self.assertIn('src="common/js/logDefaults.js"', index)
         self.assertIn('logDefaults.__global__ = "warn"', index)
         self.assertFalse((fixture.runtime / "feature/log-defaults.js").exists())
-        self.assertFalse((fixture.runtime / "feature/mmui.so").exists())
+        self.assertTrue((fixture.runtime / "feature/mmui.so").exists())
 
     @unittest.skipUnless(shutil.which("node"), "Node.js required")
     def test_logging_survives_compatible_dev13_purge_before_restart(self):
@@ -648,13 +648,6 @@ transaction_reconcile
         fixture.select_wireless(0)
         composed = fixture.data / "composed" / fixture.package_id
         (composed / "index-off.html").write_text("saved off @TOKEN@\nframework.init();\n")
-        for profile in ("normal", "wcp"):
-            path = composed / f"sm-{profile}-off.conf"
-            path.write_text(
-                path.read_text().replace(
-                    'name="jciMMUI"', 'name="jciMMUI" path="/jci/mmui/svcjcimmui.so"'
-                )
-            )
         fixture.populated_dependencies()
         fixture.shell(
             'record_read; snapshot_read "$R_CURRENT"; '

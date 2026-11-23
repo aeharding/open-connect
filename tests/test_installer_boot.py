@@ -75,6 +75,9 @@ class InstallerBoot(unittest.TestCase):
             "defer-gap2.sh",
             "base-logging.js",
             "system-hook.js",
+            "ui-profile.awk",
+            "ui-modules.tsv",
+            "defer-nav.sh",
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.manager = self.root / "manager.so"
@@ -162,6 +165,41 @@ startup_publish() {
 }
 """
         )
+        # Authored native-UI inputs; no OEM payload is checked into the tests.
+        originals = self.data / "originals"
+        originals.mkdir(mode=0o700)
+        shutil.copyfile(ROOT / "tests/fixtures/ui-profile.xml", originals / "mmui.xml")
+        vui_root = self.root / "vui"
+        (vui_root / "plugins").mkdir(parents=True)
+        module_rows = []
+        for line in (self.source / "ui-modules.tsv").read_text().splitlines():
+            if line.startswith("vui\t"):
+                kind, name, group, _ = line.split("\t")
+                payload = ("authored plugin " + name + "\n").encode()
+                (vui_root / "plugins" / name).write_bytes(payload)
+                line = "\t".join((kind, name, group, hashlib.sha256(payload).hexdigest()))
+            module_rows.append(line)
+        (self.source / "ui-modules.tsv").write_text("\n".join(module_rows) + "\n")
+        text = (
+            (self.source / "firmware.sh")
+            .read_text()
+            .replace("/jci/vui/plugins/", str(vui_root / "plugins") + "/")
+        )
+        text += "\nvui_source_files() { :; }\n"
+        (self.source / "firmware.sh").write_text(text)
+        with (self.source / "firmware.sh").open("a") as stream:
+            stream.write(r"""
+boot_ui_stage() {
+    cp "$D/composed/$package/mmui.so" "$work/mmui.so"
+    cp "$D/snapshots/$R_CURRENT/mmui.xml" "$work/mmui.xml"
+    if test "$warning" = 1; then ln -s "$D/composed/$package/uia.so" "$work/uia.so"; fi
+    if test "$base" = 1; then
+        cp "$D/composed/$package/vui.so" "$D/composed/$package/vui.xml" "$work/"
+        mkdir "$work/vui-plugins"
+        while read -r name; do ln -s "/jci/vui/plugins/$name" "$work/vui-plugins/$name"; done < "$D/snapshots/$R_CURRENT/vui-plugins.list"
+    fi
+}
+""")
         (self.source / "service.sh").write_text(
             "service_files() { runtime=" + shlex.quote(str(self.runtime)) + "; }\n"
             'service_listen() { : > "$R/listen-attempted"; test ! -e "$R/port-blocked"; }\n'
@@ -203,6 +241,8 @@ startup_publish() {
             "uia.so",
             "mmui.so",
             "mmui.xml",
+            "vui.so",
+            "vui.xml",
             "sm-normal-on.conf",
             "sm-wcp-on.conf",
             "index-on.html",
@@ -265,6 +305,8 @@ record_write
         (self.root / "boot-id").write_text(boot_id + "\n")
         shutil.rmtree(self.runtime / "feature", ignore_errors=True)
         (self.runtime / "selected").unlink(missing_ok=True)
+        for name in ("v.xml", "vui-hold.so", "vui-plugins"):
+            (self.runtime / name).unlink(missing_ok=True)
         if not preserve_log:
             shutil.rmtree(self.root / "common", ignore_errors=True)
         return subprocess.run(
@@ -499,6 +541,46 @@ record_write
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual((self.data / "record").read_bytes(), before)
         self.assertFalse((self.runtime / "selected").exists())
+
+    def test_new_plugin_pin_failure_refuses_before_prepare_and_keeps_removal_available(self):
+        before = (self.data / "record").read_bytes()
+        nvram = (self.root / "data-nvram").read_bytes()
+        plugin = self.root / "vui/plugins/vui_plugin_common.so"
+        plugin.write_bytes(b"foreign plugin\n")
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.select_base(1)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertEqual((self.root / "data-nvram").read_bytes(), nvram)
+        result = self.shell(
+            '. "$P/transaction.sh"; AUTOSTART=$D-target; record_read; targets_match "$R_CURRENT"; dependencies_match "$R_CURRENT"; uninstall_owned "$R_CURRENT"'
+        )
+        self.assertEqual(result.returncode, 0)
+
+    def test_forced_shell_copy_failure_consumes_one_attempt_without_alias_publication(self):
+        self.select_base(1)
+        # Inject a runtime staging refusal after verified boot_load; package
+        # bytes and their manifest stay unchanged.
+        script = (self.package / "boot.sh").read_text()
+        script = script.replace(
+            "    boot_load\n", "    boot_load\n    boot_ui_stage() { return 1; }\n"
+        )
+        (self.root / "boot-id").write_text("00000000-0000-0000-0000-000000000001\n")
+        result = subprocess.run(
+            [
+                "sh",
+                "-c",
+                script.replace('case "${0##*/}" in boot.sh) boot_main;; esac', "boot_select"),
+                "injected",
+            ],
+            env={**self.env, "P": str(self.package)},
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.record()[9], "2")
+        for name in ("selected", "v.xml", "vui-hold.so", "vui-plugins"):
+            self.assertFalse(os.path.lexists(self.runtime / name))
 
     def test_fast_path_refuses_unlisted_composed_file_and_directory(self):
         folder = self.data / "composed" / self.package_id
@@ -792,6 +874,8 @@ record_write
                 "blm_ira_stitcher",
                 "irsstitcher_server",
                 "jciMMUI",
+                "jciVUI",
+                "jcinavi",
                 "start_network",
                 "bds",
                 "jciUSBMGR",
@@ -825,6 +909,10 @@ record_write
                     attr += ' args="wcp"'
                 elif name == "jciLDS":
                     attr += ' args="actual-gps-provider"'
+                if name == "jciVUI":
+                    attr += ' path="/jci/vui/svcjcivui.so"'
+                if name == "jciMMUI":
+                    attr += ' path="/jci/mmui/svcjcimmui.so"'
                 lines += ["<service " + attr + ">"]
                 parents = {
                     "bds": ("stage_3", "settings", "dmserver"),
@@ -837,7 +925,12 @@ record_write
             lines += ["</services>"]
             for setting in ("on", "off"):
                 path = self.data / "composed" / self.package_id / f"sm-{profile}-{setting}.conf"
-                path.write_text("\n".join(lines) + "\n")
+                text = "\n".join(lines) + "\n"
+                if setting == "on":
+                    text = text.replace(
+                        'path="/jci/mmui/svcjcimmui.so"', 'path="/tmp/open-connect/feature/mmui.so"'
+                    )
+                path.write_text(text)
 
     def select_wireless(self, value, *, base=0):
         self.write_profiles()

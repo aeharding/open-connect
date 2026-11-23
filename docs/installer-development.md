@@ -160,6 +160,44 @@ prepare, while compatible Uninstall remains available. The record also retains
 the observed mid-uninstall reload/reboot limit instead of claiming full reload
 readiness from offline JS replay.
 
+### dev.16 candidate: sparse native UI and voice loading
+
+With Base enabled, one authenticated renderer selects MMUI Config blocks and
+VUI plugins from the applied Services choices. Retained native IDs and attributes
+stay unchanged. The stock System UIA path remains in use when disclaimer bypass
+is off. The composed set has twelve payload members; snapshots additionally pin
+the rendered MMUI XML and retained plugin list before transaction preparation.
+Selected stock plugin hashes are checked before preparation and again at sealing.
+The bounded OCBP1 format is unchanged; its row limit is 192, with a planned maximum
+of 160 inputs including the Nav helper (80 dependency rows).
+
+The VUI service hardcodes its configuration path. A size- and SHA-guarded
+24-byte data replacement redirects that string to `/tmp/open-connect/v.xml`.
+Its 95,537-byte ELF is copied once to private tmpfs, with a same-inode hold;
+retained plugin libraries and XML files are symlinks to unchanged stock files.
+Native selection and verified shell recovery consume the same sealed outputs.
+The shell's opened-file copy helper binds staging to the snapshot selected after
+reconciliation. The existing read-only `check` command remains read-only.
+
+Compatible dev.15 media can remove dev.16 or reinstall dev.15 from preserved
+stock originals with the same OC2 choices. There is no dev.15 version-based
+downgrade refusal. The new VUI ELF/config/plugin paths remain reopenable through
+persistent-state purge. Disclaimer bypass retains dev.15's narrower System UIA
+lifetime: its existing native mapping remains readable, while its persistent
+pathname can become dangling until the required restart. Fresh browser context
+and fresh native pathname opens are separate qualification checks.
+
+When Base and Wireless are both on, a separate finite Nav gate waits twenty
+seconds after stock stage_3. SM releases it on normal exit or its 22-second
+timeout. It has no CarPlay or NMS dependency; stock Nav prerequisites and NNG's
+demand-start policy are preserved. Nav readiness, timing, memory and interactive
+behavior remain pending live dev.16 qualification. No performance claim or new
+device qualification is implied by offline checks.
+The installed Settings session copies sixteen files, excluding the SM composer;
+active writes execute the verified persistent target package's writer/renderer.
+USB maintenance keeps the complete package. This avoids carrying render-time
+code in RAM solely to serve Settings status and commands.
+
 
 The dev.10 payload stores active preferences as bounded, sorted `OC2` key/value
 text inside the existing immutable snapshot. `record` remains the only durable

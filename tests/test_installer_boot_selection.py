@@ -38,6 +38,18 @@ class NativeBootSelection(unittest.TestCase):
             "stock GUI log settings\n",
             "83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a",
         ),
+        (
+            "vui/vui.so",
+            "/jci/vui/svcjcivui.so",
+            "stock voice library\n",
+            "ba72171a04dcc264ff5f690ac25ac2b009624158499159cdb6aebb08a9ab34f4",
+        ),
+        (
+            "vui/vui.xml",
+            "/jci/vui/vui_config.xml",
+            "stock voice config\n",
+            "d2511533b59bc9773f92d8fff9cbcf591d9ff461c33839ff4eaaae6f5d0aaef0",
+        ),
     )
 
     @classmethod
@@ -161,7 +173,14 @@ class NativeBootSelection(unittest.TestCase):
         ]
         for name in mandatory:
             (package / name).write_bytes((ASSETS / name).read_bytes())
-        for name in ("flush", "api", "wireless.sh", "wireless-device.awk", "defer-gap2.sh"):
+        for name in (
+            "flush",
+            "api",
+            "wireless.sh",
+            "wireless-device.awk",
+            "defer-gap2.sh",
+            "defer-nav.sh",
+        ):
             (package / name).write_text("fixture " + name + "\n")
         (package / "INSTANCE").write_text("1" * 32 + "\n")
         (package / "boot-select").write_bytes(self.program.read_bytes())
@@ -215,6 +234,8 @@ class NativeBootSelection(unittest.TestCase):
             "sm-normal-off.conf",
             "sm-wcp-on.conf",
             "sm-wcp-off.conf",
+            "vui.so",
+            "vui.xml",
         ]
         for name in names:
             (composed / name).write_text("composed " + name + "\n")
@@ -251,6 +272,8 @@ class NativeBootSelection(unittest.TestCase):
             "selector": f"{sha(self.program.read_bytes())}|700:{os.getuid()}:{os.getgid()}|{self.package_id}\n",
             "sm-normal.conf": "prepared normal\n",
             "sm-wcp.conf": "prepared WCP\n",
+            "mmui.xml": "prepared MMUI XML\n",
+            "vui-plugins.list": "",
             "index.html": '<meta content="@TOKEN@"><meta content="@VERSION@"><meta content="@NOTICE@">\n',
         }
         dependencies = []
@@ -377,11 +400,99 @@ class NativeBootSelection(unittest.TestCase):
         for name, path, data, _ in self.BASE_INPUTS:
             self.put(path, data)
             self.inputs.append(("base/" + name, path, sha(data.encode())))
+        names = []
+        for line in (ASSETS / "ui-modules.tsv").read_text().splitlines():
+            if not line.startswith("vui\t"):
+                continue
+            _, name, group, _ = line.split("\t")
+            if group in ("base", "dvd"):
+                continue
+            payload = "authored retained plugin " + name + "\n"
+            path = "/jci/vui/plugins/" + name
+            self.put(path, payload)
+            self.inputs.append(("base/vui/" + name, path, sha(payload.encode())))
+            names.append(name)
+        self.change_current("vui-plugins.list", "\n".join(names) + "\n")
         self.change_current(
             "config", (self.snapshot / "config").read_text().replace("base=0", "base=1")
         )
         self.put("sys/devices/virtual/block/ffx01/dev", "253:16\n")
         return self.put("sys/devices/virtual/block/ffx01/queue/read_ahead_kb", "128\n", 0o644)
+
+    def test_wave_c_aliases_survive_purge_without_persistent_payload_targets(self):
+        self.base_fixture()
+        self.assertEqual(self.invoke().returncode, 0)
+        main = self.ram / "feature/vui.so"
+        self.assertFalse(main.is_symlink())
+        self.assertEqual(main.stat().st_ino, (self.ram / "vui-hold.so").stat().st_ino)
+        self.assertEqual(
+            (self.ram / "v.xml").stat().st_ino, (self.ram / "feature/vui.xml").stat().st_ino
+        )
+        self.assertEqual(os.readlink(self.ram / "vui-plugins"), "feature/vui-plugins")
+        names = (self.snapshot / "vui-plugins.list").read_text().splitlines()
+        self.assertEqual(sorted(p.name for p in (self.ram / "vui-plugins").iterdir()), names)
+        for name in names:
+            self.assertEqual(
+                os.readlink(self.ram / "vui-plugins" / name), "/jci/vui/plugins/" + name
+            )
+        with (self.ram / "feature/uia.so").open("rb") as loaded:
+            expected = loaded.read()
+            shutil.rmtree(self.data)
+            loaded.seek(0)
+            self.assertEqual(loaded.read(), expected)
+            self.assertFalse((self.ram / "feature/uia.so").exists())
+            self.assertEqual(main.read_bytes(), b"composed vui.so\n")
+            self.assertEqual((self.ram / "vui-hold.so").read_bytes(), main.read_bytes())
+            self.assertEqual((self.ram / "v.xml").read_bytes(), b"composed vui.xml\n")
+
+    def test_wave_c_foreign_alias_refuses_before_gate_and_debit(self):
+        self.base_fixture()
+        foreign = self.ram / "vui-plugins"
+        foreign.symlink_to("foreign")
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.returncode, result.stdout), (1, b"J"))
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertEqual(os.readlink(foreign), "foreign")
+
+    def test_wave_c_late_plugin_refusal_does_not_debit_or_publish_aliases(self):
+        self.base_fixture()
+        plugin = (
+            self.root
+            / "jci/vui/plugins"
+            / (self.snapshot / "vui-plugins.list").read_text().splitlines()[0]
+        )
+        plugin.write_bytes(b"changed source\n")
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.returncode, result.stdout), (1, b"G"))
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        for name in ("v.xml", "vui-hold.so", "vui-plugins", "selected"):
+            self.assertFalse(os.path.lexists(self.ram / name))
+
+    def test_shell_copy_helper_binds_snapshot_and_never_changes_record_or_aliases(self):
+        self.base_fixture()
+        stage = self.ram / ".feature-shell"
+        stage.mkdir(mode=0o700)
+        before = (self.data / "record").read_bytes()
+        result = subprocess.run(
+            [self.program, "copy-ui", self.root, self.snapshot.name, stage.name],
+            capture_output=True,
+            timeout=5,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((stage / "vui.so").read_bytes(), (self.composed / "vui.so").read_bytes())
+        self.assertEqual(
+            (stage / "mmui.xml").read_bytes(), (self.snapshot / "mmui.xml").read_bytes()
+        )
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertFalse(os.path.lexists(self.ram / "v.xml"))
+        rejected = subprocess.run(
+            [self.program, "copy-ui", self.root, "0" * 64, stage.name],
+            capture_output=True,
+            timeout=5,
+        )
+        self.assertEqual(rejected.returncode, 1)
 
     def test_base_publication_and_diagnostic_io_never_reverses_it(self):
         queue = self.base_fixture()
@@ -473,7 +584,7 @@ class NativeBootSelection(unittest.TestCase):
             'logDefaults.__global__ = "warn"', (self.ram / "feature/index.html").read_text()
         )
         self.assertFalse((self.ram / "feature/log-defaults.js").exists())
-        self.assertFalse((self.ram / "feature/mmui.so").exists())
+        self.assertTrue((self.ram / "feature/mmui.so").exists())
 
     def test_base_off_never_changes_an_existing_queue_choice(self):
         queue = self.put("sys/devices/virtual/block/ffx01/queue/read_ahead_kb", "128\n", 0o644)

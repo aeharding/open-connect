@@ -289,6 +289,9 @@ var OpenConnectSettings = (function () {
                         "Restores original native logging after restarting Mazda Connect.")) :
                     serviceRow ? (enabled ? serviceRow.enable : serviceRow.disable) :
                     "Changes apply after restarting Mazda Connect.";
+                if (item === "base" && enabled && currentValues.installedVersion === "0.3.0-dev.16" && currentValues.wireless) {
+                    serviceText += " Mazda Navigation starts later (about 20 seconds) to prioritize wireless CarPlay.";
+                }
                 var serviceFocus = item === "base" || currentValues.base === undefined ? 0 : 1;
                 if (serviceRow) {
                     currentValues.services.some(function (row, index) {

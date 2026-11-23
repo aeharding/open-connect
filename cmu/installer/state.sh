@@ -317,10 +317,10 @@ _snapshot_create() (
     fi
     if test "$package" != -; then
         boot_render_profiles "$work" "$work/config" || fail boot_profiles_failed
-        for name in sm-normal.conf sm-wcp.conf index.html; do
+        for name in sm-normal.conf sm-wcp.conf index.html mmui.xml vui-plugins.list; do
             file "$work/$name" && chmod 600 "$work/$name" || fail snapshot_profile_failed
         done
-        set -- "$@" sm-normal.conf sm-wcp.conf index.html
+        set -- "$@" sm-normal.conf sm-wcp.conf index.html mmui.xml vui-plugins.list
     fi
     snapshot_finish "$work" "$@"
 )

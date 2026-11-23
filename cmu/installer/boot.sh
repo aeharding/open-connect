@@ -60,6 +60,29 @@ boot_plan_verify() {
     "$P/boot-select" "$mode" / "${dir#/}" < "$dir/boot.plan"
 }
 
+boot_ui_unwind() {
+    local name identity
+    for name in v.xml vui-hold.so vui-plugins; do
+        case "$name" in v.xml) identity=${ui_xml:-};; vui-hold.so) identity=${ui_elf:-};; *) identity=${ui_folder:-};; esac
+        if test -n "$identity" && test "$(stat -c '%d:%i' "$R/$name" 2>/dev/null || :)" = "$identity"; then
+            rm "$R/$name" || :
+        fi
+    done
+}
+boot_ui_publish() {
+    test "$base" = 1 || return 0
+    absent "$R/v.xml" && absent "$R/vui-hold.so" && absent "$R/vui-plugins" || return 1
+    "$runtime/flush" l "$R/feature/vui.xml" "$R/v.xml" || return 1
+    ui_xml=$(stat -c '%d:%i' "$R/v.xml") || return 1
+    "$runtime/flush" l "$R/feature/vui.so" "$R/vui-hold.so" || return 1
+    ui_elf=$(stat -c '%d:%i' "$R/vui-hold.so") || return 1
+    ln -s feature/vui-plugins "$R/vui-plugins" || return 1
+    ui_folder=$(stat -c '%d:%i' "$R/vui-plugins")
+}
+boot_ui_stage() {
+    "$P/boot-select" copy-ui / "$R_CURRENT" "${work##*/}"
+}
+
 boot_select() {
     D=/tmp/mnt/data_persist/open-connect
     R=/tmp/open-connect
@@ -129,6 +152,9 @@ boot_select() {
     fi
     package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; mode=$S_META
     prefs=$S_PREFS; base=$S_BASE; wireless=$S_WIRELESS
+    if test "$base" = 1; then
+        absent "$R/v.xml" && absent "$R/vui-hold.so" && absent "$R/vui-plugins" || fail ui_alias_conflict
+    fi
 boot=$(cat /proc/sys/kernel/random/boot_id)
 boot_id "$boot" || fail invalid_boot
 test "$R_BOOT" != "$boot" || fail already_selected
@@ -155,6 +181,10 @@ if test "$S_NVRAM" != "$nvram"; then
     transaction_prepare apply "$R_CURRENT" "$after"
     transaction_reconcile
 fi
+# Reconciliation may have selected a newly sealed snapshot. Bind every staged
+# UI byte and choice to that final identity rather than cached pre-apply fields.
+snapshot_read "$R_CURRENT" || fail invalid_snapshot
+package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; base=$S_BASE; wireless=$S_WIRELESS
 # Modern autostart launches the verified observer outside its timeout, on both
 # valid outcomes. Legacy installed hooks retain their standalone behavior.
 if test "$modern" = true; then
@@ -173,20 +203,12 @@ if test "$warning" = 1 || test "$base" = 1; then
         boot_plan_verify "$R_CURRENT" verify || fail feature_inputs_changed
     fi
 fi
-if test "$warning" = 1; then
-    cp "$D/composed/$package/mmui.so" "$D/composed/$package/mmui.xml" "$work/"
-    if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then
-        for name in uia.so; do
-            ln -s "../../mnt/data_persist/open-connect/composed/$package/$name" "$work/$name" || fail feature_link_failed
-        done
-    else
-        # Older unsealed snapshots retain their original RAM-copy path.
-        cp "$D/composed/$package/uia.so" "$work/" || fail feature_copy_failed
-    fi
+if test "$warning" = 1 || test "$base" = 1; then
+    boot_ui_stage || fail feature_copy_failed
 fi
 if test "$base" = 1; then
     if test "$wireless" = 1; then
-        boot_copy_package "$work" defer-gap2.sh || fail background_stage_failed
+        boot_copy_package "$work" defer-gap2.sh defer-nav.sh || fail background_stage_failed
     fi
 fi
 startup_stamp feature_copied
@@ -236,8 +258,9 @@ if test "$boot_cancelled" = true; then
     native_log_discard || :
     fail selection_cancelled
 fi
-if ! native_log_commit "$runtime/flush" || ! "$runtime/flush" l "$marker" /tmp/open-connect/selected; then
+if ! boot_ui_publish || ! native_log_commit "$runtime/flush" || ! "$runtime/flush" l "$marker" /tmp/open-connect/selected; then
     rm -f "$marker" || :
+    boot_ui_unwind
     native_log_discard || :
     fail selection_commit_failed
 fi

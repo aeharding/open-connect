@@ -37,9 +37,9 @@ static long oc_read(int fd, void *p, unsigned n) { long r=read(fd,p,n); return r
 static long oc_write(int fd, const void *p, unsigned n) { long r=write(fd,p,n); return r<0?-errno:r; }
 static long oc_close(int fd) { return close(fd)<0?-errno:0; }
 static long oc_sync(int fd) { return fsync(fd)<0?-errno:0; }
-static long oc_stat(int fd, OcMeta *m) {
+static long oc_metadata(int fd, const char *path, OcMeta *m) {
     struct stat s;
-    if (fstat(fd,&s)<0) return -errno;
+    if ((path?fstatat(fd,path,&s,AT_SYMLINK_NOFOLLOW):fstat(fd,&s))<0) return -errno;
     if (s.st_size<0) return -22;
     m->device=s.st_dev; m->inode=s.st_ino; m->size=(oc_u64)s.st_size;
     m->mode=s.st_mode; m->uid=s.st_uid; m->gid=s.st_gid;
@@ -78,7 +78,7 @@ static long oc_read(int fd, void *p, unsigned n) { return oc_syscall4(3,fd,(long
 static long oc_write(int fd, const void *p, unsigned n) { return oc_syscall4(4,fd,(long)p,n,0); }
 static long oc_close(int fd) { return oc_syscall4(6,fd,0,0,0); }
 static long oc_sync(int fd) { return oc_syscall4(118,fd,0,0,0); }
-static long oc_stat(int fd, OcMeta *m) {
+static long oc_metadata(int fd, const char *path, OcMeta *m) {
     /* ARM EABI stat64 has 8-byte alignment, size 104; the final inode is 64-bit. */
     struct {
         oc_u64 device;
@@ -92,7 +92,7 @@ static long oc_stat(int fd, OcMeta *m) {
         oc_u64 inode;
     } s;
     _Static_assert(sizeof(s)==104,"ARM stat64 layout");
-    long r=oc_syscall4(197,fd,(long)&s,0,0);
+    long r=path?oc_syscall4(327,fd,(long)path,(long)&s,256):oc_syscall4(197,fd,(long)&s,0,0);
     if (r<0) return r;
     if (s.size<0) return -22;
     m->device=s.device; m->inode=s.inode; m->size=(oc_u64)s.size;
@@ -102,6 +102,8 @@ static long oc_stat(int fd, OcMeta *m) {
     return 0;
 }
 #endif
+
+static long oc_stat(int fd, OcMeta *m) { return oc_metadata(fd,0,m); }
 
 static long oc_beneath(int root, const char *path, unsigned options, unsigned mode) {
     char leaf[192];

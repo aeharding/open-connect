@@ -133,7 +133,7 @@ class NativeBootSelection(unittest.TestCase):
         ]
         for name in mandatory:
             (package / name).write_bytes((ASSETS / name).read_bytes())
-        for name in ("flush", "api", "wireless.sh", "wireless-device.awk", "network.sh"):
+        for name in ("flush", "api", "wireless.sh", "wireless-device.awk"):
             (package / name).write_text("fixture " + name + "\n")
         (package / "INSTANCE").write_text("1" * 32 + "\n")
         (package / "boot-select").write_bytes(self.program.read_bytes())
@@ -206,7 +206,7 @@ class NativeBootSelection(unittest.TestCase):
                 continue
             self.put(path, "stock " + name + "\n")
             self.root_map[name] = path
-        self.assertEqual(len(self.root_map), 21)
+        self.assertEqual(len(self.root_map), 19)
 
         self.snapshot = self.data / "snapshots/.new-current"
         self.snapshot.mkdir(mode=0o700)
@@ -327,11 +327,6 @@ class NativeBootSelection(unittest.TestCase):
             timeout=5,
             preexec_fn=limit_output if output_limit is not None else None,
         )
-
-    def test_network_helper_absent_when_base_is_disabled(self):
-        result = self.invoke()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse((self.ram / "feature/network.sh").exists())
 
     def test_gate_releases_before_staging_for_both_base_settings(self):
         for base in (0, 1):

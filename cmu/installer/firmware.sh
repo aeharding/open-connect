@@ -21,9 +21,6 @@ ORIGINALS
 
 firmware_dependencies() {
     original_files
-    printf '%s\n' \
-        'ec5139bd1cfda9e138d309847f3f81508c2308b5126a5a1f9af2fb67ecb8dc70 network-start.sh /jci/scripts/start_network.sh' \
-        'c1f41c3662d88f8bc2619b1799f6a5c50e0d2ba95d6ce2411067da0898ffdaa0 firewall.sh /jci/scripts/jci-fw.sh'
     printf '%s\n' '1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29 manager.so /jci/lib/libjciuiamgr.so'
     printf '%s\n' \
         '9f1811e2d9a905ba9060a9c20b8d91c18aaa5c079512e3261b51cf0114fc857b device-master.xml /etc/devmgr_config_master.xml' \

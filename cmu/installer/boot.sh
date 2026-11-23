@@ -191,9 +191,6 @@ if test "$wireless" = 1; then
     printf '%s\n' "$boot" > "$work/boot-id"
     printf '0\n' > "$work/wireless-applied"
 fi
-if test "$base:$wireless" = 1:1; then
-    boot_copy_package "$work" network.sh || fail feature_network_failed
-fi
 if absent "$R/token"; then
     token=$(uuid); hex "$token" 32 || fail invalid_token
     (set -C; printf '%s\n' "$token" > "$R/token") || fail invalid_token

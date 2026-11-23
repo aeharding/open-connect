@@ -179,6 +179,24 @@ source/CI identities preserved: `fs-hold-probe.out`, `stock-before-held.json`,
 `deadline-both-on-again-restarted.json`, `deadline-uninstall-observer/`,
 `deadline-stock.json` and `deadline-key-after-uninstall.json`.
 
+### Settings listener port collision
+
+On exact v74, a wireless-pilot setup boot reached CarPlay but failed to start
+Open Connect Settings: `tcpsvd` reported `Address already in use`. There was no
+listener on the expected port. The actual socket table showed MMUI holding an
+established client connection from `127.0.0.1:35555` to Service Manager on
+`127.0.0.1:9091`. The unit's ephemeral port range was **32768–61000**, which
+included Open Connect's former fixed port, 35555. Checking only listening sockets
+would miss this collision.
+
+The candidate uses **127.0.0.1:15555**, below that observed range, for the same
+authenticated local POST contract. A Linux regression holds an established
+outbound socket on 35555 while starting the Settings service and serving its
+first request. Foreign occupancy of the new port still refuses publication.
+Private evidence: `runs/carplay-speed-20261122/port-collision-proof.out`,
+`mmui-session-diagnose.out` and `port-fix-service-tests.log`. This setup failure
+preceded the timing trial; it is not a measured MMUI-affinity performance result.
+
 ### Developer UI and maintenance version identity
 
 CI [44856371233](https://github.com/aeharding/open-connect/actions/runs/44856371233),

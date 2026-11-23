@@ -84,11 +84,6 @@ prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="start_network" {
         if(args!="UCP") refuse()
         put_attribute("args","")
     }
-    if(early_wireless) {
-        if(attribute("path")!="/jci/scripts/start_network.sh") refuse()
-        put_attribute("path","/bin/sh")
-        put_attribute("args","/tmp/open-connect/feature/network.sh")
-    }
 }
 prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="devicemanager" {
     manager++

@@ -231,7 +231,6 @@ class InstallerPreferences(unittest.TestCase):
             elif name == "bds":
                 attributes["args"] = "-interface dbus" + (" -wcp" if wcp else "")
             elif name == "start_network":
-                attributes["path"] = "/jci/scripts/start_network.sh"
                 attributes["args"] = "" if wcp else "UCP"
             elif name == "stage_vr":
                 attributes["args"] = "5s"
@@ -327,9 +326,6 @@ class InstallerPreferences(unittest.TestCase):
                                 ),
                             )
                     if wireless and base:
-                        if name == "start_network":
-                            expected.set("path", "/bin/sh")
-                            expected.set("args", "/tmp/open-connect/feature/network.sh")
                         if name in ("jciCARPLAY", "jciMMUI"):
                             expected.set("affinity_mask", "0x03")
                         elif name == "bds":

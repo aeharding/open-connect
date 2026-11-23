@@ -215,6 +215,35 @@ class StartupReferenceTests(unittest.TestCase):
                     "open-connect",
                     wireless=1,
                 )
+        expanded = {
+            **canonical,
+            "installedVersion": "0.3.0-dev.15",
+            "services": [
+                canonical["services"][0],
+                {"id": "dvd", "saved": 0, "current": 0},
+                canonical["services"][1],
+                {"id": "siriusxm", "saved": 1, "current": 1},
+            ],
+        }
+        self.assertEqual(
+            m.validate_condition(output(expanded) + canonical_rows, "open-connect", wireless=1),
+            boot,
+        )
+        for changed in (
+            canonical["services"],
+            [dict(row, saved=1) if row["id"] == "dvd" else row for row in expanded["services"]],
+            [
+                dict(row, current=0) if row["id"] == "siriusxm" else row
+                for row in expanded["services"]
+            ],
+            expanded["services"] + [{"id": "tv", "saved": 0, "current": 0}],
+        ):
+            with self.assertRaisesRegex(ValueError, "Services choices"):
+                m.validate_condition(
+                    output({**expanded, "services": changed}) + canonical_rows,
+                    "open-connect",
+                    wireless=1,
+                )
         for bad in (
             output({**wireless_state, "wirelessCurrent": 0}) + wireless_rows,
             output({**wireless_state, "wireless": True}) + wireless_rows,

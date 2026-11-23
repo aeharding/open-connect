@@ -421,9 +421,11 @@ def validate_condition(raw, condition, pandora=None, log_level=None, base=None, 
             if snapshots[0][0] == b"OC2":
                 rows = state.get("services")
                 wanted = {"android-auto": 1, "pandora": state.get("pandora")}
+                if state.get("installedVersion") == "0.3.0-dev.15":
+                    wanted.update(dvd=0, siriusxm=1)
                 if (
                     not isinstance(rows, list)
-                    or len(rows) != 2
+                    or len(rows) != len(wanted)
                     or any(
                         not isinstance(row, dict)
                         or row.get("id") != key

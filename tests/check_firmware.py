@@ -162,8 +162,8 @@ def base_logging_contract(output, paths, node, composed):
             config = destination / "config"
             config.write_text(
                 f"OC2\nbase={base}\nmetadata=755:{os.getuid()}:{os.getgid()}\n"
-                f"nvram=disable\npackage={composed.name}\nservice-ids=android-auto,pandora\n"
-                f"service.android-auto=1\nservice.pandora=1\ntouch=1\nwarning={warning}\nwireless=1\n"
+                f"nvram=disable\npackage={composed.name}\nservice-ids=android-auto,dvd,pandora,siriusxm\n"
+                f"service.android-auto=1\nservice.dvd=0\nservice.pandora=1\nservice.siriusxm=1\ntouch=1\nwarning={warning}\nwireless=1\n"
             )
             run(
                 [
@@ -237,14 +237,25 @@ def host_contract(output, paths, host_cc, node, composed):
         "host-compile",
     )
     run([output / "host-contract"], output, "host-contract")
-    run([node, "--check", composed / "system-app.js"], output, "javascript-syntax")
+    run([node, "--check", paths["system-app.js"]], output, "javascript-syntax")
+    run(
+        [
+            node,
+            ROOT / "tests/fixtures/system-hook-oem.js",
+            paths["system-app.js"],
+            ASSETS / "system-hook.js",
+        ],
+        output,
+        "javascript-sources",
+    )
     run(
         [
             node,
             ROOT / "tests/fixtures/disclaimer-behavior.js",
-            composed / "system-app.js",
+            paths["system-app.js"],
             paths["base-app.js"],
             paths["framework"],
+            ROOT / "cmu/installer/system-hook.js",
         ],
         output,
         "javascript-lifecycle",
@@ -281,6 +292,7 @@ def main(argv=None):
         ROOT / "tests/test_firmware.py",
         ROOT / "tests/fixtures/native-contract.c",
         ROOT / "tests/fixtures/disclaimer-behavior.js",
+        ROOT / "tests/fixtures/system-hook-oem.js",
         *sorted((ROOT / "cmu/installer").rglob("*")),
         *sorted((ROOT / "cmu/features/disclaimer").glob("*.*")),
         ROOT / "cmu/features/touch/setting.sh",

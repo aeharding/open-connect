@@ -439,7 +439,7 @@ class NativeBootPlan(unittest.TestCase):
         self.assertNotEqual(fixture.record()[5], old)
         self.assertFalse(hint.exists())
         self.assertEqual(fixture.record()[9], "2")
-        for name in ("uia.so", "system-app.js"):
+        for name in ("uia.so",):
             link = fixture.runtime / "feature" / name
             self.assertTrue(link.is_symlink())
             self.assertEqual(link.resolve(), fixture.data / "composed" / fixture.package_id / name)
@@ -647,7 +647,7 @@ transaction_reconcile
         fixture = self.native_fixture()
         fixture.select_wireless(0)
         composed = fixture.data / "composed" / fixture.package_id
-        (composed / "index-off.html").write_text("saved off @TOKEN@\n")
+        (composed / "index-off.html").write_text("saved off @TOKEN@\nframework.init();\n")
         for profile in ("normal", "wcp"):
             path = composed / f"sm-{profile}-off.conf"
             path.write_text(
@@ -672,7 +672,9 @@ boot_snapshot_seal "$R_CURRENT"
 """)
         self.assertEqual((fixture.data / "record").read_bytes(), before)
         snapshot = fixture.data / "snapshots" / result.stdout.strip()
-        self.assertEqual((snapshot / "index.html").read_text(), "saved off @TOKEN@\n")
+        index = (snapshot / "index.html").read_text()
+        self.assertIn("saved off @TOKEN@\n", index)
+        self.assertIn('}(framework, [0,"pandora,dvd"]));', index)
         self.assertNotIn(b"\nbase/", (snapshot / "boot.plan").read_bytes())
         for profile in ("normal", "wcp"):
             services = {

@@ -176,12 +176,12 @@ fi
 if test "$warning" = 1; then
     cp "$D/composed/$package/mmui.so" "$D/composed/$package/mmui.xml" "$work/"
     if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then
-        for name in uia.so system-app.js; do
+        for name in uia.so; do
             ln -s "../../mnt/data_persist/open-connect/composed/$package/$name" "$work/$name" || fail feature_link_failed
         done
     else
         # Older unsealed snapshots retain their original RAM-copy path.
-        cp "$D/composed/$package/uia.so" "$D/composed/$package/system-app.js" "$work/" || fail feature_copy_failed
+        cp "$D/composed/$package/uia.so" "$work/" || fail feature_copy_failed
     fi
 fi
 if test "$base" = 1; then

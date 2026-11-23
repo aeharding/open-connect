@@ -151,6 +151,16 @@ not supported. Unknown edits are preserved even if restoration has partly comple
 
 ## Services data and composition
 
+The [dev.15 qualification record](services-expansion.md) pins the exact CI bundle,
+dev.14 upgrade, five-row Services UI, applied Audio Sources policy and independent
+older-media removal. New SiriusXM/DVD keys use the same canonical OC2 record and
+static service table. First upgrade adds DVD off and SiriusXM on; later explicit
+choices persist. Old dev.14 installation refuses the richer preferences before
+prepare, while compatible Uninstall remains available. The record also retains
+the observed mid-uninstall reload/reboot limit instead of claiming full reload
+readiness from offline JS replay.
+
+
 The dev.10 payload stores active preferences as bounded, sorted `OC2` key/value
 text inside the existing immutable snapshot. `record` remains the only durable
 transaction authority; the six-field API and `OCBP1` boot-plan format are unchanged.

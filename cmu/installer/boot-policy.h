@@ -41,7 +41,7 @@ static const char *const oc_root_paths[]={
     "/jci/gui/framework/js/GuiFramework.js","/jci/lvds/lvds_service"
 };
 static const char *const oc_composed_names[]={
-    "autostart","uia.so","mmui.so","mmui.xml","system-app.js","index-on.html","index-off.html",
+    "autostart","uia.so","mmui.so","mmui.xml","index-on.html","index-off.html",
     "sm-normal-on.conf","sm-normal-off.conf","sm-wcp-on.conf","sm-wcp-off.conf"
 };
 
@@ -671,7 +671,7 @@ static int oc_stage(OcBoot *b) {
     if (b->stage<0||!oc_copy_input(b,"current/sm-normal.conf",b->stage,"sm.conf",0600)||
         !oc_copy_input(b,"current/sm-wcp.conf",b->stage,"sm_WCP.conf",0600)) return 0;
     if (oc_equal(b->flags[2],"1")) {
-        if (!oc_composed_link(b,"uia.so")||!oc_composed_link(b,"system-app.js")||
+        if (!oc_composed_link(b,"uia.so")||
             !oc_composed_copy(b,"mmui.so",b->stage,0600)||!oc_composed_copy(b,"mmui.xml",b->stage,0600)) return 0;
     }
     if (oc_equal(b->flags[6],"1") && oc_equal(b->flags[7],"1") &&

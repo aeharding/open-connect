@@ -60,7 +60,7 @@ class InstallerPreferences(unittest.TestCase):
         self.assertEqual(original.splitlines()[1:], sorted(original.splitlines()[1:]))
         decoded = self.run_preferences("decode", original)
         self.assertEqual(decoded.returncode, 0, decoded.stderr)
-        self.assertTrue(decoded.stdout.endswith(b"|android-auto=1,pandora=1\n"))
+        self.assertTrue(decoded.stdout.endswith(b"|android-auto=1,dvd=0,pandora=1,siriusxm=1\n"))
         pandora_off = self.run_preferences("set", original, key="service.pandora", value="0")
         both_off = self.run_preferences(
             "set", pandora_off.stdout, key="service.android-auto", value="0"
@@ -75,7 +75,7 @@ class InstallerPreferences(unittest.TestCase):
     def test_missing_new_choice_defaults_only_during_upgrade_write(self):
         original = self.fresh()
         older = original.replace(b"service.android-auto=1\n", b"").replace(
-            b"service-ids=android-auto,pandora", b"service-ids=pandora"
+            b"service-ids=android-auto,dvd,pandora,siriusxm", b"service-ids=dvd,pandora,siriusxm"
         )
         self.assertNotEqual(self.run_preferences("decode", older).returncode, 0)
         updated = self.run_preferences(
@@ -85,6 +85,49 @@ class InstallerPreferences(unittest.TestCase):
         self.assertIn(b"service.android-auto=1\n", updated.stdout)
         self.assertIn(b"package=" + b"b" * 64 + b"\n", updated.stdout)
         self.assertNotIn(b"package=" + b"a" * 64, updated.stdout)
+
+    def test_dev14_upgrade_defaults_and_explicit_dvd_selection(self):
+        older = (
+            self.fresh()
+            .replace(b"service.dvd=0\n", b"")
+            .replace(b"service.siriusxm=1\n", b"")
+            .replace(
+                b"service-ids=android-auto,dvd,pandora,siriusxm",
+                b"service-ids=android-auto,pandora",
+            )
+            .replace(b"service.pandora=1", b"service.pandora=0")
+            .replace(b"base=0", b"base=1")
+            .replace(b"warning=1", b"warning=0")
+        )
+        values = dict(package_id="b" * 64, nvram_value="disable", metadata_value="775:1000:1000")
+        upgraded = self.run_preferences("write", older, **values)
+        self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
+        for choice in (
+            b"service.dvd=0\n",
+            b"service.siriusxm=1\n",
+            b"service.pandora=0\n",
+            b"warning=0\n",
+            b"base=1\n",
+        ):
+            self.assertIn(choice, upgraded.stdout)
+        enabled = self.run_preferences("set", upgraded.stdout, key="service.dvd", value="1")
+        self.assertEqual(enabled.returncode, 0, enabled.stderr)
+        self.assertIn(
+            b"service.dvd=1\n", self.run_preferences("write", enabled.stdout, **values).stdout
+        )
+        # A target with the previous catalog cannot silently drop new choices.
+        self.catalog.write_text(
+            "\n".join(
+                line
+                for line in self.catalog.read_text().splitlines()
+                if not line.startswith(("dvd|", "siriusxm|"))
+            )
+            + "\n"
+        )
+        refused = self.run_preferences("write", upgraded.stdout, **values)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertEqual(refused.stdout, b"")
+        self.assertEqual(self.config.read_bytes(), upgraded.stdout)
 
     def test_malformed_noncanonical_and_oversized_records_refuse(self):
         original = self.fresh()
@@ -128,15 +171,18 @@ class InstallerPreferences(unittest.TestCase):
     def test_catalog_requires_final_lf_and_config_binds_its_exact_key_set(self):
         config = self.fresh()
         for changed in (
-            config.replace(b"service-ids=android-auto,pandora", b"service-ids=pandora"),
             config.replace(
-                b"service-ids=android-auto,pandora",
+                b"service-ids=android-auto,dvd,pandora,siriusxm", b"service-ids=pandora"
+            ),
+            config.replace(
+                b"service-ids=android-auto,dvd,pandora,siriusxm",
                 b"service-ids=android-auto,android-auto,pandora",
             ),
             config.replace(
-                b"service-ids=android-auto,pandora", b"service-ids=pandora,android-auto"
+                b"service-ids=android-auto,dvd,pandora,siriusxm",
+                b"service-ids=pandora,android-auto",
             ),
-            config.replace(b"service-ids=android-auto,pandora\n", b""),
+            config.replace(b"service-ids=android-auto,dvd,pandora,siriusxm\n", b""),
         ):
             self.assertNotEqual(self.run_preferences("decode", changed).returncode, 0)
         self.catalog.write_bytes(self.catalog.read_bytes()[:-1])
@@ -170,8 +216,8 @@ class InstallerPreferences(unittest.TestCase):
         rows = json.loads(result.stdout)
         self.assertEqual(rows[0]["saved"], 1)
         self.assertEqual(rows[0]["current"], 0)
-        self.assertIsNone(rows[1]["current"])
-        self.assertEqual(rows[1]["label"], 'Pandora "test"\\label')
+        self.assertIsNone(rows[2]["current"])
+        self.assertEqual(rows[2]["label"], 'Pandora "test"\\label')
         for selected in ("android-auto=1,android-auto=0", "pandora=2", "=1"):
             self.assertNotEqual(
                 self.run_preferences("rows", config, selected_services=selected).returncode, 0
@@ -181,7 +227,9 @@ class InstallerPreferences(unittest.TestCase):
         legacy = (
             self.fresh()
             .replace(b"service.android-auto=1\n", b"")
-            .replace(b"service-ids=android-auto,pandora\n", b"")
+            .replace(b"service.dvd=0\n", b"")
+            .replace(b"service.siriusxm=1\n", b"")
+            .replace(b"service-ids=android-auto,dvd,pandora,siriusxm\n", b"")
         )
         changed = self.run_preferences("set", legacy, legacy="1", key="service.pandora", value="0")
         self.assertEqual(changed.returncode, 0, changed.stderr)
@@ -228,9 +276,21 @@ class InstallerPreferences(unittest.TestCase):
             "stage_vr",
             "jciLDS",
             "peer",
+            "stage_ir",
+            "jcidvd",
+            "jciSXMS",
+            "jciXMMGR",
+            "jcixm",
+            "jcixmad",
+            "jciXMDATA",
+            "blm_ira_aha",
+            "offboard_service",
+            "irs_server",
         )
         for name in names:
             attributes = {"type": "process", "name": name, "autorun": "yes", "reset_board": "yes"}
+            if name in ("jcixm", "jcixmad", "jciXMDATA"):
+                attributes["autorun"] = "no"
             if name == "jciMMUI":
                 attributes["path"] = "/tmp/open-connect/feature/mmui.so"
                 attributes["args"] = "mouse=filtered-mouse0, display=filtered-touchscreen0" + (
@@ -251,6 +311,7 @@ class InstallerPreferences(unittest.TestCase):
                 "bds": ("stage_3", "settings", "dmserver"),
                 "stage_wifi": ("stage_3", "blm_ira_aha"),
                 "stage_gap2": ("stage_3", "blm_ira_aha"),
+                "stage_vr": ("keep", "blm_ira_aha"),
                 "peer": ("stage_3", "blm_ira_aha"),
             }.get(name, ("keep",))
             for parent in parents:
@@ -288,7 +349,9 @@ class InstallerPreferences(unittest.TestCase):
 
     def test_board_and_choice_matrix_changes_only_claimed_attributes(self):
         original = self.fresh()
-        for wcp, wireless, base, android, pandora in itertools.product((0, 1), repeat=5):
+        for wcp, wireless, base, android, pandora, dvd, satellite in itertools.product(
+            (0, 1), repeat=7
+        ):
             with self.subTest(
                 wcp=wcp, wireless=wireless, base=base, android=android, pandora=pandora
             ):
@@ -298,27 +361,55 @@ class InstallerPreferences(unittest.TestCase):
                     .replace(b"wireless=0", f"wireless={wireless}".encode())
                     .replace(b"service.android-auto=1", f"service.android-auto={android}".encode())
                     .replace(b"service.pandora=1", f"service.pandora={pandora}".encode())
+                    .replace(b"service.dvd=0", f"service.dvd={dvd}".encode())
+                    .replace(b"service.siriusxm=1", f"service.siriusxm={satellite}".encode())
                 )
                 result = self.compose(source, config)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 before = ET.fromstring(source)
                 after = ET.fromstring(result.stdout)
                 jobs = {node.get("name"): node for node in after}
-                self.assertEqual(len(after), len(before) + 1 + wireless + bool(wireless and base))
+                self.assertEqual(
+                    len(after),
+                    len(before) + 1 + wireless + bool(wireless and base) - (0 if satellite else 5),
+                )
                 for node in before:
                     expected = copy.deepcopy(node)
                     name = expected.get("name")
+                    if not satellite and name in (
+                        "jciSXMS",
+                        "jciXMMGR",
+                        "jcixm",
+                        "jcixmad",
+                        "jciXMDATA",
+                    ):
+                        self.assertNotIn(name, jobs)
+                        continue
                     if (name in ("aap_service", "jciAAPA") and not android) or (
                         name == "blm_ira_pandora" and not pandora
                     ):
+                        expected.set("autorun", "no")
+                    if name == "jcidvd" and not dvd:
                         expected.set("autorun", "no")
                     if base and name in (
                         "jciDAB",
                         "jcitv",
                         "blm_ira_stitcher",
                         "irsstitcher_server",
+                        "blm_ira_aha",
+                        "offboard_service",
                     ):
                         expected.set("autorun", "no")
+                    if base and not pandora and name == "irs_server":
+                        expected.set("autorun", "no")
+                    if (
+                        base
+                        and name in ("stage_vr", "stage_gap2", "stage_wifi")
+                        and not (name == "stage_wifi" and wireless)
+                    ):
+                        next(
+                            child for child in expected if child.get("value") == "blm_ira_aha"
+                        ).set("value", "stage_ir")
                     if base and name in ("jciVBS", "system_mazda_my14"):
                         expected.set("affinity_mask", "0x03")
                     if wireless:
@@ -420,6 +511,14 @@ class InstallerPreferences(unittest.TestCase):
             "bds",
             "start_network",
             "devicemanager",
+            "jcidvd",
+            "jciSXMS",
+            "jciXMMGR",
+            "jcixm",
+            "jcixmad",
+            "jciXMDATA",
+            "blm_ira_aha",
+            "offboard_service",
         ):
             for duplicate in (False, True):
                 with self.subTest(name=name, duplicate=duplicate):

@@ -1,17 +1,50 @@
 # Guide image provenance
 
-## Base confirmation — November 23, 2026
+## Applied Audio Sources — November 23, 2026
 
-`base-enable.png` is a direct, unedited 800×480 native screenshot of
-**0.3.0-dev.14** on **74.00.324A NA/cmu150_NA**, reviewed for personal data,
-credentials and diagnostic overlays. Cancel preserved the saved choice.
-Build: [CI 45157300285](https://github.com/aeharding/open-connect/actions/runs/45157300285),
-source [1e4a26c](https://github.com/aeharding/open-connect/tree/1e4a26c4cbcee3f1383d4a418819716a5927a73f).
-Public manifest SHA256: `5d1da1e3d3051ae88c754b547bee9ad3f75ba4cd4c7a023a30869e5fab2c18b5`.
-All 43 public members matched the installed package.
-PNG SHA256: `5e58ae59428885831bfed92ec067d6664542b62dd60a3332bc144681dc019b27`.
-Kernel boot ID: `412b49c5-2e0b-45fa-836c-5689db1de70c`.
-This replaces only the Base confirmation; other captures keep their own identities.
+`audio-sources.png` is a direct, unedited 800×480 native screenshot of
+**0.3.0-dev.15** on **74.00.324A NA/cmu150_NA**. Base is on, Android Auto and
+Pandora are on, DVD is off and SiriusXM is on. The native Entertainment list
+omits the disabled integrations; enabled sources retain Mazda's availability
+rules. This bench has no equipped satellite tuner. The generic device label
+and the complete image were reviewed for private information and diagnostic overlays.
+
+Build: [CI 45207857419](https://github.com/aeharding/open-connect/actions/runs/45207857419),
+source [7e81225](https://github.com/aeharding/open-connect/tree/7e8122571d241fc3b58d0356687f0932bdacd5d0).
+Public manifest SHA256: `0a03f9916cd931ae9aa00c7d4e084b55b29231dc067dfbfc64ab21eb647461dc`.
+All 42 public entries matched the installed package; `INSTANCE` was its sole private addition.
+The source list was opened through Mazda's existing `SelectEntertainmentNoAudio`
+event, without replacing its list builder. It is a software UI check.
+
+| Asset | SHA256 | Kernel boot ID |
+| --- | --- | --- |
+| `audio-sources.png` | `c3eb0febd00a168fe19bd6714861e0038e960c9dcacfe1fafbfc0c9b9a267d11` | `4311a3f8-6bff-48af-9704-56c22c35b0df` |
+
+Private capture/state receipts: `runs/wave-b-20261123/{ci15-audio-sources-native.png,
+ci15-browser-screen.out,ci15-installed-match.json}`.
+
+## Services controls and Base confirmation — November 23, 2026
+
+`services.png` and `base-enable.png` are direct, unedited 800×480 native
+screenshots of **0.3.0-dev.15** on **74.00.324A NA/cmu150_NA**, reviewed for
+personal data, credentials and diagnostic overlays. They show the fresh defaults
+(SiriusXM on, DVD off) and the Base confirmation. Cancel preserved the exact record.
+
+Build: local `make release`, checked against the exact firmware; source
+[9b8fe11](https://github.com/aeharding/open-connect/tree/9b8fe119c3efb5dfc3eb8238853bd0ae2d49d068).
+Public manifest SHA256: `c995b450d56fa0a9f4434bc2dd7cf60e62782a92cf37980a94532b8a92b2e230`.
+All 42 public entries matched the installed package; `INSTANCE` was its sole private addition.
+The manual SD bench path was used; these are software UI captures, not a new
+physical USB-insertion or tuner/playback qualification.
+
+| Asset | SHA256 | Kernel boot ID |
+| --- | --- | --- |
+| `services.png` | `bf7f63f3119611521867e0267e742b6d76f00ad9236033970ffddb93bfc2adcd` | `f4954f87-d889-4aa7-83fe-64f025dce083` |
+| `base-enable.png` | `e9e79b2742d9c63961cd82d278e3f6fba4fb3ba31586e49142f701ed72260c9f` | `f4954f87-d889-4aa7-83fe-64f025dce083` |
+
+Private capture/state receipts: `runs/wave-b-20261123/{candidate.json,
+services-current.png,base-enable-cancel.png,first-screen.out}`. Git retains the
+superseded dev.14 Base and dev.10 Services images and their own identities.
 
 ## Services candidate captures — November 22, 2026
 
@@ -32,13 +65,10 @@ All 40 public members matched the installed runtime.
 | `complete.png` | `42e18f5fd3a876dd314035b774194a5364663d709ad1d3adbe1d0339e775107d` | `1af4801a-632f-4f8d-b9dc-5f9ba8a4b4b0` |
 | `android-auto-disable.png` | `1580dcf438ad520fa9f47104689205bb195dc80463ac32f968dbd36821f4a297` | `1af4801a-632f-4f8d-b9dc-5f9ba8a4b4b0` |
 | `services-disable.png` | `2d5acac03f750b4a9c950afa14d8f7aa6bf56dcea5879e558c9c0cc2b71170f0` | `89cd8079-f85b-4f53-b168-df7c345f6219` |
-| `services.png` | `5ac658cca88612ebed4814925d8eb98fc5157dcb1fa95e2db9194b64b4d3b6ea` | `7d69a472-ffd0-474e-966f-34515dd9123b` |
 
 The update prompt shows dev.10 → dev.10 from a freshly extracted maintenance
 payload, before selecting Uninstall. The completion was reopened after returning from CarPlay. Android Auto is on
-before its Disable confirmation; Cancel preserved the exact record. Services was
-configured to the fresh defaults: Base off and both integrations on. Base Enable
-was cancelled without changing the record. Private
+before its Disable confirmation; Cancel preserved the exact record. Private
 capture receipts are under `runs/developer-options-20261120/screens/dev10-*`;
 installed-byte verification is `runs/services-pilots-20261122/verify-reviewed-dev10.out`.
 

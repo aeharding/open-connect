@@ -104,7 +104,18 @@ retains three starts per version, including the slow control. Median Maps moved
 CPU's median was 0.67 percentage points lower, with overlapping ranges. Own tmpfs
 grew 12 KiB; higher MemFree mostly reflects a smaller file cache. Fresh Base-off
 behavior and compatible dev.13-media Uninstall restored the as-found stock state.
-The RAM cost requires the owner's explicit disposition; #9 remains open.
+The owner explicitly accepted this candidate's +12 KiB allocated tmpfs, including
++4 KiB with Base off, in [PR #128](https://github.com/aeharding/open-connect/pull/128#issuecomment-7103096499).
+#9 remains open. The [dev.15 Services expansion](docs/services-expansion.md) adds
+configurable SiriusXM (default on), DVD (default off), Base Aha/offboard trimming
+and applied Audio Sources visibility. Its three-start cohorts used 4 KiB less
+own tmpfs, with nearly unchanged CPU and later median Maps (+1.407 s). The owner
+accepted that candidate-specific timing tradeoff; no speedup/parity is claimed.
+Independent dev.14-media removal restored stock. The test-only mid-uninstall
+page reload loaded OEM System code, then an unexplained reboot limited its
+qualification; retain that failure in the evidence.
+Omitting unused MMUI/voice modules remains a separate follow-up: qualify their
+actual loader paths and retained destinations before removing those modules.
 
 The deferred phase-1 manual and first-car checks remain separate.
 

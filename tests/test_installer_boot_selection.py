@@ -209,7 +209,6 @@ class NativeBootSelection(unittest.TestCase):
             "uia.so",
             "mmui.so",
             "mmui.xml",
-            "system-app.js",
             "index-on.html",
             "index-off.html",
             "sm-normal-on.conf",
@@ -590,7 +589,7 @@ class NativeBootSelection(unittest.TestCase):
         self.assertEqual(
             (self.ram / "feature/uia.so").read_bytes(), (self.composed / "uia.so").read_bytes()
         )
-        for name in ("uia.so", "system-app.js"):
+        for name in ("uia.so",):
             feature = self.ram / "feature" / name
             self.assertTrue(feature.is_symlink())
             self.assertEqual(feature.resolve(), self.composed / name)

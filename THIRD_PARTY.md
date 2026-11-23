@@ -21,15 +21,17 @@ its received SHA-256 and was reviewed for personal data, credentials and
 diagnostic overlays. The separately authored `cmu-frame.svg` is a decorative
 bezel displayed around the captures by the website; it is not part of the screen.
 
-Current dev.14, dev.10 and retained dev.8 build identities, capture dates and per-file
-hashes are recorded in the
-[guide asset notes](docs/assets/guide/README.md). The current Services, Android Auto
-and Pandora confirmations, completion and same-version update
-captures show **0.3.0-dev.10** from
+Current dev.15, dev.10 and retained dev.8 build identities, capture dates and per-file
+hashes are recorded in the [guide asset notes](docs/assets/guide/README.md).
+The Services page and Base confirmation show **0.3.0-dev.15** from the local
+exact-firmware-checked build at source `9b8fe119c3efb5dfc3eb8238853bd0ae2d49d068`.
+The Audio Sources capture uses the exact dev.15 bundle from
+[CI 45207857419](https://github.com/aeharding/open-connect/actions/runs/45207857419),
+source `7e8122571d241fc3b58d0356687f0932bdacd5d0`.
+The unchanged Android Auto and Pandora confirmations, completion and same-version
+update captures show **0.3.0-dev.10** from
 [CI 45016577830](https://github.com/aeharding/open-connect/actions/runs/45016577830),
-source `0b5a4af74cdf8ab15014b3d6de63671fc4808666`. The Base confirmation shows **0.3.0-dev.14** from
-[CI 45157300285](https://github.com/aeharding/open-connect/actions/runs/45157300285),
-source `1e4a26c4cbcee3f1383d4a418819716a5927a73f`. Retained install, Settings,
+source `0b5a4af74cdf8ab15014b3d6de63671fc4808666`. Retained install, Settings,
 developer, wireless and uninstall captures have their separate **0.3.0-dev.8**
 provenance in that same per-file record. Replacing one image does not relabel
 unchanged captures or historical evidence.

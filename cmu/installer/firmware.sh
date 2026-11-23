@@ -156,28 +156,38 @@ compose() (
     dd if="$package/mmui-pointer.bin" of="$work/mmui.so" bs=1 seek=12540 conv=notrunc 2>/dev/null || fail compose_patch_failed
     sed 's@name="system" libpath="/jci/mmui/uia/" lib="libjciuiasystem.so"@name="system" libpath="/tmp/open-connect/feature/" lib="uia.so"@' \
         "$D/originals/mmui.xml" > "$work/mmui.xml" || fail compose_xml_failed
-    # The supported original has CRLF line endings. Insert authored JS bytes.
-    dd if="$D/originals/system-app.js" bs=1 count=17463 2>/dev/null > "$work/system-app.js" || fail compose_javascript_failed
-    sed 's/$/\r/' "$package/intro.js" > "$work/intro" || fail compose_javascript_failed
-    test "$(wc -c < "$work/intro")" -eq 2150 || fail javascript_fragment_changed
-    head -c 2148 "$work/intro" >> "$work/system-app.js" || fail compose_javascript_failed
-    rm "$work/intro" || fail compose_cleanup_failed
-    dd if="$D/originals/system-app.js" bs=1 skip=17463 2>/dev/null >> "$work/system-app.js" || fail compose_javascript_failed
-    test "$(sha "$work/system-app.js")" = 61cb4085195bcc1ea6f0efdd01ab691a10b9f9cee45d32e8a78b4410c9b07f40 || fail javascript_composition_failed
     for setting in on off; do
-        awk -v route="$package/system-route.js" -v selected="$setting" '
+        awk '
+            {
+                line=$0
+                if(comment) {
+                    end=index(line,"-->")
+                    if(!end)next
+                    line=substr(line,end+3);comment=0
+                }
+                while((start=index(line,"<!--"))) {
+                    end=index(substr(line,start+4),"-->")
+                    if(!end) {line=substr(line,1,start-1);comment=1;break}
+                    line=substr(line,1,start-1) substr(line,start+end+6)
+                }
+                $0=line;sub(/^[ \t]+/,"");sub(/[ \t]+$/,"")
+                # HTML5 defaults scripts to JavaScript. Keep every OEM URL/order.
+                if($0~/^<script[ \t]/)sub(/ type="text\/javascript"/,"")
+                if($0~/^var baseApp = new BaseApp[(][)];/)sub(/;.*$/,";")
+                if($0=="")next
+            }
             /<head>/{
-                print;print "        <base href=\"file:///jci/gui/\" />"
-                print "        <meta name=\"open-connect-token\" content=\"@TOKEN@\" />"
-                print "        <meta name=\"open-connect-version\" content=\"@VERSION@\" />"
-                print "        <meta name=\"open-connect-notice\" content=\"@NOTICE@\" />"
+                print;print "<base href=\"file:///jci/gui/\" />"
+                print "<meta name=\"open-connect-token\" content=\"@TOKEN@\" />"
+                print "<meta name=\"open-connect-version\" content=\"@VERSION@\" />"
+                print "<meta name=\"open-connect-notice\" content=\"@NOTICE@\" />"
                 next
             }
-            /var utility = new Utility\(\);/{print;if(selected=="on"){while((r=getline line < route)>0)print line;if(r<0)exit 1;close(route)};next}
             /<\/body>/{
-                print "        <script src=\"file:///tmp/open-connect/feature/runtime.js\" type=\"text/javascript\"></script>"
+                print "<script src=\"file:///tmp/open-connect/feature/runtime.js\"></script>"
             }
             {print}
+            END {if(comment)exit 1}
         ' "$D/originals/index.html" > "$work/index-$setting.html" || fail compose_index_failed
         for profile in normal wcp; do
             if test "$profile" = normal; then name=sm.conf; else name=sm_WCP.conf; fi
@@ -205,7 +215,7 @@ compose() (
         END{if(n!=1 || joined!=1 || !hook_lines || !join_lines)exit 1}
     ' "$D/originals/autostart" > "$work/autostart" || fail startup_anchor_missing
     sh -n "$work/autostart" || fail startup_syntax
-    for name in autostart uia.so mmui.so mmui.xml system-app.js index-on.html index-off.html \
+    for name in autostart uia.so mmui.so mmui.xml index-on.html index-off.html \
         sm-normal-on.conf sm-normal-off.conf sm-wcp-on.conf sm-wcp-off.conf; do
         chmod 600 "$work/$name" || fail compose_mode_failed
         digest=$(sha "$work/$name") && hex "$digest" 64 || fail compose_hash_failed
@@ -283,16 +293,18 @@ base_read_ahead() (
 )
 
 composed_members_verify() {
-    local folder=$1 digest name extra target rows=0 entries=0 seen='|'
-    local allowed='|autostart|uia.so|mmui.so|mmui.xml|system-app.js|index-on.html|index-off.html|sm-normal-on.conf|sm-normal-off.conf|sm-wcp-on.conf|sm-wcp-off.conf|'
+    local folder=$1 digest name line target rows=0 bytes=0 entries=0 seen='|'
+    local allowed='|autostart|uia.so|mmui.so|mmui.xml|index-on.html|index-off.html|sm-normal-on.conf|sm-normal-off.conf|sm-wcp-on.conf|sm-wcp-off.conf|'
     private_dir "$folder" && file "$folder/files.sha256" || return 1
-    while read -r digest name extra; do
-        hex "$digest" 64 && test -z "$extra" || return 1
+    while IFS= read -r line; do
+        digest=${line%% *}; name=${line#"$digest  "}
+        hex "$digest" 64 && test "$line" = "$digest  $name" || return 1
         case "$allowed" in *"|$name|"*) ;; *) return 1;; esac
         case "$seen" in *"|$name|"*) return 1;; esac
-        seen="$seen$name|"; rows=$((rows+1))
+        seen="$seen$name|"; rows=$((rows+1)); bytes=$((bytes+${#line}+1))
     done < "$folder/files.sha256"
-    test "$rows" -eq 11 || return 1
+    # Count only LF-terminated reads; reject discarded bytes or EOF residue.
+    test "$rows" -eq 10 && test "$(wc -c < "$folder/files.sha256")" -eq "$bytes" || return 1
     for target in "$folder"/* "$folder"/.[!.]* "$folder"/..?*; do
         absent "$target" && continue
         file "$target" || return 1
@@ -302,22 +314,24 @@ composed_members_verify() {
         fi
         entries=$((entries+1))
     done
-    test "$entries" -eq 12
+    test "$entries" -eq 11
 }
 
 boot_render_profiles() {
     # This function runs from the verified target package, before prepare.
-    local destination=$1 config=$2 source setting=off profile logging_digest
+    local destination=$1 config=$2 source setting=off profile digest asset
     config_decode "$config" && test "$S_SCHEMA" = OC2 &&
         test "$P" = "$D/packages/$S_PACKAGE" || return 1
     source=$D/composed/$S_PACKAGE
     composed_members_verify "$source" && verify_manifest "$source" || return 1
     test "$S_WARNING" != 1 || setting=on
-    if test "$S_BASE" = 1; then
-        base_ui_inputs_verify && file "$P/base-logging.js" || return 1
-        logging_digest=$(awk '$2=="base-logging.js"{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
-        test "$(sha "$P/base-logging.js")" = "$logging_digest" || return 1
-    fi
+    set -- system-hook.js
+    if test "$S_BASE" = 1; then base_ui_inputs_verify || return 1; set -- "$@" base-logging.js; fi
+    for asset in "$@"; do
+        file "$P/$asset" || return 1
+        digest=$(awk -v name="$asset" '$2==name{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
+        test "$(sha "$P/$asset")" = "$digest" || return 1
+    done
     for profile in normal wcp; do
         awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" \
             -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" \
@@ -325,18 +339,40 @@ boot_render_profiles() {
     done
     # Keep the OEM script available through compatible-media purge and browser
     # reload. The authored override lives inside the already RAM-owned index.
-    awk -v base="$S_BASE" -v logger="$P/base-logging.js" '
+    awk -v base="$S_BASE" -v warning="$S_WARNING" -v services="$S_SERVICES" \
+        -v hook="$P/system-hook.js" -v logger="$P/base-logging.js" '
+        BEGIN {
+            count=split(services,entries,",")
+            for(i=1;i<=count;i++) {split(entries[i],pair,"=");choice[pair[1]]=pair[2]}
+            if(base=="1") hidden="stitcher,dab,tv,aharadio,"
+            if(choice["pandora"]=="0") hidden=hidden "pandora,"
+            if(choice["siriusxm"]=="0") hidden=hidden "satradio,xmaudio,xmdata,"
+            if(choice["dvd"]=="0") hidden=hidden "dvd,"
+            sub(/,$/,"",hidden)
+            needed=(warning=="1" || hidden!="")
+        }
         base=="1" && /src="common\/js\/logDefaults[.]js"/ {
             print
-            print "        <script type=\"text/javascript\">"
+            print "<script>"
             while((r=getline line < logger)>0)print line
             if(r<0)exit 1
             close(logger)
-            print "        </script>"
+            print "</script>"
             logging++;next
         }
+        /framework[.]init[(][)][;]/ && needed {
+            while((r=getline line < hook)>0) {
+                if(index(line,"/*OPEN_CONNECT_APPLIED*/")) {
+                    if(sub(/\/[*]OPEN_CONNECT_APPLIED[*]\//,warning ",\"" hidden "\"",line)!=1)exit 1
+                    applied++
+                }
+                sub(/^[ \t]+/,"",line);print line
+            }
+            if(r<0)exit 1
+            close(hook);hooked++
+        }
         {print}
-        END {if(base=="1" && logging!=1)exit 1}
+        END {if((base=="1" && logging!=1) || (needed && (hooked!=1 || applied!=1)))exit 1}
     ' "$source/index-$setting.html" > "$destination/index.html" || return 1
     awk '{n+=gsub(/@TOKEN@/,"@TOKEN@")}END{exit n!=1}' "$destination/index.html"
 }

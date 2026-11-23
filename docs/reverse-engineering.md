@@ -1107,3 +1107,30 @@ on a fresh stock kernel, with product state/helper/runtime absent and root read
 only. The temporary measurement hook and files were removed independently.
 Supporting private evidence: `runs/wave-a-20261123/` (CI identity, six captures,
 live state, original-media UI, stock verification and observer cleanup).
+
+
+## Applied source visibility and the System script boundary
+
+On exact v74, disabled source visibility belongs to the boot page, independently
+of disclaimer bypass. Dev.15 loads the OEM System script URL and intercepts
+`_initApp` before `framework.init()`. It pins the exact applied disabled entries'
+`appData.isVisible` getters false, ignoring later Visible assignments. The app
+name is `aharadio`, not `aha`. This retains the OEM master array and USB_A index
+12; deleting/splicing rows would break consumers of those indices. The same
+page-owned hook attaches the existing IntroAnimation cleanup only when requested.
+
+Live Presto checks confirmed the applied policy, late-Visible refusal and the
+actual Entertainment list. During compatible dev.14 purge, a fresh dev.15 page
+still loaded `file:///jci/gui/apps/system/js/systemApp.js`, connected MMUI and
+kept DVD hidden with USB_A index 12. It was in IntroAnimation at eight seconds;
+later Opera disappeared and the CMU rebooted without the planned explicit
+restart. The preceding fault was not captured. This does not qualify a fully
+usable manual page reload, nor establish the stock Websocket fatal-close branch
+as the cause. Fresh stock restoration passed. See the [evidence and limits](services-expansion.md#build-controls-and-restoration).
+
+Source/disassembly findings keep sparse VUI omission separate: this firmware's
+`svcjcivui.so` ServiceInit opens `/jci/vui/vui_config.xml` directly; the presence
+of a `-cfgxml` parser does not establish that this startup path uses it. The
+planned sparse MMUI/VUI experiment is deferred until actual consumers and
+retained destinations qualify. Private supporting records are
+`runs/wave-a-20261123/wave-b-plan-review.md` and `runs/wave-b-20261123/`.

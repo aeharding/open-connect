@@ -74,6 +74,7 @@ class InstallerBoot(unittest.TestCase):
             "wireless.sh",
             "defer-gap2.sh",
             "base-logging.js",
+            "system-hook.js",
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.manager = self.root / "manager.so"
@@ -202,7 +203,6 @@ startup_publish() {
             "uia.so",
             "mmui.so",
             "mmui.xml",
-            "system-app.js",
             "sm-normal-on.conf",
             "sm-wcp-on.conf",
             "index-on.html",
@@ -212,7 +212,7 @@ startup_publish() {
         for name in ("index-on.html", "index-off.html"):
             (composed / name).write_text(
                 '<script src="common/js/logDefaults.js"></script>\n'
-                '<script src="framework/js/Log.js"></script>\nsynthetic feature @TOKEN@\n'
+                '<script src="framework/js/Log.js"></script>\nframework.init();\nsynthetic feature @TOKEN@\n'
             )
         self.write_profiles()
         self.composed_manifest()
@@ -517,6 +517,34 @@ record_write
             else:
                 path.unlink()
 
+    def test_preparation_refuses_noncanonical_composed_manifest_before_state_change(self):
+        manifest = self.data / "composed" / self.package_id / "files.sha256"
+        original = manifest.read_bytes()
+        record = (self.data / "record").read_bytes()
+        nvram = (self.root / "data-nvram").read_bytes()
+        for changed in (
+            original + b"0" * 64 + b"  foreign",
+            original[:-1],
+            original[:-1] + b"\0",
+            original.replace(b"  ", b" ", 1),
+            original.replace(b"  ", b"\t", 1),
+            b" " + original,
+            original + b"\0",
+        ):
+            with self.subTest(manifest=changed):
+                manifest.write_bytes(changed)
+                with self.assertRaises(subprocess.CalledProcessError):
+                    self.shell(
+                        'record_read; snapshot_read "$R_CURRENT"; '
+                        'fixture_snapshot "$D-target" "$R_BACKEND" "$S_TOUCH" "$S_WARNING" '
+                        '"$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - '
+                        '"$S_PANDORA" "$S_BASE" "$S_WIRELESS"'
+                    )
+                self.assertEqual((self.data / "record").read_bytes(), record)
+                self.assertEqual((self.root / "data-nvram").read_bytes(), nvram)
+                self.assertFalse((self.runtime / "selected").exists())
+        manifest.write_bytes(original)
+
     def test_closed_diagnostic_pipe_keeps_shell_selection(self):
         self.select_base(1)
         (self.root / "flash/queue/read_ahead_kb").unlink()
@@ -773,8 +801,21 @@ record_write
                 "devicemanager",
                 "blm_ira_pandora",
                 "jciLDS",
+                "stage_vr",
+                "stage_ir",
+                "jcidvd",
+                "jciSXMS",
+                "jciXMMGR",
+                "jcixm",
+                "jcixmad",
+                "jciXMDATA",
+                "blm_ira_aha",
+                "offboard_service",
+                "irs_server",
             ):
                 attr = f'name="{name}" autorun="yes" reset_board="yes" retry_count="0"'
+                if name in ("jcixm", "jcixmad", "jciXMDATA"):
+                    attr = attr.replace('autorun="yes"', 'autorun="no"')
                 if name in args:
                     attr += f' args="{args[name]}"'
                 elif (
@@ -789,6 +830,7 @@ record_write
                     "bds": ("stage_3", "settings", "dmserver"),
                     "stage_wifi": ("stage_3", "blm_ira_aha"),
                     "stage_gap2": ("stage_3", "blm_ira_aha"),
+                    "stage_vr": ("existing", "blm_ira_aha"),
                 }.get(name, ("existing",))
                 lines += [f'<dependency type="service" value="{parent}"/>' for parent in parents]
                 lines += ["</service>"]

@@ -86,6 +86,10 @@ class PredecessorMaintenance(unittest.TestCase):
         self.old_package = package.with_name(self.old_id)
         package.rename(self.old_package)
         shutil.copytree(f.data / "composed" / f.package_id, f.data / "composed" / self.old_id)
+        # Dev.9 still owns the historical composed System member. The current
+        # package uses the OEM URL and a page hook instead; keep fixtures distinct.
+        (f.data / "composed" / self.old_id / "system-app.js").write_text("old System fixture\n")
+        f.composed_manifest(self.old_id)
         # The actual dev.9 writer constructs both baseline and active policy.
         self.run_shell(r"""
 P=$OLD

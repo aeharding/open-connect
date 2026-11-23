@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # id|label|default|SM members|enable explanation|disable explanation
 android-auto|Android Auto|1|aap_service jciAAPA|Android Auto will load after Mazda Connect restarts.|Android Auto will stop loading after Mazda Connect restarts.
+dvd|DVD|0|jcidvd|DVD will load after Mazda Connect restarts.|DVD will stop loading after Mazda Connect restarts.
 pandora|Pandora|1|blm_ira_pandora|Pandora will load after Mazda Connect restarts.|Pandora will stop loading after Mazda Connect restarts.
+siriusxm|SiriusXM|1|jciSXMS jciXMMGR jcixm jcixmad jciXMDATA|SiriusXM will load after Mazda Connect restarts.|SiriusXM will stop loading after Mazda Connect restarts.

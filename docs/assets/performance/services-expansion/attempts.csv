@@ -1,0 +1,8 @@
+cohort,run,capture_attempt,included_in_matched,version,acquisition_order,workload_qualification,outcome,camera_verified,kernel_boot_banners,uart_boot_markers,resource_samples,trace_sha256
+control,1,1,True,dev14,1,matched_light_maps,observed,True,1,1,174,5990f3d28a8029d7a7c1e7f0d6d4fcf3ec5dcf2254ea88b54ab9d17b6f9449df
+control,2,2,True,dev14,2,matched_light_maps,observed,True,1,1,173,5c2ae08efb49fc37481fa89442a41ba4b6ba2fe7ca5ede3cf192ce53a9389e77
+control,3,3,True,dev14,3,matched_light_maps,observed,True,1,1,172,df8bae4af9fd32ae50a7c86d5f0145fd29e4f03474196be76c92b6840d0b527b
+active,0,1,False,dev15,4,operator_wrong_foreground_app,observed,True,1,1,174,50a86fae8b8a9b37d2f1e9e22266f2d3da2a3743b53676c36958988064f2415e
+active,1,2,True,dev15,5,matched_light_maps,observed,True,1,1,173,50f81b7a929289c508a2dac8659a8ebb1d0f73eb80855860231001ea5686930d
+active,2,3,True,dev15,6,matched_light_maps,observed,True,1,1,173,da53ca496f2e3d89dc88d57da2ae337f0f7ab71d353bf3d131675ded28e7c290
+active,3,4,True,dev15,7,matched_light_maps,observed,True,1,1,173,0e24e221739813db835401853c588fd1ec44cede5d0fbb8c41b102b2d13a4186

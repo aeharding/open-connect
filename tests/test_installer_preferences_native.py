@@ -106,15 +106,18 @@ class NativePreferences(unittest.TestCase):
     def test_malformed_config_refuses_before_selection(self):
         config = self.fresh()
         for changed in (
-            config.replace(b"service-ids=android-auto,pandora", b"service-ids=pandora"),
             config.replace(
-                b"service-ids=android-auto,pandora",
+                b"service-ids=android-auto,dvd,pandora,siriusxm", b"service-ids=pandora"
+            ),
+            config.replace(
+                b"service-ids=android-auto,dvd,pandora,siriusxm",
                 b"service-ids=android-auto,android-auto,pandora",
             ),
             config.replace(
-                b"service-ids=android-auto,pandora", b"service-ids=pandora,android-auto"
+                b"service-ids=android-auto,dvd,pandora,siriusxm",
+                b"service-ids=pandora,android-auto",
             ),
-            config.replace(b"service-ids=android-auto,pandora\n", b""),
+            config.replace(b"service-ids=android-auto,dvd,pandora,siriusxm\n", b""),
             config[:-1],
             config + b"\n",
             config.replace(b"base=0\n", b"base=0\nbase=0\n"),

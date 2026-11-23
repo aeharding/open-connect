@@ -44,6 +44,7 @@ BEGIN {
     if(sm_name=="stage_1") stage++
     if(sm_name=="stage_3") stage3++
     if(sm_name=="stage_wifi") wifi_stage++
+    if(sm_name=="dmserver") registry++
     if(sm_name=="jciVBS") vbs++
 }
 prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="jciMMUI" {
@@ -110,6 +111,16 @@ early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="stage_wifi" {
     if(dependency=="blm_ira_aha") { wifi_aha++; next }
     if(dependency=="stage_3") wifi_parent++
 }
+early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="dmserver" {
+    if(attribute("type")!="service" || attribute("value")!="jciRadio") refuse()
+    registry_radio++
+    put_attribute("value","settings")
+}
+early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="start_network" {
+    if(attribute("type")!="service" || attribute("value")!="stage_usb") refuse()
+    network_usb++
+    put_attribute("value","jciUSBMGR")
+}
 /<\/services>/ {
     print "        <service type=\"process\" name=\"open_connect_settings\" path=\"/bin/busybox\" args=\"timeout -t 20 sh /tmp/open-connect/feature/service.sh boot\" autorun=\"yes\" retry_count=\"0\" reset_board=\"no\" affinity_mask=\"0x02\" exit_allowed=\"yes\" started_after_exit_allowed=\"yes\">"
     print "            <dependency type=\"service\" value=\"stage_3\"/>"
@@ -120,7 +131,8 @@ early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="stage_wifi" {
 END {
     if(invalid || stage!=1 || stage3!=1 || end!=1) exit 1
     if(early_wireless && (bds_stage!=1 || bds_settings!=1 || bds_registry!=1 ||
-       wifi_stage!=1 || wifi_parent!=1 || wifi_aha!=1)) exit 1
+       wifi_stage!=1 || wifi_parent!=1 || wifi_aha!=1 || registry!=1 ||
+       registry_radio!=1 || network_usb!=1)) exit 1
     for(name in service_owner) if(service_hits[name]!=1) exit 1
     if(prefs["base"]=="1") for(name in base_hits) if(base_hits[name]!=1) exit 1
     if(prefs["wireless"]=="1") {

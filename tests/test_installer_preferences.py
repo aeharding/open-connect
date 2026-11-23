@@ -198,6 +198,7 @@ class InstallerPreferences(unittest.TestCase):
         names = (
             "stage_1",
             "stage_3",
+            "stage_wifi",
             "jciVBS",
             "jciMMUI",
             "jciUSBMGR",
@@ -236,7 +237,13 @@ class InstallerPreferences(unittest.TestCase):
             elif name == "jciLDS":
                 attributes["args"] = "actual-gps-provider"
             node = ET.SubElement(root, "service", attributes)
-            ET.SubElement(node, "dependency", {"type": "service", "value": "keep"})
+            parents = {
+                "bds": ("stage_3", "settings", "dmserver"),
+                "stage_wifi": ("stage_3", "blm_ira_aha"),
+                "peer": ("stage_3", "blm_ira_aha"),
+            }.get(name, ("keep",))
+            for parent in parents:
+                ET.SubElement(node, "dependency", {"type": "service", "value": parent})
         ET.indent(root)
         return ET.tostring(root, encoding="unicode") + "\n"
 
@@ -318,6 +325,21 @@ class InstallerPreferences(unittest.TestCase):
                                     {"type": "service", "value": "open_connect_wireless"},
                                 ),
                             )
+                    if wireless and base:
+                        if name in ("jciCARPLAY", "jciMMUI"):
+                            expected.set("affinity_mask", "0x03")
+                        elif name == "bds":
+                            next(
+                                child for child in expected if child.get("value") == "stage_3"
+                            ).set("value", "jciUSBMGR")
+                        elif name == "stage_wifi":
+                            expected.remove(
+                                next(
+                                    child
+                                    for child in expected
+                                    if child.get("value") == "blm_ira_aha"
+                                )
+                            )
                     self.assertEqual(jobs[name].attrib, expected.attrib)
                     self.assertEqual(
                         [child.attrib for child in jobs[name]], [child.attrib for child in expected]
@@ -347,6 +369,7 @@ class InstallerPreferences(unittest.TestCase):
         for name in (
             "stage_1",
             "stage_3",
+            "stage_wifi",
             "jciVBS",
             "aap_service",
             "jciAAPA",
@@ -384,6 +407,40 @@ class InstallerPreferences(unittest.TestCase):
         self.assertNotEqual(self.compose(source, config).returncode, 0)
         source = self.profile().replace('name="jciUSBMGR"', 'name="jciUSBMGR" name="jciBCA"')
         self.assertNotEqual(self.compose(source, config).returncode, 0)
+
+    def test_early_wireless_requires_each_original_dependency_once(self):
+        config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
+        for service, parent in (
+            ("bds", "stage_3"),
+            ("bds", "settings"),
+            ("bds", "dmserver"),
+            ("stage_wifi", "stage_3"),
+            ("stage_wifi", "blm_ira_aha"),
+        ):
+            for duplicate in (False, True):
+                with self.subTest(service=service, parent=parent, duplicate=duplicate):
+                    root = ET.fromstring(self.profile())
+                    node = next(node for node in root if node.get("name") == service)
+                    dependency = next(child for child in node if child.get("value") == parent)
+                    if duplicate:
+                        node.append(copy.deepcopy(dependency))
+                    else:
+                        node.remove(dependency)
+                    ET.indent(root)
+                    self.assertNotEqual(
+                        self.compose(ET.tostring(root, encoding="unicode"), config).returncode, 0
+                    )
+        source = self.profile().replace('value="dmserver"', 'value="jciUSBMGR"')
+        self.assertNotEqual(self.compose(source, config).returncode, 0)
+
+    def test_wireless_leaf_affinity_preserves_foreign_claim(self):
+        config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
+        for name in ("jciCARPLAY", "jciMMUI"):
+            with self.subTest(name=name):
+                source = self.profile().replace(
+                    f'name="{name}"', f'name="{name}" affinity_mask="0x02"'
+                )
+                self.assertNotEqual(self.compose(source, config).returncode, 0)
 
     def test_restoring_android_auto_leaves_clean_pandora_only_profile(self):
         original = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")

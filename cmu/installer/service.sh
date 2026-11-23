@@ -18,6 +18,16 @@ service_lock() {
 }
 
 stop_listener() {
+service_port=15555
+# USB can beat the selected dev.12 Settings worker's four-second delay.
+# Its client is already in RAM; keep that endpoint when it is available.
+if test "${1:-}" = usb && absent "$R/listener" && file "$R/selected" &&
+    private_dir "$R/feature" && file "$R/feature/runtime.js" &&
+    grep -F -q 'http://127.0.0.1:35555/control' "$R/feature/runtime.js"; then
+    set -- /proc/net/tcp
+    if test -f /proc/net/tcp6; then set -- "$@" /proc/net/tcp6; fi
+    if awk '$2~/:8AE3$/{busy=1}END{exit busy}' "$@"; then service_port=35555; fi
+fi
 if ! absent "$R/listener"; then
     file "$R/listener" || fail invalid_listener
     read -r pid start old extra < "$R/listener" || fail invalid_listener
@@ -28,6 +38,9 @@ if ! absent "$R/listener"; then
         test "$(awk '{print $22}' "/proc/$pid/stat")" = "$start" &&
             test "$(readlink "/proc/$pid/exe")" = /bin/busybox &&
             tr '\0' '\n' < "/proc/$pid/cmdline" | grep -F -q "$old/api" || fail listener_replaced
+        # A live dev.12 client still uses 35555 if USB loading is cancelled.
+        # Keep its endpoint for this replacement; the next boot uses 15555.
+        if service_owns_listener "$pid" "$start" "$old" 35555; then service_port=35555; fi
         kill -TERM "$pid" || fail listener_stop_failed
         count=0
         while test -d "/proc/$pid" && test "$(awk '{print $22}' "/proc/$pid/stat" 2>/dev/null)" = "$start"; do
@@ -44,10 +57,17 @@ service_child_matches() {
         tr '\0' '\n' < "/proc/$1/cmdline" | awk -v api="$3/api" '$0==api{n++}END{exit n!=1}'
 }
 
+# Keep the fixed loopback listener below the OEM ephemeral range (32768..61000).
+# MMUI keeps a client socket to SM:9091 for the session; its source can be 35555.
 service_owns_listener() {
-    local inode fd
+    local inode fd address
+    case "${4:-15555}" in
+        15555) address=0100007F:3CC3;;
+        35555) address=0100007F:8AE3;;
+        *) return 1;;
+    esac
     service_child_matches "$1" "$2" "$3" || return 1
-    inode=$(awk '$2=="0100007F:8AE3"&&$4=="0A"{n++;i=$10}END{if(n!=1)exit 1;print i}' /proc/net/tcp) || return 1
+    inode=$(awk -v address="$address" '$2==address&&$4=="0A"{n++;i=$10}END{if(n!=1)exit 1;print i}' /proc/net/tcp) || return 1
     for fd in /proc/"$1"/fd/*; do
         if test "$(readlink "$fd")" = "socket:[$inode]"; then
             service_child_matches "$1" "$2" "$3"
@@ -157,21 +177,21 @@ runtime=$work
 
 service_listen() {
 local work=$1 pid start deadline
-stop_listener
+stop_listener "${2:-boot}"
 if ! absent "$R/runtime"; then test -L "$R/runtime" || fail invalid_runtime_pointer; fi
 # Catch cancellation before fork; defer exit until $! and its birth time are
 # captured. A parent-only TERM must not strand an unrecorded listening child.
 pending_pid=; pending_start=; pending_work=$work; pending_cancel=false
 trap 'service_discard_child "$pending_pid" "$pending_start" "$pending_work"' EXIT
 trap 'pending_cancel=true' HUP INT TERM
-( exec 8>&- 9>&-; exec /bin/busybox tcpsvd -E -c 4 127.0.0.1 35555 \
+( exec 8>&- 9>&-; exec /bin/busybox tcpsvd -E -c 4 127.0.0.1 "$service_port" \
     /bin/busybox timeout -t 180 "$work/api" "$work/token" "$work/backend.sh" ) </dev/null >"$work/service.log" 2>&1 &
 pid=$!
 start=$(awk '{print $22}' "/proc/$pid/stat" 2>/dev/null) || start=
 pending_pid=$pid; pending_start=$start
 if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
 service_tick; deadline=$((service_now+100))
-until test -n "$start" && service_owns_listener "$pid" "$start" "$work"; do
+until test -n "$start" && service_owns_listener "$pid" "$start" "$work" "$service_port"; do
     if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
     service_tick
     if test "$service_now" -ge "$deadline" || ! test -d "/proc/$pid"; then
@@ -199,7 +219,7 @@ service_stage() {
     # boot staging must yield to it; recovery uses service_files independently.
     if test "$1" = boot; then absent "$R/runtime" || fail busy; fi
     service_files "$2" "$1"
-    service_listen "$runtime"
+    service_listen "$runtime" "$1"
 }
 
 service_boot() {

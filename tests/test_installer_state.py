@@ -315,7 +315,9 @@ class InstallerState(unittest.TestCase):
         script = script.replace("R=/tmp/open-connect", "R=" + str(runtime))
         # Exercise the real locked staging/token path, stopping before process
         # replacement (the CMU BusyBox listener is qualified on the bench).
-        script = script.replace("\nstop_listener\nif ", "\nexit 0\nstop_listener\nif ")
+        anchor = "service_listen() {\n"
+        self.assertEqual(script.count(anchor), 1)
+        script = script.replace(anchor, anchor + "return 0\n", 1)
         (source / "service.sh").write_text(script)
         if not shutil.which("flock"):
             (self.tools / "flock").write_text("#!/bin/sh\nexit 0\n")

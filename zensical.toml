@@ -35,6 +35,7 @@ nav = [
     { "Native logging comparison" = "logging-comparison.md" },
     { "Installed Base optimizations" = "base-comparison.md" },
     { "Wireless startup baseline" = "wireless-comparison.md" },
+    { "Wireless startup speed" = "wireless-startup-speed.md" },
     { "Startup verification overhead" = "startup-overhead.md" },
     { "Services pilots" = "service-pilots.md" },
     { "Complete Services preset" = "services-comparison.md" },

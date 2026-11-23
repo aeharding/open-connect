@@ -21,7 +21,7 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | `services.tsv`, `preferences.awk`, `sm-profile.awk` | Built-in Services catalog, canonical preferences and one RAM Service Manager composer |
 | `wireless.sh`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step and narrow native wireless service arguments |
 
-The browser sends `POST /control` to `127.0.0.1:35555`, with `Content-Type:
+The browser sends `POST /control` to `127.0.0.1:15555`, with `Content-Type:
 text/plain` and body `token|revision|operation|arg0|arg1|arg2`. Missing arguments
 are `-`. Responses are JSON. The 32-character session token is data supplied by
 the loader or a meta element in the privately composed index. The revision binds

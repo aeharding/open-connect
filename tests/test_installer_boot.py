@@ -609,6 +609,7 @@ record_write
             for name in (
                 "stage_1",
                 "stage_3",
+                "stage_wifi",
                 "jciVBS",
                 "aap_service",
                 "jciAAPA",
@@ -637,11 +638,13 @@ record_write
                     attr += ' args="wcp"'
                 elif name == "jciLDS":
                     attr += ' args="actual-gps-provider"'
-                lines += [
-                    "<service " + attr + ">",
-                    '<dependency type="service" value="existing"/>',
-                    "</service>",
-                ]
+                lines += ["<service " + attr + ">"]
+                parents = {
+                    "bds": ("stage_3", "settings", "dmserver"),
+                    "stage_wifi": ("stage_3", "blm_ira_aha"),
+                }.get(name, ("existing",))
+                lines += [f'<dependency type="service" value="{parent}"/>' for parent in parents]
+                lines += ["</service>"]
             lines += ["</services>"]
             for setting in ("on", "off"):
                 path = self.data / "composed" / self.package_id / f"sm-{profile}-{setting}.conf"

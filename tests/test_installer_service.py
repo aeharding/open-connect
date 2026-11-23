@@ -122,8 +122,8 @@ class InstallerService(unittest.TestCase):
             timeout=5,
         )
 
-    def client(self):
-        conn = http.client.HTTPConnection("127.0.0.1", 35555, timeout=2)
+    def client(self, port=15555):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
         try:
             conn.request("GET", "/")
             reply = conn.getresponse()
@@ -154,6 +154,58 @@ class InstallerService(unittest.TestCase):
         )
         self.assertEqual(self.client()["backend"], "backend-one\n")
 
+    def legacy_selected_client(self):
+        self.runtime.mkdir(mode=0o700)
+        feature = self.runtime / "feature"
+        feature.mkdir(mode=0o700)
+        (self.runtime / "selected").write_text("a" * 64 + "\n")
+        (feature / "runtime.js").write_text(
+            'xhr.open("POST", "http://127.0.0.1:35555/control", true);\n'
+        )
+
+    def test_usb_before_delayed_legacy_worker_preserves_client_endpoint(self):
+        self.legacy_selected_client()
+        (self.runtime / "lock").touch(mode=0o600)
+        data = self.root / "data"
+        data.mkdir(mode=0o700)
+        script = self.source / "service.sh"
+        script.write_text(
+            script.read_text().replace("/tmp/mnt/data_persist/open-connect", str(data))
+        )
+        self.manifest()
+        worker = subprocess.Popen(
+            ["sh", script, "boot"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        try:
+            time.sleep(0.1)
+            result = self.invoke()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            before = (self.runtime / "listener").read_bytes()
+            out, error = worker.communicate(timeout=7)
+            self.assertEqual(worker.returncode, 0, (out, error))
+            self.assertEqual((self.runtime / "listener").read_bytes(), before)
+            self.assertEqual(self.client(35555)["backend"], "backend-one\n")
+        finally:
+            if worker.poll() is None:
+                worker.terminate()
+                worker.communicate(timeout=3)
+
+    def test_usb_collision_recovery_uses_new_port_with_selected_legacy_client(self):
+        # Reproduce the real MMUI -> SM connection that occupied our former
+        # listener port. An established client socket is absent from LISTEN rows.
+        self.legacy_selected_client()
+        with socket.socket() as peer, socket.socket() as mmui:
+            mmui.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            mmui.bind(("127.0.0.1", 35555))
+            peer.bind(("127.0.0.1", 0))
+            peer.listen()
+            mmui.connect(peer.getsockname())
+            connection, _ = peer.accept()
+            with connection:
+                result = self.invoke()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.client()["backend"], "backend-one\n")
+
     def test_boot_closure_rejects_wrong_shared_bytes_before_listener(self):
         self.runtime.mkdir(mode=0o700)
         feature = self.runtime / "feature"
@@ -166,6 +218,34 @@ class InstallerService(unittest.TestCase):
         self.assertFalse((self.runtime / "listener").exists())
         self.assertEqual(shared.read_text(), "foreign bytes\n")
         self.assertEqual(shared.stat().st_mode & 0o777, 0o400)
+
+    def test_usb_replacement_preserves_live_legacy_client_endpoint_on_cancel(self):
+        script = self.source / "service.sh"
+        current = script.read_text()
+        # Model the installed dev.12 listener with the same real identity/record.
+        script.write_text(current.replace("service_port=15555", "service_port=35555"))
+        self.manifest()
+        first = self.invoke()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        token = self.client(35555)["token"]
+        script.write_text(current)
+        (self.source / "backend.sh").write_text("replacement-backend\n")
+        self.manifest()
+        replacement = self.invoke()
+        self.assertEqual(replacement.returncode, 0, replacement.stderr)
+        runtime = Path(replacement.stdout.strip())
+        self.assertEqual(len((self.runtime / "listener").read_text().split()), 3)
+        self.assertFalse((runtime / "port").exists())
+        # Cancelling script loading restores the previous browser client. Its
+        # unchanged URL/capability still reaches the replacement RAM service.
+        self.assertEqual(self.client(35555), {"token": token, "backend": "replacement-backend\n"})
+        self.assertFalse(
+            any(
+                fields[1] == "0100007F:3CC3" and fields[3] == "0A"
+                for line in Path("/proc/net/tcp").read_text().splitlines()[1:]
+                if len(fields := line.split()) > 3
+            )
+        )
 
     def test_ready_session_serves_first_client_and_replacement_preserves_old_bytes(self):
         first = self.invoke()
@@ -303,7 +383,7 @@ class InstallerService(unittest.TestCase):
     def test_recovery_files_do_not_require_an_available_port(self):
         with socket.socket() as listener:
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            listener.bind(("127.0.0.1", 35555))
+            listener.bind(("127.0.0.1", 15555))
             listener.listen()
             result = self.recovery_files()
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -318,7 +398,7 @@ class InstallerService(unittest.TestCase):
         (self.runtime / "runtime").symlink_to(old)
         with socket.socket() as listener:
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            listener.bind(("127.0.0.1", 35555))
+            listener.bind(("127.0.0.1", 15555))
             listener.listen()
             started = time.monotonic()
             result = self.invoke()
@@ -386,7 +466,11 @@ class InstallerService(unittest.TestCase):
         )
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline:
-            if "0100007F:8AE3" in Path("/proc/net/tcp").read_text():
+            if any(
+                fields[1] == "0100007F:3CC3" and fields[3] == "0A"
+                for line in Path("/proc/net/tcp").read_text().splitlines()[1:]
+                if len(fields := line.split()) > 3
+            ):
                 break
             time.sleep(0.01)
         else:
@@ -400,7 +484,7 @@ class InstallerService(unittest.TestCase):
         self.assertFalse((self.runtime / "listener").exists())
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            probe.bind(("127.0.0.1", 35555))
+            probe.bind(("127.0.0.1", 15555))
 
     def test_signal_during_unpublished_start_reaps_child_and_cannot_publish_later(self):
         self.assert_interrupted_start("service_tick; deadline=")
@@ -432,4 +516,4 @@ class InstallerService(unittest.TestCase):
         self.assertFalse((self.runtime / "listener").exists())
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            probe.bind(("127.0.0.1", 35555))
+            probe.bind(("127.0.0.1", 15555))

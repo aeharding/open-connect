@@ -21,11 +21,19 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 runtime=$(sh "$work/service.sh")
+# Keep the listener record compatible with older installed clients/services.
+# The staged module checks the actual child and owned socket, not a claimed port.
+. "$runtime/service.sh"
+read -r pid start served extra < /tmp/open-connect/listener
+test "$served" = "$runtime" && test -z "$extra" || exit 1
+if service_owns_listener "$pid" "$start" "$runtime" 35555; then port=35555
+elif service_owns_listener "$pid" "$start" "$runtime" 15555; then port=15555
+else exit 1; fi
 token=$(cat "$runtime/token")
 test "${#token}" -eq 32 || exit 1
 case "$token" in *[!a-f0-9]*) exit 1;; esac
 logger -t open-connect "OCUSB|$token|start"
-navigate "javascript:void(setTimeout(function(){if(document.getElementById('oc-usb-loader'))return;utility.loadScript('../..$runtime/loader.js',{id:'oc-usb-loader',ocToken:'$token'},function(){});},0))"
+navigate "javascript:void(setTimeout(function(){if(document.getElementById('oc-usb-loader'))return;utility.loadScript('../..$runtime/loader.js',{id:'oc-usb-loader',ocToken:'$token',ocPort:$port},function(){});},0))"
 count=0
 while test "$count" -lt 300; do
     test ! -f "$runtime/closed" || exit 0

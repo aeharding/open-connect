@@ -11,6 +11,7 @@ var OpenConnect = (function (previous) {
         version: versionMeta.getAttribute("content"), notice: noticeMeta.getAttribute("content")};
     if (!boot || !/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(boot.version) ||
             !/^(?:-|installed|removed|undone|restart)$/.test(boot.notice)) { boot = null; }
+    var port = entry && entry.ocPort === 35555 ? 35555 : 15555;
     var stopped = false, started = false, token = entry && entry.ocToken, state = null, busy = false, saving = false;
     var timer = null, dialog = null, detach = null, app = null, usb = false;
     var nodes = [], queued = null, completionShown = false, ready = false, usbRequest = 0;
@@ -81,7 +82,7 @@ var OpenConnect = (function (previous) {
             finish(answer);
         };
         try {
-            xhr.open("POST", "http://127.0.0.1:35555/control", true);
+            xhr.open("POST", "http://127.0.0.1:" + port + "/control", true);
             xhr.setRequestHeader("Content-Type", "text/plain");
             xhr.send([token, operation === "status" || !state ? "-" : state.revision, operation].concat(args || ["-", "-", "-"]).join("|"));
         } catch (error) { finish(null); }

@@ -14,8 +14,8 @@ and apply after a full Mazda Connect restart.
 | SiriusXM | **On** | Load Mazda's satellite-radio integrations |
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/services.png" alt="Services page with Base optimizations off, Android Auto on and Pandora on." width="800" height="480"></div>
-  <figcaption>Earlier development build. The new candidate adds DVD and SiriusXM choices.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/services.png" alt="Services page with Base off, Android Auto on, DVD off, Pandora on and SiriusXM on." width="800" height="480"></div>
+  <figcaption>Fresh defaults: Base and DVD off; Android Auto, Pandora and SiriusXM on.</figcaption>
 </figure>
 
 ## Base optimizations
@@ -34,7 +34,7 @@ available later in startup; the delay starts at service readiness, independently
 of whether a phone connects. It does not wait for a CarPlay session.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/base-enable.png" alt="Enable Base optimizations confirmation explaining reduced logging, stopped DAB, TV and Stitcher services, and the restart requirement." width="800" height="480" loading="lazy"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/base-enable.png" alt="Enable Base optimizations confirmation explaining reduced logging, stopped unused integrations and the restart requirement." width="800" height="480" loading="lazy"></div>
   <figcaption>Confirm Enable to save the choice.</figcaption>
 </figure>
 

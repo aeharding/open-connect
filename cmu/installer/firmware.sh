@@ -105,6 +105,20 @@ originals_save() {
     originals_verify || fail originals_changed
 }
 
+base_ui_files() {
+    # Read-only sources: these are never replaced or added to uninstall targets.
+    cat <<'BASE_UI'
+83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a log-defaults.js /jci/gui/common/js/logDefaults.js
+BASE_UI
+}
+
+base_ui_inputs_verify() {
+    local digest name target
+    base_ui_files | while read -r digest name target; do
+        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+    done
+}
+
 compose_native() {
     local package=$1 original=$2 target=$3 destination source extra
     # Retain all original virtual addresses. The exact v74 ELF has no file
@@ -254,20 +268,76 @@ native_log_config() (
     native_log_prepare "$1" && native_log_commit
 )
 
+base_read_ahead() (
+    # Diagnostic-only after successful selection; never a durable setting.
+    set -eu
+    local block=/sys/devices/virtual/block/ffx01 value
+    directory "$block" && directory "$block/queue" &&
+        test "$(readlink -f "$block")" = "$block" &&
+        file "$block/dev" && test "$(cat "$block/dev")" = 253:16 &&
+        file "$block/queue/read_ahead_kb" &&
+        test "$(stat -c '%a:%u:%g' "$block/queue/read_ahead_kb")" = "644:$(id -u):$(id -g)" || exit 1
+    value=$(cat "$block/queue/read_ahead_kb")
+    case "$value" in 4) ;; 128) printf '4\n' > "$block/queue/read_ahead_kb";; *) exit 1;; esac
+    test "$(cat "$block/queue/read_ahead_kb")" = 4
+)
+
+composed_members_verify() {
+    local folder=$1 digest name extra target rows=0 entries=0 seen='|'
+    local allowed='|autostart|uia.so|mmui.so|mmui.xml|system-app.js|index-on.html|index-off.html|sm-normal-on.conf|sm-normal-off.conf|sm-wcp-on.conf|sm-wcp-off.conf|'
+    private_dir "$folder" && file "$folder/files.sha256" || return 1
+    while read -r digest name extra; do
+        hex "$digest" 64 && test -z "$extra" || return 1
+        case "$allowed" in *"|$name|"*) ;; *) return 1;; esac
+        case "$seen" in *"|$name|"*) return 1;; esac
+        seen="$seen$name|"; rows=$((rows+1))
+    done < "$folder/files.sha256"
+    test "$rows" -eq 11 || return 1
+    for target in "$folder"/* "$folder"/.[!.]* "$folder"/..?*; do
+        absent "$target" && continue
+        file "$target" || return 1
+        name=${target##*/}
+        if test "$name" != files.sha256; then
+            case "$seen" in *"|$name|"*) ;; *) return 1;; esac
+        fi
+        entries=$((entries+1))
+    done
+    test "$entries" -eq 12
+}
+
 boot_render_profiles() {
     # This function runs from the verified target package, before prepare.
-    local destination=$1 config=$2 source setting=off profile
+    local destination=$1 config=$2 source setting=off profile logging_digest
     config_decode "$config" && test "$S_SCHEMA" = OC2 &&
         test "$P" = "$D/packages/$S_PACKAGE" || return 1
     source=$D/composed/$S_PACKAGE
-    private_dir "$source" && verify_manifest "$source" || return 1
+    composed_members_verify "$source" && verify_manifest "$source" || return 1
     test "$S_WARNING" != 1 || setting=on
+    if test "$S_BASE" = 1; then
+        base_ui_inputs_verify && file "$P/base-logging.js" || return 1
+        logging_digest=$(awk '$2=="base-logging.js"{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
+        test "$(sha "$P/base-logging.js")" = "$logging_digest" || return 1
+    fi
     for profile in normal wcp; do
         awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" \
             -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" \
             "$source/sm-$profile-$setting.conf" > "$destination/sm-$profile.conf" || return 1
     done
-    cp "$source/index-$setting.html" "$destination/index.html" || return 1
+    # Keep the OEM script available through compatible-media purge and browser
+    # reload. The authored override lives inside the already RAM-owned index.
+    awk -v base="$S_BASE" -v logger="$P/base-logging.js" '
+        base=="1" && /src="common\/js\/logDefaults[.]js"/ {
+            print
+            print "        <script type=\"text/javascript\">"
+            while((r=getline line < logger)>0)print line
+            if(r<0)exit 1
+            close(logger)
+            print "        </script>"
+            logging++;next
+        }
+        {print}
+        END {if(base=="1" && logging!=1)exit 1}
+    ' "$source/index-$setting.html" > "$destination/index.html" || return 1
     awk '{n+=gsub(/@TOKEN@/,"@TOKEN@")}END{exit n!=1}' "$destination/index.html"
 }
 
@@ -305,6 +375,10 @@ boot_plan_inputs() {
             esac
             printf 'base/%s|%s|%s\n' "$name" "$target" "$(sha "$target")"
         done
+        base_ui_files | while read -r digest name target; do
+            file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+            printf 'base/%s|%s|%s\n' "$name" "$target" "$digest"
+        done || return 1
     fi
     if test "$S_ACCESS" = true; then
         printf 'target/runlogin|/usr/bin/runlogin|%s\n' "$(sha "$work/runlogin")"

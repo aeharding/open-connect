@@ -23,10 +23,12 @@ BEGIN {
         if(name in service_owner) refuse()
         base_hits[name]=0
     }
+    base_affinity["jciVBS"]=0
+    base_affinity["system_mazda_my14"]=0
     split("jciUSBMGR jciCARPLAY jciBCA blm_nms_svc",wireless_names," ")
     for(i=1;i<=4;i++) wireless_hits[wireless_names[i]]=0
 }
-/[ \t](name|value)[ \t]*=[ \t]*["']open_connect_(settings|wireless)["']/ {refuse()}
+/[ \t](name|value)[ \t]*=[ \t]*["']open_connect_(settings|wireless|gap2)["']/ {refuse()}
 /^[ \t]*<service[ \t]/ {
     sm_name=attribute("name")
     if(sm_name in service_owner) {
@@ -41,10 +43,27 @@ BEGIN {
         if(attribute("autorun")!="yes") refuse()
         put_attribute("autorun","no")
     }
+    if(prefs["base"]=="1" && sm_name in base_affinity) {
+        base_affinity[sm_name]++
+        if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
+    }
     if(sm_name=="stage_1") stage++
     if(sm_name=="stage_3") stage3++
     if(sm_name=="stage_wifi") wifi_stage++
     if(sm_name=="jciVBS") vbs++
+}
+early_wireless && /^[ \t]*<service[ \t]/ && sm_name=="stage_gap2" {
+    gap2++
+    if(attribute("autorun")!="yes") refuse()
+    print
+    print "            <dependency type=\"service\" value=\"open_connect_gap2\"/>"
+    next
+}
+early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="stage_gap2" {
+    dependency=attribute("value")
+    if(attribute("type")!="service") refuse()
+    if(dependency=="stage_3") gap2_stage3++
+    else if(dependency=="blm_ira_aha") gap2_aha++
 }
 prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="jciMMUI" {
     mmui++
@@ -111,6 +130,12 @@ early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="stage_wifi" {
     if(dependency=="stage_3") wifi_parent++
 }
 /<\/services>/ {
+    if(early_wireless) {
+        print "        <service type=\"process\" name=\"open_connect_gap2\" path=\"/bin/busybox\" args=\"timeout -t 15 /bin/busybox sh /tmp/open-connect/feature/defer-gap2.sh\" autorun=\"yes\" retry_count=\"0\" reset_board=\"no\" affinity_mask=\"0x02\" ready_flag=\"/tmp/open-connect/feature/gap2-ready\" exit_allowed=\"yes\" started_after_exit_allowed=\"yes\">"
+        print "            <dependency type=\"service\" value=\"jciCARPLAY\"/>"
+        print "            <dependency type=\"service\" value=\"blm_nms_svc\"/>"
+        print "        </service>"
+    }
     print "        <service type=\"process\" name=\"open_connect_settings\" path=\"/bin/busybox\" args=\"timeout -t 20 sh /tmp/open-connect/feature/service.sh boot\" autorun=\"yes\" retry_count=\"0\" reset_board=\"no\" affinity_mask=\"0x02\" exit_allowed=\"yes\" started_after_exit_allowed=\"yes\">"
     print "            <dependency type=\"service\" value=\"stage_3\"/>"
     print "        </service>"
@@ -120,9 +145,13 @@ early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="stage_wifi" {
 END {
     if(invalid || stage!=1 || stage3!=1 || end!=1) exit 1
     if(early_wireless && (bds_stage!=1 || bds_settings!=1 || bds_registry!=1 ||
-       wifi_stage!=1 || wifi_parent!=1 || wifi_aha!=1)) exit 1
+       wifi_stage!=1 || wifi_parent!=1 || wifi_aha!=1 ||
+       gap2!=1 || gap2_stage3!=1 || gap2_aha!=1)) exit 1
     for(name in service_owner) if(service_hits[name]!=1) exit 1
-    if(prefs["base"]=="1") for(name in base_hits) if(base_hits[name]!=1) exit 1
+    if(prefs["base"]=="1") {
+        for(name in base_hits) if(base_hits[name]!=1) exit 1
+        for(name in base_affinity) if(base_affinity[name]!=1) exit 1
+    }
     if(prefs["wireless"]=="1") {
         if(mmui!=1 || bds!=1 || network!=1 || manager!=1 || vbs!=1) exit 1
         for(name in wireless_hits) if(wireless_hits[name]!=1) exit 1

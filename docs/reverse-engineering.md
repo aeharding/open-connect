@@ -1070,3 +1070,40 @@ running. The exact original hashes/modes, absent original touchscreen key,
 read-only physical root and removal of installed product state/helper/runtime
 were verified. Existing lab access and the independent startup observer remained.
 Supporting private record: `runs/services-pilots-20261122/independent-dev10-verify-stock.out`.
+
+## Base startup tuning and SM ready-flag lifetime on v74
+
+The dev.14 complete-preset [comparison](base-startup-tuning.md) retains three
+dev.13 and three dev.14 starts with Base/Wireless/Android Auto/Pandora enabled.
+The complete dev.14 preset, including 4 KiB `ffx01` read-ahead, browser logging
+and service scheduling, had lower shared-window read volume. This comparison
+does not isolate read-ahead's contribution. Most of the higher MemFree
+corresponded to a smaller file cache, rather than an equivalent reduction in
+application footprint. Unique tmpfs allocations grew 12 KiB while
+listener/ignition private pages and PSS were unchanged.
+
+Only the six children of `stage_gap2` receive the new twelve-second gate, with
+their original dependencies retained. A live gate started at native 35.341 s,
+reported STARTED at 47.420 s and released `stage_gap2` at 47.420 s. SM logged
+unlinking its ready flag at 47.436 s. The flag is consumed on normal worker exit;
+checking for a persistent flag afterwards misclassifies successful readiness.
+All six children and the separately checked updater, favorites, diagnostics,
+USB, navigation and JVM services reached ready states. Stock Websockets and
+OEM ELF bytes remain unchanged by this increment.
+
+The selected page applies the small authenticated browser Warn override inline
+after Mazda's original logging configuration, before the logger constructor.
+There is no new persistent logging file/link to strand on compatible-media
+purge. Native and shell selectors record unavailable queue tuning in bounded
+RAM diagnostics after publication, without a blocking stderr write. The exact
+composed set is checked by the target package before prepare and again at seal,
+so an unlisted entry cannot strand a physical Settings transaction.
+
+The maintained dev.13→dev.14 upgrade retained choices and the stock-five-field
+baseline. A fresh Base-off/Wireless-off kernel had read-ahead 128 KiB, stock
+thread masks, Info logging and no delay gate. Compatible dev.13 media's real UI
+Uninstall then restored exact as-found paths/modes and original UIA/MMUI mappings
+on a fresh stock kernel, with product state/helper/runtime absent and root read
+only. The temporary measurement hook and files were removed independently.
+Supporting private evidence: `runs/wave-a-20261123/` (CI identity, six captures,
+live state, original-media UI, stock verification and observer cleanup).

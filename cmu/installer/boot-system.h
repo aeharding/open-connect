@@ -36,7 +36,7 @@ static long oc_symlink(const char *source,int folder,const char *name) { return 
 static long oc_mode(int fd,unsigned mode) { return fchmod(fd,mode)<0?-errno:0; }
 static long oc_block(void) {
     sigset_t mask;
-    sigemptyset(&mask); sigaddset(&mask,SIGHUP); sigaddset(&mask,SIGINT); sigaddset(&mask,SIGTERM);
+    sigemptyset(&mask); sigaddset(&mask,SIGHUP); sigaddset(&mask,SIGINT); sigaddset(&mask,SIGTERM); sigaddset(&mask,SIGPIPE);
     return sigprocmask(SIG_BLOCK,&mask,0)<0?-errno:0;
 }
 static void oc_cut(const char *phase) {
@@ -73,7 +73,7 @@ static long oc_symlink(const char *source,int folder,const char *name) {
 }
 static long oc_mode(int fd,unsigned mode) { return oc_syscall4(94,fd,mode,0,0); }
 static long oc_block(void) {
-    oc_u64 mask=16387; /* HUP, INT, TERM. Exit without reopening this window. */
+    oc_u64 mask=20483; /* HUP, INT, TERM, PIPE. Keep blocked through exit. */
     return oc_syscall4(175,0,(long)&mask,0,8);
 }
 static void oc_cut(const char *phase) { (void)phase; }

@@ -1,5 +1,18 @@
 # Guide image provenance
 
+## Base confirmation — November 23, 2026
+
+`base-enable.png` is a direct, unedited 800×480 native screenshot of
+**0.3.0-dev.14** on **74.00.324A NA/cmu150_NA**, reviewed for personal data,
+credentials and diagnostic overlays. Cancel preserved the saved choice.
+Build: [CI 45157300285](https://github.com/aeharding/open-connect/actions/runs/45157300285),
+source [1e4a26c](https://github.com/aeharding/open-connect/tree/1e4a26c4cbcee3f1383d4a418819716a5927a73f).
+Public manifest SHA256: `5d1da1e3d3051ae88c754b547bee9ad3f75ba4cd4c7a023a30869e5fab2c18b5`.
+All 43 public members matched the installed package.
+PNG SHA256: `5e58ae59428885831bfed92ec067d6664542b62dd60a3332bc144681dc019b27`.
+Kernel boot ID: `412b49c5-2e0b-45fa-836c-5689db1de70c`.
+This replaces only the Base confirmation; other captures keep their own identities.
+
 ## Services candidate captures — November 22, 2026
 
 Direct, unedited 800×480 native screenshots of **0.3.0-dev.10** on exact
@@ -20,7 +33,6 @@ All 40 public members matched the installed runtime.
 | `android-auto-disable.png` | `1580dcf438ad520fa9f47104689205bb195dc80463ac32f968dbd36821f4a297` | `1af4801a-632f-4f8d-b9dc-5f9ba8a4b4b0` |
 | `services-disable.png` | `2d5acac03f750b4a9c950afa14d8f7aa6bf56dcea5879e558c9c0cc2b71170f0` | `89cd8079-f85b-4f53-b168-df7c345f6219` |
 | `services.png` | `5ac658cca88612ebed4814925d8eb98fc5157dcb1fa95e2db9194b64b4d3b6ea` | `7d69a472-ffd0-474e-966f-34515dd9123b` |
-| `base-enable.png` | `90361710caed36db8f9c6866e1dd9459866c8104cf8f4052b7a6b61fef2223e0` | `7d69a472-ffd0-474e-966f-34515dd9123b` |
 
 The update prompt shows dev.10 → dev.10 from a freshly extracted maintenance
 payload, before selecting Uninstall. The completion was reopened after returning from CarPlay. Android Auto is on

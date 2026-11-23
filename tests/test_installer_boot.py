@@ -1,6 +1,7 @@
 """Run the actual selector with real records and simulated physical adapters."""
 
 import hashlib
+import json
 import os
 import shlex
 import shutil
@@ -71,6 +72,8 @@ class InstallerBoot(unittest.TestCase):
             "sm-profile.awk",
             "wireless-device.awk",
             "wireless.sh",
+            "defer-gap2.sh",
+            "base-logging.js",
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.manager = self.root / "manager.so"
@@ -103,6 +106,17 @@ class InstallerBoot(unittest.TestCase):
                 fake.write_bytes(("synthetic OEM dependency " + name + "\n").encode())
             self.oem_adapters[target] = str(fake)
             firmware = firmware.replace(target, str(fake))
+        ui_map = subprocess.check_output(
+            ["sh", "-c", '. "$1"; base_ui_files', "fixture", ASSETS / "firmware.sh"],
+            text=True,
+        )
+        for row in ui_map.splitlines():
+            digest, name, target = row.split()
+            fake = self.root / "oem" / name
+            fake.write_bytes(b'var logDefaults = {"__global__": "info"};\n')
+            firmware = firmware.replace(target, str(fake)).replace(
+                digest, hashlib.sha256(fake.read_bytes()).hexdigest()
+            )
         for old, new in {
             "/jci/lib/libjciuiamgr.so": str(self.manager),
             "/jci/sm/sm_WCP.conf": str(self.wcp_original),
@@ -112,6 +126,7 @@ class InstallerBoot(unittest.TestCase):
             "/config/common/log/settings.txt": str(self.root / "physical-log-settings"),
             "/jci/lib/libjcicommon.so": str(self.root / "common-library"),
             "/tmp/common": str(self.root / "common"),
+            "/sys/devices/virtual/block/ffx01": str(self.root / "flash"),
             "8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0": hashlib.sha256(
                 self.log_original
             ).hexdigest(),
@@ -120,6 +135,11 @@ class InstallerBoot(unittest.TestCase):
             ).hexdigest(),
         }.items():
             firmware = firmware.replace(old, new)
+        (self.root / "flash/queue").mkdir(parents=True)
+        (self.root / "flash/dev").write_text("253:16\n")
+        queue = self.root / "flash/queue/read_ahead_kb"
+        queue.write_text("128\n")
+        queue.chmod(0o644)
         (self.source / "firmware.sh").write_text(
             firmware
             + r"""
@@ -160,6 +180,14 @@ startup_publish() {
         }.items():
             script = script.replace(old, new)
         (self.source / "boot.sh").write_text(script)
+        backend = (ASSETS / "backend.sh").read_text()
+        for old, new in {
+            "/tmp/mnt/data_persist/open-connect": str(self.data),
+            "/tmp/open-connect": str(self.runtime),
+            "/usr/bin/autostart": str(self.root / "data-target"),
+        }.items():
+            backend = backend.replace(old, new)
+        (self.source / "backend.sh").write_text(backend)
         manifest = "".join(
             hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
             for p in sorted(self.source.iterdir())
@@ -181,6 +209,11 @@ startup_publish() {
             "index-off.html",
         ):
             (composed / name).write_text("synthetic feature @TOKEN@\n")
+        for name in ("index-on.html", "index-off.html"):
+            (composed / name).write_text(
+                '<script src="common/js/logDefaults.js"></script>\n'
+                '<script src="framework/js/Log.js"></script>\nsynthetic feature @TOKEN@\n'
+            )
         self.write_profiles()
         self.composed_manifest()
         self.env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
@@ -227,7 +260,7 @@ record_write
             timeout=10,
         )
 
-    def boot(self, number, *, preserve_log=False):
+    def boot(self, number, *, preserve_log=False, stderr_fd=None, shell_args=None):
         boot_id = "00000000-0000-0000-0000-" + f"{number:012x}"
         (self.root / "boot-id").write_text(boot_id + "\n")
         shutil.rmtree(self.runtime / "feature", ignore_errors=True)
@@ -235,9 +268,10 @@ record_write
         if not preserve_log:
             shutil.rmtree(self.root / "common", ignore_errors=True)
         return subprocess.run(
-            ["sh", self.package / "boot.sh"],
+            [*(shell_args or ["sh"]), self.package / "boot.sh"],
             env=self.env,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE if stderr_fd is None else stderr_fd,
             text=True,
             timeout=10,
         )
@@ -454,6 +488,116 @@ record_write
         self.assertFalse((self.runtime / "selected").exists())
         self.assertEqual(self.record()[9], "3")
 
+    def test_preparation_refuses_authenticated_extra_composed_member(self):
+        folder = self.data / "composed" / self.package_id
+        before = (self.data / "record").read_bytes()
+        (folder / "foreign").write_text("not a composition output\n")
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.populated_dependencies()
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        result = self.boot(1)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertFalse((self.runtime / "selected").exists())
+
+    def test_fast_path_refuses_unlisted_composed_file_and_directory(self):
+        folder = self.data / "composed" / self.package_id
+        for directory in (False, True):
+            path = folder / ("foreign-directory" if directory else ".unlisted")
+            if directory:
+                path.mkdir()
+            else:
+                path.write_text("not listed\n")
+            before = (self.data / "record").read_bytes()
+            result = self.boot(1)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual((self.data / "record").read_bytes(), before)
+            if directory:
+                path.rmdir()
+            else:
+                path.unlink()
+
+    def test_closed_diagnostic_pipe_keeps_shell_selection(self):
+        self.select_base(1)
+        (self.root / "flash/queue/read_ahead_kb").unlink()
+        shells = [["sh"]]
+        busybox = os.environ.get("OC_TEST_BUSYBOX") or shutil.which("busybox")
+        if busybox:
+            shells.append([busybox, "ash"])
+        for number, shell in enumerate(shells, 1):
+            with self.subTest(shell=shell):
+                read_fd, write_fd = os.pipe()
+                os.close(read_fd)
+                try:
+                    result = self.boot(number, stderr_fd=write_fd, shell_args=shell)
+                finally:
+                    os.close(write_fd)
+                self.assertEqual(result.returncode, 0)
+                self.assertTrue((self.runtime / "selected").is_file())
+                self.assertEqual(self.record()[9], str(3 - number))
+
+    def test_full_diagnostic_pipe_keeps_shell_selection(self):
+        self.select_base(1)
+        (self.root / "flash/queue/read_ahead_kb").unlink()
+        shells = [["sh"]]
+        busybox = os.environ.get("OC_TEST_BUSYBOX") or shutil.which("busybox")
+        if busybox:
+            shells.append([busybox, "ash"])
+        for number, shell in enumerate(shells, 1):
+            with self.subTest(shell=shell):
+                read_fd, write_fd = os.pipe()
+                try:
+                    os.set_blocking(write_fd, False)
+                    with self.assertRaises(BlockingIOError):
+                        while True:
+                            os.write(write_fd, b"x" * 4096)
+                    os.set_blocking(write_fd, True)
+                    result = self.boot(number, stderr_fd=write_fd, shell_args=shell)
+                finally:
+                    os.close(read_fd)
+                    os.close(write_fd)
+                self.assertEqual(result.returncode, 0)
+                self.assertTrue((self.runtime / "selected").is_file())
+                self.assertEqual(self.record()[9], str(3 - number))
+                self.assertIn(
+                    "base_read_ahead_unavailable|", (self.runtime / "startup-times").read_text()
+                )
+
+    def test_set_refuses_unlisted_composed_entry_before_record_or_nvram_change(self):
+        client = self.runtime / "client"
+        shutil.copytree(self.package, client)
+        (self.runtime / "runtime").symlink_to(client)
+        current = self.record()[5]
+        record = (self.data / "record").read_bytes()
+        nvram = (self.root / "data-nvram").read_bytes()
+        folder = self.data / "composed" / self.package_id
+        foreign = folder / ".unlisted"
+        foreign.write_text("not a composed member\n")
+        result = subprocess.run(
+            ["sh", client / "backend.sh", "api", current, "set", "touch", "1", "0"],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            timeout=15,
+        )
+        self.assertEqual(json.loads(result.stdout), {"ok": False, "error": "plan_failed"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((self.data / "record").read_bytes(), record)
+        self.assertEqual((self.root / "data-nvram").read_bytes(), nvram)
+        # Unlisted files were never part of the authenticated installed state.
+        # Refusing a Set must not prevent removing that installation.
+        result = subprocess.run(
+            ["sh", client / "backend.sh", "api", current, "uninstall", "-", "-", "-"],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(self.data.exists())
+        self.assertEqual((self.root / "data-target").read_text(), "stock\n")
+        self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
+
     def test_fast_path_keeps_compiled_native_pin_when_snapshot_matches_foreign_bytes(self):
         self.manager.write_bytes(b"foreign manager adopted by snapshot\n")
         self.populated_dependencies()
@@ -610,7 +754,9 @@ record_write
                 "stage_1",
                 "stage_3",
                 "stage_wifi",
+                "stage_gap2",
                 "jciVBS",
+                "system_mazda_my14",
                 "aap_service",
                 "jciAAPA",
                 "jciDAB",
@@ -642,6 +788,7 @@ record_write
                 parents = {
                     "bds": ("stage_3", "settings", "dmserver"),
                     "stage_wifi": ("stage_3", "blm_ira_aha"),
+                    "stage_gap2": ("stage_3", "blm_ira_aha"),
                 }.get(name, ("existing",))
                 lines += [f'<dependency type="service" value="{parent}"/>' for parent in parents]
                 lines += ["</service>"]

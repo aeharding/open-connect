@@ -51,7 +51,7 @@ boot_dependencies_match() {
 $mapping
 PATHS
     parent=$D/composed/$R_BACKEND
-    private_dir "$parent" && file "$parent/files.sha256" || return 1
+    composed_members_verify "$parent" || return 1
     checked="|$parent|"
     while read -r digest name extra; do
         hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1
@@ -59,10 +59,6 @@ PATHS
         case "$composed" in *"|$name:"*) return 1;; esac
         composed="$composed$name:$digest|"; composed_expected=$((composed_expected+1))
     done < "$parent/files.sha256"
-    for name in uia.so mmui.so mmui.xml system-app.js index-on.html index-off.html \
-        sm-normal-on.conf sm-normal-off.conf sm-wcp-on.conf sm-wcp-off.conf autostart; do
-        case "$composed" in *"|$name:"*) ;; *) return 1;; esac
-    done
     set --
     while read -r digest name extra; do
         hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1

@@ -2,7 +2,6 @@
 
 import hashlib
 import os
-import re
 import shutil
 import subprocess
 import tempfile
@@ -20,10 +19,39 @@ def sha(data):
 
 @unittest.skipUnless(shutil.which("clang"), "Clang required")
 class NativeBootSelection(unittest.TestCase):
+    BASE_INPUTS = (
+        (
+            "settings.txt",
+            "/config/common/log/settings.txt",
+            "stock native log settings\n",
+            "8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0",
+        ),
+        (
+            "libjcicommon.so",
+            "/jci/lib/libjcicommon.so",
+            "stock native log library\n",
+            "637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d",
+        ),
+        (
+            "log-defaults.js",
+            "/jci/gui/common/js/logDefaults.js",
+            "stock GUI log settings\n",
+            "83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a",
+        ),
+    )
+
     @classmethod
     def setUpClass(cls):
         cls.build = tempfile.TemporaryDirectory()
-        cls.program = Path(cls.build.name).resolve() / "boot-select"
+        folder = Path(cls.build.name).resolve()
+        cls.program = folder / "boot-select"
+        # Only the three physical Base input digests are adapted to authored
+        # fixtures. The selector, metadata, commit and publication logic is real.
+        for source in (*ASSETS.glob("boot-*.h"), ASSETS / "boot-select.c"):
+            text = source.read_text()
+            for _, _, data, original in cls.BASE_INPUTS:
+                text = text.replace(original, sha(data.encode()))
+            (folder / source.name).write_text(text)
         subprocess.run(
             [
                 "clang",
@@ -34,7 +62,7 @@ class NativeBootSelection(unittest.TestCase):
                 "-Wall",
                 "-Wextra",
                 "-Werror",
-                ASSETS / "boot-select.c",
+                folder / "boot-select.c",
                 "-o",
                 cls.program,
             ],
@@ -133,7 +161,7 @@ class NativeBootSelection(unittest.TestCase):
         ]
         for name in mandatory:
             (package / name).write_bytes((ASSETS / name).read_bytes())
-        for name in ("flush", "api", "wireless.sh", "wireless-device.awk"):
+        for name in ("flush", "api", "wireless.sh", "wireless-device.awk", "defer-gap2.sh"):
             (package / name).write_text("fixture " + name + "\n")
         (package / "INSTANCE").write_text("1" * 32 + "\n")
         (package / "boot-select").write_bytes(self.program.read_bytes())
@@ -196,8 +224,13 @@ class NativeBootSelection(unittest.TestCase):
         self.composed = composed
         self.put("usr/bin/autostart", "installed autostart\n", 0o755)
         # Use firmware.sh's real complete map, including sm_WCP's underscore.
-        firmware = (ASSETS / "firmware.sh").read_text()
-        mapping = re.findall(r"\b([a-f0-9]{64}) ([a-zA-Z0-9_.-]+) (/[^\s'\n]+)", firmware)
+        mapping = [
+            row.split()
+            for row in subprocess.check_output(
+                ["sh", "-c", '. "$1"; firmware_dependencies', "fixture", ASSETS / "firmware.sh"],
+                text=True,
+            ).splitlines()
+        ]
         self.root_map = {}
         for _, name, path in mapping:
             if name == "autostart":
@@ -304,7 +337,7 @@ class NativeBootSelection(unittest.TestCase):
         self.record[5] = self.snapshot.name
         self.save_record()
 
-    def invoke(self, cut=None, term=None, output_limit=None, mode="select"):
+    def invoke(self, cut=None, term=None, output_limit=None, mode="select", stderr_fd=None):
         # A regular fixture models urandom's bytes, refreshing them per entry.
         self.put("dev/urandom", os.urandom(1024))
         env = {**os.environ}
@@ -323,7 +356,8 @@ class NativeBootSelection(unittest.TestCase):
         return subprocess.run(
             [self.program, mode, self.root],
             env=env,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE if stderr_fd is None else stderr_fd,
             timeout=5,
             preexec_fn=limit_output if output_limit is not None else None,
         )
@@ -339,6 +373,115 @@ class NativeBootSelection(unittest.TestCase):
                 self.assertEqual((self.data / "record").read_bytes(), before)
                 self.assertFalse((self.ram / "feature").exists())
                 self.assertFalse(list(self.ram.glob(".feature-*")))
+
+    def base_fixture(self):
+        for name, path, data, _ in self.BASE_INPUTS:
+            self.put(path, data)
+            self.inputs.append(("base/" + name, path, sha(data.encode())))
+        self.change_current(
+            "config", (self.snapshot / "config").read_text().replace("base=0", "base=1")
+        )
+        self.put("sys/devices/virtual/block/ffx01/dev", "253:16\n")
+        return self.put("sys/devices/virtual/block/ffx01/queue/read_ahead_kb", "128\n", 0o644)
+
+    def test_base_publication_and_diagnostic_io_never_reverses_it(self):
+        queue = self.base_fixture()
+        queue.write_text("4\n")
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn(b"base_read_ahead_unavailable", result.stderr)
+        self.assertFalse((self.ram / "feature/log-defaults.js").exists())
+        self.assertTrue((self.ram / "feature/defer-gap2.sh").is_file())
+
+    def test_queue_readback_failure_keeps_the_committed_selection(self):
+        queue = self.base_fixture()
+        result = self.invoke()
+        # An ordinary host file retains its old suffix, unlike kernel sysfs.
+        # This deliberately exercises a failed readback AFTER the real write.
+        self.assertEqual(queue.read_bytes(), b"4\n8\n")
+        self.assertIn("base_read_ahead_unavailable|", (self.ram / "startup-times").read_text())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.ram / "selected").is_file())
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
+    def test_missing_queue_does_not_turn_success_into_stock_or_a_second_debit(self):
+        queue = self.base_fixture()
+        queue.unlink()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("base_read_ahead_unavailable|", (self.ram / "startup-times").read_text())
+        self.assertTrue((self.ram / "selected").is_file())
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
+    def test_closed_diagnostic_pipe_cannot_kill_a_published_selection(self):
+        self.base_fixture().unlink()
+        read_fd, write_fd = os.pipe()
+        os.close(read_fd)
+        try:
+            result = self.invoke(stderr_fd=write_fd)
+        finally:
+            os.close(write_fd)
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue((self.ram / "selected").is_file())
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
+    def test_full_diagnostic_pipe_cannot_hang_a_published_selection(self):
+        self.base_fixture().unlink()
+        read_fd, write_fd = os.pipe()
+        try:
+            os.set_blocking(write_fd, False)
+            with self.assertRaises(BlockingIOError):
+                while True:
+                    os.write(write_fd, b"x" * 4096)
+            os.set_blocking(write_fd, True)
+            result = self.invoke(stderr_fd=write_fd)
+        finally:
+            os.close(read_fd)
+            os.close(write_fd)
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue((self.ram / "selected").is_file())
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+        self.assertIn("base_read_ahead_unavailable|", (self.ram / "startup-times").read_text())
+
+    def test_no_queue_write_after_guard_refusal(self):
+        queue = self.base_fixture()
+        before = (self.data / "record").read_bytes()
+        path = self.root / "jci/gui/common/js/logDefaults.js"
+        path.write_text("foreign GUI logging\n")
+        self.assertEqual(self.invoke().returncode, 95)
+        self.assertEqual(queue.read_text(), "128\n")
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_no_queue_write_between_durable_debit_and_publication(self):
+        queue = self.base_fixture()
+        result = self.invoke(cut="before_publication")
+        self.assertEqual(result.returncode, 97)
+        self.assertEqual(queue.read_text(), "128\n")
+        self.assertFalse((self.ram / "selected").exists())
+
+    def test_base_logging_index_is_staged_with_disclaimer_disabled(self):
+        queue = self.base_fixture()
+        queue.write_text("4\n")
+        config = (self.snapshot / "config").read_text().replace("warning=1", "warning=0")
+        self.change_current("config", config)
+        self.change_current(
+            "index.html",
+            '<script src="common/js/logDefaults.js"></script><script>logDefaults.__global__ = "warn";</script>@TOKEN@ @VERSION@ @NOTICE@\n',
+        )
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(
+            'logDefaults.__global__ = "warn"', (self.ram / "feature/index.html").read_text()
+        )
+        self.assertFalse((self.ram / "feature/log-defaults.js").exists())
+        self.assertFalse((self.ram / "feature/mmui.so").exists())
+
+    def test_base_off_never_changes_an_existing_queue_choice(self):
+        queue = self.put("sys/devices/virtual/block/ffx01/queue/read_ahead_kb", "128\n", 0o644)
+        self.assertEqual(self.invoke().returncode, 0)
+        self.assertEqual(queue.read_text(), "128\n")
+        self.assertFalse((self.ram / "feature/log-defaults.js").exists())
+        self.assertFalse((self.ram / "feature/defer-gap2.sh").exists())
 
     def test_gate_requests_early_join_for_nvram_recovery(self):
         self.put("sys/class/nvram/nv-config/keys/lvds_speed_restriction", "enable\n")

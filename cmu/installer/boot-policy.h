@@ -474,7 +474,8 @@ static int oc_identity_coverage(OcBoot *b) {
     if (found[0]!=1||found[1]!=1||found[2]!=1) return 0;
     if (oc_equal(b->flags[6],"1")) {
         if (!oc_expect(b,"base/settings.txt","/config/common/log/settings.txt","8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0")||
-            !oc_expect(b,"base/libjcicommon.so","/jci/lib/libjcicommon.so","637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d")) return 0;
+            !oc_expect(b,"base/libjcicommon.so","/jci/lib/libjcicommon.so","637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d")||
+            !oc_expect(b,"base/log-defaults.js","/jci/gui/common/js/logDefaults.js","83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a")) return 0;
     }
     for (unsigned i=0;i<b->input_count;++i) if (!b->inputs[i].used) return 0;
     return 1;
@@ -673,6 +674,8 @@ static int oc_stage(OcBoot *b) {
         if (!oc_composed_link(b,"uia.so")||!oc_composed_link(b,"system-app.js")||
             !oc_composed_copy(b,"mmui.so",b->stage,0600)||!oc_composed_copy(b,"mmui.xml",b->stage,0600)) return 0;
     }
+    if (oc_equal(b->flags[6],"1") && oc_equal(b->flags[7],"1") &&
+        !oc_package_copy(b,"defer-gap2.sh",b->stage,"defer-gap2.sh",0600)) return 0;
     const char *ui[]={"runtime.js","dialog.js","settings.js"};
     for (unsigned i=0;i<3;++i) if (!oc_package_copy(b,ui[i],b->stage,ui[i],0600)) return 0;
     if (!oc_package_copy(b,"service.sh",b->stage,"service.sh",0600)) return 0;
@@ -781,6 +784,30 @@ static int oc_publish(OcBoot *b) {
     if (b->log>=0) (void)oc_unlink(b->log,b->log_name);
     return 1;
 }
+static int oc_base_read_ahead(OcBoot *b) {
+    /* The kernel queue is volatile and shared by ffx01's partitions. Tune only
+     * after a durable, successful Base selection. Failure is diagnostic: it
+     * must never undo a published selection or initiate late shell recovery.
+     */
+    if (!b->selected||!oc_equal(b->flags[6],"1")) return 1;
+    char value[16];
+    if (oc_text(b->root,"sys/devices/virtual/block/ffx01/dev",value,sizeof value,0)<0||
+        !oc_equal(value,"253:16\n")) return 0;
+    long queue=oc_beneath(b->root,"sys/devices/virtual/block/ffx01/queue",OC_DIRECTORY,0);
+    if (queue<0) return 0;
+    int ok=oc_text((int)queue,"read_ahead_kb",value,sizeof value,0)>=0;
+    if (ok && oc_equal(value,"128\n")) {
+        long fd=oc_openat((int)queue,"read_ahead_kb",OC_WRITE,0);
+        OcMeta meta;
+        ok=fd>=0 && oc_stat((int)fd,&meta)>=0 && meta.mode==(OC_REGULAR|0644) &&
+            meta.uid==(unsigned)b->owner && meta.gid==(unsigned)b->group && oc_write_all((int)fd,"4\n",2);
+        if (fd>=0 && oc_close((int)fd)<0) ok=0;
+        if (ok) ok=oc_text((int)queue,"read_ahead_kb",value,sizeof value,0)>=0;
+    }
+    ok=ok && oc_equal(value,"4\n");
+    if (oc_close((int)queue)<0) ok=0;
+    return ok;
+}
 static int oc_policy_load(OcBoot *b) {
     char path[192];
     if (!oc_join(path,sizeof path,"snapshots/",b->record_fields[5])) return 0;
@@ -816,7 +843,8 @@ static int oc_load(OcBoot *b) {
     if (!oc_plan(b)||!oc_join(path,sizeof path,"composed-",b->record_fields[3])||!oc_join(path,sizeof path,path,"/files.sha256")) return 0;
     OcInput *composition=oc_find(b,path);
     if (!composition||!oc_hex(composition->digest,64)||!oc_join(b->composed_digest,sizeof b->composed_digest,"",composition->digest)||
-        !oc_load_manifest(b->composed,b->composed_digest,b->composed_manifest,sizeof b->composed_manifest,&b->composition)||b->composition.count!=11) return 0;
+        !oc_load_manifest(b->composed,b->composed_digest,b->composed_manifest,sizeof b->composed_manifest,&b->composition)||
+        b->composition.count!=sizeof oc_composed_names/sizeof *oc_composed_names) return 0;
     for (unsigned i=0;i<sizeof oc_composed_names/sizeof *oc_composed_names;++i) if (!oc_digest(&b->composition,oc_composed_names[i])) return 0;
     return oc_dependency_coverage(b)&&oc_snapshot_coverage(b)&&oc_access_coverage(b)&&oc_identity_coverage(b);
 }
@@ -878,6 +906,7 @@ static int oc_select(OcBoot *b,int root) {
     if (b->gated&&oc_parent()!=b->parent) return OC_REFUSE;
     if (!oc_record_commit(b)) return OC_REFUSE;
     if (!oc_publish(b)) return OC_REFUSE;
+    if (!oc_base_read_ahead(b)) oc_stamp(b,"base_read_ahead_unavailable");
     oc_stamp(b,"selector_exit");
     (void)oc_new_text(b->ram,"startup-times",b->times,0600);
     return b->selected?0:OC_STOCK;

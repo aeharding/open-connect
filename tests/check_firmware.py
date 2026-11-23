@@ -51,7 +51,13 @@ def private_output(path):
 def inputs(firmware):
     """The maintained target guard is the authority for original-file hashes."""
     rows = subprocess.check_output(
-        ["sh", "-c", '. "$1"; firmware_dependencies', "check", ASSETS / "firmware.sh"],
+        [
+            "sh",
+            "-c",
+            '. "$1"; firmware_dependencies; base_ui_files',
+            "check",
+            ASSETS / "firmware.sh",
+        ],
         text=True,
     )
     paths = {}
@@ -100,21 +106,36 @@ def build(output, paths):
             shutil.copyfile(path, data / "originals" / name)
             (data / "originals" / name).chmod(0o600)
     shutil.copytree(source, data / "packages" / package)
+    (data / "packages" / package).chmod(0o700)
     for name in ("stat", "readlink"):
         if shutil.which("g" + name):
             (data / "tools" / name).symlink_to(shutil.which("g" + name))
     env = {**os.environ, "PATH": str(data / "tools") + os.pathsep + os.environ["PATH"]}
+    # Remap only the physical input path for host composition. Their names
+    # and exact digests still come from the maintained firmware adapter.
+    base_inputs = subprocess.check_output(
+        ["sh", "-c", '. "$1"; base_ui_files', "check", ASSETS / "firmware.sh"],
+        text=True,
+    )
+    (output / "base-ui-inputs").write_text(
+        "".join(
+            f"{digest} {name} {paths[name]}\n"
+            for digest, name, _ in (row.split() for row in base_inputs.splitlines())
+        )
+    )
     run(
         [
             "sh",
             "-c",
             'set -eu; D=$1; P=$2; . "$3/state.sh"; . "$3/firmware.sh"; '
+            'base_fixture=$5; base_ui_files() { cat "$base_fixture/base-ui-inputs"; }; '
             'flush() { :; }; compose "$4"',
             "check",
             data,
             source,
             ASSETS,
             package,
+            output,
         ],
         output,
         "compose",
@@ -129,6 +150,51 @@ def build(output, paths):
     )
     (output / "composed-path").write_text(str(data / "composed" / package) + "\n")
     return data / "composed" / package
+
+
+def base_logging_contract(output, paths, node, composed):
+    data = output / "compose"
+    package = data / "packages" / composed.name
+    for base in (0, 1):
+        for warning in (0, 1):
+            destination = output / f"base-{base}-warning-{warning}"
+            destination.mkdir(mode=0o700)
+            config = destination / "config"
+            config.write_text(
+                f"OC2\nbase={base}\nmetadata=755:{os.getuid()}:{os.getgid()}\n"
+                f"nvram=disable\npackage={composed.name}\nservice-ids=android-auto,pandora\n"
+                f"service.android-auto=1\nservice.pandora=1\ntouch=1\nwarning={warning}\nwireless=1\n"
+            )
+            run(
+                [
+                    "sh",
+                    "-c",
+                    "set -eu; D=$1; P=$2; base_fixture=$3; "
+                    '. "$P/state.sh"; . "$P/firmware.sh"; '
+                    'base_ui_files() { cat "$base_fixture/base-ui-inputs"; }; '
+                    'boot_render_profiles "$4" "$5"',
+                    "logging",
+                    data,
+                    package,
+                    output,
+                    destination,
+                    config,
+                ],
+                output,
+                f"render-base-{base}-warning-{warning}",
+                env={**os.environ, "PATH": str(data / "tools") + os.pathsep + os.environ["PATH"]},
+            )
+            run(
+                [
+                    node,
+                    ROOT / "tests/fixtures/base-logging.js",
+                    destination / "index.html",
+                    paths["log-defaults.js"],
+                    "warn" if base else "info",
+                ],
+                output,
+                f"logging-base-{base}-warning-{warning}",
+            )
 
 
 def host_contract(output, paths, host_cc, node, composed):
@@ -236,6 +302,7 @@ def main(argv=None):
     }
     try:
         composed = build(output, paths)
+        base_logging_contract(output, paths, node, composed)
         host_contract(output, paths, host_cc, node, composed)
         env = {
             **os.environ,

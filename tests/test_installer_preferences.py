@@ -199,7 +199,17 @@ class InstallerPreferences(unittest.TestCase):
             "stage_1",
             "stage_3",
             "stage_wifi",
+            "stage_gap2",
             "jciVBS",
+            "system_mazda_my14",
+            "jciUpdateS",
+            "jciUpdatea",
+            "jciTestDiag",
+            "jciusbdtc",
+            "jcinavi",
+            "jcifav",
+            "JVMM",
+            "jciUSBM",
             "jciMMUI",
             "jciUSBMGR",
             "jciCARPLAY",
@@ -240,6 +250,7 @@ class InstallerPreferences(unittest.TestCase):
             parents = {
                 "bds": ("stage_3", "settings", "dmserver"),
                 "stage_wifi": ("stage_3", "blm_ira_aha"),
+                "stage_gap2": ("stage_3", "blm_ira_aha"),
                 "peer": ("stage_3", "blm_ira_aha"),
             }.get(name, ("keep",))
             for parent in parents:
@@ -293,7 +304,7 @@ class InstallerPreferences(unittest.TestCase):
                 before = ET.fromstring(source)
                 after = ET.fromstring(result.stdout)
                 jobs = {node.get("name"): node for node in after}
-                self.assertEqual(len(after), len(before) + 1 + wireless)
+                self.assertEqual(len(after), len(before) + 1 + wireless + bool(wireless and base))
                 for node in before:
                     expected = copy.deepcopy(node)
                     name = expected.get("name")
@@ -308,6 +319,8 @@ class InstallerPreferences(unittest.TestCase):
                         "irsstitcher_server",
                     ):
                         expected.set("autorun", "no")
+                    if base and name in ("jciVBS", "system_mazda_my14"):
+                        expected.set("affinity_mask", "0x03")
                     if wireless:
                         if name == "jciMMUI" and not wcp:
                             expected.set("args", expected.get("args") + ", wcp")
@@ -340,6 +353,13 @@ class InstallerPreferences(unittest.TestCase):
                                     if child.get("value") == "blm_ira_aha"
                                 )
                             )
+                        elif name == "stage_gap2":
+                            expected.insert(
+                                0,
+                                ET.Element(
+                                    "dependency", {"type": "service", "value": "open_connect_gap2"}
+                                ),
+                            )
                     self.assertEqual(jobs[name].attrib, expected.attrib)
                     self.assertEqual(
                         [child.attrib for child in jobs[name]], [child.attrib for child in expected]
@@ -348,6 +368,20 @@ class InstallerPreferences(unittest.TestCase):
                 self.assertEqual(worker.get("reset_board"), "no")
                 self.assertEqual(worker.get("affinity_mask"), "0x02")
                 self.assertEqual(worker.find("dependency").get("value"), "stage_3")
+                if wireless and base:
+                    stage = jobs["open_connect_gap2"]
+                    self.assertEqual(
+                        stage.get("ready_flag"), "/tmp/open-connect/feature/gap2-ready"
+                    )
+                    self.assertEqual(stage.get("exit_allowed"), "yes")
+                    self.assertEqual(stage.get("started_after_exit_allowed"), "yes")
+                    self.assertEqual(
+                        stage.get("args"),
+                        "timeout -t 15 /bin/busybox sh /tmp/open-connect/feature/defer-gap2.sh",
+                    )
+                    self.assertEqual([d.get("value") for d in stage], ["jciCARPLAY", "blm_nms_svc"])
+                else:
+                    self.assertNotIn("open_connect_gap2", jobs)
 
     def test_settings_gate_requires_one_stage3_on_each_board(self):
         for wcp, duplicate in itertools.product((False, True), repeat=2):
@@ -441,6 +475,37 @@ class InstallerPreferences(unittest.TestCase):
                     f'name="{name}"', f'name="{name}" affinity_mask="0x02"'
                 )
                 self.assertNotEqual(self.compose(source, config).returncode, 0)
+
+    def test_base_affinity_and_gap2_refuse_missing_duplicate_or_foreign_targets(self):
+        config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
+        for name in ("jciVBS", "system_mazda_my14", "stage_gap2"):
+            for duplicate in (False, True):
+                root = ET.fromstring(self.profile())
+                node = next(node for node in root if node.get("name") == name)
+                if duplicate:
+                    root.append(copy.deepcopy(node))
+                else:
+                    root.remove(node)
+                ET.indent(root)
+                self.assertNotEqual(
+                    self.compose(ET.tostring(root, encoding="unicode"), config).returncode, 0
+                )
+        for name in ("jciVBS", "system_mazda_my14"):
+            source = self.profile().replace(f'name="{name}"', f'name="{name}" affinity_mask="0x01"')
+            self.assertNotEqual(self.compose(source, config).returncode, 0)
+        for parent in ("stage_3", "blm_ira_aha"):
+            for duplicate in (False, True):
+                root = ET.fromstring(self.profile())
+                node = next(node for node in root if node.get("name") == "stage_gap2")
+                dependency = next(child for child in node if child.get("value") == parent)
+                if duplicate:
+                    node.append(copy.deepcopy(dependency))
+                else:
+                    node.remove(dependency)
+                ET.indent(root)
+                self.assertNotEqual(
+                    self.compose(ET.tostring(root, encoding="unicode"), config).returncode, 0
+                )
 
     def test_restoring_android_auto_leaves_clean_pandora_only_profile(self):
         original = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")

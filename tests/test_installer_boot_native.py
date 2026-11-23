@@ -364,6 +364,47 @@ class NativeBootPlan(unittest.TestCase):
         )
         return fixture
 
+    def test_sealed_shell_renders_base_index_with_disclaimer_off(self):
+        fixture = self.native_fixture()
+        fixture.shell(
+            '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
+            'record_read; snapshot_read "$R_CURRENT"; '
+            'R_CURRENT=$(fixture_snapshot "$D-target" "$R_BACKEND" 1 0 disable "$S_META" '
+            '"$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 1 1 1); '
+            'record_write; transaction_prepare set "$R_CURRENT" "$R_CURRENT"; transaction_reconcile'
+        )
+        result = fixture.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        index = (fixture.runtime / "feature/index.html").read_text()
+        self.assertIn('src="common/js/logDefaults.js"', index)
+        self.assertIn('logDefaults.__global__ = "warn"', index)
+        self.assertFalse((fixture.runtime / "feature/log-defaults.js").exists())
+        self.assertFalse((fixture.runtime / "feature/mmui.so").exists())
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js required")
+    def test_logging_survives_compatible_dev13_purge_before_restart(self):
+        fixture = self.sealed_fixture()
+        result = fixture.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        index = fixture.runtime / "feature/index.html"
+        replay = [
+            "node",
+            ROOT / "tests/fixtures/base-logging.js",
+            index,
+            fixture.root / "oem/log-defaults.js",
+        ]
+        subprocess.run(replay, check=True, capture_output=True, timeout=5)
+        # Exercise the actual dev.13 purge body after restoration has reached
+        # its committed purge phase. It knows nothing of dev.14 logging.
+        fixture.shell(
+            "record_read; R_PHASE=purge; record_write; "
+            "P=" + shlex.quote(str(fixture.source)) + "; "
+            ". " + shlex.quote(str(ROOT / "tests/fixtures/dev13-purge.sh")) + "; "
+            "uninstall_cleanup"
+        )
+        self.assertFalse(fixture.data.exists())
+        subprocess.run(replay, check=True, capture_output=True, timeout=5)
+
     def test_hinted_recovery_preserves_old_permissions_and_version_digest(self):
         for changed in ("permissions", "version"):
             with self.subTest(changed=changed):

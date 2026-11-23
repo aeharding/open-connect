@@ -1,0 +1,15 @@
+cohort,run,capture_attempt,included_in_matched,version,analysis,nominal_start_s,nominal_end_s,first_uptime_s,last_uptime_s,cpu_busy_pct
+control,1,1,True,dev14,post_hoc,20,60,20.43,59.23,59.209170530654305
+control,1,1,True,dev14,post_hoc,60,170,60.25,169.03,19.85358041638069
+control,2,2,True,dev14,post_hoc,20,60,20.9,59.18,60.25590808199504
+control,2,2,True,dev14,post_hoc,60,170,60.19,169.04,20.081423539636795
+control,3,3,True,dev14,post_hoc,20,60,20.05,59.76,62.1948150012585
+control,3,3,True,dev14,post_hoc,60,170,60.78,169.81,22.157767322888596
+active,0,1,False,dev15,post_hoc,20,60,20.54,59.59,55.950857435372406
+active,0,1,False,dev15,post_hoc,60,170,60.63,169.14,13.087202093952335
+active,1,2,True,dev15,post_hoc,20,60,20.23,59.3,57.95934023782125
+active,1,2,True,dev15,post_hoc,60,170,60.32,169.1,18.921640424752837
+active,2,3,True,dev15,post_hoc,20,60,20.96,59.65,61.429125209975446
+active,2,3,True,dev15,post_hoc,60,170,60.67,169.48,20.75324913051437
+active,3,4,True,dev15,post_hoc,20,60,20.27,59.64,59.791983764586504
+active,3,4,True,dev15,post_hoc,60,170,60.66,169.49,19.78670816550714

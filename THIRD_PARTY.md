@@ -25,6 +25,9 @@ Current dev.15, dev.10 and retained dev.8 build identities, capture dates and pe
 hashes are recorded in the [guide asset notes](docs/assets/guide/README.md).
 The Services page and Base confirmation show **0.3.0-dev.15** from the local
 exact-firmware-checked build at source `9b8fe119c3efb5dfc3eb8238853bd0ae2d49d068`.
+The Audio Sources capture uses the exact dev.15 bundle from
+[CI 45207857419](https://github.com/aeharding/open-connect/actions/runs/45207857419),
+source `7e8122571d241fc3b58d0356687f0932bdacd5d0`.
 The unchanged Android Auto and Pandora confirmations, completion and same-version
 update captures show **0.3.0-dev.10** from
 [CI 45016577830](https://github.com/aeharding/open-connect/actions/runs/45016577830),

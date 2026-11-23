@@ -1,5 +1,28 @@
 # Guide image provenance
 
+## Applied Audio Sources — November 23, 2026
+
+`audio-sources.png` is a direct, unedited 800×480 native screenshot of
+**0.3.0-dev.15** on **74.00.324A NA/cmu150_NA**. Base is on, Android Auto and
+Pandora are on, DVD is off and SiriusXM is on. The native Entertainment list
+omits the disabled integrations; enabled sources retain Mazda's availability
+rules. This bench has no equipped satellite tuner. The generic device label
+and the complete image were reviewed for private information and diagnostic overlays.
+
+Build: [CI 45207857419](https://github.com/aeharding/open-connect/actions/runs/45207857419),
+source [7e81225](https://github.com/aeharding/open-connect/tree/7e8122571d241fc3b58d0356687f0932bdacd5d0).
+Public manifest SHA256: `0a03f9916cd931ae9aa00c7d4e084b55b29231dc067dfbfc64ab21eb647461dc`.
+All 42 public entries matched the installed package; `INSTANCE` was its sole private addition.
+The source list was opened through Mazda's existing `SelectEntertainmentNoAudio`
+event, without replacing its list builder. It is a software UI check.
+
+| Asset | SHA256 | Kernel boot ID |
+| --- | --- | --- |
+| `audio-sources.png` | `c3eb0febd00a168fe19bd6714861e0038e960c9dcacfe1fafbfc0c9b9a267d11` | `4311a3f8-6bff-48af-9704-56c22c35b0df` |
+
+Private capture/state receipts: `runs/wave-b-20261123/{ci15-audio-sources-native.png,
+ci15-browser-screen.out,ci15-installed-match.json}`.
+
 ## Services controls and Base confirmation — November 23, 2026
 
 `services.png` and `base-enable.png` are direct, unedited 800×480 native

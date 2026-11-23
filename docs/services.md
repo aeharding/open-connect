@@ -49,8 +49,16 @@ Shared streaming helpers stop only when their remaining integrations are off.
 Radio, DVD and streaming source rows follow the applied choices after restart;
 pending changes do not alter the current menu. Mazda's USB/projection handling
 remains separate.
-The [dev.14 startup comparison](base-startup-tuning.md) records its timings,
-CPU, flash reads and RAM cost. The earlier
+
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/audio-sources.png" alt="Mazda Entertainment source list with FM, AM, Pandora, Bluetooth and Apple CarPlay; disabled Base integrations and DVD are hidden." width="800" height="480" loading="lazy"></div>
+  <figcaption>Base enabled and DVD off, after restart. Mazda controls the availability of enabled sources.</figcaption>
+</figure>
+
+The [dev.15 complete-preset comparison](services-expansion.md) records timings,
+CPU, named RAM metrics, applied-source checks and restoration limits. The
+[dev.14 startup comparison](base-startup-tuning.md) retains that preset's own
+measurements and accepted RAM cost. The earlier
 [complete-preset comparison](services-comparison.md) retains its own configuration
 and results.
 

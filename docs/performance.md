@@ -100,6 +100,14 @@ attempts completed; two preliminary native-foreground misses are retained
 separately. The small blocked sample and night/day rendering change limit
 attribution. This is a bundle comparison, not stock parity.
 
+The [dev.14/dev.15 Services expansion](services-expansion.md) retains three
+matched starts per version plus one explicitly excluded wrong-foreground attempt.
+Own tmpfs fell 448→444 KiB, while CPU was nearly unchanged. Median Maps was
+1.407 s later and Home's midpoint 0.200 s later, with overlapping run ranges.
+The owner accepted the candidate-specific timing tradeoff; #9 remains open.
+The page includes the full native timeline, named RAM metrics, applied-source
+checks and an unresolved reboot during a test-only post-purge page reload.
+
 ## Configurations to compare
 
 | Configuration | Purpose |
@@ -109,9 +117,9 @@ attribution. This is a bundle comparison, not stock parity.
 | Base optimizations off/on, same individual service selections | Measure the installed bundle as one setting |
 | One service choice changed, other settings fixed | Attribute the effect and detect dependencies |
 
-The current development candidate groups native Warn filtering and the four
-DAB, TV and Stitcher leaves behind one optional **Base optimizations** choice, initially off. That default is an
-implementation choice. Identify the exact bundle revision in every result and
+The current development candidate groups the logging, service and startup policies
+described in [Services](services.md) behind one optional **Base optimizations**
+choice, initially off. Identify the exact bundle revision in every result and
 test the whole bundle; individual savings cannot simply be added together.
 Future preset contents and individual service choices need comparable measurements,
 undo and regression checks. See [Services work #86](https://github.com/aeharding/open-connect/issues/86).

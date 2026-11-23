@@ -25,8 +25,10 @@ BEGIN {
     }
     split("jciUSBMGR jciCARPLAY jciBCA blm_nms_svc",wireless_names," ")
     for(i=1;i<=4;i++) wireless_hits[wireless_names[i]]=0
-    split("settings jciAppsdk jciDbapi jciUSBMGR devicemanager dmserver NMS_svc blm_nms_svc jciCARPLAY jciMMUI",affinity_names," ")
-    for(i=1;i<=10;i++) affinity_hits[affinity_names[i]]=0
+    split("jciCARPLAY jciMMUI",affinity_names," ")
+    for(i=1;i<=2;i++) affinity_hits[affinity_names[i]]=0
+    split("jciBUCPSA jciBLMSettings jciRadio jciauxin jciCD",mmui_parents," ")
+    for(i=1;i<=5;i++) mmui_parent_hits[mmui_parents[i]]=0
 }
 /[ \t](name|value)[ \t]*=[ \t]*["']open_connect_(settings|wireless)["']/ {refuse()}
 /^[ \t]*<service[ \t]/ {
@@ -94,6 +96,12 @@ prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="devicemanager" {
     print "            <dependency type=\"service\" value=\"open_connect_wireless\"/>"
     next
 }
+early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="jciMMUI" {
+    dependency=attribute("value")
+    if(attribute("type")!="service" || !(dependency in mmui_parent_hits)) refuse()
+    mmui_parent_hits[dependency]++
+    if(dependency=="jciRadio" || dependency=="jciauxin" || dependency=="jciCD") next
+}
 early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="bds" {
     dependency=attribute("value")
     if(attribute("type")!="service") refuse()
@@ -121,7 +129,10 @@ END {
     if(invalid || stage!=1 || stage3!=1 || end!=1) exit 1
     if(early_wireless && (bds_stage!=1 || bds_settings!=1 || bds_registry!=1 ||
        wifi_stage!=1 || wifi_parent!=1 || wifi_aha!=1)) exit 1
-    if(early_wireless) for(name in affinity_hits) if(affinity_hits[name]!=1) exit 1
+    if(early_wireless) {
+        for(name in affinity_hits) if(affinity_hits[name]!=1) exit 1
+        for(name in mmui_parent_hits) if(mmui_parent_hits[name]!=1) exit 1
+    }
     for(name in service_owner) if(service_hits[name]!=1) exit 1
     if(prefs["base"]=="1") for(name in base_hits) if(base_hits[name]!=1) exit 1
     if(prefs["wireless"]=="1") {

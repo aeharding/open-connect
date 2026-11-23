@@ -72,6 +72,7 @@ def ram_fields(ram):
             _, path, size, blocks, dev, ino = line.split("|")
             files[(dev, ino)] = (int(size), int(blocks))
     own = {
+        "snapshot_uptime_s": float(re.search(r"^RAM_UPTIME[|]([0-9.]+)", ram, re.M)[1]),
         "regular_files": len(files),
         "regular_file_bytes": sum(x[0] for x in files.values()),
         "allocated_tmpfs_KiB": sum(x[1] for x in files.values()) // 2,

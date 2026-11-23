@@ -293,16 +293,17 @@ base_read_ahead() (
 )
 
 composed_members_verify() {
-    local folder=$1 digest name extra target rows=0 entries=0 seen='|'
+    local folder=$1 digest name line target rows=0 bytes=0 entries=0 seen='|'
     local allowed='|autostart|uia.so|mmui.so|mmui.xml|index-on.html|index-off.html|sm-normal-on.conf|sm-normal-off.conf|sm-wcp-on.conf|sm-wcp-off.conf|'
     private_dir "$folder" && file "$folder/files.sha256" || return 1
-    while read -r digest name extra; do
-        hex "$digest" 64 && test -z "$extra" || return 1
+    while IFS= read -r line || test -n "$line"; do
+        digest=${line%% *}; name=${line#"$digest  "}
+        hex "$digest" 64 && test "$line" = "$digest  $name" || return 1
         case "$allowed" in *"|$name|"*) ;; *) return 1;; esac
         case "$seen" in *"|$name|"*) return 1;; esac
-        seen="$seen$name|"; rows=$((rows+1))
+        seen="$seen$name|"; rows=$((rows+1)); bytes=$((bytes+${#line}+1))
     done < "$folder/files.sha256"
-    test "$rows" -eq 10 || return 1
+    test "$rows" -eq 10 && test "$(wc -c < "$folder/files.sha256")" -eq "$bytes" || return 1
     for target in "$folder"/* "$folder"/.[!.]* "$folder"/..?*; do
         absent "$target" && continue
         file "$target" || return 1

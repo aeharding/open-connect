@@ -517,6 +517,33 @@ record_write
             else:
                 path.unlink()
 
+    def test_preparation_refuses_noncanonical_composed_manifest_before_state_change(self):
+        manifest = self.data / "composed" / self.package_id / "files.sha256"
+        original = manifest.read_bytes()
+        record = (self.data / "record").read_bytes()
+        nvram = (self.root / "data-nvram").read_bytes()
+        for changed in (
+            original + b"0" * 64 + b"  foreign",
+            original[:-1],
+            original.replace(b"  ", b" ", 1),
+            original.replace(b"  ", b"\t", 1),
+            b" " + original,
+            original + b"\0",
+        ):
+            with self.subTest(manifest=changed):
+                manifest.write_bytes(changed)
+                with self.assertRaises(subprocess.CalledProcessError):
+                    self.shell(
+                        'record_read; snapshot_read "$R_CURRENT"; '
+                        'fixture_snapshot "$D-target" "$R_BACKEND" "$S_TOUCH" "$S_WARNING" '
+                        '"$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" - '
+                        '"$S_PANDORA" "$S_BASE" "$S_WIRELESS"'
+                    )
+                self.assertEqual((self.data / "record").read_bytes(), record)
+                self.assertEqual((self.root / "data-nvram").read_bytes(), nvram)
+                self.assertFalse((self.runtime / "selected").exists())
+        manifest.write_bytes(original)
+
     def test_closed_diagnostic_pipe_keeps_shell_selection(self):
         self.select_base(1)
         (self.root / "flash/queue/read_ahead_kb").unlink()

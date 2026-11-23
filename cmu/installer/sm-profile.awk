@@ -25,10 +25,16 @@ BEGIN {
     }
     split("jciUSBMGR jciCARPLAY jciBCA blm_nms_svc",wireless_names," ")
     for(i=1;i<=4;i++) wireless_hits[wireless_names[i]]=0
+    split("settings jciAppsdk jciDbapi jciUSBMGR devicemanager dmserver NMS_svc blm_nms_svc jciCARPLAY jciMMUI",affinity_names," ")
+    for(i=1;i<=10;i++) affinity_hits[affinity_names[i]]=0
 }
 /[ \t](name|value)[ \t]*=[ \t]*["']open_connect_(settings|wireless)["']/ {refuse()}
 /^[ \t]*<service[ \t]/ {
     sm_name=attribute("name")
+    if(early_wireless && sm_name in affinity_hits) {
+        affinity_hits[sm_name]++
+        if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
+    }
     if(sm_name in service_owner) {
         name=sm_name
         service_hits[name]++
@@ -49,9 +55,6 @@ BEGIN {
 }
 prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="jciMMUI" {
     mmui++
-    if(prefs["base"]=="1") {
-        if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
-    }
     args=attribute("args")
     if(args!~/display=filtered-touchscreen0, wcp$/) {
         if(sub(/display=filtered-touchscreen0$/,"display=filtered-touchscreen0, wcp",args)!=1) refuse()
@@ -62,9 +65,6 @@ prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ {
     if(sm_name in wireless_hits) {
         name=sm_name
         wireless_hits[name]++
-        if(prefs["base"]=="1" && name=="jciCARPLAY") {
-            if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
-        }
         if(attribute_count("args")) {
             if(attribute("args")!="wcp") refuse()
         } else if($0~/\/>[ \t]*$/ || sub(/>$/," args=\"wcp\">")!=1) refuse()
@@ -133,6 +133,7 @@ END {
     if(early_wireless && (bds_stage!=1 || bds_settings!=1 || bds_registry!=1 ||
        wifi_stage!=1 || wifi_parent!=1 || wifi_aha!=1 || registry!=1 ||
        registry_radio!=1 || network_usb!=1)) exit 1
+    if(early_wireless) for(name in affinity_hits) if(affinity_hits[name]!=1) exit 1
     for(name in service_owner) if(service_hits[name]!=1) exit 1
     if(prefs["base"]=="1") for(name in base_hits) if(base_hits[name]!=1) exit 1
     if(prefs["wireless"]=="1") {

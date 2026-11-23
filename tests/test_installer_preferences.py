@@ -199,6 +199,10 @@ class InstallerPreferences(unittest.TestCase):
             "stage_1",
             "stage_3",
             "stage_wifi",
+            "settings",
+            "jciAppsdk",
+            "jciDbapi",
+            "NMS_svc",
             "jciVBS",
             "jciMMUI",
             "jciUSBMGR",
@@ -329,9 +333,20 @@ class InstallerPreferences(unittest.TestCase):
                                 ),
                             )
                     if wireless and base:
-                        if name in ("jciCARPLAY", "jciMMUI"):
+                        if name in (
+                            "settings",
+                            "jciAppsdk",
+                            "jciDbapi",
+                            "jciUSBMGR",
+                            "devicemanager",
+                            "dmserver",
+                            "NMS_svc",
+                            "blm_nms_svc",
+                            "jciCARPLAY",
+                            "jciMMUI",
+                        ):
                             expected.set("affinity_mask", "0x03")
-                        elif name == "bds":
+                        if name == "bds":
                             next(
                                 child for child in expected if child.get("value") == "stage_3"
                             ).set("value", "jciUSBMGR")
@@ -377,6 +392,10 @@ class InstallerPreferences(unittest.TestCase):
             "stage_1",
             "stage_3",
             "stage_wifi",
+            "settings",
+            "jciAppsdk",
+            "jciDbapi",
+            "NMS_svc",
             "jciVBS",
             "aap_service",
             "jciAAPA",
@@ -445,7 +464,18 @@ class InstallerPreferences(unittest.TestCase):
 
     def test_wireless_leaf_affinity_preserves_foreign_claim(self):
         config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
-        for name in ("jciCARPLAY", "jciMMUI"):
+        for name in (
+            "settings",
+            "jciAppsdk",
+            "jciDbapi",
+            "jciUSBMGR",
+            "devicemanager",
+            "dmserver",
+            "NMS_svc",
+            "blm_nms_svc",
+            "jciCARPLAY",
+            "jciMMUI",
+        ):
             with self.subTest(name=name):
                 source = self.profile().replace(
                     f'name="{name}"', f'name="{name}" affinity_mask="0x02"'

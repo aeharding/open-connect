@@ -71,6 +71,7 @@ class InstallerBoot(unittest.TestCase):
             "sm-profile.awk",
             "wireless-device.awk",
             "wireless.sh",
+            "network.sh",
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.manager = self.root / "manager.so"
@@ -609,6 +610,7 @@ record_write
             for name in (
                 "stage_1",
                 "stage_3",
+                "stage_wifi",
                 "jciVBS",
                 "aap_service",
                 "jciAAPA",
@@ -628,6 +630,8 @@ record_write
                 "jciLDS",
             ):
                 attr = f'name="{name}" autorun="yes" reset_board="yes" retry_count="0"'
+                if name == "start_network":
+                    attr += ' path="/jci/scripts/start_network.sh"'
                 if name in args:
                     attr += f' args="{args[name]}"'
                 elif (
@@ -637,11 +641,13 @@ record_write
                     attr += ' args="wcp"'
                 elif name == "jciLDS":
                     attr += ' args="actual-gps-provider"'
-                lines += [
-                    "<service " + attr + ">",
-                    '<dependency type="service" value="existing"/>',
-                    "</service>",
-                ]
+                lines += ["<service " + attr + ">"]
+                parents = {
+                    "bds": ("stage_3", "settings", "dmserver"),
+                    "stage_wifi": ("stage_3", "blm_ira_aha"),
+                }.get(name, ("existing",))
+                lines += [f'<dependency type="service" value="{parent}"/>' for parent in parents]
+                lines += ["</service>"]
             lines += ["</services>"]
             for setting in ("on", "off"):
                 path = self.data / "composed" / self.package_id / f"sm-{profile}-{setting}.conf"
@@ -658,6 +664,15 @@ record_write
             + "); record_write"
         )
         self.populated_dependencies()
+
+    def test_base_wireless_shell_stages_authenticated_network_helper(self):
+        self.select_wireless(1, base=1)
+        result = self.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            (self.runtime / "feature/network.sh").read_bytes(),
+            (ASSETS / "network.sh").read_bytes(),
+        )
 
     def test_wireless_boot_composes_both_profiles_and_preserves_native_services(self):
         self.select_wireless(1)

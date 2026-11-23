@@ -199,17 +199,12 @@ class InstallerPreferences(unittest.TestCase):
             "stage_1",
             "stage_3",
             "stage_wifi",
-            "settings",
-            "jciAppsdk",
-            "jciDbapi",
-            "NMS_svc",
             "jciVBS",
             "jciMMUI",
             "jciUSBMGR",
             "jciCARPLAY",
             "jciBCA",
             "blm_nms_svc",
-            "dmserver",
             "bds",
             "start_network",
             "devicemanager",
@@ -236,6 +231,7 @@ class InstallerPreferences(unittest.TestCase):
             elif name == "bds":
                 attributes["args"] = "-interface dbus" + (" -wcp" if wcp else "")
             elif name == "start_network":
+                attributes["path"] = "/jci/scripts/start_network.sh"
                 attributes["args"] = "" if wcp else "UCP"
             elif name == "stage_vr":
                 attributes["args"] = "5s"
@@ -243,11 +239,8 @@ class InstallerPreferences(unittest.TestCase):
                 attributes["args"] = "actual-gps-provider"
             node = ET.SubElement(root, "service", attributes)
             parents = {
-                "jciMMUI": ("jciBUCPSA", "jciBLMSettings", "jciRadio", "jciauxin", "jciCD"),
                 "bds": ("stage_3", "settings", "dmserver"),
                 "stage_wifi": ("stage_3", "blm_ira_aha"),
-                "dmserver": ("jciRadio",),
-                "start_network": ("stage_usb",),
                 "peer": ("stage_3", "blm_ira_aha"),
             }.get(name, ("keep",))
             for parent in parents:
@@ -334,13 +327,12 @@ class InstallerPreferences(unittest.TestCase):
                                 ),
                             )
                     if wireless and base:
+                        if name == "start_network":
+                            expected.set("path", "/bin/sh")
+                            expected.set("args", "/tmp/open-connect/feature/network.sh")
                         if name in ("jciCARPLAY", "jciMMUI"):
                             expected.set("affinity_mask", "0x03")
-                        if name == "jciMMUI":
-                            for child in list(expected):
-                                if child.get("value") in ("jciRadio", "jciauxin", "jciCD"):
-                                    expected.remove(child)
-                        if name == "bds":
+                        elif name == "bds":
                             next(
                                 child for child in expected if child.get("value") == "stage_3"
                             ).set("value", "jciUSBMGR")
@@ -360,27 +352,6 @@ class InstallerPreferences(unittest.TestCase):
                 self.assertEqual(worker.get("reset_board"), "no")
                 self.assertEqual(worker.get("affinity_mask"), "0x02")
                 self.assertEqual(worker.find("dependency").get("value"), "stage_3")
-
-    def test_early_mmui_requires_each_exact_original_parent(self):
-        config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
-        for parent, change in itertools.product(
-            ("jciBUCPSA", "jciBLMSettings", "jciRadio", "jciauxin", "jciCD"),
-            ("missing", "duplicate", "foreign"),
-        ):
-            with self.subTest(parent=parent, change=change):
-                root = ET.fromstring(self.profile())
-                mmui = next(node for node in root if node.get("name") == "jciMMUI")
-                edge = next(child for child in mmui if child.get("value") == parent)
-                if change == "missing":
-                    mmui.remove(edge)
-                elif change == "duplicate":
-                    mmui.append(copy.deepcopy(edge))
-                else:
-                    edge.set("value", "foreign")
-                ET.indent(root)
-                self.assertNotEqual(
-                    self.compose(ET.tostring(root, encoding="unicode"), config).returncode, 0
-                )
 
     def test_settings_gate_requires_one_stage3_on_each_board(self):
         for wcp, duplicate in itertools.product((False, True), repeat=2):

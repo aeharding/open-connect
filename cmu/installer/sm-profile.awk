@@ -25,18 +25,10 @@ BEGIN {
     }
     split("jciUSBMGR jciCARPLAY jciBCA blm_nms_svc",wireless_names," ")
     for(i=1;i<=4;i++) wireless_hits[wireless_names[i]]=0
-    split("jciCARPLAY jciMMUI",affinity_names," ")
-    for(i=1;i<=2;i++) affinity_hits[affinity_names[i]]=0
-    split("jciBUCPSA jciBLMSettings jciRadio jciauxin jciCD",mmui_parents," ")
-    for(i=1;i<=5;i++) mmui_parent_hits[mmui_parents[i]]=0
 }
 /[ \t](name|value)[ \t]*=[ \t]*["']open_connect_(settings|wireless)["']/ {refuse()}
 /^[ \t]*<service[ \t]/ {
     sm_name=attribute("name")
-    if(early_wireless && sm_name in affinity_hits) {
-        affinity_hits[sm_name]++
-        if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
-    }
     if(sm_name in service_owner) {
         name=sm_name
         service_hits[name]++
@@ -56,6 +48,9 @@ BEGIN {
 }
 prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="jciMMUI" {
     mmui++
+    if(prefs["base"]=="1") {
+        if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
+    }
     args=attribute("args")
     if(args!~/display=filtered-touchscreen0, wcp$/) {
         if(sub(/display=filtered-touchscreen0$/,"display=filtered-touchscreen0, wcp",args)!=1) refuse()
@@ -66,6 +61,9 @@ prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ {
     if(sm_name in wireless_hits) {
         name=sm_name
         wireless_hits[name]++
+        if(prefs["base"]=="1" && name=="jciCARPLAY") {
+            if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
+        }
         if(attribute_count("args")) {
             if(attribute("args")!="wcp") refuse()
         } else if($0~/\/>[ \t]*$/ || sub(/>$/," args=\"wcp\">")!=1) refuse()
@@ -86,6 +84,11 @@ prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="start_network" {
         if(args!="UCP") refuse()
         put_attribute("args","")
     }
+    if(early_wireless) {
+        if(attribute("path")!="/jci/scripts/start_network.sh") refuse()
+        put_attribute("path","/bin/sh")
+        put_attribute("args","/tmp/open-connect/feature/network.sh")
+    }
 }
 prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="devicemanager" {
     manager++
@@ -95,12 +98,6 @@ prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="devicemanager" {
     print
     print "            <dependency type=\"service\" value=\"open_connect_wireless\"/>"
     next
-}
-early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="jciMMUI" {
-    dependency=attribute("value")
-    if(attribute("type")!="service" || !(dependency in mmui_parent_hits)) refuse()
-    mmui_parent_hits[dependency]++
-    if(dependency=="jciRadio" || dependency=="jciauxin" || dependency=="jciCD") next
 }
 early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="bds" {
     dependency=attribute("value")
@@ -129,10 +126,6 @@ END {
     if(invalid || stage!=1 || stage3!=1 || end!=1) exit 1
     if(early_wireless && (bds_stage!=1 || bds_settings!=1 || bds_registry!=1 ||
        wifi_stage!=1 || wifi_parent!=1 || wifi_aha!=1)) exit 1
-    if(early_wireless) {
-        for(name in affinity_hits) if(affinity_hits[name]!=1) exit 1
-        for(name in mmui_parent_hits) if(mmui_parent_hits[name]!=1) exit 1
-    }
     for(name in service_owner) if(service_hits[name]!=1) exit 1
     if(prefs["base"]=="1") for(name in base_hits) if(base_hits[name]!=1) exit 1
     if(prefs["wireless"]=="1") {

@@ -29,7 +29,7 @@ static OcBoot oc_boot;
 static const char *const oc_root_names[]={
     "sm.conf","sm_WCP.conf","board.sh","mmui.so","mmui.xml","uia.so","index.html",
     "system-app.js","settings-app.js","base-app.js","manager.so","device-master.xml",
-    "eem.so","device-manager.so","rungetty","sshd","ssh-keygen","framework.js","lvds-service"
+    "eem.so","device-manager.so","rungetty","sshd","ssh-keygen","framework.js","lvds-service","network-start.sh","firewall.sh"
 };
 static const char *const oc_root_paths[]={
     "/jci/sm/sm.conf","/jci/sm/sm_WCP.conf","/jci/scripts/get_board_type.sh",
@@ -38,7 +38,8 @@ static const char *const oc_root_paths[]={
     "/jci/gui/apps/syssettings/js/syssettingsApp.js","/jci/gui/framework/js/BaseApp.js",
     "/jci/lib/libjciuiamgr.so","/etc/devmgr_config_master.xml","/jci/vbs/modules/libjcimod_eem.so",
     "/jci/devicemanager/libdevicemanager.so","/usr/bin/rungetty","/usr/sbin/sshd","/usr/bin/ssh-keygen",
-    "/jci/gui/framework/js/GuiFramework.js","/jci/lvds/lvds_service"
+    "/jci/gui/framework/js/GuiFramework.js","/jci/lvds/lvds_service",
+    "/jci/scripts/start_network.sh","/jci/scripts/jci-fw.sh"
 };
 static const char *const oc_composed_names[]={
     "autostart","uia.so","mmui.so","mmui.xml","system-app.js","index-on.html","index-off.html",
@@ -682,6 +683,8 @@ static int oc_stage(OcBoot *b) {
             !oc_join(b->scratch,sizeof b->scratch,b->boot,"\n")||
             !oc_new_text(b->stage,"boot-id",b->scratch,0600)||!oc_new_text(b->stage,"wireless-applied","0\n",0600)) return 0;
     }
+    if (oc_equal(b->flags[6],"1") && oc_equal(b->flags[7],"1") &&
+        !oc_package_copy(b,"network.sh",b->stage,"network.sh",0600)) return 0;
     char version[64];
     if (!oc_saved_text(b->package,&b->pkg,"VERSION",version,sizeof version)||!oc_one_line(version)) { b->input_failure=1; return 0; }
     for (const char *p=version;*p;++p) if (!((*p>='0'&&*p<='9')||(*p>='a'&&*p<='z')||(*p>='A'&&*p<='Z')||*p=='.'||*p=='-')) return 0;

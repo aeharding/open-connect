@@ -19,6 +19,19 @@ if test -e "$policy" || test -L "$policy"; then
     read -r expected_serial < "$policy"
     case "$expected_serial" in ''|*[!0-9a-fA-F]*) exit 64;; esac
     usb=/sys/bus/usb/devices/1-1.1
+    # USBMGR authorizes this device after stage_1. This detached observer may
+    # wait finitely; Service Manager is never held by the fixture guard.
+    attempts=0
+    while :; do
+        if test -r "$usb/idVendor"; then
+            read -r vendor < "$usb/idVendor"; read -r product < "$usb/idProduct"
+            test "$vendor:$product" = 0781:55a9
+            read -r authorized < "$usb/authorized"
+            if test "$authorized" = 1; then break; fi
+        fi
+        attempts=$((attempts+1)); test "$attempts" -le 25
+        sleep 1
+    done
     read -r vendor < "$usb/idVendor"; read -r product < "$usb/idProduct"
     read -r actual_serial < "$usb/serial"
     test "$vendor:$product:$actual_serial" = "0781:55a9:$expected_serial"

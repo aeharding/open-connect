@@ -8,12 +8,12 @@ var input=0,seq=0,at,fresh=true,trust=true,focus,next;
 var a={busy: 0, loaded: 0, early: [], cancel: stop, pump: pump, wrap: wrap};
 a.copy=function (m) { return m&&[m.uiaId,m.ctxtId,m.contextSeq]; };
 function read(k) { try { return (k ? window.sessionStorage&&window.sessionStorage.getItem("oc107") : window.name)||""; } catch (e) { return null; } }
-function persist(mode) {
-  var v=mark + mode, n=read(0), s=read(1);
+function persist(m) {
+  var v=mark + m, n=read(0), s=read(1);
   try { if (n!=null&&(!n||n.indexOf("oc107:")===0)) { window.name=v; } } catch (e) {}
   try { if (s||read(0)!==v) { window.sessionStorage.setItem("oc107", v); } } catch (e) {}
   n=read(0); s=read(1);
-  return n!=null&&s!=null&&(n===v||s===v)&&(mode==="C"||n!==mark + "C"&&s!==mark + "C");
+  return n!=null&&s!=null&&(n===v||s===v)&&(m==="C"||n!==mark + "C"&&s!==mark + "C");
 }
 armed=[read(0), read(1)].every(function (v) { return v!=null&&(v.indexOf(mark)!==0||v===mark + "A"); });
 function stop() { edge=null; clearTimeout(timer); }
@@ -30,10 +30,10 @@ function wrap(obj, key, pre, post) {
 function track(m) {
   if (m._cp||m.msgType==="ctxtChg"&&m.ctxtId==="Idle") return;
   var s=at||{time: Date.now(), input: input};
-  Object.defineProperty(m, "_cp", {value: {until: s.time + 15000, input: s.input, order: ++seq}});
+  Object.defineProperty(m, "_cp", {value: {until:s.time+15000,input:s.input,order:++seq}});
   var p=m.params&&m.params.payload, id=m.msgId;
   if (m.msgType==="focusStack") { focus=m.appIdList; a.focus=m._cp.order; }
-  if (m.msgType==="ctxtChg") next=m;
+  if (m.msgType==="ctxtChg") { next=m; if (edge) m._cp.ctx=a.copy(m); }
   if (m.uiaId==="carplay"&&id==="SendCPSessionState"&&p) {
     if (p.state===false) { stop(); live=""; armed=persist("A"); fresh=false; }
     if (p.state===true&&(typeof p.serialId==="string"&&p.serialId&&p.serialId.length<=256||

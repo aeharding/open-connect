@@ -3,7 +3,7 @@ const fs = require('node:fs'), vm = require('node:vm'), path = require('node:pat
 const folder = process.argv[2], boot = '12345678-1234-1234-1234-123456789abc';
 function fixture(shared = {}, load = true) {
   const calls = [], events = {}, timers = [], pendingContexts = [];
-  let deferContext=false;
+  let deferContext=false, contextHandler, contextCompare;
   let now = 0, clock = 0;
   const state = {name: '', storage: new Map(), ...shared};
   const ctx = {log: {error() {}, addSrcFile() {}, debug() {}, info() {}, warn() {}}, Date: {now: () => now},
@@ -43,7 +43,13 @@ function fixture(shared = {}, load = true) {
     let m;try {m=JSON.parse(text);}catch{return;}
     if(!this._hasInitGui)this._preInitGuiMsgQueue.push(m);else fw.routeMmuiMsg(m);
   };
-  function apply(m) {fw._currTmpltInstance.contextInfo=m;(apps[m.uiaId] ||= {})._currentContext={ctxtId:m.ctxtId};}
+  function apply(m) {
+    const app=apps[m.uiaId] ||= {_contextTable:{}};
+    if(contextHandler) {
+      app.isContextDifferent=contextCompare;
+      contextHandler.call(app,m);fw._currTmpltInstance.contextInfo=app._currentContext;
+    } else {fw._currTmpltInstance.contextInfo=m;app._currentContext={ctxtId:m.ctxtId};}
+  }
   const context = vm.createContext(ctx);
   function source(name, root=folder) {vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),context,{filename:name});}
   if(process.argv[3])vm.runInContext(fs.readFileSync(process.argv[3],'utf8'),context);
@@ -74,6 +80,7 @@ function fixture(shared = {}, load = true) {
   function event(type, values={}) {(events[type]||[]).forEach(fn=>fn({type,...values}));}
   focus();
   return {ctx, fw, state, source, supports, session, menu, msg, send, native, focus, advance, count, connect, event, apps,
+    contexts(handler,compare){contextHandler=handler;contextCompare=compare;},
     defer(value=true){deferContext=value;},applyContext(){apply(pendingContexts.shift());fw._processNewFwkState();}};
 }
 let f=fixture();f.connect();assert.equal(f.count(),1,'quiet boot');
@@ -332,3 +339,46 @@ f.complete();f.advance();assert.equal(f.count(),0,'second lazy Home entry cannot
 f=bootClient();f.session(true);f.native('backupparking','TVMCameraDisplay');
 f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});f.focus();f.menu();
 f.complete();f.advance();assert.equal(f.count(),1,'one safe lazy reverse return preserves startup opportunity');
+
+// Connections can start while a temporary context is already on screen.
+for(const [id,ctx] of [['backupparking','TVMCameraDisplay'],['system','Disclaimer']]) {
+  for(const yieldTimer of [false,true]) {
+    f=fixture();f.native(id,ctx);f.session(true);
+    f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});f.focus();
+    if(yieldTimer)f.advance();
+    f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:4});f.menu();f.advance();
+    assert.equal(f.count(),0,'temporary-origin second Home cancels '+ctx+' timer='+yieldTimer);
+  }
+  f=fixture();f.native(id,ctx);f.session(true);
+  f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});f.focus();f.menu();f.advance();
+  assert.equal(f.count(),1,'single safe return remains eligible from '+ctx);
+}
+
+function mutationReplay(handler,compare,label) {
+  f=bootClient();f.contexts(handler,compare);f.native('system','Disclaimer');f.session(true);
+  f.native('backupparking','TVMCameraDisplay');
+  f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:13});f.focus();
+  const first=f.ctx.ocCarPlay.early.find(m=>m.msgType==='ctxtChg'&&m.ctxtId==='HomeScreen'&&m.contextSeq===13);
+  assert.ok(first,'first Home retained by BaseApp');
+  f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:14});
+  assert.equal(first.contextSeq,14,label+' really mutated the prior received object');
+  f.menu();f.complete();f.advance();assert.equal(f.count(),0,label+' preserves original event sequence across lazy load');
+  f.session(false);f.connect();assert.equal(f.count(),1,label+' permits a later real connection');
+  f=bootClient();f.contexts(handler,compare);f.native('system','Disclaimer');f.session(true);
+  f.native('backupparking','TVMCameraDisplay');
+  f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:13});f.focus();f.menu();
+  f.complete();f.advance();assert.equal(f.count(),1,label+' single-return control');
+}
+function differentContext(a,b) {return !a||!b||a.uiaId!==b.uiaId||a.ctxtId!==b.ctxtId;}
+mutationReplay(function(m) {
+  if(this.isContextDifferent(this._currentContext,m))this._currentContext=m;
+  else this._currentContext.contextSeq=m.contextSeq;
+},differentContext,'authored mutable-context fixture');
+if(process.argv[3]) {
+  const stock={log:{addSrcFile(){},debug(){},info(){},warn(){},error(){},writeError(){}}};
+  const base=path.join(path.dirname(process.argv[3]),'BaseApp.js');
+  vm.runInNewContext(fs.readFileSync(base,'utf8'),stock,{filename:base});
+  mutationReplay(stock.BaseApp.prototype._handleContext,stock.BaseApp.prototype._isContextDifferent,'stock v74 BaseApp');
+  console.log('Stock BaseApp Home 13 -> 14 mutation replay passed');
+}
+console.log('Remaining P2 regressions: temporary-origin baseline and immutable early contexts passed');

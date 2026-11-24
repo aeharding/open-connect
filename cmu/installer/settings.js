@@ -583,14 +583,16 @@ a.check=function (focus, next) {
 };
 function depart(m, edge) {
   if (!edge||!m||m.msgType!=="ctxtChg"||m._cp.order<=edge.order) return false;
-  if (m.uiaId==="backupparking") { edge.reverse=m._cp.order; edge.back=null; return false; }
-  var kind=context(m.uiaId,m.ctxtId), old=edge.back||edge.origin;
+  var c=m._cp.ctx;
+  if (c[0]==="backupparking") { edge.reverse=m._cp.order; edge.back=null; return false; }
+  var kind=context(c[0],c[1]), old=edge.back||edge.origin;
   if (kind===2) return true;
   if (kind===1) return false;
-  var first=edge.reverse&&!edge.back;
-  if (first) edge.back=a.copy(m);
-  if (!old||context(old[0],old[1])===1) return false;
-  return old[0]!==m.uiaId||old[1]!==m.ctxtId||!first&&old[2]!==m.contextSeq;
+  kind=!old||context(old[0],old[1])===1;
+  var first=(edge.reverse||kind)&&!edge.back;
+  if (first) edge.back=c;
+  if (kind) return false;
+  return old[0]!==c[0]||old[1]!==c[1]||!first&&old[2]!==c[2];
 }
 a.signal=function (m) {
   var id=m.msgId, p=m.params&&m.params.payload;

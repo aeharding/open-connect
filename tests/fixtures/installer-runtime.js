@@ -343,6 +343,29 @@ f.store.refresh(ok => { reopen = ok; });
 assert.equal(reopen, true);
 assert.equal(f.requests.length, 3);
 
+// Cold Base-on listener startup and verification can exceed twelve seconds.
+// Begin one bounded completion-proof window only when the browser is shown.
+f = fixture(null, false, {version: "0.3.0-dev.17", notice: "installed"});
+f.ctx.framework._browserShown = false;
+f.tick(); f.advance(20000); f.tick();
+assert.equal(f.requests.length, 0);
+f.ctx.framework._browserShown = true;
+f.tick(); f.advance(20000);
+assert.equal(f.requests[0].aborted, undefined);
+f.reply(f.requests[0], f.state({installed: true, installedVersion: "0.3.0-dev.17",
+    notice: "installed", completionReady: true}));
+f.tick(); assert.equal(f.choices[0].complete, true);
+
+// Refusals/backoff share that same 35s deadline; they cannot replenish it.
+f = fixture(null, false, {version: "0.3.0-dev.17", notice: "installed"});
+f.tick(); f.advance(34000); f.reply(f.requests[0], null);
+f.advance(500); assert.equal(f.requests.length, 2);
+f.advance(499); f.reply(f.requests[1], {ok: false, error: "busy"});
+f.advance(1); f.tick();
+assert.equal(f.requests.length, 2); assert.equal(f.choices.length, 0);
+f.advance(60000); f.tick();
+assert.equal(f.requests.length, 2); assert.equal(f.choices.length, 0);
+
 // Completion requires fresh post-commit boot proof, including through USB entry.
 for (const usb of [false, true]) {
     f = fixture(null, usb, {version: "0.3.0-dev.17", notice: "installed"});

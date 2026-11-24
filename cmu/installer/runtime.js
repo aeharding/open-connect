@@ -198,7 +198,7 @@ var OpenConnect = (function (previous) {
         } else if (!busy && state && state.pending) { run("recover", null, entry ? "usb" : "settings"); }
         else if (!noticeShown && !proofRead && boot && boot.notice === "installed" && !state) {
             proofRead = true;
-            readStatus(function () {}, Date.now() + 12000);
+            readStatus(function () {}, Date.now() + 35000);
         }
         if (!job && completion() && !noticeShown && !queued && !dialog) {
             queued = function () {

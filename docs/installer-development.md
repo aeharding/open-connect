@@ -160,6 +160,35 @@ prepare, while compatible Uninstall remains available. The record also retains
 the observed mid-uninstall reload/reboot limit instead of claiming full reload
 readiness from offline JS replay.
 
+### dev.17 candidate: maintenance loading view
+
+The maintenance client uses Mazda's buttonless `Dialog3Ctrl` style27 with the
+stock indeterminate APNG. A full-screen shield acquires local mouse/commander
+input before a write. The view yields to native transitions and both VUI overlays;
+operation ownership continues while it is suspended. A queued Settings preference
+claims ownership before its existing 250 ms debounce. The exclusion is also
+honored by unmodified dev.14–16 USB loaders.
+
+Install, Update and Reinstall show the verified version relationship. Accepted
+installation/removal requests restart once; lost acknowledgements reconcile
+within one twelve-second budget and never replay the mutation. An unchanged
+same-version status is not reinstall proof. Unknown outcomes remain guarded
+until restart. Settings uninstall has no USB-specific warning.
+
+The additive read-only `completionReady` status field requires settled,
+conflict-free installed state, the installed notice, no restart requirement,
+`selected == current`, and the recorded kernel UUID matching the current boot.
+The client additionally matches the boot page's token/version/notice to fresh
+installed-version evidence, including when maintenance USB remains inserted.
+Normal notice-free startup adds no status request.
+
+Packaging refuses page-budget overflow: dialog 8,192 B, runtime 16,384 B,
+Settings 32,768 B, loader 4,096 B and backend 20,480 B. These are per-file bounds,
+not proof of unchanged Opera memory or timings. Native 800×480 screenshots,
+spinner motion, affected lifecycle interactions and matched nearby boot/RAM
+checks remain pending source review and hardware qualification. Existing guide
+screenshots still show dev.16; they will be replaced after review of live captures.
+
 ### dev.16 candidate: sparse native UI and voice loading
 
 With Base enabled, one authenticated renderer selects MMUI Config blocks and

@@ -4,7 +4,8 @@ const vm = require("node:vm");
 const source = fs.readFileSync(process.argv[2], "utf8");
 const token = "a".repeat(32), revision = "b".repeat(32);
 function fixture(previous, loadingUSB, boot, port) {
-    const requests = [], intervals = [], timeouts = [], choices = [], messages = [], loads = [];
+    const requests = [], intervals = [], timeouts = [], choices = [], messages = [], loads = [], progress = [];
+    let eligible = true;
     const fw = {_browserShown: true, getAppInstance() { return app; }};
     const app = {}, nodes = {};
     if (loadingUSB) { nodes["oc-usb-loader"] = {ocToken: token,
@@ -14,11 +15,12 @@ function fixture(previous, loadingUSB, boot, port) {
         OpenConnect: previous,
         document: {querySelector(selector) {
             const match = selector.match(/open-connect-(token|version|notice)/);
-            return boot && match ? {getAttribute() { return match[1] === "token" ? token : boot[match[1]]; }} : null;
+            return boot && match ? {getAttribute() { return match[1] === "token" ? (boot.token || token) : boot[match[1]]; }} : null;
         }, getElementById(id) { return nodes[id]; }},
         framework: fw,
         utility: {loadScript(url, attrs, done) {
             loads.push(url);
+            if (url.endsWith("runtime.js")) vm.runInNewContext(source, ctx);
             nodes[attrs.id] = {parentNode: {removeChild() { delete nodes[attrs.id]; }}};
             done();
         }},
@@ -29,7 +31,11 @@ function fixture(previous, loadingUSB, boot, port) {
         XMLHttpRequest: function () {
             this.open = (method, url) => { this.method = method; this.url = url; };
             this.setRequestHeader = (name, value) => { this.type = value; };
-            this.send = body => { this.body = body; requests.push(this); };
+            this.send = body => {
+                const op=body.split("|")[2];
+                if(op==="install" || op==="uninstall") assert.ok(progress.some(v=>!v.closed), "shield acquired before POST");
+                this.body = body; requests.push(this);
+            };
             this.abort = () => { this.aborted = true; };
         },
         OpenConnectInstaller: {
@@ -37,11 +43,20 @@ function fixture(previous, loadingUSB, boot, port) {
                 choices.push({installed, retained, done, version, installedVersion}); return () => {};
             },
             message(fw, title, text, buttons, done) { messages.push({title, text, buttons, done}); return () => {}; },
-            complete(fw, version, done) { choices.push({complete: true, done}); return () => {}; }
+            complete(fw, version, done) { choices.push({complete: true, version, done}); return () => {}; },
+            progress(fw, action, warning, suspended) {
+                if (!eligible) return false;
+                const v = {action, warning, suspended, closed: false,
+                    close() { this.closed = true; suspended(); },
+                    update(a,w) { this.action=a; this.warning=w; if(!eligible) { this.close(); return false; } return true; }};
+                progress.push(v); return v;
+            }
         },
         OpenConnectSettings: {attach(fw, app, value) { store = value; return () => {}; }}
     };
     ctx.window = ctx;
+    vm.runInNewContext(fs.readFileSync(require("node:path").join(require("node:path").dirname(process.argv[2]), "settings.js"), "utf8"), ctx);
+    ctx.OpenConnectSettings.attach = (fw, app, value) => { store=value; return () => {}; };
     vm.runInNewContext(source, ctx);
     function reply(request, value) {
         request.status = value ? 200 : 0;
@@ -53,7 +68,31 @@ function fixture(previous, loadingUSB, boot, port) {
         return {ok: true, revision, installed: false, retained: false, conflict: false,
             restart: false, pending: false, touch: 0, warning: 0, notice: "-", version: "0.2.0-dev.1", ...extra};
     }
-    return {ctx, requests, choices, messages, loads, reply, state,
+    return {ctx, nodes, requests, choices, messages, loads, reply, state, progress,
+        eligible(value) { eligible=value; },
+        openSettings() {
+            const pages=[], parent={removeChild(n){n.parentNode=null;}};
+            const host={divElt:{style:{display:""},parentNode:parent},list2Ctrl:{},handleControllerEvent(){}};
+            Object.assign(fw,{getCurrentApp:()=>"syssettings",getCurrCtxtId:()=>"SystemTab",_frameworkState:1,_FWK_STATE_IDLE:1,
+                _currTmpltInstance:host,common:{getCommonTransitionData(){}},multicontroller:{getMode:()=>"controllerActive"},
+                sendEventToMmui(){},instantiateTemplate(app,parent,type,props){
+                    const ctrl=props.List2Ctrl;ctrl.updateItems=()=>{};
+                    const page={list2Ctrl:ctrl,divElt:{parentNode:parent},cleanUp(){},handleControllerEvent(){}};
+                    pages.push(page);return page;
+                }});
+            const close=ctx.OpenConnectSettings.open(fw,store);
+            assert.equal(typeof close,"function");
+            function pick(index) {const c=pages.at(-1).list2Ctrl;c.selectCallback(c,c.dataList.items[index].appData);}
+            pick(0); // Touch radio page.
+            return {pick,close,pages};
+        },
+        insert(legacy = false) {
+            nodes["oc-usb-loader"] = {ocToken: token, src: "file:///tmp/oc/loader.js",
+                parentNode: {removeChild(n) { if(nodes["oc-usb-loader"] === n) delete nodes["oc-usb-loader"]; }}};
+            const path=require("node:path");
+            const file=legacy ? path.join(__dirname,"legacy-usb-loader.js") : path.join(path.dirname(process.argv[2]),"loader.js");
+            vm.runInNewContext(fs.readFileSync(file,"utf8"),ctx);
+        },
         tick() { intervals.forEach(fn => fn()); },
         advance(ms) {
             const end = now + ms;
@@ -155,19 +194,19 @@ f.store.write("touch", 0, 1, value => { saved = value; });
 assert.equal(f.requests[1].body, token + "|" + revision + "|set|touch|0|1");
 f.reply(f.requests[1], null);
 assert.equal(f.requests[2].body, token + "|-|status|-|-|-");
-f.reply(f.requests[2], f.state({installed: true, touch: 1}));
+f.reply(f.requests[2], f.state({installed: true, touch: 1, revision: "c".repeat(32)}));
 assert.equal(saved.touch, 1);
 assert.equal(f.requests.filter(r => r.body.includes("|set|")).length, 1);
 
 f = fixture();
 f.ctx.OpenConnect.start(token, true);
-f.reply(f.requests[0], f.state({pending: true}));
+f.reply(f.requests[0], f.state({pending: true})); f.tick();
 assert.equal(f.requests[1].body, token + "|" + revision + "|recover|-|-|-");
 f.tick();
 assert.equal(f.choices.length, 0); // Internal recovery, no misleading fresh-install choice.
 f.reply(f.requests[1], {ok: false, error: "state_changed"});
-f.tick();
-assert.ok(f.messages.some(m => /Nothing was overwritten/.test(m.text)));
+f.reply(f.requests[2], f.state()); f.tick();
+assert.ok(f.messages.some(m => /Check your settings/.test(m.text)));
 assert.equal(f.requests.filter(r => r.body.includes("|recover|")).length, 1);
 
 f = fixture();
@@ -184,15 +223,8 @@ f.retry();
 assert.equal(f.requests[1].body, token + "|-|status|-|-|-");
 f.reply(f.requests[1], f.state({installed: true, notice: "installed"}));
 f.tick();
-assert.equal(f.choices[0].complete, true); // Leaving USB inserted preserves completion.
-assert.equal(f.ctx.OpenConnect.reopenUSB(token), true);
-f.reply(f.requests[2], f.state({installed: true, notice: "installed"}));
-f.tick();
-assert.equal(f.choices[1].complete, true); // Cold USB handoff preserves that notice too.
+assert.equal(f.choices[0].complete, undefined); // Missing authenticated page proof: maintenance only.
 f.ctx.OpenConnect.dispose();
-const count = f.requests.length;
-f.choices[0].done("cancel"); // Teardown never dismisses a durable completion notice.
-assert.equal(f.requests.length, count);
 
 // Loading, cancellation and failed status must leave the installed client alive.
 let disposed = 0;
@@ -226,25 +258,17 @@ assert.equal(f.ctx.OpenConnect, installedClient);
 f.store.write("touch", 0, 1, () => {});
 assert.equal(f.requests[2].body, token + "|" + revision + "|set|touch|0|1");
 
-f = fixture();
-f.ctx.OpenConnect.start(token, false);
-f.reply(f.requests[0], f.state({installed: true, notice: "installed"}));
-f.tick();
-assert.equal(f.choices[0].complete, true);
-f.ctx.OpenConnect.reopenUSB(token);
-f.tick(); // Old cached notice cannot decide this insertion before fresh status.
-f.reply(f.requests[1], f.state({installed: true, restart: true, notice: "restart"}));
-f.tick();
-assert.equal(f.choices[1].installed, true);
+// Superseded status responses must not overwrite current state before the intent fence.
+f = fixture(); f.ctx.OpenConnect.start(token, false);
+f.reply(f.requests[0], f.state({installed: true})); f.tick();
 f.ctx.OpenConnect.reopenUSB(token);
 f.ctx.OpenConnect.cancelUSB(token);
-f.reply(f.requests[2], f.state({installed: true}));
-f.tick();
-assert.equal(f.choices.length, 2); // Cancellation also covers a pending status read.
+f.reply(f.requests[1], f.state({installed: true, revision: "d".repeat(32), installedVersion: "9.0"}));
+assert.equal(f.store.version, "0.2.0-dev.1");
+f.tick(); assert.equal(f.choices.length, 0);
 f.ctx.OpenConnect.reopenUSB(token);
-f.reply(f.requests[3], f.state({pending: true}));
-assert.equal(f.requests[4].body, token + "|" + revision + "|recover|-|-|-");
-console.log("Installer POST contract, recovery and uncertain-acknowledgement behavior passed");
+f.reply(f.requests[2], f.state({pending: true})); f.tick();
+assert.match(f.requests[3].body, /\|recover\|/);
 
 f = fixture();
 f.ctx.OpenConnect.start(token, true);
@@ -303,22 +327,33 @@ f.store.refresh(ok => { reopen = ok; });
 assert.equal(reopen, true);
 assert.equal(f.requests.length, 3);
 
-// Completion is local boot data; its action obtains a fresh revision first.
-f = fixture(null, false, {version: "0.3.0-dev.9", notice: "installed"});
-f.tick();
-assert.equal(f.requests.length, 0);
-assert.equal(f.choices[0].complete, true);
-f.choices[0].done("done");
-assert.equal(f.requests.length, 1);
-f.reply(f.requests[0], f.state({installed: true, revision: "e".repeat(32)}));
-assert.equal(f.requests[1].body, token + "|" + "e".repeat(32) + "|dismiss|-|-|-");
-
-// Mazda navigation can cancel completion without selecting either action.
-f = fixture(null, false, {version: "0.3.0-dev.9", notice: "installed"});
-f.tick();
-f.choices[0].done("cancel");
-assert.equal(f.requests.length, 0);
-assert.equal(f.messages.length, 0);
+// Completion requires fresh post-commit boot proof, including through USB entry.
+for (const usb of [false, true]) {
+    f = fixture(null, usb, {version: "0.3.0-dev.17", notice: "installed"});
+    if (usb) f.ctx.OpenConnect.start(token, true);
+    f.tick();
+    assert.equal(f.choices.length, 0);
+    f.reply(f.requests[0], f.state({installed: true, installedVersion: "0.3.0-dev.17", notice: "installed", completionReady: true}));
+    f.tick();
+    assert.equal(f.choices[0].complete, true);
+    assert.equal(f.choices[0].version, "0.3.0-dev.17");
+    f.choices[0].done("done");
+    assert.match(f.requests[1].body, /\|dismiss\|/);
+}
+for (const extra of [{completionReady: false}, {completionReady: "true"}, {installedVersion: "-"},
+    {installedVersion: undefined}, {installedVersion: "0.3.0-dev.16"}, {restart: true}, {conflict: true}]) {
+    f = fixture(null, true, {version: "0.3.0-dev.17", notice: "installed"});
+    f.ctx.OpenConnect.start(token, true);
+    f.reply(f.requests[0], f.state({installed: true, installedVersion: "0.3.0-dev.17", notice: "installed", completionReady: true, ...extra}));
+    f.tick(); assert.equal(f.choices.some(c => c.complete), false);
+}
+for (const boot of [null, {version: "0.3.0-dev.17", notice: "-"},
+    {version: "0.3.0-dev.17", notice: "installed", token: "d".repeat(32)},
+    {version: "0.3.0-dev.16", notice: "installed"}]) {
+    f = fixture(null, true, boot); f.ctx.OpenConnect.start(token, true);
+    f.reply(f.requests[0], f.state({installed: true, installedVersion: "0.3.0-dev.17", notice: "installed", completionReady: true}));
+    f.tick(); assert.equal(f.choices.some(c => c.complete), false);
+}
 
 // Full hardware verification can exceed four seconds. One shared twelve-second
 // read budget permits a slow answer, including after a briefly unavailable worker.
@@ -411,3 +446,143 @@ f.ctx.OpenConnect.start(token, true);
 assert.equal(f.requests[0].url, "http://127.0.0.1:35555/control");
 f.ctx.OpenConnect.cancelUSB(token);
 assert.equal(f.ctx.OpenConnect, previous);
+
+// Acquire synchronously before any mutation; failed acquisition is unsent.
+f=fixture(); f.ctx.OpenConnect.start(token,true); f.reply(f.requests[0],f.state()); f.tick();
+f.eligible(false); f.choices[0].done("install");
+assert.equal(f.requests.length,1); assert.equal(f.ctx.OpenConnect.protected(),true);
+f.tick(); assert.equal(f.requests.length,1);
+f.eligible(true); f.tick(); assert.equal(f.requests.length,2);
+assert.equal(f.progress.length,1); assert.equal(f.progress[0].action,"Installing Open Connect");
+assert.equal(f.progress[0].closed,false);
+const protectedClient=f.ctx.OpenConnect, loaded=f.loads.length;
+for (const legacy of [true,false]) {
+    f.insert(legacy); assert.equal(f.ctx.OpenConnect,protectedClient); assert.equal(f.loads.length,loaded);
+}
+f.reply(f.requests[1],f.state({installed:true,installedVersion:"0.2.0-dev.1",restart:false}));
+assert.match(f.requests[2].body,/\|restart\|/); // Same-snapshot reinstall still promises a restart.
+assert.equal(f.progress.length,1); assert.equal(f.progress[0].action,"Restarting Mazda Connect");
+f.reply(f.requests[2],f.state({installed:true}));
+f.insert(true); assert.equal(f.ctx.OpenConnect,protectedClient); assert.equal(f.loads.length,loaded);
+f.ctx.OpenConnect.cancelUSB(token); assert.equal(f.ctx.OpenConnect.protected(),true);
+assert.equal(f.ctx.OpenConnect.dispose(),false);
+f.advance(12000); f.tick();
+assert.equal(f.progress[0].closed,true); assert.match(f.messages.at(-1).title,/Unable to confirm/);
+f.messages.at(-1).done("done"); assert.equal(f.ctx.OpenConnect.protected(),true);
+assert.equal(f.store.pending(true),false);
+assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,1);
+assert.equal(f.requests.filter(r=>r.body.includes("|install|")).length,1);
+
+f=fixture(); f.ctx.OpenConnect.start(token,true); f.reply(f.requests[0],f.state()); f.tick();
+f.eligible(false); f.choices[0].done("install"); f.ctx.OpenConnect.cancelUSB(token);
+f.eligible(true); f.tick(); assert.equal(f.requests.filter(r=>r.body.includes("|install|")).length,0);
+assert.equal(f.ctx.__ocUSBLoading,undefined);
+
+// Settings removal survives purge and old-media arrivals with no USB wording.
+f=fixture(); f.ctx.OpenConnect.start(token,false); f.reply(f.requests[0],f.state({installed:true})); f.tick();
+f.store.uninstall(); const removing=f.progress[0];
+assert.equal(removing.action,"Removing Open Connect"); assert.doesNotMatch(removing.warning,/USB/);
+const removingClient=f.ctx.OpenConnect, beforeLoads=f.loads.length;
+f.insert(true); assert.equal(f.loads.length,beforeLoads); assert.equal(f.ctx.OpenConnect,removingClient);
+f.reply(f.requests[1],f.state({revision:"-",installedVersion:"-"}));
+assert.equal(f.requests[2].body,token+"|-|restart|-|-|-");
+assert.doesNotMatch(removing.warning,/USB/);
+f.insert(true); assert.equal(f.ctx.OpenConnect,removingClient);
+f.reply(f.requests[2],null); f.reply(f.requests[3],f.state({revision:"-",installedVersion:"-"}));
+f.advance(12000); f.tick(); assert.doesNotMatch(f.messages.at(-1).text,/USB/);
+assert.equal(f.requests.filter(r=>r.body.includes("|uninstall|")).length,1);
+assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,1);
+
+// An unchanged same-version state after a lost reply is never commit evidence.
+f=fixture(); f.ctx.OpenConnect.start(token,true);
+f.reply(f.requests[0],f.state({installed:true,installedVersion:"0.2.0-dev.1"})); f.tick();
+f.choices[0].done("install"); f.reply(f.requests[1],null);
+f.reply(f.requests[2],f.state({installed:true,installedVersion:"0.2.0-dev.1",notice:"installed",completionReady:true})); f.tick();
+assert.match(f.messages.at(-1).title,/Unable to confirm/);
+assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,0);
+assert.equal(f.ctx.OpenConnect.protected(),true);
+
+// One shared twelve-second budget, including restart. Never replay the mutation.
+f=fixture(); f.ctx.OpenConnect.start(token,true); f.reply(f.requests[0],f.state()); f.tick();
+f.choices[0].done("install"); f.reply(f.requests[1],null);
+f.advance(11000); f.reply(f.requests[2],f.state({installed:true,installedVersion:"0.2.0-dev.1",
+    revision:"e".repeat(32),notice:"installed"}));
+assert.match(f.requests[3].body,/\|restart\|/);
+f.advance(1000); f.tick(); assert.match(f.messages.at(-1).title,/Unable to confirm/);
+assert.equal(f.requests[3].aborted,true); f.advance(20000); assert.equal(f.requests.length,4);
+
+// Safe refusal releases ownership; insertion can then load a maintenance client.
+f=fixture(); f.ctx.OpenConnect.start(token,true); f.reply(f.requests[0],f.state()); f.tick();
+f.choices[0].done("install"); f.reply(f.requests[1],{ok:false,error:"state_changed"});
+f.reply(f.requests[2],f.state()); f.tick(); assert.match(f.messages.at(-1).title,/Unable to finish/);
+assert.equal(f.ctx.__ocUSBLoading,undefined);
+const idleClient=f.ctx.OpenConnect;
+f.insert(true); assert.notEqual(f.ctx.OpenConnect,idleClient); assert.match(f.requests.at(-1).body,/\|status\|/);
+
+// Starting a write fences an earlier status before it can alter store.version.
+f=fixture(); f.ctx.OpenConnect.start(token,false); f.reply(f.requests[0],f.state({installed:true})); f.tick();
+let staleRefresh;
+f.store.refresh(v=>staleRefresh=v); f.store.write("touch",0,1,()=>{});
+f.reply(f.requests[1],f.state({installed:true,installedVersion:"9.0",revision:"d".repeat(32)}));
+assert.equal(staleRefresh,undefined); assert.equal(f.store.version,"0.2.0-dev.1");
+f.reply(f.requests[2],f.state({installed:true,touch:1,revision:"e".repeat(32)}));
+
+// The claim precedes the debounce, remains through all acknowledgements, and
+// refuses a callback belonging to a client superseded by a legacy loader.
+for (const delay of [0,249]) {
+    f=fixture(); f.ctx.OpenConnect.start(token,false); f.reply(f.requests[0],f.state({installed:true})); f.tick();
+    const client=f.ctx.OpenConnect; assert.equal(f.store.pending(true),true); f.advance(delay);
+    f.insert(true); assert.equal(f.ctx.OpenConnect,client);
+    let ack=0;
+    f.store.write("touch",0,1,()=>{ack++;f.store.pending(false);});
+    f.insert(true); assert.equal(f.ctx.OpenConnect,client);
+    f.reply(f.requests[1],f.state({installed:true,touch:1}));
+    assert.equal(ack,1); assert.equal(f.ctx.__ocUSBLoading,undefined);
+    const oldStore=f.store;
+    f.insert(true); assert.notEqual(f.ctx.OpenConnect,client);
+    assert.equal(f.ctx.__ocUSBLoading,undefined); // Legacy loader has finished; replacement is reading.
+    assert.equal(oldStore.pending(true),false); assert.equal(f.ctx.__ocUSBLoading,undefined);
+}
+
+// Actual USB loader path on a later authenticated boot, not a boot-only shortcut.
+f=fixture(null,false,{version:"0.3.0-dev.17",notice:"installed"});
+f.insert();
+f.reply(f.requests[0],f.state({installed:true,installedVersion:"0.3.0-dev.17",notice:"installed",completionReady:true}));
+f.tick(); assert.equal(f.choices[0].complete,true);
+
+assert.equal(require("node:crypto").createHash("sha256").update(fs.readFileSync(require("node:path").join(__dirname,"legacy-usb-loader.js"))).digest("hex"),
+    "7fcf62d625b9139e12c052bf10cbdf545f9ce06f99e6c12c1851609982c8e877");
+
+// Unknown legacy installed-version fields cannot establish a version transition.
+for (const old of [undefined,"-"]) {
+    f=fixture(); f.ctx.OpenConnect.start(token,true);
+    f.reply(f.requests[0],f.state({installed:true,installedVersion:old})); f.tick();
+    f.choices[0].done("install"); f.reply(f.requests[1],null);
+    f.reply(f.requests[2],f.state({installed:true,installedVersion:"0.2.0-dev.1",notice:"installed",revision:"c".repeat(32)})); f.tick();
+    assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,0);
+    assert.match(f.messages.at(-1).title,/Unable to confirm/);
+}
+
+// End-to-end preferences queue + runtime + actual unmodified legacy loader.
+for(const at of [0,249]) {
+    f=fixture(); f.ctx.OpenConnect.start(token,false); f.reply(f.requests[0],f.state({installed:true})); f.tick();
+    const client=f.ctx.OpenConnect, page=f.openSettings(); page.pick(1);
+    assert.equal(f.ctx.OpenConnect.protected(),true);
+    f.advance(at); f.insert(true); page.close();
+    assert.equal(f.ctx.OpenConnect,client);
+    assert.equal(f.requests.filter(r=>r.body.includes("|set|")).length,0);
+    f.advance(250-at);
+    assert.equal(f.requests.filter(r=>r.body.includes("|set|")).length,1);
+    f.insert(true); assert.equal(f.ctx.OpenConnect,client);
+    f.reply(f.requests.at(-1),f.state({installed:true,touch:1}));
+    assert.equal(f.ctx.__ocUSBLoading,undefined);
+    assert.equal(f.ctx.OpenConnect.protected(),false);
+}
+f=fixture(); f.ctx.OpenConnect.start(token,false); f.reply(f.requests[0],f.state({installed:true})); f.tick();
+const supersededPage=f.openSettings(), oldClient=f.ctx.OpenConnect;
+f.insert(true); assert.notEqual(f.ctx.OpenConnect,oldClient);
+assert.equal(f.ctx.__ocUSBLoading,undefined);
+supersededPage.pick(1); f.advance(250);
+assert.equal(f.requests.filter(r=>r.body.includes("|set|")).length,0);
+assert.equal(f.ctx.__ocUSBLoading,undefined);
+supersededPage.close();

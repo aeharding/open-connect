@@ -86,7 +86,7 @@ status() {
             fi
         fi
     fi
-    local version service_status= wireless_factory=false
+    local version service_status= wireless_factory=false completion_ready=false kernel_boot=
     if test -n "$pandora"; then service_status=',"pandora":'$pandora; fi
     if test -n "$base"; then service_status=$service_status',"base":'$base; fi
     if test -n "$wireless"; then service_status=$service_status',"wireless":'$wireless; fi
@@ -113,11 +113,15 @@ status() {
     fi
     version=$(cat "$P/VERSION")
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
+    if test "$installed" = true && test "$pending" = false && test "$conflict" = false &&
+        test "$restart" = false && test "$notice" = installed &&
+        IFS= read -r kernel_boot < /proc/sys/kernel/random/boot_id && boot_id "$kernel_boot" &&
+        test "$R_BOOT" = "$kernel_boot"; then completion_ready=true; fi
     # Keep the retired boolean false for an installed v0.2.0-dev.1 client during
     # USB handoff. No endpoint or UI offers Undo.
     printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s%s}\n' \
         "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version" \
-        "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current" "$service_status"
+        "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current" "$service_status,\"completionReady\":$completion_ready"
 }
 
 finish_removal() {

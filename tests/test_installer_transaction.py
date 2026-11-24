@@ -622,6 +622,54 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(state["installedVersion"], "-")
 
+    def test_completion_requires_selection_and_recorded_current_boot(self):
+        data = self.create("completion")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        runtime = self.root / "runtime"
+        kernel = self.root / "kernel-boot"
+        boot = "12345678-1234-1234-1234-123456789abc"
+        kernel.write_text(boot + "\n")
+        backend = self.tools / "backend.sh"
+        backend.write_text(
+            backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
+        )
+        record = (data / "record").read_text().split("|")
+        record[11] = boot
+        record[12] = "installed\n"
+        selected = runtime / "selected"
+        selected.write_text(record[5] + "\n")
+        (data / "record").write_text("|".join(record))
+        for variant in (
+            "ready",
+            "previous-boot",
+            "unselected",
+            "no-notice",
+            "invalid-kernel",
+            "same-boot-commit",
+        ):
+            with self.subTest(variant=variant):
+                current = record.copy()
+                current[11] = "-" if variant == "same-boot-commit" else boot
+                current[12] = "-\n" if variant == "no-notice" else "installed\n"
+                (data / "record").write_text("|".join(current))
+                kernel.write_text(
+                    (
+                        "87654321-1234-1234-1234-123456789abc"
+                        if variant == "previous-boot"
+                        else "invalid"
+                        if variant == "invalid-kernel"
+                        else boot
+                    )
+                    + "\n"
+                )
+                selected.write_text(("0" * 64 if variant == "unselected" else record[5]) + "\n")
+                before = (data / "record").read_bytes()
+                result, status = self.api("status")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(status["completionReady"], variant == "ready")
+                self.assertEqual((data / "record").read_bytes(), before)
+
     def test_backend_reinstall_refuses_later_target_or_dependency_edits(self):
         data = self.create("reinstall-conflict")
         self.run_ok(data, "install")

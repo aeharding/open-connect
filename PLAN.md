@@ -173,7 +173,11 @@ Maintain one exact baseline; do not add a firmware matrix or reuse unchecked pat
 
 See the [installer development guide](docs/installer-development.md) for current
 artifact identities, passed checks and remaining qualification limits.
-Keep **Install/update** and **Uninstall** as the two maintenance actions. Preserve
+Use **Install**, **Update** or **Reinstall** for the verified version relationship,
+plus **Uninstall**. The dev.17 work in [#132](https://github.com/aeharding/open-connect/issues/132)
+adds OEM animated progress, ownership through restart and verified post-boot completion.
+Source review precedes native screenshots and affected timing/RAM checks; the UI
+must fit its existing allocated pages. Preserve
 verified originals until restoration succeeds; uninstall removes installed files,
 backups and transaction state. See [uninstall behavior](docs/uninstall.md).
 

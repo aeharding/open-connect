@@ -272,7 +272,7 @@ assert.equal(servicesCtrl.dataList.items[0].value, 1);
 const beforeService = writes.length;
 servicesCtrl.selectCallback(servicesCtrl, "pandora", {additionalData: 2});
 assert.equal(modal.props.title, "Disable Pandora?");
-assert.match(modal.props.text1, /after restarting/);
+assert.match(modal.props.text1, /after restart/);
 modal.props.defaultSelectCallback(modal, "cancel");
 idle();
 assert.equal(writes.length, beforeService);
@@ -304,7 +304,7 @@ baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 1});
 assert.equal(modal.props.title, "Enable Base optimizations?");
 assert.match(modal.props.text1, /native diagnostic logging/);
 assert.doesNotMatch(modal.props.text1, /DAB|TV|Stitcher/);
-assert.match(modal.props.text1, /after restarting/);
+assert.match(modal.props.text1, /after restart/);
 modal.props.defaultSelectCallback(modal, "cancel"); idle();
 assert.equal(writes.length, beforeBase);
 baseCtrl = pages.at(-1).ctrl;
@@ -470,17 +470,35 @@ assert.equal(settings.open(fw, {read: () => ({...values, services: [...values.se
 settings.open(fw, store);
 let newBaseMain = pages.at(-1).ctrl; newBaseMain.selectCallback(newBaseMain, "services");
 let newBaseCtrl = pages.at(-1).ctrl; newBaseCtrl.selectCallback(newBaseCtrl, "base", {additionalData: 1});
-assert.match(modal.props.text1, /DAB, TV and discontinued integrations/);
+assert.match(modal.props.text1, /Stops unused integrations/);
 modal.props.defaultSelectCallback(modal, "cancel"); back(); back();
 // Exercise the actual projected preference view: it does not carry a version.
 // The installed package version belongs to the store supplied by runtime.js.
-for (const version of ["0.3.0-dev.15", "0.3.0-dev.16"]) for (const wireless of [0, 1]) {
+for (const version of ["0.3.0-dev.15", "0.3.0-dev.16", "0.3.0-dev.17"]) for (const wireless of [0, 1]) {
     store.version = version;
     values = {...values, base: 0, wireless};
     settings.open(fw, store);
     const main = pages.at(-1).ctrl; main.selectCallback(main, "services");
     const base = pages.at(-1).ctrl; base.selectCallback(base, "base", {additionalData: 1});
-    assert.equal(/Mazda Navigation starts later \(about 20 seconds\)/.test(modal.props.text1),
-        version === "0.3.0-dev.16" && wireless === 1);
+    assert.equal(/Mazda Navigation starts about 20 seconds later/.test(modal.props.text1),
+        version !== "0.3.0-dev.15" && wireless === 1);
     modal.props.defaultSelectCallback(modal, "cancel"); back(); back();
 }
+
+// Ownership starts before the existing 250 ms timer, survives Back, and ends
+// only after the final queued acknowledgement. Failed claims restore the dot.
+let allow=true, pendingStates=[];
+store.pending = value => { pendingStates.push(value); return !value || allow; };
+settings.open(fw,store); pick(0);
+const beforePending=writes.length;
+allow=false; pick(1-values.touch);
+assert.equal(queued,null);
+assert.equal(pages.at(-1).ctrl.dataList.items[values.touch].checked,true);
+allow=true; pick(1-values.touch);
+assert.equal(pendingStates.at(-1),true);
+assert.equal(writes.length,beforePending);
+back(); back(); idle();
+assert.equal(writes.length,beforePending+1);
+assert.equal(pendingStates.at(-1),true);
+values={...values,touch:1-values.touch}; reply(values);
+assert.equal(pendingStates.at(-1),false);

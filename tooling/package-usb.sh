@@ -14,12 +14,12 @@ package=$out/usb/open-connect
 mkdir "$package"
 for file in run.sh session.sh service.sh loader.js runtime.js dialog.js settings.js \
     backend.sh state.sh transaction.sh firmware.sh access.sh console.sh boot.sh startup-hook.sh startup-join.sh ignition.sh \
-    system-hook.js base-logging.js defer-gap2.sh wireless.sh wireless-device.awk preferences.awk services.tsv sm-profile.awk VERSION KENATIA-LICENSE; do
+    system-hook.js base-logging.js defer-gap2.sh defer-nav.sh ui-profile.awk ui-modules.tsv wireless.sh wireless-device.awk preferences.awk services.tsv sm-profile.awk VERSION KENATIA-LICENSE; do
     cp "cmu/installer/$file" "$package/$file"
 done
 cp cmu/features/touch/setting.sh "$package/touch.sh"
 cp cmu/features/disclaimer/layout.txt "$package/layout.txt"
-for file in api flush boot-select native.bin branch.bin sizes.bin layout.bin mmui-path.bin mmui-sizes.bin mmui-length.bin mmui-pointer.bin mmui-count-pointer.bin; do
+for file in api flush boot-select native.bin branch.bin sizes.bin layout.bin vui-path.bin mmui-path.bin mmui-sizes.bin mmui-length.bin mmui-pointer.bin mmui-count-pointer.bin; do
     cp "$out/$file" "$package/$file"
 done
 cp LICENSE "$package/LICENSE"

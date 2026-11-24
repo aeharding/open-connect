@@ -33,10 +33,15 @@ six background fuel, maintenance and driver-data services. These services become
 available later in startup; the delay starts at service readiness, independently
 of whether a phone connects. It does not wait for a CarPlay session.
 
-<figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/base-enable.png" alt="Enable Base optimizations confirmation explaining reduced logging, stopped unused integrations and the restart requirement." width="800" height="480" loading="lazy"></div>
-  <figcaption>Confirm Enable to save the choice.</figcaption>
-</figure>
+The dev.16 candidate additionally avoids loading native UI and voice plugins for
+disabled integrations. With Base and Wireless CarPlay enabled together, it delays
+Mazda Navigation startup by about twenty seconds to prioritize projection.
+Navigation's delay expires independently of CarPlay or network readiness.
+Early Navigation, compass and related vehicle displays can therefore become
+available later. The [dev.16 bench comparison](sparse-native-loading.md) records
+Home, native readiness, RAM costs, connection misses and qualification limits.
+Services, Android Auto and Audio Sources screenshots show that exact candidate;
+retained images keep their separately recorded versions.
 
 Clear it and confirm **Disable** to return to the original logging and startup policy
 after the next full restart. Updating preserves your choice. Uninstall restores
@@ -51,8 +56,8 @@ pending changes do not alter the current menu. Mazda's USB/projection handling
 remains separate.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/audio-sources.png" alt="Mazda Entertainment source list with FM, AM, Pandora, Bluetooth and Apple CarPlay; disabled Base integrations and DVD are hidden." width="800" height="480" loading="lazy"></div>
-  <figcaption>Base enabled and DVD off, after restart. Mazda controls the availability of enabled sources.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/audio-sources.png" alt="Mazda Entertainment source list with FM, AM, Bluetooth, CarPlay and USB; disabled Base integrations, Pandora, SiriusXM and DVD are hidden." width="800" height="480" loading="lazy"></div>
+  <figcaption>Base enabled; Android Auto, DVD, Pandora and SiriusXM off, after restart. Mazda controls the availability of enabled sources.</figcaption>
 </figure>
 
 The [dev.15 complete-preset comparison](services-expansion.md) records timings,

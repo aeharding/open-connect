@@ -472,3 +472,15 @@ let newBaseMain = pages.at(-1).ctrl; newBaseMain.selectCallback(newBaseMain, "se
 let newBaseCtrl = pages.at(-1).ctrl; newBaseCtrl.selectCallback(newBaseCtrl, "base", {additionalData: 1});
 assert.match(modal.props.text1, /DAB, TV and discontinued integrations/);
 modal.props.defaultSelectCallback(modal, "cancel"); back(); back();
+// Exercise the actual projected preference view: it does not carry a version.
+// The installed package version belongs to the store supplied by runtime.js.
+for (const version of ["0.3.0-dev.15", "0.3.0-dev.16"]) for (const wireless of [0, 1]) {
+    store.version = version;
+    values = {...values, base: 0, wireless};
+    settings.open(fw, store);
+    const main = pages.at(-1).ctrl; main.selectCallback(main, "services");
+    const base = pages.at(-1).ctrl; base.selectCallback(base, "base", {additionalData: 1});
+    assert.equal(/Mazda Navigation starts later \(about 20 seconds\)/.test(modal.props.text1),
+        version === "0.3.0-dev.16" && wireless === 1);
+    modal.props.defaultSelectCallback(modal, "cancel"); back(); back();
+}

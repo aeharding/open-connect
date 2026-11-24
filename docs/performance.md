@@ -4,6 +4,12 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
+The [dev.15/dev.16 sparse-loading comparison](sparse-native-loading.md) retains
+three primary Home observations per version, all connection misses and a
+supplemental control. Home was about 0.385 s earlier; own allocated tmpfs rose
+104 KiB. The controls never qualified as visible Maps, so comparative CarPlay
+speed, CPU parity and net-system memory savings remain unestablished.
+
 The [dev.13/dev.14 Base startup comparison](base-startup-tuning.md) retains three
 starts per version. Median visible Maps moved **47.09 → 44.67 s**, Home
 **24.97 → 24.70 s**, and shared-window flash reads **86.85 → 52.17 MiB**.

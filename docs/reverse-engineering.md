@@ -1134,3 +1134,25 @@ of a `-cfgxml` parser does not establish that this startup path uses it. The
 planned sparse MMUI/VUI experiment is deferred until actual consumers and
 retained destinations qualify. Private supporting records are
 `runs/wave-a-20261123/wave-b-plan-review.md` and `runs/wave-b-20261123/`.
+
+The subsequent Wave C inspection pins the VUI service at 95,537 bytes, SHA-256
+`ba72171a04dcc264ff5f690ac25ac2b009624158499159cdb6aebb08a9ab34f4`.
+Replacing only the 24-byte path at file offset `0x10a64` with
+`/tmp/open-connect/v.xml` plus its NUL changes 17 bytes; ELF headers, code and
+length remain identical. The resulting SHA-256 is
+`6cc31cd92167624093f95924a15a27536aec2e40cecc170b47cce72d703ba18f`.
+This is a data-only ELF modification. A RAM config can point PluginsFolder at
+retained stock `.so` and XML symlinks; stock has 27 libraries and 29 XML files,
+including two XML-only entries. Plugin_Enabled getters are not a qualified
+substitute for controlling which libraries the loader opens.
+
+Sparse MMUI loading retains the original application IDs, including System ID 1.
+With Base on, qualified disabled groups retain 33–39 of 43 UIAs and 36–48 plugin
+files depending on Services choices. Those counts are loader selections, not
+net memory or readiness claims. The dev.16 candidate keeps its VUI ELF/config in
+RAM through old-media purge; disclaimer-enabled System pathname reopening keeps
+the separately documented dev.15 limit. Private proofs and exact-original host
+checks are in `runs/carplay-speed-20261122/wave-c-evidence/` and
+`runs/wave-c-20261123/`. The [dev.16 bench record](sparse-native-loading.md)
+retains measured allocations, application PSS, different achieved projection
+workloads and the inherited mid-uninstall reload limit.

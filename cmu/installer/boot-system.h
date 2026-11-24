@@ -86,10 +86,6 @@ static int oc_join(char *out,unsigned capacity,const char *a,const char *b) {
     for (unsigned i=0;i<=m;++i) out[n+i]=b[i];
     return 1;
 }
-static int oc_prefix(const char *p,const char *prefix) {
-    while (*prefix) if (*p++!=*prefix++) return 0;
-    return 1;
-}
 static int oc_private(int fd) {
     OcMeta m;
     return oc_stat(fd,&m)>=0 && m.mode==(OC_DIR|0700) && m.uid==(unsigned)oc_owner() && m.gid==(unsigned)oc_group();

@@ -259,6 +259,7 @@ class InstallerPreferences(unittest.TestCase):
             "JVMM",
             "jciUSBM",
             "jciMMUI",
+            "jciVUI",
             "jciUSBMGR",
             "jciCARPLAY",
             "jciBCA",
@@ -296,6 +297,8 @@ class InstallerPreferences(unittest.TestCase):
                 attributes["args"] = "mouse=filtered-mouse0, display=filtered-touchscreen0" + (
                     ", wcp" if wcp else ""
                 )
+            elif name == "jciVUI":
+                attributes["path"] = "/jci/vui/svcjcivui.so"
             elif name in ("jciUSBMGR", "jciCARPLAY", "jciBCA", "blm_nms_svc") and wcp:
                 attributes["args"] = "wcp"
             elif name == "bds":
@@ -371,7 +374,11 @@ class InstallerPreferences(unittest.TestCase):
                 jobs = {node.get("name"): node for node in after}
                 self.assertEqual(
                     len(after),
-                    len(before) + 1 + wireless + bool(wireless and base) - (0 if satellite else 5),
+                    len(before)
+                    + 1
+                    + wireless
+                    + 2 * bool(wireless and base)
+                    - (0 if satellite else 5),
                 )
                 for node in before:
                     expected = copy.deepcopy(node)
@@ -412,6 +419,8 @@ class InstallerPreferences(unittest.TestCase):
                         ).set("value", "stage_ir")
                     if base and name in ("jciVBS", "system_mazda_my14"):
                         expected.set("affinity_mask", "0x03")
+                    if base and name == "jciVUI":
+                        expected.set("path", "/tmp/open-connect/feature/vui.so")
                     if wireless:
                         if name == "jciMMUI" and not wcp:
                             expected.set("args", expected.get("args") + ", wcp")
@@ -451,6 +460,13 @@ class InstallerPreferences(unittest.TestCase):
                                     "dependency", {"type": "service", "value": "open_connect_gap2"}
                                 ),
                             )
+                        elif name == "jcinavi":
+                            expected.insert(
+                                0,
+                                ET.Element(
+                                    "dependency", {"type": "service", "value": "open_connect_nav"}
+                                ),
+                            )
                     self.assertEqual(jobs[name].attrib, expected.attrib)
                     self.assertEqual(
                         [child.attrib for child in jobs[name]], [child.attrib for child in expected]
@@ -471,8 +487,17 @@ class InstallerPreferences(unittest.TestCase):
                         "timeout -t 15 /bin/busybox sh /tmp/open-connect/feature/defer-gap2.sh",
                     )
                     self.assertEqual([d.get("value") for d in stage], ["jciCARPLAY", "blm_nms_svc"])
+                    nav = jobs["open_connect_nav"]
+                    self.assertEqual([d.get("value") for d in nav], ["stage_3"])
+                    self.assertEqual(nav.get("ready_flag"), "/tmp/open-connect/feature/nav-ready")
+                    self.assertEqual(nav.get("started_after_exit_allowed"), "yes")
+                    self.assertEqual(
+                        nav.get("args"),
+                        "timeout -t 22 /bin/busybox sh /tmp/open-connect/feature/defer-nav.sh",
+                    )
                 else:
                     self.assertNotIn("open_connect_gap2", jobs)
+                    self.assertNotIn("open_connect_nav", jobs)
 
     def test_settings_gate_requires_one_stage3_on_each_board(self):
         for wcp, duplicate in itertools.product((False, True), repeat=2):

@@ -38,6 +38,18 @@ class NativeBootSelection(unittest.TestCase):
             "stock GUI log settings\n",
             "83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a",
         ),
+        (
+            "vui/vui.so",
+            "/jci/vui/svcjcivui.so",
+            "stock voice library\n",
+            "ba72171a04dcc264ff5f690ac25ac2b009624158499159cdb6aebb08a9ab34f4",
+        ),
+        (
+            "vui/vui.xml",
+            "/jci/vui/vui_config.xml",
+            "stock voice config\n",
+            "d2511533b59bc9773f92d8fff9cbcf591d9ff461c33839ff4eaaae6f5d0aaef0",
+        ),
     )
 
     @classmethod
@@ -51,6 +63,46 @@ class NativeBootSelection(unittest.TestCase):
             text = source.read_text()
             for _, _, data, original in cls.BASE_INPUTS:
                 text = text.replace(original, sha(data.encode()))
+            # Inject syscall failures in the private host adapter, not in the
+            # shipped selector. All policy/publication/unwind code stays real.
+            if source.name == "boot-io.h":
+                text = text.replace(
+                    "#include <errno.h>",
+                    "#include <errno.h>\n#include <stdlib.h>\n#include <string.h>",
+                )
+                text = text.replace(
+                    "static long oc_metadata(int fd, const char *path, OcMeta *m)",
+                    "static long oc_metadata_raw(int fd, const char *path, OcMeta *m)",
+                    1,
+                )
+                text = text.replace(
+                    "#else\n#define OC_CWD",
+                    """static long oc_metadata(int fd,const char *path,OcMeta *m) {
+    static int failed;
+    const char *fault=getenv("OC_ALIAS_META_FAIL");
+    if(path&&fault&&failed<2&&!strcmp(path,fault)) { ++failed; return -5; }
+    return oc_metadata_raw(fd,path,m);
+}
+#else
+#define OC_CWD""",
+                    1,
+                )
+            if source.name == "boot-system.h":
+                text = text.replace(
+                    "static long oc_link(int from,const char *name,int to,const char *target) { return linkat(from,name,to,target,0)<0?-errno:0; }",
+                    """static long oc_link(int from,const char *name,int to,const char *target) {
+    const char *foreign=getenv("OC_ALIAS_FOREIGN"),*fault=getenv("OC_ALIAS_LINK_FAIL"),*after=getenv("OC_ALIAS_LINK_AFTER");
+    if(foreign&&!strcmp(target,foreign)) {
+        long fd=oc_openat(to,target,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
+        if(fd>=0) { (void)oc_write_all((int)fd,"foreign\\n",8); (void)oc_close((int)fd); }
+        return -17;
+    }
+    if(fault&&!strcmp(target,fault)) return -5;
+    if(linkat(from,name,to,target,0)<0) return -errno;
+    return after&&!strcmp(target,after)?-5:0;
+}""",
+                    1,
+                )
             (folder / source.name).write_text(text)
         subprocess.run(
             [
@@ -161,7 +213,14 @@ class NativeBootSelection(unittest.TestCase):
         ]
         for name in mandatory:
             (package / name).write_bytes((ASSETS / name).read_bytes())
-        for name in ("flush", "api", "wireless.sh", "wireless-device.awk", "defer-gap2.sh"):
+        for name in (
+            "flush",
+            "api",
+            "wireless.sh",
+            "wireless-device.awk",
+            "defer-gap2.sh",
+            "defer-nav.sh",
+        ):
             (package / name).write_text("fixture " + name + "\n")
         (package / "INSTANCE").write_text("1" * 32 + "\n")
         (package / "boot-select").write_bytes(self.program.read_bytes())
@@ -215,6 +274,8 @@ class NativeBootSelection(unittest.TestCase):
             "sm-normal-off.conf",
             "sm-wcp-on.conf",
             "sm-wcp-off.conf",
+            "vui.so",
+            "vui.xml",
         ]
         for name in names:
             (composed / name).write_text("composed " + name + "\n")
@@ -251,6 +312,8 @@ class NativeBootSelection(unittest.TestCase):
             "selector": f"{sha(self.program.read_bytes())}|700:{os.getuid()}:{os.getgid()}|{self.package_id}\n",
             "sm-normal.conf": "prepared normal\n",
             "sm-wcp.conf": "prepared WCP\n",
+            "mmui.xml": "prepared MMUI XML\n",
+            "vui-plugins.list": "",
             "index.html": '<meta content="@TOKEN@"><meta content="@VERSION@"><meta content="@NOTICE@">\n',
         }
         dependencies = []
@@ -336,10 +399,13 @@ class NativeBootSelection(unittest.TestCase):
         self.record[5] = self.snapshot.name
         self.save_record()
 
-    def invoke(self, cut=None, term=None, output_limit=None, mode="select", stderr_fd=None):
+    def invoke(
+        self, cut=None, term=None, output_limit=None, mode="select", stderr_fd=None, extra_env=None
+    ):
         # A regular fixture models urandom's bytes, refreshing them per entry.
         self.put("dev/urandom", os.urandom(1024))
         env = {**os.environ}
+        env.update(extra_env or {})
         if cut:
             env["OC_BOOT_CUT"] = cut
         if term:
@@ -377,11 +443,168 @@ class NativeBootSelection(unittest.TestCase):
         for name, path, data, _ in self.BASE_INPUTS:
             self.put(path, data)
             self.inputs.append(("base/" + name, path, sha(data.encode())))
+        names = []
+        for line in (ASSETS / "ui-modules.tsv").read_text().splitlines():
+            if not line.startswith("vui\t"):
+                continue
+            _, name, group, _ = line.split("\t")
+            if group in ("base", "dvd"):
+                continue
+            payload = "authored retained plugin " + name + "\n"
+            path = "/jci/vui/plugins/" + name
+            self.put(path, payload)
+            self.inputs.append(("base/vui/" + name, path, sha(payload.encode())))
+            names.append(name)
+        self.change_current("vui-plugins.list", "\n".join(names) + "\n")
         self.change_current(
             "config", (self.snapshot / "config").read_text().replace("base=0", "base=1")
         )
         self.put("sys/devices/virtual/block/ffx01/dev", "253:16\n")
         return self.put("sys/devices/virtual/block/ffx01/queue/read_ahead_kb", "128\n", 0o644)
+
+    def test_wave_c_aliases_survive_purge_without_persistent_payload_targets(self):
+        self.base_fixture()
+        self.assertEqual(self.invoke().returncode, 0)
+        main = self.ram / "feature/vui.so"
+        self.assertFalse(main.is_symlink())
+        self.assertEqual(main.stat().st_ino, (self.ram / "vui-hold.so").stat().st_ino)
+        self.assertEqual(
+            (self.ram / "v.xml").stat().st_ino, (self.ram / "feature/vui.xml").stat().st_ino
+        )
+        self.assertEqual(os.readlink(self.ram / "vui-plugins"), "feature/vui-plugins")
+        names = (self.snapshot / "vui-plugins.list").read_text().splitlines()
+        self.assertEqual(sorted(p.name for p in (self.ram / "vui-plugins").iterdir()), names)
+        for name in names:
+            self.assertEqual(
+                os.readlink(self.ram / "vui-plugins" / name), "/jci/vui/plugins/" + name
+            )
+        with (self.ram / "feature/uia.so").open("rb") as loaded:
+            expected = loaded.read()
+            shutil.rmtree(self.data)
+            loaded.seek(0)
+            self.assertEqual(loaded.read(), expected)
+            self.assertFalse((self.ram / "feature/uia.so").exists())
+            self.assertEqual(main.read_bytes(), b"composed vui.so\n")
+            self.assertEqual((self.ram / "vui-hold.so").read_bytes(), main.read_bytes())
+            self.assertEqual((self.ram / "v.xml").read_bytes(), b"composed vui.xml\n")
+
+    def test_wave_c_foreign_alias_refuses_before_gate_and_debit(self):
+        self.base_fixture()
+        foreign = self.ram / "vui-plugins"
+        foreign.symlink_to("foreign")
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.returncode, result.stdout), (1, b"J"))
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertEqual(os.readlink(foreign), "foreign")
+
+    def test_wave_c_alias_failures_unwind_every_owned_root_name(self):
+        for fault in (
+            "OC_ALIAS_LINK_FAIL",
+            "OC_ALIAS_LINK_AFTER",
+            "OC_ALIAS_FOREIGN",
+        ):
+            for alias in ("v.xml", "vui-hold.so", "vui-plugins"):
+                with self.subTest(fault=fault, alias=alias):
+                    self.setUp()
+                    self.base_fixture()
+                    result = self.invoke(mode="select-gated", extra_env={fault: alias})
+                    self.assertEqual((result.returncode, result.stdout), (1, b"G"), result.stderr)
+                    self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+                    self.assertFalse((self.ram / "selected").exists())
+                    for name in ("v.xml", "vui-hold.so", "vui-plugins"):
+                        if fault == "OC_ALIAS_FOREIGN" and name == alias:
+                            self.assertEqual((self.ram / name).read_bytes(), b"foreign\n")
+                        else:
+                            self.assertFalse(os.path.lexists(self.ram / name))
+
+    def test_wave_c_completed_links_do_not_depend_on_two_root_metadata_reads(self):
+        for late_failure in (False, True):
+            with self.subTest(late_failure=late_failure):
+                self.setUp()
+                self.base_fixture()
+                env = {"OC_ALIAS_META_FAIL": "vui-hold.so"}
+                if late_failure:
+                    env["OC_ALIAS_LINK_FAIL"] = "vui-plugins"
+                result = self.invoke(mode="select-gated", extra_env=env)
+                self.assertEqual(
+                    (result.returncode, result.stdout), (int(late_failure), b"G"), result.stderr
+                )
+                self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+                self.assertEqual((self.ram / "selected").exists(), not late_failure)
+                for name in ("v.xml", "vui-hold.so", "vui-plugins"):
+                    self.assertEqual(os.path.lexists(self.ram / name), not late_failure)
+                if not late_failure:
+                    self.assertEqual(
+                        (self.ram / "vui-hold.so").stat().st_ino,
+                        (self.ram / "feature/vui.so").stat().st_ino,
+                    )
+
+    @unittest.skipUnless(os.path.isdir("/dev/shm"), "a separate Linux tmpfs is required")
+    def test_sealer_refuses_byte_identical_plugin_from_another_filesystem(self):
+        if os.stat("/").st_dev == os.stat("/dev/shm").st_dev:
+            self.skipTest("tmpfs shares the stock filesystem")
+        with tempfile.NamedTemporaryFile(dir="/dev/shm") as plugin:
+            plugin.write(b"byte-identical plugin\n")
+            plugin.flush()
+            text = f"OCBP1|{'b' * 64}|{'c' * 64}\nbase/vui/plugin.so|{plugin.name}|{sha(b'byte-identical plugin' + bytes([10]))}\n"
+            with (self.root / "foreign-device-plan").open("wb") as output:
+                result = subprocess.run(
+                    [self.program, "seal", "/", str(self.snapshot).lstrip("/")],
+                    input=text.encode(),
+                    stdout=output,
+                    stderr=subprocess.PIPE,
+                    timeout=5,
+                )
+            self.assertNotEqual(result.returncode, 0)
+            with (self.root / "ordinary-device-plan").open("wb") as output:
+                control = subprocess.run(
+                    [self.program, "seal", "/", str(self.snapshot).lstrip("/")],
+                    input=text.replace("base/vui/plugin.so|", "guard/plugin.so|").encode(),
+                    stdout=output,
+                    stderr=subprocess.PIPE,
+                    timeout=5,
+                )
+            self.assertEqual(control.returncode, 0, control.stderr)
+
+    def test_wave_c_late_plugin_refusal_does_not_debit_or_publish_aliases(self):
+        self.base_fixture()
+        plugin = (
+            self.root
+            / "jci/vui/plugins"
+            / (self.snapshot / "vui-plugins.list").read_text().splitlines()[0]
+        )
+        plugin.write_bytes(b"changed source\n")
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(mode="select-gated")
+        self.assertEqual((result.returncode, result.stdout), (1, b"G"))
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        for name in ("v.xml", "vui-hold.so", "vui-plugins", "selected"):
+            self.assertFalse(os.path.lexists(self.ram / name))
+
+    def test_shell_copy_helper_binds_snapshot_and_never_changes_record_or_aliases(self):
+        self.base_fixture()
+        stage = self.ram / ".feature-shell"
+        stage.mkdir(mode=0o700)
+        before = (self.data / "record").read_bytes()
+        result = subprocess.run(
+            [self.program, "copy-ui", self.root, self.snapshot.name, stage.name],
+            capture_output=True,
+            timeout=5,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((stage / "vui.so").read_bytes(), (self.composed / "vui.so").read_bytes())
+        self.assertEqual(
+            (stage / "mmui.xml").read_bytes(), (self.snapshot / "mmui.xml").read_bytes()
+        )
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertFalse(os.path.lexists(self.ram / "v.xml"))
+        rejected = subprocess.run(
+            [self.program, "copy-ui", self.root, "0" * 64, stage.name],
+            capture_output=True,
+            timeout=5,
+        )
+        self.assertEqual(rejected.returncode, 1)
 
     def test_base_publication_and_diagnostic_io_never_reverses_it(self):
         queue = self.base_fixture()
@@ -473,7 +696,7 @@ class NativeBootSelection(unittest.TestCase):
             'logDefaults.__global__ = "warn"', (self.ram / "feature/index.html").read_text()
         )
         self.assertFalse((self.ram / "feature/log-defaults.js").exists())
-        self.assertFalse((self.ram / "feature/mmui.so").exists())
+        self.assertTrue((self.ram / "feature/mmui.so").exists())
 
     def test_base_off_never_changes_an_existing_queue_choice(self):
         queue = self.put("sys/devices/virtual/block/ffx01/queue/read_ahead_kb", "128\n", 0o644)

@@ -1,5 +1,37 @@
 # Guide image provenance
 
+## Sparse native loading candidate — November 24, 2026
+
+The current `services.png`, `android-auto-disable.png`, `audio-sources.png`, `update.png` and `complete.png`
+are direct, unedited 800×480 native captures of **0.3.0-dev.16** on
+**74.00.324A NA/cmu150_NA**, reviewed for personal data, credentials and overlays.
+Services and the Android Auto confirmation show Base off, AA/Pandora/SiriusXM on,
+and DVD off. Audio Sources shows Base on with AA, DVD, Pandora and SiriusXM off;
+its generic phone label contains no owner identity. This non-tuner bench does
+not qualify radio or satellite playback. These are software UI checks using the
+manual SD maintenance route, separate from physical USB-insertion qualification.
+
+Build: [CI 45336747490](https://github.com/aeharding/open-connect/actions/runs/45336747490),
+source [da45ae8](https://github.com/aeharding/open-connect/tree/da45ae8bcc556474b9949025011907e04c63695c).
+Public manifest SHA256:
+`ab51278b10c59fe3f5a037419f155a63ca94b6198f3d61252852eb56b4c1f2d6`.
+All 46 public payload entries matched; INSTANCE binding was added privately.
+
+| Asset | SHA256 |
+| --- | --- |
+| `services.png` | `b8aa23948ec8b783b820f68dcc4258f48f16ab51e208d0730f3d2717bea88f27` |
+| `android-auto-disable.png` | `95603b25a83797ee087aa914b7e8bdda0ed59ec6322680d5e2f29c16a218fb77` |
+| `audio-sources.png` | `761879382844206909d4a319e3e28a10e1e164fb2a3418155a331fbb6ae22ea8` |
+| `complete.png` | `3b1a9cf0e1b78c596199c22a8759a5d2a45c3bc0bd9acc5a9d44a283ffef7264` |
+| `update.png` | `0876a8692089223576841863773205e6bf81446b9b36bc05e668623dabdea01a` |
+
+Private originals: `runs/wave-c-20261123/{dev16-default-services.png,
+dev16-aa-disable-popup.png,maxoff-audio-sources.png,dev16-update.png,dev16-complete.png}`. Services/AA were captured
+on kernel a7e6fcdd, Sources on d4d9f40b. The update chooser shows the real dev.15→dev.16 transition before installation;
+completion is from its new boot and Open settings opened the installed page.
+The older per-version records below are
+historical provenance; Git retains their superseded image bytes.
+
 ## Applied Audio Sources — November 23, 2026
 
 `audio-sources.png` is a direct, unedited 800×480 native screenshot of

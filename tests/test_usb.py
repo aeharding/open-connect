@@ -40,6 +40,9 @@ STATIC = (
     "services.tsv",
     "sm-profile.awk",
     "defer-gap2.sh",
+    "defer-nav.sh",
+    "ui-profile.awk",
+    "ui-modules.tsv",
     "base-logging.js",
     "wireless-device.awk",
     "VERSION",
@@ -58,6 +61,7 @@ COMPILED = (
     "mmui-length.bin",
     "mmui-pointer.bin",
     "mmui-count-pointer.bin",
+    "vui-path.bin",
 )
 PAYLOAD = (*STATIC, *COMPILED, "layout.txt", "touch.sh", "LICENSE")
 

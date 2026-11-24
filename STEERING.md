@@ -159,6 +159,24 @@ conditions. Quantify any remaining RAM cost for an explicit owner decision;
 do not infer approval from a performance improvement or from implementation
 necessity. A partial reduction does not establish stock parity.
 
+Development authorization (2026-11-23): implement dev.16 sparse MMUI/VUI loading
+and an independent bounded Navigation delay with Base and Wireless on. The owner
+pre-authorized the expected approximately +100/+144 KiB allocated tmpfs (depending
+on disclaimer bypass), contingent on measuring the proposed MMUI/VUI PSS benefit.
+This is permission for live qualification after source review, not final merge
+acceptance or a Base-off RAM waiver. Confirm actual per-configuration costs and
+the final owner disposition before merge.
+
+Specific owner authorization (2026-11-23T23:48): dev.16 may merge overnight
+only after independent Astra approval, green CI and no performance or functional
+regressions, with allocated own-tmpfs growth **at most +152 KiB with Base on**
+and **at most 0 B with Base off**. The owner explicitly authorized the measured
+**+104/+108/+152 KiB Base-on** configurations and **−4 KiB Base-off** result
+under that guardrail. This supersedes the earlier approximate +100/+144 KiB
+qualification forecasts for [PR #131](https://github.com/aeharding/open-connect/pull/131),
+not the general no-overhead rule. Keep unmatched projection/CPU/net-RAM limits
+explicit and #9 open; this is not a broader performance or RAM waiver.
+
 Discontinued or non-NA services such as DAB, TV, Stitcher and Aha may join Base
 optimizations if their measured benefit and dependencies qualify. Active optional
 services such as Pandora, Android Auto, SiriusXM and DVD remain individual

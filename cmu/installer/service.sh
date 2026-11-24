@@ -121,7 +121,7 @@ while read -r digest name extra; do
     test -f "$P/$name" && test ! -L "$P/$name" || fail invalid_source
     if test "$kind" = boot; then
         case "$name" in
-            backend.sh|state.sh|firmware.sh|access.sh|transaction.sh|service.sh|console.sh|touch.sh|preferences.awk|services.tsv|sm-profile.awk|VERSION|api|flush|runtime.js|dialog.js|settings.js) ;;
+            backend.sh|state.sh|firmware.sh|access.sh|transaction.sh|service.sh|console.sh|touch.sh|preferences.awk|services.tsv|VERSION|api|flush|runtime.js|dialog.js|settings.js) ;;
             *) continue;;
         esac
     fi
@@ -145,7 +145,9 @@ while read -r digest name extra; do
 "
     fi
 done < "$P/files.sha256"
-if test "$kind" = boot; then test "$count" -eq 17 || fail incomplete_runtime; fi
+# Active snapshots always use their verified persistent package's renderer.
+# The installed listener needs no private RAM copy of sm-profile.awk.
+if test "$kind" = boot; then test "$count" -eq 16 || fail incomplete_runtime; fi
 cp "$@" "$P/files.sha256" "$work/"
 set -- "$work/files.sha256"
 while IFS= read -r name; do

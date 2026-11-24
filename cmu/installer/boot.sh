@@ -60,6 +60,44 @@ boot_plan_verify() {
     "$P/boot-select" "$mode" / "${dir#/}" < "$dir/boot.plan"
 }
 
+boot_ui_unwind() {
+    local name identity linked
+    for name in v.xml vui-hold.so vui-plugins; do
+        case "$name" in
+            v.xml) identity=${ui_xml:-}; linked=${ui_xml_linked:-false};;
+            vui-hold.so) identity=${ui_elf:-}; linked=${ui_elf_linked:-false};;
+            *) identity=${ui_folder:-}; linked=${ui_folder_linked:-false};;
+        esac
+        # The held lock and successful atomic link establish ownership without
+        # another metadata read. Uncertain links still require an inode match.
+        if test "$linked" = true || { test -n "$identity" && test "$(stat -c '%d:%i' "$R/$name" 2>/dev/null || :)" = "$identity"; }; then
+            rm "$R/$name" || :
+        fi
+    done
+}
+boot_ui_prepare() {
+    ui_xml=; ui_elf=; ui_folder=
+    ui_xml_linked=false; ui_elf_linked=false; ui_folder_linked=false
+    test "$base" = 1 || return 0
+    absent "$R/v.xml" && absent "$R/vui-hold.so" && absent "$R/vui-plugins" || return 1
+    ui_xml=$(stat -c '%d:%i' "$R/feature/vui.xml") || return 1
+    ui_elf=$(stat -c '%d:%i' "$R/feature/vui.so") || return 1
+    ui_folder=$(stat -c '%d:%i' "$R/feature/.vui-link") || return 1
+}
+boot_ui_publish() {
+    test "$base" = 1 || return 0
+    test -n "$ui_xml" && test -n "$ui_elf" && test -n "$ui_folder" || return 1
+    "$runtime/flush" l "$R/feature/vui.xml" "$R/v.xml" || return 1
+    ui_xml_linked=true
+    "$runtime/flush" l "$R/feature/vui.so" "$R/vui-hold.so" || return 1
+    ui_elf_linked=true
+    "$runtime/flush" l "$R/feature/.vui-link" "$R/vui-plugins" || return 1
+    ui_folder_linked=true
+}
+boot_ui_stage() {
+    "$P/boot-select" copy-ui / "$R_CURRENT" "${work##*/}"
+}
+
 boot_select() {
     D=/tmp/mnt/data_persist/open-connect
     R=/tmp/open-connect
@@ -129,6 +167,9 @@ boot_select() {
     fi
     package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; mode=$S_META
     prefs=$S_PREFS; base=$S_BASE; wireless=$S_WIRELESS
+    if test "$base" = 1; then
+        absent "$R/v.xml" && absent "$R/vui-hold.so" && absent "$R/vui-plugins" || fail ui_alias_conflict
+    fi
 boot=$(cat /proc/sys/kernel/random/boot_id)
 boot_id "$boot" || fail invalid_boot
 test "$R_BOOT" != "$boot" || fail already_selected
@@ -155,6 +196,10 @@ if test "$S_NVRAM" != "$nvram"; then
     transaction_prepare apply "$R_CURRENT" "$after"
     transaction_reconcile
 fi
+# Reconciliation may have selected a newly sealed snapshot. Bind every staged
+# UI byte and choice to that final identity rather than cached pre-apply fields.
+snapshot_read "$R_CURRENT" || fail invalid_snapshot
+package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; base=$S_BASE; wireless=$S_WIRELESS
 # Modern autostart launches the verified observer outside its timeout, on both
 # valid outcomes. Legacy installed hooks retain their standalone behavior.
 if test "$modern" = true; then
@@ -173,20 +218,12 @@ if test "$warning" = 1 || test "$base" = 1; then
         boot_plan_verify "$R_CURRENT" verify || fail feature_inputs_changed
     fi
 fi
-if test "$warning" = 1; then
-    cp "$D/composed/$package/mmui.so" "$D/composed/$package/mmui.xml" "$work/"
-    if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then
-        for name in uia.so; do
-            ln -s "../../mnt/data_persist/open-connect/composed/$package/$name" "$work/$name" || fail feature_link_failed
-        done
-    else
-        # Older unsealed snapshots retain their original RAM-copy path.
-        cp "$D/composed/$package/uia.so" "$work/" || fail feature_copy_failed
-    fi
+if test "$warning" = 1 || test "$base" = 1; then
+    boot_ui_stage || fail feature_copy_failed
 fi
 if test "$base" = 1; then
     if test "$wireless" = 1; then
-        boot_copy_package "$work" defer-gap2.sh || fail background_stage_failed
+        boot_copy_package "$work" defer-gap2.sh defer-nav.sh || fail background_stage_failed
     fi
 fi
 startup_stamp feature_copied
@@ -221,6 +258,10 @@ if ! native_log_prepare "$base"; then
     native_log_discard || :
     fail logging_config_failed
 fi
+if ! boot_ui_prepare; then
+    native_log_discard || :
+    fail ui_identity_failed
+fi
 if test "$boot_cancelled" = true; then
     native_log_discard || :
     fail selection_cancelled
@@ -236,13 +277,15 @@ if test "$boot_cancelled" = true; then
     native_log_discard || :
     fail selection_cancelled
 fi
-if ! native_log_commit "$runtime/flush" || ! "$runtime/flush" l "$marker" /tmp/open-connect/selected; then
+if ! boot_ui_publish || ! native_log_commit "$runtime/flush" || ! "$runtime/flush" l "$marker" /tmp/open-connect/selected; then
     rm -f "$marker" || :
+    boot_ui_unwind
     native_log_discard || :
     fail selection_commit_failed
 fi
 rm -f "$marker" || :
 if test -n "$LOG_STAGE"; then rm -f "$LOG_STAGE" || :; LOG_STAGE=; fi
+if test "$base" = 1; then rm -f "$R/feature/.vui-link" 2>/dev/null || :; fi
 if test "$base" = 1; then
     base_read_ahead 2>/dev/null || startup_stamp base_read_ahead_unavailable
 fi

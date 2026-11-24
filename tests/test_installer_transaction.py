@@ -125,7 +125,7 @@ def fixture_package(data, tools, selector=None):
     (package / "firmware.sh").write_text(
         "boot_render_profiles() {\n"
         ' config_decode "$2" || return 1\n'
-        ' for name in sm-normal.conf sm-wcp.conf index.html; do printf "%s\\n" "$S_SERVICES" > "$1/$name"; done\n'
+        ' for name in sm-normal.conf sm-wcp.conf index.html mmui.xml vui-plugins.list; do printf "%s\\n" "$S_SERVICES" > "$1/$name"; done\n'
         "}\n"
     )
     if selector is not None:
@@ -304,6 +304,7 @@ class InstallerTransaction(unittest.TestCase):
         self.run_ok(data, "install")
         self.backend_fixture(data)
         _, status = self.api("status")
+        self.assertFalse((self.tools / "sm-profile.awk").exists())
         self.assertEqual(status["pandora"], 1)
         old_targets = self.target(data, "target").read_bytes()
         result, status = self.api("set", status["revision"], "pandora", "1", "0")

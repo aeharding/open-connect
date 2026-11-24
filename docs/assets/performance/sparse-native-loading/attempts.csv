@@ -1,0 +1,11 @@
+cohort,capture_attempt,version,primary_timing_cohort,projection_workload_matched,achieved_workload,hardware_attempt,outcome,error,kernel_boot_banners,uart_boot_markers,resource_samples,trace_sha256
+control,1,dev15,False,False,hardware_reset_failure,True,incomplete_preserved,RuntimeError('boot trace fetch refused; inspect retained RAM evidence'),0,0,0,
+control,2,dev15,True,False,no_session,True,observed,,1,1,173,4b76205ebd9660892b4a372f4332f2ce6358dd4619b481e7ac2ec23b91612d90
+control,3,dev15,True,False,no_session,True,observed,,1,1,172,29d6d64e5a937217389e216d38487a447cfc4fb4296319792e2388e038e45984
+control,4,dev15,True,False,protocol_active_native_home,True,observed,,1,1,172,2e33e7e9738b7ae18aaa3fd7bf4727015ff1443164a53c3bc7c0852b3ad54037
+control,5,dev15,False,False,no_session,True,observed,,1,1,174,bfd24131f898064b25e00bf355bff3d7c5cae77b303bbb445b91ed34c93ad528
+active,1,dev16,False,False,pre_hardware_tooling_refusal,False,incomplete_preserved,ValueError('candidate preferences or applied state do not match'),0,0,0,
+active,2,dev16,False,False,pre_hardware_tooling_refusal,False,incomplete_preserved,"ValueError('individual Services choices are missing, pending or changed')",0,0,0,
+active,3,dev16,True,False,maps_visible,True,observed,,1,1,174,5ae091723bcc9c87e38ccd6737e54cbbc0687abb7726e6a8f7d2fb5f7e395759
+active,4,dev16,True,False,maps_visible,True,observed,,1,1,174,6f580b20657d509a669ef38bd2d06e7518d0e32ea4699e356b1673554ee8bd46
+active,5,dev16,True,False,maps_visible,True,observed,,1,1,173,398b06b966346f995ea5cb3c2d460326b312024da378b1c77c0cd09ba07b0c08

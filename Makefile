@@ -19,7 +19,7 @@ NATIVE_FLAGS = --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard \
     -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector
 
 .PHONY: release native check-ui
-release: native $(OUT)/api $(OUT)/flush $(OUT)/boot-select $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin count-pointer.bin)
+release: native $(OUT)/api $(OUT)/flush $(OUT)/boot-select $(OUT)/vui-path.bin $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin count-pointer.bin)
 	sh tooling/package-usb.sh "$(OUT)"
 
 native: $(OUT)/native.bin $(OUT)/branch.bin $(OUT)/sizes.bin $(OUT)/layout.bin
@@ -49,6 +49,10 @@ $(OUT)/mmui.o: cmu/installer/mmui.S | $(OUT)
 
 $(OUT)/mmui-%.bin: $(OUT)/mmui.o
 	$(OBJCOPY) -O binary --only-section=.mmui_$* "$<" "$@"
+
+$(OUT)/vui-path.bin: cmu/installer/vui.S | $(OUT)
+	$(CLANG) --target=armv7-none-eabi -marm -c "$<" -o "$(OUT)/vui.o"
+	$(OBJCOPY) -O binary --only-section=.vui_path "$(OUT)/vui.o" "$@"
 
 $(OUT)/native.o: $(NATIVE_DIR)/native.c | $(OUT)
 	$(CLANG) $(NATIVE_FLAGS) -c "$<" -o "$@"

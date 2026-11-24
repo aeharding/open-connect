@@ -132,6 +132,18 @@ class NativeBootPlan(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
         cls.program = Path(cls.temp.name).resolve() / "boot-select"
+        # These shell fixtures remap all OEM paths onto a private temporary
+        # volume. Remap only the physical stock-root device reference as well;
+        # the sealer still compares every selected source's actual device.
+        for source in (*ASSETS.glob("boot-*.h"), ASSETS / "boot-select.c"):
+            text = source.read_text()
+            text = text.replace(
+                "static int oc_stock_meta(int root,OcMeta *stock) { return oc_stat(root,stock)>=0; }",
+                'static int oc_stock_meta(int root,OcMeta *stock) { (void)root; long fd=oc_openat(OC_CWD,"'
+                + str(cls.program.parent)
+                + '",OC_DIRECTORY,0); if(fd<0)return 0; int ok=oc_stat((int)fd,stock)>=0; return oc_close((int)fd)>=0&&ok; }',
+            )
+            (cls.program.parent / source.name).write_text(text)
         subprocess.run(
             [
                 "clang",
@@ -142,7 +154,7 @@ class NativeBootPlan(unittest.TestCase):
                 "-Wall",
                 "-Wextra",
                 "-Werror",
-                ASSETS / "boot-select.c",
+                cls.program.parent / "boot-select.c",
                 "-o",
                 cls.program,
             ],
@@ -379,7 +391,7 @@ class NativeBootPlan(unittest.TestCase):
         self.assertIn('src="common/js/logDefaults.js"', index)
         self.assertIn('logDefaults.__global__ = "warn"', index)
         self.assertFalse((fixture.runtime / "feature/log-defaults.js").exists())
-        self.assertFalse((fixture.runtime / "feature/mmui.so").exists())
+        self.assertTrue((fixture.runtime / "feature/mmui.so").exists())
 
     @unittest.skipUnless(shutil.which("node"), "Node.js required")
     def test_logging_survives_compatible_dev13_purge_before_restart(self):
@@ -648,13 +660,6 @@ transaction_reconcile
         fixture.select_wireless(0)
         composed = fixture.data / "composed" / fixture.package_id
         (composed / "index-off.html").write_text("saved off @TOKEN@\nframework.init();\n")
-        for profile in ("normal", "wcp"):
-            path = composed / f"sm-{profile}-off.conf"
-            path.write_text(
-                path.read_text().replace(
-                    'name="jciMMUI"', 'name="jciMMUI" path="/jci/mmui/svcjcimmui.so"'
-                )
-            )
         fixture.populated_dependencies()
         fixture.shell(
             'record_read; snapshot_read "$R_CURRENT"; '

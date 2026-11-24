@@ -1,0 +1,7 @@
+label,version,primary_timing_cohort,projection_workload_matched,base,wireless,android_auto,pandora,siriusxm,dvd,warning,snapshot_uptime_s,regular_files,regular_file_bytes,allocated_tmpfs_KiB,listener_private_KiB,listener_private_dirty_KiB,listener_PSS_KiB,ignition_private_KiB,ignition_private_dirty_KiB,ignition_PSS_KiB,MMUI_PSS_KiB,VUI_PSS_KiB,MMUI_PSS_uptime_s,VUI_PSS_uptime_s
+base0-aa1,dev16,False,False,0,0,1,1,1,0,1,98.48,33,329314,400,72,68,82,132,132,146,14720,2704,102.18,102.46
+base0-aa0,dev16,False,False,0,0,0,1,1,0,1,342.4,33,329310,400,76,68,87,132,132,153,14789,2706,344.95,345.22
+maxoff,dev16,False,False,1,1,0,0,0,0,1,242.9,42,447480,552,72,68,84,132,132,153,11695,2459,246.2,246.41
+maxoff-reference,dev15,False,False,1,1,0,0,0,0,1,240.73,40,352387,444,72,68,84,132,132,154,13940,2698,242.93,243.17
+warning0,dev16,False,False,1,1,0,1,1,0,0,66.07,42,451499,552,72,68,81,132,132,147,12719,1883,69.0,69.29
+warning0-reference,dev15,False,False,1,1,0,1,1,0,0,98.32,38,315316,400,72,68,81,132,132,147,14069,2692,100.78,101.07

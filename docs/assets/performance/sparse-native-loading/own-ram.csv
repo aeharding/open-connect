@@ -1,0 +1,8 @@
+cohort,capture_attempt,version,primary_timing_cohort,projection_workload_matched,achieved_workload,snapshot_uptime_s,regular_files,regular_file_bytes,allocated_tmpfs_KiB,listener_private_KiB,listener_private_dirty_KiB,listener_PSS_KiB,ignition_private_KiB,ignition_private_dirty_KiB,ignition_PSS_KiB
+control,2,dev15,True,False,no_session,234.36,40,355681,444,72,68,83,132,132,153
+control,3,dev15,True,False,no_session,234.52,40,355681,444,72,68,83,132,132,152
+control,4,dev15,True,False,protocol_active_native_home,234.87,40,355681,444,72,68,83,132,132,153
+control,5,dev15,False,False,no_session,234.59,40,355681,444,72,68,83,132,132,154
+active,3,dev16,True,False,maps_visible,236.15,42,450814,548,72,68,83,132,132,153
+active,4,dev16,True,False,maps_visible,236.08,42,450814,548,72,68,83,132,132,153
+active,5,dev16,True,False,maps_visible,235.95,42,450814,548,72,68,83,132,132,153

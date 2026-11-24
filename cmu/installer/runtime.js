@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* One POST contract, one protected owner through acknowledgement and restart. */
 var OpenConnect = (function (previous) {
     "use strict";
     if (previous && previous.protected && previous.protected()) { return previous; }
@@ -18,7 +17,6 @@ var OpenConnect = (function (previous) {
     function values() { return state && state.installed ? state : null; }
     function protectedOwner() { return !!job || pending; }
     function claim() {
-        // Reject callbacks from a replaced Settings client.
         if (stopped || window.OpenConnect !== client || job && (!saving || job.phase === "unresolved")) { return false; }
         if (window.__ocUSBLoading && window.__ocUSBLoading !== marker) { return false; }
         if (!marker) { marker = {token: token, cancel: function () { cancelUSB(token); }}; }
@@ -72,7 +70,7 @@ var OpenConnect = (function (previous) {
     function closeView() { var old = view; view = null; if (old) { old.close(); } }
     function message(title, text) {
         queued = function () {
-            return installer.message(framework, title, text, {button1: {label: "OK", appData: "done"}}, function (action) {
+            return installer.message(framework, title, text, {button1: {label: "OK", appData: "done"}}, function () {
                 dialog = null;
             });
         };
@@ -100,7 +98,7 @@ var OpenConnect = (function (previous) {
         message(uncertain ? "Unable to confirm the change" : "Unable to finish", (uncertain ?
             "Restart Mazda Connect before making more changes." :
             "Check your settings before trying again.") +
-            (origin === "usb" ? "\nKeep the USB drive connected until restart." : ""));
+            (uncertain && origin === "usb" ? "\nKeep the USB drive connected until restart." : ""));
     }
     function budget() { if (!job.until) { job.until = Date.now() + 12000; } return job.until; }
     function restart() {
@@ -130,9 +128,10 @@ var OpenConnect = (function (previous) {
     function reconcile(refusal) {
         job.phase = "checking"; if (!saving) { paint(); }
         readStatus(function (fresh) {
-            if (changed(fresh)) {
+            if (refusal && !(fresh && fresh.pending)) { refuse(false); }
+            else if (changed(fresh)) {
                 if (saving) { end(values()); } else if (!job.restartSent) { restart(); }
-            } else { refuse(!(refusal && valid(fresh) && !fresh.pending && !fresh.conflict && fresh.revision === job.before.revision)); }
+            } else { refuse(true); }
         }, budget());
     }
     function drive() {
@@ -141,7 +140,7 @@ var OpenConnect = (function (previous) {
         if (!saving && !paint() && job.operation !== "recover") { return; }
         job.sent = true; job.phase = "writing";
         request(job.operation, job.args, function (answer) {
-            if (!valid(answer)) { reconcile(answer && answer.ok === false && answer.error !== "busy"); return; }
+            if (!valid(answer)) { reconcile(answer && /^(stale_state|state_changed)$/.test(answer.error)); return; }
             if (saving) { end(values()); }
             else if (job.operation === "install" || job.operation === "uninstall" || answer.restart) { restart(); }
             else { end(null); }
@@ -204,9 +203,10 @@ var OpenConnect = (function (previous) {
         if (!job && completion() && !completionShown && !queued && !dialog) {
             usb = false;
             queued = function () {
+                if (!completion()) { queued = null; return false; }
                 return installer.complete(framework, state.installedVersion, function (action) {
                     dialog = null;
-                    if (action === "done" || action === "settings") {
+                    if (completion() && (action === "done" || action === "settings")) {
                         dismiss(); if (action === "settings") { settings.fromHome(framework, store, function () {}); }
                     }
                 });
@@ -220,9 +220,11 @@ var OpenConnect = (function (previous) {
         }
     }
     function load(name, next) {
-        var id = "oc-runtime-" + name;
-        utility.loadScript(base + name + ".js", {id: id}, function () { if (!stopped) { next(); } });
-        nodes.push(document.getElementById(id));
+        var node = document.createElement("script");
+        node.type = "text/javascript"; node.src = base + name + ".js";
+        node.onload = function () { if (!stopped) { next(); } };
+        nodes.push(node);
+        document.querySelector("head").appendChild(node);
     }
     function start(value, fromUSB) {
         if (started || stopped || !/^[a-f0-9]{32}$/.test(value)) { return; }
@@ -251,7 +253,7 @@ var OpenConnect = (function (previous) {
         });
     }
     function cancelUSB(value) {
-        if (value !== token || pending || job && job.sent) { return; }
+        if (value !== token || pending || job && (job.sent || job.origin !== "usb")) { return; }
         generation++;
         if (!ready && previous) { abandon(); return; }
         if (job) { end(null); }

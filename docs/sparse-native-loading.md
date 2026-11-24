@@ -28,7 +28,8 @@ boot, preventing its old installer from launching. Its bytes were untouched.
 This present-SD/quarantined-USB fixture differs from earlier no-SD datasets.
 
 Acquisition was blocked: three primary dev.15 controls, one supplemental control,
-upgrade/setup, then three primary dev.16 starts. Ten attempt records retain:
+upgrade/setup, then three primary dev.16 starts. The **ten-record attempt
+ledger** contains five control entries and five candidate entries. It retains:
 
 - One broken-relay acquisition with no new kernel and incomplete capture.
 - Two dev.16 pre-hardware tooling refusals: an undismissed install notice and a
@@ -39,7 +40,11 @@ upgrade/setup, then three primary dev.16 starts. Ten attempt records retain:
 Controls 2, 3 and supplemental 5 had no SessionActiveCP in their captures. Control 4 reached
 it but displayed native Home. Thus there were **zero qualified visible-Maps
 observations in four complete controls**, versus three in three complete candidate
-starts. This small blocked sample does not establish universal reliability.
+starts: **0/4 versus 3/3 completed captures**, not ten projection observations.
+The two pre-hardware refusals contribute zero projection observations, as does
+the no-new-kernel acquisition; all three remain in the attempt ledger. These
+complete-capture counts are not whole-ledger reliability rates, and the small
+blocked sample does not establish universal reliability.
 The excluded setup's successful projection remains excluded. Credential-query
 error(-1) appeared in failed controls and successful candidate starts, so that
 message alone does not establish the cause of a connection miss.
@@ -165,10 +170,11 @@ pooled with the primary timing cohort. Max-off's candidate page occupied two
 4 KiB blocks, versus one in the primary preset; its own allocation was 552 KiB.
 
 The separate max-off pair held the same Base/Wireless/Services choices and
-native Audio Sources foreground at **240.73 s** (dev.15) and **242.90 s**
-(dev.16). MMUI PSS was **13,940→11,695 KiB**, VUI **2,698→2,459 KiB**:
+native Audio Sources foreground. Probe starts were **240.73 s** (dev.15) and
+**242.90 s** (dev.16). Actual MMUI/VUI smaps sampling began at
+**242.93/243.17 s** and **246.20/246.41 s**, respectively. MMUI PSS was **13,940→11,695 KiB**, VUI **2,698→2,459 KiB**:
 **2,484 KiB (about 2.43 MiB) lower combined PSS**, while own allocated files
-rose **444→552 KiB (+108 KiB)**. This is one matched-age functional pair,
+rose **444→552 KiB (+108 KiB)**. This is one functional pair at the stated ages,
 not a timing cohort, repeated effect estimate or isolated total-RAM saving.
 The other functional rows have different ages and must not be pooled with it.
 In particular the warning-off candidate's 66 s PSS is still an early observation;
@@ -177,10 +183,33 @@ its allocation check does not establish settled application memory.
 Exact dev.15 media's real Install/update rebased the running dev.16 installation
 from preserved stock originals, retaining choices and the stock-five baseline.
 There is no version-based dev.15 downgrade refusal. Its actual Uninstall button
-then removed durable state while a bounded test interceptor held automatic
-restart transmissions. With bypass off, the RAM VUI ELF/hold, XML and 44 retained
-plugin files freshly reopened after purge, and the stock System UIA reopened.
+then removed the rebased dev.15 durable state while dev.16's native modules were
+still loaded and a bounded test interceptor held automatic restart transmissions.
+With bypass off, the RAM VUI ELF/hold, XML and 44 retained plugin files freshly
+reopened after purge, and the stock System UIA reopened. This first sequence
+proved lifetime across rebase/removal, not direct removal of installed dev.16.
 No second VUI payload copy or persistent outside hold was needed.
+
+A separate direct warning-off check installed the exact dev.16 CI bundle from
+stock, then booted **Base=1, warning=0, Wireless=0, AA/Pandora/SiriusXM=1, DVD=0**.
+The voice service was RUNNING with the selected RAM ELF, same-inode hold and
+46 plugin paths; System retained its stock library pathname. Old dev.15 media
+showed **From: 0.3.0-dev.16 / To: 0.3.0-dev.15**. The old-media request trace from that choice onward was
+**Uninstall, Restart**, with no Install/update, Set or recover request: Uninstall
+used dev.16's current revision directly, without rebasing first.
+
+After purge, both VUI ELF paths reopened with the exact candidate SHA, XML and
+all **46 plugin files** reopened, and the stock System library reopened with its
+original SHA. Native Home and the MMUI WebSocket remained alive. One automatic
+restart was held for those checks, then one explicit request to the verified
+old-media RAM backend requested the restart. The following stock boot passed
+the complete restoration check, retained Wi-Fi Off and reauthorized the unchanged
+SanDisk read only; its legacy chooser was canceled and its closed RAM removed.
+All handles closed. This additional functional check used
+no timing observer and did not add projection/resource observations to the
+measurement ledger. A setup backend call had refused `session_replaced` before
+any Set; unchanged state was checked and the verified dev.16 RAM service restored
+before making the two intended settings changes.
 
 **Fresh-page reload remains limited.** In that held interval a new browser
 context loaded OEM systemApp.js and connected its MMUI WebSocket but remained
@@ -196,12 +225,16 @@ or proof of an underlying JavaScript cause.
 With bypass on, the inherited dev.15 System UIA pathname may become dangling
 through purge while its existing native mapping remains alive until restart.
 The real warning-on old-media Uninstall passed too: all 36 retained VUI plugin
-files reopened; the mapped System ELF header was independently read through
-/proc/PID/mem and matched the original header. Its fresh browser context again
-loaded OEM System and connected MMUI while remaining in IntroAnimation at seven
-seconds. One intercepted automatic restart was followed by one explicit restart
-from the verified old-media RAM backend. Fresh native pathname opens and browser
-contexts are separate checks; no fully usable reload is claimed. The RAM VUI
+files reopened; the first **16 ELF identification bytes** of the mapped System
+module were independently read through /proc/PID/mem and matched the original's
+first 16 bytes. This did not compare the complete ELF header or module. Its
+fresh browser context again loaded OEM System and connected MMUI while remaining in IntroAnimation at seven
+seconds. UART also recorded GUI Manager closing Opera at **583.814 s** and SM
+stopping watchdog pings at **584.969 s**, before the verified old-media backend
+acknowledged the explicit restart request. Both the watchdog path and explicit
+request were present; which mechanism caused the next reboot remains open.
+One automatic restart transmission had been intercepted. Fresh native pathname
+opens and browser contexts are separate checks; no fully usable reload is claimed. The RAM VUI
 paths do not inherit the persistent System-path dependency.
 
 Removal returned to original OEM hashes/modes, original UIA/MMUI/VUI mappings
@@ -224,6 +257,15 @@ The longer Base-enable message was visibly truncated in Mazda's dialog.
 [Issue #132](https://github.com/aeharding/open-connect/issues/132) tracks the
 shorter copy and a new guide capture; the clipped image is not published.
 The qualified runtime remains byte-identical to da45ae8.
+
+The owner explicitly authorized overnight merge at **2026-11-23T23:48** only
+with Astra approval, green CI and no performance or functional regressions,
+subject to **≤+152 KiB own allocated tmpfs with Base on** and **≤0 B with Base
+off**. That authorization covers the measured **+104/+108/+152 KiB Base-on**
+and **−4 KiB Base-off** configurations, as recorded in the
+[steering agreement](https://github.com/aeharding/open-connect/blob/main/STEERING.md).
+It is not a general RAM waiver or a claim of matched CPU/net-system RAM or stock
+parity; #9 remains open.
 
 ## Builds and reproduction
 

@@ -510,8 +510,21 @@ assert.equal(pages.at(-1).ctrl.dataList.items[2].text1,'Show CarPlay on connecti
 pick(2);assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items,r=>r.text1),['Factory behavior','Automatically show']);
 const beforeAutoshow=writes.length;
 pick(1);assert.match(modal.props.text1,/restart/i);assert.equal(writes.length,beforeAutoshow);
-modal.props.defaultSelectCallback(modal,'apply');idle();
+modal.props.defaultSelectCallback(modal,'cancel');
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items,r=>r.checked),[true,false]);
+assert.equal(writes.length,beforeAutoshow);
+pick(1);modal.props.defaultSelectCallback(modal,'apply');idle();
 assert.deepEqual(writes.at(-1),['carplay-autoshow',0,1]);
 values={...values,carplayAutoshow:1};reply(values);back();back();
 assert.equal(settings.validStatus({...values,ok:true,revision:'-',installed:true,retained:false,conflict:false,restart:true,pending:false,version:'0.3.0-dev.18',wirelessCurrent:0}),true);
 assert.equal(settings.open(fw,{read:()=>({...values,carplayAutoshowCurrent:2})}),false);
+
+// Optional autoshow is a real feature row before Wireless: the prompt must
+// return focus to Wireless, including when the choice is canceled.
+settings.open(fw,store);
+let wirelessRoot=pages.at(-1).ctrl;
+assert.equal(wirelessRoot.dataList.items[3].appData,'wireless');
+wirelessRoot.selectCallback(wirelessRoot,'wireless',{additionalData:values.wireless ? 2:1});
+modal.props.defaultSelectCallback(modal,'cancel');
+assert.equal(pages.at(-1).ctrl.focussedItem,3);
+back();

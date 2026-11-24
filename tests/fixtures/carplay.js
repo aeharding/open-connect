@@ -2,17 +2,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
 const folder = process.argv[2], boot = '12345678-1234-1234-1234-123456789abc';
 function fixture(shared = {}, load = true) {
-  const calls = [], events = {}, timers = [];
+  const calls = [], events = {}, timers = [], pendingContexts = [];
+  let deferContext=false;
   let now = 0, clock = 0;
   const state = {name: '', storage: new Map(), ...shared};
   const ctx = {log: {error() {}, addSrcFile() {}, debug() {}, info() {}, warn() {}}, Date: {now: () => now},
     setTimeout(fn, ms = 0) {const t = {fn, at: now + ms, live: true};timers.push(t);return t;},
     clearTimeout(t) {if(t)t.live=false;}, setInterval() {}, clearInterval() {}};
-  ctx.window = ctx;
-  Object.defineProperty(ctx, 'name', {get: () => state.name, set: v => {
+  ctx.window = new Proxy(ctx, {});
+  Object.defineProperty(ctx, 'name', {get: () => {if(state.failNameRead)throw Error('name read');return state.name;}, set: v => {
     if(state.failName && v.endsWith(':C'))throw Error('name write');state.name=v;
   }});
-  ctx.sessionStorage = {getItem: k => state.storage.get(k) || null,
+  ctx.sessionStorage = {getItem: k => {if(state.failRead)throw Error('storage read');return state.storage.get(k) || null;},
     setItem(k,v) {if(state.failStorage)throw Error('storage write');state.storage.set(k,v);}};
   ctx.document = {body: {}, querySelector(selector) {
     return selector.includes('open-connect-token') ? {getAttribute: key => key === 'data-boot' ? boot : 'a'.repeat(32)} : null;
@@ -27,12 +28,11 @@ function fixture(shared = {}, load = true) {
     getCurrCtxtId() {return this._currTmpltInstance.contextInfo.ctxtId;}, getAppInstance(id) {return apps[id];},
     _initApp() {}, _processNewFwkState() {}, _multicontrollerEventHandler() {return 'stock input';},
     _focusStackChange(ids) {this._focusStack=ids;},
-    _handleMessage() {return 'stock message';},
+    _handleMessage(id,m) {if(id==='common'&&m.msgId==='vuiState')this.common._cachedVuiState=m.params.payload.state;return 'stock message';},
     routeMmuiMsg(m) {
       if(m.msgType==='focusStack')this._focusStackChange(m.appIdList);
       if(m.msgType==='ctxtChg') {
-        this._currTmpltInstance.contextInfo=m;
-        (apps[m.uiaId] ||= {})._currentContext={ctxtId:m.ctxtId};
+        if(deferContext)pendingContexts.push(m);else apply(m);
       }
       if(m.msgType==='msg')return this._handleMessage(m.uiaId,m);
     }, sendEventToMmui(...args) {calls.push(args);},
@@ -43,6 +43,7 @@ function fixture(shared = {}, load = true) {
     let m;try {m=JSON.parse(text);}catch{return;}
     if(!this._hasInitGui)this._preInitGuiMsgQueue.push(m);else fw.routeMmuiMsg(m);
   };
+  function apply(m) {fw._currTmpltInstance.contextInfo=m;(apps[m.uiaId] ||= {})._currentContext={ctxtId:m.ctxtId};}
   const context = vm.createContext(ctx);
   function source(name, root=folder) {vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),context,{filename:name});}
   if(process.argv[3])vm.runInContext(fs.readFileSync(process.argv[3],'utf8'),context);
@@ -72,7 +73,8 @@ function fixture(shared = {}, load = true) {
   function count() {return calls.filter(v=>v[1]==='SelectCarPlay').length;}
   function event(type, values={}) {(events[type]||[]).forEach(fn=>fn({type,...values}));}
   focus();
-  return {ctx, fw, state, source, supports, session, menu, msg, send, native, focus, advance, count, connect, event, apps};
+  return {ctx, fw, state, source, supports, session, menu, msg, send, native, focus, advance, count, connect, event, apps,
+    defer(value=true){deferContext=value;},applyContext(){apply(pendingContexts.shift());fw._processNewFwkState();}};
 }
 let f=fixture();f.connect();assert.equal(f.count(),1,'quiet boot');
 f.session(true);f.menu();f.advance();assert.equal(f.count(),1,'duplicate true');
@@ -160,12 +162,13 @@ assert.equal(f.ctx.ocCarPlay.dialogs,0);
 
 if(process.argv[4]) {
   // Real archived CI17 loader/runtime/dialog/Settings, with local DOM/XHR only.
-  function legacy() {
-    const x=fixture(), requests=[], intervals=[], nodes={};let modal;
+  function legacy(paused=false) {
+    const x=fixture(), requests=[], intervals=[], nodes={}, loads=[];let modal;
     const token='a'.repeat(32), root=process.argv[4];
     const head={appendChild(node) {
       node.parentNode=head;nodes[node.id]=node;
-      x.source(node.src.split('/').at(-1),root);node.onload();
+      const run=()=>{x.source(node.src.split('/').at(-1),root);node.onload();};
+      if(paused)loads.push(run);else run();
     },removeChild(node){delete nodes[node.id];node.parentNode=null;}};
     x.ctx.document.createElement=()=>({});
     const query=x.ctx.document.querySelector;
@@ -180,9 +183,14 @@ if(process.argv[4]) {
     x.source('loader.js',root);
     const state={ok:true,revision:'b'.repeat(32),installed:true,retained:false,conflict:false,restart:false,pending:false,touch:1,warning:1,notice:'-',version:'0.3.0-dev.17',installedVersion:'0.3.0-dev.18'};
     function reply(v){const q=requests.at(-1);q.status=200;q.readyState=4;q.responseText=JSON.stringify(v);q.onreadystatechange();}
-    reply(state);intervals.forEach(fn=>fn());
-    return Object.assign(x,{requests,reply,tick:()=>intervals.forEach(fn=>fn()),state,modal:()=>modal});
+    function resume(){while(loads.length)loads.shift()();reply(state);intervals.forEach(fn=>fn());}
+    if(!paused)resume();
+    return Object.assign(x,{requests,reply,resume,tick:()=>intervals.forEach(fn=>fn()),state,modal:()=>modal});
   }
+  f=legacy(true);assert.ok(f.ctx.__ocUSBLoading,'actual CI17 acquisition marker');
+  f.connect();assert.equal(f.count(),0,'paused old loader blocks current dev18 client');
+  f.resume();d=f.modal();d.properties.defaultSelectCallback(d,'cancel');f.advance();
+  f.session(false);f.connect();assert.equal(f.count(),1,'resumed legacy Cancel unlocks next connection');
   f=legacy();assert.equal(f.ctx.__ocUSBLoading,undefined,'old loader releases bootstrap marker');
   f.connect();assert.equal(f.count(),0,'actual CI17 chooser holds lease after marker clears');
   d=f.modal();d.properties.defaultSelectCallback(d,'cancel');f.advance();
@@ -206,3 +214,73 @@ const lateDialog=f.fw._currTmpltInstance.dialog3Ctrl={buttonCtrl_0:lateButton,pr
 f.supports();f.session(true);f.menu();f.event('mousedown',{target:'agree'});f.event('mouseup',{target:'agree'});
 lateDialog.properties.defaultSelectCallback(lateDialog,'Global.Yes');f.native('system','HomeScreen');f.advance();
 assert.equal(f.count(),1,'already instantiated stock Agree callback is observed');
+
+// Pending camera context precedes both its focus stack and its visible template.
+f=fixture();f.apps.backupparking={_currentContext:{ctxtId:'TVMCameraDisplay'}};
+f.session(true);f.defer();
+f.send({msgType:'ctxtChg',uiaId:'backupparking',ctxtId:'TVMCameraDisplay',contextSeq:2});
+f.menu();f.advance();assert.equal(f.count(),0,'pending loaded camera retains priority over old Home');
+f.focus('backupparking');f.applyContext();f.advance();assert.equal(f.count(),0,'visible camera holds');
+f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});
+f.focus();f.advance();assert.equal(f.count(),0,'safe focus without applied return still holds');
+f.applyContext();f.advance();assert.equal(f.count(),1,'confirmed safe return releases original intent');
+// Even a return template cannot reuse Home focus from before the camera request.
+f=fixture();f.session(true);f.defer();
+f.send({msgType:'ctxtChg',uiaId:'backupparking',ctxtId:'TVMCameraDisplay',contextSeq:2});
+f.menu();f.applyContext();f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});
+f.applyContext();f.advance();assert.equal(f.count(),0,'return requires a post-camera applied safe focus');
+f.focus();f.advance();assert.equal(f.count(),1);
+// A later Home action is not exempt merely because reverse happened earlier.
+f=fixture();f.session(true);f.native('backupparking','TVMCameraDisplay');
+f.native('system','HomeScreen');f.advance();
+f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});
+f.menu();f.advance();assert.equal(f.count(),0,'post-return user departure consumes edge');
+// Origin identity is a value snapshot: Mazda may mutate the previous context.
+f=fixture();f.session(true);f.fw._currTmpltInstance.contextInfo.contextSeq=2;
+f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:2});
+f.menu();f.advance();assert.equal(f.count(),0,'same Home with a new sequence is user departure');
+for(const early of [false,true]) {
+  f=fixture({},!early);f.session(true);
+  f.msg('vuiState',{state:'Listening'},'common');f.msg('vuiState',{state:'Idle'},'common');
+  if(early)f.supports();f.menu();f.advance();assert.equal(f.count(),0,'voice consumes edge before menu or support readiness');
+  f.session(false);f.connect();assert.equal(f.count(),1,'voice end permits later reconnect');
+}
+f=fixture();f.session(true);f.fw.common._cachedVuiState='Processing';f.fw._processNewFwkState();f.advance();
+f.fw.common._cachedVuiState='Idle';f.menu();f.advance();assert.equal(f.count(),0,'positive cache cancels before menu');
+for(const wifi of [false,true]) {
+  f=fixture();f.session(true);f.menu(wifi);
+  f.msg(wifi?'StatusMenuCarPlayWifi':'StatusMenuVisibleCarPlay',wifi?{appName:'carplay',appStatus:'Unavailable'}:{appName:'carplay',state:'Hidden'},'system');
+  f.advance();assert.equal(f.count(),0,'withdrawn menu cannot release intent');
+  f.menu(wifi);f.advance();assert.equal(f.count(),1,'fresh availability can release still-unexpired edge');
+}
+f=fixture();f.session(true);f.menu();
+f.msg('StatusMenuCarPlayWifi',{appName:'carplay',appStatus:'Unavailable'},'system');
+f.advance();assert.equal(f.count(),1,'unrelated transport withdrawal preserves matching ready mark');
+// An unreadable store may hide this boot's consumed mark; only false re-arms.
+f=fixture({failName:true});f.connect();
+f.state.failName=false;f.state.failRead=true;f.state.name='oc107:'+boot+':A';
+r=fixture(f.state);r.connect();assert.equal(r.count(),0,'throwing fallback read cannot repeat consumed connection');
+r.state.failRead=false;r.session(true);r.menu();r.advance();assert.equal(r.count(),0,'read recovery alone cannot re-arm');
+r.session(false);r.connect();assert.equal(r.count(),1,'actual disconnect reconciles both stores');
+f=fixture();f.connect();f.state.failNameRead=true;r=fixture(f.state);r.connect();assert.equal(r.count(),0,'throwing primary read is also ambiguous');
+r.state.failNameRead=false;r.session(false);r.connect();assert.equal(r.count(),1);
+
+function bootClient(notice='-') {
+  const x=fixture({},false), loads=[], intervals=[], requests=[], token='a'.repeat(32);
+  const query=x.ctx.document.querySelector;
+  const head={appendChild(node){loads.push(()=>{x.source(node.src.split('/').at(-1));node.onload();});}};
+  x.ctx.document.querySelector=s=>s==='head'?head:s.includes('open-connect-version')?{getAttribute:()=> '0.3.0-dev.18'}:
+    s.includes('open-connect-notice')?{getAttribute:()=>notice}:query(s);
+  x.ctx.document.createElement=()=>({});
+  x.ctx.setInterval=fn=>{intervals.push(fn);return fn;};
+  x.ctx.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.abort=()=>{};this.send=body=>{this.body=body;requests.push(this);};};
+  x.source('runtime.js');
+  return Object.assign(x,{token,requests,complete(){while(loads.length)loads.shift()();},tick(){intervals.forEach(fn=>fn());}});
+}
+f=bootClient();f.session(true);f.menu();f.advance();assert.equal(f.count(),0,'ordinary boot awaits real support callbacks');
+f.complete();assert.equal(f.count(),1,'ready callback pumps first connection without another message');
+f=bootClient('installed');f.complete();f.tick();assert.equal(f.requests.length,1);
+f.advance(34000);f.session(true);f.advance();f.ctx.OpenConnect.cancelUSB(f.token);
+f.advance(1001);f.menu();f.advance();assert.equal(f.count(),0,'proof expiry cannot send the same canceled edge');
+f.session(false);f.connect();assert.equal(f.count(),1,'expired superseded proof does not block later sessions');
+console.log('Astra regressions: pending reverse, ownership, proof expiry, startup, input/voice, menu withdrawal and storage ambiguity passed');

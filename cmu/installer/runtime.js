@@ -129,7 +129,7 @@ function changed(answer) {
       answer.revision!==old.revision&&(!old.installed||old.installedVersion&&old.installedVersion!=="-"&&old.installedVersion!==job.target);
   }
   if (job.operation==="set") {
-    var key=job.args[0], wanted=Number(job.args[2]), value=answer[key];
+    var key=job.args[0], wanted=Number(job.args[2]), value=answer[key==="carplay-autoshow" ? "carplayAutoshow" : key];
     (answer.services||[]).forEach(function (row) { if (row.id===key) { value=row.saved; } });
     return answer.installed&&answer.revision!==old.revision&&value===wanted;
   }
@@ -259,6 +259,7 @@ function start(value, fromUSB) {
           ready=true;
           if (previous&&previous.dispose) { previous.dispose(); }
           previous=null;
+          if (window.ocCarPlay) { ocCarPlay.pump(); }
         }
         timer=setInterval(tick, 500);
       }
@@ -311,6 +312,7 @@ return client;
 (function (a) {
 if (!a||a.loaded & 1) { return; }
 var f=framework;
+a.voice=function (s) { return /^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(s); };
 var gesture, confirmed;
 function button() {
   var h=f._currTmpltInstance;

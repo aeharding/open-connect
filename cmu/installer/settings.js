@@ -98,10 +98,9 @@ function preferences(store) {
       if (!valid(current)) { return null; }
       saved=current;
     }
-    var values={developer: saved.developer, key: saved.key, fingerprint: saved.fingerprint,
-      uartCurrent: saved.uartCurrent, sshCurrent: saved.sshCurrent, wirelessCurrent: saved.wirelessCurrent,
-      wirelessFactory: saved.wirelessFactory, restart: saved.restart, carplayAutoshowCurrent: saved.carplayAutoshowCurrent},
-      keys=["touch", "warning", "uart", "ssh", "pandora", "base", "wireless", "carplayAutoshow"];
+    var values={}, keys=["developer", "key", "fingerprint", "uartCurrent", "sshCurrent", "wirelessCurrent",
+      "wirelessFactory", "restart", "carplayAutoshowCurrent", "touch", "warning", "uart", "ssh",
+      "pandora", "base", "wireless", "carplayAutoshow"];
     keys.forEach(function (key) { values[key]=own.call(wanted, key) ? wanted[key] : saved[key]; });
     if (saved.services) {
       values.services=saved.services.map(function (row) {
@@ -278,14 +277,14 @@ function open(fw, store) {
     if (choice===null&&item==="services") { render("services", 0); return; }
     if (choice===null&&item==="wireless") {
       if (!params||(params.additionalData!==1&&params.additionalData!==2)) { return; }
-      var wirelessValues=prefs.values(), enableWireless=params.additionalData===1;
-      if (!wirelessValues||wirelessValues.wirelessFactory===true||wirelessValues.wireless===undefined||
-          wirelessValues.wireless===(enableWireless ? 1 : 0)) { return; }
-      dismiss=ask((enableWireless ? "Enable" : "Disable") + " Wireless CarPlay?", enableWireless ? "Changes apply after restarting Mazda Connect. Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth." :
-          "Restores the original CarPlay behavior after restarting Mazda Connect.", enableWireless ? "Enable" : "Disable", "apply", function (action) {
+      var values=prefs.values(), enabled=params.additionalData===1;
+      if (!values||values.wirelessFactory===true||values.wireless===undefined||
+          values.wireless===(enabled ? 1 : 0)) { return; }
+      dismiss=ask((enabled ? "Enable" : "Disable") + " Wireless CarPlay?", enabled ? "Changes apply after restarting Mazda Connect. Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth." :
+          "Restores the original CarPlay behavior after restarting Mazda Connect.", enabled ? "Enable" : "Disable", "apply", function (action) {
           dismiss=null;
-          if (action==="apply"&&current()) { prefs.select("wireless", enableWireless ? 1 : 0); }
-          if (current()&&choice===null) { render(null, 2); }
+          if (action==="apply"&&current()) { prefs.select("wireless", enabled ? 1 : 0); }
+          if (current()&&choice===null) { render(null, featureCount(values)); }
         });
       return;
     }
@@ -378,7 +377,8 @@ function open(fw, store) {
     // Save without moving List2 focus or its radio dot.
     if (choice===2&&item===1&&preference(prefs.values(), "carplayAutoshow")===0) {
       dismiss=ask("Automatically show CarPlay?", "Opens CarPlay when your phone connects. Applies after restarting Mazda Connect.", "Enable", "apply", function (action) {
-        dismiss=null; if (action==="apply"&&current()) prefs.select("carplayAutoshow", 1);
+        dismiss=null;
+        if (current()) { if (action==="apply") prefs.select("carplayAutoshow", 1); else render(choice,0); }
       });
       return;
     }
@@ -547,6 +547,7 @@ return {open: open, fromHome: fromHome, attach: attach, validStatus: validStatus
 if (!a||a.loaded & 4) { return; }
 var owner, held;
 a.owner=function () {
+  if (window.__ocUSBLoading) { return 2; }
   var current=window.OpenConnect;
   if (!current) { return 1; }
   if (current.autoshowState) { return current.autoshowState(); }
@@ -558,35 +559,45 @@ a.owner=function () {
   return held||owner.protected() ? 2 : 0;
 };
 a.closed=function () { if (owner===window.OpenConnect&&!owner.protected()&&!a.dialogs) { held=false; } };
+function context(id, ctx) {
+  if (id==="backupparking"||/^(IntroAnimation|QuickStartLoop|Disclaimer)$/.test(ctx)) return 1;
+  return id==="system" ? (/^(HomeScreen|Entertainment)$/.test(ctx) ? 0 : 2) :
+    /^(fmradio|amradio|usbaudio|btaudio|auxin|satradio|xmaudio|cd|dvd|tv|stitcher|aharadio|pandora|dab)$/.test(id) ? 0 : 2;
+}
 a.check=function (focus, next) {
-  var state=a.owner(), h=f._currTmpltInstance, id=f.getCurrentApp(), c=f.common;
+  var state=a.owner(), h=f._currTmpltInstance, id=f.getCurrentApp(), c=f.common, s=OpenConnectSettings;
   if (state) { return state; }
-  if (a.dialogs||OpenConnectSettings.blocked&&OpenConnectSettings.blocked()||departure(next, a.edge())) { return 2; }
+  if (a.dialogs||s.blocked&&s.blocked()||departure(next, a.edge())) { return 2; }
   if (!h||!c||!focus||f._focusStack!==focus||focus[0].id!==id||
       h.contextInfo.uiaId!==id||f._frameworkState!==f._FWK_STATE_IDLE||!f._browserShown) { return 1; }
   var ctx=h.contextInfo.ctxtId, app=f.getAppInstance(id);
   if (!app||!app._currentContext||app._currentContext.ctxtId!==ctx||
-      next&&next.uiaId===id&&next.contextSeq!==h.contextInfo.contextSeq) { return 1; }
-  if (id==="backupparking"||/^(IntroAnimation|QuickStartLoop|Disclaimer)$/.test(ctx)) { return 1; }
-  if (/settings|phone|androidauto|netmgmt/.test(id)||ctx==="DisplayOff"||
-      c._vuiHelpDialog||c._vuiExamplesDialog||/^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(c._cachedVuiState)) { return 2; }
-  return id==="system" ? (/^(HomeScreen|Entertainment)$/.test(ctx) ? 0 : 2) :
-    /^(fmradio|amradio|usbaudio|btaudio|auxin|satradio|xmaudio|cd|dvd|tv|stitcher|aharadio|pandora|dab)$/.test(id) ? 0 : 2;
+      next&&(next.uiaId!==id||next.contextSeq!==h.contextInfo.contextSeq)) { return 1; }
+  if (c._vuiHelpDialog||c._vuiExamplesDialog||a.voice(c._cachedVuiState)) { return 2; }
+  var edge=a.edge(), kind=context(id, ctx);
+  if (edge&&edge.reverse) {
+    if (kind||a.focus<=edge.reverse) return 1;
+    edge.origin=[id,ctx,h.contextInfo.contextSeq]; edge.reverse=0;
+  }
+  return kind;
 };
 function departure(m, edge) {
   if (!edge||!m||m.msgType!=="ctxtChg"||m._cp.order<=edge.order) return false;
-  if (m.uiaId==="backupparking") { edge.reverse=true; return false; }
-  if (/settings|phone|netmgmt/.test(m.uiaId)||m.ctxtId==="DisplayOff") return true;
-  var old=edge.origin;
-  return old&&!/^(IntroAnimation|QuickStartLoop|Disclaimer)$/.test(old.ctxtId)&&
-    old.uiaId!=="backupparking"&&!(old.uiaId===m.uiaId&&old.ctxtId===m.ctxtId);
+  if (m.uiaId==="backupparking") { edge.reverse=m._cp.order; return false; }
+  var kind=context(m.uiaId,m.ctxtId), old=edge.origin;
+  if (kind===2) return true;
+  if (kind===1||!old||context(old[0],old[1])===1) return false;
+  return old[0]!==m.uiaId||old[1]!==m.ctxtId||!edge.reverse&&old[2]!==m.contextSeq;
 }
 a.signal=function (m) {
   var id=m.msgId, p=m.params&&m.params.payload;
   var edge=a.edge();
-  if (edge&&m._cp.order > edge.order&&m.uiaId==="system"&&p&&p.appName==="carplay"&&
-      (id==="StatusMenuVisibleCarPlay"&&p.state==="Visible"||
-       id==="StatusMenuCarPlayWifi"&&p.appStatus==="Available")) { edge.menu=m._cp; }
+  if (edge&&m._cp.order>edge.order&&m.uiaId==="system"&&p&&p.appName==="carplay"&&
+      /^(StatusMenuVisibleCarPlay|StatusMenuCarPlayWifi)$/.test(id)) {
+    if (id==="StatusMenuVisibleCarPlay" ? p.state==="Visible" : p.appStatus==="Available") edge.menu=m;
+    else if (edge.menu&&edge.menu.msgId===id) edge.menu=null;
+  }
+  if (m.uiaId==="common"&&id==="vuiState"&&p) a.busy=a.busy & ~16 | (a.voice(p.state) ? 16 : 0);
   if (m.uiaId==="system") {
     if (id==="StatusPhoneCall"&&p&&/^(Connecting|ActiveCall|IncomingCall|NoCall)$/.test(p.phoneCallStatus)) { a.busy=a.busy & ~1 | (p.phoneCallStatus!=="NoCall" ? 1 : 0); }
     if (id==="ShowStateSBN_SiriActive") { a.busy |= 4; }
@@ -599,14 +610,14 @@ a.signal=function (m) {
   if (departure(m, edge)||a.busy&&(!edge||m._cp.order>=edge.order)) { a.cancel(); }
 };
 a.early.forEach(a.signal); a.early=null;
-a.run=function (pending, input, trusted, focus, context) {
+a.run=function (pending, input, trusted, focus, next) {
   if (Date.now()>=pending.until||input!==pending.input||a.busy) { a.cancel(); return; }
-  if (!trusted||a.loaded!==7||!pending.menu||!pending.menu.delivered||!pending.delivered||
-      framework.websockets._waitMsgArray.length||a.holding) { return; }
-  var state=a.check(focus, context);
-  if (state===2) { a.cancel(); }
-  if (state!==0) { return; }
-  a.cancel(); framework.sendEventToMmui("system", "SelectCarPlay");
+  if (a.loaded!==7) return;
+  var state=a.check(focus, next);
+  if (state===2) a.cancel();
+  if (state!==0||a.edge()!==pending||!trusted||!pending.menu||!pending.menu._cp.delivered||
+      !pending.delivered||f.websockets._waitMsgArray.length||a.holding) return;
+  a.cancel(); f.sendEventToMmui("system", "SelectCarPlay");
 };
 a.loaded |= 4; a.pump();
 }(typeof ocCarPlay==="undefined" ? null : ocCarPlay, typeof framework==="undefined" ? null : framework));

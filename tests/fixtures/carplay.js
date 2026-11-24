@@ -354,6 +354,26 @@ for(const [id,ctx] of [['backupparking','TVMCameraDisplay'],['system','Disclaime
   assert.equal(f.count(),1,'single safe return remains eligible from '+ctx);
 }
 
+// A later reverse interruption must retain the safe screen established after
+// connecting on a temporary screen, including before lazy Settings loads.
+for(const lazy of [false,true]) {
+  for(const [id,ctx] of [['backupparking','TVMCameraDisplay'],['system','Disclaimer']]) {
+    for(const returned of ['HomeScreen','Entertainment']) {
+      for(const yieldTimer of [false,true]) {
+        f=lazy?bootClient():fixture();f.native(id,ctx);f.session(true);
+        f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});f.focus();
+        if(yieldTimer)f.advance();
+        f.native('backupparking','TVMCameraDisplay');
+        f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:returned,contextSeq:5});f.focus();f.menu();
+        if(lazy)f.complete();f.advance();
+        assert.equal(f.count(),returned==='HomeScreen'?1:0,
+          'temporary '+ctx+' -> Home -> reverse -> '+returned+' lazy='+lazy+' timer='+yieldTimer);
+      }
+    }
+  }
+}
+console.log('Temporary-origin reverse preserves Home baseline: ready/lazy Home and Entertainment controls passed');
+
 function mutationReplay(handler,compare,label) {
   f=bootClient();f.contexts(handler,compare);f.native('system','Disclaimer');f.session(true);
   f.native('backupparking','TVMCameraDisplay');

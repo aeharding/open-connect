@@ -589,10 +589,10 @@ function depart(m, edge) {
   if (kind===2) return true;
   if (kind===1) return false;
   kind=!old||context(old[0],old[1])===1;
-  var first=(edge.reverse||kind)&&!edge.back;
-  if (first) edge.back=c;
+  var once=(edge.reverse||kind)&&!edge.back;
+  if (once) edge.origin=edge.back=c;
   if (kind) return false;
-  return old[0]!==c[0]||old[1]!==c[1]||!first&&old[2]!==c[2];
+  return old[0]!==c[0]||old[1]!==c[1]||!once&&old[2]!==c[2];
 }
 a.signal=function (m) {
   var id=m.msgId, p=m.params&&m.params.payload;

@@ -9,6 +9,24 @@ R=/tmp/oc-bench-startup
 test "$(id -u)" = 0
 test "$(readlink -f "$D")" = "$D"
 test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0
+# Optional bench fixture: an old installer USB must not replace the measured
+# candidate's listener. Bind deauthorization to this device and a private serial.
+quarantine=-
+policy=$D/usb-quarantine-serial
+if test -e "$policy" || test -L "$policy"; then
+    test -f "$policy" && test ! -L "$policy" && test "$(readlink -f "$policy")" = "$policy"
+    test "$(stat -c '%a:%u:%g' "$policy")" = 600:0:0
+    read -r expected_serial < "$policy"
+    case "$expected_serial" in ''|*[!0-9a-fA-F]*) exit 64;; esac
+    usb=/sys/bus/usb/devices/1-1.1
+    read -r vendor < "$usb/idVendor"; read -r product < "$usb/idProduct"
+    read -r actual_serial < "$usb/serial"
+    test "$vendor:$product:$actual_serial" = "0781:55a9:$expected_serial"
+    printf '0\n' > "$usb/authorized"
+    read -r authorized < "$usb/authorized"
+    test "$authorized" = 0
+    quarantine=$(openssl dgst -sha256 < "$policy"); quarantine=${quarantine##* }
+fi
 # A boot-local claim prevents duplicate collectors and accidental trace overwrite.
 mkdir "$R"
 ulimit -f 8192
@@ -23,6 +41,7 @@ test "$(sha "$D/metrics.sh")" = "$expected"
     printf 'BOOT|%s\nMETRICS_SHA|%s\nLAUNCH_SHA|%s\n' "$boot" "$expected" "$(sha "$D/startup-launch.sh")"
     printf 'HOOK_SHA|%s\nSTART_UPTIME|' "$(sha /jci/scripts/stage_1.sh)"
     cat /proc/uptime
+    printf 'USB_QUARANTINE|1-1.1|0781:55a9|%s\n' "$quarantine"
 } > "$R/metadata"
 set +e
 timeout -t 190 sh "$D/metrics.sh" 180 1 "$token" > "$R/trace.raw" 2> "$R/stderr"

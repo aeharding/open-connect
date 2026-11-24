@@ -1,0 +1,9 @@
+attempt,kind,outcome,acc_frames_sent,samples,home_frame_bounds_recorded,note
+dev17-base0,normal-attempt,incomplete_preserved,0,0,False,saved choice not yet selected
+dev17-base0-measured,normal,observed,2,173,True,
+dev16-base0-measured,normal,observed,2,172,True,
+dev16-base1-measured,normal,observed,2,174,True,
+dev17-base1-measured,normal-attempt,incomplete_preserved,0,0,False,install notice still present
+dev17-base1-normal,normal-attempt,incomplete_preserved,0,0,False,USB session public manifest differed from installed-private guard
+dev17-base1-settled,normal,observed,2,174,True,
+dev17-base0-cpu-repeat,supplemental-resource-only,observed_resource_only,2,172,False,clean prefix only; process probe at125.76s and UI at136.71s excluded

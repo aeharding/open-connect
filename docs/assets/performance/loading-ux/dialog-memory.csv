@@ -1,0 +1,13 @@
+experiment,state,uptime_s,private_dirty_kib,private_clean_kib,pss_kib,rss_kib
+layout-previews,before,262.59,40788,10088,51106,54212
+layout-previews,during1,264.72,42488,10144,52862,55968
+layout-previews,after1,266.86,42488,10144,52862,55968
+layout-previews,during2,268.98,42488,10144,52862,55968
+layout-previews,after2,271.11,42488,10144,52862,55968
+layout-previews,during3,273.24,42488,10144,52862,55968
+layout-previews,after3,275.37,42488,10144,52862,55968
+static-spinner-attribution,before_static,136.71,40648,9776,50772,54088
+static-spinner-attribution,static_visible,138.85,41968,9784,52100,55416
+static-spinner-attribution,after_static,140.98,41968,9784,52100,55416
+static-spinner-attribution,spinner_visible,143.16,42504,9836,52688,56004
+static-spinner-attribution,after_spinner10s,153.3,42504,9836,52688,56004

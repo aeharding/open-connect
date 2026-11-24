@@ -176,8 +176,10 @@ artifact identities, passed checks and remaining qualification limits.
 Use **Install**, **Update** or **Reinstall** for the verified version relationship,
 plus **Uninstall**. The dev.17 work in [#132](https://github.com/aeharding/open-connect/issues/132)
 adds OEM animated progress, ownership through restart and verified post-boot completion.
-Source review precedes native screenshots and affected timing/RAM checks; the UI
-must fit its existing allocated pages. Preserve
+The [dev.17 qualification record](https://aeharding.github.io/open-connect/maintenance-loading/)
+retains the cold Base-on completion fix, native captures, timing/RAM results and
+remaining owner RAM disposition. Its UI fits the existing allocated pages; this
+is not stock-parity or real-car qualification. Preserve
 verified originals until restoration succeeds; uninstall removes installed files,
 backups and transaction state. See [uninstall behavior](docs/uninstall.md).
 

@@ -184,10 +184,10 @@ Normal notice-free startup adds no status request.
 
 Packaging refuses page-budget overflow: dialog 8,192 B, runtime 16,384 B,
 Settings 32,768 B, loader 4,096 B and backend 20,480 B. These are per-file bounds,
-not proof of unchanged Opera memory or timings. Native 800×480 screenshots,
-spinner motion, affected lifecycle interactions and matched nearby boot/RAM
-checks remain pending source review and hardware qualification. Existing guide
-screenshots still show dev.16; they will be replaced after review of live captures.
+not proof of unchanged Opera memory or timings. The
+[dev.17 maintenance UI record](maintenance-loading.md) separates native 800×480
+captures, spinner/input checks, lifecycle observations and nearby timing/RAM
+measurements. Guide images retain their individual build provenance.
 
 ### dev.16 candidate: sparse native UI and voice loading
 

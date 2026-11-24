@@ -21,14 +21,19 @@ its received SHA-256 and was reviewed for personal data, credentials and
 diagnostic overlays. The separately authored `cmu-frame.svg` is a decorative
 bezel displayed around the captures by the website; it is not part of the screen.
 
-Current dev.16 Services, Android Auto confirmation, Audio Sources, update and
-completion captures use
+Current dev.17 Install, loading/restart, Update, Settings, Uninstall
+and Base-confirmation captures use
+[CI 45390881869](https://github.com/aeharding/open-connect/actions/runs/45390881869),
+source `533142d67e7a7e79e34abc6bcb87b7b1f5663f73`. Completion uses the corrected
+[CI 45405103481](https://github.com/aeharding/open-connect/actions/runs/45405103481),
+source `ad10c3a68084c7d825c8f536c4414d710e908164`. Retained dev.16 Services,
+Android Auto and Audio Sources images use
 [CI 45336747490](https://github.com/aeharding/open-connect/actions/runs/45336747490),
-source `da45ae8bcc556474b9949025011907e04c63695c`. The retained dev.15 Base
-confirmation, dev.10 Pandora and dev.8 installer/developer
-images keep their own source identities. Per-file capture dates, exact hashes
-and superseded image records are in the [guide asset notes](docs/assets/guide/README.md).
-Replacing an image does not relabel unchanged captures or historical evidence.
+source `da45ae8bcc556474b9949025011907e04c63695c`. The dev.10 Pandora and
+dev.8 Developer/wireless images retain their own identities. Per-file capture
+dates, exact hashes and superseded image records are in the
+[guide asset notes](docs/assets/guide/README.md). Replacing an image does not
+relabel unchanged captures or historical evidence.
 
 Unchanged earlier captures retain these identities:
 

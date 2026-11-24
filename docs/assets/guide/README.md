@@ -1,9 +1,58 @@
 # Guide image provenance
 
+## Animated maintenance dialogs — November 24, 2026
+
+The current `install.png`, `installing.png`, `complete.png`, `update.png`,
+`uninstall.png`, `restarting.png`, `settings.png` and `base-enable.png` are
+**unedited native 800×480** captures of the **0.3.0-dev.17** client on
+**74.00.324A NA/cmu150_NA**, reviewed for personal information, credentials and
+diagnostic overlays. The Update chooser shows the actual dev.16→dev.17 decision
+before applying the update. Completion is from a later installed boot;
+Open settings opened the real installed menu on the initial 533142d6 build;
+the corrected build’s pictured Completion was dismissed with Done. The Base confirmation includes
+the complete Navigation-delay explanation. Settings removal/restart contains no
+USB wording. Manual SD maintenance is separate from physical USB-insertion
+qualification and from real-car/physical-commander checks.
+
+Build: [CI 45390881869](https://github.com/aeharding/open-connect/actions/runs/45390881869),
+source [533142d6](https://github.com/aeharding/open-connect/tree/533142d67e7a7e79e34abc6bcb87b7b1f5663f73).
+Public manifest SHA256:
+`56b036f3ed7526706043e75e4b8e7f6854b12f94288c3d97693ea3874d60db80`.
+All 46 public payload hashes matched; private instance binding is not published.
+
+**Completion exception:** `complete.png` is the final corrected build,
+[ad10c3a](https://github.com/aeharding/open-connect/tree/ad10c3a68084c7d825c8f536c4414d710e908164),
+[CI 45405103481](https://github.com/aeharding/open-connect/actions/runs/45405103481).
+Its public manifest SHA256 is
+`9794c7989454f9ece39a96ad05c80e6c4f653c551c16f93d202638599c40d103`.
+It appeared automatically with Base on, before any maintenance reopen or
+independent backend status probe. The other images retain source 533142d6.
+
+| Asset | SHA256 |
+| --- | --- |
+| `install.png` | `5d560d752787e09ea585f4fb1692c01a34ab4aadb97bbe962aec38271e6845a3` |
+| `installing.png` | `a676fd1919046b6175541ef9f83d7d1964e2db4c6103e4dc4458eae15bd089aa` |
+| `complete.png` | `3182887ad11268e8f61af324cff1735f7daa9abf684babc753f68d097aeb8b94` |
+| `update.png` | `eecf6bf729e74306f6c180a40e331685229474f7c301ee89dc3d7f62723a96d2` |
+| `uninstall.png` | `158d25f00c9acd465173bd899d1a8c394ed63ffa63c8ea8ac16aac3a213bc250` |
+| `restarting.png` | `8b4452d0dbb2a1dad1d62f9d0650db1d7414a7b85a3db2f6ac96e5d23c79e6cb` |
+| `settings.png` | `e6a4b90f99f1038596b3a8c3e9ed7dfeebf32c48dcf5e4e4c5eae272212a680d` |
+| `base-enable.png` | `77725a92a1c8c1682049229310a3fcf80517e58362bcf2bf524b755aa5bb954a` |
+
+Private originals and receipts: `runs/loading-ux-20261124/screenshots/`
+(including `fixed-automatic-completion.png`),
+`fresh-install-native/frame-10.png` and
+`settings-uninstall-native/settings-uninstall-once/frame-47.png`.
+The restarting capture used a four-second observation-only delay before sending
+its single restart request. These lifecycle capture loops were excluded from
+normal boot timing/RAM measurements. [The qualification record](../../maintenance-loading.md)
+separates actual operations from rare-state layout previews and retains limits.
+Older sections below describe superseded image bytes, preserved in Git.
+
 ## Sparse native loading candidate — November 24, 2026
 
-The current `services.png`, `android-auto-disable.png`, `audio-sources.png`, `update.png` and `complete.png`
-are direct, unedited 800×480 native captures of **0.3.0-dev.16** on
+The `services.png`, `android-auto-disable.png`, `audio-sources.png`, `update.png` and `complete.png`
+captures recorded at this stage are direct, unedited 800×480 native captures of **0.3.0-dev.16** on
 **74.00.324A NA/cmu150_NA**, reviewed for personal data, credentials and overlays.
 Services and the Android Auto confirmation show Base off, AA/Pandora/SiriusXM on,
 and DVD off. Audio Sources shows Base on with AA, DVD, Pandora and SiriusXM off;

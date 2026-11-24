@@ -6,12 +6,18 @@
    and developer-access configuration, then restarts automatically.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/uninstall.png" alt="Uninstall? Open Connect will be removed. Mazda Connect will restart. Cancel and Uninstall buttons." width="800" height="480"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/uninstall.png" alt="Uninstall Open Connect? Open Connect will be removed. Mazda Connect will restart. Cancel and Uninstall buttons." width="800" height="480"></div>
   <figcaption>Choose Uninstall. Mazda Connect restarts automatically.</figcaption>
 </figure>
 
-The USB drive is not needed for removal through Settings.
+During removal, an animated loading view asks you to keep the car on.
+Wait through the automatic restart. The USB drive is not needed for removal through Settings.
 After a successful uninstall, Open Connect's files and backups are deleted.
+
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/restarting.png" alt="Restarting Mazda Connect, with an animated meter and Do not turn off the car." width="800" height="480" loading="lazy"></div>
+  <figcaption>Keep the car on while Mazda Connect restarts.</figcaption>
+</figure>
 
 ## Remove it using USB
 

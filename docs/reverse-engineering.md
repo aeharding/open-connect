@@ -1153,4 +1153,6 @@ net memory or readiness claims. The dev.16 candidate keeps its VUI ELF/config in
 RAM through old-media purge; disclaimer-enabled System pathname reopening keeps
 the separately documented dev.15 limit. Private proofs and exact-original host
 checks are in `runs/carplay-speed-20261122/wave-c-evidence/` and
-`runs/wave-c-20261123/`. Live dev.16 qualification remains pending.
+`runs/wave-c-20261123/`. The [dev.16 bench record](sparse-native-loading.md)
+retains measured allocations, application PSS, different achieved projection
+workloads and the inherited mid-uninstall reload limit.

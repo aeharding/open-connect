@@ -114,8 +114,12 @@ accepted that candidate-specific timing tradeoff; no speedup/parity is claimed.
 Independent dev.14-media removal restored stock. The test-only mid-uninstall
 page reload loaded OEM System code, then an unexplained reboot limited its
 qualification; retain that failure in the evidence.
-Omitting unused MMUI/voice modules remains a separate follow-up: qualify their
-actual loader paths and retained destinations before removing those modules.
+The [dev.16 sparse-loading candidate](docs/sparse-native-loading.md) retains
+three primary starts per version plus all misses and a supplemental control.
+Home's median midpoint was 0.385 s earlier; own tmpfs rose 104 KiB. Different
+achieved projection workloads prevent comparative Maps, CPU or net-system RAM
+claims. Base-off and old-media removal checks accompany the named limits;
+#9 remains open.
 
 The deferred phase-1 manual and first-car checks remain separate.
 

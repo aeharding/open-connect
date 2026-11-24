@@ -41,6 +41,7 @@ nav = [
     { "Services pilots" = "service-pilots.md" },
     { "Complete Services preset" = "services-comparison.md" },
     { "Expanded Services" = "services-expansion.md" },
+    { "Sparse native loading" = "sparse-native-loading.md" },
     { "CarPlay measurements" = "carplay-testing.md" },
   ] },
   { "Development" = [

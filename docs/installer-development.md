@@ -195,9 +195,10 @@ and fresh native pathname opens are separate qualification checks.
 When Base and Wireless are both on, a separate finite Nav gate waits twenty
 seconds after stock stage_3. SM releases it on normal exit or its 22-second
 timeout. It has no CarPlay or NMS dependency; stock Nav prerequisites and NNG's
-demand-start policy are preserved. Nav readiness, timing, memory and interactive
-behavior remain pending live dev.16 qualification. No performance claim or new
-device qualification is implied by offline checks.
+demand-start policy are preserved. The [dev.16 bench record](sparse-native-loading.md)
+reports measured Nav service readiness, own RAM, native mappings and OEM interactions separately from
+voice/audio or licensed guidance qualification. Host checks alone establish none
+of those device outcomes.
 The installed Settings session copies sixteen files, excluding the SM composer;
 active writes execute the verified persistent target package's writer/renderer.
 USB maintenance keeps the complete package. This avoids carrying render-time

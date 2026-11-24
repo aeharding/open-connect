@@ -9,8 +9,8 @@ Mazda Settings.
 > A qualified v74 download is not published yet. See
 > [development and qualification](installer-development.md) for current limits.
 
-The screenshots show **0.3.0-dev.8**, including an update from dev.7. These are
-v74 development builds; release qualification remains in progress.
+The installer screenshots show **0.3.0-dev.17** on the v74 bench.
+Release qualification remains in progress.
 
 <ol class="oc-install-flow" aria-label="Installation overview">
   <li>
@@ -45,21 +45,26 @@ Wait for **Mazda Connect's main screen**, then insert the USB drive.
 Choose **Install** when the prompt appears.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect 0.3.0-dev.8? Cancel and Install buttons on the Mazda Connect main screen." width="800" height="480"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect? Version 0.3.0-dev.17, with Cancel and Install buttons." width="800" height="480"></div>
   <figcaption>Choose Install. Keep the USB connected and the car on.</figcaption>
 </figure>
 
 **Do not remove the USB drive or turn off the car** during installation or the
-automatic restart. Wait for the **Installation complete** message.
+automatic restart. Wait for the **Open Connect installed** message.
+
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/installing.png" alt="Installing Open Connect, with Mazda’s animated meter and a warning to keep the USB drive connected and car on." width="800" height="480" loading="lazy"></div>
+  <figcaption>Wait while Open Connect applies the change and restarts Mazda Connect.</figcaption>
+</figure>
 
 ## 3. Finish
 
-After the restart, wait for **Installation complete**, then choose **Done** or
+After the restart, wait for **Open Connect installed**, then choose **Done** or
 **Open settings**. You can now remove the USB drive. Open Connect stays installed
 for future starts.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect 0.3.0-dev.8 installed. Installation complete, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect installed. Version 0.3.0-dev.17, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
   <figcaption>You can now remove the USB drive. Choose Open settings to change your preferences.</figcaption>
 </figure>
 
@@ -70,11 +75,11 @@ for future starts.
 Prepare a USB drive from the new release in the same way. Insert it while
 Mazda Connect shows its main screen. The prompt shows **From** (the installed
 version) and **To** (the version on the drive), including same-version reinstalls.
-Choose **Install/update**. Your Open Connect preferences are kept.
+Choose **Update**, or **Reinstall** when the versions match. Your Open Connect preferences are kept.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/update.png" alt="Open Connect update prompt showing From 0.3.0-dev.7 and To 0.3.0-dev.8, with Cancel, Install/update and Uninstall buttons." width="800" height="480" loading="lazy"></div>
-  <figcaption>Check the installed and target versions before choosing Install/update.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/update.png" alt="Update Open Connect? From 0.3.0-dev.16 to 0.3.0-dev.17, with Cancel, Update and Uninstall buttons." width="800" height="480" loading="lazy"></div>
+  <figcaption>Check the installed and target versions before choosing Update or Reinstall.</figcaption>
 </figure>
 
 ## Existing modifications

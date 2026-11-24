@@ -67,6 +67,25 @@ PAYLOAD = (*STATIC, *COMPILED, "layout.txt", "touch.sh", "LICENSE")
 
 
 class UsbBuild(unittest.TestCase):
+    def test_packager_refuses_an_extra_ui_page_before_staging(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            assets = root / "cmu/installer"
+            assets.mkdir(parents=True)
+            out = root / "out"
+            out.mkdir()
+            (out / "api").touch()
+            (assets / "dialog.js").write_bytes(b" " * 8193)
+            result = subprocess.run(
+                ["sh", ROOT / "tooling/package-usb.sh", out],
+                cwd=root,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("dialog.js exceeds its RAM page budget", result.stderr)
+            self.assertFalse((out / "usb").exists())
+
     @unittest.skipUnless(shutil.which("node"), "Node.js required")
     def test_ui_lifetime_and_cancel_during_loading(self):
         for name in ("usb-loader",):

@@ -32,12 +32,18 @@ with measured changes, then cold-start CarPlay reliability last. The owner has
 deferred first-car validation and additional manual bench checks for now. Continue
 Developer options development without waiting for those checks; retain the
 remaining qualification limits and do not claim a qualified release.
-Keep the two user-facing actions **Install/update** and **Uninstall**. Running Install again reinstalls it using verified originals;
+Keep one install action, labeled **Install**, **Update** or **Reinstall** according
+to the verified installed version, plus **Uninstall**. Running Install again reinstalls it using verified originals;
 interrupted-operation recovery is internal behavior, not a separate Repair option.
 Keep the USB install prompt short. The update prompt shows the installed and
 target versions, including same-version reinstalls. During installation and its automatic restart,
 tell users not to remove the USB drive or turn off the car. Show completion after
 restart, say the USB drive can now be removed, and offer Done and Open settings.
+Maintenance uses Mazda's buttonless animated progress dialog before sending the
+change, with local input held through restart and native safety/VUI transitions
+preserved. Settings uninstall does not mention USB. Completion requires a fresh
+read-only proof that the committed installation was selected on the current boot;
+a matching version alone is insufficient. Keep the existing allocated UI pages.
 Use Mazda’s own Settings list and a separate radio-choice page for each feature
 preference. The developer controls described below use their agreed UI.
 Uninstall restores the pre-install startup and touchscreen behavior, then removes

@@ -3,7 +3,14 @@
 (function () {
     "use strict";
     var entry = document.getElementById("oc-usb-loader");
-    if (!entry || window.__ocUSBLoading) { return; }
+    if (!entry) { return; }
+    var owner = window.OpenConnect, held = owner && owner.protected && owner.protected();
+    if (window.__ocUSBLoading || held) {
+        if (held && entry.ocToken && window.__ocUSBLoading && entry.ocToken === window.__ocUSBLoading.token && entry.parentNode) {
+            entry.parentNode.removeChild(entry);
+        }
+        return;
+    }
     var token = entry.ocToken;
     var base = entry.src.slice(0, entry.src.lastIndexOf("/") + 1);
     var stopped = false, nodes = [entry];

@@ -1,155 +1,130 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* An installer session owns the disk operation. This view only reports a choice. */
+/* View ownership yields to Mazda; operation ownership stays in runtime.js. */
 var OpenConnectInstaller = (function () {
     "use strict";
-    var active = null;
-
-    function show(fw, title, message, buttons, onChoice, settings) {
-        if (typeof onChoice !== "function") { throw new TypeError("Expected a choice handler"); }
-        var host = fw._currTmpltInstance, app = fw.getCurrentApp(), context = fw.getCurrCtxtId();
-        var common = fw.common;
-        if (active || !host || !common || fw._frameworkState !== fw._FWK_STATE_IDLE ||
-                (settings ? !/^(syssettings|audiosettings|vehsettings)$/.test(app) || !/Tab$/.test(context) :
-                    app !== "system" || context !== "HomeScreen") ||
-                common._vuiHelpDialog) {
-            return false;
-        }
-
-        var own = Object.prototype.hasOwnProperty;
-        var ownedInput = own.call(common, "handleControllerEvent");
-        var ownedTransition = own.call(common, "getCommonTransitionData");
-        var previousInput = common.handleControllerEvent;
-        var previousTransition = common.getCommonTransitionData;
-        function sameContext() {
+    var active = null, own = Object.prototype.hasOwnProperty;
+    function show(fw, title, text, buttons, done, settings, progress) {
+        var host = fw._currTmpltInstance, app = fw.getCurrentApp(), context = fw.getCurrCtxtId(), common = fw.common;
+        function eligible() {
             return fw._currTmpltInstance === host && fw._frameworkState === fw._FWK_STATE_IDLE &&
-                fw.getCurrentApp() === app && fw.getCurrCtxtId() === context;
+                fw.getCurrentApp() === app && fw.getCurrCtxtId() === context &&
+                !common._vuiHelpDialog && !common._vuiExamplesDialog;
         }
-
+        if (active || !host || !common || !eligible() || (settings ?
+                !/^(syssettings|audiosettings|vehsettings)$/.test(app) || !/Tab$/.test(context) :
+                app !== "system" || context !== "HomeScreen")) { return false; }
+        var restores = [], home = common.statusBar && common.statusBar.homeBtn;
+        function replace(object, key, fn) {
+            var before = object[key], local = own.call(object, key);
+            object[key] = fn;
+            restores.push(function () {
+                if (object[key] === fn) { if (local) { object[key] = before; } else { delete object[key]; } }
+            });
+            return before;
+        }
         function finish(action) {
-            if (!dialog || active !== dialog) { return; }
+            if (active !== dialog) { return; }
             active = null;
-            if (common.handleControllerEvent === input) {
-                if (ownedInput) { common.handleControllerEvent = previousInput; }
-                else { delete common.handleControllerEvent; }
-            }
-            if (common.getCommonTransitionData === transition) {
-                if (ownedTransition) { common.getCommonTransitionData = previousTransition; }
-                else { delete common.getCommonTransitionData; }
-            }
+            while (restores.length) { restores.pop()(); }
             fw.destroyControl(dialog);
-            try {
-                onChoice(action);
-            } catch (error) {
-                log.error("Open Connect installer choice handler failed: " + error);
-            }
+            try { done(action); } catch (error) { log.error("Open Connect dialog: " + error); }
         }
-
+        function transition() { finish("cancel"); return previousTransition.apply(this, arguments); }
         function input(event, first) {
-            if (!sameContext() || common._vuiHelpDialog) {
-                finish("cancel");
-                return previousInput.apply(this, arguments);
+            if (!eligible()) { finish("cancel"); return previousInput.apply(this, arguments); }
+            if (progress && /^(goBack|touchActive|controllerActive|cw|ccw|select|selectStart|left|right|up|down|lostFocus)(Start)?$/.test(event)) { return; }
+            if (progress) { finish("cancel"); return previousInput.apply(this, arguments); }
+            if (event === "goBack") { finish("cancel"); return; }
+            if (/^(left|right|up|down)Start$/.test(event)) { return; }
+            if (/^(touchActive|controllerActive|cw|ccw|select|selectStart|left|right|up|down|lostFocus)$/.test(event)) {
+                if (!first) { dialog.handleControllerEvent(event); } return;
             }
-            if (event === "goBack") {
-                finish("cancel");
-                return;
-            }
-            switch (event) {
-            case "leftStart": case "rightStart": case "upStart": case "downStart":
-                // The Mazda dialog moves focus on release.
-                return;
-            case "touchActive": case "controllerActive":
-            case "cw": case "ccw": case "select": case "selectStart":
-            case "left": case "right": case "up": case "down": case "lostFocus":
-                if (!first) { dialog.handleControllerEvent(event); }
-                return;
-            default:
-                finish("cancel");
-                return previousInput.apply(this, arguments);
-            }
+            finish("cancel"); return previousInput.apply(this, arguments);
         }
-
-        function transition() {
-            finish("cancel");
-            return previousTransition.apply(this, arguments);
-        }
-
-        var dialog = fw.instantiateControl("system", document.body, "Dialog3Ctrl", {
-            titleStyle: "titleStyle01",
-            title: title,
-            contentStyle: "style02",
-            text1: message,
-            initialFocus: 0,
-            buttonConfig: buttons,
-            defaultSelectCallback: function (control, action) {
+        var props = progress ? {contentStyle: "style27", fullScreen: true, text1: title, text2: text,
+            meter: {meterType: "indeterminate", meterPath: "common/images/IndeterminateMeter_2.png"}} : {
+            contentStyle: "style02", titleStyle: "titleStyle01", title: title, text1: text,
+            initialFocus: 0, buttonConfig: buttons, defaultSelectCallback: function (control, action) {
                 if (control !== dialog) { return; }
-                if (!sameContext() || common._vuiHelpDialog) { finish("cancel"); return; }
+                if (!eligible()) { finish("cancel"); return; }
                 for (var key in buttons) {
                     if (own.call(buttons, key) && buttons[key].appData === action) { finish(action); return; }
                 }
-            }
-        });
+            }};
+        var dialog = fw.instantiateControl("system", document.body, "Dialog3Ctrl", props);
         if (!dialog) { return false; }
-        dialog.divElt.classList.add("Dialog3Ctrl_Style19_NoTemplateInstance");
         active = dialog;
-        common.handleControllerEvent = input;
-        common.getCommonTransitionData = transition;
-        dialog.handleControllerEvent(fw.multicontroller.getMode());
-        return function cancel() { finish("cancel"); };
-    }
-
-    function name(version) {
-        if (version === undefined) { return "Open Connect"; }
-        if (typeof version !== "string" || !/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(version)) {
-            throw new TypeError("Expected a package version");
+        dialog.divElt.classList.add("Dialog3Ctrl_Style19_NoTemplateInstance");
+        var previousInput = replace(common, "handleControllerEvent", input);
+        var previousTransition = replace(common, "getCommonTransitionData", transition);
+        if (progress) {
+            dialog.divElt.style.top = "0px";
+            var capture = function (event) {
+                if (!eligible()) { finish("cancel"); return; }
+                event.preventDefault(); event.stopImmediatePropagation();
+            };
+            ["mousedown", "mouseup", "click"].forEach(function (key) {
+                document.addEventListener(key, capture, true);
+                restores.push(function () { document.removeEventListener(key, capture, true); });
+            });
+            // Release pre-armed Home holds without firing callbacks.
+            if (home) {
+                ["selectCallback", "holdStartCallback", "holdStopCallback"].forEach(function (key) {
+                    replace(home.properties, key, function () {});
+                });
+                clearTimeout(home._holdTimeoutId); home._holdTimeoutId = null;
+                var enabled = home._isEnabled;
+                try { home._isEnabled = true; home.finishPartialActivity(); }
+                finally { home._isEnabled = enabled; }
+            }
+            ["Global.StartHelp", "Global.StartExamples"].forEach(function (key) {
+                if (!common._messageTable || !common._messageTable[key]) { return; }
+                var before = replace(common._messageTable, key, function () {
+                    finish("cancel"); return before.apply(this, arguments);
+                });
+            });
+            return {close: function () { finish("cancel"); }, update: function (action, warning) {
+                if (active !== dialog) { return false; }
+                if (!eligible()) { finish("cancel"); return false; }
+                if (title !== action) { dialog.setText1(title = action); }
+                if (text !== warning) { dialog.setText2(text = warning); }
+                return true;
+            }};
         }
-        return "Open Connect " + version;
+        dialog.handleControllerEvent(fw.multicontroller.getMode());
+        return function () { finish("cancel"); };
     }
-
     function versionText(version) {
         if (version === undefined || version === "-") { return "Unavailable"; }
-        name(version);
+        if (!/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(version)) {
+            throw new TypeError("Expected a package version");
+        }
         return version;
     }
-
-    function choose(fw, installed, onChoice, version, retained, installedVersion) {
+    function choose(fw, installed, done, version, retained, from) {
         if (typeof installed !== "boolean") { throw new TypeError("Expected verified install state"); }
-        var buttons = {
-            button1: {label: "Cancel", appData: "cancel"},
-            button2: {label: installed ? "Install/update" : "Install", appData: "install"}
-        };
+        var label = installed && from && from !== "-" ? (from === version ? "Reinstall" : "Update") : "Install";
+        var buttons = {button1: {label: "Cancel", appData: "cancel"}, button2: {label: label, appData: "install"}};
         if (installed || retained) { buttons.button3 = {label: "Uninstall", appData: "uninstall"}; }
-        var text = "Do not remove the USB drive or turn off the car during installation.";
-        if (installed) { text = "From: " + versionText(installedVersion) + "\nTo: " + versionText(version) + "\n" + text; }
-        return show(fw, installed || retained ? "Open Connect" : "Install " + name(version) + "?", text, buttons, onChoice);
+        return show(fw, label + " Open Connect?", (installed ?
+            "From: " + versionText(from) + "\nTo: " + versionText(version) : "Version " + versionText(version) + ".") +
+            "\nMazda Connect will restart.", buttons, done);
     }
-
-    // The installation owner calls this only after verifying the installed build.
-    function complete(fw, version, onChoice) {
-        return show(fw, name(version) + " installed", "Installation complete. You can now remove the USB drive.", {
-            button1: {label: "Done", appData: "done"},
-            button2: {label: "Open settings", appData: "settings"}
-        }, onChoice);
-    }
-    function about(fw, version, done) {
-        var text = version === undefined ? "Installed version unavailable." : name(version);
-        return show(fw, "About", text, {button1: {label: "OK", appData: "done"}}, done, true);
-    }
-
-    function confirmUninstall(fw, pending, done) {
-        if (pending) {
-            return show(fw, "Uninstall", "Finishing your settings change. Try again in a moment.",
-                {button1: {label: "OK", appData: "cancel"}}, done, true);
-        }
-        return show(fw, "Uninstall?", "Open Connect will be removed. Mazda Connect will restart.", {
-            button1: {label: "Cancel", appData: "cancel"},
-            button2: {label: "Uninstall", appData: "uninstall"}
-        }, done, true);
-    }
-
     function message(fw, title, text, buttons, done) {
         return show(fw, title, text, buttons, done, /settings$/.test(fw.getCurrentApp()));
     }
-
-    return {choose: choose, complete: complete, about: about, confirmUninstall: confirmUninstall,
-        message: message};
+    return {choose: choose, message: message, progress: function (fw, action, warning, suspended) {
+        return show(fw, action, warning, null, suspended, /settings$/.test(fw.getCurrentApp()), true);
+    }, complete: function (fw, version, done) {
+        return show(fw, "Open Connect installed", "Version " + versionText(version) + ".\nYou can now remove the USB drive.", {
+            button1: {label: "Done", appData: "done"}, button2: {label: "Open settings", appData: "settings"}}, done);
+    }, about: function (fw, version, done) {
+        return message(fw, "About", version === undefined ? "Installed version unavailable." : "Open Connect " + versionText(version),
+            {button1: {label: "OK", appData: "done"}}, done);
+    }, confirmUninstall: function (fw, pending, done) {
+        return message(fw, "Uninstall Open Connect?", pending ? "Finishing your settings change. Try again in a moment." :
+            "Open Connect will be removed.\nMazda Connect will restart.", pending ?
+            {button1: {label: "OK", appData: "cancel"}} :
+            {button1: {label: "Cancel", appData: "cancel"}, button2: {label: "Uninstall", appData: "uninstall"}}, done);
+    }};
 }());

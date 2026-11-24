@@ -5,6 +5,13 @@ set -eu
 out=$1
 case "$out" in /*) ;; *) out=$PWD/$out;; esac
 test -f "$out/api" || { echo 'Build with make release.' >&2; exit 1; }
+# Each UI inode has its own tmpfs page budget; unused space is not transferable.
+for limit in dialog.js:8192 runtime.js:16384 settings.js:32768 loader.js:4096 backend.sh:20480; do
+    name=${limit%:*}; bytes=${limit#*:}
+    test "$(wc -c < "cmu/installer/$name")" -le "$bytes" || {
+        echo "$name exceeds its RAM page budget ($bytes bytes)." >&2; exit 1;
+    }
+done
 test ! -e "$out/usb" && test ! -L "$out/usb" || { echo 'Choose a fresh OUT directory.' >&2; exit 1; }
 mkdir "$out/usb"
 set -- cmu/installer/usb-root/*.up

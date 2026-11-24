@@ -4,6 +4,13 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
+The [dev.17 maintenance UI checks](maintenance-loading.md) pair one normal boot
+per version and Base setting. Home was unchanged at camera resolution and own
+allocated tmpfs changed 0 B. Opera memory increased in the single snapshots,
+and first use of the animated style added 588 KiB PSS after a static dialog.
+The CPU outlier, supplemental repeat, uncommanded restart and explicit RAM
+disposition requirement remain visible; this is not a zero-overhead claim.
+
 The [dev.15/dev.16 sparse-loading comparison](sparse-native-loading.md) retains
 three primary Home observations per version, all connection misses and a
 supplemental control. Home was about 0.385 s earlier; own allocated tmpfs rose

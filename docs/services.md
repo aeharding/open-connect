@@ -43,6 +43,11 @@ Home, native readiness, RAM costs, connection misses and qualification limits.
 Services, Android Auto and Audio Sources screenshots show that exact candidate;
 retained images keep their separately recorded versions.
 
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/base-enable.png" alt="Enable Base optimizations? Full explanation of logging, startup work and the Navigation delay with Wireless CarPlay." width="800" height="480" loading="lazy"></div>
+  <figcaption>Read the changes before enabling Base optimizations.</figcaption>
+</figure>
+
 Clear it and confirm **Disable** to return to the original logging and startup policy
 after the next full restart. Updating preserves your choice. Uninstall restores
 the pre-install startup configuration; its restart clears the temporary policies.

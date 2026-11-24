@@ -25,6 +25,23 @@ var OpenConnectSettings = (function () {
             });
         });
     }
+    var versionRE = /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/;
+    function validStatus(s) {
+        return s && s.ok === true && validServices(s.services) && /^(?:-|[a-f0-9]{32}|[a-f0-9]{64})$/.test(s.revision) &&
+            typeof s.installed === "boolean" && typeof s.retained === "boolean" && typeof s.conflict === "boolean" &&
+            typeof s.restart === "boolean" && typeof s.pending === "boolean" &&
+            (s.touch === 0 || s.touch === 1) && (s.warning === 0 || s.warning === 1) &&
+            (s.pandora === undefined || s.pandora === 0 || s.pandora === 1) &&
+            (s.base === undefined || s.base === 0 || s.base === 1) &&
+            (s.wirelessFactory === undefined || typeof s.wirelessFactory === "boolean") &&
+            (s.wireless === undefined || ((s.wireless === 0 || s.wireless === 1) &&
+                (s.wirelessCurrent === 0 || s.wirelessCurrent === 1))) &&
+            (s.developer === undefined || (typeof s.developer === "boolean" &&
+                (s.uart === 0 || s.uart === 1) && (s.ssh === 0 || s.ssh === 1) &&
+                (s.uartCurrent === 0 || s.uartCurrent === 1) && (s.sshCurrent === 0 || s.sshCurrent === 1) &&
+                /^(?:-|[a-f0-9]{64})$/.test(s.key) && /^(?:-|[a-f0-9:]{47})$/.test(s.fingerprint))) &&
+            versionRE.test(s.version) && (s.installedVersion === undefined || s.installedVersion === "-" || versionRE.test(s.installedVersion));
+    }
     function service(values, key) {
         var rows = values && values.services, i;
         for (i = 0; rows && i < rows.length; i++) { if (rows[i].id === key) { return rows[i]; } }
@@ -72,6 +89,7 @@ var OpenConnectSettings = (function () {
         if (!valid(saved)) { return null; }
         var wanted = {}, busy = false, timer = null;
         var prefs = {owner: store, failure: null, changed: null};
+        function pending(value) { return !store.pending || store.pending(value); }
         prefs.values = function () {
             if (!busy && !Object.keys(wanted).length) {
                 var current = read();
@@ -93,7 +111,8 @@ var OpenConnectSettings = (function () {
         };
         function flush() {
             var keys = Object.keys(wanted);
-            if (busy || !keys.length) { return; }
+            if (busy) { return; }
+            if (!keys.length) { pending(false); return; }
             var key = keys[0], requested = wanted[key];
             if (preference(saved, key) === requested) {
                 delete wanted[key]; flush();
@@ -124,13 +143,14 @@ var OpenConnectSettings = (function () {
         }
         prefs.pending = function () { return busy || Object.keys(wanted).length > 0; };
         prefs.select = function (key, value) {
+            if (!pending(true)) { if (prefs.revert) { prefs.revert(); } return; }
             prefs.failure = null;
             wanted[key] = value;
             clearTimeout(timer);
             timer = setTimeout(flush, 250);
         };
         prefs.importKey = function (done) {
-            if (prefs.pending() || typeof store.importKey !== "function") { return; }
+            if (prefs.pending() || typeof store.importKey !== "function" || !pending(true)) { return; }
             busy = true;
             var answered = false;
             function finish(actual, failed) {
@@ -170,6 +190,7 @@ var OpenConnectSettings = (function () {
             closed = true;
             if (dismiss) { dismiss(); }
             prefs.changed = null;
+            prefs.revert = null;
             while (restorers.length) { restorers.pop()(); }
             discard(page);
             host.divElt.style.display = oldDisplay;
@@ -283,14 +304,14 @@ var OpenConnectSettings = (function () {
                 if (preference(currentValues, item) === undefined || preference(currentValues, item) === desired) { return; }
                 var serviceLabel = item === "base" ? "Base optimizations" : serviceRow ? serviceRow.label : "Pandora";
                 var serviceText = item === "base" ? (enabled ?
-                    (currentValues.services ? "Reduces logging and startup work. Stops unused DAB, TV and discontinued integrations." :
-                        "Reduces native diagnostic logging.") + " Changes apply after restarting Mazda Connect." :
+                    (currentValues.services ? "Reduces logging and startup work. Stops unused integrations. Applies after restart." :
+                        "Reduces native diagnostic logging. Applies after restart.") :
                     (currentValues.services ? "Restores original logging and startup behavior after restarting Mazda Connect." :
                         "Restores original native logging after restarting Mazda Connect.")) :
                     serviceRow ? (enabled ? serviceRow.enable : serviceRow.disable) :
                     "Changes apply after restarting Mazda Connect.";
-                if (item === "base" && enabled && store.version === "0.3.0-dev.16" && currentValues.wireless) {
-                    serviceText += " Mazda Navigation starts later (about 20 seconds) to prioritize wireless CarPlay.";
+                if (item === "base" && enabled && /^0\.3\.0-dev\.(16|17)$/.test(store.version) && currentValues.wireless) {
+                    serviceText += " With wireless CarPlay, Mazda Navigation starts about 20 seconds later.";
                 }
                 var serviceFocus = item === "base" || currentValues.base === undefined ? 0 : 1;
                 if (serviceRow) {
@@ -375,6 +396,7 @@ var OpenConnectSettings = (function () {
         }
         if (!render(null, 0)) { return false; }
         active = true;
+        prefs.revert = function () { if (current()) { render(choice, 0); } };
         prefs.changed = function (failed) {
             if (!failed) {
                 if (current() && choice === "developer" && !dismiss) {
@@ -528,5 +550,5 @@ var OpenConnectSettings = (function () {
         return cancel;
     }
 
-    return {open: open, fromHome: fromHome, attach: attach};
+    return {open: open, fromHome: fromHome, attach: attach, validStatus: validStatus};
 }());

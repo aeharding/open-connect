@@ -23,7 +23,7 @@ function autoshowState() {
   if (job||pending||busy||usb||queued||dialog||view||state&&(state.pending||state.carplayAutoshow===0)||!noticeShown&&completion()) { return 2; }
   return !ready||proofNeeded&&!noticeShown&&!proved ? 1 : 0;
 }
-function valid(s) { return settings.validStatus(s); }
+function valid(s) { return settings&&settings.validStatus(s); }
 function values() { return state&&state.installed ? state : null; }
 function protectedOwner() { return !!job||pending; }
 function claim() {
@@ -312,7 +312,7 @@ return client;
 (function (a) {
 if (!a||a.loaded & 1) { return; }
 var f=framework;
-a.voice=function (s) { return /^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(s); };
+a.voice=function (s,c) { return c&&(c._vuiHelpDialog||c._vuiExamplesDialog)||/^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(s); };
 var gesture, confirmed;
 function button() {
   var h=f._currTmpltInstance;

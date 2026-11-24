@@ -31,7 +31,7 @@ function fixture(shared = {}, load = true) {
     _handleMessage(id,m) {if(id==='common'&&m.msgId==='vuiState')this.common._cachedVuiState=m.params.payload.state;return 'stock message';},
     routeMmuiMsg(m) {
       if(m.msgType==='focusStack')this._focusStackChange(m.appIdList);
-      if(m.msgType==='ctxtChg') {
+      if(m.msgType==='ctxtChg'&&m.ctxtId!=='Idle') {
         if(deferContext)pendingContexts.push(m);else apply(m);
       }
       if(m.msgType==='msg')return this._handleMessage(m.uiaId,m);
@@ -284,3 +284,51 @@ f.advance(34000);f.session(true);f.advance();f.ctx.OpenConnect.cancelUSB(f.token
 f.advance(1001);f.menu();f.advance();assert.equal(f.count(),0,'proof expiry cannot send the same canceled edge');
 f.session(false);f.connect();assert.equal(f.count(),1,'expired superseded proof does not block later sessions');
 console.log('Astra regressions: pending reverse, ownership, proof expiry, startup, input/voice, menu withdrawal and storage ambiguity passed');
+
+// Stock GuiFramework treats Idle as a no-op, including background CarPlay.
+f=fixture();f.send({msgType:'ctxtChg',uiaId:'carplay',ctxtId:'Idle',contextSeq:7});f.focus();
+f.connect();assert.equal(f.count(),1,'background Idle does not block a Home connection');
+f.session(false);f.send({msgType:'ctxtChg',uiaId:'carplay',ctxtId:'Idle',contextSeq:8});f.connect();
+assert.equal(f.count(),2,'background Idle also preserves later reconnects');
+f=fixture();f.session(true);f.defer();
+f.send({msgType:'ctxtChg',uiaId:'backupparking',ctxtId:'TVMCameraDisplay',contextSeq:2});
+f.send({msgType:'ctxtChg',uiaId:'carplay',ctxtId:'Idle',contextSeq:7});f.menu();f.advance();
+assert.equal(f.count(),0,'ignoring Idle cannot replace a real pending camera transition');
+f.focus('backupparking');f.applyContext();f.advance();assert.equal(f.count(),0);
+f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});f.focus();f.applyContext();f.advance();
+assert.equal(f.count(),1,'original pending reverse still requires a confirmed safe return');
+
+// DisplayOff is irreversible for the current generation, even before lazy
+// Settings evaluation and after the latest context has already become Home.
+f=bootClient();f.native('system','Disclaimer');f.session(true);f.menu();
+f.native('system','DisplayOff');f.native('system','HomeScreen');
+f.complete();f.advance();assert.equal(f.count(),0,'early DisplayOff survives Home replacement');
+f.session(false);f.connect();assert.equal(f.count(),1,'DisplayOff does not block an actual subsequent connection');
+
+// Applied reverse return must be recorded before another MMUI event, without
+// depending on whether the zero-delay eligibility timer gets a turn.
+for(const yieldTimer of [false,true]) {
+  f=fixture();f.session(true);f.native('backupparking','TVMCameraDisplay');
+  f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});f.focus();
+  if(yieldTimer)f.advance();
+  f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:4});f.menu();f.advance();
+  assert.equal(f.count(),0,'second Home entry cancels with timer turn='+yieldTimer);
+}
+// The first session can precede both a validator binding and menu readiness.
+f=bootClient('installed');f.session(true);
+assert.doesNotThrow(()=>f.complete(),'installed-notice ownership query waits for validator');
+assert.equal(f.count(),0);f.menu();f.tick();assert.equal(f.requests.length,1);
+const proof=f.requests[0];proof.status=200;proof.readyState=4;
+proof.responseText=JSON.stringify({ok:true,revision:'b'.repeat(32),installed:true,retained:false,conflict:false,
+  restart:false,pending:false,touch:1,warning:1,notice:'installed',version:'0.3.0-dev.18',
+  installedVersion:'0.3.0-dev.18',carplayAutoshow:1,carplayAutoshowCurrent:1,completionReady:true});
+proof.onreadystatechange();f.advance();assert.equal(f.count(),0,'completion proof keeps priority after validation binds');
+console.log('Final review regressions: Idle no-op, early DisplayOff, event-ordered reverse return and lazy validator passed');
+// Replay the same reverse/Home ordering when all messages preceded Settings.
+f=bootClient();f.session(true);f.native('backupparking','TVMCameraDisplay');
+f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});f.focus();
+f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:4});f.menu();
+f.complete();f.advance();assert.equal(f.count(),0,'second lazy Home entry cannot become the reverse return');
+f=bootClient();f.session(true);f.native('backupparking','TVMCameraDisplay');
+f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});f.focus();f.menu();
+f.complete();f.advance();assert.equal(f.count(),1,'one safe lazy reverse return preserves startup opportunity');

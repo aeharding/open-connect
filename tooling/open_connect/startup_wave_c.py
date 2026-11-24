@@ -63,6 +63,33 @@ def busy(a, b, key="cpu"):
     return 100 * (sum(d) - d[3] - d[4]) / sum(d)
 
 
+def own_memory(ram):
+    files = {}
+    for line in ram.splitlines():
+        if line.startswith("RAM_FILE|"):
+            _, path, size, blocks, dev, ino = line.split("|")
+            files[dev, ino] = (int(size), int(blocks))
+    own = dict(
+        snapshot_uptime_s=float(re.search(r"^RAM_UPTIME[|]([0-9.]+)", ram, re.M)[1]),
+        regular_files=len(files),
+        regular_file_bytes=sum(v[0] for v in files.values()),
+        allocated_tmpfs_KiB=sum(v[1] for v in files.values()) // 2,
+    )
+    for role in ("listener", "ignition"):
+        vals = {
+            field: int(v)
+            for r, pid, field, v in re.findall(
+                r"^RAM_PROCESS_TOTAL[|]([^|]+)[|]([^|]+)[|]([^|]+)[|]([0-9]+)$", ram, re.M
+            )
+            if r == role
+        }
+        assert vals
+        own[role + "_private_KiB"] = vals["Private_Clean:"] + vals["Private_Dirty:"]
+        own[role + "_private_dirty_KiB"] = vals["Private_Dirty:"]
+        own[role + "_PSS_KiB"] = vals["Pss:"]
+    return own
+
+
 for cohort in ("control", "active"):
     for p in sorted(
         (p for p in (base / cohort).glob("trial-*") if p.is_dir()),
@@ -185,30 +212,7 @@ for cohort in ("control", "active"):
         )
         ram = (base / cohort / f"ram-{n}.out").read_text()
         assert ram.endswith("MMUI_VUI_MATCHED_AGE_PSS_COMPLETE\n")
-        files = {}
-        for line in ram.splitlines():
-            if line.startswith("RAM_FILE|"):
-                _, path, size, blocks, dev, ino = line.split("|")
-                files[dev, ino] = (int(size), int(blocks))
-        own = dict(
-            prefix,
-            snapshot_uptime_s=float(re.search(r"^RAM_UPTIME[|]([0-9.]+)", ram, re.M)[1]),
-            regular_files=len(files),
-            regular_file_bytes=sum(v[0] for v in files.values()),
-            allocated_tmpfs_KiB=sum(v[1] for v in files.values()) // 2,
-        )
-        for role in ("listener", "ignition"):
-            vals = {
-                field: int(v)
-                for r, pid, field, v in re.findall(
-                    r"^RAM_PROCESS_TOTAL[|]([^|]+)[|]([^|]+)[|]([^|]+)[|]([0-9]+)$", ram, re.M
-                )
-                if r == role
-            }
-            assert vals
-            own[role + "_private_KiB"] = vals["Private_Clean:"] + vals["Private_Dirty:"]
-            own[role + "_private_dirty_KiB"] = vals["Private_Dirty:"]
-            own[role + "_PSS_KiB"] = vals["Pss:"]
+        own = dict(prefix, **own_memory(ram))
         tables["own-ram"].append(own)
         for app in ("L_jciMMUI", "L_jciVUI", "opera"):
             vals = {
@@ -247,6 +251,50 @@ for cohort in ("control", "active"):
                         else "ambiguous_discard",
                     )
                 )
+# Separate functional diagnostics: ages/foregrounds are not matched timing runs.
+tables["functional-ram"] = []
+for label, version, base_on, wireless, aa, pandora, sxm, warning, filename in (
+    ("base0-aa1", "dev16", 0, 0, 1, 1, 1, 1, "base0-aa1-ram.out"),
+    ("base0-aa0", "dev16", 0, 0, 0, 1, 1, 1, "base0-aa0-ram.out"),
+    ("maxoff", "dev16", 1, 1, 0, 0, 0, 1, "maxoff-ram.out"),
+    ("maxoff-reference", "dev15", 1, 1, 0, 0, 0, 1, "ci15-maxoff-ram.out"),
+    ("warning0", "dev16", 1, 1, 0, 1, 1, 0, "warning0-ram.out"),
+    ("warning0-reference", "dev15", 1, 1, 0, 1, 1, 0, "ci15-warning0-ram.out"),
+):
+    ram = (base / filename).read_text()
+    assert ram.rstrip("\n").endswith("MMUI_VUI_MATCHED_AGE_PSS_COMPLETE")
+    tables["functional-ram"].append(
+        dict(
+            label=label,
+            version=version,
+            primary_timing_cohort=False,
+            projection_workload_matched=False,
+            base=base_on,
+            wireless=wireless,
+            android_auto=aa,
+            pandora=pandora,
+            siriusxm=sxm,
+            dvd=0,
+            warning=warning,
+            **own_memory(ram),
+            **{
+                name + "_PSS_KiB": int(
+                    re.search(
+                        r"^APP_PSS_TOTAL[|]" + role + r"[|][^|]+[|]Pss:[|]([0-9]+)$", ram, re.M
+                    )[1]
+                )
+                for name, role in (("MMUI", "L_jciMMUI"), ("VUI", "L_jciVUI"))
+            },
+            **{
+                name + "_PSS_uptime_s": float(
+                    re.search(
+                        r"^APP_PSS_BEGIN[|]" + role + r"[|][^|]+[|][^|]+[|]([0-9.]+)", ram, re.M
+                    )[1]
+                )
+                for name, role in (("MMUI", "L_jciMMUI"), ("VUI", "L_jciVUI"))
+            },
+        )
+    )
 for name, rows in tables.items():
     assert rows, name
     with (out / (name + ".csv")).open("w", newline="") as f:

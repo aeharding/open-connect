@@ -19,7 +19,7 @@ for name in jciDAB jcitv blm_ira_stitcher irsstitcher_server aap_service jciAAPA
  info=$(LD_LIBRARY_PATH=/jci/lib:/usr/lib:/lib timeout -t 5 /jci/sm/smctl --get --type info --name "$name")
  expected=RUNNING
  case "$base:$name" in 1:jciDAB|1:jcitv|1:blm_ira_stitcher|1:irsstitcher_server) expected=STOPPED;; esac
- if test "$version" = 0.3.0-dev.15; then
+ if test "$version" = 0.3.0-dev.15 || test "$version" = 0.3.0-dev.16; then
    case "$name" in blm_ira_aha|offboard_service|jcidvd) expected=STOPPED;; esac
  fi
  printf '%s\n' "$info"

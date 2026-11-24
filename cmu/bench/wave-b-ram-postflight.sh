@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+test "$#" -eq 2 || { test "$#" -eq 3 && test "$3" = --app-pss; }
 boot=$1
 package=$2
 test "$(cat /proc/sys/kernel/random/boot_id)" = "$boot"
@@ -54,3 +55,25 @@ for maps in /proc/[0-9]*/maps; do
 done
 test "$(cat /proc/sys/kernel/random/boot_id)" = "$boot"
 printf 'RAM_READ_ONLY_PROBE_COMPLETE\n'
+
+if test "${3:-}" = --app-pss; then
+    for role in L_jciMMUI L_jciVUI opera; do
+        count=0
+        for comm in /proc/[0-9]*/comm;do
+            test -r "$comm" || continue
+            read -r name < "$comm" || continue
+            test "$name" = "$role" || continue
+            pid=${comm#/proc/};pid=${pid%%/*}
+            birth=$(awk '{print $22}' "/proc/$pid/stat")
+            printf 'APP_PSS_BEGIN|%s|%s|%s|' "$role" "$pid" "$birth";cat /proc/uptime
+            awk -v role="$role" -v pid="$pid" '/^(Rss|Pss|Shared_Clean|Shared_Dirty|Private_Clean|Private_Dirty|Swap):/{sum[$1]+=$2}END{for(key in sum)print "APP_PSS_TOTAL|"role"|"pid"|"key"|"sum[key]}' "/proc/$pid/smaps"
+            printf 'APP_MAPS_BEGIN|%s|%s\n' "$role" "$pid";cat "/proc/$pid/maps";printf 'APP_MAPS_END|%s|%s\n' "$role" "$pid"
+            test "$(awk '{print $22}' "/proc/$pid/stat")" = "$birth"
+            printf 'APP_PSS_END|%s|%s\n' "$role" "$pid"
+            count=$((count+1))
+        done
+        test "$count" = 1
+    done
+    test "$(cat /proc/sys/kernel/random/boot_id)" = "$boot"
+    printf 'MMUI_VUI_MATCHED_AGE_PSS_COMPLETE\n'
+fi

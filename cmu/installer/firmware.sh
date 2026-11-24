@@ -322,7 +322,8 @@ vui_input_files() {
         case "$seen" in *"|$name|"*) return 1;; esac
         seen="$seen$name|"; count=$((count+1)); bytes=$((bytes+${#name}+1))
         test "$count" -le 48 || return 1
-        digest=$(awk -F '\t' -v name="$name" '$1=="vui" && $2==name{n++;print $4}END{exit n!=1}' "$P/ui-modules.tsv") || return 1
+        # CMU BusyBox AWK does not decode -F '\t'; pinned fields have no spaces.
+        digest=$(awk -v name="$name" '$1=="vui" && $2==name{n++;print $4}END{exit n!=1}' "$P/ui-modules.tsv") || return 1
         hex "$digest" 64 || return 1
         printf '%s %s /jci/vui/plugins/%s\n' "$digest" "$name" "$name"
     done < "$list"

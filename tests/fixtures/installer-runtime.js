@@ -627,9 +627,9 @@ for (const scenario of ["unchanged", "changed", "installed"]) {
 }
 f=fixture(); f.start(token,true); f.reply(f.requests[0],f.state()); f.tick();
 f.choices[0].done("install"); f.reply(f.requests[1],{ok:false,error:"stale_state"});
-f.advance(12000); f.tick(); // An unavailable status cannot turn a known refusal into a reboot-only lock.
-assert.equal(f.ctx.OpenConnect.protected(),false);
-assert.equal(f.ctx.__ocUSBLoading,undefined);
+f.advance(12000); f.tick(); // Even cached settled state cannot replace a fresh journal check.
+assert.equal(f.ctx.OpenConnect.protected(),true);
+assert.ok(f.ctx.__ocUSBLoading);
 assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,0);
 
 // Revalidate proof at view acquisition, not only when completion was queued.
@@ -765,3 +765,42 @@ f.reply(f.requests[0],f.state({installed:true,installedVersion:"0.3.0-dev.17",no
 f.tick(); assert.equal(f.choices[0].complete,true);
 f.choices[0].done("cancel"); f.tick(); f.tick();
 assert.equal(f.choices.length,1);
+
+// A post-prepare failure may leave a durable uninstall journal even though the
+// last successful status was settled. Only fresh valid settled status can free
+// that owner. Replay the real backend's nvram_commit_failed response, and an
+// unclassified failure, without allowing old USB media to replace the client.
+for(const origin of ["usb","settings"]) for(const error of ["nvram_commit_failed","future_failure"])
+for(const followup of ["timeout","invalid_record","malformed","pending"]) {
+    f=fixture(); f.start(token,origin==="usb");
+    f.reply(f.requests[0],f.state({installed:true,touch:1,warning:1,pending:false})); f.tick();
+    if(origin==="usb") f.choices[0].done("uninstall");
+    else f.store.uninstall();
+    const owner=f.ctx.OpenConnect, marker=f.ctx.__ocUSBLoading, count=f.loads.length;
+    f.reply(f.requests[1],{ok:false,error});
+    if(followup==="timeout") f.advance(12000);
+    else f.reply(f.requests[2],followup==="invalid_record" ? {ok:false,error:"invalid_record"} :
+        followup==="malformed" ? {ok:true,pending:false} : f.state({installed:true,pending:true,revision:"d".repeat(32)}));
+    f.tick();
+    assert.equal(f.ctx.OpenConnect.protected(),true);
+    assert.equal(f.ctx.__ocUSBLoading,marker);
+    f.insert(true);
+    assert.equal(f.ctx.OpenConnect,owner);
+    assert.equal(f.ctx.__ocUSBLoading,marker);
+    assert.equal(f.loads.length,count);
+    assert.equal(owner.dispose(),false);
+    f.advance(24000); f.tick(); f.tick();
+    assert.equal(f.requests.filter(r=>r.body.includes("|uninstall|")).length,1);
+    assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,0);
+    assert.equal(f.requests.filter(r=>r.body.includes("|recover|")).length,0);
+}
+// If reconciliation genuinely verifies settled state, the refusal may release
+// its owner, but still cannot infer success or restart from that state.
+for(const installed of [true,false]) {
+    f=fixture(); f.start(token,false); f.reply(f.requests[0],f.state({installed:true})); f.tick();
+    f.store.uninstall(); f.reply(f.requests[1],{ok:false,error:"nvram_commit_failed"});
+    f.reply(f.requests[2],f.state({installed,pending:false,revision:installed?"d".repeat(32):"-"})); f.tick();
+    assert.equal(f.ctx.OpenConnect.protected(),false);
+    assert.equal(f.ctx.__ocUSBLoading,undefined);
+    assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,0);
+}

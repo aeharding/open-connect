@@ -12,7 +12,7 @@ var OpenConnect = (function (previous) {
     var port = entry && entry.ocPort === 35555 ? 35555 : 15555;
     var stopped = false, started = false, token = entry && entry.ocToken, state = null, busy = false, saving = false;
     var timer, loading, dialog, view, detach, app, installer, settings, job, marker, pending = false;
-    var nodes = [], queued = null, ready = false, usb = false, generation = 0, completionShown = false, proofRead = false;
+    var nodes = [], queued = null, ready = false, usb = false, generation = 0, noticeShown = false, proofRead = false;
     function valid(s) { return settings.validStatus(s); }
     function values() { return state && state.installed ? state : null; }
     function protectedOwner() { return !!job || pending; }
@@ -128,7 +128,7 @@ var OpenConnect = (function (previous) {
     function reconcile(answer) {
         job.phase = "checking"; if (!saving) { paint(); }
         readStatus(function (fresh) {
-            if (answer && answer.ok === false) { refuse(state.pending); }
+            if (answer && answer.ok === false) { refuse(!valid(fresh) || fresh.pending); }
             else if (answer === null && changed(fresh)) {
                 if (saving) { end(values()); } else if (!job.restartSent) { restart(); }
             } else { refuse(true); }
@@ -196,11 +196,11 @@ var OpenConnect = (function (previous) {
             if (job.phase === "waiting") { drive(); }
             else if (!saving && job.phase !== "unresolved") { paint(); }
         } else if (!busy && state && state.pending) { run("recover", null, entry ? "usb" : "settings"); }
-        else if (!completionShown && !proofRead && boot && boot.notice === "installed" && !state) {
+        else if (!noticeShown && !proofRead && boot && boot.notice === "installed" && !state) {
             proofRead = true;
             readStatus(function () {}, Date.now() + 12000);
         }
-        if (!job && completion() && !completionShown && !queued && !dialog) {
+        if (!job && completion() && !noticeShown && !queued && !dialog) {
             queued = function () {
                 if (!completion()) { queued = null; return false; }
                 var opened = installer.complete(framework, state.installedVersion, function (action) {
@@ -212,7 +212,7 @@ var OpenConnect = (function (previous) {
                 if (opened) { usb = false; }
                 return opened;
             };
-            completionShown = true;
+            noticeShown = true;
         }
         if (usb && !busy && state && !dialog && !queued) { choose(); }
         if (queued && !dialog) {
@@ -269,7 +269,7 @@ var OpenConnect = (function (previous) {
         generation++; usb = false; queued = null; closeDialog();
         readStatus(function (answer) {
             if (!valid(answer)) { message("Unable to finish", "Open Connect could not be reached."); return; }
-            completionShown = false; usb = true;
+            noticeShown = false; usb = true;
         });
         return true;
     }

@@ -166,8 +166,9 @@ Equal file pages alone do not establish equal total process or system RAM.
 The original CPU outlier remains in the primary table. A later Base-off ACC
 apply boot supplied a separately labeled resource trace. Its **clean 20–120 s
 prefix** measured 34.751% CPU versus 34.736% in the dev.16 control; the first
-dev.17 outlier was 47.514% over that same prefix. In 60–120 s the values were
-14.17%, 33.80% and 14.76% respectively. This did not reproduce a deterministic
+dev.17 outlier was 47.514% over that same prefix. In 60–120 s CPU was
+14.17% for the dev.16 control, 33.80% for the first dev.17 run and 14.76% for the
+supplemental repeat. This did not reproduce a deterministic
 version-wide CPU penalty, but it does not establish the first outlier’s cause.
 A process probe began at 125.76 s and dialog work at 136.71 s; neither is included
 in the supplemental comparison. That repeat has no camera milestone and never
@@ -214,7 +215,7 @@ The observer manifest is
 `6d795adc75cb0c16823eebf49f414dc48e4b0c686b3920b795fea7140657e42c`.
 
 Raw captures, exact commands, native screenshots, manifest verification and
-per-inode/smaps receipts are private under `runs/loading-ux-20261124/`.
+per-inode/smaps receipts were retained privately and are not distributed.
 Home annotations use `startup_annotate` at
 `b111f19b24355568e3be066b153a87785ab12434` with `--camera-only --no-projection`;
 no kernel/video clock mapping was collected. No projection timing is inferred.

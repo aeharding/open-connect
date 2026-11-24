@@ -39,10 +39,7 @@ independent backend status probe. The other images retain source 533142d6.
 | `settings.png` | `e6a4b90f99f1038596b3a8c3e9ed7dfeebf32c48dcf5e4e4c5eae272212a680d` |
 | `base-enable.png` | `77725a92a1c8c1682049229310a3fcf80517e58362bcf2bf524b755aa5bb954a` |
 
-Private originals and receipts: `runs/loading-ux-20261124/screenshots/`
-(including `fixed-automatic-completion.png`),
-`fresh-install-native/frame-10.png` and
-`settings-uninstall-native/settings-uninstall-once/frame-47.png`.
+Native capture originals and verification receipts were retained privately.
 The restarting capture used a four-second observation-only delay before sending
 its single restart request. These lifecycle capture loops were excluded from
 normal boot timing/RAM measurements. [The qualification record](../../maintenance-loading.md)

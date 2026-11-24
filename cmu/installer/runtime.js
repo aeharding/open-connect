@@ -106,7 +106,7 @@ var OpenConnect = (function (previous) {
         job.restartSent = true; job.phase = "restart"; paint();
         var current = job, until = budget();
         request("restart", null, function (answer) {
-            if (!valid(answer)) { reconcile(); }
+            if (!valid(answer)) { reconcile(answer); }
         }, Math.max(1, until - Date.now()));
         setTimeout(function () { if (job === current && job.phase !== "unresolved") { refuse(true); } }, Math.max(0, until - Date.now()));
     }
@@ -125,11 +125,11 @@ var OpenConnect = (function (previous) {
         }
         return job.operation === "import" && /^[a-f0-9]{64}$/.test(answer.key) && answer.key !== old.key && answer.revision !== old.revision;
     }
-    function reconcile(refusal) {
+    function reconcile(answer) {
         job.phase = "checking"; if (!saving) { paint(); }
         readStatus(function (fresh) {
-            if (refusal && !(fresh && fresh.pending)) { refuse(false); }
-            else if (changed(fresh)) {
+            if (answer && answer.ok === false) { refuse(state.pending); }
+            else if (answer === null && changed(fresh)) {
                 if (saving) { end(values()); } else if (!job.restartSent) { restart(); }
             } else { refuse(true); }
         }, budget());
@@ -140,7 +140,7 @@ var OpenConnect = (function (previous) {
         if (!saving && !paint() && job.operation !== "recover") { return; }
         job.sent = true; job.phase = "writing";
         request(job.operation, job.args, function (answer) {
-            if (!valid(answer)) { reconcile(answer && /^(stale_state|state_changed)$/.test(answer.error)); return; }
+            if (!valid(answer)) { reconcile(answer); return; }
             if (saving) { end(values()); }
             else if (job.operation === "install" || job.operation === "uninstall" || answer.restart) { restart(); }
             else { end(null); }
@@ -201,15 +201,16 @@ var OpenConnect = (function (previous) {
             readStatus(function () {}, Date.now() + 12000);
         }
         if (!job && completion() && !completionShown && !queued && !dialog) {
-            usb = false;
             queued = function () {
                 if (!completion()) { queued = null; return false; }
-                return installer.complete(framework, state.installedVersion, function (action) {
+                var opened = installer.complete(framework, state.installedVersion, function (action) {
                     dialog = null;
                     if (completion() && (action === "done" || action === "settings")) {
                         dismiss(); if (action === "settings") { settings.fromHome(framework, store, function () {}); }
                     }
                 });
+                if (opened) { usb = false; }
+                return opened;
             };
             completionShown = true;
         }

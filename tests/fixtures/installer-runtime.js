@@ -73,8 +73,8 @@ function fixture(previous, loadingUSB, boot, port) {
     vm.runInNewContext(source, ctx);
     flushScripts();
     function reply(request, value) {
-        request.status = value ? 200 : 0;
-        request.responseText = value ? JSON.stringify(value) : "";
+        request.status = value === null || value === undefined ? 0 : 200;
+        request.responseText = value === null || value === undefined ? "" : JSON.stringify(value);
         request.readyState = 4;
         request.onreadystatechange();
     }
@@ -605,10 +605,13 @@ supersededPage.close();
 
 // Definite pre-write refusals cannot become lost-ack success, even when fresh
 // state shows an independently installed target or a different revision.
-for (const error of ["stale_state", "state_changed"]) for (const installed of [false,true]) {
+for (const error of ["busy", "incomplete_maintenance_bundle", "unsupported_original", "stale_state", "state_changed", "future_refusal"])
+for (const scenario of ["unchanged", "changed", "installed"]) {
+    const installed=scenario==="installed";
     f=fixture(); f.start(token,true); f.reply(f.requests[0],f.state()); f.tick();
     f.choices[0].done("install"); f.reply(f.requests[1],{ok:false,error});
-    const fresh=f.state({installed,revision:"d".repeat(32),installedVersion:installed?"0.2.0-dev.1":"-",notice:installed?"installed":"-"});
+    const fresh=f.state({installed,revision:scenario==="unchanged"?revision:"d".repeat(32),
+        installedVersion:installed?"0.2.0-dev.1":"-",notice:installed?"installed":"-"});
     f.reply(f.requests[2],fresh); f.tick();
     assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,0);
     assert.equal(f.ctx.OpenConnect.protected(),false);
@@ -695,3 +698,70 @@ f.reply(f.requests[2],f.state({pending:true}));
 f.tick(); f.tick();
 assert.equal(f.requests.filter(r=>r.body.includes("|recover|")).length,1);
 assert.equal(f.ctx.OpenConnect.protected(),true);
+
+// The last verified pending state survives missing or malformed reconciliation
+// replies. Repeated ticks/timeouts must not replay an already refused recovery.
+for (const response of [null, {ok:false,error:"invalid_record"}, {ok:true,pending:false}]) {
+    f=fixture(); f.start(token,true); f.reply(f.requests[0],f.state({pending:true})); f.tick();
+    f.reply(f.requests[1],{ok:false,error:"state_changed"});
+    if(response) f.reply(f.requests[2],response);
+    else f.advance(12000);
+    for(let i=0;i<3;i++) { f.tick(); f.advance(12000); }
+    assert.equal(f.requests.filter(r=>r.body.includes("|recover|")).length,1);
+    assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,0);
+    assert.equal(f.ctx.OpenConnect.protected(),true);
+    assert.ok(f.ctx.__ocUSBLoading);
+}
+// A genuinely verified settled status can release the refusal guard.
+f=fixture(); f.start(token,true); f.reply(f.requests[0],f.state({pending:true})); f.tick();
+f.reply(f.requests[1],{ok:false,error:"busy"});
+f.reply(f.requests[2],f.state({pending:false})); f.tick();
+assert.equal(f.ctx.OpenConnect.protected(),false);
+assert.equal(f.ctx.__ocUSBLoading,undefined);
+assert.equal(f.requests.filter(r=>r.body.includes("|recover|")).length,1);
+
+// Non-null malformed acknowledgements are not missing acknowledgements. Fresh
+// desired state cannot turn them into permission to infer this install committed.
+for(const answer of [false,0,"",{ok:true},{error:"busy"},{ok:"false",error:"busy"}]) {
+    f=fixture(); f.start(token,true); f.reply(f.requests[0],f.state()); f.tick();
+    f.choices[0].done("install"); f.reply(f.requests[1],answer);
+    f.reply(f.requests[2],f.state({installed:true,installedVersion:"0.2.0-dev.1",notice:"installed",revision:"c".repeat(32)}));
+    f.tick();
+    assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,0);
+    assert.equal(f.ctx.OpenConnect.protected(),true);
+}
+// Explicit refusal is also distinct from an inferred Set/import success.
+for(const op of ["set","import"]) {
+    f=fixture(); f.start(token,false); f.reply(f.requests[0],f.state({installed:true})); f.tick();
+    let result="unanswered";
+    if(op==="set") f.store.write("touch",0,1,answer=>result=answer);
+    else f.store.importKey(answer=>result=answer);
+    f.reply(f.requests[1],{ok:false,error:"busy"});
+    f.reply(f.requests[2],f.state({installed:true,touch:1,key:"c".repeat(64),revision:"d".repeat(32)}));
+    assert.equal(result,null); assert.equal(f.ctx.OpenConnect.protected(),false);
+}
+// A refused restart is not resent after reconciliation or its watchdog.
+f=fixture(); f.start(token,true); f.reply(f.requests[0],f.state()); f.tick();
+f.choices[0].done("install"); f.reply(f.requests[1],f.state({installed:true,restart:true}));
+f.reply(f.requests[2],{ok:false,error:"busy"});
+f.reply(f.requests[3],f.state({installed:true,restart:true})); f.advance(12000); f.tick();
+assert.equal(f.ctx.OpenConnect.protected(),false);
+assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,1);
+
+// Through the actual USB loader, invalidated queued completion must fall through
+// to the verified maintenance chooser. A displayed completion consumes the entry.
+for(const invalid of [{notice:"-",completionReady:false},{restart:true,completionReady:false}]) {
+    f=fixture(null,false,{version:"0.3.0-dev.17",notice:"installed"}); f.insert();
+    const proof={installed:true,version:"0.3.0-dev.17",installedVersion:"0.3.0-dev.17",notice:"installed",completionReady:true};
+    f.reply(f.requests[0],f.state(proof)); f.eligible(false); f.tick();
+    assert.equal(f.choices.length,0);
+    f.store.refresh(()=>{}); f.reply(f.requests.at(-1),f.state({...proof,...invalid}));
+    f.eligible(true); f.tick(); f.tick(); f.tick();
+    assert.equal(f.choices.length,1); assert.equal(f.choices[0].complete,undefined);
+    assert.equal(f.choices[0].installed,true); assert.equal(f.choices[0].version,"0.3.0-dev.17");
+}
+f=fixture(null,false,{version:"0.3.0-dev.17",notice:"installed"}); f.insert();
+f.reply(f.requests[0],f.state({installed:true,installedVersion:"0.3.0-dev.17",notice:"installed",completionReady:true}));
+f.tick(); assert.equal(f.choices[0].complete,true);
+f.choices[0].done("cancel"); f.tick(); f.tick();
+assert.equal(f.choices.length,1);

@@ -147,6 +147,7 @@ preferences_change() (
 
 config_decode() {
     local source=$1 header extra fields package folder decoded
+    S_AUTOSHOW=0
     file "$source" && read -r header < "$source" || return 1
     if test "$header" = OC2; then
         package=$(awk -F = '$1=="package"{n++;p=$2}END{if(n!=1)exit 1;print p}' "$source") || return 1
@@ -159,6 +160,11 @@ VALUES
         test -z "$extra" && test "$S_PACKAGE" = "$package" || return 1
         S_SCHEMA=OC2; S_CONFIG_FIELDS=0
         S_PREFS=$(cat "$source") || return 1
+        case "$S_PREFS" in *'
+carplay-autoshow='*)
+            S_AUTOSHOW=${S_PREFS#*'
+carplay-autoshow='}; S_AUTOSHOW=${S_AUTOSHOW%%'
+'*};; esac
     else
         # Only the actual predecessor is supported: five-field stock, or the
         # eight-field active dev.9 policy. No older active-schema migration.

@@ -105,7 +105,14 @@ class NativePreferences(unittest.TestCase):
 
     def test_malformed_config_refuses_before_selection(self):
         config = self.fresh()
+        self.assertEqual(
+            self.decode(config.replace(b"carplay-autoshow=0", b"carplay-autoshow=1")), 0
+        )
+        self.assertEqual(self.decode(config.replace(b"carplay-autoshow=0\n", b"")), 0)
         for changed in (
+            config.replace(b"carplay-autoshow=0", b"carplay-autoshow=2"),
+            config.replace(b"carplay-autoshow=0", b"carplay-autoshow=01"),
+            config.replace(b"carplay-autoshow=0", b"carplay-autoshow=0\ncarplay-autoshow=1"),
             config.replace(
                 b"service-ids=android-auto,dvd,pandora,siriusxm", b"service-ids=pandora"
             ),

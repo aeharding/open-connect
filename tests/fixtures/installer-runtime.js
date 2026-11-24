@@ -827,3 +827,10 @@ for(const installed of [true,false]) {
     assert.equal(f.ctx.__ocUSBLoading,undefined);
     assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,0);
 }
+// A superseding USB cancellation cannot strand or renew the boot reservation.
+f=fixture(null,false,{version:"0.3.0-dev.17",notice:"installed"});
+assert.equal(f.ctx.OpenConnect.autoshowState(),1);
+f.tick();
+f.ctx.OpenConnect.cancelUSB(token); // generation invalidates pending proof callback.
+f.advance(35000);
+assert.equal(f.ctx.OpenConnect.autoshowState(),0,'absolute proof deadline survives cancellation');

@@ -46,7 +46,7 @@ class InstallerBoot(unittest.TestCase):
         (self.runtime / "token").write_text("a" * 32 + "\n")
         (self.runtime / "ignition.sh").write_text("exit 0\n")
         (self.source / "ignition.sh").write_text("exit 0\n")
-        for name in ("runtime.js", "dialog.js", "settings.js", "VERSION"):
+        for name in ("runtime.js", "dialog.js", "settings.js", "carplay.js", "VERSION"):
             shutil.copyfile(ASSETS / name, self.source / name)
         (self.root / "acc").write_text("1\n")
         (self.root / "uptime").write_text("1.00 0.00\n")
@@ -256,7 +256,7 @@ boot_ui_stage() {
             (composed / name).write_text("synthetic feature @TOKEN@\n")
         for name in ("index-on.html", "index-off.html"):
             (composed / name).write_text(
-                '<script src="common/js/logDefaults.js"></script>\n'
+                '<meta data-boot="@BOOT@">\n<script src="common/js/logDefaults.js"></script>\n'
                 '<script src="framework/js/Log.js"></script>\nframework.init();\nsynthetic feature @TOKEN@\n'
             )
         self.write_profiles()
@@ -1150,6 +1150,21 @@ boot_ui_unwind
             + "); record_write"
         )
         self.populated_dependencies()
+
+    def test_shell_autoshow_copy_follows_selected_snapshot_and_absent_defaults(self):
+        self.assertEqual(self.boot(1).returncode, 0)
+        self.assertFalse((self.runtime / "feature/carplay.js").exists())
+        self.shell(
+            'record_read; snapshot_read "$R_CURRENT"; '
+            'prefs=$(preferences_change "$S_PREFS" "$S_PACKAGE" carplay-autoshow 1 OC2); '
+            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" "$S_NVRAM" "$S_META" '
+            '"$D/snapshots/$R_CURRENT/dependencies" - "$prefs"); R_BUDGET=3; record_write'
+        )
+        result = self.boot(2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            (self.runtime / "feature/carplay.js").read_bytes(), (ASSETS / "carplay.js").read_bytes()
+        )
 
     def test_wireless_boot_composes_both_profiles_and_preserves_native_services(self):
         self.select_wireless(1)

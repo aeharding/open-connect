@@ -24,6 +24,7 @@ STATIC = (
     "runtime.js",
     "dialog.js",
     "settings.js",
+    "carplay.js",
     "backend.sh",
     "state.sh",
     "transaction.sh",

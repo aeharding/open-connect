@@ -39,6 +39,90 @@ class PrivateFirmware(unittest.TestCase):
         cls.linked = ELF((cls.build / "patch.elf").read_bytes())
         cls.payload = (cls.build / "native.bin").read_bytes()
 
+    def test_autoshow_index_matrix_preserves_each_predecessor_page_budget(self):
+        package = self.output / "compose/packages" / self.composed.name
+        folder = self.output / "autoshow-index"
+        folder.mkdir()
+        rows = []
+        for base, warning, aa, pandora, dvd, sxm, autoshow in itertools.product((0, 1), repeat=7):
+            fields = {
+                "base": base,
+                "carplay-autoshow": autoshow,
+                "warning": warning,
+                "touch": 1,
+                "wireless": 1,
+                "service.android-auto": aa,
+                "service.pandora": pandora,
+                "service.dvd": dvd,
+                "service.siriusxm": sxm,
+                "service-ids": "android-auto,dvd,pandora,siriusxm",
+                "metadata": f"755:{os.getuid()}:{os.getgid()}",
+                "nvram": "disable",
+                "package": self.composed.name,
+            }
+            config = folder / "config"
+            config.write_text("OC2\n" + "".join(f"{k}={v}\n" for k, v in sorted(fields.items())))
+            destination = folder / "".join(
+                map(str, (base, warning, aa, pandora, dvd, sxm, autoshow))
+            )
+            destination.mkdir()
+            subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    "set -eu; D=$1; P=$2; base_fixture=$3; "
+                    '. "$P/state.sh"; . "$base_fixture/firmware-adapter.sh"; '
+                    'base_ui_files() { cat "$base_fixture/base-ui-inputs"; }; '
+                    'boot_render_profiles "$4" "$5"',
+                    "index",
+                    self.output / "compose",
+                    package,
+                    self.output,
+                    destination,
+                    config,
+                ],
+                env={
+                    **os.environ,
+                    "PATH": str(self.output / "compose/tools") + os.pathsep + os.environ["PATH"],
+                },
+                check=True,
+                capture_output=True,
+                timeout=10,
+            )
+            template = (destination / "index.html").read_text()
+            insertion = '</script>\n<script src="file:///tmp/open-connect/feature/carplay.js"></script>\n<script>\n'
+            self.assertEqual(template.count(insertion), autoshow)
+            self.assertEqual(template.count("@BOOT@"), 1)
+            if autoshow:
+                self.assertLess(
+                    template.index("feature/carplay.js"), template.index("framework.init();")
+                )
+            for notice in ("-", "installed", "removed", "undone", "restart"):
+                selected = (
+                    template.replace("@TOKEN@", "a" * 32)
+                    .replace("@VERSION@", "0.3.0-dev.18")
+                    .replace("@NOTICE@", notice)
+                    .replace("@BOOT@", "12345678-1234-1234-1234-123456789abc")
+                )
+                predecessor = selected.replace(insertion, "").replace(
+                    ' data-boot="12345678-1234-1234-1234-123456789abc"', ""
+                )
+
+                def pages(s):
+                    return (len(s.encode()) + 4095) // 4096
+
+                self.assertEqual(pages(selected), pages(predecessor), fields)
+                rows.append(
+                    {
+                        "choices": destination.name,
+                        "notice": notice,
+                        "bytes": len(selected.encode()),
+                        "pages": pages(selected),
+                    }
+                )
+        self.assertEqual(len(rows), 640)
+        (folder / "sizes.json").write_text(json.dumps(rows, indent=2) + "\n")
+
     def test_voice_redirect_changes_only_the_exact_data_span(self):
         old = (self.originals / "vui.so").read_bytes()
         new = (self.composed / "vui.so").read_bytes()

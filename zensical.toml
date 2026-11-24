@@ -22,6 +22,7 @@ nav = [
     { "Overview" = "features/index.md" },
     { "Touchscreen While Driving" = "touchscreen.md" },
     { "Startup disclaimer" = "disclaimer.md" },
+    { "Show CarPlay on connection" = "carplay-on-connection.md" },
     { "Wireless CarPlay" = "wireless-carplay.md" },
     { "Developer options" = "developer-options.md" },
     { "Services" = "services.md" },

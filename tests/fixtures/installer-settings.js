@@ -502,3 +502,16 @@ assert.equal(writes.length,beforePending+1);
 assert.equal(pendingStates.at(-1),true);
 values={...values,touch:1-values.touch}; reply(values);
 assert.equal(pendingStates.at(-1),false);
+
+// The optional feature is hidden for old targets and uses the hyphenated wire ID.
+values={...values,carplayAutoshow:0,carplayAutoshowCurrent:0};
+settings.open(fw,store);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].text1,'Show CarPlay on connection');
+pick(2);assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items,r=>r.text1),['Factory behavior','Automatically show']);
+const beforeAutoshow=writes.length;
+pick(1);assert.match(modal.props.text1,/restart/i);assert.equal(writes.length,beforeAutoshow);
+modal.props.defaultSelectCallback(modal,'apply');idle();
+assert.deepEqual(writes.at(-1),['carplay-autoshow',0,1]);
+values={...values,carplayAutoshow:1};reply(values);back();back();
+assert.equal(settings.validStatus({...values,ok:true,revision:'-',installed:true,retained:false,conflict:false,restart:true,pending:false,version:'0.3.0-dev.18',wirelessCurrent:0}),true);
+assert.equal(settings.open(fw,{read:()=>({...values,carplayAutoshowCurrent:2})}),false);

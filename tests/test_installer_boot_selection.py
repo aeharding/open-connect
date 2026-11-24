@@ -206,6 +206,7 @@ class NativeBootSelection(unittest.TestCase):
             "runtime.js",
             "dialog.js",
             "settings.js",
+            "carplay.js",
             "preferences.awk",
             "services.tsv",
             "sm-profile.awk",
@@ -398,6 +399,40 @@ class NativeBootSelection(unittest.TestCase):
         self.seal()
         self.record[5] = self.snapshot.name
         self.save_record()
+
+    def test_autoshow_stages_only_applied_choice_with_nonsecret_boot_mark(self):
+        self.change_current(
+            "index.html", (self.snapshot / "index.html").read_text() + '<meta data-boot="@BOOT@">\n'
+        )
+        config = (
+            (self.snapshot / "config")
+            .read_text()
+            .replace("base=0\n", "base=0\ncarplay-autoshow=1\n")
+            .replace("warning=1", "warning=0")
+            .replace("wireless=1", "wireless=0")
+        )
+        self.change_current("config", config)
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            (self.ram / "feature/carplay.js").read_bytes(), (ASSETS / "carplay.js").read_bytes()
+        )
+        index = (self.ram / "feature/index.html").read_text()
+        self.assertIn('data-boot="' + BOOT + '"', index)
+        self.assertNotIn("@BOOT@", index)
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
+    def test_autoshow_missing_boot_provenance_refuses_before_debit(self):
+        config = (
+            (self.snapshot / "config")
+            .read_text()
+            .replace("base=0\n", "base=0\ncarplay-autoshow=1\n")
+        )
+        self.change_current("config", config)
+        result = self.invoke()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.ram / "selected").exists())
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "3")
 
     def invoke(
         self, cut=None, term=None, output_limit=None, mode="select", stderr_fd=None, extra_env=None

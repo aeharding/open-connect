@@ -94,6 +94,7 @@ class UsbBuild(unittest.TestCase):
             # maintained suites; substitute only those upstream platform facts.
             (work / "state.sh").write_text(
                 'file() { test -f "$1" && test ! -L "$1"; }; '
+                'stat() { printf "%s 8\\n" "$(wc -c < "$3")"; }; '
                 'private_dir() { test -d "$1"; }; '
                 "sha() { openssl dgst -sha256 < \"$1\" | awk '{print $NF}'; }; "
                 'current_boot_id() { cat "$R/boot"; }; '
@@ -113,6 +114,9 @@ class UsbBuild(unittest.TestCase):
             usb.mkdir(parents=True)
             (usb / "idVendor").write_text("0781\n")
             (usb / "devnum").write_text("7\n")
+            enumerated = sysroot / "bus/usb/devices"
+            enumerated.mkdir(parents=True)
+            (enumerated / "1-2").symlink_to(usb)
             block = usb / "host/block/sda/sda1"
             block.mkdir(parents=True)
             block_class = sysroot / "class/block"

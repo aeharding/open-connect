@@ -81,7 +81,9 @@ class NativeBootSelection(unittest.TestCase):
     static int failed;
     const char *fault=getenv("OC_ALIAS_META_FAIL");
     if(path&&fault&&failed<2&&!strcmp(path,fault)) { ++failed; return -5; }
-    return oc_metadata_raw(fd,path,m);
+    long result=oc_metadata_raw(fd,path,m);
+    if(result>=0&&path&&!strcmp(path,"boot-id")&&getenv("OC_BOOT_OWNER_FAIL")) ++m->uid;
+    return result;
 }
 #else
 #define OC_CWD""",
@@ -418,7 +420,7 @@ class NativeBootSelection(unittest.TestCase):
             (self.ram / "feature/carplay.js").read_bytes(), (ASSETS / "carplay.js").read_bytes()
         )
         index = (self.ram / "feature/index.html").read_text()
-        self.assertIn('data-boot="' + BOOT + '"', index)
+        self.assertIn('data-boot="' + self.boot_token() + '"', index)
         self.assertNotIn("@BOOT@", index)
         self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
 
@@ -433,6 +435,154 @@ class NativeBootSelection(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.ram / "selected").exists())
         self.assertEqual((self.data / "record").read_text().split("|")[9], "3")
+
+    def boot_token(self):
+        return (self.ram / "boot-id").readlink().as_posix()
+
+    def cold_boot(self):
+        # Only volatile state disappears. The kernel UUID deliberately repeats.
+        shutil.rmtree(self.ram)
+        self.ram.mkdir(mode=0o700)
+
+    def test_repeated_kernel_uuid_renews_legacy_off_then_next_cold_boot(self):
+        self.record[9:12] = ["0", BOOT, BOOT]
+        self.save_record()
+        previous = BOOT
+        for _ in range(2):
+            with self.subTest(previous=previous):
+                self.assertEqual(self.invoke().returncode, 0)
+                token = self.boot_token()
+                self.assertNotIn(token, (BOOT, previous))
+                fields = (self.data / "record").read_text().strip().split("|")
+                self.assertEqual(fields[9:12], ["2", "-", token])
+                self.assertEqual((self.ram / "feature/boot-id").read_text(), token + "\n")
+                self.assertEqual((self.ram / "boot-id").lstat().st_blocks, 0)
+                # The durable identity refuses re-entry even if publications
+                # were removed after a crash. Never regenerate from new R_REV.
+                for path in self.ram.iterdir():
+                    if path.name in ("boot-id", "lock"):
+                        continue
+                    if path.is_dir() and not path.is_symlink():
+                        shutil.rmtree(path)
+                    else:
+                        path.unlink()
+                before = (self.data / "record").read_bytes()
+                self.assertEqual(self.invoke().returncode, 1)
+                self.assertEqual((self.data / "record").read_bytes(), before)
+                self.assertEqual(self.boot_token(), token)
+                fields[10] = token
+                self.record = fields
+                self.save_record()
+                previous = token
+                self.cold_boot()
+        self.assertEqual((self.root / "proc/sys/kernel/random/boot_id").read_text(), BOOT + "\n")
+
+    def test_repeated_kernel_uuid_keeps_finite_budget_including_stock_boot(self):
+        config = (
+            (self.snapshot / "config")
+            .read_text()
+            .replace("touch=1", "touch=0")
+            .replace("nvram=disable", "nvram=absent")
+        )
+        self.change_current("config", config)
+        (self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction").unlink()
+        tokens = set()
+        for remaining, outcome in ((2, 0), (1, 0), (0, 0), (0, 2), (0, 2)):
+            result = self.invoke()
+            self.assertEqual(result.returncode, outcome, result.stderr)
+            token = self.boot_token()
+            self.assertNotIn(token, tokens)
+            tokens.add(token)
+            fields = (self.data / "record").read_text().strip().split("|")
+            self.assertEqual(fields[9:12], [str(remaining), "-", token])
+            before = (self.data / "record").read_bytes()
+            self.assertEqual(self.invoke().returncode, 1)
+            self.assertEqual((self.data / "record").read_bytes(), before)
+            self.cold_boot()
+        # Sustained OFF in the stock boot still permits the next ignition cycle.
+        fields[10] = fields[11]
+        self.record = fields
+        self.save_record()
+        self.assertEqual(self.invoke().returncode, 0)
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
+    def test_native_slow_path_and_pending_recovery_share_shell_identity(self):
+        # NVRAM mismatch requests shell reconciliation after identity creation.
+        (self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction").write_text("enable\n")
+        original = (self.data / "record").read_bytes()
+        self.assertEqual(self.invoke().returncode, 95)
+        token = self.boot_token()
+        self.assertEqual((self.data / "record").read_bytes(), original)
+        self.assertEqual(self.shell_identity(), token)
+        self.record[1] = "set"
+        self.record[6:8] = [self.snapshot.name, self.snapshot.name]
+        self.save_record()
+        self.assertEqual(self.invoke().returncode, 95)
+        self.assertEqual(self.shell_identity(), token)
+        self.assertEqual(self.boot_token(), token)
+
+    def shell_identity(self):
+        state = self.root / "state.sh"
+        state.write_text(
+            (ASSETS / "state.sh")
+            .read_text()
+            .replace("/tmp/open-connect", str(self.ram))
+            .replace(
+                "/proc/sys/kernel/random/boot_id", str(self.root / "proc/sys/kernel/random/boot_id")
+            )
+        )
+        tools = Path(self.build.name)
+        return subprocess.check_output(
+            [
+                "sh",
+                "-c",
+                'D=$1; . "$2"; record_read && boot_identity',
+                "identity",
+                self.data,
+                state,
+            ],
+            text=True,
+            env={**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]},
+        ).strip()
+
+    def test_native_and_shell_identity_derivation_agree(self):
+        before = self.record.copy()
+        self.assertEqual(self.invoke().returncode, 0)
+        native = self.boot_token()
+        self.cold_boot()
+        self.record = before
+        self.save_record()
+        self.assertEqual(self.shell_identity(), native)
+        # Subsequent record revisions cannot change an existing marker.
+        self.record[2] = "f" * 32
+        self.save_record()
+        self.assertEqual(self.shell_identity(), native)
+
+    def test_identity_owner_mismatch_refuses_without_debit(self):
+        before = (self.data / "record").read_bytes()
+        self.assertEqual(self.invoke(extra_env={"OC_BOOT_OWNER_FAIL": "1"}).returncode, 1)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+
+    def test_malformed_volatile_identity_never_regenerates_or_debits(self):
+        for value in (
+            None,
+            "invalid",
+            BOOT + "\n",
+            BOOT + "0",
+            "-2345678-1234-1234-1234-123456789abc",
+        ):
+            with self.subTest(value=value):
+                marker = self.ram / "boot-id"
+                marker.unlink(missing_ok=True)
+                if value is None:
+                    marker.write_text(BOOT)
+                else:
+                    marker.symlink_to(value)
+                before = (self.data / "record").read_bytes()
+                self.assertEqual(self.invoke().returncode, 1)
+                self.assertEqual((self.data / "record").read_bytes(), before)
+                with self.assertRaises(subprocess.CalledProcessError):
+                    self.shell_identity()
 
     def invoke(
         self, cut=None, term=None, output_limit=None, mode="select", stderr_fd=None, extra_env=None
@@ -842,7 +992,7 @@ class NativeBootSelection(unittest.TestCase):
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
         record = (self.data / "record").read_text().split("|")
-        self.assertEqual(record[9:12], ["2", "-", BOOT])
+        self.assertEqual(record[9:12], ["2", "-", self.boot_token()])
         self.assertEqual((self.ram / "selected").read_text(), self.snapshot.name + "\n")
         self.assertEqual(
             (self.ram / "feature/uia.so").read_bytes(), (self.composed / "uia.so").read_bytes()
@@ -991,16 +1141,21 @@ class NativeBootSelection(unittest.TestCase):
         self.assertTrue((self.ram / "access-selected").is_file())
         self.assertFalse((self.ram / "selected").exists())
         self.assertFalse((self.ram / "feature").exists())
-        self.assertEqual((self.data / "record").read_text().split("|")[9:12], ["0", "-", BOOT])
+        self.assertEqual(
+            (self.data / "record").read_text().split("|")[9:12], ["0", "-", self.boot_token()]
+        )
 
     def test_only_off_from_a_different_kernel_renews_budget(self):
         self.record[9] = "0"
         self.record[10] = "87654321-1234-1234-1234-123456789abc"
         self.save_record()
         self.assertEqual(self.invoke().returncode, 0)
-        self.assertEqual((self.data / "record").read_text().split("|")[9:12], ["2", "-", BOOT])
+        self.assertEqual(
+            (self.data / "record").read_text().split("|")[9:12], ["2", "-", self.boot_token()]
+        )
 
     def test_same_kernel_off_requires_factory_nvram_restore_in_full_verifier(self):
+        (self.ram / "boot-id").symlink_to(BOOT)
         self.record[9:11] = ["0", BOOT]
         self.save_record()
         before = (self.data / "record").read_bytes()

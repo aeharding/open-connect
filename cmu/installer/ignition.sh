@@ -6,7 +6,8 @@ set -eu
 P=$(dirname "$(readlink -f "$0")")
 D=/tmp/mnt/data_persist/open-connect
 . "$P/state.sh"
-IFS= read -r current_boot < /proc/sys/kernel/random/boot_id || exit 1
+private_dir /tmp/open-connect || exit 1
+current_boot=$(current_boot_id) || exit 1
 boot=${1:-$current_boot}
 boot_id "$boot" && test "$current_boot" = "$boot" || exit 1
 # One observer per kernel, independent of USB or listener readiness.
@@ -17,7 +18,7 @@ flock -n -x 8 || exit 0
 seen_on=false
 off_samples=0
 recorded=-
-while IFS= read -r current_boot < /proc/sys/kernel/random/boot_id && test "$current_boot" = "$boot"; do
+while current_boot=$(current_boot_id) && test "$current_boot" = "$boot"; do
     IFS= read -r value < /sys/class/gpio/ACC_Sense/value || exit 1
     case "$value" in
         1) seen_on=true; off_samples=0; wanted=-;;

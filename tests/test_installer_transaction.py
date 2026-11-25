@@ -253,6 +253,7 @@ class InstallerTransaction(unittest.TestCase):
                 "uuid() { openssl rand -hex 16; }",
             )
         )
+        state = state.replace("/tmp/open-connect", str(runtime))
         (self.tools / "state.sh").write_text(state)
         # Use the real backend and state/transaction code; replace only physical
         # firmware, NVRAM, mount, root-publication and reboot adapters.
@@ -669,6 +670,54 @@ class InstallerTransaction(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(status["completionReady"], variant == "ready")
                 self.assertEqual((data / "record").read_bytes(), before)
+
+    def test_completion_uses_volatile_identity_when_kernel_uuid_repeats(self):
+        data = self.create("repeated-completion")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        runtime = self.root / "runtime"
+        kernel = self.root / "kernel-boot"
+        raw = "f7a1f4aa-1234-1234-1234-123456789abc"
+        kernel.write_text(raw + "\n")
+        backend = self.tools / "backend.sh"
+        backend.write_text(
+            backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
+        )
+        fields = (data / "record").read_text().split("|")
+        fields[12] = "installed\n"
+        (runtime / "selected").write_text(fields[5] + "\n")
+        marker = runtime / "boot-id"
+        first = "12345678-1234-1234-1234-123456789abc"
+        second = "87654321-1234-1234-1234-123456789abc"
+        for token, recorded, ready in (
+            (first, first, True),
+            (second, first, False),  # New kernel; installation was not selected.
+            (second, second, True),
+            (second, raw, False),  # Repeated raw UUID must never rescue a mismatch.
+            (None, raw, True),  # New USB serving a live dev.19 installation.
+            (None, second, False),
+            ("invalid", raw, False),
+            (raw + "\n", raw, False),
+        ):
+            with self.subTest(token=token, recorded=recorded):
+                marker.unlink(missing_ok=True)
+                if token is not None:
+                    marker.symlink_to(token)
+                fields[11] = recorded
+                (data / "record").write_text("|".join(fields))
+                before = (data / "record").read_bytes()
+                result, status = self.api("status")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(status["completionReady"], ready)
+                self.assertEqual((data / "record").read_bytes(), before)
+        marker.unlink()
+        marker.write_text(raw + "\n")  # A regular file is not a legacy absence.
+        fields[11] = raw
+        (data / "record").write_text("|".join(fields))
+        result, status = self.api("status")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(status["completionReady"])
+        self.assertEqual(kernel.read_text(), raw + "\n")
 
     def test_backend_reinstall_refuses_later_target_or_dependency_edits(self):
         data = self.create("reinstall-conflict")

@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
 const folder = process.argv[2], boot = '12345678-1234-1234-1234-123456789abc';
-function fixture(shared = {}, load = true) {
+function fixture(shared = {}, load = true, bootToken = boot) {
   const calls = [], events = {}, timers = [], pendingContexts = [];
   let deferContext=false, background=false, contextHandler, contextCompare, nativeContext, nativeFocus, loading, callEnd;
   let now = 0, clock = 0;
@@ -16,7 +16,7 @@ function fixture(shared = {}, load = true) {
   ctx.sessionStorage = {getItem: k => {if(state.failRead)throw Error('storage read');return state.storage.get(k) || null;},
     setItem(k,v) {if(state.failStorage)throw Error('storage write');state.storage.set(k,v);}};
   ctx.document = {body: {}, querySelector(selector) {
-    return selector.includes('open-connect-token') ? {getAttribute: key => key === 'data-boot' ? boot : 'a'.repeat(32)} : null;
+    return selector.includes('open-connect-token') ? {getAttribute: key => key === 'data-boot' ? bootToken : 'a'.repeat(32)} : null;
   },getElementById() {return null;}, addEventListener(key, fn) {(events[key] ||= []).push(fn);},removeEventListener() {}};
   const apps = {system: {_currentContext: {uiaId:'system',ctxtId:'HomeScreen',contextSeq:1}, _contextTable: {Disclaimer: {controlProperties: {Dialog3Ctrl: {
     defaultSelectCallback(control, action) {if(action==='Global.Yes')fw.sendEventToMmui('common',action);}
@@ -120,6 +120,19 @@ f.session(true);f.menu();f.advance();assert.equal(f.count(),1,'duplicate true');
 f.session(false);f.connect(true);assert.equal(f.count(),2,'empty-ID disconnect');
 let r=fixture(f.state);r.connect();assert.equal(r.count(),0,'connected reload');
 r.session(false);r=fixture(r.state);r.connect();assert.equal(r.count(),1,'disconnected reload');
+// Two cold kernels can publish the same early-entropy Linux boot_id. OC1's
+// previous identity participates in the selector's nonsecret boot token instead.
+const repeatedKernel = 'f7a1f4aa-1234-1234-1234-123456789abc';
+function coldToken(previous) {
+  const h=require('node:crypto').createHash('sha256').update('OCBOOT1|'+repeatedKernel+'|'+'a'.repeat(32)+'|'+previous+'|'+previous+'\n').digest('hex');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20,32);
+}
+const firstToken=coldToken(repeatedKernel),secondToken=coldToken(firstToken);
+assert.notEqual(firstToken,secondToken);
+f=fixture({},true,firstToken);f.connect();assert.equal(f.count(),1,'first repeated-UUID cold boot');
+r=fixture(f.state,true,firstToken);r.connect();assert.equal(r.count(),0,'same kernel reload stays consumed');
+r=fixture(r.state,true,secondToken);r.connect();assert.equal(r.count(),1,'fresh cold kernel can select with repeated Linux UUID');
+f=fixture(r.state,true,secondToken);f.connect();assert.equal(f.count(),0,'second kernel reload stays consumed');
 f=fixture({failName:true});f.connect();assert.equal(f.count(),1);assert.ok(f.state.storage.get('oc107').endsWith(':C'));
 f.state.name='oc107:'+boot+':A';r=fixture(f.state);r.connect();assert.equal(r.count(),0,'fallback C beats stale A');
 r.session(false);r.connect();assert.equal(r.count(),1,'verified A/A reconnect');

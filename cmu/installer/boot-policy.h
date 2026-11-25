@@ -545,6 +545,39 @@ static int oc_new_text(int folder,const char *name,const char *text,unsigned mod
     if (oc_close((int)fd)<0) ok=0;
     return ok;
 }
+/* Same contract as state.sh's boot_identity. The short tmpfs symlink keeps
+ * this nonsecret value inline, without allocating a data page. Never follow it.
+ * Publish before any OC1 mutation: native -> shell fallback, recovery and
+ * re-entry must all retain the same identity for this kernel's lifetime.
+ */
+static int oc_boot_identity(OcBoot *b) {
+    if (oc_absent_at(b->ram,"boot-id")) {
+        char digest[65];
+        if (oc_text(b->root,"proc/sys/kernel/random/boot_id",b->boot,sizeof b->boot,1)<0||
+            !oc_one_line(b->boot)||!oc_uuid(b->boot)) return 0;
+        OcHash hash;
+        oc_hash_init(&hash);
+        const char *parts[]={"OCBOOT1",b->boot,b->record_fields[2],b->record_fields[11],b->record_fields[10]};
+        for (unsigned i=0;i<5;++i) {
+            oc_hash_add(&hash,parts[i],oc_length(parts[i]));
+            oc_hash_add(&hash,i==4?"\n":"|",1);
+        }
+        oc_hash_finish(&hash,digest);
+        unsigned at=0;
+        for (unsigned i=0;i<36;++i) b->boot[i]=(i==8||i==13||i==18||i==23)?'-':digest[at++];
+        for (unsigned i=0;i<16;++i) {
+            if (!oc_equal(b->boot,b->record_fields[11])&&!oc_equal(b->boot,b->record_fields[10])) break;
+            b->boot[0]="0123456789abcdef"[i];
+        }
+        if (oc_symlink(b->boot,b->ram,"boot-id")<0) return 0;
+    }
+    OcMeta meta;
+    if (oc_metadata(b->ram,"boot-id",&meta)<0||(meta.mode&OC_TYPE)!=0120000||
+        meta.uid!=(unsigned)b->owner||meta.gid!=(unsigned)b->group||
+        oc_readlink(b->ram,"boot-id",b->boot,sizeof b->boot)!=36) return 0;
+    b->boot[36]=0;
+    return oc_uuid(b->boot);
+}
 static int oc_copy_input(OcBoot *b,const char *key,int output,const char *name,unsigned mode) {
     OcInput *row=oc_find(b,key);
     if (!row||row->absent) { b->input_failure=1; return 0; }
@@ -955,7 +988,7 @@ static int oc_select(OcBoot *b,int root) {
         record_meta.uid==(unsigned)b->owner&&record_meta.gid==(unsigned)b->group;
     if (oc_close((int)record)<0) ok=0;
     if (!ok||!oc_record(b)) return OC_SLOW;
-    if (oc_text(root,"proc/sys/kernel/random/boot_id",b->boot,sizeof b->boot,1)<0||!oc_one_line(b->boot)||!oc_uuid(b->boot)) return OC_SLOW;
+    if (!oc_boot_identity(b)) return OC_REFUSE;
     if (oc_equal(b->record_fields[11],b->boot)||!oc_absent_at(b->ram,"selected")||
         !oc_absent_at(b->ram,"feature")||!oc_absent_at(b->ram,"ignition")||!oc_absent_at(b->ram,"access-selected")||
         !oc_absent_at(b->ram,".native-selected")) return OC_REFUSE;

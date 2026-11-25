@@ -247,7 +247,8 @@ service_boot() {
     test -f "$D/record" && test ! -L "$D/record" && test "$(wc -l < "$D/record")" -eq 1 || exit 1
     IFS='|' read -r format phase rev package base current before after undo budget off boot notice extra < "$D/record"
     test "$format:$phase:$before:$after" = OC1:active:-:- && test -z "$extra" || exit 1
-    test "$boot" = "$(cat /proc/sys/kernel/random/boot_id)"
+    test -L "$R/boot-id" && test "$(stat -c '%s:%u:%g' "$R/boot-id")" = 36:0:0 &&
+        test "$boot" = "$(readlink "$R/boot-id")" || exit 1
     test "${#package}:${#current}" = 64:64
     case "$package$current" in *[!a-f0-9]*) exit 1;; esac
     test -f "$R/selected" && test ! -L "$R/selected" && test "$(cat "$R/selected")" = "$current" || exit 1

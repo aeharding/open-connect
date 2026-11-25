@@ -38,7 +38,7 @@ Reduce background logging and stop unused services at startup. Previously called
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p><a href="performance.md#published-dev20-cold-acc-off-comparison-2026-11-25">Performance evidence</a> retains all 11 primary attempts, including the SSH bind failure and uncommanded restart; nine clean traces supply the medians. #9 remains open. PR #149 has separate DVD-policy/reinstall checks and new Audio sources captures, <strong>no new performance cohort</strong>. The screenshot above remains dev.19. <strong>0.3.0-dev.21</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
+<p><a href="performance.md#published-dev20-cold-acc-off-comparison-2026-11-25">Performance evidence</a> retains all 11 primary attempts, including the SSH bind failure and uncommanded restart; nine clean traces supply the medians. #9 remains open. PR #149 has separate DVD-policy/reinstall checks and new Audio sources captures, <strong>no new performance cohort</strong>. The screenshot above remains dev.19. <strong>0.3.0-dev.22</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 
 ## Change the setting

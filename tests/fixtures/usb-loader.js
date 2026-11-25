@@ -13,21 +13,23 @@ function fixture(start = true, installed = false) {
         utility: {loadScript(url, attrs, loaded) {
             nodes[attrs.id] = {...attrs, parentNode: parent};
             pending.push({url, loaded});
-        }}, OpenConnect: {start(...args) { calls.push(args); }}};
+        }}, OpenConnect: {start(...args) { calls.push(args); window.__ocUSBLoading.done(); }}};
     if (installed) {
         ctx.OpenConnect.reopenUSB = value => { calls.push(["reopen", value]); return true; };
         window.OpenConnect = ctx.OpenConnect;
     }
     const run = () => vm.runInNewContext(source, ctx);
+    const client = ctx.OpenConnect;
+    const onload = () => { window.__ocUSBLoading.client=client; pending[0].loaded(); };
     if (start) run();
-    return {window, nodes, pending, calls, run, cleanup() { vm.runInNewContext(cleanup, ctx); }};
+    return {window, nodes, pending, calls, run, onload, cleanup() { vm.runInNewContext(cleanup, ctx); }};
 }
 let f = fixture();
 f.run();
 assert.equal(f.pending.length, 1);
 assert.equal(f.pending[0].url, "file://localhost/tmp/oc-usb-abc/runtime.js");
 assert.equal(f.calls.length, 0);
-f.pending[0].loaded();
+f.onload();
 assert.deepEqual(f.calls, [["token", true]]);
 assert.deepEqual(Object.keys(f.nodes), []);
 assert.equal(f.window.__ocUSBLoading, undefined);
@@ -56,6 +58,6 @@ f = fixture(true, true);
 assert.deepEqual(f.calls, []); // The installed client's old deadline must not govern this package.
 assert.equal(f.pending.length, 1);
 assert.equal(f.pending[0].url, "file://localhost/tmp/oc-usb-abc/runtime.js");
-f.pending[0].loaded();
+f.onload();
 assert.deepEqual(f.calls, [["token", true]]);
 assert.deepEqual(Object.keys(f.nodes), []);

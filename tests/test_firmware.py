@@ -112,12 +112,21 @@ class PrivateFirmware(unittest.TestCase):
                     return (len(s.encode()) + 4095) // 4096
 
                 self.assertEqual(pages(selected), pages(predecessor), fields)
+                # The observation is optional: the writer refuses to allocate an
+                # extra page. Report which variants admit the maximum trailer.
+                trailer = (
+                    "\n<!-- OCUSB1|12345678-1234-1234-1234-123456789abc|" + "1-1:1;" * 32 + " -->\n"
+                )
+                fits = len(trailer.encode()) <= pages(selected) * 4096 - len(selected.encode())
+                if fits:
+                    self.assertEqual(pages(selected + trailer), pages(selected), fields)
                 rows.append(
                     {
                         "choices": destination.name,
                         "notice": notice,
                         "bytes": len(selected.encode()),
                         "pages": pages(selected),
+                        "maximum_usb_observation_fits": fits,
                     }
                 )
         self.assertEqual(len(rows), 320)

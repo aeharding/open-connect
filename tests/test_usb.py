@@ -68,6 +68,250 @@ PAYLOAD = (*STATIC, *COMPILED, "layout.txt", "touch.sh", "LICENSE")
 
 
 class UsbBuild(unittest.TestCase):
+    def test_post_restart_scan_only_suppresses_the_observed_selected_package(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            registry, durable, work = (root / n for n in ("registry", "durable", "work"))
+            feature = registry / "feature"
+            for folder in (feature, durable, work):
+                folder.mkdir(parents=True)
+            boot = "12345678-1234-1234-1234-123456789abc"
+            current = "c" * 64
+            (registry / "selected").write_text(current + "\n")
+            (registry / "boot").write_text(boot + "\n")
+            index = feature / "index.html"
+            page = '<meta name="open-connect-notice" content="installed">\n'
+            trailer = f"<!-- OCUSB1|{boot}|1-2:7; -->\n"
+            index.write_text(page + trailer)
+            manifest = "a" * 64 + "  VERSION\n"
+            (work / "files.sha256").write_text(manifest)
+            installed = manifest + "b" * 64 + "  INSTANCE\n"
+            package = hashlib.sha256(installed.encode()).hexdigest()
+            destination = durable / "packages" / package
+            destination.mkdir(parents=True)
+            (destination / "files.sha256").write_text(installed)
+            # Record validation and lock acquisition are tested by their own
+            # maintained suites; substitute only those upstream platform facts.
+            (work / "state.sh").write_text(
+                'file() { test -f "$1" && test ! -L "$1"; }; '
+                'private_dir() { test -d "$1"; }; '
+                "sha() { openssl dgst -sha256 < \"$1\" | awk '{print $NF}'; }; "
+                'current_boot_id() { cat "$R/boot"; }; '
+                'record_read() { . "$D/facts"; };\n'
+            )
+            facts = durable / "facts"
+
+            def record(phase="active", selected=current, selected_boot=boot):
+                facts.write_text(
+                    f"R_PHASE={phase}; R_CURRENT={selected}; R_BOOT={selected_boot}; "
+                    f"R_BACKEND={package}\n"
+                )
+
+            record()
+            sysroot = root / "sys"
+            usb = sysroot / "devices/1-2"
+            usb.mkdir(parents=True)
+            (usb / "idVendor").write_text("0781\n")
+            (usb / "devnum").write_text("7\n")
+            block = usb / "host/block/sda/sda1"
+            block.mkdir(parents=True)
+            block_class = sysroot / "class/block"
+            block_class.mkdir(parents=True)
+            (block_class / "sda1").symlink_to(block)
+            mounts = root / "mounts"
+            mounts.write_text("/dev/sda1 /tmp/mnt/sda1 vfat ro 0 0\n")
+            module = (ASSETS / "service.sh").read_text()
+            module = module.replace("/sys/", str(sysroot) + "/").replace(
+                "/proc/mounts", str(mounts)
+            )
+            (work / "service.sh").write_text(module + "\nservice_lock() { :; }\n")
+            source = (ASSETS / "session.sh").read_text().split("navigate()", 1)[0]
+            source = source.replace("/tmp/open-connect", str(registry)).replace(
+                "/tmp/mnt/data_persist/open-connect", str(durable)
+            )
+            runner = root / "runner.sh"
+            runner.write_text(source + "\nif post_restart; then exit 0; else exit 1; fi\n")
+
+            def suppressed():
+                return (
+                    subprocess.run(
+                        ["sh", runner, work, "/tmp/mnt/sda1/open-connect"],
+                        capture_output=True,
+                        timeout=5,
+                    ).returncode
+                    == 0
+                )
+
+            self.assertTrue(suppressed())
+            # Done clears the mutable record notice; the rendered boot notice
+            # and frozen attachment still describe this continuation.
+            with facts.open("a") as stream:
+                stream.write("R_NOTICE=-\n")
+            self.assertTrue(suppressed())
+            (usb / "devnum").write_text("8\n")
+            self.assertFalse(suppressed())  # Deliberate reinsertion.
+            (usb / "devnum").write_text("7\n")
+            for invalid in ("-", "1-2:8;", "1-2:bad;"):
+                index.write_text(page + trailer.replace("1-2:7;", invalid))
+                self.assertFalse(suppressed())
+            index.write_text(page + trailer)
+            (work / "files.sha256").write_text("d" * 64 + "  VERSION\n")
+            self.assertFalse(suppressed())  # A different maintenance package.
+            (work / "files.sha256").write_text(manifest)
+            for phase, selected, selected_boot in (
+                ("fallback", current, boot),
+                ("active", "d" * 64, boot),
+                ("active", current, "00000000-0000-0000-0000-000000000000"),
+            ):
+                record(phase, selected, selected_boot)
+                self.assertFalse(suppressed())
+            record()
+            index.write_text(page.replace("installed", "-") + trailer)
+            self.assertFalse(suppressed())
+            index.write_text(page + trailer)
+            mounts.write_text("/dev/sdb1 /tmp/mnt/sda1 vfat ro 0 0\n")
+            self.assertFalse(suppressed())  # The mount name is not USB identity.
+
+    def test_usb_observation_freezes_attachment_and_rejects_bad_trailers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            feature = root / "feature"
+            feature.mkdir()
+            index = feature / "index.html"
+            devices = root / "sys/bus/usb/devices"
+            devices.mkdir(parents=True)
+            boot = "12345678-1234-1234-1234-123456789abc"
+            module = root / "functions.sh"
+            module.write_text(
+                (ASSETS / "service.sh").read_text().replace("/sys/", str(root / "sys") + "/")
+            )
+            # Only platform facts are substituted; the actual reader/writer runs.
+            prelude = (
+                '. "$1"; R=$2; '
+                f"current_boot_id() {{ echo {boot}; }}; "
+                'file() { test -f "$1" && test ! -L "$1"; }; '
+                'stat() { printf "%s %s\\n" "$(wc -c < "$3")" 8; }; '
+            )
+
+            def observe():
+                return subprocess.run(
+                    ["sh", "-c", prelude + "service_usb_observe", "test", module, root],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+
+            index.write_text("<html>completion</html>\n")
+            self.assertEqual(observe().stdout, "-\n")
+            empty = index.read_bytes()
+            usb = devices / "1-2.3"
+            usb.mkdir()
+            (usb / "devnum").write_text("7\n")
+            self.assertEqual(observe().stdout, "-\n")
+            self.assertEqual(index.read_bytes(), empty)
+            index.write_text("<html>completion</html>\n")
+            self.assertEqual(observe().stdout, "1-2.3:7;\n")
+            saved = index.read_bytes()
+            (usb / "devnum").write_text("8\n")
+            self.assertEqual(observe().stdout, "1-2.3:7;\n")
+            self.assertEqual(index.read_bytes(), saved)
+            valid = f"<!-- OCUSB1|{boot}|1-2.3:7; -->\n"
+            for trailer in (
+                valid + valid,
+                valid[:-5],
+                valid.replace(boot, "00000000-0000-0000-0000-000000000000"),
+                valid.replace("1-2.3:7;", "1-2.3:x;"),
+                valid + "<!-- OCUSB1",
+                valid + "other bytes\n",
+                "prefix" + valid,
+            ):
+                with self.subTest(trailer=trailer):
+                    index.write_text("<html></html>\n" + trailer)
+                    before = index.read_bytes()
+                    self.assertNotEqual(observe().returncode, 0)
+                    self.assertEqual(index.read_bytes(), before)
+            for body in ("x" * 4090, "<html></html>\n"):
+                index.write_text(body)
+                if len(body) < 4090:
+                    (usb / "devnum").write_text("unavailable\n")
+                self.assertNotEqual(observe().returncode, 0)
+                self.assertEqual(index.read_text(), body)
+
+    def test_session_teardown_preserves_the_frontend_owner(self):
+        for reason, expected_calls in (
+            ("done", 1),
+            ("done-and-removed", 1),
+            ("removed", 2),
+            ("superseded", 1),
+        ):
+            with self.subTest(reason=reason), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                work, runtime, media, bin_dir = (
+                    root / n for n in ("work", "runtime", "media", "bin")
+                )
+                for path in (work, runtime, media, bin_dir):
+                    path.mkdir()
+                registry = root / "registry"
+                registry.mkdir()
+                (registry / "runtime").symlink_to(runtime)
+                (registry / "listener").write_text(f"1 2 {runtime}\n")
+                (runtime / "token").write_text("a" * 32 + "\n")
+                (media / "run.sh").touch()
+                service = (
+                    'service_owns_listener() { test "$4" = 15555; }\n'
+                    'if test "${0##*/}" = service.sh; then\n'
+                    ' if test "${1:-}" = stop; then echo stop >> "$OC_TEST_EVENTS";\n'
+                    ' else echo "$OC_TEST_RUNTIME"; fi\n'
+                    "fi\n"
+                )
+                for path in (work / "service.sh", runtime / "service.sh"):
+                    path.write_text(service)
+                stub = bin_dir / "dbus-send"
+                stub.write_text(
+                    "#!/bin/sh\n"
+                    'printf "%s\\n" "$*" >> "$OC_TEST_CALLS"\n'
+                    'case "$*" in *loadScript*)\n'
+                    ' case "$OC_TEST_REASON" in\n'
+                    '  done|done-and-removed) : > "$OC_TEST_RUNTIME/closed";;\n'
+                    " esac\n"
+                    ' case "$OC_TEST_REASON" in\n'
+                    '  removed|done-and-removed) rm "$OC_TEST_MEDIA/run.sh";;\n'
+                    '  superseded) ln -sfn "$OC_TEST_OTHER" "$OC_TEST_REGISTRY/runtime";;\n'
+                    " esac;;\n"
+                    "esac\n"
+                )
+                stub.chmod(0o700)
+                logger = bin_dir / "logger"
+                logger.write_text("#!/bin/sh\nexit 0\n")
+                logger.chmod(0o700)
+                script = root / "session.sh"
+                script.write_text(
+                    (ASSETS / "session.sh").read_text().replace("/tmp/open-connect", str(registry))
+                )
+                calls, events = root / "calls", root / "events"
+                env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ["PATH"])
+                env.update(
+                    {
+                        "OC_TEST_REASON": reason,
+                        "OC_TEST_RUNTIME": str(runtime),
+                        "OC_TEST_MEDIA": str(media),
+                        "OC_TEST_REGISTRY": str(registry),
+                        "OC_TEST_OTHER": str(root / "successor"),
+                        "OC_TEST_CALLS": str(calls),
+                        "OC_TEST_EVENTS": str(events),
+                    }
+                )
+                subprocess.run(
+                    ["sh", str(script), str(work), str(media)], env=env, check=True, timeout=5
+                )
+                sent = calls.read_text().splitlines()
+                self.assertEqual(len(sent), expected_calls)
+                self.assertIn("loadScript", sent[0])
+                if reason == "removed":
+                    self.assertIn("cancelUSB", sent[1])
+                self.assertEqual(events.read_text(), "stop\n")
+                self.assertFalse(work.exists())
+
     def test_packager_refuses_an_extra_ui_page_before_staging(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

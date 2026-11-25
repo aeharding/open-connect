@@ -17,10 +17,11 @@ same files as `usb-installer`. A `v<version>` development tag matching
 `cmu/installer/VERSION` on reviewed main history prepares a draft prerelease after
 host checks. Qualify that CI artifact on the bench before publishing.
 
-The owner authorized publishing dev.21 for the USB-insertion
-and installer-launch bench retest. Its runtime changes were checked in PR #149's
-dev.20-versioned CI candidate; the newly versioned ZIP still needs that retest.
-Record the exact artifact and remaining qualification limits when publishing.
+Dev.21 reproduced the post-install Settings failure in [#157](https://github.com/aeharding/open-connect/issues/157).
+The dev.22 candidate addresses USB teardown, client handoff and native Back
+initialization. Its exact CI bundle still needs the affected bench checks before
+publication. The owner authorized a new prerelease for that retest; retain the
+artifact identity and remaining qualification limits when publishing.
 
 Build scripts copy authored files and compile native assets; OEM files are read
 and composed privately on the CMU. The installer and its backend run on the CMU;

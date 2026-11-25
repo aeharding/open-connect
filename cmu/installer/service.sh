@@ -3,6 +3,58 @@
 # Shared synchronous RAM staging. Boot calls these functions under its existing
 # lock; the USB entry takes that same lock here. Old sessions survive requests.
 
+# Freeze attachment facts at completion proof/first scan, under R/lock. Keep the
+# successful empty observation; a later insertion must remain maintenance.
+service_usb_observe() {
+    local index=${R:-/tmp/open-connect}/feature/index.html boot saved ids= usb name number line
+    boot=$(current_boot_id) && file "$index" || return 1
+    if saved=$(awk -v boot="$boot" '
+        index($0,"<!-- OCUSB1") {
+            n++;s=$0
+            if(sub(/^<!-- OCUSB1[|]/,"",s)!=1||sub(/ -->$/,"",s)!=1||
+               split(s,a,"[|]")!=2||a[1]!=boot||length(a[2])>192||
+               (a[2]!="-"&&a[2]!~/^([0-9]+-[0-9]+([.][0-9]+)*:[0-9]+;)+$/))bad=1
+            value=a[2];next
+        }
+        n&&NF{bad=1}
+        END{if(n!=1||bad)exit 1;print value}' "$index"); then
+        printf '%s\n' "$saved"; return 0
+    fi
+    grep -F -q '<!-- OCUSB1' "$index" && return 1
+    test -d /sys/bus/usb/devices || return 1
+    for usb in /sys/bus/usb/devices/[0-9]*-*; do
+        name=${usb##*/}
+        case "$name" in *[!0-9.-]*) continue;; esac
+        test -r "$usb/devnum" || return 1
+        read -r number < "$usb/devnum" || return 1
+        case "$number" in ''|*[!0-9]*) return 1;; esac
+        ids=$ids$name:$number';'
+    done
+    ids=${ids:--}; test "${#ids}" -le 192 || return 1
+    line="<!-- OCUSB1|$boot|$ids -->"
+    set -- $(stat -c '%s %b' "$index")
+    test "$#" -eq 2 && test "$(($2 * 512 - $1))" -ge "$((${#line} + 2))" || return 1
+    printf '\n%s\n' "$line" >> "$index" || return 1
+    printf '%s\n' "$ids"
+}
+
+service_usb_source() {
+    local path block name number
+    block=$(awk -v path="${1%/open-connect}" '$2==path{n++;b=$1}
+        END{if(n!=1||b!~/^\/dev\/sd[a-d]1$/)exit 1;print b}' /proc/mounts) || return 1
+    block=${block##*/}
+    path=$(readlink -f "/sys/class/block/$block") || return 1
+    while test -n "$path" && test "$path" != /sys; do
+        if test -r "$path/idVendor" && test -r "$path/devnum"; then
+            name=${path##*/}; read -r number < "$path/devnum" || return 1
+            case "$number" in ''|*[!0-9]*) return 1;; esac
+            printf '%s:%s\n' "$name" "$number"; return 0
+        fi
+        path=${path%/*}
+    done
+    return 1
+}
+
 service_lock() {
     local count=0
     if absent "$R"; then mkdir -m 700 "$R"; fi

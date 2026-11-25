@@ -4,7 +4,7 @@
 
 Plug-and-play USB install.
 
-[Start here](usb-installer.md){ .md-button .md-button--primary }
+[Quick start](usb-installer.md){ .md-button .md-button--primary }
 [Browse settings →](settings.md)
 { .oc-actions }
 

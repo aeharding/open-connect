@@ -49,9 +49,12 @@ exact source `e29b58258c0c9e9f4c4689c7912f634b80008424`,
 [CI 45578042314](https://github.com/aeharding/open-connect/actions/runs/45578042314).
 All eight files were copied and hash-checked offline. The PNGs are unedited
 800×480 captures; the silent MP4s are 800×480, 10 fps, H.264/yuv420p Home-first
-Commander Dial walkthroughs. Bluetooth was off and the operator reviewed every
-final clip and PNG for private content and diagnostic overlays. Torn framebuffer
-samples hold the previous intact native frame at the original timestamp;
+Commander Dial walkthroughs. Bluetooth was off during the five MP4 walkthroughs.
+The three Apply changes PNGs were captured at 03:06–03:08 CST, before Bluetooth
+was turned off at 03:16 CST for the video pass. The operator reviewed every final
+clip and PNG for private content and diagnostic overlays; the three PNGs show no
+visible personal identifiers. Torn framebuffer samples hold the previous intact
+native frame at the original timestamp;
 no waits were cut or accelerated. Lossy video pixel identity is not claimed.
 These are walkthroughs, not performance timing evidence. Exact hashes and
 capture limits are in the

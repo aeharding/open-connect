@@ -183,19 +183,12 @@
     }
     if (key === "Tab") {
       const controls = [...panel.querySelectorAll("button:not(:disabled)")];
-      const first = controls[0];
-      const last = controls[controls.length - 1];
       const idx = controls.indexOf(document.activeElement);
-      if (event.shiftKey) {
-        if (idx <= 0) {
-          event.preventDefault();
-          last.focus();
-        }
-      } else if (idx === -1 || idx === controls.length - 1) {
-        event.preventDefault();
-        first.focus();
-      }
+      event.preventDefault();
       event.stopPropagation();
+      const next = idx === -1 ? (event.shiftKey ? controls.length - 1 : 0) :
+        (idx + (event.shiftKey ? -1 : 1) + controls.length) % controls.length;
+      controls[next].focus();
       return;
     }
     if ((event.metaKey || event.ctrlKey) && lower === "k") {

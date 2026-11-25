@@ -12,9 +12,12 @@ build. Older captures below retain their own identities.
 The operator visually reviewed all five final videos and three full PNGs for
 personal information, credentials, diagnostic overlays and framebuffer tearing.
 Navigation used Mazda Commander Dial events (rotate, select and right), with no
-touch input. Bluetooth was **off**; no VIN, unit serial, phone identity or personal
-map appears. These are bench software UI captures, separate from physical
-Commander hardware and real-car qualification. The documentation implementer
+touch input. Bluetooth was **off during the five MP4 walkthroughs**. The three
+Apply changes PNGs were captured at **03:06–03:08 CST**, before Bluetooth was
+turned off at **03:16 CST** for the video pass. All three PNGs were reviewed and
+show no visible personal identifiers. No VIN, unit serial, phone identity or
+personal map appears in the reviewed media. These are bench software UI captures,
+separate from physical Commander hardware and real-car qualification. The documentation implementer
 inspected the three PNGs and verified all eight copied files offline.
 
 Each video starts at **Home**, follows Mazda’s native menus and retains real-time

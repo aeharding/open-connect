@@ -36,17 +36,17 @@ Connect your iPhone to CarPlay without plugging in a USB cable. Open Connect ena
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p id="testing"><a href="performance.md">Performance evidence</a> records wireless configurations, not an isolated enable-toggle benefit. Earlier builds have connection and full-restart reconnection checks; real-car audio, physical controls and long-parked reliability remain unqualified. Dev.19 UI bench captures on <strong>74.00.324A NA</strong>; real-car qualification and matched dev.19 benchmarks remain pending. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+<p id="testing"><a href="performance.md">Performance evidence</a> records wireless configurations, not an isolated enable-toggle benefit. Earlier builds have connection and full-restart reconnection checks; real-car audio, physical controls and long-parked reliability remain unqualified. Dev.19 UI bench captures on <strong>74.00.324A NA</strong>; real-car qualification and matched dev.20 benchmarks remain pending. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
 
 
 <span id="connect-an-iphone"></span>
 
 ## Setup
 
-If Open Connect shows **factory enabled**, start at step 3.
+If Wireless CarPlay is already active, go directly to **Mazda Settings → Devices → Wi-Fi** in step 3. This includes factory wireless CarPlay and wireless already enabled through Open Connect with no pending change. If a saved change needs a restart, complete step 2 first.
 
 1. Open **<span class="oc-nav-path" data-walkthrough="wireless-setup">Mazda Settings → System → Open Connect → CarPlay &amp; Android Auto</span>**. Turn on **Wireless CarPlay** and confirm **Enable**.
-2. Select [**Apply changes**](apply-changes.md) in Open Connect and confirm **Restart**. Keep the car on until Mazda Connect restarts.
+2. If a saved change needs a restart, select [**Apply changes**](apply-changes.md) in Open Connect and confirm **Restart**. Keep the car on until Mazda Connect restarts.
 3. Open **Mazda Settings → Devices → Wi-Fi** and select **Apple CarPlay**.
 
     <figure class="oc-screen">

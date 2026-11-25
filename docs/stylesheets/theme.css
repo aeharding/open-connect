@@ -1,7 +1,7 @@
-/* Open Connect — neutral surfaces, precise type, one HUD Teal accent. */
+/* Open Connect — HUD Teal links and Soul Red controls. */
 :root {
   --oc-accent: #0d7377;
-  --oc-accent-ink: #ffffff;
+  --oc-red: #c4162a;
   --oc-border: #d6d6d2;
   --oc-surface-subtle: #f0f0ed;
 }
@@ -21,7 +21,7 @@
 }
 [data-md-color-scheme="slate"][data-md-color-primary="black"] {
   --oc-accent: #5ec2c6;
-  --oc-accent-ink: #17181a;
+  --oc-red: #e11d36;
   --oc-border: #353638;
   --oc-surface-subtle: #202123;
   --md-primary-fg-color: #17181a;
@@ -58,14 +58,15 @@ body, input { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvet
 .md-typeset a { text-underline-offset: .2em; }
 .md-typeset p a:hover, .md-typeset li a:hover { text-decoration: underline; }
 .md-typeset .md-button { border-radius: 2px; border: 1px solid var(--oc-border); padding: .5rem 1rem; font-size: .78rem; font-weight: 500; }
-.md-typeset .md-button--primary { background: var(--oc-accent); border-color: var(--oc-accent); color: var(--oc-accent-ink); }
+.md-typeset .md-button--primary { background: var(--oc-red); border-color: var(--oc-red); color: white; }
 .md-typeset .md-button:hover, .md-typeset .md-button:focus { background: var(--md-default-fg-color); border-color: var(--md-default-fg-color); color: var(--md-default-bg-color); }
-.md-typeset blockquote { border-left: 2px solid var(--oc-border); color: var(--md-default-fg-color--light); padding: .1rem 0 .1rem .9rem; }
+.md-typeset blockquote { border-left: 2px solid var(--oc-red); color: var(--md-default-fg-color--light); padding: .1rem 0 .1rem .9rem; }
 .md-typeset table:not([class]) { border: 0; border-top: 1px solid var(--oc-border); border-bottom: 1px solid var(--oc-border); border-radius: 0; font-size: .76rem; }
 .md-typeset table:not([class]) th { background: transparent; font-weight: 600; }
 .md-typeset table:not([class]) td { border-top: 1px solid var(--oc-border); }
 .md-footer { border-top: 1px solid var(--oc-border); }
 .md-nav__link--active { font-weight: 600; }
+.md-nav--primary .md-nav__item--active > .md-nav__link--active { color: #fff; background-color: #b00024; }
 @media (min-width: 76.25em) { .md-content__inner { margin-left: 1.8rem; margin-right: 1.8rem; } }
 @media (max-width: 44em) { .md-typeset h1 { font-size: 1.8rem; } }
 

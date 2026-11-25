@@ -3,24 +3,41 @@
 See which version of Open Connect is installed.
 
 <dl class="oc-spec">
-  <dt>Location</dt>
-  <dd><span class="oc-nav-path" data-walkthrough="about">Open Connect</span></dd>
-  <dt>Default</dt>
-  <dd>No preference; displays the installed Open Connect version.</dd>
-  <dt>Startup &amp; RAM</dt>
-  <dd><strong>Neutral</strong> — viewing version information changes no settings; no startup or RAM claim.</dd>
-  <dt>Trade-offs &amp; boot</dt>
-  <dd>None; opening About does not change startup behavior.</dd>
-  <dt>Applies</dt>
-  <dd>Read-only; opens immediately and needs no restart.</dd>
-  <dt>Evidence</dt>
-  <dd>The dev.19 menu has bench captures on <strong>74.00.324A NA</strong>; real-car qualification remains ahead. <a href="performance.md">Performance evidence</a> describes measured configurations. <strong>0.3.0-dev.19</strong> is a development prerelease.</dd>
+  <div>
+    <dt>Menu</dt>
+    <dd><span class="oc-nav-path" data-walkthrough="about">Open Connect</span></dd>
+  </div>
+  <div>
+    <dt>Default</dt>
+    <dd>—</dd>
+  </div>
+  <div>
+    <dt>Impact</dt>
+    <dd>Neutral</dd>
+  </div>
+  <div>
+    <dt>Applies</dt>
+    <dd>Read-only</dd>
+  </div>
 </dl>
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/setting-about.png" alt="About highlighted at the bottom of the Open Connect menu." width="800" height="480"></div>
   <figcaption>About highlighted (dev.19).</figcaption>
 </figure>
+
+## Notes
+
+<p>No preference; displays the installed Open Connect version.</p>
+
+<p><strong>Neutral</strong> — viewing version information changes no settings; no startup or RAM claim.</p>
+
+<p>None; opening About does not change startup behavior.</p>
+
+<p>Read-only; opens immediately and needs no restart.</p>
+
+<p>The dev.19 menu has bench captures on <strong>74.00.324A NA</strong>; real-car qualification remains ahead. <a href="performance.md">Performance evidence</a> describes measured configurations. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+
 
 ## Check the version
 

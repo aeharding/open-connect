@@ -11,35 +11,33 @@
 /* Text labels remain readable without color or icon support. */
 .oc-default { white-space: nowrap; font-weight: 500; }
 .oc-default--on { color: #256a4a; }
-.oc-default--off { color: #983f4b; }
+.oc-default--off { color: var(--md-default-fg-color--light); }
 [data-md-color-scheme="slate"] .oc-default--on { color: #8ec7ac; }
-[data-md-color-scheme="slate"] .oc-default--off { color: #d8a2a8; }
 
-/* Setting specifications: aligned labels, ruled rows and a quiet native accent. */
+/* Setting tidbits stay above the screenshot; the supporting detail follows it. */
 .md-typeset .oc-spec {
   display: grid;
-  grid-template-columns: 10.5rem minmax(0, 1fr);
-  margin: 1.2rem 0 1.6rem;
+  grid-template-columns: minmax(0, 1fr) repeat(3, max-content);
+  margin: .9rem 0 1rem;
   border-block: 1px solid var(--oc-border);
   border-left: 2px solid var(--oc-red);
   background: var(--oc-surface-subtle);
-  font-size: .74rem;
-  line-height: 1.6;
+  font-size: .7rem;
+  line-height: 1.35;
 }
-.md-typeset .oc-spec > dt, .md-typeset .oc-spec > dd {
-  min-width: 0;
-  margin: 0;
-  padding: .65rem .85rem;
-  border-top: 1px solid var(--oc-border);
-}
-.md-typeset .oc-spec > dt { color: var(--md-default-fg-color--light); font-weight: 600; }
-.md-typeset .oc-spec > dd { overflow-wrap: anywhere; }
-.md-typeset .oc-spec > :nth-child(-n + 2) { border-top: 0; }
+.md-typeset .oc-spec > div { min-width: 0; padding: .55rem .65rem; border-left: 1px solid var(--oc-border); }
+.md-typeset .oc-spec > div:first-child { border-left: 0; }
+.md-typeset .oc-spec dt { margin: 0 0 .2rem; color: var(--md-default-fg-color--light); font-size: .6rem; font-weight: 600; }
+.md-typeset .oc-spec dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .oc-spec .oc-nav-path { max-width: 100%; font-weight: 500; overflow-wrap: anywhere; }
+.oc-spec .oc-default { white-space: normal; }
+.md-typeset .oc-spec + .oc-screen { margin-top: 1rem; }
 @media (max-width: 39.999rem) {
-  .md-typeset .oc-spec { grid-template-columns: minmax(0, 1fr); }
-  .md-typeset .oc-spec > dt { padding-bottom: .15rem; }
-  .md-typeset .oc-spec > dd { padding-top: 0; border-top: 0; }
+  .md-typeset .oc-spec { grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: .65rem; }
+  .md-typeset .oc-spec > div { padding: .3rem .45rem; }
+  .md-typeset .oc-spec > div:nth-child(odd) { border-left: 0; }
+  .md-typeset .oc-spec > div:nth-child(n + 3) { border-top: 1px solid var(--oc-border); }
+  .md-typeset .oc-spec dt { font-size: .55rem; margin-bottom: .15rem; }
 }
 
 /* Navigation paths are ordinary inline text until the preview is available. */

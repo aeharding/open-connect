@@ -3,24 +3,41 @@
 Change your preferences in Mazda’s own menus. Choices save automatically.
 
 <dl class="oc-spec">
-  <dt>Location</dt>
-  <dd><span class="oc-nav-path" data-walkthrough="open-connect">Settings → System → Open Connect</span></dd>
-  <dt>Default</dt>
-  <dd>Fresh installations use the choices listed below; updates keep your choices.</dd>
-  <dt>Startup &amp; RAM</dt>
-  <dd><strong>Neutral</strong> for browsing Settings. Individual settings have different measured effects; see <a href="#impact-at-a-glance">Impact at a glance</a>.</dd>
-  <dt>Trade-offs &amp; boot</dt>
-  <dd>Each setting page explains the affected features and any startup delay.</dd>
-  <dt>Applies</dt>
-  <dd>Choices save automatically and take effect on the <strong>next full Mazda Connect startup</strong>; <a href="uninstall.md">Uninstall</a> restarts automatically and <a href="about.md">About</a> is read-only.</dd>
-  <dt>Evidence</dt>
-  <dd><a href="performance.md">Performance evidence</a> records earlier measured configurations. The dev.19 menu has bench captures and Settings Uninstall verification; real-car qualification and matched dev.19 benchmarks remain ahead. <strong>0.3.0-dev.19</strong> is a development prerelease.</dd>
+  <div>
+    <dt>Menu</dt>
+    <dd><span class="oc-nav-path" data-walkthrough="open-connect">Settings → System → Open Connect</span></dd>
+  </div>
+  <div>
+    <dt>Default</dt>
+    <dd>—</dd>
+  </div>
+  <div>
+    <dt>Impact</dt>
+    <dd>Neutral</dd>
+  </div>
+  <div>
+    <dt>Applies</dt>
+    <dd>Per setting</dd>
+  </div>
 </dl>
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen-while-driving.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>
   <figcaption>Open Connect settings (0.3.0-dev.19).</figcaption>
 </figure>
+
+## Notes
+
+<p>Fresh installations use the choices listed below; updates keep your choices.</p>
+
+<p><strong>Neutral</strong> for browsing Settings. Individual settings have different measured effects; see <a href="#impact-at-a-glance">Impact at a glance</a>.</p>
+
+<p>Each setting page explains the affected features and any startup delay.</p>
+
+<p>Choices save automatically and take effect on the <strong>next full Mazda Connect startup</strong>; <a href="uninstall.md">Uninstall</a> restarts automatically and <a href="about.md">About</a> is read-only.</p>
+
+<p><a href="performance.md">Performance evidence</a> records earlier measured configurations. The dev.19 menu has bench captures and Settings Uninstall verification; real-car qualification and matched dev.19 benchmarks remain ahead. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+
 
 <span id="change-a-preference"></span>
 

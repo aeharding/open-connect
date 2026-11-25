@@ -95,59 +95,76 @@ index and its anchors working for existing links.
 Use this order on each setting page:
 
 1. The in-car setting name as the H1, followed by a short introduction.
-2. A `<dl class="oc-spec">` specification header immediately below the introduction,
-   with six rows in this order: **Location**, **Default**, **Startup & RAM**,
-   **Trade-offs & boot**, **Applies**, **Evidence**.
-3. An unedited native 800×480 screenshot in the existing `.oc-screen` figure.
-4. Setting-specific choices or steps, then a link back to Settings.
+2. A compact `<dl class="oc-spec">` bar with four cells in the same order on every
+   page: **Menu**, **Default**, **Impact**, **Applies**. Each cell groups one `<dt>`
+   and one `<dd>` in a `<div>`.
+3. The unedited native 800×480 screenshot in the existing `.oc-screen` figure.
+4. **Notes** below the screenshot for default exceptions, measured startup/RAM
+   context, trade-offs, boot implications, restart guidance and evidence limits.
+5. Setting-specific choices or steps, then a link back to Settings.
 
-Keep Location short: **Open Connect** for top-level settings, **Open Connect →
+The bar is for tidbits, not paragraphs. Use short defaults such as **Allow**,
+**Skip**, **Off**, **Factory**, **On**, **UART/SSH Off** or **—**. Use muted neutral
+ink for Off/Factory and subtle green for enabled defaults. Keep Impact on every
+page: **Neutral** where no measured startup gain is established,
+**Faster · +9.9 MiB free (dev.7)** for Startup optimizations, and
+**+3.2 MiB free off (dev.6)** for Pandora. Keep the complete startup/RAM notes
+below every screenshot, including the neutral settings.
+Use **Next full startup**, **Auto restart**, **Read-only** or **Per setting** for
+Applies. Keep the exact memory metric, comparison configuration and outstanding
+qualification in Notes.
+
+Keep Menu short: **Open Connect** for top-level settings, **Open Connect →
 CarPlay & Android Auto** for phone settings, and **Open Connect → Audio sources**
 for audio settings. The overview uses **Settings → System → Open Connect**.
-Make that short location clickable with `.oc-nav-path` and the setting’s existing
+Make the location clickable with `.oc-nav-path` and the existing
 `data-walkthrough`; the modal still shows the complete navigation sequence.
-Use medium-weight text and dotted text decoration rather than a border underline,
-so wrapped text has no line extending across the page.
+Use medium-weight text and dotted text decoration rather than a border underline.
 
-The header uses aligned label/value columns, hairline row rules, a subtle surface
-tint and a 2px red left edge. Below 40rem, each label stacks above its value.
-The same markup works in both light and dark schemes.
+The bar fills the desktop width with four horizontal cells and uses a 2×2 grid
+below 40rem. Keep it around 70–90px tall on desktop so the screenshot remains
+visible immediately.
+Use hairline rules, a subtle surface tint and a 2px red left edge in both schemes.
+Long menu names may wrap on narrow screens; never clip text or overflow the page.
+Keep `.oc-default--on` or `.oc-default--off` with `.oc-default` where applicable.
 
-Write clean HTML inside the definition list. Only `attr_list` is enabled;
-Markdown emphasis and links inside HTML containers will not be parsed. Use
-`<strong>`, `<code>` and `<a>` instead. Use documentation source filenames in
-HTML links, such as `performance.md` and `settings.md#apply-changes`. Zensical
-rewrites these to directory URLs (`../performance/` and
-`../settings/#apply-changes`) in the generated setting pages. Do not hardcode
-those generated URLs in the source: the renderer adds the page depth again.
-Keep local section links as `#section-id`. Validate both the root and
-`/open-connect/` builds and crawl the generated links after changing them.
-
-For example, the structure for an audio setting is:
+Write clean HTML inside the bar. Only `attr_list` is enabled, so Markdown inside
+HTML containers will not be parsed. For example:
 
 ~~~html
 <dl class="oc-spec">
-  <dt>Location</dt>
-  <dd><span class="oc-nav-path" data-walkthrough="dvd">Open Connect → Audio sources</span></dd>
-  <dt>Default</dt>
-  <dd><span class="oc-default oc-default--off">Off</span>.</dd>
-  <dt>Startup &amp; RAM</dt>
-  <dd><strong>Neutral</strong> — no isolated startup or free-RAM gain is established.</dd>
-  <dt>Trade-offs &amp; boot</dt>
-  <dd>Turning DVD off hides it from Sources and stops DVD video support. Audio CDs and CarPlay still work.</dd>
-  <dt>Applies</dt>
-  <dd>Next full Mazda Connect startup. See <a href="settings.md#apply-changes">restart guidance</a>.</dd>
-  <dt>Evidence</dt>
-  <dd><a href="performance.md">Performance evidence</a> has no isolated DVD comparison. The dev.19 development prerelease awaits real-car qualification.</dd>
+  <div>
+    <dt>Menu</dt>
+    <dd><span class="oc-nav-path" data-walkthrough="dvd">Open Connect → Audio sources</span></dd>
+  </div>
+  <div>
+    <dt>Default</dt>
+    <dd><span class="oc-default oc-default--off">Off</span></dd>
+  </div>
+  <div>
+    <dt>Impact</dt>
+    <dd>Neutral</dd>
+  </div>
+  <div>
+    <dt>Applies</dt>
+    <dd>Next full startup</dd>
+  </div>
 </dl>
 ~~~
 
-Use `.oc-default--on` or `.oc-default--off` with `.oc-default` for applicable
-fresh-install defaults; keep the text meaningful without color. Begin impact
-with **Faster**, **Slightly faster** or **Neutral**, backed by the measured
-configuration and named RAM metric. Neutral means no measured gain is
-established. Link [Performance evidence](performance.md), name outstanding
-qualification, and distinguish older results from the current preview.
+In Notes, retain all factual limits: the dev.19 development prerelease status,
+pending real-car qualification, links to [Performance evidence](performance.md)
+and [restart guidance](settings.md#apply-changes), and the exact conditions for
+any Navigation delay. Neutral means no measured startup gain is established.
+Identify earlier-build measurements, name MemFree when reporting free RAM, and
+keep its caveats. Preserve existing anchors when moving content.
+
+Use `<strong>`, `<code>` and `<a>` inside HTML paragraphs. Use documentation
+source filenames in links, such as `performance.md` and `settings.md#apply-changes`.
+Zensical rewrites these to directory URLs (`../performance/` and
+`../settings/#apply-changes`) in generated setting pages. Hardcoding those output
+URLs in source adds the page depth twice. Validate both the root and
+`/open-connect/` builds and crawl the generated links after changing them.
 
 Use the reviewed `setting-*.png` capture with the corresponding row highlighted
 for each setting’s figure and walkthrough. The red highlight is Mazda’s native

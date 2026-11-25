@@ -34,6 +34,8 @@ test "$(stat -c '%a:%u:%g' /tmp/open-connect)" = 700:0:0
 test -L /tmp/open-connect/boot-id
 test "$(stat -c '%s:%u:%g' /tmp/open-connect/boot-id)" = 36:0:0
 live_boot=$(readlink /tmp/open-connect/boot-id) || exit 1
+test -f "$R/boot-id" && test ! -L "$R/boot-id" &&
+    test "$(wc -c < "$R/boot-id")" -eq 37 && test "$(wc -l < "$R/boot-id")" -eq 1 || exit 1
 saved_boot=$(cat "$R/boot-id") || exit 1
 uuid "$live_boot" && uuid "$saved_boot" && test -n "$live_boot" && test "$live_boot" = "$saved_boot" || exit 1
 absent "$R/wireless-ready"

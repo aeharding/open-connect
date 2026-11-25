@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-var OpenConnect=(function(previous){
+var OpenConnect=(function(prior){
 "use strict";
-if(previous&&previous.protected&&previous.protected()){return previous;}
+if(prior&&prior.protected&&prior.protected()){return prior;}
 var entry=document.getElementById("oc-usb-loader"),meta=document.querySelector('meta[name="open-connect-token"]');
 var vm=document.querySelector('meta[name="open-connect-version"]'),nm=document.querySelector('meta[name="open-connect-notice"]');
 var versionRE=/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/;
@@ -20,13 +20,13 @@ function autoshowState(){
   if(window.framework&&framework._browserShown&&!proofEnd){proofEnd=Date.now()+35000;}
   if(proofEnd&&Date.now()>=proofEnd){proved=true;if(cp){cp.cancel();}}
  }
- if(job||pending||busy||usb||queued||dialog||view||state&&(state.pending||state.carplayAutoshow===0)||!noticeShown&&completion()){return 2;}
+ if(protectedOwner()||busy||usb||queued||dialog||view||state&&(state.pending||state.carplayAutoshow===0)||!noticeShown&&completion()){return 2;}
  return!ready||state&&!known||proofNeeded&&!noticeShown&&!proved?1:0;
 }
 function valid(s){return menus&&menus.validStatus(s);}
 function advance(){refresh=null;epoch++;}
 function values(){return known&&state.installed&&!state.pending&&!state.conflict?state:null;}
-function protectedOwner(){return!!job||pending;}
+function protectedOwner(){return!!job||pending||dismissing===epoch;}
 function claim(){
  if(stopped||window.OpenConnect!==client||job&&(!saving||job.phase==="unresolved")){return false;}
  if(window.__ocUSBLoading&&window.__ocUSBLoading!==marker){return false;}
@@ -94,20 +94,19 @@ function dismiss(done){
  if(dismissing===epoch)return;
  var intent=dismissing=epoch,until=Date.now()+12000,revision=state.revision;
  function finish(ok){
-  dismissing=-1;
+  dismissing=-1;release();
   if(ok){state.notice="-";if(done)done();}
-  else{noticeShown=false;if(!completion())message("Unable to finish","Try again from Mazda Settings.");}
+  else{noticeShown=false;if(!completion())message("Unable to confirm","Open Mazda Settings again.");}
  }
  function send(){
   if(stopped||intent!==epoch)return;
-  var left=until-Date.now();
+  var left=until-Date.now()-6000;
   if(left<=0){finish(false);return;}
   request("dismiss",null,function(a){
    if(a&&a.ok===true){finish(true);}
    else if(a&&a.error==="busy"){setTimeout(send,Math.min(500,until-Date.now()));}
-   else if(a&&a.ok===false){finish(false);}
-   else{readStatus(function(s){finish(!!(s&&values()&&s.notice==="-"&&s.revision===revision));},until,0,intent);}
-  },Math.min(6000,left),intent);
+   else{readStatus(function(s){known=!!valid(s);finish(!!(s&&values()&&s.notice==="-"&&s.revision===revision));},until,0,intent);}
+  },left,intent);
  }
  send();
 }
@@ -285,14 +284,14 @@ function start(value,fromUSB){
    menus=OpenConnectSettings;
    function accept(answer){
     clearTimeout(loading);
-    if(previous&&previous.protected&&previous.protected()){abandon();return;}
+    if(prior&&prior.protected&&prior.protected()){abandon();return;}
     if(!valid(answer)&&!(boot&&!fromUSB)){
-     if(previous){abandon();return;}
+     if(prior){abandon();return;}
      message("Unable to finish","Open Connect could not be reached. Check the connection before trying again.");
     }else{
      ready=true;
-     if(previous&&previous.dispose){previous.dispose();}
-     previous=null;
+     if(prior&&prior.dispose){prior.dispose();}
+     prior=null;
      if(window.ocCarPlay){ocCarPlay.pump();}
     }
     timer=setInterval(tick,500);
@@ -303,9 +302,9 @@ function start(value,fromUSB){
  });
 }
 function cancelUSB(value){
- if(value!==token||pending||job&&(job.sent||job.origin!=="usb")){return;}
+ if(value!==token||pending||dismissing===epoch||job&&(job.sent||job.origin!=="usb")){return;}
  advance();
- if(!ready&&previous){abandon();return;}
+ if(!ready&&prior){abandon();return;}
  if(job){end(null);}
  usb=false;queued=null;closeDialog();
  var node=document.getElementById("oc-usb-loader");
@@ -324,7 +323,7 @@ function reopenUSB(value){
 }
 function abandon(){
  if(ready||stopped){return;}
- dispose();if(window.OpenConnect===client){window.OpenConnect=previous;}
+ dispose();if(window.OpenConnect===client){window.OpenConnect=prior;}
 }
 function dispose(){
  if(protectedOwner()){return false;}

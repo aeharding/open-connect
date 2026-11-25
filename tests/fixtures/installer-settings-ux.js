@@ -108,4 +108,16 @@ assert.equal(f.row("restart").disabled,true);f.confirm("done");
 assert.equal(f.page(),aboutRoot);assert.equal(f.row("restart").disabled,false);
 f.pick("restart");assert.equal(f.dialog.props.buttonConfig.button2.label,"Restart");f.confirm("cancel");
 f.fw.sendEventToMmui("common","Global.IntentHome");assert.equal(f.timers.size,0);
+// Both Uninstall dialog paths restore the saved Apply state on cancellation.
+f=fixture();let removals=0;f.store.uninstall=()=>{removals++;};f.open();f.end();
+f.pick(0);f.pick(1);f.back();f.pick("uninstall");const uninstallRoot=f.page();
+assert.match(f.dialog.props.text1,/Finishing your settings change/);
+assert.equal(f.dialog.props.buttonConfig.button2,undefined);f.advance(250);
+f.ack({...f.value,touch:1,restart:true});assert.equal(f.row("restart").disabled,true);
+f.confirm("cancel");assert.equal(f.page(),uninstallRoot);assert.equal(f.row("restart").disabled,false);
+assert.equal(removals,0);
+f.values({...f.value,restart:false});f.pick(0);f.back();assert.equal(f.row("restart").disabled,true);
+f.pick("uninstall");assert.equal(f.dialog.props.buttonConfig.button2.appData,"uninstall");
+f.values({...f.value,restart:true});f.confirm("cancel");assert.equal(f.row("restart").disabled,false);
+assert.equal(removals,0);f.fw.sendEventToMmui("common","Global.IntentHome");
 console.log("Settings UX: cached/cold entry, native slides, interruptions and Apply confirmation passed");

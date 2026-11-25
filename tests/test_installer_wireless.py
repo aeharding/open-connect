@@ -287,6 +287,35 @@ class InstallerWireless(unittest.TestCase):
                 self.assertFalse((self.feature / "wireless-ready").exists())
                 self.assertEqual(self.target.read_bytes(), XML)
 
+    def test_feature_boot_marker_requires_exact_regular_uuid_line(self):
+        marker = self.feature / "boot-id"
+        valid = self.boot.readlink().as_posix()
+        for content in (valid + "\n\n", valid, valid + "\r\n", valid + "\nextra\n"):
+            with self.subTest(content=content):
+                marker.write_text(content)
+                result = self.run_helper()
+                self.assertNotEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(marker.read_bytes(), content.encode())
+                self.assertFalse((self.root / "session-pid").exists())
+                self.assertFalse((self.feature / "wireless-ready").exists())
+                self.assertEqual(self.target.read_bytes(), XML)
+        marker.unlink()
+        target = self.root / "foreign-boot-id"
+        target.write_text(valid + "\n")
+        marker.symlink_to(target)
+        result = self.run_helper()
+        self.assertNotEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(marker.is_symlink())
+        self.assertFalse((self.root / "session-pid").exists())
+        self.assertEqual(self.target.read_bytes(), XML)
+        marker.unlink()
+        marker.mkdir()
+        result = self.run_helper()
+        self.assertNotEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(marker.is_dir())
+        self.assertFalse((self.root / "session-pid").exists())
+        self.assertEqual(self.target.read_bytes(), XML)
+
     def interrupt_at(self, marker, expected):
         process = subprocess.Popen(
             [*self.shell, self.script],

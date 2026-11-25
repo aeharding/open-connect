@@ -399,7 +399,7 @@ function open(fw,store){
     if(action==="uninstall"&&current()&&!prefs.pending()){
      close();
      store.uninstall();
-    }
+    }else if(current()){prefs.changed(false);}
    });
    return;
   }

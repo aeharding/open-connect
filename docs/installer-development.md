@@ -204,13 +204,18 @@ Manual Settings entry suppresses a pending completion notice for that client
 without a background acknowledgement competing with the first save. Browsing
 alone does not dismiss the durable notice. The completion dialog's explicit
 **Open settings** action waits for confirmed acknowledgement before navigating.
-Busy refusals retry within twelve seconds; uncertain acknowledgements reconcile
-through strict status without replaying the dismiss operation. Failed confirmation
-returns the completion choice or explains that Settings should be opened again.
+The action retains ownership across normal USB cleanup. Busy refusals retry for
+up to six seconds, reserving the rest of a twelve-second budget for strict
+readback. Refusals refresh status; uncertain acknowledgements reconcile without
+replaying dismissal. Unconfirmed readback invalidates cached completion proof
+and shows **Unable to confirm** instead of repeating the old completion dialog.
 
 The root **Apply changes** row is enabled only for saved changes awaiting restart,
 with no pending save or other operation. Its Cancel/Restart confirmation enters
 the existing protected style27 restart flow and sends one restart command.
+Returning from About or either Uninstall dialog synchronizes the row with the
+latest saved state. Wireless preparation requires its staged boot identity to
+be a regular file containing exactly one UUID and newline (37 bytes).
 Local Settings navigation uses the installed Mazda 400 ms list-slide classes,
 reversing direction on Back. Dialog3 controls use Mazda's 200 ms entry fade.
 Animation ownership is local to the elements; framework context, focus and native

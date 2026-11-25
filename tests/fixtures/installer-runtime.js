@@ -959,8 +959,9 @@ cold.tap();cold.tap();f.ctx.OpenConnect.cancelUSB(token);cold.tap();assert.equal
 f.reply(f.requests[0],f.state({installed:true}));assert.equal(cold.pages.length,0);
 f.reply(f.requests[1],f.state({installed:true}));assert.equal(cold.pages.length,1);cold.detach();
 
-function completionClick(){
-    const f=fixture(null,false,{version:"0.3.0-dev.20",notice:"installed"});f.tick();
+function completionClick(usb=false){
+    const f=fixture(null,usb,{version:"0.3.0-dev.20",notice:"installed"},35555);
+    if(usb)f.start(token,true);else f.tick();
     f.reply(f.requests[0],f.state({installed:true,notice:"installed",completionReady:true,installedVersion:"0.3.0-dev.20"}));f.tick();
     let navigations=0;f.ctx.OpenConnectSettings.fromHome=()=>{navigations++;};
     f.choices[0].done("settings");return {f,get navigations(){return navigations;}};
@@ -971,16 +972,30 @@ assert.equal(click.navigations,0);f.advance(499);assert.equal(f.requests.length,
 f.advance(1);assert.equal(f.requests.length,3);assert.match(f.requests[2].body,/\|dismiss\|/);
 f.reply(f.requests[2],{ok:true});assert.equal(click.navigations,1);
 // Refusal and exhausted busy retries restore the completion choice.
-click=completionClick();f=click.f;f.reply(f.requests[1],{ok:false,error:"stale_state"});f.tick();
-assert.equal(click.navigations,0);assert.equal(f.choices.length,2);
+click=completionClick();f=click.f;f.reply(f.requests[1],{ok:false,error:"stale_state"});
+assert.equal(click.navigations,0);assert.match(f.requests[2].body,/\|status\|-\|-\|-$/);
+assert.equal(f.requests.filter(r=>r.body.includes("|dismiss|")).length,1);
+const latestRevision="c".repeat(32);
+f.reply(f.requests[2],f.state({installed:true,notice:"installed",completionReady:true,installedVersion:"0.3.0-dev.20",revision:latestRevision}));
+f.tick();assert.equal(f.choices.length,2);f.choices[1].done("settings");
+assert.equal(f.requests[3].body,token+"|"+latestRevision+"|dismiss|-|-|-");
+f.reply(f.requests[3],{ok:true});assert.equal(click.navigations,1);
 click=completionClick();f=click.f;
-for(let i=0;i<24;i++){f.reply(f.requests.at(-1),{ok:false,error:"busy"});f.advance(500);}
+for(let i=0;i<12;i++){f.reply(f.requests.at(-1),{ok:false,error:"busy"});f.advance(500);}
 f.tick();assert.equal(click.navigations,0);assert.equal(f.choices.length,2);
-assert.equal(f.requests.filter(r=>r.body.includes("|dismiss|")).length,24);
-// A last busy retry can lose its ACK exactly at the shared deadline.
+assert.equal(f.requests.filter(r=>r.body.includes("|dismiss|")).length,12);
+// The last admitted POST still leaves a bounded readback window.
 click=completionClick();f=click.f;
-for(let i=0;i<23;i++){f.reply(f.requests.at(-1),{ok:false,error:"busy"});f.advance(500);}
-f.advance(500);f.tick();assert.equal(click.navigations,0);assert.equal(f.choices.length,2);
+for(let i=0;i<11;i++){f.reply(f.requests.at(-1),{ok:false,error:"busy"});f.advance(500);}
+f.advance(500);assert.equal(click.navigations,0);assert.equal(f.choices.length,1);
+assert.match(f.requests.at(-1).body,/\|status\|-\|-\|-$/);
+f.advance(5000);f.reply(f.requests.at(-1),f.state({installed:true,notice:"-",installedVersion:"0.3.0-dev.20"}));
+assert.equal(click.navigations,1);
+// Exhausting readback shows an explicit unknown result, never cached completion.
+click=completionClick();f=click.f;
+for(let i=0;i<11;i++){f.reply(f.requests.at(-1),{ok:false,error:"busy"});f.advance(500);}
+f.advance(6500);f.tick();assert.equal(click.navigations,0);assert.equal(f.choices.length,1);
+assert.equal(f.messages.at(-1).title,"Unable to confirm");assert.equal(f.store.read(),null);
 // Uncertain acknowledgements reconcile read-only; never replay dismissal.
 for(const ack of [null,{},"timeout"]){
     click=completionClick();f=click.f;
@@ -998,7 +1013,23 @@ click=completionClick();f=click.f;f.reply(f.requests[1],null);
 f.reply(f.requests[2],{ok:false,error:"invalid_record"});f.tick();
 assert.equal(click.navigations,0);assert.equal(f.messages.length,1);
 assert.equal(f.requests.filter(r=>r.body.includes("|dismiss|")).length,1);
-// Cancellation fences both deferred busy retries and late ACK navigation.
+// Normal USB cleanup must preserve an active Open-settings action.
+for(const usb of [false,true])for(const lostAck of [false,true]){
+    click=completionClick(usb);f=click.f;
+    if(usb)assert.match(f.requests[1].url,/:35555\/control$/);
+    assert.equal(f.ctx.OpenConnect.protected(),true);assert.equal(f.ctx.OpenConnect.autoshowState(),2);
+    f.ctx.OpenConnect.cancelUSB(token);assert.equal(f.requests.length,2);
+    assert.equal(f.ctx.OpenConnect.reopenUSB(token),true);assert.equal(f.requests.length,2);
+    assert.equal(f.ctx.OpenConnect.dispose(),false);
+    if(lostAck){
+        f.reply(f.requests[1],null);f.ctx.OpenConnect.cancelUSB(token);
+        f.reply(f.requests[2],f.state({installed:true,notice:"-",installedVersion:"0.3.0-dev.20"}));
+    }else f.reply(f.requests[1],{ok:true});
+    assert.equal(click.navigations,1);assert.equal(f.ctx.OpenConnect.protected(),false);
+    f.ctx.OpenConnect.cancelUSB(token);assert.equal(click.navigations,1);
+}
+// Cleanup also preserves the finite busy-retry timer and its eventual ACK.
 click=completionClick();f=click.f;f.reply(f.requests[1],{ok:false,error:"busy"});
-f.ctx.OpenConnect.cancelUSB(token);f.advance(12000);assert.equal(f.requests.length,2);assert.equal(click.navigations,0);
+f.ctx.OpenConnect.cancelUSB(token);f.advance(500);assert.equal(f.requests.length,3);
+f.reply(f.requests[2],{ok:true});assert.equal(click.navigations,1);
 console.log("Review regressions: About/save, shared cold entry and bounded dismiss reconciliation passed");

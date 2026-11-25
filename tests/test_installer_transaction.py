@@ -702,7 +702,7 @@ class InstallerTransaction(unittest.TestCase):
             backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
         )
         (self.root / "runtime/selected").write_text(record[5] + "\n")
-        for argument in ("-", "settings"):
+        for argument in ("completion",):
             result, ready = self.api("status", argument=argument)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue(ready["completionReady"])
@@ -720,7 +720,7 @@ class InstallerTransaction(unittest.TestCase):
             path = package / name
             original = path.read_bytes()
             path.write_bytes(original + b"edited\n")
-            result, answer = self.api("status", argument="settings")
+            result, answer = self.api("status", argument="completion")
             self.assertFalse(answer.get("completionReady", False))
             if name == "VERSION":
                 self.assertTrue(answer["conflict"] or answer["installedVersion"] == "-")
@@ -771,7 +771,7 @@ class InstallerTransaction(unittest.TestCase):
                 )
                 selected.write_text(("0" * 64 if variant == "unselected" else record[5]) + "\n")
                 before = (data / "record").read_bytes()
-                result, status = self.api("status")
+                result, status = self.api("status", argument="completion")
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(status["completionReady"], variant == "ready")
                 self.assertEqual((data / "record").read_bytes(), before)
@@ -811,7 +811,7 @@ class InstallerTransaction(unittest.TestCase):
                 fields[11] = recorded
                 (data / "record").write_text("|".join(fields))
                 before = (data / "record").read_bytes()
-                result, status = self.api("status")
+                result, status = self.api("status", argument="completion")
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(status["completionReady"], ready)
                 self.assertEqual((data / "record").read_bytes(), before)
@@ -819,7 +819,7 @@ class InstallerTransaction(unittest.TestCase):
         marker.write_text(raw + "\n")  # A regular file is not a legacy absence.
         fields[11] = raw
         (data / "record").write_text("|".join(fields))
-        result, status = self.api("status")
+        result, status = self.api("status", argument="completion")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(status["completionReady"])
         self.assertEqual(kernel.read_text(), raw + "\n")
@@ -850,7 +850,7 @@ class InstallerTransaction(unittest.TestCase):
                 fields[11] = token
                 (data / "record").write_text("|".join(fields))
                 before = (data / "record").read_bytes()
-                result, ready = self.api("status", argument="settings")
+                result, ready = self.api("status", argument="completion")
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertTrue(ready["completionReady"])
                 self.assertFalse(ready["conflict"])
@@ -860,7 +860,7 @@ class InstallerTransaction(unittest.TestCase):
                         original = path.read_bytes()
                         path.write_bytes(b"external edit after selected boot\n")
                         try:
-                            result, refused = self.api("status", argument="settings")
+                            result, refused = self.api("status", argument="completion")
                             self.assertEqual(result.returncode, 0, result.stderr)
                             self.assertTrue(refused["conflict"])
                             self.assertFalse(refused["completionReady"])
@@ -893,7 +893,7 @@ class InstallerTransaction(unittest.TestCase):
                 ' test "$reads" -gt 1; return $?\n',
             )
         )
-        for argument in ("settings", "-"):
+        for argument in ("completion",):
             with self.subTest(argument=argument):
                 (data / "identity-reads").write_text("0\n")
                 before = (data / "record").read_bytes()

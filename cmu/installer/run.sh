@@ -39,6 +39,7 @@ while read -r digest name extra; do
     count=$((count+1)); test "$count" -le 64 || refuse payload_count
 done < "$work/files.sha256"
 test -f "$work/session.sh" && test -f "$work/api" && test -f "$work/flush" || refuse payload
+chmod 600 "$work"/*
 chmod 700 "$work/api" "$work/flush"
 # Release Mazda's update scanner; the session owns the staged files and lock.
 sh "$work/session.sh" "$work" "$source" </dev/null >/dev/null 2>&1 &

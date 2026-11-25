@@ -17,12 +17,23 @@ class InstallerRuntime(unittest.TestCase):
         )
 
     @unittest.skipUnless(shutil.which("node"), "Node.js required")
-    def test_requests_recovery_and_unknown_acknowledgements(self):
+    def test_installed_settings_remains_independent(self):
         subprocess.run(
             [
                 "node",
-                ROOT / "tests/fixtures/installer-runtime.js",
-                ROOT / "cmu/installer/runtime.js",
+                ROOT / "tests/fixtures/installed-runtime.js",
+                ROOT / "cmu/installer",
+            ],
+            check=True,
+        )
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js required")
+    def test_maintenance_recovery_and_unknown_acknowledgements(self):
+        subprocess.run(
+            [
+                "node",
+                ROOT / "tests/fixtures/maintenance-runtime.js",
+                ROOT / "cmu/installer",
             ],
             check=True,
         )

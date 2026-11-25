@@ -28,42 +28,39 @@ navigate() {
         /com/jci/OPERA_IHU_PRIMARY com.jci.opera_IHU_PRIMARY.Navigate "string:$1" >/dev/null
 }
 cleanup() {
-    # Done/Cancel already closed their view. A browser navigation here can abort
-    # Mazda's next template load. A retired runner must also leave its successor.
-    if test -n "$token" && test ! -f "$runtime/closed" &&
-        test "$(readlink -f /tmp/open-connect/runtime 2>/dev/null || :)" = "$runtime"; then
-        navigate "javascript:void((function(){if(window.OpenConnect)OpenConnect.cancelUSB('$token');if(window.__ocUSBLoading&&window.__ocUSBLoading.token==='$token')window.__ocUSBLoading.cancel();var s=document.getElementById('oc-usb-loader');if(s&&s.ocToken==='$token')s.parentNode.removeChild(s);}()))" || :
+    # Native liveness polling closes this popup. Teardown never navigates Opera.
+    if test -n "$runtime" && test -d "$runtime"; then
+        : > "$runtime/closed"
+        sh "$runtime/usb-service.sh" stop || :
     fi
-    if test -n "$runtime"; then sh "$runtime/service.sh" stop || :; fi
     rm -f "$work"/*
     rmdir "$work"
 }
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 if post_restart; then exit 0; fi
-runtime=$(sh "$work/service.sh")
+runtime=$(sh "$work/usb-service.sh")
 # Done can finish while the replacement listener is being staged. Keep that
 # listener for installed Settings, but do not replace its already-owned UI.
 if post_restart; then exit 0; fi
 # Keep the listener record compatible with older installed clients/services.
 # The staged module checks the actual child and owned socket, not a claimed port.
 . "$runtime/service.sh"
-read -r pid start served extra < /tmp/open-connect/listener
+read -r pid start served extra < /tmp/open-connect/usb-listener
 test "$served" = "$runtime" && test -z "$extra" || exit 1
-if service_owns_listener "$pid" "$start" "$runtime" 35555; then port=35555
-elif service_owns_listener "$pid" "$start" "$runtime" 15555; then port=15555
+if service_owns_listener "$pid" "$start" "$runtime" 15557; then port=15557
 else exit 1; fi
 token=$(cat "$runtime/token")
 test "${#token}" -eq 32 || exit 1
 case "$token" in *[!a-f0-9]*) exit 1;; esac
 test ! -f "$runtime/closed" || exit 0
 logger -t open-connect "OCUSB|$token|start"
-navigate "javascript:void(setTimeout(function(){if(document.getElementById('oc-usb-loader'))return;utility.loadScript('../..$runtime/loader.js',{id:'oc-usb-loader',ocToken:'$token',ocPort:$port},function(){});},0))"
+navigate "javascript:void(setTimeout(function(){if(document.getElementById('oc-maintenance-loader'))return;utility.loadScript('../..$runtime/loader.js',{id:'oc-maintenance-loader',ocToken:'$token',ocPort:$port},function(){});},0))"
 count=0
 while test "$count" -lt 300; do
     test ! -f "$runtime/closed" || exit 0
     test -f "$source/run.sh" || exit 0
-    test "$(readlink -f /tmp/open-connect/runtime)" = "$runtime" || exit 0
+    test "$(readlink -f /tmp/open-connect/usb-runtime)" = "$runtime" || exit 0
     count=$((count+1))
     sleep 1
 done

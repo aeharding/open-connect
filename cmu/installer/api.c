@@ -44,6 +44,15 @@ static int hexn(const char *s,unsigned n) {
         if(!((s[i]>='0'&&s[i]<='9')||(s[i]>='a'&&s[i]<='f')))return 0;
     return !s[n];
 }
+static int session_closed(const char *token_path) {
+    char path[512], byte; unsigned n=length(token_path), parent=n;
+    while(parent&&token_path[parent-1]!='/')parent--;
+    if(!parent||parent+7>sizeof path)return 1;
+    for(unsigned i=0;i<parent;i++)path[i]=token_path[i];
+    const char *name="closed";
+    for(unsigned i=0;i<7;i++)path[parent+i]=name[i];
+    return token_read(path,&byte,1)>=0;
+}
 static int send_text(const char *s) {
     unsigned n=length(s);
     while(n){long r=output(s,n); if(r==-4)continue; if(r<=0)return 0; s+=r;n-=(unsigned)r;}
@@ -124,10 +133,16 @@ static int run(int argc,char **argv) {
     }else{
         if(!equal(op,"status")&&!equal(op,"install")&&!equal(op,"uninstall")&&
            !equal(op,"restart")&&!equal(op,"dismiss")&&!equal(op,"recover")&&!equal(op,"import"))goto bad;
-        if((!equal(fields[3],"-")&&!(equal(op,"status")&&equal(fields[3],"settings")))||
+        if((!equal(fields[3],"-")&&
+            !(equal(op,"status")&&(equal(fields[3],"settings")||equal(fields[3],"completion")||equal(fields[3],"session")))&&
+            !(equal(op,"dismiss")&&equal(fields[3],"usb")))||
            !equal(fields[4],"-")||!equal(fields[5],"-"))goto bad;
     }
     if(!response(200,0))return 1;
+    if(equal(op,"status")&&equal(fields[3],"session")) {
+        send_text(session_closed(argv[1])?"{\"ok\":true,\"closed\":true}\n":"{\"ok\":true,\"closed\":false}\n");
+        return 0;
+    }
     char *args[]={"sh",argv[2],"api",fields[1],fields[2],fields[3],fields[4],fields[5],0};
     char *env[]={"PATH=/bin:/sbin:/usr/bin:/usr/sbin","LC_ALL=C",0};
     execute(args,env);

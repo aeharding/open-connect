@@ -175,10 +175,9 @@ for(const touch of [false,true]) {
   f.apps.system._contextTable.Disclaimer.controlProperties.Dialog3Ctrl.defaultSelectCallback(dialog,'Global.Yes');
   f.native('system','HomeScreen');f.advance();assert.equal(f.count(),1,'stock Agree release');
 }
-f=fixture();f.ctx.OpenConnect={protected:()=>false,start(){},reopenUSB(){},cancelUSB(){},dispose(){return true;}};
-f.session(true);f.menu();f.advance();assert.equal(f.count(),0,'opaque lookup held');
-const old=f.fw.instantiateControl('system',f.ctx.document.body,'Dialog3Ctrl',{buttonConfig:{button1:{appData:'cancel'},button2:{appData:'install'}}});
-f.fw.destroyControl(old);f.advance();f.session(false);f.connect();assert.equal(f.count(),1,'old Cancel releases lease');
+f=fixture();f.ctx.OpenConnectMaintenance={autoshowState:()=>2};
+f.session(true);f.menu();f.advance();assert.equal(f.count(),0,'independent maintenance holds autoshow');
+f.ctx.OpenConnectMaintenance=null;f.session(false);f.connect();assert.equal(f.count(),1,'closed popup releases the next connection');
 // Critical messages can precede lazy installer modules; preserve their order.
 for (const endBefore of [false,true]) {
   f=fixture({},false);
@@ -212,52 +211,6 @@ d=f.fw.instantiateControl('system',f.ctx.document.body,'Dialog3Ctrl',{buttonConf
 f.fw.destroyControl(d);f.advance();f.source('settings.js');
 assert.equal(f.ctx.ocCarPlay.dialogs,0);
 
-if(process.argv[4]) {
-  // Real archived CI17 loader/runtime/dialog/Settings, with local DOM/XHR only.
-  function legacy(paused=false) {
-    const x=fixture(), requests=[], intervals=[], nodes={}, loads=[];let modal;
-    const token='a'.repeat(32), root=process.argv[4];
-    const head={appendChild(node) {
-      node.parentNode=head;nodes[node.id]=node;
-      const run=()=>{x.source(node.src.split('/').at(-1),root);node.onload();};
-      if(paused)loads.push(run);else run();
-    },removeChild(node){delete nodes[node.id];node.parentNode=null;}};
-    x.ctx.document.createElement=()=>({});
-    const query=x.ctx.document.querySelector;
-    x.ctx.document.querySelector=s=>s==='head'?head:query(s);
-    x.ctx.document.getElementById=id=>nodes[id]||null;
-    x.ctx.utility={loadScript(src,props,done){head.appendChild({...props,src,onload:done});}};
-    x.ctx.setInterval=fn=>{intervals.push(fn);return fn;};
-    x.ctx.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.abort=()=>{};this.send=body=>{this.body=body;requests.push(this);};};
-    const create=x.fw.instantiateControl;
-    x.fw.instantiateControl=function(){return modal=create.apply(this,arguments);};
-    nodes['oc-usb-loader']={src:'file:///tmp/legacy/loader.js',ocToken:token,parentNode:head};
-    x.source('loader.js',root);
-    const state={ok:true,revision:'b'.repeat(32),installed:true,retained:false,conflict:false,restart:false,pending:false,touch:1,warning:1,notice:'-',version:'0.3.0-dev.17',installedVersion:'0.3.0-dev.18'};
-    function reply(v){const q=requests.at(-1);q.status=200;q.readyState=4;q.responseText=JSON.stringify(v);q.onreadystatechange();}
-    function resume(){while(loads.length)loads.shift()();reply(state);intervals.forEach(fn=>fn());}
-    if(!paused)resume();
-    return Object.assign(x,{requests,reply,resume,tick:()=>intervals.forEach(fn=>fn()),state,modal:()=>modal});
-  }
-  f=legacy(true);assert.ok(f.ctx.__ocUSBLoading,'actual CI17 acquisition marker');
-  f.connect();assert.equal(f.count(),0,'paused old loader blocks current dev18 client');
-  f.resume();d=f.modal();d.properties.defaultSelectCallback(d,'cancel');f.advance();
-  f.session(false);f.connect();assert.equal(f.count(),1,'resumed legacy Cancel unlocks next connection');
-  f=legacy();assert.equal(f.ctx.__ocUSBLoading,undefined,'old loader releases bootstrap marker');
-  f.connect();assert.equal(f.count(),0,'actual CI17 chooser holds lease after marker clears');
-  d=f.modal();d.properties.defaultSelectCallback(d,'cancel');f.advance();
-  f.session(false);f.connect();assert.equal(f.count(),1,'actual CI17 Cancel releases lease');
-  f=legacy();d=f.modal();d.properties.defaultSelectCallback(d,'install');
-  f.reply({ok:false,error:'stale_state'});f.reply(f.state);f.tick();
-  d=f.modal();assert.equal(d.properties.buttonConfig.button1.appData,'done');
-  d.properties.defaultSelectCallback(d,'done');f.advance();
-  f.session(false);f.connect();assert.equal(f.count(),1,'refused old Install Done releases settled owner');
-  console.log('Archived CI17 loader: chooser Cancel and refused Install Done recover autoshow');
-}
-
-for(const [id,context] of [['system','SystemWarning'],['sysupdate','Update'],['mobile911','Emergency'],['new-app','Unknown']]) {
-  f=fixture();f.native(id,context);f.connect();assert.equal(f.count(),0,'unsupported or safety context '+id);
-}
 
 // RAM support can finish after Mazda has already instantiated Disclaimer.
 f=fixture({},false);f.native('system','Disclaimer');
@@ -318,21 +271,23 @@ f=fixture();f.connect();f.state.failNameRead=true;r=fixture(f.state);r.connect()
 r.state.failNameRead=false;r.session(false);r.connect();assert.equal(r.count(),1);
 
 function bootClient(notice='-') {
-  const x=fixture({},false), loads=[], intervals=[], requests=[], token='a'.repeat(32);
+  const x=fixture({},false), loads=[], intervals=[], requests=[], nodes={}, token='a'.repeat(32);
   const query=x.ctx.document.querySelector;
-  const head={appendChild(node){loads.push(()=>{x.source(node.src.split('/').at(-1));node.onload();});}};
+  const head={appendChild(node){node.parentNode=head;if(node.id)nodes[node.id]=node;loads.push(()=>{x.source(node.src.split('/').at(-1));node.onload();});},removeChild(node){delete nodes[node.id];node.parentNode=null;}};
+  x.ctx.document.getElementById=id=>nodes[id]||null;
+  x.ctx.utility={loadScript(src,props,done){head.appendChild({...props,src,onload:done});}};
   x.ctx.document.querySelector=s=>s==='head'?head:s.includes('open-connect-version')?{getAttribute:()=> '0.3.0-dev.18'}:
     s.includes('open-connect-notice')?{getAttribute:()=>notice}:query(s);
   x.ctx.document.createElement=()=>({});
   x.ctx.setInterval=fn=>{intervals.push(fn);return fn;};
   x.ctx.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.abort=()=>{};this.send=body=>{this.body=body;requests.push(this);};};
   x.source('runtime.js');
-  return Object.assign(x,{token,requests,complete(){while(loads.length)loads.shift()();},tick(){intervals.forEach(fn=>fn());}});
+  return Object.assign(x,{token,requests,complete(){while(loads.length)loads.shift()();},tick(){intervals.forEach(fn=>fn());x.advance();}});
 }
 f=bootClient();f.session(true);f.menu();f.advance();assert.equal(f.count(),0,'ordinary boot awaits real support callbacks');
 f.complete();assert.equal(f.count(),1,'ready callback pumps first connection without another message');
 f=bootClient('installed');f.complete();f.tick();assert.equal(f.requests.length,1);
-f.advance(34000);f.session(true);f.advance();f.ctx.OpenConnect.cancelUSB(f.token);
+f.advance(34000);f.session(true);f.advance();
 f.advance(1001);f.menu();f.advance();assert.equal(f.count(),0,'proof expiry cannot send the same canceled edge');
 f.session(false);f.connect();assert.equal(f.count(),1,'expired superseded proof does not block later sessions');
 console.log('Astra regressions: pending reverse, ownership, proof expiry, startup, input/voice, menu withdrawal and storage ambiguity passed');

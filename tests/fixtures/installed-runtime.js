@@ -1,0 +1,34 @@
+const assert=require('node:assert/strict'),fixture=require('./runtime-fixture.js');
+const folder=process.argv[2];
+let f=fixture(folder);f.install();
+assert.ok(f.ctx.OpenConnect);assert.equal(f.requests.length,0);
+const looked=f.lookups;f.advance(60000);assert.equal(f.lookups,looked,'idle Settings never polls the app');
+f.nativeSettings();const owner=f.ctx.OpenConnect,menus=f.ctx.OpenConnectSettings,dialogs=f.ctx.OpenConnectInstaller;
+const callback=f.list.properties.selectCallback;
+f.usb();assert.equal(f.requests.length,1);assert.match(f.requests[0].url,/:15557/);
+assert.equal(f.requests[0].body.split('|')[3],'-');
+f.tap();assert.equal(f.requests.length,2,'Settings read starts while USB audit remains pending');
+assert.match(f.requests[1].url,/:15555/);assert.equal(f.requests[1].body.split('|')[3],'settings');
+f.reply(f.requests[1],f.state());assert.equal(f.pages.length,1);f.endAnimations();
+assert.equal(f.ctx.OpenConnect,owner);assert.equal(f.ctx.OpenConnectSettings,menus);assert.equal(f.ctx.OpenConnectInstaller,dialogs);
+assert.equal(f.list.properties.selectCallback,callback);
+f.advance(14000);assert.equal(f.ctx.OpenConnect,owner);assert.equal(f.pages.length,1);
+f.reply(f.requests[0],f.state());f.advance(0);assert.equal(f.dialog,undefined,'USB does not show a Home popup over Settings');
+f.closeUSB();f.advance(1100);assert.equal(f.ctx.OpenConnect,owner);assert.equal(f.list.properties.selectCallback,callback);
+assert.equal(f.ctx.OpenConnectMaintenance,null);assert.equal(f.operation('dismiss').length,0,'physical removal is programmatic close');
+for(const stage of [0]){
+ f=fixture(folder);f.install();f.nativeSettings();const installed=f.ctx.OpenConnect,select=f.list.properties.selectCallback;
+ f.usb(stage);f.closeUSB();f.flush();f.advance(0);
+ assert.equal(f.ctx.OpenConnect,installed);assert.equal(f.list.properties.selectCallback,select);
+ assert.equal(f.requests.length,0,'removed delayed popup does not begin a full audit');
+}
+f=fixture(folder,{lateApp:true});f.install();f.nativeSettings();f.tap();f.reply(f.requests[0],f.state());assert.equal(f.pages.length,1);
+f=fixture(folder);f.install();f.nativeSettings();f.tap();f.advance(12000);
+assert.match(f.dialog.props.title,/Settings unavailable/);assert.equal(f.pages.length,0);
+f=fixture(folder);f.install();f.nativeSettings();f.tap();f.homeScreen();f.advance(12000);assert.equal(f.dialog,undefined);
+f=fixture(folder);f.install();assert.equal(f.ctx.OpenConnect.openSettings(),true);
+assert.equal(f.requests[0].body.split('|')[3],'settings');f.reply(f.requests[0],f.state());f.advance(200);
+assert.equal(f.pages.length,1);assert.ok(f.calls.some(c=>c[1]==='SelectSettings'));f.assertNative();
+f=fixture(folder);f.install();f.ctx.OpenConnect.openSettings();f.nativeSettings();f.reply(f.requests[0],f.state());
+assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,0,'late open intent cannot move a user already elsewhere');
+console.log('Installed Settings remains stable and independent through USB loading, slow verification and removal');

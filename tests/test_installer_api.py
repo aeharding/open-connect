@@ -53,6 +53,8 @@ class InstallerApi(unittest.TestCase):
         for body, op, arg in (
             (TOKEN + "|-|status|-|-|-", "status", "-"),
             (TOKEN + "|-|status|settings|-|-", "status", "settings"),
+            (TOKEN + "|-|status|completion|-|-", "status", "completion"),
+            (TOKEN + "|-|dismiss|usb|-|-", "dismiss", "usb"),
             (TOKEN + "|" + "b" * 32 + "|set|touch|0|1", "set", "touch"),
             (TOKEN + "|" + "b" * 64 + "|set|warning|1|0", "set", "warning"),
             (TOKEN + "|" + "b" * 64 + "|set|ssh|0|1", "set", "ssh"),
@@ -69,6 +71,20 @@ class InstallerApi(unittest.TestCase):
             headers, response = result.stdout.split(b"\r\n\r\n", 1)
             self.assertIn(b"Access-Control-Allow-Origin: *", headers)
             self.assertEqual(json.loads(response), {"operation": op, "arg": arg})
+
+    def test_session_liveness_is_authenticated_and_never_executes_backend(self):
+        self.backend.write_text("exit 99\n")
+        for closed in (False, True):
+            if closed:
+                (self.root / "closed").touch()
+            result = self.invoke(self.request((TOKEN + "|-|status|session|-|-").encode()))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                json.loads(result.stdout.split(b"\r\n\r\n", 1)[1]),
+                {"ok": True, "closed": closed},
+            )
+        result = self.invoke(self.request(("f" * 32 + "|-|status|session|-|-").encode()))
+        self.assertIn(b"403 Forbidden", result.stdout)
 
     def test_bad_framing_and_commands_never_dispatch(self):
         valid = self.request()

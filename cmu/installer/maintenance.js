@@ -1,0 +1,412 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Transient maintenance only. Never loads, binds or replaces installed Settings. */
+var OpenConnectMaintenance=(function(){
+"use strict";
+var entry=document.getElementById("oc-maintenance-loader")||document.getElementById("oc-completion");
+if(!entry)return window.OpenConnectMaintenance;
+var previous=window.OpenConnectMaintenance;
+if(previous&&previous.protected())return previous;
+if(previous)previous.close();
+previous=null;
+var token=entry.ocToken,port=entry.ocPort,usb=port===15557;
+if(!/^[a-f0-9]{32}$/.test(token)||(port!==15555&&port!==15557))return null;
+var nm=document.querySelector('meta[name="open-connect-notice"]'),vm=document.querySelector('meta[name="open-connect-version"]');
+var boot=!usb&&nm&&vm&&{notice:nm.getAttribute("content"),version:vm.getAttribute("content")};
+if(!usb&&(!boot||boot.notice!=="installed"))return null;
+var ui=(function () {
+"use strict";
+var active=null, own=Object.prototype.hasOwnProperty, owner={};
+function claim(fw){
+ var c=fw.common;
+ if(!c||c._openConnectOperation&&c._openConnectOperation!==owner||window.__ocUSBLoading)return false;
+ c._openConnectOperation=owner;return true;
+}
+function release(fw){if(fw.common._openConnectOperation===owner)delete fw.common._openConnectOperation;}
+function show(fw, title, text, buttons, done, settings, progress) {
+  var host=fw._currTmpltInstance, app=fw.getCurrentApp(), context=fw.getCurrCtxtId(), common=fw.common;
+  function eligible() {
+    return fw._currTmpltInstance===host&&fw._frameworkState===fw._FWK_STATE_IDLE&&
+      fw.getCurrentApp()===app&&fw.getCurrCtxtId()===context&&
+      !common._vuiHelpDialog&&!common._vuiExamplesDialog;
+  }
+  if (active||!host||!common||!eligible()||
+      common._openConnectOperation&&common._openConnectOperation!==owner||
+      common._openConnectDialog||window.__ocUSBLoading||
+      document.querySelector&&document.querySelector(".Dialog3Ctrl_Style19_NoTemplateInstance")||(settings ?
+      !/^(syssettings|audiosettings|vehsettings)$/.test(app)||!/Tab$/.test(context) :
+      app!=="system"||context!=="HomeScreen")) { return false; }
+  if (typeof ocCarPlay!=="undefined"&&ocCarPlay) { ocCarPlay.cancel(); }
+  var restores=[], home=common.statusBar&&common.statusBar.homeBtn;
+  function replace(object, key, fn) {
+    var before=object[key], local=own.call(object, key);
+    object[key]=fn;
+    restores.push(function () {
+      if (object[key]===fn) { if (local) { object[key]=before; } else { delete object[key]; } }
+    });
+    return before;
+  }
+  function finish(action) {
+    if (active!==dialog) { return; }
+    active=null;
+    if(common._openConnectDialog===dialog)delete common._openConnectDialog;
+    while (restores.length) { restores.pop()(); }
+    fw.destroyControl(dialog);
+    try { done(action); } catch (error) { log.error("Open Connect dialog: " + error); }
+  }
+  function transition() { finish("cancel"); return previousTransition.apply(this, arguments); }
+  function input(event, first) {
+    if (!eligible()) { finish("cancel"); return previousInput.apply(this, arguments); }
+    if (progress&&/^(goBack|touchActive|controllerActive|cw|ccw|select|selectStart|left|right|up|down|lostFocus)(Start)?$/.test(event)) { return; }
+    if (progress) { finish("cancel"); return previousInput.apply(this, arguments); }
+    if (event==="goBack") { finish("cancel"); return; }
+    if (/^(left|right|up|down)Start$/.test(event)) { return; }
+    if (/^(touchActive|controllerActive|cw|ccw|select|selectStart|left|right|up|down|lostFocus)$/.test(event)) {
+      if (!first) { dialog.handleControllerEvent(event); } return;
+    }
+    finish("cancel"); return previousInput.apply(this, arguments);
+  }
+  var props=progress ? {contentStyle: "style27", fullScreen: true, text1: title, text2: text,
+    meter: {meterType: "indeterminate", meterPath: "common/images/IndeterminateMeter_2.png"}} : {
+    contentStyle: "style02", titleStyle: "titleStyle01", title: title, text1: text,
+    initialFocus: 0, buttonConfig: buttons, defaultSelectCallback: function (control, action) {
+      if (control!==dialog) { return; }
+      if (!eligible()) { finish("cancel"); return; }
+      for (var key in buttons) {
+        if (own.call(buttons, key)&&buttons[key].appData===action) { finish(action); return; }
+      }
+    }};
+  var dialog=fw.instantiateControl("system", document.body, "Dialog3Ctrl", props);
+  if (!dialog) { return false; }
+  active=dialog;common._openConnectDialog=dialog;
+  dialog.divElt.classList.add("Dialog3Ctrl_Style19_NoTemplateInstance");
+  dialog.divElt.classList.add("Transitions_fadeIn_0_200");
+  var previousInput=replace(common, "handleControllerEvent", input);
+  var previousTransition=replace(common, "getCommonTransitionData", transition);
+  if (progress) {
+    dialog.divElt.style.top="0px";
+    var capture=function (event) {
+      if (!eligible()) { finish("cancel"); return; }
+      event.preventDefault(); event.stopImmediatePropagation();
+    };
+    ["mousedown", "mouseup", "click"].forEach(function (key) {
+      document.addEventListener(key, capture, true);
+      restores.push(function () { document.removeEventListener(key, capture, true); });
+    });
+    // Release pre-armed Home holds without firing callbacks.
+    if (home) {
+      ["selectCallback", "holdStartCallback", "holdStopCallback"].forEach(function (key) {
+        replace(home.properties, key, function () {});
+      });
+      clearTimeout(home._holdTimeoutId); home._holdTimeoutId=null;
+      var enabled=home._isEnabled;
+      try { home._isEnabled=true; home.finishPartialActivity(); }
+      finally { home._isEnabled=enabled; }
+    }
+    ["Global.StartHelp", "Global.StartExamples"].forEach(function (key) {
+      if (!common._messageTable||!common._messageTable[key]) { return; }
+      var before=replace(common._messageTable, key, function () {
+        finish("cancel"); return before.apply(this, arguments);
+      });
+    });
+    return {close: function () { finish("cancel"); }, update: function (action, warning) {
+      if (active!==dialog) { return false; }
+      if (!eligible()) { finish("cancel"); return false; }
+      if (title!==action) { dialog.setText1(title=action); }
+      if (text!==warning) { dialog.setText2(text=warning); }
+      return true;
+    }};
+  }
+  dialog.handleControllerEvent(fw.multicontroller.getMode());
+  return function () { finish("closed"); };
+}
+function versionText(version) {
+  if (version===undefined||version==="-") { return "Unavailable"; }
+  if (!/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(version)) {
+    throw new TypeError("Expected a package version");
+  }
+  return version;
+}
+function choose(fw, installed, done, version, retained, from) {
+  if (typeof installed!=="boolean") { throw new TypeError("Expected verified install state"); }
+  var label=installed&&from&&from!=="-" ? (from===version ? "Reinstall" : "Update") : "Install";
+  var buttons={button1: {label: "Cancel", appData: "cancel"}, button2: {label: label, appData: "install"}};
+  if (installed||retained) { buttons.button3={label: "Uninstall", appData: "uninstall"}; }
+  return show(fw, label + " Open Connect?", (installed ?
+    "From: " + versionText(from) + "\nTo: " + versionText(version) : "Version " + versionText(version) + ".") +
+    "\nMazda Connect will restart.", buttons, done);
+}
+function message(fw, title, text, buttons, done) {
+  return show(fw, title, text, buttons, done, /settings$/.test(fw.getCurrentApp()));
+}
+return {claim:claim,release:release,choose: choose,message: message,progress: function (fw, action, warning, suspended) {
+  return show(fw, action, warning, null, suspended, /settings$/.test(fw.getCurrentApp()), true);
+},complete: function (fw, version, done) {
+  return show(fw, "Open Connect installed", "Version " + versionText(version) + ".\nYou can now remove the USB drive.", {
+    button1: {label: "Done", appData: "done"}, button2: {label: "Open settings", appData: "settings"}}, done);
+}};
+})();
+var dead=false,s=null,known=false,busy=false,saving=false,pending=false,feedback=false,acking=false;
+var epoch=0,job,dialog,view,timer,queued=null,shown=false,proved=false,probing=false,ready=false;
+var due=0,originUSB=usb,requests=[];
+function valid(a){
+ return a&&a.ok===true&&/^(?:-|[a-f0-9]{32}|[a-f0-9]{64})$/.test(a.revision)&&
+ ["installed","retained","conflict","restart","pending"].every(function(k){return typeof a[k]==="boolean";})&&
+ /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(a.version)&&
+ (a.installedVersion===undefined||a.installedVersion==="-"||/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(a.installedVersion));
+}
+function receive(a){known=!!valid(a);if(known)s=a;}
+function advance(){epoch++;}
+function values(){return known&&s.installed&&!s.pending&&!s.conflict?s:null;}
+function held(){return!!job||feedback||acking;}
+function claim(){return !dead&&!feedback&&!acking&&ui.claim(framework);}
+function release(){if(!held())ui.release(framework);}
+function close(){
+ if(dead)return;dead=true;advance();clearTimeout(timer);queued=null;
+ requests.slice().forEach(function(cancelRequest){cancelRequest();});
+ closeUI();endView();job=null;feedback=acking=false;ui.release(framework);
+ if(window.OpenConnectMaintenance===client)window.OpenConnectMaintenance=null;
+ if(window.ocCarPlay)ocCarPlay.pump();
+}
+function cancel(value){if(value!==token)return;if(job&&job.sent||feedback||acking)return;close();}
+function closeUSB(){
+ if(held())return;
+ post("dismiss",["usb","-","-"],function(){close();},3000);
+}
+function session(done){
+ post("status",["session","-","-"],function(a){
+  done(a&&a.ok===true&&typeof a.closed==="boolean"?!a.closed:null);
+ },3000);
+}
+function post(op,args,done,ms,intent){
+ if(dead)return;
+ intent=intent===undefined?epoch:intent;
+ var xhr=new XMLHttpRequest(),answered=false;
+ function cancelRequest(){finish(null);xhr.abort();}
+ requests.push(cancelRequest);
+ var deadline=setTimeout(cancelRequest,ms||185000);
+ function finish(a){
+ if(answered)return;
+ answered=true;clearTimeout(deadline);
+ var index=requests.indexOf(cancelRequest);if(index!==-1)requests.splice(index,1);
+ if(dead||intent!==epoch)return;
+ if(op!=="dismiss"&&!(op==="status"&&args&&args[0]==="session"))receive(a);
+ done(a,xhr.status);
+}
+ xhr.onreadystatechange=function(){
+ if(xhr.readyState!==4)return;
+ var a=null;
+ try{if(xhr.status===200){a=JSON.parse(xhr.responseText);}}catch(ignore){}
+ finish(a);
+};
+ try{
+ xhr.open("POST","http://127.0.0.1:"+port+"/control",true);
+ xhr.setRequestHeader("Content-Type","text/plain");
+ xhr.send([token,op==="status"||!s?"-":s.revision,op].concat(args||["-","-","-"]).join("|"));
+ }catch(error){finish(null);}
+}
+function read(done,until,attempts,intent,fast){
+ intent=intent===undefined?epoch:intent;
+ if(intent!==epoch||dead)return;
+ var left=until?until-Date.now():185000;
+ if(left<=0){done(null);return;}
+ var end=until||Date.now()+left;
+ post("status",fast?["completion","-","-"]:null,function(a,code){
+ 
+ if((a&&a.error==="busy"||(!a&&until))&&(until||(attempts||0)<8)){
+  setTimeout(function(){read(done,until,(attempts||0)+1,intent,fast);},
+   until?Math.min(500,Math.max(0,until-Date.now())):500);
+ }else{done(a);}
+ },left,intent);
+}
+function closeUI(){var close=dialog;dialog=null;if(close){close();}}
+function endView(){var old=view;view=null;if(old){old.close();}}
+function message(title,text,hold){
+ if(hold)feedback=true;
+ queued=function(){
+ if(!job&&(framework.getCurrentApp()!=="system"||framework.getCurrCtxtId()!=="HomeScreen"))return false;
+ return ui.message(framework,title,text,{button1:{label:"OK",appData:"done"}},function(action){
+  dialog=null;if(hold){if(action==="done"){feedback=false;release();}else message(title,text,hold);}
+  else if(action==="done"&&originUSB&&!job)closeUSB();
+});
+};wake();
+}
+function dismiss(done){
+ if(acking)return;
+ if(!claim()){shown=false;return;}
+ acking=true;
+ var intent=epoch,until=Date.now()+12000,revision=s.revision;
+ function finish(ok){
+ acking=false;
+ if(ok)s.notice="-";
+ else{shown=false;if(!complete())message("Unable to confirm","Open Mazda Settings again.",true);}
+ release();
+ if(ok){close();if(done)done();}else wake();
+}
+ function send(){
+ if(dead||intent!==epoch)return;
+ var left=until-Date.now()-6000;
+ if(left<=0){finish(false);return;}
+ post("dismiss",null,function(a){
+  if(a&&a.ok===true){finish(true);}
+  else if(a&&a.error==="busy"){setTimeout(send,Math.min(500,until-Date.now()));}
+  else{read(function(s){known=!!valid(s);finish(!!(s&&values()&&s.notice==="-"&&s.revision===revision));},until,0,intent);}
+ },left,intent);
+}
+ send();
+}
+function paint(){
+ var action=job.phase==="restart"||job.op==="restart"?"Restarting Mazda Connect":job.phase==="checking"?
+ "Checking Open Connect":job.action;
+ var warning=job.origin==="usb"?"Do not remove the USB drive\nor turn off the car.":"Do not turn off the car.";
+ if(view&&!view.update(action,warning)){view=null;}
+ if(!view){view=ui.progress(framework,action,warning,function(){view=null;});}
+ return!!view;
+}
+function end(actual){
+ var reply=job.reply;
+ job=null;busy=saving=false;endView();release();
+ if(reply){reply(actual);}
+}
+function refuse(lost){
+ if(lost){known=false;}
+ var reply=job.reply,origin=job.origin;
+ endView();
+ if(lost){job.phase="unresolved";job.reply=null;}
+ else{job=null;busy=saving=false;release();}
+ if(reply){reply(null,true);}
+ message(lost?"Unable to confirm the change":"Unable to finish",(lost?
+ "Restart Mazda Connect before making more changes.":
+ "Check your settings before trying again.")+
+ (lost&&origin==="usb"?"\nKeep the USB drive connected until restart.":""));
+}
+function budget(){if(!job.until){job.until=Date.now()+12000;}return job.until;}
+function restart(){
+ if(job.restartSent)return;
+ job.phase="restart";if(!paint())return;
+ job.restartSent=true;
+ var current=job,until=budget();
+ post("restart",null,function(a){
+ if(!valid(a)){reconcile(a);}
+ },Math.max(1,until-Date.now()));
+ setTimeout(function(){if(job===current&&job.phase!=="unresolved"){refuse(true);}},Math.max(0,until-Date.now()));
+}
+function changed(a){
+ if(!valid(a)||a.pending||a.conflict)return false;
+ var old=job.before;
+ if(job.op==="uninstall")return!a.installed&&!a.retained&&a.revision==="-";
+ if(job.op==="install"){
+ return a.installed&&a.installedVersion===job.target&&a.notice==="installed"&&
+  a.revision!==old.revision&&(!old.installed||old.installedVersion&&old.installedVersion!=="-"&&old.installedVersion!==job.target);
+}
+ if(job.op==="set"){
+ var key=job.args[0],wanted=Number(job.args[2]),value=a[key==="carplay-autoshow"?"carplayAutoshow":key];
+ (a.services||[]).forEach(function(row){if(row.id===key){value=row.saved;}});
+ return a.installed&&a.revision!==old.revision&&value===wanted;
+}
+ return job.op==="import"&&/^[a-f0-9]{64}$/.test(a.key)&&a.key!==old.key&&a.revision!==old.revision;
+}
+function reconcile(a){
+ job.phase="checking";if(!saving){paint();}
+ read(function(fresh){
+ if(a&&a.ok===false){refuse(!valid(fresh)||fresh.pending);}
+ else if(a===null&&changed(fresh)){
+  if(saving){end(values());}else if(!job.restartSent){restart();}
+ }else{refuse(true);}
+ },budget());
+}
+function drive(){
+ if(!job||job.phase!=="waiting")return;
+ if(job.op!=="recover"&&(s.revision!==job.before.revision||s.version!==job.target)){end(null);return;}
+ if(!paint())return;
+ if(job.op==="restart"){job.sent=true;restart();return;}
+ job.sent=true;job.phase="writing";
+ post(job.op,job.args,function(a){
+ if(a&&a.error==="session_closed"){close();return;}
+ if(!valid(a)){reconcile(a);return;}
+ if(saving){end(values());}
+ else if(job.op==="install"||job.op==="uninstall"||a.restart){restart();}
+ else{end(null);}
+});
+}
+function run(op,args,origin,reply,leave){
+ if(busy||!s||!claim()){if(reply){reply(null);}return false;}
+ busy=true;saving=!!reply;advance();
+ job={op:op,args:args,origin:origin,before:s,target:s.version,
+ reply:reply,phase:"waiting",sent:false,restartSent:false,
+ action:op==="uninstall"?"Removing Open Connect":op==="recover"?"Applying changes":
+  op==="install"?(s.installed&&s.installedVersion&&s.installedVersion!=="-"?
+   (s.installedVersion===s.version?"Reinstalling":"Updating"):"Installing")+" Open Connect":"Applying changes"};
+ queued=null;closeUI();if(leave)leave();drive();wake();return true;
+}
+function choose(){
+ usb=false;
+ var revision=s.revision,target=s.version;
+ queued=function(){
+ return ui.choose(framework,s.installed,function(action){
+  dialog=null;
+  if(s.revision!==revision||s.version!==target)return;
+  if(action==="install"||action==="uninstall"){run(action,null,"usb");}
+  else if(action==="cancel"){closeUSB();}
+ },s.version,s.retained,s.installedVersion);
+};
+}
+function complete(){
+ return known&&boot&&boot.notice==="installed"&&valid(s)&&s.installed&&
+ !s.pending&&!s.conflict&&!s.restart&&s.notice==="installed"&&
+ s.completionReady===true&&s.installedVersion===boot.version;
+}
+function wake(){
+ clearTimeout(timer);if(dead)return;
+ if(!window.framework||!framework._browserShown){timer=setTimeout(wake,250);return;}
+ if(job){
+  if(job.phase==="waiting")drive();else if(job.phase==="restart"&&!job.restartSent)restart();else if(job.phase!=="unresolved")paint();
+ }
+ if(!job&&known&&s.pending){run("recover",null,"usb");}
+ if(boot&&/settings$/.test(framework.getCurrentApp())&&!held()){close();return;}
+ if(!job&&boot&&!shown&&complete()&&!queued&&!dialog){
+  queued=function(){
+   if(!complete())return false;
+   return ui.complete(framework,s.installedVersion,function(action){
+    dialog=null;
+    if(action==="done"||action==="settings")dismiss(action==="settings"?function(){
+     var settings=window.OpenConnect;if(settings&&settings.openSettings)settings.openSettings();
+    }:null);else{shown=false;wake();}
+   });
+  };shown=true;
+ }
+ if(usb&&!busy&&s&&!dialog&&!queued){choose();}
+ if(queued&&!dialog){var opened=queued();if(opened){queued=null;dialog=opened;}}
+ if(!probing&&originUSB){
+  probing=true;session(function(live){probing=false;if(live!==true)cancel(token);});
+ }
+ if(!dead)timer=setTimeout(wake,1000);
+}
+var client={token:token,close:close,cancel:cancel,protected:held,autoshowState:function(){
+ return held()||dialog||queued?2:!ready?1:0;
+}};
+function prepared(a){
+ if(!valid(a)){
+  if(boot){if(window.ocCarPlay)ocCarPlay.cancel();close();}
+  else message("Unable to finish","Open Connect could not be reached. Check the connection before trying again.");
+  return;
+ }
+ ready=true;
+ if(boot&&!a.pending&&!complete()){
+  if(window.ocCarPlay)ocCarPlay.cancel();close();return;
+ }
+ wake();
+}
+function begin(){
+ if(boot){
+  if(!framework._browserShown){timer=setTimeout(begin,250);return;}
+  read(prepared,Date.now()+35000,0,epoch,true);
+ }else session(function(live){
+  if(live!==true){close();return;}
+  read(function(a){
+   session(function(stillLive){if(stillLive===true)prepared(a);else close();});
+  },Date.now()+65000,0,epoch,false);
+ });
+}
+begin();
+return dead?null:client;
+}());

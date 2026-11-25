@@ -328,7 +328,8 @@ function open(fw,store){
   var values=prefs.values(),enabled=params.additionalData===1;
   if(!values||values.wirelessFactory===true||values.wireless===undefined||
     values.wireless===(enabled?1:0)){return;}
-  dismiss=ask((enabled?"Enable":"Disable")+" Wireless CarPlay?",enabled?"Changes apply after restarting Mazda Connect. Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth.":
+  dismiss=ask((enabled?"Enable":"Disable")+" Wireless CarPlay?",enabled?"Changes apply after restarting Mazda Connect. Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth."+
+    (values.base?" Delays Mazda Navigation about 20 s.":""):
     "Restores the original CarPlay behavior after restarting Mazda Connect.",enabled?"Enable":"Disable","apply",function(action){
     dismiss=null;
     if(action==="apply"&&current()){prefs.select("wireless",enabled?1:0);}
@@ -352,7 +353,7 @@ function open(fw,store){
     "Restores original native logging after restarting Mazda Connect.")):
    row?(enabled?row.enable:row.disable):
    "Changes apply after restarting Mazda Connect.";
-  if(item==="base"&&enabled&&/^0\.3\.0-dev\.(16|17|18|19|20)$/.test(store.version)&&values.wireless){
+  if(item==="base"&&enabled&&values.wireless){
    text+=" Wireless CarPlay delays Mazda Navigation about 20 s.";
   }
   var origin=choice;
@@ -495,8 +496,9 @@ function attach(fw,app,store){
   if(control===ctrl&&value===id){
    var selectedHost=template();
    var show=function(fresh){
-    if(!fresh||list!==ctrl||fw._currTmpltInstance!==selectedHost||
+    if(list!==ctrl||fw._currTmpltInstance!==selectedHost||
       template()!==selectedHost){return;}
+    if(!fresh){if(store.unavailable)store.unavailable();return;}
     var opened=open(fw,store);
     if(opened){closePage=opened;}
    };
@@ -552,9 +554,9 @@ function attach(fw,app,store){
  repaint();
  return result;
  });
- return function detach(transfer){
+ return function detach(){
  undoReady();
- if(release){release(!transfer&&template()&&template().list2Ctrl===list);}
+ if(release){release(template()&&template().list2Ctrl===list);}
  list=release=null;
  };
 }
@@ -590,20 +592,14 @@ return{open:open,fromHome:fromHome,attach:attach,validStatus:validStatus,
 
 (function(a,f){
 if(!a||a.loaded&4){return;}
-var owner,held,camera,cameraSeen,displayOff;
+var camera,cameraSeen,displayOff;
 a.owner=function(){
- if(window.__ocUSBLoading){return 2;}
+ if(window.__ocMaintenanceLoading){return 2;}
+ var popup=window.OpenConnectMaintenance,gate=popup&&popup.autoshowState();
+ if(gate)return gate;
  var client=window.OpenConnect;
- if(!client){return 1;}
- if(client.autoshowState){return client.autoshowState();}
- if(client!==owner){
- owner=client;held=true;a.cancel();
- ["start","reopenUSB"].forEach(function(k){if(owner[k]){a.wrap(owner,k,function(){held=true;a.cancel();});}});
- ["cancelUSB","dispose"].forEach(function(k){if(owner[k]){a.wrap(owner,k,null,function(){a.closed();});}});
- }
- return held||owner.protected()?2:0;
+ return client?client.autoshowState():1;
 };
-a.closed=function(){if(owner===window.OpenConnect&&!owner.protected()&&!a.dialogs){held=false;}};
 function context(id,ctx){
  if(id==="backupparking"||/^(IntroAnimation|QuickStartLoop|Disclaimer)$/.test(ctx))return 1;
  if(id==="emnavi"&&ctx==="Active")return 0;

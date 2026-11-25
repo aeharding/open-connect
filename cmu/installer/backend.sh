@@ -12,15 +12,39 @@ AUTOSTART=/usr/bin/autostart
 . "$P/transaction.sh"
 
 # Errors are fixed identifiers, never device output or interpolated user text.
-fail() { printf '{"ok":false,"error":"%s"}\n' "$1"; exit 1; }
+fail() {
+    if test "${admission_created:-false}" = true &&
+        test "$(status_identity 2>/dev/null || :)" = "$admission_before"; then rm -f "$P/admitted"; fi
+    printf '{"ok":false,"error":"%s"}\n' "$1"; exit 1
+}
 firmware_guard
 private_dir /tmp/open-connect || fail runtime_unavailable
 file /tmp/open-connect/lock || fail invalid_lock
-exec 9<>/tmp/open-connect/lock
-flock -n -x 9 || fail busy
-test "$(readlink -f /tmp/open-connect/runtime)" = "$P" || fail session_replaced
 test "${1:-}" = api && test "$#" -eq 6 || fail invalid_request
 revision=$2; operation=$3; argument=$4; expected=$5; desired=$6
+runtime_pointer=/tmp/open-connect/runtime
+role=settings
+if test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" != "$P"; then
+    runtime_pointer=/tmp/open-connect/usb-runtime
+    test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
+    role=usb
+fi
+if test "$operation:$argument" = dismiss:usb; then
+    test "$role" = usb || fail invalid_request
+    : > "$P/closed"
+    printf '{"ok":true}\n'
+    exit
+fi
+exec 9<>/tmp/open-connect/lock
+if test "$operation:$argument" = status:settings; then flock -n -s 9 || fail busy
+else flock -n -x 9 || fail busy; fi
+test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
+if test "$role" = usb && test "$operation" != status; then
+    if test -f "$P/closed"; then
+        test "$operation" = restart && test -f "$P/admitted" || fail session_closed
+    fi
+    case "$operation" in install|uninstall|recover|restart) ;; *) fail invalid_request;; esac
+fi
 
 exists=false
 empty_state=false
@@ -44,12 +68,25 @@ selection_id() {
     printf '%s\n' "$value"
 }
 
+status_identity() {
+    local marker path
+    if absent "$D/record"; then printf 'record=absent\n'
+    else file "$D/record" && printf 'record=%s\n' "$(sha "$D/record")" || return 1; fi
+    for marker in selected access-selected boot-id; do
+        path=/tmp/open-connect/$marker
+        if absent "$path"; then printf '%s=absent\n' "$marker"
+        elif test -L "$path"; then printf '%s=link:%s\n' "$marker" "$(readlink "$path")"
+        elif file "$path"; then printf '%s=file:%s\n' "$marker" "$(sha "$path")"
+        else return 1; fi
+    done
+}
+
 status() {
     local installed=false retained=false conflict=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
     local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 wireless_current=0
     local installed_version=- installed_package=- pandora= base= wireless= autoshow= autoshow_current=0
     local saved_schema= saved_config= saved_catalog= selected_services= selected_wireless=0 rows=
-    local selected= access_selected= version_hash= completion_check=false audited=false kernel_boot=
+    local selected= access_selected= version_hash= completion_check=false audited=false kernel_boot= audit_identity=
     selected=$(selection_id /tmp/open-connect/selected) || selected=
     access_selected=$(selection_id /tmp/open-connect/access-selected) || access_selected=
     if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
@@ -84,13 +121,26 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
             # Default USB status and every mutating endpoint retain full checks.
             # A completion notice still promises fresh conflict detection, even
             # when Settings wins the race with the boot-completion status read.
-            if test "$installed" = true && test "$notice" = installed && test "$selected" = "$R_CURRENT" &&
+            if test "$operation:$argument" = status:completion &&
+                test "$installed" = true && test "$notice" = installed && test "$selected" = "$R_CURRENT" &&
                 kernel_boot=$(completion_boot_id) &&
                 test "$R_BOOT" = "$kernel_boot"; then completion_check=true; fi
             if test "$operation:$argument" != status:settings || test "$completion_check" = true; then
+                # Slow read-only audits must not hold ordinary Settings (including
+                # an older installed exclusive reader). Fence the sampled state
+                # again under the lock before using it. Mutations keep the lock.
+                if test "$operation" = status; then
+                    audit_identity=$(status_identity) || fail state_changed
+                    flock -u 9 || fail invalid_lock
+                fi
                 if ! targets_match_loaded "$R_CURRENT" ||
                     { test "$S_ACCESS" = true && ! access_login_check; } ||
                     ! dependencies_match "$R_CURRENT"; then conflict=true; else audited=true; fi
+                if test "$operation" = status; then
+                    flock -n -x 9 || fail busy
+                    test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
+                    test "$(status_identity)" = "$audit_identity" || fail busy
+                fi
             fi
             # Authenticate VERSION even on the lightweight read. P may be newer
             # maintenance media; its version is not the installed version.
@@ -176,6 +226,11 @@ finish_removal() {
 }
 
 if test "$operation" = status; then status; exit; fi
+if test "$role" = usb && absent "$P/admitted"; then
+    admission_before=$(status_identity) || fail state_changed
+    : > "$P/admitted"
+    admission_created=true
+fi
 if test "$exists" = true; then
     # UI comparisons bind the affected state. ACC and dismissed notices do not
     # invalidate an otherwise-current preference page. Pending work uses its

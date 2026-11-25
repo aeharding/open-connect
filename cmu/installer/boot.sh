@@ -243,6 +243,7 @@ fi
 file "$R/token" && test "$(wc -c < "$R/token")" -eq 33 || fail invalid_token
 token=$(cat "$R/token"); hex "$token" 32 || fail invalid_token
 boot_copy_package "$work" runtime.js dialog.js settings.js service.sh || fail feature_ui_failed
+if test "$R_NOTICE" = installed; then boot_copy_package "$work" maintenance.js || fail completion_ui_failed; fi
 if test "$S_AUTOSHOW" = 1; then boot_copy_package "$work" carplay.js || fail feature_ui_failed; fi
 version=$(cat "$P/VERSION")
 case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac

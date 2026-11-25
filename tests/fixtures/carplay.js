@@ -3,7 +3,7 @@ const fs = require('node:fs'), vm = require('node:vm'), path = require('node:pat
 const folder = process.argv[2], boot = '12345678-1234-1234-1234-123456789abc';
 function fixture(shared = {}, load = true) {
   const calls = [], events = {}, timers = [], pendingContexts = [];
-  let deferContext=false, background=false, contextHandler, contextCompare, nativeContext, nativeFocus, loading;
+  let deferContext=false, background=false, contextHandler, contextCompare, nativeContext, nativeFocus, loading, callEnd;
   let now = 0, clock = 0;
   const state = {name: '', storage: new Map(), ...shared};
   const ctx = {log: {error() {}, addSrcFile() {}, debug() {}, info() {}, warn() {}}, Date: {now: () => now},
@@ -28,7 +28,9 @@ function fixture(shared = {}, load = true) {
     getCurrCtxtId() {return this._currTmpltInstance.contextInfo.ctxtId;}, getAppInstance(id) {return apps[id];},
     _initApp() {}, _processNewFwkState() {}, _multicontrollerEventHandler() {return 'stock input';},
     _focusStackChange(ids) {if(nativeFocus)nativeFocus.call(this,ids);else this._focusStack=ids;},
-    _handleMessage(id,m) {if(id==='common'&&m.msgId==='vuiState')this.common._cachedVuiState=m.params.payload.state;return 'stock message';},
+    _handleMessage(id,m) {
+      if(id==='phone'&&m.msgId==='NoCallState'&&callEnd)callEnd.call(apps.phone,m);
+      if(id==='common'&&m.msgId==='vuiState')this.common._cachedVuiState=m.params.payload.state;return 'stock message';},
     routeMmuiMsg(m) {
       if(m.msgType==='focusStack') {
         if(loading===m.appIdList[0].id)this._loadingAppJsObj=m;
@@ -94,6 +96,7 @@ function fixture(shared = {}, load = true) {
     background(id,ctxt,seq=90){background=true;try{send({msgType:'ctxtChg',uiaId:id,ctxtId:ctxt,contextSeq:seq});}finally{background=false;}},
     show(id){apply({uiaId:id});fw._processNewFwkState();},
     contexts(handler,compare){contextHandler=handler;contextCompare=compare;},
+    phoneEnd(handler){callEnd=handler;},
     routing(proto){
       nativeContext=proto._contextChange;nativeFocus=proto._focusStackChange;
       fw._callHandleContext=proto._callHandleContext;fw._captureContext=()=>{};
@@ -436,7 +439,7 @@ console.log('Remaining P2 regressions: temporary-origin baseline and immutable e
 function backgroundReplay(stock) {
 function make(lazy) {
   const x=lazy?bootClient():fixture();
-  if(stock){x.contexts(stock.BaseApp.prototype._handleContext,stock.BaseApp.prototype._isContextDifferent);x.routing(stock.GuiFramework.prototype);}
+  if(stock){x.contexts(stock.BaseApp.prototype._handleContext,stock.BaseApp.prototype._isContextDifferent);x.routing(stock.GuiFramework.prototype);if(stock.phoneApp)x.phoneEnd(stock.phoneApp.prototype._NoCallStateMsgHandler);}
   return x;
 }
 for(const lazy of [false,true]) {
@@ -502,6 +505,44 @@ for(const pairs of [16,40]) {
   f.session(false);f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:50});
   f.focus();f.connect();assert.equal(f.count(),2,'benign startup traffic retains reconnect pairs='+pairs);
 }
+// All native call dialogs retain priority before a phone-focus or status event.
+for(const lazy of [false,true]) {
+  for(const ctxt of ['IncomingCall','ActiveCall','CallWaiting','MultipleCallWaiting','BTMultipleCall']) {
+    f=make(lazy);f.background('phone',ctxt);f.session(true);f.menu();
+    if(lazy)f.complete();f.advance();assert.equal(f.count(),0,'pre-edge call dialog '+ctxt+' lazy='+lazy);
+    f.msg('NoCallState',{},'phone');f.session(false);f.connect();
+    assert.equal(f.count(),1,'explicit call end permits subsequent connection '+ctxt+' lazy='+lazy);
+  }
+  for(const tick of [false,true]) {
+    f=make(lazy);f.session(true);f.native('backupparking','TVMCameraDisplay');
+    f.background('system','DisplayOff');if(tick)f.advance();
+    f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});f.focus();f.menu();
+    if(lazy)f.complete();f.advance();
+    assert.equal(f.count(),0,'DisplayOff consumes the generation during camera ownership lazy='+lazy+' tick='+tick);
+    f.session(false);f.connect();assert.equal(f.count(),1,'observed wake allows a later connection');
+  }
+  for(const refocus of [false,true]) {
+    f=make(lazy);f.background('phone','ActiveCall');const cached=f.apps.phone._currentContext;
+    f.msg('NoCallState',{},'phone');assert.equal(f.apps.phone._currentContext,cached,'NoCallState retains native cached context');
+    if(refocus){f.focus('phone');f.show('phone');}
+    if(lazy)f.complete();
+    if(refocus){f.connect();assert.equal(f.count(),0,'phone display still guards selection after call-end');}
+    f.focus();f.show('system');f.session(false);f.connect();
+    assert.equal(f.count(),1,'cached phone focus cannot revive an ended call refocus='+refocus+' lazy='+lazy);
+    f.session(false);f.background('phone','ActiveCall',91);f.connect();
+    assert.equal(f.count(),1,'a genuinely new call context restores priority');
+  }
+}
+// Missing critical history is not resolved by an unrelated CarPlay disconnect.
+for(const priority of ['camera','call']) {
+  f=make(true);for(let i=0;i<32;i++)f.menu();
+  if(priority==='camera')f.background('backupparking','TVMCameraDisplay');
+  else f.msg('StatusPhoneCall',{phoneCallStatus:'IncomingCall'},'system');
+  assert.equal(f.ctx.ocCarPlay.early.length,32,'bounded queue actually filled');
+  assert.ok(f.ctx.ocCarPlay.busy&8,'critical history was dropped');
+  f.session(true);f.menu();f.complete();f.advance();assert.equal(f.count(),0,'overflow prevents first selection '+priority);
+  f.session(false);f.connect();assert.equal(f.count(),0,'disconnect cannot resolve dropped '+priority+' history');
+}
 console.log('Live regressions: non-focused cache, applied focus history, safety priority and active Nav passed');
 
 }
@@ -511,6 +552,10 @@ if(process.argv[3]) {
   for(const name of ["BaseApp.js","GuiFramework.js"]) {
     const source=path.join(path.dirname(process.argv[3]),name);
     vm.runInNewContext(fs.readFileSync(source,"utf8"),stock,{filename:source});
+  }
+  if(process.argv[5]) {
+    stock.framework={registerAppLoaded(){}};stock.clearInterval=()=>{};
+    vm.runInNewContext(fs.readFileSync(process.argv[5],'utf8'),stock,{filename:process.argv[5]});
   }
   backgroundReplay(stock);
   console.log("Exact stock GuiFramework context/cache/focus and BaseApp replays passed");

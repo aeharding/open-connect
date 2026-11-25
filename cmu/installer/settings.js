@@ -612,7 +612,8 @@ a.signal=function(m){
         displayOff=false;
       }
       if(c[1]==="DisplayOff")displayOff=true;
-      if(c[0]==="phone"&&/^(ActiveCall|IncomingCall|OutgoingCall|Connecting)/.test(c[1]))a.busy|=2;
+      // A focus replay is not a new call; NoCallState remains authoritative.
+      if(c[0]==="phone"&&!m._cp.focus&&/^(ActiveCall|IncomingCall|CallWaiting|MultipleCallWaiting|BTMultipleCall|OutgoingCall|Connecting)/.test(c[1]))a.busy|=2;
     }
   }
   if(edge===m._cp&&camera)edge.reverse=camera.seq;
@@ -631,8 +632,9 @@ a.signal=function(m){
     if(/^(ActiveCallInfo|ConferenceCallInfo|BTMultipleCallCP)$/.test(id)){a.busy |= 2;}
     if(id==="NoCallState"){a.busy &= ~2;}
   }
-  if(depart(m,edge)||a.busy&&(!edge||m._cp.seq>=edge.seq)){a.cancel();}
+  if(depart(m,edge)||(a.busy||displayOff)&&(!edge||m._cp.seq>=edge.seq)){a.cancel();}
 };
+// Overflow guards this document: disconnect cannot resolve dropped safety events.
 a.early.forEach(a.signal); a.early=null;
 a.run=function(edge,input,trust,focus,next){
   if(Date.now()>=edge.end||input!==edge.k||a.busy){a.cancel(); return;}

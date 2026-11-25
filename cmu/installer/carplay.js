@@ -40,7 +40,7 @@ function note(m){
     if(m.uiaId==="backupparking") m._cp.base=a.copy(f._currTmpltInstance&&f._currTmpltInstance.contextInfo);
   }
   if(m.uiaId==="carplay"&&id==="SendCPSessionState"&&p){
-    if(p.state===false){stop(); live=""; arm=save("A"); one=false; if(a.signal)a.busy&=~8;}
+    if(p.state===false){stop(); live=""; arm=save("A"); one=false;}
     if(p.state===true&&(typeof p.serialId==="string"&&p.serialId&&p.serialId.length<=256||
         typeof p.btMacAddress==="string"&&/^(?:[\da-f]{2}:){5}[\da-f]{2}$/i.test(p.btMacAddress))){
       id=(p.serialId||"")+"/"+(p.btMacAddress||"");

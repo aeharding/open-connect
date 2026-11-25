@@ -25,8 +25,10 @@ class CarPlayAutoshow(unittest.TestCase):
         stock = ROOT / "runs/wave-c-20261123/firmware/jci/gui/framework/js/Websockets.js"
         if not stock.is_file():
             self.skipTest("private exact-v74 Websockets required")
+        phone = ROOT / "runs/issue132-loading-ux/rootfs/jci/gui/apps/phone/js/phoneApp.js"
         subprocess.run(
-            ["node", ROOT / "tests/fixtures/carplay.js", ASSETS, stock, CI17],
+            ["node", ROOT / "tests/fixtures/carplay.js", ASSETS, stock, CI17]
+            + ([phone] if phone.is_file() else []),
             check=True,
             timeout=15,
         )

@@ -131,7 +131,7 @@ checks and an unresolved reboot during a test-only post-purge page reload.
 | One service choice changed, other settings fixed | Attribute the effect and detect dependencies |
 
 The current development candidate groups the logging, service and startup policies
-described in [Services](services.md) behind one optional **Base optimizations**
+described in [Startup optimizations](startup-optimizations.md) behind one optional **Base optimizations**
 choice, initially off. Identify the exact bundle revision in every result and
 test the whole bundle; individual savings cannot simply be added together.
 Future preset contents and individual service choices need comparable measurements,

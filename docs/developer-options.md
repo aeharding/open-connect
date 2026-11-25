@@ -1,21 +1,21 @@
 # Developer options
 
-Developer options gives you direct SSH or UART access to your head unit for your own purposes.
+Use direct SSH or UART access to the head unit for your own purposes. Neither is needed for normal installation, settings or removal.
 
-**UART** provides a passwordless root serial shell. **SSH** authorizes an imported public key for network access. Both default to **Off** and apply after a full restart.
-
-**Impact:** Neutral — no measured startup or free-RAM gain is established.<br>
-**Trade-off:** Direct access lets you change head-unit storage; changes left in place can prevent Open Connect maintenance.<br>
-**Evidence:** Earlier access and restoration checks are documented in [CMU findings](reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74). [Performance evidence](performance.md) has no isolated access-toggle benchmark.
-
-Restore any changes you make to head-unit storage before installing, upgrading or uninstalling Open Connect. Leaving storage modified can make these operations fail. If you cannot return it cleanly to stock, reinstall Mazda firmware **74.00.324 NA N** first.
-
-Open **<span class="oc-nav-path" data-walkthrough="developer-options">Mazda Settings → System → Open Connect → Developer options</span>**. Neither control is needed for normal installation, settings or removal.
+**<span class="oc-nav-path" data-walkthrough="developer-options">Mazda Settings → System → Open Connect → Developer options</span>**
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/developer-options.png" alt="Developer options with UART and SSH off and Import public key available." width="800" height="480"></div>
-  <figcaption>Developer access is off on fresh installations.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/setting-developer-options.png" alt="Developer options highlighted in the Open Connect menu." width="800" height="480"></div>
+  <figcaption>Developer options highlighted (dev.19).</figcaption>
 </figure>
+
+- **Default**: <span class="oc-default oc-default--off">UART Off; SSH Off</span>; no Open Connect public key imported.
+- **Startup & RAM impact**: **Neutral** — no isolated access-toggle startup or RAM benchmark is established.
+- **Trade-offs & boot implications**: UART enables a passwordless root serial shell; SSH authorizes your imported key. Changes you leave on head-unit storage can prevent maintenance. Diagnostic logging is separate from interactive login.
+- **Applies**: Saved automatically; takes effect on the **next full Mazda Connect startup**. See [restart guidance](settings.md#apply-changes).
+- **Evidence & limits**: [Access and restoration bench checks](reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74) cover earlier builds. [Performance evidence](performance.md) has no isolated access comparison. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. No public download yet.
+
+Restore any changes you make to head-unit storage before installing, upgrading or uninstalling Open Connect. Leaving storage modified can make these operations fail. If you cannot return it cleanly to stock, reinstall Mazda firmware **74.00.324 NA N** first.
 
 ## UART
 
@@ -77,4 +77,4 @@ Importing a new key replaces only the previously imported Open Connect key; priv
 
 Normal [Uninstall](uninstall.md) restores your saved login and SSH configuration and removes imported keys along with the rest of Open Connect. USB maintenance always stays independent of developer access.
 
-[Back to Settings →](settings.md) · [Wire a bench →](bench-setup.md)
+[Back to Settings](settings.md)

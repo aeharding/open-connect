@@ -3,7 +3,7 @@
 The dev.16 candidate avoids loading disabled MMUI and voice modules when Base
 optimizations are enabled. It also delays OEM Navigation independently by twenty
 seconds after Mazda's stage_3 when Base and Wireless CarPlay are both on.
-[Services](services.md) describes the choices.
+[Startup optimizations](startup-optimizations.md) describes the choices.
 
 Three primary starts per version showed **Home about 0.385 s earlier** and
 **104 KiB more own allocated tmpfs**. MMUI/voice PSS was lower, but achieved

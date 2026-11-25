@@ -15,11 +15,20 @@ run from a public checkout alone.
 ## Documentation screenshots
 
 The PNG images in `docs/assets/guide/` were captured directly from the CMU's
-Wayland display, without cropping or other image edits.
+native display, without cropping or other image edits. Earlier captures use
+Wayland; the `setting-*.png` series uses framebuffer readback.
 They show Mazda firmware **74.00.324A NA / cmu150_NA**. Each original PNG matches
 its received SHA-256 and was reviewed for personal data, credentials and
 diagnostic overlays. The separately authored `cmu-frame.svg` is a decorative
 bezel displayed around the captures by the website; it is not part of the screen.
+
+The fourteen `setting-*.png` Commander Dial row captures show **0.3.0-dev.19**,
+tag commit `f478f3b282f6987d86e04c03d83b1a6971d5a3db`, supplied on November 24,
+2026 as native 800×480 `/dev/fb0` BGRA readbacks. The coordinator identified the
+USB bundle SHA-256 as `d4f0feaf4813ef5707d0f2528a0a98b70b571b1def56582b50e35ec463e5048d`.
+Each complete image was reviewed for publication; the native red focus was
+produced with Commander Dial events, not image edits. Per-file copied hashes
+and qualification limits are in the [guide asset notes](docs/assets/guide/README.md#commander-dial-setting-captures-november-24-2026).
 
 Current dev.17 Install, loading/restart, Update, Settings, Uninstall
 and Base-confirmation captures use

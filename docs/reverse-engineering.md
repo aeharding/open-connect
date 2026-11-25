@@ -797,7 +797,7 @@ On exact **74.00.324A NA**, `libjcicommon.so` uses a global RAM logging override
 at `/tmp/common/log/settings.txt`, separate from the physical default at
 `/config/common/log/settings.txt`. The inspected native initialization path also
 recognizes a per-process RAM settings filename. This firmware behavior is used
-by the development candidate's [Base optimizations](services.md#base-optimizations);
+by the development candidate's [Base optimizations](startup-optimizations.md);
 production and vehicle qualification remain separate. The original library SHA256 is
 `637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d`.
 

@@ -10,13 +10,13 @@ These features are in the development preview for North American Mazda Connect *
 | --- | --- | --- |
 | [Touchscreen While Driving](../touchscreen.md) | Keeps touch available while moving. | Allow |
 | [Startup disclaimer](../disclaimer.md) | Skips the startup warning. | Skip |
-| [Startup optimizations](../services.md#base-optimizations) | Reduces logging and unused services. | Off |
+| [Startup optimizations](../startup-optimizations.md) | Reduces logging and unused services. | Off |
 | CarPlay & Android Auto → [Wireless CarPlay](../wireless-carplay.md) | Enables wireless iPhone connections on compatible hardware. | Off, unless factory enabled |
 | CarPlay & Android Auto → [Show CarPlay on connection](../carplay-on-connection.md) | Opens CarPlay when an iPhone connects. | Factory |
-| CarPlay & Android Auto → [Android Auto](../services.md#android-auto) | Controls built-in Android Auto support. | On |
-| Audio sources → [DVD](../services.md#dvd) | Controls DVD video support. | Off |
-| Audio sources → [Pandora](../services.md#pandora) | Controls Mazda’s built-in Pandora integration. | On |
-| Audio sources → [SiriusXM](../services.md#siriusxm) | Controls satellite radio and SiriusXM data. | On |
+| CarPlay & Android Auto → [Android Auto](../android-auto.md) | Controls built-in Android Auto support. | On |
+| Audio sources → [DVD](../dvd.md) | Controls DVD video support. | Off |
+| Audio sources → [Pandora](../pandora.md) | Controls Mazda’s built-in Pandora integration. | On |
+| Audio sources → [SiriusXM](../siriusxm.md) | Controls satellite radio and SiriusXM data. | On |
 | [Developer options](../developer-options.md) | UART, SSH and Import public key for direct access to your head unit. | UART and SSH off |
 | [Uninstall](../uninstall.md) | Removes Open Connect and restores the saved configuration. | — |
 | [About](../about.md) | Shows the installed version. | — |

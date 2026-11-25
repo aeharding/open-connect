@@ -86,6 +86,58 @@ Label proposals as proposals and match detail to implementation maturity.
 A useful experiment or partial improvement is not automatically a delivered
 feature. Separate device observations from failures in the capture or runner.
 
+## Setting page template
+
+Give every setting its own Markdown page and sidebar entry, using the exact
+in-car label and menu order. Link directly to that page. Keep the old Services
+index and its anchors working for existing links.
+
+Use this order on each setting page:
+
+1. The in-car setting name as the H1, followed by one sentence describing it.
+2. The complete clickable menu path with `.oc-nav-path` and `data-walkthrough`.
+3. An unedited native 800×480 screenshot in the existing `.oc-screen` figure.
+4. A compact list: **Default**, **Startup & RAM impact**, **Trade-offs & boot implications**,
+   **Applies**, **Evidence & limits**.
+5. Setting-specific choices or steps, then a link back to Settings.
+
+Use `.oc-default--on` or `.oc-default--off` with `.oc-default` for applicable
+fresh-install defaults; keep the text meaningful without color. Begin impact
+with **Faster**, **Slightly faster** or **Neutral**, backed by the measured
+configuration and named RAM metric. Neutral means no measured gain is
+established. Link [Performance evidence](performance.md), name outstanding
+qualification, and distinguish older results from the current preview.
+
+Use the reviewed `setting-*.png` capture with the corresponding row highlighted
+for each setting’s figure and walkthrough. The red highlight is Mazda’s native
+Commander Dial focus. Show the selected value accurately in captions; captures
+may differ from fresh-install defaults. Keep capture provenance accurate. Use
+plain prose and lists; avoid hero cards and badges.
+
+Describe the current dev.19 restart behavior. Document new controls only after
+their implementation merges.
+
+## Commander Dial capture provenance
+
+The fourteen `setting-*.png` images added for
+[#137](https://github.com/aeharding/open-connect/issues/137) and
+[#143](https://github.com/aeharding/open-connect/issues/143) were supplied on
+**November 24, 2026** from **v0.3.0-dev.19**, **74.00.324A NA/cmu150_NA**.
+They are unedited native **800×480 `/dev/fb0` BGRA readbacks**, navigated with
+Commander Dial events and no touch injection, with Bluetooth disconnected.
+Both the documentation implementer and coordinator inspected all fourteen for
+personal data, credentials and diagnostic overlays before publication.
+
+The coordinator identified tag commit
+[`f478f3b2`](https://github.com/aeharding/open-connect/tree/f478f3b282f6987d86e04c03d83b1a6971d5a3db)
+and USB bundle SHA-256
+`d4f0feaf4813ef5707d0f2528a0a98b70b571b1def56582b50e35ec463e5048d`.
+The [per-file provenance and SHA-256 table](assets/guide/README.md#commander-dial-setting-captures-november-24-2026)
+records the copied bytes, shown preferences and private supplied-original paths.
+Copying and hash checks were offline; this docs change makes no new live package,
+physical-controller or real-car qualification claim. Older ancillary captures
+retain their existing identities.
+
 ## Write useful reverse-engineering notes
 
 A finding should name the exact firmware and component, explain what was learned,

@@ -2,7 +2,7 @@
 
 The dev.15 candidate adds **SiriusXM (default on)** and **DVD (default off)**,
 stops Aha/offboard work with Base enabled, and hides disabled Audio Sources
-using the applied selection. The [Services guide](services.md) explains the controls.
+using the applied selection. The [Settings guide](settings.md) explains the controls.
 
 Three matched starts per version showed **4 KiB less own allocated tmpfs** and
 lower aggregate anonymous pages. They did **not** show a startup speedup:
@@ -142,7 +142,7 @@ RAM waiver is claimed.
 The dev.14→dev.15 upgrade retained existing choices and the original stock-five
 baseline, adding DVD off and SiriusXM on. Real Settings showed all five Services
 rows; native Entertainment showed no disabled white/grey ghost source rows.
-The [direct guide screenshot](services.md#base-optimizations) records that list.
+The [guide capture notes](assets/guide/README.md#applied-audio-sources-november-23-2026) retain that list’s dev.15 provenance.
 Applied visibility resisted late Mazda Visible messages; the OEM master source
 array and USB_A index 12 stayed intact. Pending saves did not change applied rows.
 

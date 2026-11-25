@@ -34,6 +34,9 @@
 .oc-spec .oc-default { white-space: normal; }
 .md-typeset .oc-spec + .oc-screen { margin-top: 1rem; }
 @media (max-width: 39.999rem) {
+  .md-typeset .oc-screen { width: auto; max-width: none; margin: 1.1rem -.8rem 1.5rem; overflow: hidden; }
+  .md-typeset .oc-screen .oc-screen-frame { width: auto; margin-inline: -15%; }
+  .md-typeset .oc-screen figcaption { margin-top: -.75rem; padding-inline: .8rem; }
   .md-typeset .oc-spec { grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: .65rem; }
   .md-typeset .oc-spec > div { padding: .3rem .45rem; }
   .md-typeset .oc-spec > div:nth-child(odd) { border-left: 0; }

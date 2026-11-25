@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* View ownership yields to Mazda; operation ownership stays in runtime.js. */
+/* Mazda context; runtime operations. */
 var OpenConnectInstaller=(function () {
 "use strict";
 var active=null, own=Object.prototype.hasOwnProperty;
@@ -56,6 +56,7 @@ function show(fw, title, text, buttons, done, settings, progress) {
   if (!dialog) { return false; }
   active=dialog;
   dialog.divElt.classList.add("Dialog3Ctrl_Style19_NoTemplateInstance");
+  dialog.divElt.classList.add("Transitions_fadeIn_0_200");
   var previousInput=replace(common, "handleControllerEvent", input);
   var previousTransition=replace(common, "getCommonTransitionData", transition);
   if (progress) {

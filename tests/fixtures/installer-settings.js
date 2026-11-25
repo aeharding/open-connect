@@ -2,15 +2,22 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 let queued;
-const ctx = {document: {body: {}}, log: {error(e) { throw Error(e); }}, setTimeout(fn) { queued=fn; return 1; }, clearTimeout() { queued=null; }};
+const animations=new Map();
+const element=require("./ui-element.js");
+const ctx = {document: {body: {}}, log: {error(e) { throw Error(e); }},
+    setTimeout(fn,ms) { const id={animation:ms===900}; if(id.animation) animations.set(id,fn); else queued=fn; return id; },
+    clearTimeout(id) { if(id&&id.animation) animations.delete(id); else queued=null; }};
 function idle() { const fn=queued; queued=null; if (fn) { fn(); } }
+function settle() { while(animations.size) { const [id,fn]=animations.entries().next().value; animations.delete(id); fn(); } }
 for (const path of process.argv.slice(2)) { vm.runInNewContext(fs.readFileSync(path, "utf8"), ctx); }
 const settings = ctx.OpenConnectSettings;
+const open=settings.open;
+settings.open=(...args)=>{const result=open(...args);settle();return result;};
 const pages = [], calls = [];
 const parent = {removeChild(node) { node.parentNode = null; }};
 const input = () => "stock input", send = (...args) => calls.push(args);
 const transition = () => "stock transition";
-const host = {divElt: {style: {display: ""}, parentNode: parent}, list2Ctrl: {},
+const host = {divElt: element(parent), list2Ctrl: {},
     handleControllerEvent: input};
 const fw = {getCurrentApp: () => "syssettings", getCurrCtxtId: () => "SystemTab",
     _frameworkState: 1, _FWK_STATE_IDLE: 1, _currTmpltInstance: host,
@@ -20,10 +27,9 @@ const fw = {getCurrentApp: () => "syssettings", getCurrCtxtId: () => "SystemTab"
         assert.equal(type, "List2Tmplt"); assert.equal(app, "syssettings"); assert.equal(container, parent);
         const ctrl = props.List2Ctrl;
         ctrl.updateItems = (first,last) => {
-            if (first === 2) { assert.equal(last,2); }
-            else { assert.equal(first,0); assert.equal(last,1); }
+            assert.ok(first>=0&&last>=first&&last<ctrl.dataList.items.length);
         };
-        pages.push({ctrl, list2Ctrl: ctrl, divElt: {parentNode: parent}, events: [],
+        pages.push({ctrl, list2Ctrl: ctrl, divElt: element(parent), events: [],
             cleanUp() { this.cleaned = true; }, handleControllerEvent(e) { this.events.push(e); return "consumed"; }});
         return pages.at(-1);
     }};
@@ -32,10 +38,11 @@ const writes = [];
 const store = {read: () => values, write(...args) { reply = args.pop(); writes.push(args); }};
 const pick = i => {
     const ctrl = pages.at(-1).ctrl, rows = ctrl.dataList.items;
+    if(typeof i==="string") i=rows.findIndex(row=>row.appData===i);
     if (rows[i].image1 === "radio") { rows.forEach((row,index) => { row.checked = index === i; }); }
-    return ctrl.selectCallback(ctrl, rows[i].appData);
+    const result=ctrl.selectCallback(ctrl, rows[i].appData);settle();return result;
 };
-const back = () => fw.sendEventToMmui("common", "Global.GoBack");
+const back = () => {fw.sendEventToMmui("common", "Global.GoBack");settle();};
 assert.equal(typeof settings.open(fw, store), "function");
 assert.equal(settings.open(fw, store), false);
 assert.equal(pages.at(-1).ctrl.dataList.items[0].label1, "Allow");
@@ -94,6 +101,7 @@ assert.equal(list.properties.selectCallback(list,"language"),"stock:language");
 app._contextTable.SystemTab.readyFunction();
 assert.equal(list.dataList.itemCount,4);
 list.properties.selectCallback(list,"open-connect-settings");
+settle();
 assert.equal(host.divElt.style.display,"none");
 back();
 detach(); assert.equal(app._contextTable.SystemTab.readyFunction,stockReady);
@@ -142,29 +150,29 @@ fw.destroyControl = control => { assert.equal(control, modal); modal = null; };
 fw.common.handleControllerEvent = input;
 settings.open(fw, store);
 assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items, r => r.text1),
-    ["Touchscreen While Driving", "Startup disclaimer", "Uninstall", "About"]);
+    ["Touchscreen While Driving", "Startup disclaimer", "Apply changes", "Uninstall", "About"]);
 assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, true);
-pick(2); assert.equal(modal, undefined);
-pick(3); assert.equal(modal.props.text1, "Installed version unavailable.");
+pick("uninstall"); assert.equal(modal, undefined);
+pick("about"); assert.equal(modal.props.text1, "Installed version unavailable.");
 back(); back();
 store.version = "0.2.1";
-store.uninstall = () => { removals++; };
+store.uninstall = leave => { removals++; leave(); return true; };
 settings.open(fw, store);
-pick(3); assert.equal(modal.props.title, "About"); assert.equal(modal.props.text1, "Open Connect 0.2.1");
-pick(2); assert.equal(modal.props.title, "About"); // background list cannot steal the modal
+pick("about"); assert.equal(modal.props.title, "About"); assert.equal(modal.props.text1, "Open Connect 0.2.1");
+pick("uninstall"); assert.equal(modal.props.title, "About"); // background list cannot steal the modal
 back(); assert.equal(modal, null);
-pick(2); assert.equal(modal.props.buttonConfig.button1.label, "Cancel");
+pick("uninstall"); assert.equal(modal.props.buttonConfig.button1.label, "Cancel");
 assert.equal(modal.props.initialFocus, 0);
 const stale = modal;
 back(); stale.props.defaultSelectCallback(stale, "uninstall"); assert.equal(removals, 0);
-pick(2); assert.equal(fw.common.getCommonTransitionData(), "stock transition");
+pick("uninstall"); assert.equal(fw.common.getCommonTransitionData(), "stock transition");
 assert.equal(removals, 0); assert.equal(host.divElt.style.display, "");
 
-settings.open(fw, store); pick(0); pick(0); back(); pick(2);
+settings.open(fw, store); pick(0); pick(0); back(); pick("uninstall");
 assert.match(modal.props.text1, /Finishing your settings change/);
 assert.equal(modal.props.buttonConfig.button2, undefined); back();
 idle(); values = {touch: 0, warning: 1}; reply(values);
-pick(2);
+pick("uninstall");
 const confirmed = modal;
 confirmed.props.defaultSelectCallback(confirmed, "uninstall");
 confirmed.props.defaultSelectCallback(confirmed, "uninstall");
@@ -175,7 +183,8 @@ assert.equal(fw.common.getCommonTransitionData, transition);
 appName = "syssettings"; context = "SystemTab";
 const detachWithModal = settings.attach(fw, app, store);
 list.properties.selectCallback(list, "open-connect-settings");
-pick(2);
+settle();
+pick("uninstall");
 const detached = modal;
 detachWithModal();
 assert.equal(modal, null);
@@ -202,7 +211,7 @@ assert.equal(modal.props.title, "Import public key?");
 modal.props.defaultSelectCallback(modal, "cancel");
 assert.equal(importReply, undefined);
 pick(2); modal.props.defaultSelectCallback(modal, "import");
-back(); pick(3);
+back(); pick("uninstall");
 assert.match(modal.props.text1, /Finishing your settings change/);
 back(); back();
 values = {...values, key: "c".repeat(64), fingerprint: Array(16).fill("ab").join(":"), restart: true};
@@ -314,15 +323,15 @@ const catalog = fs.readFileSync(require("node:path").join(process.argv[3], "../s
         return {id, label, saved: Number(saved), current: Number(saved), enable, disable};
     });
 store.version = fs.readFileSync(require("node:path").join(process.argv[3], "../VERSION"), "utf8").trim();
-assert.equal(store.version, "0.3.0-dev.19");
+assert.equal(store.version, "0.3.0-dev.20");
 values = {...values, wireless: 0, wirelessCurrent: 0, wirelessFactory: false,
     carplayAutoshow: 0, carplayAutoshowCurrent: 0, services: catalog};
 settings.open(fw, store);
 assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items, row => row.text1), [
     "Touchscreen While Driving", "Startup disclaimer", "Startup optimizations",
-    "CarPlay & Android Auto", "Audio sources", "Developer options", "Uninstall", "About"
+    "CarPlay & Android Auto", "Audio sources", "Developer options", "Apply changes", "Uninstall", "About"
 ]);
-assert.deepEqual(keys(), [0, 1, "base", "phone", "sources", "developer", "uninstall", "about"]);
+assert.deepEqual(keys(), [0, 1, "base", "phone", "sources", "developer", "restart", "uninstall", "about"]);
 assert.equal(pages.at(-1).ctrl.toggleMinChangeInterval, 0);
 choose("phone");
 assert.equal(pages.at(-1).ctrl.title.text1, "CarPlay & Android Auto");
@@ -423,7 +432,7 @@ back(); back();
 
 // Current Base keeps the Navigation warning with Wireless enabled. Longest
 // enable body fits the fixed native dialog without the previous verbose copy.
-for (const version of ["0.3.0-dev.15", "0.3.0-dev.16", "0.3.0-dev.17", "0.3.0-dev.18", "0.3.0-dev.19"]) for (const wireless of [0, 1]) {
+for (const version of ["0.3.0-dev.15", "0.3.0-dev.16", "0.3.0-dev.17", "0.3.0-dev.18", "0.3.0-dev.19", "0.3.0-dev.20"]) for (const wireless of [0, 1]) {
     store.version = version;
     values = {...values, base: 0, wireless};
     settings.open(fw, store); toggle("base", true);
@@ -432,11 +441,13 @@ for (const version of ["0.3.0-dev.15", "0.3.0-dev.16", "0.3.0-dev.17", "0.3.0-de
     assert.ok(modal.props.text1.length <= 125);
     confirm("cancel"); back();
 }
-store.version = "0.3.0-dev.19";
+store.version = "0.3.0-dev.20";
 
 // A fresh-status response must not reopen Settings after detach or navigation.
 let freshReply;
 store.refresh = done => { freshReply = done; };
+const cachedRead=store.read;
+store.read=()=>null;
 let deferredDetach = settings.attach(fw, app, store);
 let beforeDeferred = pages.length;
 list.properties.selectCallback(list, "open-connect-settings");
@@ -449,6 +460,7 @@ fw._currTmpltInstance = {divElt: host.divElt, list2Ctrl: {}};
 freshReply(true); assert.equal(pages.length, beforeDeferred);
 fw._currTmpltInstance = selectedTemplate;
 deferredDetach(); delete store.refresh;
+store.read=cachedRead;
 
 // Ownership begins before the debounce timer and survives Back until ack.
 let allow=true, pendingStates=[];

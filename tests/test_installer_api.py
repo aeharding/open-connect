@@ -52,6 +52,7 @@ class InstallerApi(unittest.TestCase):
     def test_status_and_setting_dispatch_only_arguments(self):
         for body, op, arg in (
             (TOKEN + "|-|status|-|-|-", "status", "-"),
+            (TOKEN + "|-|status|settings|-|-", "status", "settings"),
             (TOKEN + "|" + "b" * 32 + "|set|touch|0|1", "set", "touch"),
             (TOKEN + "|" + "b" * 64 + "|set|warning|1|0", "set", "warning"),
             (TOKEN + "|" + "b" * 64 + "|set|ssh|0|1", "set", "ssh"),
@@ -72,6 +73,9 @@ class InstallerApi(unittest.TestCase):
     def test_bad_framing_and_commands_never_dispatch(self):
         valid = self.request()
         cases = [
+            self.request((TOKEN + "|-|restart|settings|-|-").encode()),
+            self.request((TOKEN + "|-|status|settings|0|-").encode()),
+            self.request((TOKEN + "|-|status|unknown|-|-").encode()),
             valid.replace(b"POST", b"GET", 1),
             valid.replace(b"/control", b"/anything", 1),
             valid.replace(b"Host:", b"Content-Length: 47\r\nHost:", 1),

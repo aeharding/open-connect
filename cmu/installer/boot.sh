@@ -108,10 +108,11 @@ boot_select() {
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
     absent "$R/feature" && absent "$R/selected" || fail already_selected
     private_dir "$D" && record_read || fail invalid_state
+    boot=$(boot_identity) || fail invalid_boot
     reseal_before=$R_CURRENT
     test "$P" = "$D/packages/$R_BACKEND" || fail damaged_package
     if test "$R_PHASE" = active; then
-        test "$R_BOOT" != "$(cat /proc/sys/kernel/random/boot_id)" || fail already_selected
+        test "$R_BOOT" != "$boot" || fail already_selected
     fi
     fast=false
     if test "$R_PHASE" = active; then
@@ -170,8 +171,6 @@ boot_select() {
     if test "$base" = 1; then
         absent "$R/v.xml" && absent "$R/vui-hold.so" && absent "$R/vui-plugins" || fail ui_alias_conflict
     fi
-boot=$(cat /proc/sys/kernel/random/boot_id)
-boot_id "$boot" || fail invalid_boot
 test "$R_BOOT" != "$boot" || fail already_selected
 # An observed OFF followed by a different kernel and ON is an ignition cycle.
 # Initial ON, quick resume and frontend readiness never renew the budget.

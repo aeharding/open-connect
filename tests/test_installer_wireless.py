@@ -39,8 +39,8 @@ class InstallerWireless(unittest.TestCase):
         self.target.write_bytes(XML)
         self.target.chmod(0o640)
         self.boot = self.root / "boot"
-        self.boot.write_text("00000000-0000-0000-0000-000000000001\n")
-        (self.feature / "boot-id").write_bytes(self.boot.read_bytes())
+        self.boot.symlink_to("00000000-0000-0000-0000-000000000001")
+        (self.feature / "boot-id").write_text(self.boot.readlink().as_posix() + "\n")
         (self.feature / "wireless-applied").write_text("0\n")
         self.launcher = self.root / "session.py"
         self.launcher.write_text(
@@ -53,9 +53,11 @@ class InstallerWireless(unittest.TestCase):
         source = (ASSETS / "wireless.sh").read_text()
         source = source.replace("/tmp/open-connect/feature", str(self.feature))
         source = source.replace("/tmp/devmgr_config_edit.xml", str(self.target))
-        source = source.replace("/proc/sys/kernel/random/boot_id", str(self.boot))
+        source = source.replace("/tmp/open-connect/boot-id", str(self.boot))
+        source = source.replace("/tmp/open-connect", str(self.root))
         source = source.replace('test "$(id -u)" = 0', f'test "$(id -u)" = {os.getuid()}')
         source = source.replace("700:0:0", f"700:{os.getuid()}:{os.getgid()}")
+        source = source.replace(" = 36:0:0", f" = 36:{os.getuid()}:{os.getgid()}")
         source = source.replace(
             "PATH=/usr/bin:/bin:/usr/sbin:/sbin",
             "PATH=" + shlex.quote(str(self.tools) + os.pathsep + os.environ["PATH"]),
@@ -144,6 +146,37 @@ class InstallerWireless(unittest.TestCase):
     def assert_released(self, applied):
         self.assertTrue((self.feature / "wireless-ready").is_file())
         self.assertEqual((self.feature / "wireless-applied").read_text(), f"{applied}\n")
+
+    def test_invalid_or_unreadable_boot_identity_refuses_before_preparation(self):
+        original = self.script.read_text()
+        valid = self.boot.readlink().as_posix()
+        for identity in ("-" * 36, "f" * 36, valid[:-1] + "g"):
+            with self.subTest(identity=identity):
+                self.boot.unlink()
+                self.boot.symlink_to(identity)
+                (self.feature / "boot-id").write_text(identity + "\n")
+                result = self.run_helper()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse((self.root / "session-pid").exists())
+                self.assertFalse((self.feature / "wireless-ready").exists())
+                self.assertEqual(self.target.read_bytes(), XML)
+        self.boot.unlink()
+        self.boot.symlink_to(valid)
+        (self.feature / "boot-id").write_text(valid + "\n")
+        for command in ("cat", "readlink"):
+            for output in (valid, ""):
+                with self.subTest(command=command, output=output):
+                    injected = (
+                        f'{command}() {{ printf "%s\\n" {shlex.quote(output)}; return 1; }}\n'
+                    )
+                    self.script.write_text(
+                        original.replace("live_boot=", injected + "live_boot=", 1)
+                    )
+                    result = self.run_helper()
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse((self.root / "session-pid").exists())
+                    self.assertFalse((self.feature / "wireless-ready").exists())
+                    self.assertEqual(self.target.read_bytes(), XML)
 
     def test_changes_only_two_flags_and_preserves_metadata_and_physical_inputs(self):
         result = self.run_helper()
@@ -236,10 +269,51 @@ class InstallerWireless(unittest.TestCase):
         self.assert_released(0)
 
     def test_wrong_boot_refuses_without_signaling_readiness(self):
-        self.boot.write_text("00000000-0000-0000-0000-000000000002\n")
+        self.boot.unlink()
+        self.boot.symlink_to("00000000-0000-0000-0000-000000000002")
         result = self.run_helper()
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.feature / "wireless-ready").exists())
+        self.assertEqual(self.target.read_bytes(), XML)
+
+    def test_missing_or_malformed_boot_marker_refuses_before_preparation(self):
+        for value in (None, "invalid", "00000000-0000-0000-0000-000000000001\n"):
+            with self.subTest(value=value):
+                self.boot.unlink(missing_ok=True)
+                if value is not None:
+                    self.boot.symlink_to(value)
+                result = self.run_helper()
+                self.assertNotEqual(result.returncode, 0, result.stderr)
+                self.assertFalse((self.feature / "wireless-ready").exists())
+                self.assertEqual(self.target.read_bytes(), XML)
+
+    def test_feature_boot_marker_requires_exact_regular_uuid_line(self):
+        marker = self.feature / "boot-id"
+        valid = self.boot.readlink().as_posix()
+        for content in (valid + "\n\n", valid, valid + "\r\n", valid + "\nextra\n"):
+            with self.subTest(content=content):
+                marker.write_text(content)
+                result = self.run_helper()
+                self.assertNotEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(marker.read_bytes(), content.encode())
+                self.assertFalse((self.root / "session-pid").exists())
+                self.assertFalse((self.feature / "wireless-ready").exists())
+                self.assertEqual(self.target.read_bytes(), XML)
+        marker.unlink()
+        target = self.root / "foreign-boot-id"
+        target.write_text(valid + "\n")
+        marker.symlink_to(target)
+        result = self.run_helper()
+        self.assertNotEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(marker.is_symlink())
+        self.assertFalse((self.root / "session-pid").exists())
+        self.assertEqual(self.target.read_bytes(), XML)
+        marker.unlink()
+        marker.mkdir()
+        result = self.run_helper()
+        self.assertNotEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(marker.is_dir())
+        self.assertFalse((self.root / "session-pid").exists())
         self.assertEqual(self.target.read_bytes(), XML)
 
     def interrupt_at(self, marker, expected):

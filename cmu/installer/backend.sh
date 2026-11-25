@@ -37,11 +37,21 @@ if ! absent "$D"; then
     fi
 fi
 
+selection_id() {
+    local value
+    file "$1" && test "$(wc -c < "$1")" -eq 65 && test "$(wc -l < "$1")" -eq 1 &&
+        IFS= read -r value < "$1" && hex "$value" 64 || return 1
+    printf '%s\n' "$value"
+}
+
 status() {
     local installed=false retained=false conflict=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
-    local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 wireless_current=0 applied
+    local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 wireless_current=0
     local installed_version=- installed_package=- pandora= base= wireless= autoshow= autoshow_current=0
     local saved_schema= saved_config= saved_catalog= selected_services= selected_wireless=0 rows=
+    local selected= access_selected= version_hash= completion_check=false audited=false kernel_boot=
+    selected=$(selection_id /tmp/open-connect/selected) || selected=
+    access_selected=$(selection_id /tmp/open-connect/access-selected) || access_selected=
     if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
     if test "$empty_state" = true; then pending=true; fi
     if test "$exists" = true; then
@@ -61,7 +71,7 @@ status() {
                 case "$S_PREFS" in *'
 carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
                 saved_config=$D/snapshots/$R_CURRENT/config
-                saved_catalog=$(preferences_package "$S_PACKAGE") || fail invalid_snapshot_package
+                saved_catalog=$S_CATALOG
             fi
             developer=$S_ACCESS; uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
             if test "$key" != - && access_key_verify "$key"; then
@@ -70,39 +80,54 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
             fi
             if test "$R_PHASE" = active; then installed=true; fi
             if test "$R_PHASE" = removed; then retained=true; fi
-            if ! targets_match "$R_CURRENT" || ! dependencies_match "$R_CURRENT"; then conflict=true; fi
-            # The verified dependencies pin the installed package's VERSION.
-            # P may instead be a newer client staged from maintenance media.
+            # Settings reads authenticate saved data, not every OEM flash file.
+            # Default USB status and every mutating endpoint retain full checks.
+            # A completion notice still promises fresh conflict detection, even
+            # when Settings wins the race with the boot-completion status read.
+            if test "$installed" = true && test "$notice" = installed && test "$selected" = "$R_CURRENT" &&
+                kernel_boot=$(completion_boot_id) &&
+                test "$R_BOOT" = "$kernel_boot"; then completion_check=true; fi
+            if test "$operation:$argument" != status:settings || test "$completion_check" = true; then
+                if ! targets_match_loaded "$R_CURRENT" ||
+                    { test "$S_ACCESS" = true && ! access_login_check; } ||
+                    ! dependencies_match "$R_CURRENT"; then conflict=true; else audited=true; fi
+            fi
+            # Authenticate VERSION even on the lightweight read. P may be newer
+            # maintenance media; its version is not the installed version.
             if test "$installed" = true && test "$conflict" = false && test "$installed_package" != - &&
-                file "$D/packages/$installed_package/VERSION"; then
-                installed_version=$(cat "$D/packages/$installed_package/VERSION") || installed_version=-
+                file "$D/packages/$installed_package/VERSION" &&
+                { test "$saved_schema" = OC2 || { file "$D/packages/$installed_package/files.sha256" &&
+                    test "$(sha "$D/packages/$installed_package/files.sha256")" = "$installed_package"; }; }; then
+                version_hash=$(awk '$2=="VERSION"{n++;v=$1}END{if(n!=1)exit 1;print v}' "$D/packages/$installed_package/files.sha256") || version_hash=-
+                if test "$(sha "$D/packages/$installed_package/VERSION")" = "$version_hash"; then
+                    installed_version=$(cat "$D/packages/$installed_package/VERSION") || installed_version=-
+                fi
                 case "$installed_version" in ''|*[!a-zA-Z0-9.-]*) installed_version=-;; esac
             fi
             if test "$R_PHASE" = active; then
-                if ! file /tmp/open-connect/selected || test "$(cat /tmp/open-connect/selected)" != "$R_CURRENT"; then restart=true; fi
+                if test "$selected" != "$R_CURRENT"; then restart=true; fi
             elif test -e /tmp/open-connect/selected; then restart=true; fi
             if ! settled; then restart=true; pending=true; rev=$R_REV; fi
-            if file /tmp/open-connect/access-selected; then
-                applied=$(cat /tmp/open-connect/access-selected)
-                if snapshot_read "$applied"; then uart_current=$S_UART; ssh_current=$S_SSH; fi
+            # Reuse the current decode, then read each distinct applied ID once.
+            if test "$access_selected" = "$R_CURRENT"; then uart_current=$uart; ssh_current=$owner_ssh; fi
+            if test "$selected" = "$R_CURRENT"; then
+                selected_services=$S_SERVICES; selected_wireless=$S_WIRELESS; autoshow_current=$S_AUTOSHOW
+            elif test -n "$selected" && snapshot_read "$selected"; then
+                selected_services=$S_SERVICES; selected_wireless=$S_WIRELESS; autoshow_current=$S_AUTOSHOW
+                if test "$access_selected" = "$selected"; then uart_current=$S_UART; ssh_current=$S_SSH; fi
+            fi
+            if test -n "$access_selected" && test "$access_selected" != "$R_CURRENT" && test "$access_selected" != "$selected"; then
+                if snapshot_read "$access_selected"; then uart_current=$S_UART; ssh_current=$S_SSH; fi
             fi
         fi
     fi
-    local version service_status= wireless_factory=false completion_ready=false kernel_boot=
+    local version service_status= wireless_factory=false completion_ready=false
     if test -n "$pandora"; then service_status=',"pandora":'$pandora; fi
     if test -n "$base"; then service_status=$service_status',"base":'$base; fi
     if test -n "$wireless"; then service_status=$service_status',"wireless":'$wireless; fi
     if test -n "$wireless"; then
         if factory_wireless; then wireless_factory=true; fi
-        # One selected-snapshot read supplies all service rows and wireless
-        # policy. The applied wireless flag remains separate runtime evidence.
-        if file /tmp/open-connect/selected; then
-            applied=$(cat /tmp/open-connect/selected)
-            if snapshot_read "$applied"; then
-                selected_services=$S_SERVICES; selected_wireless=$S_WIRELESS
-                autoshow_current=$S_AUTOSHOW
-            fi
-        fi
+        # Wireless also requires its separate runtime application evidence.
         if test "$selected_wireless" = 1 && file /tmp/open-connect/feature/wireless-applied &&
             test "$(cat /tmp/open-connect/feature/wireless-applied)" = 1; then wireless_current=1; fi
         service_status=$service_status',"wirelessCurrent":'$wireless_current',"wirelessFactory":'$wireless_factory
@@ -120,15 +145,25 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
     fi
     version=$(cat "$P/VERSION")
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
-    if test "$installed" = true && test "$pending" = false && test "$conflict" = false &&
+    if test "$installed" = true && test "$installed_version" != - && test "$pending" = false && test "$conflict" = false &&
         test "$restart" = false && test "$notice" = installed &&
-        IFS= read -r kernel_boot < /proc/sys/kernel/random/boot_id && boot_id "$kernel_boot" &&
+        test "$audited:$completion_check" = true:true &&
         test "$R_BOOT" = "$kernel_boot"; then completion_ready=true; fi
     # Keep the retired boolean false for an installed v0.2.0-dev.1 client during
     # USB handoff. No endpoint or UI offers Undo.
     printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s%s}\n' \
         "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version" \
         "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current" "$service_status,\"completionReady\":$completion_ready"
+}
+
+completion_boot_id() {
+    # New maintenance media may serve a still-running pre-marker installation.
+    # Only absence permits the legacy proof; malformed markers fail closed.
+    if absent /tmp/open-connect/boot-id; then
+        local value
+        value=$(cat /proc/sys/kernel/random/boot_id) && boot_id "$value" || return 1
+        printf '%s\n' "$value"
+    else current_boot_id; fi
 }
 
 finish_removal() {

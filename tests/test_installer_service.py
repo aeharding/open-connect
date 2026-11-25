@@ -43,6 +43,7 @@ class InstallerService(unittest.TestCase):
         source = source.replace("/bin/busybox", self.busybox)
         source = source.replace('test "$(id -u)" = 0', f'test "$(id -u)" = {os.getuid()}')
         source = source.replace("700:0:0", f"700:{os.getuid()}:{os.getgid()}")
+        source = source.replace(" = 36:0:0", f" = 36:{os.getuid()}:{os.getgid()}")
         # Modern host BusyBox replaced the target 1.19.2 timeout's -t syntax.
         source = source.replace("timeout -t 180", "timeout 180")
         (self.source / "service.sh").write_text(source)
@@ -285,7 +286,7 @@ class InstallerService(unittest.TestCase):
         package_id = hashlib.sha256((self.source / "files.sha256").read_bytes()).hexdigest()
         package = data / "packages" / package_id
         shutil.copytree(self.source, package)
-        boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        boot = "12345678-1234-1234-1234-123456789abc"
         current = "c" * 64
         (data / "record").write_text(
             f"OC1|active|{'a' * 32}|{package_id}|{'b' * 64}|{current}|-|-|-|2|-|{boot}|-\n"
@@ -294,6 +295,7 @@ class InstallerService(unittest.TestCase):
         self.runtime.mkdir(mode=0o700)
         (self.runtime / "lock").touch(mode=0o600)
         (self.runtime / "selected").write_text(current + "\n")
+        (self.runtime / "boot-id").symlink_to(boot)
         feature = self.runtime / "feature"
         feature.mkdir(mode=0o700)
         worker = feature / "service.sh"
@@ -306,6 +308,24 @@ class InstallerService(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.client()["backend"], "backend-one\n")
         self.assertTrue((self.runtime / "selected").is_file())
+
+    def test_sm_worker_refuses_missing_malformed_or_stale_boot_identity(self):
+        worker, _, _ = self.installed_worker()
+        marker = self.runtime / "boot-id"
+        for value in (
+            None,
+            "invalid",
+            "12345678-1234-1234-1234-123456789abc\n",
+            "87654321-1234-1234-1234-123456789abc",
+        ):
+            with self.subTest(value=value):
+                marker.unlink(missing_ok=True)
+                if value is not None:
+                    marker.symlink_to(value)
+                result = subprocess.run(["sh", worker, "boot"], capture_output=True, timeout=10)
+                self.assertNotEqual(result.returncode, 0, result.stderr)
+                self.assertFalse((self.runtime / "listener").exists())
+                self.assertFalse((self.runtime / "runtime").exists())
 
     def test_sm_worker_refuses_corrupt_library_before_sourcing(self):
         worker, package, _ = self.installed_worker()

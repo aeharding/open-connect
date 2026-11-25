@@ -1156,3 +1156,25 @@ checks are in `runs/carplay-speed-20261122/wave-c-evidence/` and
 `runs/wave-c-20261123/`. The [dev.16 bench record](sparse-native-loading.md)
 retains measured allocations, application PSS, different achieved projection
 workloads and the inherited mid-uninstall reload limit.
+
+## Native Settings slide and dialog animations on v74
+
+Read-only inspection of exact 74.00.324A NA `GuiFramework.js` (840–1100),
+`common/transitions/js/Transitions.js`, `TransitionsGen.js` and its CSS confirms
+that the framework supplies `goBackUsed` from restored context data. The list
+resolver chooses a left slide for forward navigation and a right slide for
+Back/MenuUp within the same context category. The generated left-button-visible
+variants use 400 ms template animations. List-to-Dialog3 uses a 200 ms fade over
+the retained list; dialog exit resolves separately through the transition table.
+Calling the framework's full transition path also changes context/template and
+common-control ownership, so a local Settings overlay should not fabricate an
+MMUI context change just to animate its elements.
+
+The dev.19 read-only diagnosis separately measured a 4,540 ms backend profile,
+including five snapshot reads (1,870 ms inclusive), target checking (1,020 ms)
+and dependency checking (1,730 ms). These nested measurements are not additive.
+Warm submenu/Back took 192/183 ms in that controlled pair, with no status request;
+the custom renderer removed the old list immediately and had no native animation.
+Private supporting inputs are `runs/dev19-settings-slow-20261125/` and the
+read-only `runs/firmware74-research/` archive/originals. The offline implementation
+tests establish request counts and animation cleanup, not CMU latency or RAM.

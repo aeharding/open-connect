@@ -63,6 +63,9 @@ class InstallerBoot(unittest.TestCase):
                 "uuid() { openssl rand -hex 16; }",
             )
         )
+        state = state.replace("/tmp/open-connect", str(self.runtime)).replace(
+            "/proc/sys/kernel/random/boot_id", str(self.root / "boot-id")
+        )
         (self.source / "state.sh").write_text(state)
         shutil.copyfile(ASSETS / "transaction.sh", self.source / "transaction.sh")
         shutil.copyfile(ASSETS / "access.sh", self.source / "access.sh")
@@ -305,8 +308,14 @@ record_write
             timeout=10,
         )
 
-    def boot(self, number, *, preserve_log=False, stderr_fd=None, shell_args=None):
-        boot_id = "00000000-0000-0000-0000-" + f"{number:012x}"
+    def boot(
+        self, number, *, preserve_log=False, stderr_fd=None, shell_args=None, kernel_uuid=None
+    ):
+        boot_id = kernel_uuid or "00000000-0000-0000-0000-" + f"{number:012x}"
+        previous = getattr(self, "kernel_generation", None)
+        if number != previous:
+            (self.runtime / "boot-id").unlink(missing_ok=True)
+        self.kernel_generation = number
         (self.root / "boot-id").write_text(boot_id + "\n")
         shutil.rmtree(self.runtime / "feature", ignore_errors=True)
         (self.runtime / "selected").unlink(missing_ok=True)
@@ -456,7 +465,7 @@ record_write
                 if fixture == "usb":
                     self.assertEqual((self.runtime / "listener").read_text(), "owned USB session\n")
                     (self.runtime / "runtime").unlink()
-                for name in ("selected", "startup-times"):
+                for name in ("selected", "startup-times", "boot-id"):
                     (self.runtime / name).unlink(missing_ok=True)
                 shutil.rmtree(self.runtime / "feature")
                 shutil.rmtree(self.runtime / "ignition")
@@ -1173,7 +1182,7 @@ boot_ui_unwind
         feature = self.runtime / "feature"
         for name in ("wireless.sh", "wireless-device.awk"):
             self.assertEqual((feature / name).read_bytes(), (ASSETS / name).read_bytes())
-        self.assertEqual((feature / "boot-id").read_bytes(), (self.root / "boot-id").read_bytes())
+        self.assertEqual((feature / "boot-id").read_text().strip(), self.record()[11])
         self.assertEqual((feature / "wireless-applied").read_text(), "0\n")
         for name in ("sm.conf", "sm_WCP.conf"):
             services = {s.attrib["name"]: s for s in ET.parse(feature / name).iter("service")}
@@ -1323,23 +1332,79 @@ boot_ui_unwind
         self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
 
     def test_only_off_then_new_kernel_and_on_renews_attempts(self):
-        self.assertEqual(self.boot(1).returncode, 0)
+        kernel = "f7a1f4aa-1234-1234-1234-123456789abc"
+        self.assertEqual(self.boot(1, kernel_uuid=kernel).returncode, 0)
         self.shell("record_read; R_OFF=$R_BOOT; record_write")
         # The same kernel cannot consume or renew another attempt.
-        self.assertNotEqual(self.boot(1).returncode, 0)
+        self.assertNotEqual(self.boot(1, kernel_uuid=kernel).returncode, 0)
         self.assertEqual(self.record()[9], "2")
         (self.root / "acc").write_text("0\n")
-        self.assertEqual(self.boot(2).returncode, 0)
+        self.assertEqual(self.boot(2, kernel_uuid=kernel).returncode, 0)
         self.assertEqual(self.record()[9], "1")
         self.shell("record_read; R_OFF=$R_BOOT; record_write")
         (self.root / "acc").write_text("1\n")
         (self.root / "uptime").write_text("1.00 0.00\n")
-        self.assertEqual(self.boot(3).returncode, 0)
+        self.assertEqual(self.boot(3, kernel_uuid=kernel).returncode, 0)
         self.assertEqual(self.record()[9], "2")
 
-    def test_ignition_requires_sustained_off_and_clears_quick_resume_evidence(self):
-        self.assertEqual(self.boot(1).returncode, 0)
-        boot = self.record()[11]
+    def test_repeated_kernel_uuid_renews_off_and_refuses_same_kernel(self):
+        kernel = "f7a1f4aa-1234-1234-1234-123456789abc"
+        self.shell(f"record_read; R_BOOT={kernel}; R_OFF={kernel}; R_BUDGET=0; record_write")
+        previous = kernel
+        for generation in (1, 2):
+            result = self.boot(generation, kernel_uuid=kernel)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            token = self.record()[11]
+            self.assertNotIn(token, (kernel, previous))
+            self.assertEqual((self.runtime / "boot-id").readlink().as_posix(), token)
+            self.assertEqual(self.record()[9:11], ["2", "-"])
+            self.shell("record_read; R_OFF=$R_BOOT; record_write")
+            # Remove the ordinary publication guards; the volatile boot identity
+            # plus the durable record must independently refuse another debit.
+            before = (self.data / "record").read_bytes()
+            result = self.boot(generation, kernel_uuid=kernel)
+            self.assertIn("already_selected", result.stderr)
+            self.assertEqual((self.data / "record").read_bytes(), before)
+            previous = token
+        self.assertEqual((self.root / "boot-id").read_text(), kernel + "\n")
+
+    def test_repeated_kernel_uuid_exhausts_budget_then_renews_after_stock_off(self):
+        kernel = "f7a1f4aa-1234-1234-1234-123456789abc"
+        tokens = set()
+        for generation, remaining in enumerate((2, 1, 0, 0), 1):
+            result = self.boot(generation, kernel_uuid=kernel)
+            self.assertEqual(result.returncode == 0, generation <= 3, result.stderr)
+            token = self.record()[11]
+            self.assertNotIn(token, tokens)
+            tokens.add(token)
+            self.assertEqual(self.record()[9], str(remaining))
+        self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
+        self.shell("record_read; R_OFF=$R_BOOT; record_write")
+        before = (self.data / "record").read_bytes()
+        self.assertNotEqual(self.boot(4, kernel_uuid=kernel).returncode, 0)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        result = self.boot(5, kernel_uuid=kernel)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.record()[9:11], ["2", "-"])
+
+    def test_pending_transaction_uses_identity_from_before_reconciliation(self):
+        kernel = "f7a1f4aa-1234-1234-1234-123456789abc"
+        self.shell(
+            '. "$P/transaction.sh"; AUTOSTART=$D-target; record_read; transaction_prepare set "$R_CURRENT" "$R_CURRENT"'
+        )
+        before = self.record()
+        digest = hashlib.sha256(
+            f"OCBOOT1|{kernel}|{before[2]}|{before[11]}|{before[10]}\n".encode()
+        ).hexdigest()
+        expected = f"{digest[:8]}-{digest[8:12]}-{digest[12:16]}-{digest[16:20]}-{digest[20:32]}"
+        result = self.boot(1, kernel_uuid=kernel)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.record()[1], "active")
+        self.assertEqual(self.record()[11], expected)
+        self.assertEqual((self.runtime / "boot-id").readlink().as_posix(), expected)
+        self.assertEqual(self.record()[9], "2")
+
+    def ignition_fixture(self):
         script = (ASSETS / "ignition.sh").read_text()
         for old, new in {
             "/tmp/mnt/data_persist/open-connect": str(self.data),
@@ -1349,7 +1414,28 @@ boot_ui_unwind
             "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
         }.items():
             script = script.replace(old, new)
-        (self.package / "ignition.sh").write_text(script)
+        path = self.package / "ignition.sh"
+        path.write_text(script)
+        return path
+
+    def test_ignition_requires_sustained_off_and_clears_quick_resume_evidence(self):
+        self.assertEqual(self.boot(1).returncode, 0)
+        boot = self.record()[11]
+        path = self.ignition_fixture()
+        state = self.package / "state.sh"
+        state.write_text(state.read_text().replace("current_boot_id() {", "checked_boot_id() {"))
+        trace = shlex.quote(str(self.root / "identity-trace"))
+        path.write_text(
+            path.read_text().replace(
+                '. "$P/state.sh"',
+                '. "$P/state.sh"\ncurrent_boot_id() { printf "identity\\n" >> '
+                + trace
+                + "; checked_boot_id; }",
+            )
+        )
+        (self.tools / "flock").write_text(
+            '#!/bin/sh\nfor last; do :; done\nprintf "lock %s\\n" "$last" >> ' + trace + "\n"
+        )
         (self.root / "sequence").write_text("0\n1\n0\n0\n0\n1\nend\n")
         (self.root / "step").write_text("0\n")
         # Advance physical samples instead of waiting; capture the real record
@@ -1359,22 +1445,77 @@ boot_ui_unwind
             'cut -d "|" -f 11 "$R/data/record" >> "$R/observed"\n'
             'n=$(cat "$R/step"); n=$((n+1)); echo "$n" > "$R/step"\n'
             'next=$(sed -n "${n}p" "$R/sequence")\n'
-            'if test "$next" = end; then echo changed > "$R/boot-id"; '
+            'if test "$next" = end; then rm "$R/runtime/boot-id"; '
             'else printf "%s\\n" "$next" > "$R/acc"; fi\n'
         )
         (self.tools / "sleep").chmod(0o700)
-        subprocess.run(
-            ["sh", self.package / "ignition.sh", boot],
-            env=self.env,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=10,
+        marker = self.runtime / "boot-id"
+        for arguments in ([boot], []):
+            with self.subTest(arguments=arguments):
+                if not marker.is_symlink():
+                    marker.symlink_to(boot)
+                (self.root / "step").write_text("0\n")
+                (self.root / "acc").write_text("1\n")
+                (self.root / "observed").unlink(missing_ok=True)
+                (self.root / "identity-trace").write_text("")
+                subprocess.run(
+                    ["sh", self.package / "ignition.sh", *arguments],
+                    env=self.env,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=10,
+                )
+                self.assertEqual(
+                    (self.root / "observed").read_text().splitlines(),
+                    ["-", "-", "-", "-", "-", boot, "-"],
+                )
+                self.assertEqual(self.record()[9:11], ["2", "-"])
+                # No identity validation/forks during the five idle samples.
+                # The only later reads follow successful fd9 lock acquisition.
+                self.assertEqual(
+                    (self.root / "identity-trace").read_text().splitlines(),
+                    ["identity", "lock 8", "lock 9", "identity", "lock 9", "identity"],
+                )
+
+    def test_ignition_revalidates_identity_under_the_record_lock(self):
+        self.assertEqual(self.boot(1).returncode, 0)
+        boot = self.record()[11]
+        path = self.ignition_fixture()
+        (self.tools / "sleep").write_text(
+            "#!/bin/sh\nR=" + shlex.quote(str(self.root)) + "\n"
+            'n=$(cat "$R/step"); n=$((n+1)); echo "$n" > "$R/step"\n'
+            'if test "$n" -gt 6; then rm "$R/runtime/boot-id"; '
+            'else echo 0 > "$R/acc"; fi\n'
         )
-        self.assertEqual(
-            (self.root / "observed").read_text().splitlines(), ["-", "-", "-", "-", "-", boot, "-"]
-        )
-        self.assertEqual(self.record()[9:11], ["2", "-"])
+        (self.tools / "sleep").chmod(0o700)
+        marker = self.runtime / "boot-id"
+        for replacement in ("87654321-1234-1234-1234-123456789abc", "x" * 36):
+            with self.subTest(marker=replacement):
+                marker.unlink(missing_ok=True)
+                marker.symlink_to(boot)
+                (self.root / "step").write_text("0\n")
+                (self.root / "acc").write_text("1\n")
+                before = (self.data / "record").read_bytes()
+                (self.tools / "flock").write_text(
+                    '#!/bin/sh\nfor last; do :; done\nif test "$last" = 9; then\n'
+                    "rm "
+                    + shlex.quote(str(marker))
+                    + "\nln -s "
+                    + shlex.quote(replacement)
+                    + " "
+                    + shlex.quote(str(marker))
+                    + "\nfi\n"
+                )
+                result = subprocess.run(
+                    ["sh", path, boot],
+                    env=self.env,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual((self.data / "record").read_bytes(), before)
 
     def test_boot_finishes_interrupted_uninstall_from_ram_and_starts_stock(self):
         self.shell(r"""

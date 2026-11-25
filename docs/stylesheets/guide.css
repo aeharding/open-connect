@@ -21,7 +21,7 @@
   grid-template-columns: minmax(0, 1fr) repeat(3, max-content);
   margin: .9rem 0 1rem;
   border-block: 1px solid var(--oc-border);
-  border-left: 2px solid var(--oc-red);
+  border-left: 2px solid var(--oc-accent);
   background: var(--oc-surface-subtle);
   font-size: .7rem;
   line-height: 1.35;
@@ -58,7 +58,7 @@ button.oc-nav-path {
   text-decoration-color: var(--md-default-fg-color--lighter);
   cursor: pointer;
 }
-button.oc-nav-path:hover, button.oc-nav-path[aria-expanded="true"] { text-decoration-color: var(--oc-red); }
+button.oc-nav-path:hover, button.oc-nav-path[aria-expanded="true"] { text-decoration-color: var(--oc-accent); }
 .oc-nav-preview {
   position: fixed;
   box-sizing: border-box;
@@ -98,7 +98,7 @@ button.oc-nav-path:hover, button.oc-nav-path[aria-expanded="true"] { text-decora
 }
 .oc-nav-preview button:hover { background: var(--oc-surface-subtle); }
 .oc-nav-preview button:disabled { opacity: .45; cursor: default; }
-button.oc-nav-path:focus-visible, .oc-nav-preview button:focus-visible { outline: 2px solid var(--oc-red); outline-offset: 2px; }
+button.oc-nav-path:focus-visible, .oc-nav-preview button:focus-visible { outline: 2px solid var(--oc-accent); outline-offset: 2px; }
 .oc-nav-preview .oc-screen-frame video { position: absolute; top: 12.5%; left: 19.655%; width: 60.69%; height: auto; aspect-ratio: 800 / 480; display: block; background: #000; }
 .oc-nav-preview p { margin: .6rem .2rem; }
 .oc-nav-preview__note { color: var(--md-default-fg-color--light); }

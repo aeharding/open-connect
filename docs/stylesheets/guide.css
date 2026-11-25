@@ -99,11 +99,7 @@ button.oc-nav-path:hover, button.oc-nav-path[aria-expanded="true"] { text-decora
 .oc-nav-preview button:hover { background: var(--oc-surface-subtle); }
 .oc-nav-preview button:disabled { opacity: .45; cursor: default; }
 button.oc-nav-path:focus-visible, .oc-nav-preview button:focus-visible { outline: 2px solid var(--oc-red); outline-offset: 2px; }
-.oc-nav-preview .oc-screen-frame img { position: absolute; top: 12.5%; left: 19.655%; width: 60.69%; height: auto; }
+.oc-nav-preview .oc-screen-frame video { position: absolute; top: 12.5%; left: 19.655%; width: 60.69%; height: auto; aspect-ratio: 800 / 480; display: block; background: #000; }
 .oc-nav-preview p { margin: .6rem .2rem; }
 .oc-nav-preview__note { color: var(--md-default-fg-color--light); }
-.oc-nav-preview__controls { justify-content: space-between; border-top: 1px solid var(--oc-border); padding-top: .3rem; }
-.oc-nav-preview__dots { display: flex; justify-content: center; flex: 1; }
-.oc-nav-preview__dots button { min-width: 1.5rem; padding: 0; }
-.oc-nav-preview__dots button::after { content: ""; width: 6px; height: 6px; border: 1px solid currentColor; border-radius: 50%; }
-.oc-nav-preview__dots button[aria-current="step"]::after { border-color: var(--oc-red); background: var(--oc-red); }
+.oc-nav-preview__controls { justify-content: center; border-top: 1px solid var(--oc-border); padding-top: .3rem; }

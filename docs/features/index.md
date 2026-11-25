@@ -4,7 +4,7 @@
 
 Choose your preferences in **<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>**.
 
-These features are in the **0.3.0-dev.19 development prerelease** for North American Mazda Connect **74.00.324**. Real-car qualification remains pending.
+These features are in the **0.3.0-dev.20 development prerelease** for North American Mazda Connect **74.00.324**. Real-car qualification remains pending.
 
 | Setting | What changes | Fresh-install default |
 | --- | --- | --- |
@@ -18,7 +18,8 @@ These features are in the **0.3.0-dev.19 development prerelease** for North Amer
 | Audio sources → [Pandora](../pandora.md) | Controls Mazda’s built-in Pandora integration. | On |
 | Audio sources → [SiriusXM](../siriusxm.md) | Controls satellite radio and SiriusXM data. | On |
 | [Developer options](../developer-options.md) | UART, SSH and Import public key for direct access to your head unit. | UART and SSH off |
+| [Apply changes](../apply-changes.md) | Restarts Mazda Connect to activate saved choices; disabled when clean. | — |
 | [Uninstall](../uninstall.md) | Removes Open Connect and restores the saved configuration. | — |
 | [About](../about.md) | Shows the installed version. | — |
 
-See [Settings](../settings.md#impact-at-a-glance) for startup and RAM comparisons. Choices save automatically and apply on the next full startup.
+See [Settings](../settings.md#impact-at-a-glance) for startup and RAM comparisons. Choices save automatically. Use [Apply changes](../apply-changes.md) to restart Mazda Connect and activate them, or wait for the next full startup.

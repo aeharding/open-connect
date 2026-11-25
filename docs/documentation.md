@@ -44,20 +44,33 @@ Wrap an in-car navigation path in inline text with a walkthrough name:
 <span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>
 ~~~
 
-The website turns it into a button. Select it to open a modal with the reviewed
-CMU screens; use the step dots, arrow buttons or Left/Right keys to move between
-steps. Manual navigation pauses playback; Play resumes the 2.2-second cycle.
+The website turns it into a click-only button. Select it to open the Mazda
+floating-screen bezel modal with a reviewed Home-first Commander Dial MP4
+walkthrough. The screen is a pure `<video muted loop playsinline preload="none">`
+with no poster or PNG slideshow fallback. **Play/Pause** controls playback;
+**Restart** returns to the beginning and preserves the paused/playing state.
 Escape, the close button or the dimmed backdrop closes it and returns focus to
-the path. Tab stays inside the modal. Reduced-motion preferences start playback
-paused. The text stays readable in GitHub and with JavaScript disabled.
+the path. Dragging from inside the modal onto the backdrop does not dismiss it.
+Tab stays inside the modal and Zensical shortcuts are suppressed while it is open.
+Reduced-motion preferences start playback paused; otherwise it autoplays muted
+and loops. Hiding the page pauses playback. Closing pauses and unloads the video,
+so there is no video request before a click or background decoding after close.
+The path text stays readable in GitHub and with JavaScript disabled.
 
-The screen sequences are in **docs/javascripts/nav-preview.js**. Use existing
-reviewed captures from **docs/assets/guide/** and keep their provenance intact.
-The `version-info` sequence shows the System tab with About visible and the
-reviewed Version Information dialog. `wireless-connect`
-shows the Wi-Fi prerequisite with directions to the phone-selection screen. Image URLs resolve
-from the script location so previews also work on nested pages and under the
-GitHub Pages path.
+The trigger-to-video map and route captions are in
+**docs/javascripts/nav-preview.js**. Reuse the five reviewed MP4s under
+**docs/assets/guide/walkthroughs/**: Open Connect, CarPlay & Android Auto,
+Audio sources, Developer options and Mazda Version Information. Per-setting
+notes remain below the route caption; each clip shows the shared menu route,
+not necessarily an individual setting change. URLs resolve from the script
+location, including nested pages and the GitHub Pages subpath.
+
+Mazda’s native Wi-Fi mode and phone-connection directions have no walkthrough
+video. Keep those paths as bold text alongside the inline `wireless-mode.png`;
+do not add dead triggers or image fallbacks. Keep the
+[media provenance and hashes](assets/guide/README.md#commander-dial-mp4-walkthroughs-and-apply-changes-2026-11-25)
+intact. The clips retain original timing with prior-frame holds for torn reads;
+they are navigation illustrations, not performance timing evidence.
 
 ## Keep the direction readable
 
@@ -122,7 +135,7 @@ Make the location clickable with `.oc-nav-path` and the existing
 Use medium-weight text and dotted text decoration rather than a border underline.
 
 The bar fills the desktop width with four horizontal cells and uses a 2×2 grid
-below 40rem. Keep it around 70–90px tall on desktop so the screenshot remains
+below 40rem. Keep the existing compact bar (about 63px tall on desktop) so the screenshot remains
 visible immediately.
 Use hairline rules, a subtle surface tint and a 2px red left edge in both schemes.
 Long menu names may wrap on narrow screens; never clip text or overflow the page.
@@ -152,7 +165,7 @@ HTML containers will not be parsed. For example:
 </dl>
 ~~~
 
-In Notes, retain all factual limits: the dev.19 development prerelease status,
+In Notes, retain all factual limits: the dev.20 development prerelease status,
 pending real-car qualification, links to [Performance evidence](performance.md)
 and [restart guidance](settings.md#apply-changes), and the exact conditions for
 any Navigation delay. Neutral means no measured startup gain is established.
@@ -167,13 +180,35 @@ URLs in source adds the page depth twice. Validate both the root and
 `/open-connect/` builds and crawl the generated links after changing them.
 
 Use the reviewed `setting-*.png` capture with the corresponding row highlighted
-for each setting’s figure and walkthrough. The red highlight is Mazda’s native
+for each setting’s inline figure. The red highlight is Mazda’s native
 Commander Dial focus. Show the selected value accurately in captions; captures
 may differ from fresh-install defaults. Keep capture provenance accurate. Use
 plain prose and lists; avoid hero cards and badges.
 
-Describe the current dev.19 restart behavior. Document new controls only after
-their implementation merges.
+Describe dev.20’s <a href="apply-changes.md">Apply changes</a> action above Uninstall:
+it is disabled when clean, confirms Restart and applies saved choices with an
+automatic Mazda Connect restart. Keep older screenshots labeled with their actual
+capture version.
+
+## Dev.20 video and Apply changes provenance
+
+The five Home-first Commander Dial MP4s and three native Apply changes PNGs were
+supplied on **November 25, 2026**, from **0.3.0-dev.20** on
+**74.00.324A NA/cmu150_NA**, exact reviewed source
+`e29b58258c0c9e9f4c4689c7912f634b80008424`,
+[CI 45578042314](https://github.com/aeharding/open-connect/actions/runs/45578042314).
+The final video files were visually checked by the capture operator for tearing
+and private content with Bluetooth off. The Apply changes PNGs show the disabled
+row, enabled row and Restart confirmation. They are unedited 800×480 native
+captures, inspected offline by the documentation implementer.
+
+Torn video readbacks hold the previous intact native frame at the original
+timestamp. The H.264 encodes retain real-time playback and may have capture
+stutter; they are walkthroughs only, not performance timing evidence. The
+[asset notes](assets/guide/README.md#commander-dial-mp4-walkthroughs-and-apply-changes-2026-11-25)
+record every copied SHA-256, duration, size, held-frame count and private evidence
+reference. This provenance stays tied to the capture candidate even though later
+dev.20 qualification used another source revision.
 
 ## Commander Dial capture provenance
 
@@ -217,7 +252,7 @@ the prose concise. Put a new subsystem topic under **docs/cmu/** when it merits
 its own page; use the existing findings page for smaller results.
 
 Publish original explanations and sanitized evidence references. Reviewed direct
-screenshots of the current Open Connect UI are allowed in owner guides; exclude
+screenshots and reviewed MP4 walkthroughs of the Open Connect UI are allowed in owner guides; exclude
 personal data, credentials and diagnostic overlays. Keep their version/provenance
 with the [guide asset notes](assets/guide/README.md). Do not publish raw capture collections, OEM source files,
 binaries, private credentials or incompatible comparison code. Mazda's publicly

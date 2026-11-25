@@ -23,53 +23,45 @@
 
   // Resolve from this file, including on nested pages and GitHub Pages subpaths.
   const assets = new URL("../assets/guide/", document.currentScript.src);
-  const entry = ["settings-entry.png", "System tab → Open Connect"];
-  const settings = ["setting-touchscreen-while-driving.png", "Open Connect settings"];
-  const phone = ["setting-carplay-android-auto.png", "Open Connect → CarPlay & Android Auto"];
-  const wireless = ["setting-wireless-carplay.png", "CarPlay & Android Auto → Wireless CarPlay"];
-  const audio = ["setting-audio-sources.png", "Open Connect → Audio sources"];
-  const sources = ["setting-dvd.png", "Audio sources → DVD"];
-  // Reviewed native Commander Dial highlights; per-file identities are in the asset notes.
+  // Reviewed Home-first Commander Dial videos; identities are in the asset notes.
+  const root = ["open-connect.mp4", "Home → Settings → System → Open Connect"];
+  const phone = ["carplay-android-auto.mp4", `${root[1]} → CarPlay & Android Auto`];
+  const audio = ["audio-sources.mp4", `${root[1]} → Audio sources`];
   const paths = {
-    "open-connect": [entry, settings],
-    touchscreen: [entry, ["setting-touchscreen-while-driving.png", "Open Connect → Touchscreen While Driving"]],
-    disclaimer: [entry, ["setting-startup-disclaimer.png", "Open Connect → Startup disclaimer"]],
-    "startup-optimizations": [entry, ["setting-startup-optimizations.png", "Open Connect → Startup optimizations"]],
-    "wireless-carplay": [entry, phone, wireless],
-    "carplay-on-connection": [entry, phone,
-      ["setting-show-carplay-on-connection.png", "CarPlay & Android Auto → Show CarPlay on connection"]],
-    "android-auto": [entry, phone, ["setting-android-auto.png", "CarPlay & Android Auto → Android Auto"]],
-    "wireless-setup": [entry, phone, wireless,
-      ["wireless-enable.png", "Wireless CarPlay → Enable"],
-      ["wireless-mode.png", "After a full restart: Devices → Wi-Fi → Apple CarPlay"]],
-    "wireless-wifi": [["wireless-mode.png", "Devices → Wi-Fi → Apple CarPlay"]],
-    "wireless-connect": [["wireless-mode.png", "First choose Apple CarPlay in Devices → Wi-Fi"]],
-    services: [entry, audio, sources],
-    "phone-connections": [entry, phone, wireless],
-    "audio-sources": [entry, audio, sources],
-    dvd: [entry, audio, sources],
-    pandora: [entry, audio, ["setting-pandora.png", "Audio sources → Pandora"]],
-    siriusxm: [entry, audio, ["setting-siriusxm.png", "Audio sources → SiriusXM"]],
-    "developer-options": [entry, ["setting-developer-options.png", "Open Connect → Developer options"],
-      ["developer-options.png", "Developer options"]],
-    uninstall: [entry, ["setting-uninstall.png", "Open Connect → Uninstall"]],
-    about: [entry, ["setting-about.png", "Open Connect → About"]],
-    "version-info": [["settings-entry.png", "System tab → About (below Open Connect)"],
-      ["version-info.png", "Version Information → OS Version"]],
+    "open-connect": root,
+    touchscreen: root,
+    disclaimer: root,
+    "startup-optimizations": root,
+    "apply-changes": root,
+    uninstall: root,
+    about: root,
+    "carplay-android-auto": phone,
+    "wireless-carplay": phone,
+    "carplay-on-connection": phone,
+    "android-auto": phone,
+    "wireless-setup": phone,
+    "phone-connections": phone,
+    "audio-sources": audio,
+    services: audio,
+    dvd: audio,
+    pandora: audio,
+    siriusxm: audio,
+    "developer-options": ["developer-options.mp4", `${root[1]} → Developer options`],
+    "version-info": ["version-info.mp4", "Home → Settings → System → About → Version Information"],
   };
   const notes = {
     touchscreen: "Select Touchscreen While Driving, then choose Allow or Factory Default.",
     disclaimer: "Select Startup disclaimer, then choose Skip or Show.",
-    "wireless-carplay": "Turn on Wireless CarPlay and confirm Enable. The screenshot shows it on; fresh installations leave it off unless factory enabled.",
-    "carplay-on-connection": "Select Show CarPlay on connection, then choose Factory behavior or Automatically show. The screenshot shows the Factory default.",
+    "wireless-carplay": "Turn on Wireless CarPlay and confirm Enable. The inline screenshot shows it on; fresh installations leave it off unless factory enabled.",
+    "carplay-on-connection": "Select Show CarPlay on connection, then choose Factory behavior or Automatically show. The inline screenshot shows the Factory default.",
     "android-auto": "Turn Android Auto on or off and confirm the change.",
-    "startup-optimizations": "Turn Startup optimizations on or off and confirm the change. The screenshot shows it on; the fresh-install default is Off.",
+    "startup-optimizations": "Turn Startup optimizations on or off and confirm the change. The inline screenshot shows it on; the fresh-install default is Off.",
     dvd: "Turn DVD on or off and confirm the change. Audio CDs are independent of DVD video support.",
     pandora: "Turn Pandora on or off and confirm the change. This controls Mazda’s integration, not Pandora through CarPlay or Bluetooth.",
     siriusxm: "Turn SiriusXM on or off and confirm the change. This controls satellite radio and SiriusXM data.",
+    "apply-changes": "Select Apply changes, then confirm Restart to apply saved choices. It is disabled when there are no pending changes. Keep the car on until Mazda Connect restarts.",
     uninstall: "Select Uninstall and confirm Uninstall. Keep the car on until the automatic restart finishes.",
     about: "Select About to see the installed Open Connect version.",
-    "wireless-connect": "After choosing Apple CarPlay here, return to Devices → Apple CarPlay, select your iPhone and choose Connect.",
   };
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
   const panel = document.createElement("dialog");
@@ -79,61 +71,47 @@
   panel.setAttribute("aria-describedby", "oc-nav-step oc-nav-note");
   panel.innerHTML = `
     <div class="oc-nav-preview__header">
-      <strong id="oc-nav-title">Navigation preview</strong>
+      <strong id="oc-nav-title">Navigation walkthrough</strong>
       <button type="button" data-action="close" aria-label="Close navigation preview" autofocus>×</button>
     </div>
-    <div class="oc-screen-frame"><img width="800" height="480" alt=""></div>
+    <div class="oc-screen-frame"><video muted loop playsinline preload="none" width="800" height="480" aria-label="Commander Dial navigation walkthrough"></video></div>
     <p id="oc-nav-step" aria-atomic="true"></p>
     <p id="oc-nav-note" class="oc-nav-preview__note" hidden></p>
     <div class="oc-nav-preview__controls">
-      <button type="button" data-action="previous" aria-label="Previous step">←</button>
-      <div class="oc-nav-preview__dots" role="group" aria-label="Choose a step"></div>
-      <button type="button" data-action="next" aria-label="Next step">→</button>
-      <button type="button" data-action="play"></button>
+      <button type="button" data-action="play">Play</button>
+      <button type="button" data-action="restart" aria-label="Restart walkthrough">Restart</button>
     </div>`;
   document.body.append(panel);
-  const screen = panel.querySelector("img");
+  const screen = panel.querySelector("video");
+  screen.muted = true;
   const label = panel.querySelector("#oc-nav-step");
   const note = panel.querySelector("#oc-nav-note");
-  const dots = panel.querySelector(".oc-nav-preview__dots");
   const play = panel.querySelector('[data-action="play"]');
   let trigger = null;
-  let steps = [];
-  let index = 0;
-  let paused = false;
-  let timer;
   let backdropPress = false;
 
   function playback() {
-    clearTimeout(timer);
-    const stopped = paused || steps.length < 2;
-    play.textContent = stopped ? "Play" : "Pause";
-    play.setAttribute("aria-label", stopped ? "Play automatic steps" : "Pause automatic steps");
-    play.disabled = steps.length < 2;
-    label.setAttribute("aria-live", paused || steps.length < 2 ? "polite" : "off");
-    if (trigger && !paused && steps.length > 1 && !document.hidden) {
-      timer = setTimeout(() => showStep(index + 1), 2200);
-    }
+    play.textContent = screen.paused ? "Play" : "Pause";
+    play.setAttribute("aria-label", screen.paused ? "Play walkthrough" : "Pause walkthrough");
   }
 
-  function showStep(next) {
-    index = (next + steps.length) % steps.length;
-    screen.src = new URL(steps[index][0], assets).href;
-    screen.alt = steps[index][1];
-    label.setAttribute("aria-live", paused || steps.length < 2 ? "polite" : "off");
-    label.textContent = `Step ${index + 1} of ${steps.length} — ${steps[index][1]}`;
-    [...dots.children].forEach((dot, i) => {
-      if (i === index) dot.setAttribute("aria-current", "step");
-      else dot.removeAttribute("aria-current");
-    });
-    playback();
+  function start() {
+    screen.play().catch(playback);
   }
+
+  screen.addEventListener("play", playback);
+  screen.addEventListener("pause", playback);
+  screen.addEventListener("error", playback);
 
   function close() {
     if (!trigger) return;
     const previous = trigger;
     trigger = null;
-    clearTimeout(timer);
+    screen.pause();
+    screen.currentTime = 0;
+    screen.removeAttribute("src");
+    // Release the media resource and stop fetching/decoding after dismissal.
+    screen.load();
     panel.close();
     document.documentElement.classList.remove("oc-nav-modal-open");
     previous.setAttribute("aria-expanded", "false");
@@ -142,27 +120,18 @@
 
   function open(button) {
     trigger = button;
-    paused = motion.matches;
-    steps = paths[button.dataset.walkthrough];
-    dots.replaceChildren();
-    steps.forEach((step, i) => {
-      const dot = document.createElement("button");
-      dot.type = "button";
-      dot.dataset.step = i;
-      dot.setAttribute("aria-label", `Step ${i + 1}: ${step[1]}`);
-      dots.append(dot);
-      // Fetch only the active walkthrough, on demand.
-      const image = new Image();
-      image.src = new URL(step[0], assets).href;
-    });
+    const [file, route] = paths[button.dataset.walkthrough];
+    // No src or poster exists before a click. Only this video loads on demand.
+    screen.src = new URL(`walkthroughs/${file}`, assets).href;
+    screen.setAttribute("aria-label", `${route} — Commander Dial walkthrough`);
+    label.textContent = route;
     note.textContent = notes[button.dataset.walkthrough] || "";
     note.hidden = !note.textContent;
-    panel.querySelector('[data-action="previous"]').disabled = steps.length < 2;
-    panel.querySelector('[data-action="next"]').disabled = steps.length < 2;
     button.setAttribute("aria-expanded", "true");
-    showStep(0);
     document.documentElement.classList.add("oc-nav-modal-open");
     panel.showModal();
+    playback();
+    if (!motion.matches) start();
   }
 
   document.querySelectorAll(".oc-nav-path[data-walkthrough]").forEach(path => {
@@ -196,14 +165,10 @@
     if (!button) return;
     const action = button.dataset.action;
     if (action === "close") close();
-    else if (action === "play") { paused = !paused; playback(); }
-    else {
-      // A deliberate step selection stays put until the owner chooses Play.
-      paused = true;
-      if (action === "previous") showStep(index - 1);
-      else if (action === "next") showStep(index + 1);
-      else if (button.dataset.step !== undefined) showStep(Number(button.dataset.step));
-    }
+    else if (action === "play") {
+      if (screen.paused) start();
+      else screen.pause();
+    } else if (action === "restart") screen.currentTime = 0;
   });
   panel.addEventListener("cancel", event => { event.preventDefault(); close(); });
   window.addEventListener("keydown", event => {
@@ -216,30 +181,14 @@
       close();
       return;
     }
-    if ((key === "ArrowRight" || key === "ArrowLeft") && !event.altKey && !event.ctrlKey && !event.metaKey) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (steps.length > 1) {
-        paused = true;
-        showStep(index + (key === "ArrowRight" ? 1 : -1));
-      }
-      return;
-    }
     if (key === "Tab") {
       const controls = [...panel.querySelectorAll("button:not(:disabled)")];
-      const first = controls[0];
-      const last = controls[controls.length - 1];
       const idx = controls.indexOf(document.activeElement);
-      if (event.shiftKey) {
-        if (idx <= 0) {
-          event.preventDefault();
-          last.focus();
-        }
-      } else if (idx === -1 || idx === controls.length - 1) {
-        event.preventDefault();
-        first.focus();
-      }
+      event.preventDefault();
       event.stopPropagation();
+      const next = idx === -1 ? (event.shiftKey ? controls.length - 1 : 0) :
+        (idx + (event.shiftKey ? -1 : 1) + controls.length) % controls.length;
+      controls[next].focus();
       return;
     }
     if ((event.metaKey || event.ctrlKey) && lower === "k") {
@@ -253,6 +202,6 @@
     // Keep Zensical global keyboard shortcuts from firing behind the open modal.
     event.stopPropagation();
   }, true);
-  document.addEventListener("visibilitychange", playback);
-  motion.addEventListener("change", () => { if (motion.matches) paused = true; playback(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) screen.pause(); });
+  motion.addEventListener("change", () => { if (motion.matches) screen.pause(); });
 })();

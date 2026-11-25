@@ -33,6 +33,7 @@ nav = [
       { "SiriusXM" = "siriusxm.md" }
     ] },
     { "Developer options" = "developer-options.md" },
+    { "Apply changes" = "apply-changes.md" },
     { "Uninstall" = "uninstall.md" },
     { "About" = "about.md" }
   ] },

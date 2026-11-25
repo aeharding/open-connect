@@ -8,11 +8,11 @@ Plug-and-play USB install.
 [Browse settings →](settings.md)
 { .oc-actions }
 
-<p class="oc-availability"><strong>0.3.0-dev.19</strong> is a development prerelease; real-car qualification remains pending. Currently for North American version <strong>74.00.324</strong> only. Startup gains vary by configuration; faster startup than stock is not established.</p>
+<p class="oc-availability"><strong>0.3.0-dev.20</strong> is a development prerelease; real-car qualification remains pending. Currently for North American version <strong>74.00.324</strong> only. Startup gains vary by configuration; faster startup than stock is not established.</p>
 
 <figure class="oc-screen oc-screen--lead">
   <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen-while-driving.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>
-  <figcaption><span class="oc-nav-path" data-walkthrough="open-connect">Settings → System → Open Connect</span> (0.3.0-dev.19).</figcaption>
+  <figcaption><span class="oc-nav-path" data-walkthrough="open-connect">Settings → System → Open Connect</span> (retained 0.3.0-dev.19 capture).</figcaption>
 </figure>
 
 ## Features
@@ -23,6 +23,7 @@ Plug-and-play USB install.
 - **CarPlay & Android Auto**: [wireless connections](wireless-carplay.md), [Show CarPlay on connection](carplay-on-connection.md) and [Android Auto](android-auto.md).
 - **Audio sources**: choose [DVD](dvd.md), [Pandora](pandora.md) and [SiriusXM](siriusxm.md).
 - **[Developer options](developer-options.md)**: UART, SSH and Import public key for your own access.
+- **[Apply changes](apply-changes.md)**: restart Mazda Connect to activate saved choices.
 - **[Uninstall](uninstall.md)**: restore the configuration saved before installation.
 - **[About](about.md)**: check the installed version.
 

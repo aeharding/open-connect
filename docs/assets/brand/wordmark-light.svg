@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 96" fill="none" role="img" aria-label="Mazda Open Connect">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="560" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f4f6f9"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="26" y1="22" x2="72" y2="74" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2b303d"/>
+      <stop offset="1" stop-color="#5d6678"/>
+    </linearGradient>
+    <linearGradient id="red" x1="34" y1="28" x2="74" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e11d36"/>
+      <stop offset="1" stop-color="#9e0e22"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="1" y="1" width="558" height="94" rx="16" fill="url(#bg)" stroke="#dde2eb" stroke-width="1.5"/>
+
+  <!-- Commander Dial + Open Ring mark centered at (52, 48) -->
+  <g transform="translate(20, 16)">
+    <g stroke="#7b8496" stroke-opacity=".55" stroke-width="1.5" stroke-linecap="round">
+      <line x1="32" y1="3.5" x2="32" y2="5.7"/>
+      <line x1="32" y1="58.3" x2="32" y2="60.5"/>
+      <line x1="3.5" y1="32" x2="5.7" y2="32"/>
+      <line x1="11.8" y1="11.8" x2="13.4" y2="13.4"/>
+      <line x1="11.8" y1="52.2" x2="13.4" y2="50.6"/>
+      <line x1="46.2" y1="7.3" x2="45.1" y2="9.2"/>
+      <line x1="46.2" y1="56.7" x2="45.1" y2="54.8"/>
+      <line x1="7.3" y1="17.8" x2="9.2" y2="18.9"/>
+      <line x1="7.3" y1="46.2" x2="9.2" y2="45.1"/>
+    </g>
+    <circle cx="32" cy="32" r="14.5" fill="#181b22" stroke="#454c5c" stroke-width="1.2"/>
+    <path d="M51.31 47.08 A24.5 24.5 0 1 1 51.31 16.92" stroke="url(#ring)" stroke-width="4.4" stroke-linecap="round"/>
+    <path d="M18.42 20.60 A17.7 17.7 0 0 1 46.84 22.36" stroke="url(#red)" stroke-width="3.2" stroke-linecap="round"/>
+    <circle cx="52.5" cy="32" r="3.8" fill="url(#red)"/>
+    <circle cx="51.4" cy="30.9" r="1.1" fill="#ffd1d8" fill-opacity=".85"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="104" y="34" fill="#c4162a" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="2.8">MAZDA</text>
+  <text x="103" y="62" fill="#13161f" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="30" font-weight="700" letter-spacing="-0.6">Open Connect</text>
+  <text x="104" y="80" fill="#525c6e" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400">Factory-feel improvements for first-generation Mazda Connect</text>
+</svg>

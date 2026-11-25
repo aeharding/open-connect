@@ -1,72 +1,50 @@
 # How Open Connect works
 
-Open Connect keeps Mazda's interface and saves your choices. At startup, it
-selects prepared files, keeping only the necessary temporary copies in RAM.
+Open Connect keeps Mazda’s original interface and system files intact. At startup, a small native selector checks your saved preferences and stages only the temporary files needed for your active choices in RAM.
 
-## Original files, selected copies
+## Original files stay untouched
 
 ```mermaid
 flowchart TD
-    choices["Install or save choices"] --> saved["Verify inputs and save a launch plan"]
-    originals["Original Mazda apps and service files"] --> saved
-    saved --> ram["Startup: check the plan and select prepared files"]
-    ram --> screen["Mazda interface with your choices"]
+    choices["Install or save choices"] --> saved["Verify originals & save launch plan"]
+    originals["Original Mazda apps & service files (read-only)"] --> saved
+    saved --> ram["Startup: verify plan & stage active choices in RAM"]
+    ram --> screen["Mazda Connect with your choices"]
     originals --> screen
 ```
 
-The Mazda app and service originals stay on storage. Open Connect also adds a
-helper and modifies the startup entry, plus any requested touchscreen or access
-settings. Their pre-install state is recorded for [Uninstall](uninstall.md).
-System storage returns to read-only after owned file changes are saved.
+Mazda’s stock app, voice, and service binaries remain intact on storage. Open Connect records the exact pre-install state of the few entry points it touches (startup hook, touchscreen NVRAM, and optional access config), then immediately returns system storage to **read-only**.
 
-## A bounded startup fallback
+## Automatic startup safety fallback
 
 ```mermaid
 flowchart TD
-    safe{"Startup checks pass and attempts remain?"} -->|Yes| selected["Record an attempt, then start selected files"]
-    safe -->|No| stock["Continue through Mazda's normal startup path"]
-    uninstall["Uninstall from Settings or compatible USB"] --> restore["Restore saved state, remove Open Connect and restart"]
+    safe{"Startup checks pass & attempts remain?"} -->|Yes| selected["Record attempt, then start selected choices"]
+    safe -->|No| stock["Fall back to Mazda’s normal stock startup"]
+    uninstall["Uninstall from Settings or USB"] --> restore["Restore saved originals, remove Open Connect & restart"]
 ```
 
-A three-attempt allowance limits repeated restarts without an ignition renewal.
-A sustained ignition-off period followed by a full system start renews it. Normal use
-isn't limited to three starts.
+A bounded **three-attempt** counter protects against boot loops:
 
-Fallback leaves Open Connect installed. Uninstall restores the files and settings
-Open Connect changed to their saved pre-install state, including removing its
-added files. It preserves unrelated Mazda preferences; it isn't a factory reset.
+- Every normal start that follows a sustained ignition-off shutdown renews the allowance automatically, so everyday driving is never limited to three starts.
+- If repeated unexpected restarts exhaust the allowance, Open Connect steps aside and boots Mazda Connect completely stock — without erasing your settings.
+- When you choose [Uninstall](uninstall.md), Open Connect restores every recorded pre-install file and setting, then deletes its own packages, backups, and state. Unrelated Mazda settings and pairings are left alone (it is as-found restoration, not a factory reset).
 
-## Prepare ahead of startup
+## Prepared ahead of time
 
-Installation and Settings saves perform full verification and prepare the launch
-files. Normal startup uses a small compiled selector: it checks the saved plan
-and file details, and verifies selected bytes. Some prepared files are used
-directly from Open Connect's private storage; the rest are copied to RAM. Changed
-inputs take a full-check or fallback path. The selector can work alongside
-Mazda's existing startup preparation, and must finish before the selected apps
-start.
+Heavy verification and file composition happen when you install or save a setting — **not** on every boot. On a normal start, a small compiled native selector validates the sealed launch plan and stages only what your active settings require alongside Mazda’s own boot sequence.
 
-The recorded selector span was **0.56 seconds in one dev.9 bench start**. Timing
-varies, and approximately zero added delay versus stock remains a target. See
-[the timings, RAM and qualification limits](startup-overhead.md#native-selector-pilot-dev9).
+Tracking and removing startup/memory overhead is an ongoing benchmark goal — see [Performance](performance.md) for current timings, RAM accounting, and open limits.
 
-## Shared files need shared rules
+## Conflict protection with other mods
 
 ```mermaid
 flowchart LR
-    oc["Open Connect expects a known file"] --> file["The same guarded system file"]
-    mod["Another mod replaces it"] --> file
-    file --> conflict["Conflict: preserve changes and stop"]
+    oc["Open Connect expects verified OEM files"] --> file["Guarded system file"]
+    mod["Another modification changed it"] --> file
+    file --> conflict["Conflict: preserve unknown edits & stop"]
 ```
 
-Direct edits to guarded files can block installation, updates or removal.
-Open Connect preserves unknown changes instead of overwriting them. See
-[existing modifications](installer-development.md#existing-modifications).
+If another modification already edited a system file Open Connect relies on, installation, updates, and uninstall stop safely rather than overwriting unknown changes. See [existing modifications](installer-development.md#existing-modifications) and the [extension architecture research](extension-architecture.md) for how future modular composition is being explored ([#117](https://github.com/aeharding/open-connect/issues/117)).
 
-The [plugin architecture proposal](extension-architecture.md) would give built-in
-features and third-party additions one way to compose changes and check overlaps
-before activation. That system is being researched; a plugin marketplace isn't
-available yet. Follow [#117](https://github.com/aeharding/open-connect/issues/117).
-
-Ready to use it? Start with [Quick start](usb-installer.md), then
-[Settings](settings.md).
+Ready to try it? Head to [Quick start](usb-installer.md) or browse [Settings](settings.md).

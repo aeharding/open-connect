@@ -1,13 +1,202 @@
+/* Owner guide components: hero, feature cards, setting metadata strip, CMU frames, install flow. */
+
+/* Landing hero */
+.oc-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.35rem;
+  align-items: center;
+  padding: 1.65rem 1.75rem;
+  margin: 0 0 1.85rem;
+  border-radius: 1rem;
+  border: 1px solid var(--oc-border);
+  background:
+    radial-gradient(circle at 92% 18%, var(--oc-red-soft), transparent 48%),
+    var(--oc-surface);
+  box-shadow: var(--oc-shadow);
+}
+
+.oc-hero-mark {
+  width: 4.5rem;
+  height: 4.5rem;
+  flex-shrink: 0;
+}
+
+.oc-hero-eyebrow {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--oc-red-bright);
+  margin-bottom: 0.35rem;
+}
+
+.md-typeset .oc-hero h1 {
+  margin: 0 0 0.45rem;
+  font-size: 1.9rem;
+  line-height: 1.15;
+}
+
+.md-typeset .oc-hero p {
+  margin: 0 0 1rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  max-width: 42rem;
+}
+
+.oc-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.oc-status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  margin: 0 0 1.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--oc-red-border);
+  background: var(--oc-red-soft);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.oc-status-strip a {
+  color: var(--oc-red-bright);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.oc-status-strip a:hover {
+  color: var(--md-default-fg-color);
+}
+
+.oc-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.14rem 0.55rem;
+  border-radius: 999px;
+  background: var(--oc-red);
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Feature cards */
+.oc-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin: 1.15rem 0 2rem;
+}
+
+.md-typeset a.oc-feature-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1.05rem 1.15rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--oc-border);
+  background: var(--oc-surface);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.16s ease, transform 0.14s ease, box-shadow 0.16s ease;
+}
+
+.md-typeset a.oc-feature-card:hover,
+.md-typeset a.oc-feature-card:focus-visible {
+  border-color: var(--oc-red-border);
+  transform: translateY(-2px);
+  box-shadow: var(--oc-shadow);
+  color: inherit;
+}
+
+.oc-feature-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.oc-feature-title {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--md-default-fg-color);
+}
+
+.oc-badge {
+  display: inline-block;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  border: 1px solid var(--oc-border);
+  background: var(--oc-surface-subtle);
+  color: var(--md-default-fg-color--light);
+}
+
+.oc-badge--on {
+  border-color: var(--oc-red-border);
+  background: var(--oc-red-soft);
+  color: var(--oc-red-bright);
+}
+
+.oc-feature-desc {
+  margin: 0;
+  font-size: 0.77rem;
+  line-height: 1.55;
+  color: var(--md-default-fg-color--light);
+}
+
+/* Setting metadata bar at top of each feature page */
+.oc-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  padding: 0.75rem 1rem;
+  margin: 0.9rem 0 1.4rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--oc-border);
+  background: var(--oc-surface-subtle);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.oc-meta-bar span {
+  color: var(--md-default-fg-color--light);
+}
+
+.oc-meta-bar strong {
+  color: var(--md-default-fg-color);
+}
+
+/* Framed native 800x480 CMU screenshots */
 .md-typeset .oc-screen {
   width: 100%;
-  max-width: 26rem;
-  margin: 1.25rem auto 1.75rem;
+  max-width: 28rem;
+  margin: 1.35rem auto 1.85rem;
 }
+
 .oc-screen-frame {
   position: relative;
   aspect-ratio: 880 / 552;
   background: url("../assets/guide/cmu-frame.svg") center / contain no-repeat;
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.28));
 }
+
 .md-typeset .oc-screen-frame img {
   position: absolute;
   top: 9.1304%;
@@ -15,14 +204,17 @@
   display: block;
   width: 85.4545%;
   height: auto;
+  border-radius: 2px;
 }
+
 .md-typeset .oc-screen figcaption {
-  margin-top: .5rem;
+  margin-top: 0.55rem;
   color: var(--md-default-fg-color--light);
-  font-size: .8rem;
+  font-size: 0.78rem;
   text-align: center;
 }
 
+/* 3-step USB installation strip */
 .md-typeset ol.oc-install-flow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -31,62 +223,96 @@
   padding: 0;
   list-style: none;
 }
+
 .md-typeset ol.oc-install-flow li {
   position: relative;
   margin: 0;
-  padding: .8rem .65rem 1rem;
-  border: 1px solid var(--md-default-fg-color--lightest);
-  border-radius: .65rem;
-  background: var(--md-code-bg-color);
+  padding: 0.9rem 0.75rem 1.05rem;
+  border: 1px solid var(--oc-border);
+  border-radius: 0.75rem;
+  background: var(--oc-surface);
 }
+
 .md-typeset ol.oc-install-flow li + li::before {
   content: "→";
   position: absolute;
-  top: 2.4rem;
-  left: -.85rem;
-  color: var(--md-default-fg-color--light);
+  top: 2.5rem;
+  left: -0.82rem;
+  color: var(--oc-red-bright);
   font-size: 1rem;
+  font-weight: 700;
 }
+
 .md-typeset ol.oc-install-flow img {
   display: block;
   width: 8rem;
   max-width: 100%;
   height: auto;
-  margin: 0 auto .65rem;
+  margin: 0 auto 0.65rem;
 }
+
 .md-typeset ol.oc-install-flow strong {
   display: flex;
   align-items: baseline;
-  gap: .35rem;
-  font-size: .78rem;
+  gap: 0.35rem;
+  font-size: 0.8rem;
 }
+
 .md-typeset ol.oc-install-flow strong span {
-  color: var(--md-accent-fg-color);
+  color: var(--oc-red-bright);
   font-variant-numeric: tabular-nums;
 }
+
 .md-typeset ol.oc-install-flow p {
-  margin: .45rem 0 0;
+  margin: 0.45rem 0 0;
   color: var(--md-default-fg-color--light);
-  font-size: .7rem;
+  font-size: 0.73rem;
   line-height: 1.55;
 }
+
 @media (max-width: 44rem) {
+  .oc-hero {
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+    padding: 1.25rem;
+  }
+
+  .oc-hero-mark {
+    width: 3.4rem;
+    height: 3.4rem;
+  }
+
+  .oc-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
   .md-typeset ol.oc-install-flow {
     grid-template-columns: 1fr;
-    gap: .65rem;
+    gap: 0.65rem;
   }
+
   .md-typeset ol.oc-install-flow li {
     display: grid;
     grid-template-columns: 5.5rem minmax(0, 1fr);
-    column-gap: .7rem;
+    column-gap: 0.7rem;
     align-items: center;
-    padding: .65rem;
+    padding: 0.75rem;
   }
+
   .md-typeset ol.oc-install-flow img {
     grid-row: 1 / 3;
     margin: 0;
   }
-  .md-typeset ol.oc-install-flow strong { align-self: end; }
-  .md-typeset ol.oc-install-flow p { align-self: start; }
-  .md-typeset ol.oc-install-flow li + li::before { content: none; }
+
+  .md-typeset ol.oc-install-flow strong {
+    align-self: end;
+  }
+
+  .md-typeset ol.oc-install-flow p {
+    align-self: start;
+  }
+
+  .md-typeset ol.oc-install-flow li + li::before {
+    content: none;
+  }
 }

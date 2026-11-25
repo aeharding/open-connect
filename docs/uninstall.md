@@ -1,37 +1,31 @@
 # Uninstall
 
+You can remove Open Connect anytime directly from **Mazda Settings** — no USB drive or computer required.
+
+## Remove from Mazda Settings
+
 1. Open **Mazda Settings → System → Open Connect**.
-2. Choose **Uninstall**, then confirm **Uninstall**.
-3. Leave the power on. Mazda Connect restores the saved startup, touchscreen
-   and developer-access configuration, then restarts automatically.
+2. Scroll down, select **Uninstall**, and confirm **Uninstall**.
+3. Leave the car powered on while Open Connect restores your saved pre-install startup, touchscreen, and developer-access settings, deletes its own files and backups, and restarts Mazda Connect automatically.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/uninstall.png" alt="Uninstall Open Connect? Open Connect will be removed. Mazda Connect will restart. Cancel and Uninstall buttons." width="800" height="480"></div>
-  <figcaption>Choose Uninstall. Mazda Connect restarts automatically.</figcaption>
+  <figcaption>Confirm Uninstall inside Open Connect Settings — no USB drive needed.</figcaption>
 </figure>
-
-During removal, an animated loading view asks you to keep the car on.
-Wait through the automatic restart. The USB drive is not needed for removal through Settings.
-After a successful uninstall, Open Connect's files and backups are deleted.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/restarting.png" alt="Restarting Mazda Connect, with an animated meter and Do not turn off the car." width="800" height="480" loading="lazy"></div>
-  <figcaption>Keep the car on while Mazda Connect restarts.</figcaption>
+  <figcaption>Keep power on while Mazda Connect restarts into your restored stock configuration.</figcaption>
 </figure>
 
-## Remove it using USB
+Uninstalling restores the exact files and settings Open Connect saved before installation — it is **not** a factory reset and leaves your normal Mazda preferences, radio presets, and phone pairings intact.
 
-Prepare a drive using [Quick start](usb-installer.md), insert it while Mazda Connect
-shows its main screen, and choose **Uninstall**. A replacement drive is fine; you do not need
-the original one. Leave it connected until the restart finishes.
+## Remove using a USB drive
 
-If another modification conflicts, Uninstall stops without overwriting it.
-Keep the displayed message when [reporting the problem](https://github.com/aeharding/open-connect/issues).
+If Settings isn’t available, prepare any FAT32 USB drive with a compatible release using [Quick start](usb-installer.md) (you do not need the original stick), insert it on Mazda Connect’s main screen, and choose **Uninstall**. Leave the drive connected until the restart finishes.
 
-## Install it again
+If another modification changed guarded files after installation, Uninstall stops safely rather than overwriting them. Save the on-screen message if you [report an issue](https://github.com/aeharding/open-connect/issues).
 
-Follow [Quick start](usb-installer.md) and choose **Install**. Your old Open Connect
-preferences are not retained.
+## Installing again later
 
-Maintenance requires a bundle compatible with the installed version and exact
-firmware. Cross-firmware maintenance is not supported.
+Follow [Quick start](usb-installer.md) and choose **Install**. Reinstalling after an uninstall starts fresh with default preferences. Maintenance always requires a bundle matching your exact firmware (`74.00.324A NA`).

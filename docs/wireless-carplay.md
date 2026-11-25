@@ -1,71 +1,49 @@
 # Wireless CarPlay
 
-The v74 development candidate adds **Wireless CarPlay** under **Mazda Settings →
-System → Open Connect**. It defaults off. Enabling it makes Mazda's native
-wireless controls available after a full restart, while retaining the CMU's
-actual hardware identity and GPS configuration.
+<div class="oc-meta-bar">
+  <span><strong>Menu:</strong> Mazda Settings → System → Open Connect → Wireless CarPlay</span>
+  <span><strong>Default:</strong> Off (or <em>factory enabled</em> on factory-wireless units)</span>
+  <span><strong>Takes effect:</strong> Next full restart</span>
+</div>
 
-The installed dev.8 CI candidate reached visible wireless projection and
-reconnected after a full restart without phone or menu actions. Installation,
-updates, controls and restoration have software bench checks. Vehicle behavior,
-audio, physical input and long-parked startup remain unqualified. See the
-[qualification record](cmu/wireless-carplay.md#installed-development-candidate).
+## Why it exists
 
-If your hardware already has factory wireless CarPlay, the checkbox is checked
-and disabled, labeled **factory enabled**. Use Mazda's Wi-Fi menu to connect;
-Open Connect does not need to enable it.
+Mazda Connect `74.00.324A` already contains Mazda’s native wireless CarPlay stack, but hides it on vehicles that did not ship with factory wireless CarPlay enabled.
 
-## Connect an iPhone
+**Wireless CarPlay** turns on Mazda’s own native wireless CarPlay menus and pairing flow — **without spoofing your vehicle fingerprint or altering your GPS hardware identity**. If your car already has factory wireless CarPlay, Open Connect detects it automatically and displays **factory enabled**.
 
-1. Check **Wireless CarPlay**, confirm **Enable**, then let Mazda Connect shut
-   down fully before starting again. A quick ignition off/on can resume the old
-   session.
+## Set up an iPhone
+
+1. In **Mazda Settings → System → Open Connect**, check **Wireless CarPlay**, confirm **Enable**, and let Mazda Connect power down completely before starting again.
 2. Open **Mazda Settings → Devices → Wi-Fi** and select **Apple CarPlay**.
-3. Keep Wi-Fi and Bluetooth enabled on the iPhone and pair it with Mazda Connect.
-   Accept the phone's wireless CarPlay prompt if offered.
-4. Select your iPhone under **Devices → Apple CarPlay** and connect.
+3. Keep Wi-Fi and Bluetooth on in your iPhone, pair it with Mazda Connect over Bluetooth, and accept the iPhone’s wireless CarPlay prompt if shown.
+4. Open **Mazda Settings → Devices → Apple CarPlay**, select your iPhone, and choose **Connect**.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/wireless-enable.png" alt="Enable Wireless CarPlay confirmation explaining restart, Mazda Wi-Fi settings and Bluetooth pairing, with Cancel and Enable buttons." width="800" height="480"></div>
-  <figcaption>Enable the option, then finish setup in Mazda's own menus.</figcaption>
+  <figcaption>Enable the option in Open Connect, then finish pairing inside Mazda’s own Devices menus.</figcaption>
 </figure>
-
-In the first bench trial, the existing Bluetooth pairing left Connect disabled;
-re-pairing made it available. If that happens, re-pair that iPhone. Other devices
-do not need to be removed.
-
-On the tested North American configuration, Mazda's Wi-Fi choices are **Off**
-and **Apple CarPlay**. Joining a phone/home hotspot through Connected Services
-remains under investigation; it is not exposed by this setting.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/wireless-mode.png" alt="Mazda Wi-Fi mode selector with Off and Apple CarPlay choices." width="800" height="480" loading="lazy"></div>
   <figcaption>Select Apple CarPlay in Mazda Settings → Devices → Wi-Fi.</figcaption>
 </figure>
 
-## Disable or remove
+> **Tip:** If your iPhone was already paired over Bluetooth before enabling Wireless CarPlay and the **Connect** button stays greyed out, remove and re-pair that iPhone once. Other paired devices don’t need to be removed.
 
-Clear **Wireless CarPlay** and confirm **Disable** to restore the CMU's original
-wireless availability after the next full restart. Updating retains your choice.
-Uninstall restores pre-install startup; the restart clears the RAM configuration.
-The current session continues until it shuts down.
+On North American firmware, Mazda’s Wi-Fi menu offers **Off** and **Apple CarPlay**. Explicit switching between Wireless CarPlay and a phone/home hotspot is tracked separately in [#54](https://github.com/aeharding/open-connect/issues/54).
 
-Open Connect leaves Mazda's Wi-Fi preferences and paired-phone records alone;
-Mazda still controls its own Wi-Fi mode. The installed bench reused its existing
-pairing and retained Apple CarPlay mode across a repeated enabled start. Disabling
-the override restored the original unavailable state on this non-factory unit.
-On factory-wireless hardware, factory availability remains intact.
+## Turning it back off
+
+Clear **Wireless CarPlay** and confirm **Disable** to return to your unit’s original wireless availability on the next full start. Open Connect never erases Mazda’s Wi-Fi preferences or paired-phone records; uninstalling Open Connect also cleanly restores your original startup configuration.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/wireless-disable.png" alt="Disable Wireless CarPlay confirmation explaining that original behavior returns after restart, with Cancel and Disable buttons." width="800" height="480" loading="lazy"></div>
-  <figcaption>Disable restores the original availability after a full restart.</figcaption>
+  <figcaption>Disabling restores your unit’s original availability on the next full restart.</figcaption>
 </figure>
 
-With both Base optimizations and Wireless CarPlay enabled, dev.13 also adjusts
-wireless startup scheduling. A [three-start-per-version comparison](wireless-startup-speed.md)
-reached visible Maps about 2.21 seconds earlier, with higher CPU use and no resolved
-Home or RAM improvement. This does not qualify long-parked startup or usable input.
+## Qualification & performance
 
-A separate [wireless startup baseline](wireless-comparison.md) compares Base
-optimizations off/on, including its failed attempts. Long-parked startup
-improvement remains unqualified.
+Bench testing verified wireless projection, automatic reconnection across full restarts, controls, and clean uninstall. Real-car audio, physical input, and **long-parked cold-start lag** remain open for real-vehicle testing — see [Wireless startup speed](wireless-startup-speed.md), [Wireless startup baseline](wireless-comparison.md), and the [wireless technical notes](cmu/wireless-carplay.md#installed-development-candidate).
+
+[Pair with Base optimizations →](services.md) · [Back to Settings →](settings.md)

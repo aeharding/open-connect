@@ -12,7 +12,7 @@ service_usb_observe() {
         index($0,"<!-- OCUSB1") {
             n++;s=$0
             if(sub(/^<!-- OCUSB1[|]/,"",s)!=1||sub(/ -->$/,"",s)!=1||
-               split(s,a,"[|]")!=2||a[1]!=boot||length(a[2])>192||
+               split(s,a,"[|]")!=2||a[1]!=boot||length(a[2])>96||
                (a[2]!="-"&&a[2]!~/^([0-9]+-[0-9]+([.][0-9]+)*:[0-9]+;)+$/))bad=1
             value=a[2];next
         }
@@ -21,6 +21,7 @@ service_usb_observe() {
         printf '%s\n' "$saved"; return 0
     fi
     grep -F -q '<!-- OCUSB1' "$index" && return 1
+    test "${1:-installed}" = installed || return 1
     test -d /sys/bus/usb/devices || return 1
     for usb in /sys/bus/usb/devices/[0-9]*-*; do
         name=${usb##*/}
@@ -30,7 +31,7 @@ service_usb_observe() {
         case "$number" in ''|*[!0-9]*) return 1;; esac
         ids=$ids$name:$number';'
     done
-    ids=${ids:--}; test "${#ids}" -le 192 || return 1
+    ids=${ids:--}; test "${#ids}" -le 96 || return 1
     line="<!-- OCUSB1|$boot|$ids -->"
     set -- $(stat -c '%s %b' "$index")
     test "$#" -eq 2 && test "$(($2 * 512 - $1))" -ge "$((${#line} + 2))" || return 1

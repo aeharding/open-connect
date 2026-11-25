@@ -18,7 +18,7 @@ post_restart() (
         test "$(sha "$D/packages/$R_BACKEND/files.sha256")" = "$R_BACKEND" || exit 1
     test "$(awk '$2!="INSTANCE"{print $1" "$2}' "$work/files.sha256")" = \
         "$(awk '$2!="INSTANCE"{print $1" "$2}' "$D/packages/$R_BACKEND/files.sha256")" || exit 1
-    ids=$(service_usb_observe) && id=$(service_usb_source "$source") || exit 1
+    ids=$(service_usb_observe "$R_NOTICE") && id=$(service_usb_source "$source") || exit 1
     case ";$ids" in *";$id;"*) exit 0;; esac
     exit 1
 )
@@ -56,6 +56,7 @@ else exit 1; fi
 token=$(cat "$runtime/token")
 test "${#token}" -eq 32 || exit 1
 case "$token" in *[!a-f0-9]*) exit 1;; esac
+test ! -f "$runtime/closed" || exit 0
 logger -t open-connect "OCUSB|$token|start"
 navigate "javascript:void(setTimeout(function(){if(document.getElementById('oc-usb-loader'))return;utility.loadScript('../..$runtime/loader.js',{id:'oc-usb-loader',ocToken:'$token',ocPort:$port},function(){});},0))"
 count=0

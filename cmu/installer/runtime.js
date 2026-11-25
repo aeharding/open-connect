@@ -11,8 +11,8 @@ if(!boot||!/^[a-f0-9]{32}$/.test(boot.token)||!versionRE.test(boot.version)||
 var base=entry&&entry.src?entry.src.slice(0,entry.src.lastIndexOf("/")+1):"file:///tmp/open-connect/feature/";
 var port=entry&&entry.ocPort===35555?35555:15555;
 var dead=false,begun=false,token=entry&&entry.ocToken,s=null,known=false,busy=false,saving=false;
-var timer,loading,dialog,view,detach,app,ui,menus,job,marker,pending=false,feedback=false;
-var nodes=[],queued=null,ready=false,usb=false,epoch=0,shown=false,proofRead=false,refresh=null,acking=false;
+var timer,expiry,dialog,view,detach,app,ui,menus,job,marker,pending=false,feedback=false;
+var nodes=[],queued=null,ready=false,usb=false,epoch=0,shown=false,readOnce=false,refresh=null,acking=false;
 var due=0,proved=false,proof=boot&&boot.notice==="installed";
 var attempt=entry&&window.__ocUSBLoading;
 function loaded(){if(attempt&&attempt.done)attempt.done();attempt=null;}
@@ -22,7 +22,7 @@ function receive(a){
  if(known){s=a;store.version=a.installedVersion===undefined?a.version:
  (a.installedVersion==="-"?undefined:a.installedVersion);}
 }
-function autoshowState(){
+function autoshow(){
  var cp=window.ocCarPlay;
  if(proof&&!shown&&!proved){
  if(window.framework&&framework._browserShown&&!due){due=Date.now()+35000;}
@@ -87,7 +87,7 @@ function read(done,until,attempts,intent,fast){
  },left,intent);
 }
 function closeUI(){var close=dialog;dialog=null;if(close){close();}}
-function closeView(){var old=view;view=null;if(old){old.close();}}
+function endView(){var old=view;view=null;if(old){old.close();}}
 function message(title,text,hold){
  if(hold)feedback=true;
  queued=function(){
@@ -130,13 +130,13 @@ function paint(){
 }
 function end(actual){
  var reply=job.reply;
- job=null;busy=saving=false;closeView();release();
+ job=null;busy=saving=false;endView();release();
  if(reply){reply(actual);}
 }
 function refuse(lost){
  if(lost){known=false;}
  var reply=job.reply,origin=job.origin;
- closeView();
+ endView();
  if(lost){job.phase="unresolved";job.reply=null;}
  else{job=null;busy=saving=false;release();}
  if(reply){reply(null,true);}
@@ -214,10 +214,10 @@ var store={read:values,pending:function(value){
  receive(a);refresh=null;
  waits.forEach(function(fn){if(intent===epoch)fn(!!values());});
 }
- function fetch(){read(finish,boot&&!entry?Date.now()+12000:null,0,intent,true);}
+ function fetch(until){read(finish,until||(boot&&!entry?Date.now()+12000:null),0,intent,true);}
  var usbLoad=window.__ocUSBLoading;
  if(usbLoad&&usbLoad.owner===client&&usbLoad.wait){
- usbLoad.wait.push(function(a){if(a===undefined)fetch();else finish(a);});return;
+ usbLoad.wait.push(function(a){if(valid(a))finish(a);else fetch(usbLoad.until);});return;
 }
  fetch();
 },write:function(key,from,to,reply){run("set",[key,String(from),String(to)],"settings",reply);},
@@ -253,15 +253,15 @@ function bind(){
 }
 }
 function tick(){
- autoshowState();
+ autoshow();
  if(dead||!window.framework||!framework._browserShown)return;
  bind();
  if(job){
  if(job.phase==="waiting"){drive();}
  else if(!saving&&job.phase!=="unresolved"){paint();}
  }else if(!busy&&s&&s.pending){run("recover",null,entry?"usb":"settings");}
- else if(!shown&&!proofRead&&proof&&!s){
- proofRead=true;
+ else if(!shown&&!readOnce&&proof&&!s){
+ readOnce=true;
  read(function(a){
   if(!valid(a)||!complete()){proved=true;}
   if(window.ocCarPlay){if(!valid(a)){ocCarPlay.cancel();}ocCarPlay.pump();}
@@ -298,7 +298,7 @@ function start(value,fromUSB){
  if(begun||dead||!/^[a-f0-9]{32}$/.test(value)){return;}
  begun=true;token=value;usb=fromUSB;
  if(prev&&prev.protected&&prev.protected()){abandon();return;}
- clearTimeout(loading);loading=setTimeout(abandon,65000);
+ clearTimeout(expiry);expiry=setTimeout(abandon,65000);
  if(attempt&&attempt.done)attempt.wait=[];
  load("dialog",function(){
  ui=OpenConnectInstaller;
@@ -307,7 +307,7 @@ function start(value,fromUSB){
   function accept(a){
    if(fromUSB&&(attempt&&attempt.valid?!attempt.valid():OpenConnect!==client)){abandon();return;}
    var swap=prev;if(attempt&&attempt.resolve)attempt.resolve(a);
-   clearTimeout(loading);
+   clearTimeout(expiry);
    if(prev&&prev.protected&&prev.protected()){abandon();return;}
    if(!valid(a)&&!(boot&&!fromUSB)){
     if(prev){abandon();return;}
@@ -352,16 +352,16 @@ function abandon(){
 }
 function dispose(transfer){
  if(held())return false;
- dead=true;advance();clearTimeout(loading);clearInterval(timer);
- queued=null;closeUI();closeView();
+ dead=true;advance();clearTimeout(expiry);clearInterval(timer);
+ queued=null;closeUI();endView();
  if(detach){detach(transfer);}
  nodes.forEach(function(n){if(n.parentNode)n.parentNode.removeChild(n);});
  release();return true;
 }
 var client={start:start,reopenUSB:reopenUSB,cancelUSB:cancelUSB,dispose:dispose,protected:held,
- autoshowState:autoshowState};
+ autoshowState:autoshow};
 if(entry){
- loading=setTimeout(abandon,65000);
+ expiry=setTimeout(abandon,65000);
  if(attempt&&attempt.done){attempt.client=client;return prev||client;}
 }
 if(boot&&!entry){start(boot.token,false);}

@@ -104,7 +104,7 @@ class UsbBuild(unittest.TestCase):
             def record(phase="active", selected=current, selected_boot=boot):
                 facts.write_text(
                     f"R_PHASE={phase}; R_CURRENT={selected}; R_BOOT={selected_boot}; "
-                    f"R_BACKEND={package}\n"
+                    f"R_BACKEND={package}; R_NOTICE=installed\n"
                 )
 
             record()
@@ -148,6 +148,12 @@ class UsbBuild(unittest.TestCase):
             with facts.open("a") as stream:
                 stream.write("R_NOTICE=-\n")
             self.assertTrue(suppressed())
+            # A failed observation before Done cannot be replaced by the next
+            # insertion's attachment evidence after the notice is acknowledged.
+            index.write_text(page)
+            self.assertFalse(suppressed())
+            self.assertEqual(index.read_text(), page)
+            index.write_text(page + trailer)
             (usb / "devnum").write_text("8\n")
             self.assertFalse(suppressed())  # Deliberate reinsertion.
             (usb / "devnum").write_text("7\n")
@@ -243,6 +249,7 @@ class UsbBuild(unittest.TestCase):
             ("done-and-removed", 1),
             ("removed", 2),
             ("superseded", 1),
+            ("preclosed", 0),
         ):
             with self.subTest(reason=reason), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp).resolve()
@@ -261,7 +268,7 @@ class UsbBuild(unittest.TestCase):
                     'service_owns_listener() { test "$4" = 15555; }\n'
                     'if test "${0##*/}" = service.sh; then\n'
                     ' if test "${1:-}" = stop; then echo stop >> "$OC_TEST_EVENTS";\n'
-                    ' else echo "$OC_TEST_RUNTIME"; fi\n'
+                    ' else if test "$OC_TEST_REASON" = preclosed; then : > "$OC_TEST_RUNTIME/closed"; fi; echo "$OC_TEST_RUNTIME"; fi\n'
                     "fi\n"
                 )
                 for path in (work / "service.sh", runtime / "service.sh"):
@@ -304,9 +311,10 @@ class UsbBuild(unittest.TestCase):
                 subprocess.run(
                     ["sh", str(script), str(work), str(media)], env=env, check=True, timeout=5
                 )
-                sent = calls.read_text().splitlines()
+                sent = calls.read_text().splitlines() if calls.exists() else []
                 self.assertEqual(len(sent), expected_calls)
-                self.assertIn("loadScript", sent[0])
+                if sent:
+                    self.assertIn("loadScript", sent[0])
                 if reason == "removed":
                     self.assertIn("cancelUSB", sent[1])
                 self.assertEqual(events.read_text(), "stop\n")

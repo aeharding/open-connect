@@ -87,7 +87,7 @@ class PrivateFirmware(unittest.TestCase):
                 timeout=10,
             )
             template = (destination / "index.html").read_text()
-            applied = re.search(r'\}\(framework, \[[01],"([^"]*)"\]\)\);', template)
+            applied = re.search(r'\}\(framework,\s*\[[01],"([^"]*)"\]\)\);', template)
             hidden = applied.group(1).split(",") if applied else []
             self.assertEqual("dvd" in hidden, bool(base))
             insertion = '</script>\n<script src="file:///tmp/open-connect/feature/carplay.js"></script>\n<script>\n'
@@ -112,14 +112,14 @@ class PrivateFirmware(unittest.TestCase):
                     return (len(s.encode()) + 4095) // 4096
 
                 self.assertEqual(pages(selected), pages(predecessor), fields)
-                # The observation is optional: the writer refuses to allocate an
-                # extra page. Report which variants admit the maximum trailer.
+                # The maximum observation fits every current rendered variant;
+                # runtime still refuses any append that needs another page.
                 trailer = (
-                    "\n<!-- OCUSB1|12345678-1234-1234-1234-123456789abc|" + "1-1:1;" * 32 + " -->\n"
+                    "\n<!-- OCUSB1|12345678-1234-1234-1234-123456789abc|" + "1-1:1;" * 16 + " -->\n"
                 )
                 fits = len(trailer.encode()) <= pages(selected) * 4096 - len(selected.encode())
-                if fits:
-                    self.assertEqual(pages(selected + trailer), pages(selected), fields)
+                self.assertTrue(fits, fields)
+                self.assertEqual(pages(selected + trailer), pages(selected), fields)
                 rows.append(
                     {
                         "choices": destination.name,

@@ -1307,3 +1307,21 @@ f=fixture();f.ctx.OpenConnect=undefined;f.insert(false,1);const firstAttempt=f.c
 firstAttempt.cancel();f.flush();assert.equal(f.requests.length,0);
 assert.equal(f.ctx.OpenConnect,undefined);assert.equal(f.scripts.length,0);
 assert.equal(f.ctx.__ocUSBLoading,undefined);
+
+// Failed/removed full audits retain the first tap through the original loader
+// deadline, including a retired request holding the backend lock past 12s.
+for(const removed of [false,true]){
+    f=fixture(null,false,{version:"0.3.0-dev.20",notice:"-"});f.tick();
+    const owner=f.ctx.OpenConnect;cold=f.openSettings(true,true);f.insert();cold.tap();
+    const audit=f.requests[0],attempt=f.ctx.__ocUSBLoading;
+    f.advance(100);
+    if(removed)attempt.cancel();else f.reply(audit,null);
+    assert.equal(f.requests.length,2);
+    let seen=1;
+    while(f.requests.length&&f.ctx.Date.now()<13230){
+        const next=f.requests.at(-1);f.reply(next,{ok:false,error:"busy"});f.advance(500);seen++;
+    }
+    f.reply(f.requests.at(-1),f.state({installed:true}));
+    assert.equal(cold.pages.length,1);assert.equal(f.ctx.OpenConnect,owner);
+    assert.ok(seen<30);cold.detach();
+}

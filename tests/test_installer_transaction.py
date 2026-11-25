@@ -239,6 +239,7 @@ class InstallerTransaction(unittest.TestCase):
         for name in (
             "state.sh",
             "transaction.sh",
+            "service.sh",
             "access.sh",
             "VERSION",
             "preferences.awk",

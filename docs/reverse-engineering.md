@@ -1278,8 +1278,9 @@ and unavailable observations retain normal maintenance. A bounded comment in
 the separately rendered RAM index carries the observation without another
 allocated page. If the rendered variant has insufficient page slack, enumeration
 is unavailable or the trailer is malformed, preserve normal maintenance and let
-completion proceed. The generated-index matrix includes variants with only
-21 bytes free; it does not claim every possible observation fits every variant.
+completion proceed. Whitespace compaction of the authored inline hook makes
+room for the maximum 96-byte observation in each current generated variant.
+Larger device sets retain normal maintenance.
 
 Private supporting records are `runs/dev21-settings-crash-20261125/ROOT-CAUSE.md`,
 `first-row-trial-2/`, `navigate-cancellation/` and `motion-counterfactual-2/`.

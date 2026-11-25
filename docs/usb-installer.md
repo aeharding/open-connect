@@ -2,7 +2,7 @@
 
 Open Connect installs from a USB drive. After installation, use Mazda Settings to change preferences or uninstall.
 
-**0.3.0-dev.22 is a development prerelease; real-car qualification remains pending.** This build is published for a bench USB-insertion and installer-launch retest. The menu instructions describe dev.22; screenshots show the earlier dev.17 preview. Bench checks do not establish real-car or physical-control qualification.
+**0.3.0-dev.22 is a development prerelease; real-car qualification remains pending.** This candidate addresses the dev.21 Settings failure and awaits the affected bench retest before publication. The menu instructions describe dev.22; screenshots show the earlier dev.17 preview. Bench checks do not establish real-car or physical-control qualification.
 
 ## 1. Check your firmware version
 
@@ -21,7 +21,7 @@ Other versions and regions are unsupported. Check the screen rather than guessin
 
 ## 2. Prepare a USB drive
 
-Use the [0.3.0-dev.22 development prerelease ZIP](https://github.com/aeharding/open-connect/releases/tag/v0.3.0-dev.22) for the supported firmware. Real-car qualification remains pending.
+The [Releases page](https://github.com/aeharding/open-connect/releases) will provide the 0.3.0-dev.22 candidate ZIP after the affected bench checks. Real-car qualification remains pending.
 
 Format a USB drive as FAT32, extract the ZIP onto it — the files must be at the root of the drive, not in an extra folder — then eject.
 

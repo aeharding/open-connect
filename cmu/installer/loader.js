@@ -14,7 +14,7 @@
     var token = entry.ocToken;
     var base = entry.src.slice(0, entry.src.lastIndexOf("/") + 1);
     var stopped = false, nodes = [entry];
-    var state = {token: token, owner: owner, valid: function () {
+    var state = {token: token, until: Date.now() + 65000, owner: owner, valid: function () {
         return window.__ocUSBLoading === state && window.OpenConnect === (owner || state.client);
     }, done: finish, resolve: resolve, cancel: function () {
         if (state.client) { state.client.cancelUSB(token); }

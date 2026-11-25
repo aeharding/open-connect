@@ -102,14 +102,14 @@ generator = false
 [[project.theme.palette]]
 scheme = "slate"
 primary = "black"
-accent = "red"
+accent = "teal"
 toggle.icon = "material/brightness-4"
 toggle.name = "Switch to light mode"
 
 [[project.theme.palette]]
 scheme = "default"
 primary = "black"
-accent = "red"
+accent = "teal"
 toggle.icon = "material/brightness-7"
 toggle.name = "Switch to dark mode"
 

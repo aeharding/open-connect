@@ -142,7 +142,7 @@ Use medium-weight text and dotted text decoration rather than a border underline
 The bar fills the desktop width with four horizontal cells and uses a 2×2 grid
 below 40rem. Keep the existing compact bar (about 63px tall on desktop) so the screenshot remains
 visible immediately.
-Use hairline rules, a subtle surface tint and a 2px red left edge in both schemes.
+Use hairline rules, a subtle surface tint and a 2px HUD Teal left edge in both schemes.
 Long menu names may wrap on narrow screens; never clip text or overflow the page.
 Keep `.oc-default--on` or `.oc-default--off` with `.oc-default` where applicable.
 

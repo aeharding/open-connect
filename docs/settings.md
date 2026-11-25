@@ -1,49 +1,37 @@
 # Settings
 
-Open **Mazda Settings → System**, then select **Open Connect** near the bottom
-of the list, just above **About**.
+Change your preferences in Mazda’s own menus. Choices save automatically.
+
+Open **<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>**, just above **About**.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/settings-entry.png" alt="Mazda Settings with the System tab selected and Open Connect highlighted just above About." width="800" height="480"></div>
-  <figcaption>Look for Open Connect in Mazda's System tab.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/settings-entry.png" alt="Mazda Settings, System tab, with Open Connect selected above About." width="800" height="480"></div>
+  <figcaption>Scroll down in the System tab to find Open Connect.</figcaption>
 </figure>
-
-## Change a preference
-
-Select a preference, then select the choice you want. **Your choice saves
-automatically** and takes effect at the next full Mazda Connect restart.
-Use Back to return to the list.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings with Touchscreen While Driving, Startup disclaimer, Wireless CarPlay, Services and Developer options visible." width="800" height="480" loading="lazy"></div>
-  <figcaption>Your current choices appear beside each preference. Scroll for Uninstall and About.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings with Touchscreen While Driving, Startup disclaimer, Wireless CarPlay, Services and Developer options." width="800" height="480"></div>
+  <figcaption>Current choices appear beside the settings. Scroll down for Uninstall and About.</figcaption>
 </figure>
 
-| Feature | Fresh-install default |
-| --- | --- |
-| [Touchscreen While Driving](touchscreen.md) | **Allow** |
-| [Startup disclaimer](disclaimer.md) | **Skip** |
-| [Wireless CarPlay](wireless-carplay.md) | **Off** |
+<span id="change-a-preference"></span>
 
-Updating keeps your choices. See each feature's page for what its options do.
-Wireless CarPlay uses a checkbox and a confirmation explaining restart and
-Mazda's native Wi-Fi/Bluetooth setup.
-On hardware with factory wireless CarPlay, the checkbox is already checked and
-disabled, labeled **factory enabled**. Mazda's Wi-Fi menu controls its connection.
+## Choose a setting
 
-After changing a preference, switch the ignition off and let Mazda Connect shut
-down completely before starting again. A quick off/on may resume the old session.
+- [**Touchscreen While Driving**](touchscreen.md): choose **Allow** or **Factory Default**.
+- [**Startup disclaimer**](disclaimer.md): choose **Skip** or **Show**.
+- [**Wireless CarPlay**](wireless-carplay.md): enable a wireless iPhone connection on compatible hardware.
+- [**Services**](services.md): turn off unused integrations or enable **Base optimizations**.
+- [**Developer options**](developer-options.md): leave off unless you need development access.
+- [**Uninstall**](uninstall.md): remove Open Connect and restore your saved configuration.
+- [**About**](about.md): see your installed Open Connect version.
 
-**About** shows the installed Open Connect version.
-To remove Open Connect, choose [**Uninstall**](uninstall.md).
+Updates keep your choices.
 
-The newer v74 development candidate also has
-[Developer options](developer-options.md) for optional UART and SSH access,
-including public-key import. These are separate from the two driving/startup preferences.
+## Apply changes
 
-The Services development candidate adds a separate [Services](services.md) page
-for startup choices. Base optimizations defaults off; Mazda's built-in Android Auto
-and Pandora integrations default to running. Each choice is independent.
+Changes take effect on the **next full Mazda Connect startup**. Turn the ignition off and let the system shut down completely before starting again. A quick off/on may resume the same session.
 
-If a change cannot be confirmed, return to Open Connect and check the selected
-choice before trying again.
+**restart needed** means a choice is saved but not active yet. If a save cannot be confirmed, reopen Open Connect and check the choice before trying again.
+
+The guide describes **0.3.0-dev.17**, still in testing on North American version **74.00.324**. Real-car checks remain; no public download is available yet.

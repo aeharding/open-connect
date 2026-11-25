@@ -1,134 +1,49 @@
 # Services
 
-The **Services** page is under **Mazda Settings → System → Open Connect**.
-It controls the optional **Base optimizations** preset and Mazda's built-in
-**Android Auto**, **DVD**, **Pandora** and **SiriusXM** integrations. Your selections save automatically
-and apply after a full Mazda Connect restart.
+Turn off the phone and entertainment integrations you don’t use. Leave anything you use enabled.
 
-| Choice | Fresh-install default | Effect |
-| --- | --- | --- |
-| Base optimizations | **Off** | Reduce logging and startup work; stop unused DAB, TV, Stitcher and Aha services |
-| Android Auto | **On** | Load Mazda's built-in Android Auto integration |
-| DVD | **Off** | Load Mazda's DVD integration |
-| Pandora | **On** | Load Mazda's built-in Pandora integration |
-| SiriusXM | **On** | Load Mazda's satellite-radio integrations |
+Open **<span class="oc-nav-path" data-walkthrough="services">Mazda Settings → System → Open Connect → Services</span>**. Changes apply on the next full startup.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/services.png" alt="Services page with Base off, Android Auto on, DVD off, Pandora on and SiriusXM on." width="800" height="480"></div>
-  <figcaption>Fresh defaults: Base and DVD off; Android Auto, Pandora and SiriusXM on.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/services.png" alt="Services with Base optimizations off, Android Auto on, DVD off, Pandora on and SiriusXM on." width="800" height="480"></div>
+  <figcaption>Fresh-install choices. Each integration can be changed separately.</figcaption>
 </figure>
+
+## Phone and entertainment
+
+| Setting | Description | Default |
+| --- | --- | --- |
+| <span id="android-auto"></span>**Android Auto** | Built-in Android Auto support. Does not affect CarPlay, Bluetooth audio or USB music. | <span class="oc-default oc-default--on"><span aria-hidden="true">✓</span> On</span> |
+| <span id="dvd"></span>**DVD** | In-dash DVD video playback. CD audio still works when off. | <span class="oc-default oc-default--off"><span aria-hidden="true">✕</span> Off</span> |
+| <span id="pandora"></span>**Pandora** | Mazda’s built-in Pandora app. Does not affect Pandora through CarPlay or Bluetooth. | <span class="oc-default oc-default--on"><span aria-hidden="true">✓</span> On</span> |
+| <span id="siriusxm"></span>**SiriusXM** | Satellite radio and SiriusXM data services. | <span class="oc-default oc-default--on"><span aria-hidden="true">✓</span> On</span> |
+
+Confirm **Enable** or **Disable** when prompted. Turning an integration back on makes it available again after a full restart, subject to Mazda’s usual hardware and connection requirements.
 
 ## Base optimizations
 
-Check **Base optimizations** and confirm **Enable** to apply the preset at the
-next full restart. The preset combines native and browser Warn logging with
-stopping DAB, TV, Stitcher and Aha on the supported NA firmware.
-Warnings and errors remain available. Other logging sources retain their
-separate behavior. Service selections stay as you chose them.
+**Base optimizations** reduces background work at startup. It also stops the built-in Aha, Stitcher, DAB radio and TV integrations. It defaults to **Off** and leaves your individual choices above unchanged.
 
-The dev.14 preset also reduces unnecessary flash read-ahead and lets two busy
-Mazda services use both CPU cores. With **Wireless CarPlay** enabled, it waits
-twelve seconds after the CarPlay and network services are ready before releasing
-six background fuel, maintenance and driver-data services. These services become
-available later in startup; the delay starts at service readiness, independently
-of whether a phone connects. It does not wait for a CarPlay session.
-
-The dev.16 candidate additionally avoids loading native UI and voice plugins for
-disabled integrations. With Base and Wireless CarPlay enabled together, it delays
-Mazda Navigation startup by about twenty seconds to prioritize projection.
-Navigation's delay expires independently of CarPlay or network readiness.
-Early Navigation, compass and related vehicle displays can therefore become
-available later. The [dev.16 bench comparison](sparse-native-loading.md) records
-Home, native readiness, RAM costs, connection misses and qualification limits.
-Services, Android Auto and Audio Sources screenshots show that exact candidate;
-retained images keep their separately recorded versions.
+**If Wireless CarPlay is also on, Mazda Navigation starts about 20 seconds later.** Navigation still starts if no phone connects. Leave Base off if you want Mazda’s usual Navigation startup timing.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/base-enable.png" alt="Enable Base optimizations? Full explanation of logging, startup work and the Navigation delay with Wireless CarPlay." width="800" height="480" loading="lazy"></div>
-  <figcaption>Read the changes before enabling Base optimizations.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/base-enable.png" alt="Enable Base optimizations confirmation, including the Navigation delay when Wireless CarPlay is on." width="800" height="480"></div>
+  <figcaption>Read the confirmation before enabling Base optimizations.</figcaption>
 </figure>
 
-Clear it and confirm **Disable** to return to the original logging and startup policy
-after the next full restart. Updating preserves your choice. Uninstall restores
-the pre-install startup configuration; its restart clears the temporary policies.
-An immediate ignition off/on can resume the same running kernel, so allow a full
-Mazda Connect shutdown for changes to take effect.
+Turn Base off to restore Mazda’s original startup behavior at the next full start. Your Android Auto, DVD, Pandora and SiriusXM choices stay saved.
 
-Android Auto, DVD, Pandora and SiriusXM keep their own selections when you change Base.
-Shared streaming helpers stop only when their remaining integrations are off.
-Radio, DVD and streaming source rows follow the applied choices after restart;
-pending changes do not alter the current menu. Mazda's USB/projection handling
-remains separate.
+## Audio sources
+
+Disabled entertainment integrations disappear from Mazda’s **Sources** menu after restart. Turning them on restores their usual availability.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/audio-sources.png" alt="Mazda Entertainment source list with FM, AM, Bluetooth, CarPlay and USB; disabled Base integrations, Pandora, SiriusXM and DVD are hidden." width="800" height="480" loading="lazy"></div>
-  <figcaption>Base enabled; Android Auto, DVD, Pandora and SiriusXM off, after restart. Mazda controls the availability of enabled sources.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/audio-sources.png" alt="Mazda Entertainment Sources list with disabled integrations omitted." width="800" height="480"></div>
+  <figcaption>An example with Base on and Android Auto, DVD, Pandora and SiriusXM off.</figcaption>
 </figure>
 
-The [dev.15 complete-preset comparison](services-expansion.md) records timings,
-CPU, named RAM metrics, applied-source checks and restoration limits. The
-[dev.14 startup comparison](base-startup-tuning.md) retains that preset's own
-measurements and accepted RAM cost. The earlier
-[complete-preset comparison](services-comparison.md) retains its own configuration
-and results.
+## Testing
 
-The dev.13 candidate also changes wireless startup scheduling when Base and
-Wireless CarPlay are enabled together. Its [matched comparison](wireless-startup-speed.md)
-records earlier visible Maps and the accepted CPU tradeoff; other selections
-retain their existing launch policy.
+These are development controls for North American version **74.00.324**. Bench checks cover saving, startup and removal. Real-car checks, Android-phone use and equipped SiriusXM/DVD playback remain unqualified. There is no public download yet.
 
-## Android Auto
-
-Clear **Android Auto** and confirm **Disable** if you do not use that integration.
-It stops loading after the next full restart. Check it again and confirm **Enable**
-to restore it. This choice is separate from CarPlay and Pandora.
-
-<figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/android-auto-disable.png" alt="Disable Android Auto confirmation explaining that it will stop loading after Mazda Connect restarts." width="800" height="480" loading="lazy"></div>
-  <figcaption>Cancel keeps the saved choice.</figcaption>
-</figure>
-
-A **restart needed** label means the saved choice differs from the current session.
-Android-phone, audio and vehicle checks remain pending.
-
-## Pandora
-
-Clear the checkbox to stop that integration from loading. The confirmation
-explains that changes apply after restarting Mazda Connect. Switching ignition
-off and immediately on may resume the existing session; let it shut down fully.
-Updating preserves the selection. Uninstall restores the pre-install startup
-configuration.
-
-Checking it again and confirming **Enable** restores the integration after the
-next full restart. The checkbox shows your saved choice; the current session
-keeps its existing services until that restart.
-
-<figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/services-disable.png" alt="Disable Pandora confirmation explaining that changes apply after restarting Mazda Connect." width="800" height="480" loading="lazy"></div>
-  <figcaption>Confirm Disable to save the choice.</figcaption>
-</figure>
-
-The [five-start comparison](pandora-comparison.md) found modestly higher free
-RAM with Pandora off, without a resolved wired CarPlay startup gain.
-
-The Pandora control has bench checks for startup, software Settings,
-update and restoration; see the [qualification record](pandora-comparison.md#maintenance-and-restoration-qualification).
-Physical-input/audio and first-car checks remain pending.
-
-## DVD
-
-DVD defaults **off** in dev.15, including the first upgrade from a package with
-no DVD choice. Check **DVD** and confirm **Enable** to load it after a full restart.
-Later updates preserve your explicit choice. CD keeps its original behavior.
-
-## SiriusXM
-
-SiriusXM defaults **on**. Leave it enabled if you use satellite radio or its data
-features. Clear **SiriusXM** and confirm **Disable** to stop those integrations
-after a full restart; check it again to restore Mazda's normal tuner selection.
-Its Audio Sources and Applications entries follow the applied choice.
-
-The dev.15 controls and menu changes are under development. Equipped-tuner
-playback, subscription/data behavior and vehicle save/resume are unqualified;
-the bench has no satellite tuner. Keep SiriusXM enabled for ordinary use while
-those checks remain outstanding.
+Startup results vary by configuration. For measurements and technical details, see [Performance evidence](performance.md). A faster start than stock is not established.

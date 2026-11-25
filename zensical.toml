@@ -1,76 +1,86 @@
 [project]
 site_name = "Mazda Open Connect"
-site_description = "Install, use and develop Open Connect for first-generation Mazda Connect."
+site_description = "Optional changes for first-generation Mazda Connect. Owner guide for the 74.00.324A NA development preview."
 site_url = "https://aeharding.github.io/open-connect/"
 repo_url = "https://github.com/aeharding/open-connect"
 repo_name = "aeharding/open-connect"
 edit_uri = "edit/main/docs/"
 docs_dir = "docs"
 site_dir = "site"
-extra_css = ["stylesheets/bench.css", "stylesheets/guide.css"]
+extra_javascript = ["javascripts/nav-preview.js"]
+extra_css = ["stylesheets/theme.css", "stylesheets/guide.css", "stylesheets/bench.css"]
 copyright = "Open Connect contributors · AGPL-3.0-or-later"
 exclude_docs = "/bench-state.txt"
 nav = [
-  { "Using Open Connect" = [
-    { "Overview" = "index.md" },
-    { "How it works" = "how-it-works.md" },
+  { "Guide" = [
+    { "Welcome" = "index.md" },
     { "Quick start" = "usb-installer.md" },
-    { "Settings" = "settings.md" },
-    { "Uninstall" = "uninstall.md" },
+    { "How it works" = "how-it-works.md" }
   ] },
-  { "Features" = [
-    { "Overview" = "features/index.md" },
+  { "Settings" = [
+    { "Overview" = "settings.md" },
     { "Touchscreen While Driving" = "touchscreen.md" },
     { "Startup disclaimer" = "disclaimer.md" },
     { "Show CarPlay on connection" = "carplay-on-connection.md" },
     { "Wireless CarPlay" = "wireless-carplay.md" },
-    { "Developer options" = "developer-options.md" },
     { "Services" = "services.md" },
-  ] },
-  { "Performance evidence" = [
-    { "Timings and RAM" = "performance.md" },
-    { "Stock startup comparison" = "stock-startup-comparison.md" },
-    { "First startup comparison" = "startup-comparison.md" },
-    { "Startup verification optimization" = "startup-verification.md" },
-    { "Pandora startup and RAM" = "pandora-comparison.md" },
-    { "Native logging comparison" = "logging-comparison.md" },
-    { "Installed Base optimizations" = "base-comparison.md" },
-    { "Wireless startup baseline" = "wireless-comparison.md" },
-    { "Wireless startup speed" = "wireless-startup-speed.md" },
-    { "Base startup tuning" = "base-startup-tuning.md" },
-    { "Startup verification overhead" = "startup-overhead.md" },
-    { "Services pilots" = "service-pilots.md" },
-    { "Complete Services preset" = "services-comparison.md" },
-    { "Expanded Services" = "services-expansion.md" },
-    { "Sparse native loading" = "sparse-native-loading.md" },
-    { "CarPlay measurements" = "carplay-testing.md" },
+    { "Developer options" = "developer-options.md" },
+    { "Uninstall" = "uninstall.md" },
+    { "About" = "about.md" }
   ] },
   { "Development" = [
     { "Contribute" = "development.md" },
-    { "Wire a bench" = "bench-setup.md" },
-    { "Use the CLI" = "cli.md" },
+    { "Bench & CLI" = [
+      { "Wire a bench" = "bench-setup.md" },
+      { "Use the CLI" = "cli.md" }
+    ] },
     { "Build and test the installer" = "installer-development.md" },
     { "Maintenance UI evidence" = "maintenance-loading.md" },
     { "Architecture" = "extension-architecture.md" },
     { "Edit these docs" = "documentation.md" },
-  ] },
-  { "CMU research" = [
-    { "System overview" = "cmu/index.md" },
-    { "Findings" = "reverse-engineering.md" },
-    { "Firmware 74 integration" = "cmu/firmware74.md" },
-    { "Wireless CarPlay" = "cmu/wireless-carplay.md" },
-    { "Factory Reset" = "cmu/factory-reset.md" },
-  ] },
+    { "Performance evidence" = [
+      { "Summary & methods" = "performance.md" },
+      { "Startup & overhead" = [
+        { "Stock startup comparison" = "stock-startup-comparison.md" },
+        { "First startup comparison" = "startup-comparison.md" },
+        { "Startup verification optimization" = "startup-verification.md" },
+        { "Startup verification overhead" = "startup-overhead.md" }
+      ] },
+      { "Services & base tuning" = [
+        { "Sparse native loading (dev.16)" = "sparse-native-loading.md" },
+        { "Expanded Services (dev.15)" = "services-expansion.md" },
+        { "Base startup tuning (dev.14)" = "base-startup-tuning.md" },
+        { "Complete Services preset (dev.10)" = "services-comparison.md" },
+        { "Services pilots" = "service-pilots.md" },
+        { "Installed Base optimizations (dev.7)" = "base-comparison.md" },
+        { "Native logging comparison" = "logging-comparison.md" },
+        { "Pandora startup and RAM" = "pandora-comparison.md" }
+      ] },
+      { "Wireless CarPlay" = [
+        { "Wireless startup speed (dev.13)" = "wireless-startup-speed.md" },
+        { "Wireless startup baseline (dev.8)" = "wireless-comparison.md" },
+        { "CarPlay measurement plan" = "carplay-testing.md" }
+      ] }
+    ] },
+    { "CMU research" = [
+      { "System overview" = "cmu/index.md" },
+      { "Findings" = "reverse-engineering.md" },
+      { "Firmware 74 integration" = "cmu/firmware74.md" },
+      { "Wireless CarPlay" = "cmu/wireless-carplay.md" },
+      { "Factory Reset" = "cmu/factory-reset.md" }
+    ] }
+  ] }
 ]
 
 [project.theme]
 variant = "modern"
 language = "en"
 font = false
+logo = "assets/brand/logo-mark.svg"
+favicon = "assets/brand/favicon.svg"
 features = [
   "navigation.tabs",
   "navigation.sections",
-  "navigation.indexes",
   "navigation.top",
   "navigation.footer",
   "content.action.edit",
@@ -80,14 +90,14 @@ features = [
 
 [[project.theme.palette]]
 scheme = "slate"
-primary = "indigo"
+primary = "black"
 accent = "red"
 toggle.icon = "material/brightness-4"
 toggle.name = "Switch to light mode"
 
 [[project.theme.palette]]
 scheme = "default"
-primary = "indigo"
+primary = "black"
 accent = "red"
 toggle.icon = "material/brightness-7"
 toggle.name = "Switch to dark mode"

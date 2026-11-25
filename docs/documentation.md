@@ -36,9 +36,32 @@ Keep one source for each subject. Product direction and the roadmap remain in
 the repository's STEERING.md and PLAN.md; link to them rather than copying them.
 The lab handoff, bench-state.txt, is deliberately excluded from the website.
 
+## Navigation previews
+
+Wrap an in-car navigation path in inline text with a walkthrough name:
+
+~~~html
+<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>
+~~~
+
+The website turns it into a button. Select it to open a modal with the reviewed
+CMU screens; use the step dots, arrow buttons or Left/Right keys to move between
+steps. Manual navigation pauses playback; Play resumes the 2.2-second cycle.
+Escape, the close button or the dimmed backdrop closes it and returns focus to
+the path. Tab stays inside the modal. Reduced-motion preferences start playback
+paused. The text stays readable in GitHub and with JavaScript disabled.
+
+The screen sequences are in **docs/javascripts/nav-preview.js**. Use existing
+reviewed captures from **docs/assets/guide/** and keep their provenance intact.
+The `version-info` sequence shows the System tab with About visible and the
+reviewed Version Information dialog. `wireless-connect`
+shows the Wi-Fi prerequisite with directions to the phone-selection screen. Image URLs resolve
+from the script location so previews also work on nested pages and under the
+GitHub Pages path.
+
 ## Keep the direction readable
 
-**Using Open Connect is for owners.** Organize it around Quick start, Settings
+**Guide is for owners.** Organize it around Quick start, Settings
 and Uninstall. Use short numbered steps, the exact on-screen labels, current
 direct CMU screenshots and simple diagrams. Explain what to do and what happens
 next. Keep the firmware/prerelease limit visible; move build commands, backend
@@ -46,10 +69,11 @@ mechanics and qualification evidence to Development or CMU research.
 Say “Mazda Connect's main screen,” not “at Home.” Center framed screenshots and
 their captions; keep the outer frame compact and the original capture unedited.
 
-**Features has one page and menu item per feature.** Explain what it changes,
-its default, the available choices and any qualification limits. Keep Settings
-focused on finding Open Connect in Mazda's menus and saving preferences; link
-to feature pages for detail.
+**Settings follows the in-car menu.** Match the current on-screen labels and
+order. Explain each setting’s effect, default and choices in plain English. Keep
+the overview focused on finding Open Connect and saving preferences. Developer
+options can stay technical. Keep existing file paths and URLs when reorganizing
+navigation. Group bench, performance and research pages under Development.
 
 Write feature introductions for people deciding whether they can use the feature:
 what changes, whether it is available, and where to go next. Put commands and

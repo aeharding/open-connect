@@ -1,0 +1,71 @@
+/* Open Connect — neutral surfaces, precise type, one Soul Red accent. */
+:root {
+  --oc-red: #c4162a;
+  --oc-border: #d6d6d2;
+  --oc-surface-subtle: #f0f0ed;
+}
+[data-md-color-scheme="default"][data-md-color-primary="black"] {
+  --md-primary-fg-color: #fafaf8;
+  --md-primary-bg-color: #252525;
+  --md-accent-fg-color: #c4162a;
+  --md-accent-fg-color--transparent: #c4162a12;
+  --md-default-bg-color: #fafaf8;
+  --md-default-fg-color: #252525;
+  --md-default-fg-color--light: #62625e;
+  --md-default-fg-color--lighter: #73736e;
+  --md-default-fg-color--lightest: #25252518;
+  --md-typeset-a-color: #a91225;
+  --md-code-bg-color: #eeefeb;
+  --md-code-fg-color: #353530;
+}
+[data-md-color-scheme="slate"][data-md-color-primary="black"] {
+  --oc-red: #e11d36;
+  --oc-border: #353638;
+  --oc-surface-subtle: #202123;
+  --md-primary-fg-color: #17181a;
+  --md-primary-bg-color: #ededea;
+  --md-accent-fg-color: #e11d36;
+  --md-accent-fg-color--transparent: #e11d3614;
+  --md-default-bg-color: #17181a;
+  --md-default-fg-color: #ededea;
+  --md-default-fg-color--light: #b2b2ad;
+  --md-default-fg-color--lighter: #90918c;
+  --md-default-fg-color--lightest: #ededea18;
+  --md-typeset-a-color: #f07885;
+  --md-code-bg-color: #232426;
+  --md-code-fg-color: #e4e4df;
+}
+body, input { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+.md-header, .md-tabs {
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+  box-shadow: none;
+  border-bottom: 1px solid var(--oc-border);
+}
+.md-header__title { font-weight: 500; }
+.md-header__button.md-logo img { width: 1.5rem; height: 1.5rem; }
+.md-tabs__link { opacity: .75; }
+.md-tabs__link--active, .md-tabs__link:hover { opacity: 1; }
+.md-tabs__item--active { border-bottom: 2px solid var(--oc-red); }
+.md-typeset { font-size: .82rem; line-height: 1.7; }
+.md-typeset h1 { color: var(--md-default-fg-color); font-size: 2.15rem; font-weight: 500; line-height: 1.15; letter-spacing: -.04em; margin-bottom: .8em; }
+.md-typeset h2 { font-size: 1.35rem; font-weight: 500; letter-spacing: -.025em; margin-top: 2.3em; }
+.md-typeset h3 { font-size: 1rem; font-weight: 600; }
+.md-typeset a { text-underline-offset: .2em; }
+.md-typeset p a:hover, .md-typeset li a:hover { text-decoration: underline; }
+.md-typeset .md-button { border-radius: 2px; border: 1px solid var(--oc-border); padding: .5rem 1rem; font-size: .78rem; font-weight: 500; }
+.md-typeset .md-button--primary { background: var(--oc-red); border-color: var(--oc-red); color: white; }
+.md-typeset .md-button:hover, .md-typeset .md-button:focus-visible { background: var(--md-default-fg-color); border-color: var(--md-default-fg-color); color: var(--md-default-bg-color); }
+.md-typeset blockquote { border-left: 2px solid var(--oc-border); color: var(--md-default-fg-color--light); padding: .1rem 0 .1rem .9rem; }
+.md-typeset table:not([class]) { border: 0; border-top: 1px solid var(--oc-border); border-bottom: 1px solid var(--oc-border); border-radius: 0; font-size: .76rem; }
+.md-typeset table:not([class]) th { background: transparent; font-weight: 600; }
+.md-typeset table:not([class]) td { border-top: 1px solid var(--oc-border); }
+.md-footer { border-top: 1px solid var(--oc-border); }
+.md-nav__link--active { font-weight: 600; }
+@media (min-width: 76.25em) { .md-content__inner { margin-left: 1.8rem; margin-right: 1.8rem; } }
+@media (max-width: 44em) { .md-typeset h1 { font-size: 1.8rem; } }
+
+.md-typeset .md-button, .md-typeset .md-button:hover, .md-typeset .md-button:focus { text-decoration: none; }
+
+.md-typeset .mermaid { text-align: center; }
+.md-typeset .mermaid svg { display: block; margin-inline: auto; }

@@ -1,97 +1,79 @@
 # Quick start
 
-Install Open Connect from a USB drive, then choose your preferences in
-Mazda Settings.
+Open Connect installs from a USB drive. After installation, use Mazda Settings to change preferences or uninstall.
 
-> **V74 development target · qualification in progress**
->
-> Current source targets exactly **74.00.324A North America / cmu150_NA**.
-> A qualified v74 download is not published yet. See
-> [development and qualification](installer-development.md) for current limits.
+**Still in testing. No public download yet.** This guide shows the **0.3.0-dev.17** development preview. Bench checks do not establish real-car or physical-control qualification.
 
-The installer screenshots show **0.3.0-dev.17** on the v74 bench.
-Release qualification remains in progress.
+## 1. Check your firmware version
 
-<ol class="oc-install-flow" aria-label="Installation overview">
-  <li>
-    <img src="assets/guide/prepare-usb.svg" alt="" width="160" height="112">
-    <strong><span>1</span> Prepare the USB</strong>
-    <p>Extract every file onto a FAT32 drive.</p>
-  </li>
-  <li>
-    <img src="assets/guide/insert-usb.svg" alt="" width="160" height="112">
-    <strong><span>2</span> Insert the USB</strong>
-    <p>Wait for Mazda Connect’s main screen, then insert the drive.</p>
-  </li>
-  <li>
-    <img src="assets/guide/install-restart.svg" alt="" width="160" height="112">
-    <strong><span>3</span> Install and restart</strong>
-    <p>Choose Install. Keep the USB connected and the car on until installation is complete.</p>
-  </li>
-</ol>
+Open **<span class="oc-nav-path" data-walkthrough="version-info">Mazda Settings → System → About → Version Information</span>**.
 
-## 1. Prepare the USB drive
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/version-info.png" alt="Mazda Version Information: OS Version 74.00.324 NA N, Music Database Version 00.12.003 and Fail-Safe Version 74.00.324." width="800" height="480"></div>
+  <figcaption>Check OS Version: 74.00.324 NA N.</figcaption>
+</figure>
 
-Use a drive formatted as **FAT32**. Extract the downloaded ZIP and copy **all of
-its contents** directly onto the drive, outside any extra folder.
+Find **OS Version**. It must read **74.00.324 NA N**. This is the North American firmware supported by the current preview, also called **74.00.324A** in development records.
 
-The drive should contain the `open-connect` folder and **two small files beside
-it**. Keep their original names, including the unusually named `.up` file.
-Copy the extracted files, not the ZIP itself. Safely eject the drive.
+Other versions and regions are unsupported. Check the screen rather than guessing by model year. This guide does not cover firmware upgrades.
 
-## 2. Choose Install
+<span id="1-prepare-the-usb-drive"></span>
 
-Wait for **Mazda Connect's main screen**, then insert the USB drive.
-Choose **Install** when the prompt appears.
+## 2. Prepare a USB drive
+
+When a qualified release is available, use its ZIP for your supported version.
+
+Format a USB drive as FAT32, extract the ZIP onto it — the files must be at the root of the drive, not in an extra folder — then eject.
+
+<span id="2-choose-install"></span>
+
+## 3. Install
+
+Wait for **Mazda Connect’s main screen**, then insert the drive. Choose **Install** when prompted.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect? Version 0.3.0-dev.17, with Cancel and Install buttons." width="800" height="480"></div>
-  <figcaption>Choose Install. Keep the USB connected and the car on.</figcaption>
+  <figcaption>The development preview’s install prompt.</figcaption>
 </figure>
 
-**Do not remove the USB drive or turn off the car** during installation or the
-automatic restart. Wait for the **Open Connect installed** message.
+**Leave the USB drive connected and keep the car on** during installation and the automatic restart.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/installing.png" alt="Installing Open Connect, with Mazda’s animated meter and a warning to keep the USB drive connected and car on." width="800" height="480" loading="lazy"></div>
-  <figcaption>Wait while Open Connect applies the change and restarts Mazda Connect.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/installing.png" alt="Installing Open Connect with a progress meter and instructions to keep the USB connected and the car on." width="800" height="480"></div>
+  <figcaption>Wait while the installation finishes and Mazda Connect restarts.</figcaption>
 </figure>
 
-## 3. Finish
+<span id="3-finish"></span>
 
-After the restart, wait for **Open Connect installed**, then choose **Done** or
-**Open settings**. You can now remove the USB drive. Open Connect stays installed
-for future starts.
+## 4. Finish
+
+Wait for **Open Connect installed**. You can now remove the USB drive. Choose **Done** or **Open settings**.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect installed. Version 0.3.0-dev.17, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
-  <figcaption>You can now remove the USB drive. Choose Open settings to change your preferences.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect installed, version 0.3.0-dev.17, with Done and Open settings buttons." width="800" height="480"></div>
+  <figcaption>Open Connect stays installed after you remove the drive.</figcaption>
 </figure>
 
-[Change your settings →](settings.md) · [Uninstall →](uninstall.md)
+[Choose your settings](settings.md) · [Remove Open Connect](uninstall.md)
 
-## Updating an existing installation
+<span id="updating-an-existing-installation"></span>
 
-Prepare a USB drive from the new release in the same way. Insert it while
-Mazda Connect shows its main screen. The prompt shows **From** (the installed
-version) and **To** (the version on the drive), including same-version reinstalls.
-Choose **Update**, or **Reinstall** when the versions match. Your Open Connect preferences are kept.
+## Updates
 
-<figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/update.png" alt="Update Open Connect? From 0.3.0-dev.16 to 0.3.0-dev.17, with Cancel, Update and Uninstall buttons." width="800" height="480" loading="lazy"></div>
-  <figcaption>Check the installed and target versions before choosing Update or Reinstall.</figcaption>
-</figure>
+Prepare a drive with a compatible bundle and insert it on Mazda Connect’s main screen. Check **From** and **To**, then choose **Update**. Matching versions show **Reinstall** instead. Your preferences are kept.
 
-## Existing modifications
+Keep the drive connected and the car on until completion appears after restart. Any compatible replacement drive works; you don’t need the original.
 
-Other mods can change files this release needs. Installation refuses conflicting
-files rather than overwriting them. If it stops, include your existing mods when
-[reporting the problem](https://github.com/aeharding/open-connect/issues).
+<span id="existing-modifications"></span>
 
-## No prompt?
+## Other modifications
 
-Check that Mazda Connect shows its main screen, the drive is FAT32, and the
-extracted folder and two files are directly on the drive. Check the firmware
-limit above, then reinsert the drive. If it still does not open,
-[report the problem](https://github.com/aeharding/open-connect/issues) with your
-firmware version and what appeared on screen.
+Remove conflicting modifications first, including older wireless CarPlay mods. If files don’t match what Open Connect expects, it stops instead of overwriting them.
+
+<span id="no-prompt"></span>
+
+## Troubleshooting
+
+Check the version, FAT32 format and extracted files. Make sure Mazda Connect is showing its main screen, then reinsert the drive.
+
+If the prompt still doesn’t appear, [report an issue](https://github.com/aeharding/open-connect/issues). Include your OS Version, bundle version and the message you saw.

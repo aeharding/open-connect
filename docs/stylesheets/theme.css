@@ -60,7 +60,7 @@ body, input { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvet
 .md-typeset .md-button { border-radius: 2px; border: 1px solid var(--oc-border); padding: .5rem 1rem; font-size: .78rem; font-weight: 500; }
 .md-typeset .md-button--primary { background: var(--oc-red); border-color: var(--oc-red); color: white; }
 .md-typeset .md-button:hover, .md-typeset .md-button:focus { background: var(--md-default-fg-color); border-color: var(--md-default-fg-color); color: var(--md-default-bg-color); }
-.md-typeset blockquote { border-left: 2px solid var(--oc-red); color: var(--md-default-fg-color--light); padding: .1rem 0 .1rem .9rem; }
+[dir] .md-typeset blockquote { border-inline-start: 2px solid var(--oc-red); color: var(--md-default-fg-color--light); padding-block: .1rem; padding-inline: .9rem 0; }
 .md-typeset table:not([class]) { border: 0; border-top: 1px solid var(--oc-border); border-bottom: 1px solid var(--oc-border); border-radius: 0; font-size: .76rem; }
 .md-typeset table:not([class]) th { background: transparent; font-weight: 600; }
 .md-typeset table:not([class]) td { border-top: 1px solid var(--oc-border); }
@@ -70,6 +70,7 @@ body, input { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvet
   --oc-selection-edge: linear-gradient(90deg, #ff6748, #e63424 45%, transparent);
   color: #fff;
   border-radius: 0;
+  box-shadow: inset 2px 0 #ff6748;
   background:
     var(--oc-selection-edge) top / 100% 1px no-repeat,
     var(--oc-selection-edge) bottom / 100% 1px no-repeat,

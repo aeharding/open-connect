@@ -1,6 +1,9 @@
 # Guide image provenance
 
-## Commander Dial setting captures — November 24, 2026
+<span id="commander-dial-setting-captures-november-24-2026"></span>
+<span id="commander-dial-setting-captures--november-24-2026"></span>
+
+## Commander Dial setting captures 2026-11-24
 
 The fourteen `setting-*.png` images are direct, unedited native **800×480**
 **BGRA framebuffer (`/dev/fb0`) readbacks**, supplied by the capture operator.
@@ -12,10 +15,17 @@ The red highlight is Mazda’s native row focus, not an image edit.
 These are bench software UI captures, separate from real-car qualification and
 physical Commander Dial hardware validation.
 
-Identity supplied by the coordinator: published **v0.3.0-dev.19**, tag commit
-[`f478f3b2`](https://github.com/aeharding/open-connect/tree/f478f3b282f6987d86e04c03d83b1a6971d5a3db).
-USB bundle SHA-256:
-`d4f0feaf4813ef5707d0f2528a0a98b70b571b1def56582b50e35ec463e5048d`.
+The coordinator identified **v0.3.0-dev.19**, tag commit
+[`f478f3b2`](https://github.com/aeharding/open-connect/tree/f478f3b282f6987d86e04c03d83b1a6971d5a3db),
+with two distinct archive identities:
+
+- Published GitHub [v0.3.0-dev.19 prerelease](https://github.com/aeharding/open-connect/releases/tag/v0.3.0-dev.19)
+  ZIP, as recorded in the release’s `SHA256SUMS`: `c2c09b3123a2145f3582d3ee7f1e692581b1196ab18c5ba60fc198d79716c486`.
+- Local coordinator build ZIP: `d4f0feaf4813ef5707d0f2528a0a98b70b571b1def56582b50e35ec463e5048d`.
+
+The coordinator reports that all **50 extracted file members are byte-for-byte
+identical** between these archives; the ZIP archive hashes differ.
+
 The documentation implementer inspected and copied the supplied files offline;
 no new live identity or package verification was performed for this docs change.
 
@@ -172,7 +182,10 @@ completion is from its new boot and Open settings opened the installed page.
 The older per-version records below are
 historical provenance; Git retains their superseded image bytes.
 
-## Applied Audio Sources — November 23, 2026
+<span id="applied-audio-sources-november-23-2026"></span>
+<span id="applied-audio-sources--november-23-2026"></span>
+
+## Applied Audio Sources 2026-11-23
 
 `audio-sources.png` is a direct, unedited 800×480 native screenshot of
 **0.3.0-dev.15** on **74.00.324A NA/cmu150_NA**. Base is on, Android Auto and

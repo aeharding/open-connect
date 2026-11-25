@@ -13,7 +13,7 @@ Open CarPlay when your iPhone connects, including after startup and reconnection
 - **Startup & RAM impact**: **Neutral** — no isolated startup gain is established. Source-accounted own file pages changed **0 B** (`carplay.js` +4 KiB offset by `settings.js` 32→28 KiB); matched timing and PSS measurements remain ahead.
 - **Trade-offs & boot implications**: CarPlay may replace your current screen on connection. Input, calls, voice control, Settings and maintenance dialogs take priority; Mazda retains screen and reverse-camera control.
 - **Applies**: Saved automatically; takes effect on the **next full Mazda Connect startup**. See [restart guidance](settings.md#apply-changes).
-- **Evidence & limits**: Offline replays and wireless bench checks cover **74.00.324A NA**. One intermittent native acceptance miss occurred with Startup optimizations on; subsequent reconnects passed. Wired auto-selection, live call/Siri/reverse interaction and real-car use remain unqualified. See [Performance evidence](performance.md); matched dev.19 benchmarks remain ahead. No public download is available.
+- **Evidence & limits**: Offline replays and wireless bench checks cover **74.00.324A NA**. One intermittent native acceptance miss occurred with Startup optimizations on; subsequent reconnects passed. Wired auto-selection, live call/Siri/reverse interaction and real-car use remain unqualified. See [Performance evidence](performance.md); matched dev.19 benchmarks remain ahead. **0.3.0-dev.19** is a development prerelease.
 
 ## Options
 

@@ -39,6 +39,6 @@ Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings
 
 ## Testing
 
-These are development controls for **74.00.324A NA/cmu150_NA**. The dev.19 menu has bench captures and Settings Uninstall verification; real-car checks, Android-phone use, equipped SiriusXM/DVD playback and matched dev.19 benchmarks remain ahead. No public download is available.
+These are development controls for **74.00.324A NA/cmu150_NA**. The dev.19 menu has bench captures and Settings Uninstall verification; real-car checks, Android-phone use, equipped SiriusXM/DVD playback and matched dev.19 benchmarks remain ahead. **0.3.0-dev.19** is a development prerelease.
 
 Each setting page links its evidence and limits. [Performance evidence](performance.md) records earlier configurations; faster startup than stock is not established.

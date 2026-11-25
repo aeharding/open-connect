@@ -13,9 +13,9 @@ Connect your iPhone to CarPlay without plugging in a USB cable. Open Connect ena
 
 - **Default**: <span class="oc-default oc-default--off">Off</span>, unless the unit has factory wireless CarPlay. **factory enabled** units need no change here.
 - **Startup & RAM impact**: **Neutral** — no isolated wireless-enable startup or RAM saving is established.
-- **Trade-offs & boot implications**: Uses Wi-Fi for CarPlay and requires compatible hardware and phone pairing. Wired CarPlay remains available when this setting is off. With [Startup optimizations](startup-optimizations.md) on, Mazda Navigation starts about **20 s later**, even if no phone connects.
+- **Trade-offs & boot implications**: Uses Wi-Fi for CarPlay and requires compatible hardware and phone pairing. Wired CarPlay remains available when this setting is off. In dev.19, Mazda Navigation starts about **20 s later** only when **both** [Startup optimizations](startup-optimizations.md) and the **saved Open Connect Wireless CarPlay override** are on, even if no phone connects. An already-checked **factory enabled** row leaves that override off and does not trigger this delay.
 - **Applies**: Saved automatically; takes effect on the **next full Mazda Connect startup**. See [restart guidance](settings.md#apply-changes).
-- **Evidence & limits**: [Performance evidence](performance.md) records wireless configurations, not an isolated enable-toggle benefit. Earlier builds have connection and full-restart reconnection checks; real-car audio, physical controls and long-parked reliability remain unqualified. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. No public download yet.
+- **Evidence & limits**: [Performance evidence](performance.md) records wireless configurations, not an isolated enable-toggle benefit. Earlier builds have connection and full-restart reconnection checks; real-car audio, physical controls and long-parked reliability remain unqualified. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. **0.3.0-dev.19** is a development prerelease.
 
 <span id="connect-an-iphone"></span>
 

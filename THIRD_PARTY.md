@@ -24,11 +24,21 @@ bezel displayed around the captures by the website; it is not part of the screen
 
 The fourteen `setting-*.png` Commander Dial row captures show **0.3.0-dev.19**,
 tag commit `f478f3b282f6987d86e04c03d83b1a6971d5a3db`, supplied on November 24,
-2026 as native 800×480 `/dev/fb0` BGRA readbacks. The coordinator identified the
-USB bundle SHA-256 as `d4f0feaf4813ef5707d0f2528a0a98b70b571b1def56582b50e35ec463e5048d`.
+2026 as native 800×480 `/dev/fb0` BGRA readbacks. The coordinator identified
+two distinct archive identities:
+
+- Published GitHub [v0.3.0-dev.19 prerelease](https://github.com/aeharding/open-connect/releases/tag/v0.3.0-dev.19)
+  ZIP, as recorded in the release’s `SHA256SUMS`: `c2c09b3123a2145f3582d3ee7f1e692581b1196ab18c5ba60fc198d79716c486`.
+- Local coordinator build ZIP: `d4f0feaf4813ef5707d0f2528a0a98b70b571b1def56582b50e35ec463e5048d`.
+
+The coordinator reports that all **50 extracted file members are byte-for-byte
+identical** between these archives; the ZIP archive hashes differ.
+
+The documentation implementer copied and hash-checked supplied PNGs offline;
+no new live identity or package verification was performed for this docs change.
 Each complete image was reviewed for publication; the native red focus was
 produced with Commander Dial events, not image edits. Per-file copied hashes
-and qualification limits are in the [guide asset notes](docs/assets/guide/README.md#commander-dial-setting-captures-november-24-2026).
+and qualification limits are in the [guide asset notes](docs/assets/guide/README.md#commander-dial-setting-captures-2026-11-24).
 
 Current dev.17 Install, loading/restart, Update, Settings, Uninstall
 and Base-confirmation captures use

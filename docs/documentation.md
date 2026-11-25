@@ -130,9 +130,16 @@ personal data, credentials and diagnostic overlays before publication.
 
 The coordinator identified tag commit
 [`f478f3b2`](https://github.com/aeharding/open-connect/tree/f478f3b282f6987d86e04c03d83b1a6971d5a3db)
-and USB bundle SHA-256
-`d4f0feaf4813ef5707d0f2528a0a98b70b571b1def56582b50e35ec463e5048d`.
-The [per-file provenance and SHA-256 table](assets/guide/README.md#commander-dial-setting-captures-november-24-2026)
+and supplied two archive identities:
+
+- Published GitHub [v0.3.0-dev.19 prerelease](https://github.com/aeharding/open-connect/releases/tag/v0.3.0-dev.19)
+  ZIP, as recorded in the release’s `SHA256SUMS`: `c2c09b3123a2145f3582d3ee7f1e692581b1196ab18c5ba60fc198d79716c486`.
+- Local coordinator build ZIP: `d4f0feaf4813ef5707d0f2528a0a98b70b571b1def56582b50e35ec463e5048d`.
+
+The coordinator reports that all **50 extracted file members are byte-for-byte
+identical** between these archives; the ZIP archive hashes differ.
+
+The [per-file provenance and SHA-256 table](assets/guide/README.md#commander-dial-setting-captures-2026-11-24)
 records the copied bytes, shown preferences and private supplied-original paths.
 Copying and hash checks were offline; this docs change makes no new live package,
 physical-controller or real-car qualification claim. Older ancillary captures

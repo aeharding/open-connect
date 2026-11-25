@@ -13,7 +13,7 @@ Skip Mazda’s startup warning and continue to your usual screen.
 - **Startup & RAM impact**: **Neutral** — no isolated startup or RAM measurement is established.
 - **Trade-offs & boot implications**: The startup warning is skipped; the screen may briefly go black. Mazda’s normal resume behavior remains, including audio, display-off and Fuel Economy Monitor.
 - **Applies**: Saved automatically; takes effect on the **next full Mazda Connect startup**. See [restart guidance](settings.md#apply-changes).
-- **Evidence & limits**: Startup and restoration have bench checks. [Performance evidence](performance.md) does not isolate this setting. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. No public download yet.
+- **Evidence & limits**: Startup and restoration have bench checks. [Performance evidence](performance.md) does not isolate this setting. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. **0.3.0-dev.19** is a development prerelease.
 
 <span id="change-the-setting"></span>
 

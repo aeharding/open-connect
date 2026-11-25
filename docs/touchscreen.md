@@ -13,7 +13,7 @@ Keep touch available while the car is moving, including for a passenger using Ma
 - **Startup & RAM impact**: **Neutral** — no isolated startup or RAM measurement is established.
 - **Trade-offs & boot implications**: Touch remains available while moving. The commander knob and normal Mazda controls remain available. Keep your attention on driving.
 - **Applies**: Saved automatically; takes effect on the **next full Mazda Connect startup**. See [restart guidance](settings.md#apply-changes).
-- **Evidence & limits**: The setting and restoration have bench checks; touch while moving in a real car remains unvalidated. [Performance evidence](performance.md) has no isolated comparison. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. No public download yet.
+- **Evidence & limits**: The setting and restoration have bench checks; touch while moving in a real car remains unvalidated. [Performance evidence](performance.md) has no isolated comparison. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. **0.3.0-dev.19** is a development prerelease.
 
 <span id="change-the-setting"></span>
 

@@ -13,7 +13,7 @@ See which version of Open Connect is installed.
 - **Startup & RAM impact**: **Neutral** — viewing version information changes no settings; no startup or RAM claim.
 - **Trade-offs & boot implications**: None; opening About does not change startup behavior.
 - **Applies**: Read-only; opens immediately and needs no restart.
-- **Evidence & limits**: The dev.19 menu has bench captures on **74.00.324A NA**; real-car qualification remains ahead. [Performance evidence](performance.md) describes measured configurations. No public download is available.
+- **Evidence & limits**: The dev.19 menu has bench captures on **74.00.324A NA**; real-car qualification remains ahead. [Performance evidence](performance.md) describes measured configurations. **0.3.0-dev.19** is a development prerelease.
 
 ## Check the version
 

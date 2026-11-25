@@ -142,7 +142,7 @@ RAM waiver is claimed.
 The dev.14→dev.15 upgrade retained existing choices and the original stock-five
 baseline, adding DVD off and SiriusXM on. Real Settings showed all five Services
 rows; native Entertainment showed no disabled white/grey ghost source rows.
-The [guide capture notes](assets/guide/README.md#applied-audio-sources-november-23-2026) retain that list’s dev.15 provenance.
+The [guide capture notes](assets/guide/README.md#applied-audio-sources-2026-11-23) retain that list’s dev.15 provenance.
 Applied visibility resisted late Mazda Visible messages; the OEM master source
 array and USB_A index 12 stayed intact. Pending saves did not change applied rows.
 

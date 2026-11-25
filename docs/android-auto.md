@@ -13,7 +13,7 @@ Control Mazda’s built-in Android Auto support.
 - **Startup & RAM impact**: **Neutral** — no isolated startup or free-RAM gain is established.
 - **Trade-offs & boot implications**: Turning it off makes built-in Android Auto unavailable. CarPlay, Bluetooth audio, USB music and audio CDs still work.
 - **Applies**: Saved automatically; takes effect on the **next full Mazda Connect startup**. See [restart guidance](settings.md#apply-changes).
-- **Evidence & limits**: [Performance evidence](performance.md) covers combined service configurations, not an isolated Android Auto gain. Android-phone use remains unqualified. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. No public download yet.
+- **Evidence & limits**: [Performance evidence](performance.md) covers combined service configurations, not an isolated Android Auto gain. Android-phone use remains unqualified. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. **0.3.0-dev.19** is a development prerelease.
 
 ## Change the setting
 

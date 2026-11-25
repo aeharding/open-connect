@@ -13,7 +13,7 @@ Open **<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings 
 - **Startup & RAM impact**: **Neutral** for browsing Settings. Individual settings have different measured effects; see [Impact at a glance](#impact-at-a-glance).
 - **Trade-offs & boot implications**: Each setting page explains the affected features and any startup delay.
 - **Applies**: Choices save automatically and take effect on the **next full Mazda Connect startup**; [Uninstall](uninstall.md) restarts automatically and [About](about.md) is read-only.
-- **Evidence & limits**: [Performance evidence](performance.md) records earlier measured configurations. The dev.19 menu has bench captures and Settings Uninstall verification; real-car qualification and matched dev.19 benchmarks remain ahead. No public download is available.
+- **Evidence & limits**: [Performance evidence](performance.md) records earlier measured configurations. The dev.19 menu has bench captures and Settings Uninstall verification; real-car qualification and matched dev.19 benchmarks remain ahead. **0.3.0-dev.19** is a development prerelease.
 
 <span id="change-a-preference"></span>
 
@@ -44,7 +44,7 @@ These comparisons describe enabling Startup optimizations or disabling an unused
 | --- | --- | --- | --- |
 | [Touchscreen While Driving](touchscreen.md) | Neutral | Not measured separately | Touch stays available while moving. |
 | [Startup disclaimer](disclaimer.md) | Neutral | Not measured separately | The startup warning is skipped. |
-| [Startup optimizations](startup-optimizations.md) | Faster in earlier wired tests | +9.9 MiB minimum MemFree; +2.58 MiB ending, dev.7 | Aha, Stitcher, DAB and TV stop; Mazda Navigation starts about 20 s later with Wireless CarPlay on. |
+| [Startup optimizations](startup-optimizations.md) | Faster in earlier wired tests | +9.9 MiB minimum MemFree; +2.58 MiB ending, dev.7 | Aha, Stitcher, DAB and TV stop; dev.19 delays Mazda Navigation about 20 s only with both Startup optimizations and the saved Open Connect Wireless CarPlay override on. |
 | [Wireless CarPlay](wireless-carplay.md) | Neutral | No isolated gain established | Requires compatible hardware and phone pairing. |
 | [Show CarPlay on connection](carplay-on-connection.md) | Neutral | No matched PSS measurement | CarPlay may replace your current screen on connection. |
 | [Android Auto off](android-auto.md) | Neutral | Not measured separately | Built-in Android Auto becomes unavailable. |
@@ -52,6 +52,8 @@ These comparisons describe enabling Startup optimizations or disabling an unused
 | [Pandora off](pandora.md) | Neutral | +3.2 MiB minimum MemFree, dev.6 | Mazda’s Pandora integration disappears from Sources; CarPlay apps still work. |
 | [SiriusXM off](siriusxm.md) | Neutral | Not measured separately | Satellite radio and SiriusXM data become unavailable. |
 | [Developer options](developer-options.md) | Neutral | Not measured separately | Gives direct access to the head unit; changes you make can affect maintenance. |
+
+An already-checked **factory enabled** Wireless CarPlay row leaves the Open Connect wireless override off and does not trigger the Navigation delay.
 
 The [Performance evidence](performance.md) records the configurations and limits. Startup optimizations was called **Base optimizations** in those tests: dev.7’s wired dashboard was about 3.8 s earlier with it on. Pandora’s timing difference was below camera resolution. These are earlier bench results, not dev.19 measurements; do not add their RAM figures together. Free RAM here means **MemFree**, not memory available to apps. Later presets changed both behavior and memory costs; matched dev.19 results remain ahead.
 
@@ -61,4 +63,4 @@ Changes take effect on the **next full Mazda Connect startup**. Turn the ignitio
 
 **restart needed** means a choice is saved but not active yet. If a save cannot be confirmed, reopen Open Connect and check the choice before trying again.
 
-The guide describes **0.3.0-dev.19**, still in testing on North American version **74.00.324**. Real-car checks remain; no public download is available yet.
+The guide describes the **0.3.0-dev.19 development prerelease** for North American version **74.00.324**. Real-car qualification remains pending.

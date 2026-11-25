@@ -13,7 +13,7 @@ Control satellite radio and SiriusXM data services.
 - **Startup & RAM impact**: **Neutral** — no isolated startup or free-RAM gain is established.
 - **Trade-offs & boot implications**: Turning it off hides SiriusXM from **Sources** and stops both satellite radio and SiriusXM data. CarPlay and audio CDs still work.
 - **Applies**: Saved automatically; takes effect on the **next full Mazda Connect startup**. See [restart guidance](settings.md#apply-changes).
-- **Evidence & limits**: [Performance evidence](performance.md) has no isolated SiriusXM comparison. The bench has no equipped satellite tuner; radio and data playback remain unqualified. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. No public download yet.
+- **Evidence & limits**: [Performance evidence](performance.md) has no isolated SiriusXM comparison. The bench has no equipped satellite tuner; radio and data playback remain unqualified. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. **0.3.0-dev.19** is a development prerelease.
 
 ## Change the setting
 

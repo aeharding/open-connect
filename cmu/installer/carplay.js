@@ -59,7 +59,7 @@ function note(m){
 }
 function tap(m){
   if(a.signal) a.signal(m);
-  else if(m._cp.ctx||/^(vuiState|SendCPSessionState|StatusMenu.*CarPlay.*|StatusPhoneCall|(Active|Conference)CallInfo|BTMultipleCallCP|NoCallState|.*Siri.*|TimedSBN_(VRLoading|VoiceNotSupported))$/.test(m.msgId)){
+  else if(m._cp.ctx||/^(vuiState|TimedSbn_CarplayConnected|SendCPSessionState|StatusMenu.*CarPlay.*|StatusPhoneCall|(Active|Conference)CallInfo|BTMultipleCallCP|NoCallState|.*Siri.*|TimedSBN_(VRLoading|VoiceNotSupported))$/.test(m.msgId)){
     if(a.early.length<32) a.early.push(m); else a.busy|=8;
   }
 }
@@ -68,7 +68,7 @@ wrap(Websockets.prototype,"_doRouteMmuiMsg",function(text){
   at={t:Date.now(),k:k,len:this._preInitGuiMsgQueue.length};
 },function(){
   var list=this._preInitGuiMsgQueue;
-  for(var i=at.len; i<list.length; i++) note(list[i]);
+  for(var i=at.len;i<list.length;i++) note(list[i]);
   at=null; soon();
 });
 wrap(f,"routeMmuiMsg",note,soon);

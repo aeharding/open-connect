@@ -498,7 +498,6 @@ function attach(fw,app,store){
     list=release=null;
   };
 }
-// Use the stock tab.
 function fromHome(fw,store,result){
   if(active||waiting||fw._frameworkState!==fw._FWK_STATE_IDLE||fw.common._vuiHelpDialog||
       fw.getCurrentApp()!=="system"||fw.getCurrCtxtId()!=="HomeScreen"){return false;}
@@ -604,14 +603,14 @@ a.signal=function(m){
         displayOff=false;
       }
       if(c[1]==="DisplayOff")displayOff=true;
-      // A focus replay is not a new call; NoCallState remains authoritative.
       if(c[0]==="phone"&&!m._cp.focus&&/^(ActiveCall|IncomingCall|CallWaiting|MultipleCallWaiting|BTMultipleCall|OutgoingCall|Connecting)/.test(c[1]))a.busy|=2;
     }
   }
   if(edge===m._cp&&camera)edge.reverse=camera.seq;
+  if(edge&&m._cp.seq>edge.seq&&m.uiaId==="carplay"&&id==="TimedSbn_CarplayConnected")edge.ready=m;
   if(edge&&m._cp.seq>edge.seq&&m.uiaId==="system"&&p&&p.appName==="carplay"&&
       /^(StatusMenuVisibleCarPlay|StatusMenuCarPlayWifi)$/.test(id)){
-    if(id==="StatusMenuVisibleCarPlay" ? p.state==="Visible" :p.appStatus==="Available") edge.menu=m;
+    if(id==="StatusMenuVisibleCarPlay" ? p.state==="Visible" :p.appStatus==="Available")edge.menu=m;
     else if(edge.menu&&edge.menu.msgId===id) edge.menu=null;
   }
   if(m.uiaId==="common"&&id==="vuiState"&&p) a.busy=a.busy & ~16 | (a.voice(p.state) ? 16 :0);
@@ -626,7 +625,6 @@ a.signal=function(m){
   }
   if(depart(m,edge)||(a.busy||displayOff)&&(!edge||m._cp.seq>=edge.seq)){a.cancel();}
 };
-// Overflow guards this document: disconnect cannot resolve dropped safety events.
 a.early.forEach(a.signal); a.early=null;
 a.run=function(edge,input,trust,focus,next){
   if(Date.now()>=edge.end||input!==edge.k||a.busy){a.cancel(); return;}
@@ -634,7 +632,8 @@ a.run=function(edge,input,trust,focus,next){
   var gate=a.check(focus,next);
   if(gate===2) a.cancel();
   if(gate!==0||a.edge()!==edge||!trust||!edge.menu||!edge.menu._cp.delivered||
-      !edge.delivered||f.websockets._waitMsgArray.length||a.holding) return;
+      !edge.delivered||!edge.ready||!edge.ready._cp.delivered||
+      f.websockets._waitMsgArray.length||a.holding) return;
   a.cancel(); f.sendEventToMmui("system","SelectCarPlay");
 };
 a.wrap(f,"_processNewFwkState",null,a.pump);

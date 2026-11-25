@@ -1,83 +1,74 @@
 # Quick start
 
-Install Open Connect directly from a FAT32 USB drive — no laptop, serial cable, or network connection required. Once installed, every setting and Uninstall live inside **Mazda Settings**.
+Open Connect installs from a USB drive. After installation, use Mazda Settings to change preferences or uninstall.
 
-<div class="oc-status-strip">
-  <span class="oc-status-pill">Pre-release · 74.00.324A NA</span>
-  <span>Targets exact firmware <strong>74.00.324A North America (cmu150_NA)</strong>. A qualified release download is not published yet; screenshots show <code>0.3.0-dev.17</code> on the bench. <a href="installer-development/">Current limits →</a></span>
-</div>
+**Still in testing. No public download yet.** This guide shows the **0.3.0-dev.17** development preview. Bench checks do not establish real-car or physical-control qualification.
 
-<ol class="oc-install-flow" aria-label="Installation overview">
-  <li>
-    <img src="assets/guide/prepare-usb.svg" alt="" width="160" height="112">
-    <strong><span>1</span> Prepare the USB</strong>
-    <p>Extract every file directly onto a FAT32 drive.</p>
-  </li>
-  <li>
-    <img src="assets/guide/insert-usb.svg" alt="" width="160" height="112">
-    <strong><span>2</span> Insert the USB</strong>
-    <p>Wait for Mazda Connect’s main screen, then plug in the drive.</p>
-  </li>
-  <li>
-    <img src="assets/guide/install-restart.svg" alt="" width="160" height="112">
-    <strong><span>3</span> Install &amp; restart</strong>
-    <p>Choose Install and leave power and USB connected until completion appears.</p>
-  </li>
-</ol>
+## 1. Check your firmware version
 
-## 1. Prepare the USB drive
+Open **Mazda Settings → System → About → Version Information**.
 
-Format a USB drive as **FAT32**. Extract the release ZIP and copy **all of its contents** directly to the top level of the drive (not inside an extra folder).
+Find **OS Version**. It must read **74.00.324 NA N**. This is the North American firmware supported by the current preview, also called **74.00.324A** in development records.
 
-You should see the `open-connect` folder alongside **two small files** — keep their exact names, including the `.up` file. Copy the extracted files rather than the ZIP itself, then safely eject the drive.
+Other versions and regions are unsupported. Check the screen rather than guessing by model year. This guide does not cover firmware upgrades.
 
-## 2. Choose Install
+<span id="1-prepare-the-usb-drive"></span>
 
-Wait until **Mazda Connect’s main screen** is visible, then plug in the USB drive. Choose **Install** when the prompt appears.
+## 2. Prepare a USB drive
+
+When a qualified release is available, use its ZIP for your supported version.
+
+Format a USB drive as FAT32, extract the ZIP onto it — the files must be at the root of the drive, not in an extra folder — then eject.
+
+<span id="2-choose-install"></span>
+
+## 3. Install
+
+Wait for **Mazda Connect’s main screen**, then insert the drive. Choose **Install** when prompted.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/install.png" alt="Install Open Connect? Version 0.3.0-dev.17, with Cancel and Install buttons." width="800" height="480"></div>
-  <figcaption>Confirm Install while Mazda Connect’s main screen is showing.</figcaption>
+  <figcaption>The development preview’s install prompt.</figcaption>
 </figure>
 
-**Keep the USB drive plugged in and the car turned on** while Open Connect applies the installation and automatically restarts Mazda Connect.
+**Leave the USB drive connected and keep the car on** during installation and the automatic restart.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/installing.png" alt="Installing Open Connect, with Mazda’s animated meter and a warning to keep the USB drive connected and car on." width="800" height="480" loading="lazy"></div>
-  <figcaption>Mazda’s native progress screen stays up while changes are applied and the system restarts.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/installing.png" alt="Installing Open Connect with a progress meter and instructions to keep the USB connected and the car on." width="800" height="480"></div>
+  <figcaption>Wait while the installation finishes and Mazda Connect restarts.</figcaption>
 </figure>
 
-## 3. Finish
+<span id="3-finish"></span>
 
-After the restart, wait for **Open Connect installed**, then choose **Done** or **Open settings**. You can now safely remove the USB drive — Open Connect remains installed for future starts.
+## 4. Finish
+
+Wait for **Open Connect installed**. You can now remove the USB drive. Choose **Done** or **Open settings**.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect installed. Version 0.3.0-dev.17, with Done and Open settings buttons." width="800" height="480" loading="lazy"></div>
-  <figcaption>Installation is complete — remove the USB drive and open Settings to customize features.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/complete.png" alt="Open Connect installed, version 0.3.0-dev.17, with Done and Open settings buttons." width="800" height="480"></div>
+  <figcaption>Open Connect stays installed after you remove the drive.</figcaption>
 </figure>
 
-[Explore Settings →](settings.md) · [Uninstall →](uninstall.md)
+[Choose your settings](settings.md) · [Remove Open Connect](uninstall.md)
 
-## Updating or reinstalling
+<span id="updating-an-existing-installation"></span>
 
-Prepare a FAT32 USB drive with the release you want and insert it on Mazda Connect’s main screen. The prompt shows **From** (installed version) and **To** (USB version). Choose **Update**, or **Reinstall** if both versions match. All of your Open Connect preferences are preserved automatically.
+## Updates
 
-<figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/update.png" alt="Update Open Connect? From 0.3.0-dev.16 to 0.3.0-dev.17, with Cancel, Update and Uninstall buttons." width="800" height="480" loading="lazy"></div>
-  <figcaption>Verify the installed and target versions before choosing Update or Reinstall.</figcaption>
-</figure>
+Prepare a drive with a compatible bundle and insert it on Mazda Connect’s main screen. Check **From** and **To**, then choose **Update**. Matching versions show **Reinstall** instead. Your preferences are kept.
 
-## Existing modifications
+Keep the drive connected and the car on until completion appears after restart. Any compatible replacement drive works; you don’t need the original.
 
-Open Connect requires the exact supported OEM files on `74.00.324A NA`. If another mod changed files Open Connect relies on, installation stops safely instead of overwriting them. Remove existing mods (such as legacy wireless CarPlay mods) first, or include your installed mods when [reporting an issue](https://github.com/aeharding/open-connect/issues).
+<span id="existing-modifications"></span>
 
-## No prompt?
+## Other modifications
 
-Double-check that:
+Remove conflicting modifications first, including older wireless CarPlay mods. If files don’t match what Open Connect expects, it stops instead of overwriting them.
 
-- Mazda Connect is showing its main screen,
-- The USB drive is formatted as **FAT32**,
-- The `open-connect` folder and both companion files are directly in the root of the drive, and
-- Your firmware is exact **`74.00.324A` North America**.
+<span id="no-prompt"></span>
 
-Reinsert the drive. If the prompt still doesn’t appear, [open an issue](https://github.com/aeharding/open-connect/issues) with your firmware version and what appeared on screen.
+## Troubleshooting
+
+Check the version, FAT32 format and extracted files. Make sure Mazda Connect is showing its main screen, then reinsert the drive.
+
+If the prompt still doesn’t appear, [report an issue](https://github.com/aeharding/open-connect/issues). Include your OS Version, bundle version and the message you saw.

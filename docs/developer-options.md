@@ -1,23 +1,17 @@
 # Developer options
 
-<div class="oc-meta-bar">
-  <span><strong>Menu:</strong> Mazda Settings → System → Open Connect → Developer options</span>
-  <span><strong>Default:</strong> UART Off · SSH Off</span>
-  <span><strong>Takes effect:</strong> Next full restart</span>
-</div>
+**UART** provides a passwordless root serial shell. **SSH** authorizes an imported public key for network access. Both default to **Off** and apply after a full restart.
 
-## Why it exists
-
-If you are building Open Connect, testing on a bench CMU, or inspecting system logs, **Developer options** gives you clean, reversible **UART** serial console access and key-based **SSH** access without hand-editing system files.
-
-For normal everyday driving, leave both options **off**. Neither option is needed to install, update, configure, or uninstall Open Connect.
+Open **Mazda Settings → System → Open Connect → Developer options**. Neither control is needed for normal installation, settings or removal.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/developer-options.png" alt="Developer options with UART and SSH off and Import public key available." width="800" height="480"></div>
-  <figcaption>Both developer access options default to off on fresh installations.</figcaption>
+  <figcaption>Developer access is off on fresh installations.</figcaption>
 </figure>
 
 ## UART
+
+UART is for bench work with the CMU out of the dashboard and jumper wires connected to blue connector 2.
 
 Enables **passwordless root shell access** over the CMU’s physical serial port (`115200` baud, `8N1`, no flow control). Turning it off restores Mazda’s original authenticated serial login without changing passwords or suppressing diagnostic output.
 

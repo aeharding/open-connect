@@ -1,44 +1,35 @@
-<p align="center">
-  <a href="https://aeharding.github.io/open-connect/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/wordmark-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="docs/assets/brand/wordmark-light.svg">
-      <img alt="Mazda Open Connect — Factory-feel improvements for first-generation Mazda Connect" src="docs/assets/brand/wordmark-light.svg" width="560">
-    </picture>
-  </a>
-</p>
+# Mazda Open Connect
 
-<p align="center">
-  <strong>Make Mazda Connect feel factory-original, start faster, and stay easy to maintain — with optional improvements you can install from USB and undo anytime.</strong>
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/wordmark-dark.svg">
+  <img alt="Open Connect commander ring and wordmark" src="docs/assets/brand/wordmark-light.svg" width="560">
+</picture>
 
-<p align="center">
-  <a href="https://aeharding.github.io/open-connect/">Documentation</a> ·
-  <a href="https://aeharding.github.io/open-connect/usb-installer/">Quick start</a> ·
-  <a href="https://aeharding.github.io/open-connect/settings/">Settings</a> ·
-  <a href="https://aeharding.github.io/open-connect/features/">Features</a> ·
-  <a href="https://aeharding.github.io/open-connect/performance/">Benchmarks</a>
-</p>
+Make your Mazda infotainment screen faster, more capable, and customizable.
 
----
+Plug-and-play USB install.
 
-> **Current target: `74.00.324A` North America (`cmu150_NA`) · Pre-release qualification in progress.**
-> A qualified v74 download is not published yet — real-car and physical-input checks are still ahead. See [Quick start](docs/usb-installer.md) and [installer development](docs/installer-development.md) for current status and limits.
+**Still in testing. No public download yet.** The current preview is **0.3.0-dev.17**. No real-car installations have been validated. Startup gains vary by configuration; faster startup than stock is not established.
 
-## What Open Connect does
+[Owner guide](https://aeharding.github.io/open-connect/) · [Quick start](docs/usb-installer.md) · [Settings](docs/settings.md) · [Uninstall](docs/uninstall.md)
 
-Every control lives natively inside **Mazda Settings → System → Open Connect**. No custom launcher, no replacement dashboard, and no computer needed once installed.
+## Compatibility
 
-| Feature | What it solves | Default |
+For the original **Mazda Connect / MZD Connect** with the **7-inch screen and commander knob**. Depending on year and trim, this includes Mazda3, Mazda6, CX-3, CX-5, CX-9 and MX-5 Miata.
+
+Only North American version **74.00.324** is supported by the current preview. Check **Settings → System → About → Version Information**: **OS Version** must read **74.00.324 NA N**. Don’t rely on model year alone.
+
+## Features
+
+| Feature | Choice | Fresh-install default |
 | --- | --- | --- |
-| [**Touchscreen While Driving**](docs/touchscreen.md) | Removes Mazda's ~5 mph speed lock so passengers can still use touch controls | Allow |
-| [**Startup disclaimer**](docs/disclaimer.md) | Skips the repetitive legal warning on every start while keeping normal startup behavior | Skip |
-| [**Wireless CarPlay**](docs/wireless-carplay.md) | Enables Mazda's own native wireless CarPlay menus without spoofing vehicle identity | Off |
-| [**Services & Base optimizations**](docs/services.md) | Cuts verbose logging and dead/unused services (DAB, TV, Stitcher, Aha, DVD, Pandora, Android Auto, SiriusXM) to reduce boot load and free RAM | Base Off · DVD Off · others On |
-| [**Developer options**](docs/developer-options.md) | Optional passwordless UART root shell and key-based SSH over USB-Ethernet for contributors | Both Off |
-| [**Clean Uninstall**](docs/uninstall.md) | Restores your saved pre-install files and settings from Settings or any compatible USB, then deletes Open Connect | Built in |
+| [Touchscreen While Driving](docs/touchscreen.md) | Keep touch available while moving. | Allow |
+| [Startup disclaimer](docs/disclaimer.md) | Skip the startup warning. | Skip |
+| [Wireless CarPlay](docs/wireless-carplay.md) | Connect an iPhone wirelessly on compatible hardware. | Off, unless factory enabled |
+| [Services](docs/services.md) | Turn off unused integrations or enable Base optimizations. | Base and DVD off; others on |
+| [Developer options](docs/developer-options.md) | Enable UART or SSH access for development. | Both off |
 
----
+Use **Mazda Settings → System → Open Connect**. Changes apply on the next full startup. Uninstall restores your saved pre-install configuration.
 
 ## Developing & contributing
 

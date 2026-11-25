@@ -1,29 +1,25 @@
 # Startup disclaimer
 
-<div class="oc-meta-bar">
-  <span><strong>Menu:</strong> Mazda Settings → System → Open Connect → Startup disclaimer</span>
-  <span><strong>Default:</strong> Skip</span>
-  <span><strong>Takes effect:</strong> Next full restart</span>
-</div>
+Skip Mazda’s startup warning and continue to your usual screen.
 
-## Why it exists
-
-Every time Mazda Connect boots, it stops on a legal disclaimer screen until you tap **Agree** or wait out the timeout.
-
-**Startup disclaimer** skips that warning cleanly inside Mazda’s own startup flow — preserving your normal resume screen (Home, audio, display-off, or Fuel Economy Monitor) and keeping Mazda’s frontend initialization and cleanup intact.
-
-## Choices
-
-| Choice | What it does |
-| --- | --- |
-| **Skip** · *default* | Skips the startup warning and goes straight to your normal screen. A brief fade or black frame may still appear during boot. |
-| **Show** | Keeps Mazda’s original startup warning screen. |
+Open **Mazda Settings → System → Open Connect → Startup disclaimer**.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/warning.png" alt="Startup disclaimer choices: Show or Skip. Skip is selected." width="800" height="480"></div>
-  <figcaption>Skip bypasses the legal screen automatically on every boot.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/warning.png" alt="Startup disclaimer choices: Show and Skip, with Skip selected." width="800" height="480"></div>
+  <figcaption>Choose Show to bring the warning back.</figcaption>
 </figure>
 
-> **Qualification note:** Targets exact `74.00.324A NA`. Bench startup, resume routes, and stock restoration are verified; real-car validation is still ahead. See [Quick start](usb-installer.md) for current release status.
+<span id="change-the-setting"></span>
 
-[Back to Settings →](settings.md) · [Install Open Connect →](usb-installer.md)
+## Options
+
+| Choice | Behavior |
+| --- | --- |
+| **Skip** (default) | Bypasses the warning at startup. The screen may briefly go black. |
+| **Show** | Displays Mazda’s original warning. |
+
+The change applies on the next full startup. Mazda’s normal resume behavior remains, including audio, display-off and Fuel Economy Monitor.
+
+This feature is still in testing for North American version **74.00.324**. Startup and restoration have bench checks; real-car validation is still ahead. No public download is available yet.
+
+[Back to Settings](settings.md)

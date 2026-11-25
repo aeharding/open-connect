@@ -1,85 +1,36 @@
-<div class="oc-hero">
-  <img class="oc-hero-mark" src="assets/brand/logo-mark.svg" alt="" width="72" height="72">
-  <div>
-    <span class="oc-hero-eyebrow">First-generation Mazda Connect</span>
-    <h1>Mazda Open Connect</h1>
-    <p>Keep Mazda’s factory look and controls while fixing the daily annoyances — skip the startup disclaimer, keep touch enabled while moving, unlock native wireless CarPlay, and trim unused background services. Everything installs from USB and lives inside Mazda Settings.</p>
-    <div class="oc-hero-actions">
-      <a class="md-button md-button--primary" href="usb-installer/">Quick start</a>
-      <a class="md-button" href="settings/">Explore settings</a>
-      <a class="md-button" href="uninstall/">Uninstall</a>
-    </div>
-  </div>
-</div>
+# Mazda Open Connect
 
-<div class="oc-status-strip">
-  <span class="oc-status-pill">Pre-release · 74.00.324A NA</span>
-  <span>Current development targets exactly <strong>74.00.324A North America (cmu150_NA)</strong>. A qualified release download is not published yet while real-car and physical-input checks remain ahead. <a href="installer-development/">Qualification status →</a></span>
-</div>
+<p class="oc-intro">Make your Mazda infotainment screen faster, more capable, and customizable.</p>
 
-## What you can customize
+Plug-and-play USB install.
 
-Every improvement is optional, lives natively under **Mazda Settings → System → Open Connect**, and can be turned off or uninstalled cleanly without a computer.
+[Start here](usb-installer.md){ .md-button .md-button--primary }
+[Browse settings →](settings.md)
+{ .oc-actions }
 
-<div class="oc-feature-grid">
-  <a class="oc-feature-card" href="touchscreen/">
-    <div class="oc-feature-head">
-      <span class="oc-feature-title">Touchscreen While Driving</span>
-      <span class="oc-badge oc-badge--on">Default: Allow</span>
-    </div>
-    <p class="oc-feature-desc">Removes Mazda’s ~5 mph touchscreen lockout so a passenger can tap menus, maps, or search without stopping the car.</p>
-  </a>
+<p class="oc-availability">Still in testing. No public download yet, and no real-car installations have been validated. Currently for North American version <strong>74.00.324</strong> only. Startup gains vary by configuration; faster startup than stock is not established.</p>
 
-  <a class="oc-feature-card" href="disclaimer/">
-    <div class="oc-feature-head">
-      <span class="oc-feature-title">Startup disclaimer</span>
-      <span class="oc-badge oc-badge--on">Default: Skip</span>
-    </div>
-    <p class="oc-feature-desc">Bypasses the legal warning screen on every start and goes straight to your normal screen while keeping Mazda’s startup flow intact.</p>
-  </a>
+<figure class="oc-screen oc-screen--lead">
+  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Wireless CarPlay, Services and Developer options." width="800" height="480"></div>
+  <figcaption>Settings → System → Open Connect (0.3.0-dev.17).</figcaption>
+</figure>
 
-  <a class="oc-feature-card" href="wireless-carplay/">
-    <div class="oc-feature-head">
-      <span class="oc-feature-title">Wireless CarPlay</span>
-      <span class="oc-badge">Default: Off</span>
-    </div>
-    <p class="oc-feature-desc">Exposes Mazda’s built-in native wireless CarPlay menus and connection flow without spoofing your vehicle identity or GPS hardware.</p>
-  </a>
+## Features
 
-  <a class="oc-feature-card" href="services/">
-    <div class="oc-feature-head">
-      <span class="oc-feature-title">Services &amp; Base optimizations</span>
-      <span class="oc-badge">Base: Off · DVD: Off</span>
-    </div>
-    <p class="oc-feature-desc">Cuts verbose flash logging and stops dead or unused integrations (DAB, TV, Stitcher, Aha, DVD, Pandora, Android Auto, SiriusXM) to lighten startup and free RAM.</p>
-  </a>
+- **[Touchscreen while moving](touchscreen.md)**: keep touch available for a passenger.
+- **[Skip the startup warning](disclaimer.md)**: continue to your usual screen.
+- **[Wireless CarPlay](wireless-carplay.md)**: connect your iPhone without a USB cable on compatible hardware.
+- **[Startup and services](services.md)**: reduce background startup work and turn off unused integrations.
+- **[Built-in uninstall](uninstall.md)**: restore the configuration saved before installation.
 
-  <a class="oc-feature-card" href="developer-options/">
-    <div class="oc-feature-head">
-      <span class="oc-feature-title">Developer options</span>
-      <span class="oc-badge">Default: Off</span>
-    </div>
-    <p class="oc-feature-desc">Optional passwordless UART serial shell and key-based SSH over USB-Ethernet for bench testing and research — off by default.</p>
-  </a>
+## Supported cars
 
-  <a class="oc-feature-card" href="uninstall/">
-    <div class="oc-feature-head">
-      <span class="oc-feature-title">Built-in Uninstall &amp; recovery</span>
-      <span class="oc-badge">Always available</span>
-    </div>
-    <p class="oc-feature-desc">Removes Open Connect from Mazda Settings or any compatible USB drive, restoring your saved pre-install files and settings cleanly.</p>
-  </a>
-</div>
+Open Connect is for the original **Mazda Connect / MZD Connect** with the **7-inch screen and commander knob**. Depending on year and trim, you’ll find it in the Mazda3, Mazda6, CX-3, CX-5, CX-9 and MX-5 Miata.
 
-## Designed to stay safe and factory-original
+The model name alone isn’t enough. Check **Settings → System → About → Version Information**. **OS Version** must read **74.00.324 NA N**. Other versions and regions are unsupported.
 
-- **No permanent system clutter:** Mazda’s original app and service files remain intact on read-only storage; Open Connect stages only the pieces needed for your active choices in RAM.
-- **Automatic fallback:** A bounded three-attempt startup guard returns Mazda Connect to its stock startup path if repeated crashes occur — without deleting your settings.
-- **Conflict protection:** If another modification changed files Open Connect relies on, install and uninstall stop safely instead of overwriting unknown changes.
+<span id="building-open-connect"></span>
 
-Read [How it works](how-it-works.md) for the short architecture overview, or jump straight to [Quick start](usb-installer.md) and [Settings](settings.md).
+## Open source
 
-## Contributing or researching?
-
-- **Build & test:** [Contribute](development.md) · [Wire a bench](bench-setup.md) · [Installer development](installer-development.md)
-- **Measurements & RE:** [Performance evidence](performance.md) · [CMU research](cmu/index.md)
+Open Connect is built by contributors and licensed under AGPL-3.0-or-later. Code, issues and discussions live on [GitHub](https://github.com/aeharding/open-connect). Start with [Development](development.md) to contribute.

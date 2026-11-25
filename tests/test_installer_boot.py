@@ -1404,9 +1404,7 @@ boot_ui_unwind
         self.assertEqual((self.runtime / "boot-id").readlink().as_posix(), expected)
         self.assertEqual(self.record()[9], "2")
 
-    def test_ignition_requires_sustained_off_and_clears_quick_resume_evidence(self):
-        self.assertEqual(self.boot(1).returncode, 0)
-        boot = self.record()[11]
+    def ignition_fixture(self):
         script = (ASSETS / "ignition.sh").read_text()
         for old, new in {
             "/tmp/mnt/data_persist/open-connect": str(self.data),
@@ -1416,7 +1414,28 @@ boot_ui_unwind
             "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
         }.items():
             script = script.replace(old, new)
-        (self.package / "ignition.sh").write_text(script)
+        path = self.package / "ignition.sh"
+        path.write_text(script)
+        return path
+
+    def test_ignition_requires_sustained_off_and_clears_quick_resume_evidence(self):
+        self.assertEqual(self.boot(1).returncode, 0)
+        boot = self.record()[11]
+        path = self.ignition_fixture()
+        state = self.package / "state.sh"
+        state.write_text(state.read_text().replace("current_boot_id() {", "checked_boot_id() {"))
+        trace = shlex.quote(str(self.root / "identity-trace"))
+        path.write_text(
+            path.read_text().replace(
+                '. "$P/state.sh"',
+                '. "$P/state.sh"\ncurrent_boot_id() { printf "identity\\n" >> '
+                + trace
+                + "; checked_boot_id; }",
+            )
+        )
+        (self.tools / "flock").write_text(
+            '#!/bin/sh\nfor last; do :; done\nprintf "lock %s\\n" "$last" >> ' + trace + "\n"
+        )
         (self.root / "sequence").write_text("0\n1\n0\n0\n0\n1\nend\n")
         (self.root / "step").write_text("0\n")
         # Advance physical samples instead of waiting; capture the real record
@@ -1438,6 +1457,7 @@ boot_ui_unwind
                 (self.root / "step").write_text("0\n")
                 (self.root / "acc").write_text("1\n")
                 (self.root / "observed").unlink(missing_ok=True)
+                (self.root / "identity-trace").write_text("")
                 subprocess.run(
                     ["sh", self.package / "ignition.sh", *arguments],
                     env=self.env,
@@ -1451,6 +1471,51 @@ boot_ui_unwind
                     ["-", "-", "-", "-", "-", boot, "-"],
                 )
                 self.assertEqual(self.record()[9:11], ["2", "-"])
+                # No identity validation/forks during the five idle samples.
+                # The only later reads follow successful fd9 lock acquisition.
+                self.assertEqual(
+                    (self.root / "identity-trace").read_text().splitlines(),
+                    ["identity", "lock 8", "lock 9", "identity", "lock 9", "identity"],
+                )
+
+    def test_ignition_revalidates_identity_under_the_record_lock(self):
+        self.assertEqual(self.boot(1).returncode, 0)
+        boot = self.record()[11]
+        path = self.ignition_fixture()
+        (self.tools / "sleep").write_text(
+            "#!/bin/sh\nR=" + shlex.quote(str(self.root)) + "\n"
+            'n=$(cat "$R/step"); n=$((n+1)); echo "$n" > "$R/step"\n'
+            'if test "$n" -gt 6; then rm "$R/runtime/boot-id"; '
+            'else echo 0 > "$R/acc"; fi\n'
+        )
+        (self.tools / "sleep").chmod(0o700)
+        marker = self.runtime / "boot-id"
+        for replacement in ("87654321-1234-1234-1234-123456789abc", "x" * 36):
+            with self.subTest(marker=replacement):
+                marker.unlink(missing_ok=True)
+                marker.symlink_to(boot)
+                (self.root / "step").write_text("0\n")
+                (self.root / "acc").write_text("1\n")
+                before = (self.data / "record").read_bytes()
+                (self.tools / "flock").write_text(
+                    '#!/bin/sh\nfor last; do :; done\nif test "$last" = 9; then\n'
+                    "rm "
+                    + shlex.quote(str(marker))
+                    + "\nln -s "
+                    + shlex.quote(replacement)
+                    + " "
+                    + shlex.quote(str(marker))
+                    + "\nfi\n"
+                )
+                result = subprocess.run(
+                    ["sh", path, boot],
+                    env=self.env,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual((self.data / "record").read_bytes(), before)
 
     def test_boot_finishes_interrupted_uninstall_from_ram_and_starts_stock(self):
         self.shell(r"""

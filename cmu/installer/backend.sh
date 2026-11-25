@@ -37,14 +37,21 @@ if ! absent "$D"; then
     fi
 fi
 
+selection_id() {
+    local value
+    file "$1" && test "$(wc -c < "$1")" -eq 65 && test "$(wc -l < "$1")" -eq 1 &&
+        IFS= read -r value < "$1" && hex "$value" 64 || return 1
+    printf '%s\n' "$value"
+}
+
 status() {
     local installed=false retained=false conflict=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
     local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 wireless_current=0
     local installed_version=- installed_package=- pandora= base= wireless= autoshow= autoshow_current=0
     local saved_schema= saved_config= saved_catalog= selected_services= selected_wireless=0 rows=
-    local selected= access_selected= version_hash= completion_check=false kernel_boot=
-    if file /tmp/open-connect/selected; then IFS= read -r selected < /tmp/open-connect/selected || selected=; fi
-    if file /tmp/open-connect/access-selected; then IFS= read -r access_selected < /tmp/open-connect/access-selected || access_selected=; fi
+    local selected= access_selected= version_hash= completion_check=false audited=false kernel_boot=
+    selected=$(selection_id /tmp/open-connect/selected) || selected=
+    access_selected=$(selection_id /tmp/open-connect/access-selected) || access_selected=
     if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
     if test "$empty_state" = true; then pending=true; fi
     if test "$exists" = true; then
@@ -83,7 +90,7 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
             if test "$operation:$argument" != status:settings || test "$completion_check" = true; then
                 if ! targets_match_loaded "$R_CURRENT" ||
                     { test "$S_ACCESS" = true && ! access_login_check; } ||
-                    ! dependencies_match "$R_CURRENT"; then conflict=true; fi
+                    ! dependencies_match "$R_CURRENT"; then conflict=true; else audited=true; fi
             fi
             # Authenticate VERSION even on the lightweight read. P may be newer
             # maintenance media; its version is not the installed version.
@@ -140,7 +147,7 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
     if test "$installed" = true && test "$installed_version" != - && test "$pending" = false && test "$conflict" = false &&
         test "$restart" = false && test "$notice" = installed &&
-        kernel_boot=$(completion_boot_id) &&
+        test "$audited:$completion_check" = true:true &&
         test "$R_BOOT" = "$kernel_boot"; then completion_ready=true; fi
     # Keep the retired boolean false for an installed v0.2.0-dev.1 client during
     # USB handoff. No endpoint or UI offers Undo.

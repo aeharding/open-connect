@@ -100,4 +100,12 @@ f.pick("restart");const interrupted=f.dialog;f.fw.sendEventToMmui("common","Glob
 interrupted.props.defaultSelectCallback(interrupted,"restart");assert.equal(f.restarts,0);
 f.open();f.end();f.pick("restart");f.confirm("restart");assert.equal(f.restarts,1);
 assert.equal(f.host.divElt.style.display,"");assert.equal(f.fw.common.getCommonTransitionData,f.transition);assert.equal(f.timers.size,0);
+// About cannot leave Apply stale when the pending save finishes behind it.
+f=fixture();f.open();f.end();f.pick(0);f.pick(1);f.back();f.pick("about");
+const aboutRoot=f.page();assert.equal(f.row("restart").disabled,true);f.advance(250);
+f.ack({...f.value,touch:1,restart:true});assert.equal(f.dialog.destroyed,undefined);
+assert.equal(f.row("restart").disabled,true);f.confirm("done");
+assert.equal(f.page(),aboutRoot);assert.equal(f.row("restart").disabled,false);
+f.pick("restart");assert.equal(f.dialog.props.buttonConfig.button2.label,"Restart");f.confirm("cancel");
+f.fw.sendEventToMmui("common","Global.IntentHome");assert.equal(f.timers.size,0);
 console.log("Settings UX: cached/cold entry, native slides, interruptions and Apply confirmation passed");

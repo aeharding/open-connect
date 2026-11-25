@@ -18,7 +18,7 @@ flock -n -x 8 || exit 0
 seen_on=false
 off_samples=0
 recorded=-
-while current_boot=$(current_boot_id) && test "$current_boot" = "$boot"; do
+while test -L /tmp/open-connect/boot-id; do
     IFS= read -r value < /sys/class/gpio/ACC_Sense/value || exit 1
     case "$value" in
         1) seen_on=true; off_samples=0; wanted=-;;
@@ -31,6 +31,7 @@ while current_boot=$(current_boot_id) && test "$current_boot" = "$boot"; do
     if (
         exec 9<>/tmp/open-connect/lock
         flock -n -x 9 || exit 75
+        current_boot=$(current_boot_id) && test "$current_boot" = "$boot" || exit 1
         record_read || exit 1
         test "$R_PHASE:$R_BOOT" = "active:$boot" || exit 1
         if test "$R_OFF" != "$wanted"; then R_OFF=$wanted; record_write; fi

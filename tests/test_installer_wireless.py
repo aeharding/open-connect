@@ -147,6 +147,37 @@ class InstallerWireless(unittest.TestCase):
         self.assertTrue((self.feature / "wireless-ready").is_file())
         self.assertEqual((self.feature / "wireless-applied").read_text(), f"{applied}\n")
 
+    def test_invalid_or_unreadable_boot_identity_refuses_before_preparation(self):
+        original = self.script.read_text()
+        valid = self.boot.readlink().as_posix()
+        for identity in ("-" * 36, "f" * 36, valid[:-1] + "g"):
+            with self.subTest(identity=identity):
+                self.boot.unlink()
+                self.boot.symlink_to(identity)
+                (self.feature / "boot-id").write_text(identity + "\n")
+                result = self.run_helper()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse((self.root / "session-pid").exists())
+                self.assertFalse((self.feature / "wireless-ready").exists())
+                self.assertEqual(self.target.read_bytes(), XML)
+        self.boot.unlink()
+        self.boot.symlink_to(valid)
+        (self.feature / "boot-id").write_text(valid + "\n")
+        for command in ("cat", "readlink"):
+            for output in (valid, ""):
+                with self.subTest(command=command, output=output):
+                    injected = (
+                        f'{command}() {{ printf "%s\\n" {shlex.quote(output)}; return 1; }}\n'
+                    )
+                    self.script.write_text(
+                        original.replace("live_boot=", injected + "live_boot=", 1)
+                    )
+                    result = self.run_helper()
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse((self.root / "session-pid").exists())
+                    self.assertFalse((self.feature / "wireless-ready").exists())
+                    self.assertEqual(self.target.read_bytes(), XML)
+
     def test_changes_only_two_flags_and_preserves_metadata_and_physical_inputs(self):
         result = self.run_helper()
         self.assertEqual(result.returncode, 0, result.stderr)

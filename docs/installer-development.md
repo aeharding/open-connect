@@ -180,6 +180,8 @@ conflict-free installed state, the installed notice, no restart requirement,
 `selected == current`, and the recorded boot identity matching the current boot.
 The volatile identity takes precedence over the kernel UUID; only absence of
 the marker permits legacy kernel-UUID proof. A malformed marker fails closed.
+One checked identity read admits the audit and supplies its final proof;
+`completionReady` also requires that the full audit actually passed.
 The client additionally matches the boot page's token/version/notice to fresh
 installed-version evidence, including when maintenance USB remains inserted.
 Normal notice-free startup adds no status request.
@@ -188,18 +190,23 @@ Normal notice-free startup adds no status request.
 
 Settings uses `status|settings|-|-` for cold reads and opens immediately from
 validated cached preferences on warm entry, without a background status request.
+Concurrent cold-entry taps share their in-flight request.
 This read verifies snapshot/catalog integrity and installed-version evidence;
 its `conflict: false` does not establish unchanged OEM flash. Default
 `status|-|-|-` remains the full USB/reconciliation audit, and every feature
 mutation retains its strict checks. Any response that could authorize
 `completionReady` also performs the full audit. Status reuses each distinct
-current/selected/access-selected snapshot decode within its held lock. Failed
-readback invalidates the client cache. Older listeners that reject the new
+current/selected/access-selected snapshot decode within its held lock. Selection
+markers must be exactly one 64-digit lowercase hex line plus its newline to be
+reused. Failed readback invalidates the client cache. Older listeners that reject the new
 syntax with HTTP 400 receive one strict-status fallback within the same deadline.
 Manual Settings entry suppresses a pending completion notice for that client
 without a background acknowledgement competing with the first save. Browsing
 alone does not dismiss the durable notice. The completion dialog's explicit
-**Open settings** action waits for its acknowledgement before navigating.
+**Open settings** action waits for confirmed acknowledgement before navigating.
+Busy refusals retry within twelve seconds; uncertain acknowledgements reconcile
+through strict status without replaying the dismiss operation. Failed confirmation
+returns the completion choice or explains that Settings should be opened again.
 
 The root **Apply changes** row is enabled only for saved changes awaiting restart,
 with no pending save or other operation. Its Cancel/Restart confirmation enters

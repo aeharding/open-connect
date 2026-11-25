@@ -872,6 +872,110 @@ class InstallerTransaction(unittest.TestCase):
                 self.assertEqual(os.readlink(marker), token)
                 self.assertEqual(kernel.read_text(), raw + "\n")
 
+    def test_completion_identity_failure_cannot_bypass_audit_on_a_second_read(self):
+        data = self.create("single-completion-proof")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        fields = (data / "record").read_text().split("|")
+        fields[11] = "12345678-1234-1234-1234-123456789abc"
+        fields[12] = "installed\n"
+        (data / "record").write_text("|".join(fields))
+        (self.root / "runtime/selected").write_text(fields[5] + "\n")
+        backend = self.tools / "backend.sh"
+        backend.write_text(
+            backend.read_text().replace(
+                "completion_boot_id() {",
+                "completion_boot_id() {\n"
+                ' local reads; IFS= read -r reads < "$D/identity-reads"\n'
+                ' reads=$((reads+1)); printf "%s\\n" "$reads" > "$D/identity-reads"\n'
+                ' printf "%s\\n" "$R_BOOT"\n'
+                ' test "$reads" -gt 1; return $?\n',
+            )
+        )
+        for argument in ("settings", "-"):
+            with self.subTest(argument=argument):
+                (data / "identity-reads").write_text("0\n")
+                before = (data / "record").read_bytes()
+                result, denied = self.api("status", argument=argument)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertFalse(denied["completionReady"])
+                self.assertEqual((data / "identity-reads").read_text(), "1\n")
+                _, ready = self.api("status", argument=argument)
+                self.assertTrue(ready["completionReady"])
+                self.assertEqual((data / "identity-reads").read_text(), "2\n")
+                dependency = self.target(data, "relevant")
+                original = dependency.read_bytes()
+                dependency.write_bytes(b"external edit\n")
+                try:
+                    _, refused = self.api("status", argument=argument)
+                    self.assertTrue(refused["conflict"])
+                    self.assertFalse(refused["completionReady"])
+                finally:
+                    dependency.write_bytes(original)
+                self.assertEqual((data / "record").read_bytes(), before)
+
+    def test_selection_markers_require_the_complete_canonical_file(self):
+        data = self.create("selection-markers")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        resources = data / "access-fixture"
+        resources.mkdir(mode=0o700)
+        (resources / "runlogin").write_text("synthetic login\n")
+        (resources / "sshd.conf").write_text("synthetic sshd\n")
+        (resources / "access").write_text(
+            f"1|0|-|755:{os.getuid()}:{os.getgid()}|644:{os.getuid()}:{os.getgid()}|-\n"
+        )
+        subprocess.run(
+            [
+                "sh",
+                "-c",
+                'set -eu; D=$1; P=$2; . "$P/state.sh"; . "$P/firmware.sh"; '
+                'record_read; snapshot_read "$R_CURRENT"; '
+                'R_CURRENT=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$S_PACKAGE" '
+                '"$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$3" "$S_PREFS"); '
+                "record_write",
+                "access-snapshot",
+                data,
+                self.tools,
+                resources,
+            ],
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        current = (data / "record").read_text().split("|")[5]
+        runtime = self.root / "runtime"
+        for name in ("selected", "access-selected"):
+            (runtime / name).write_text(current + "\n")
+        _, valid = self.api("status", argument="settings")
+        self.assertEqual(valid["uartCurrent"], 1)
+        self.assertFalse(valid["restart"])
+        invalid = (
+            current + "\nextra\n",
+            current + "\n\n",
+            current,
+            current + "0\n",
+            current.upper() + "\n",
+            "",
+            "g" * 64 + "\n",
+        )
+        for name in ("selected", "access-selected"):
+            marker = runtime / name
+            for content in invalid:
+                with self.subTest(marker=name, content=content):
+                    marker.write_text(content)
+                    result, status = self.api("status", argument="settings")
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    if name == "selected":
+                        self.assertTrue(status["restart"])
+                        self.assertTrue(all(r["current"] is None for r in status["services"]))
+                    else:
+                        self.assertEqual(status["uart"], 1)
+                        self.assertEqual(status["uartCurrent"], 0)
+            marker.write_text(current + "\n")
+
     def test_backend_reinstall_refuses_later_target_or_dependency_edits(self):
         data = self.create("reinstall-conflict")
         self.run_ok(data, "install")

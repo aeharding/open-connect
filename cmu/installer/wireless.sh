@@ -8,6 +8,12 @@ R=/tmp/open-connect/feature
 T=/tmp/devmgr_config_edit.xml
 sha() { value=$(openssl dgst -sha256 < "$1") || return; printf '%s\n' "${value##* }"; }
 absent() { test ! -e "$1" && test ! -L "$1"; }
+uuid() {
+    local value=$1 digit
+    case "$value" in ????????-????-????-????-????????????) ;; *) return 1;; esac
+    for digit in 1 2 3 4; do value=${value%%-*}${value#*-}; done
+    test "${#value}" = 32 && case "$value" in *[!a-f0-9]*) false;; *) true;; esac
+}
 case "${1:-}" in
     --prepare)
         # No commands with children or XML writes before the supervisor has
@@ -27,7 +33,9 @@ test "$(readlink -f /tmp/open-connect)" = /tmp/open-connect
 test "$(stat -c '%a:%u:%g' /tmp/open-connect)" = 700:0:0
 test -L /tmp/open-connect/boot-id
 test "$(stat -c '%s:%u:%g' /tmp/open-connect/boot-id)" = 36:0:0
-test "$(readlink /tmp/open-connect/boot-id)" = "$(cat "$R/boot-id")"
+live_boot=$(readlink /tmp/open-connect/boot-id) || exit 1
+saved_boot=$(cat "$R/boot-id") || exit 1
+uuid "$live_boot" && uuid "$saved_boot" && test -n "$live_boot" && test "$live_boot" = "$saved_boot" || exit 1
 absent "$R/wireless-ready"
 prepare() (
     # Keep every failure explicit; no partial output authorizes publication.

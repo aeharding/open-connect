@@ -70,6 +70,7 @@ function fixture(previous, loadingUSB, boot, port) {
     function flushScripts() { while(scriptEvents.length) scriptEvents.shift()(); }
     ctx.window = ctx;
     vm.runInNewContext(fs.readFileSync(require("node:path").join(require("node:path").dirname(process.argv[2]), "settings.js"), "utf8"), ctx);
+    const attachSettings=ctx.OpenConnectSettings.attach;
     ctx.OpenConnectSettings.attach = (fw, app, value) => { store=value; return () => {}; };
     vm.runInNewContext(source, ctx);
     flushScripts();
@@ -86,7 +87,7 @@ function fixture(previous, loadingUSB, boot, port) {
     return {ctx, nodes, scripts, requests, choices, messages, loads, reply, state, progress,
         start(value, usb) { ctx.OpenConnect.start(value,usb); flushScripts(); },
         eligible(value) { eligible=value; },
-        openSettings(root=false) {
+        openSettings(root=false,cold=false) {
             const pages=[], parent={removeChild(n){n.parentNode=null;}};
             const host={divElt:element(parent),list2Ctrl:{},handleControllerEvent(){}};
             Object.assign(fw,{getCurrentApp:()=>"syssettings",getCurrCtxtId:()=>"SystemTab",_frameworkState:1,_FWK_STATE_IDLE:1,
@@ -96,6 +97,15 @@ function fixture(previous, loadingUSB, boot, port) {
                     const page={list2Ctrl:ctrl,divElt:element(parent),cleanUp(){},handleControllerEvent(){}};
                     pages.push(page);return page;
                 }});
+            if(cold){
+                const list=host.list2Ctrl={properties:{selectCallback(){}},
+                    dataList:{itemCount:1,items:[{appData:"SelectAbout"}]},
+                    setDataList(data){this.dataList=data;},updateItems(){}};
+                Object.assign(app,{_currentContextTemplate:host,_contextTable:{SystemTab:{readyFunction(){}}}});
+                const detach=attachSettings(fw,app,store);
+                return {pages,detach,tap(){list.properties.selectCallback(list,"open-connect-settings");},
+                    pick(index){const c=pages.at(-1).list2Ctrl;c.selectCallback(c,c.dataList.items[index].appData);}};
+            }
             const close=ctx.OpenConnectSettings.open(fw,store);
             assert.equal(typeof close,"function");
             function pick(index) {const c=pages.at(-1).list2Ctrl;c.selectCallback(c,c.dataList.items[index].appData);}
@@ -934,3 +944,61 @@ let navigations=0;f.ctx.OpenConnectSettings.fromHome=()=>{navigations++;};
 f.choices[0].done("settings");assert.match(f.requests[1].body,/\|dismiss\|/);assert.equal(navigations,0);
 f.reply(f.requests[1],{ok:true});assert.equal(navigations,1);assert.equal(f.store.read().notice,"-");
 console.log("Runtime UX: one-shot guarded Apply, cache invalidation, legacy fallback and direct Settings completion passed");
+
+// Cold taps share the actual entry request and preserve its first response.
+f=fixture(null,false,{version:"0.3.0-dev.20",notice:"-"});f.tick();
+let cold=f.openSettings(true,true);cold.tap();cold.tap();
+assert.equal(f.requests.length,1);assert.equal(f.requests[0].aborted,undefined);
+f.reply(f.requests[0],f.state({installed:true}));assert.equal(cold.pages.length,1);
+cold.pick(0);cold.pick(1);f.advance(250);assert.equal(f.requests.length,2);
+assert.match(f.requests[1].body,/\|set\|touch\|0\|1$/);
+f.reply(f.requests[1],f.state({installed:true,touch:1,restart:true,revision:"c".repeat(32)}));cold.detach();
+// A new intent retires old waiters and allows a new cold request immediately.
+f=fixture(null,false,{version:"0.3.0-dev.20",notice:"-"});f.tick();cold=f.openSettings(true,true);
+cold.tap();cold.tap();f.ctx.OpenConnect.cancelUSB(token);cold.tap();assert.equal(f.requests.length,2);
+f.reply(f.requests[0],f.state({installed:true}));assert.equal(cold.pages.length,0);
+f.reply(f.requests[1],f.state({installed:true}));assert.equal(cold.pages.length,1);cold.detach();
+
+function completionClick(){
+    const f=fixture(null,false,{version:"0.3.0-dev.20",notice:"installed"});f.tick();
+    f.reply(f.requests[0],f.state({installed:true,notice:"installed",completionReady:true,installedVersion:"0.3.0-dev.20"}));f.tick();
+    let navigations=0;f.ctx.OpenConnectSettings.fromHome=()=>{navigations++;};
+    f.choices[0].done("settings");return {f,get navigations(){return navigations;}};
+}
+// Busy is a definite refusal before dispatch: retry within one deadline.
+let click=completionClick();f=click.f;f.reply(f.requests[1],{ok:false,error:"busy"});
+assert.equal(click.navigations,0);f.advance(499);assert.equal(f.requests.length,2);
+f.advance(1);assert.equal(f.requests.length,3);assert.match(f.requests[2].body,/\|dismiss\|/);
+f.reply(f.requests[2],{ok:true});assert.equal(click.navigations,1);
+// Refusal and exhausted busy retries restore the completion choice.
+click=completionClick();f=click.f;f.reply(f.requests[1],{ok:false,error:"stale_state"});f.tick();
+assert.equal(click.navigations,0);assert.equal(f.choices.length,2);
+click=completionClick();f=click.f;
+for(let i=0;i<24;i++){f.reply(f.requests.at(-1),{ok:false,error:"busy"});f.advance(500);}
+f.tick();assert.equal(click.navigations,0);assert.equal(f.choices.length,2);
+assert.equal(f.requests.filter(r=>r.body.includes("|dismiss|")).length,24);
+// A last busy retry can lose its ACK exactly at the shared deadline.
+click=completionClick();f=click.f;
+for(let i=0;i<23;i++){f.reply(f.requests.at(-1),{ok:false,error:"busy"});f.advance(500);}
+f.advance(500);f.tick();assert.equal(click.navigations,0);assert.equal(f.choices.length,2);
+// Uncertain acknowledgements reconcile read-only; never replay dismissal.
+for(const ack of [null,{},"timeout"]){
+    click=completionClick();f=click.f;
+    if(ack==="timeout")f.advance(6000);else f.reply(f.requests[1],ack);
+    assert.equal(click.navigations,0);assert.equal(f.requests.length,3);
+    assert.match(f.requests[2].body,/\|status\|-\|-\|-$/);
+    f.reply(f.requests[2],f.state({installed:true,notice:"-",installedVersion:"0.3.0-dev.20"}));
+    assert.equal(click.navigations,1);f.reply(f.requests[1],{ok:true});assert.equal(click.navigations,1);
+    assert.equal(f.requests.filter(r=>r.body.includes("|dismiss|")).length,1);
+}
+click=completionClick();f=click.f;f.reply(f.requests[1],null);
+f.reply(f.requests[2],f.state({installed:true,notice:"installed",completionReady:true,installedVersion:"0.3.0-dev.20"}));
+f.tick();assert.equal(click.navigations,0);assert.equal(f.choices.length,2);
+click=completionClick();f=click.f;f.reply(f.requests[1],null);
+f.reply(f.requests[2],{ok:false,error:"invalid_record"});f.tick();
+assert.equal(click.navigations,0);assert.equal(f.messages.length,1);
+assert.equal(f.requests.filter(r=>r.body.includes("|dismiss|")).length,1);
+// Cancellation fences both deferred busy retries and late ACK navigation.
+click=completionClick();f=click.f;f.reply(f.requests[1],{ok:false,error:"busy"});
+f.ctx.OpenConnect.cancelUSB(token);f.advance(12000);assert.equal(f.requests.length,2);assert.equal(click.navigations,0);
+console.log("Review regressions: About/save, shared cold entry and bounded dismiss reconciliation passed");

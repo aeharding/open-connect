@@ -2,10 +2,11 @@
 .md-typeset .oc-intro { font-size: 1rem; line-height: 1.6; max-width: 36rem; }
 .md-typeset .oc-availability { color: var(--md-default-fg-color--light); font-size: .76rem; padding-top: .8rem; border-top: 1px solid var(--oc-border); margin: 1.3rem 0; }
 .oc-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1.2rem; margin: 1.4rem 0 1.6rem; }
-.md-typeset .oc-screen { width: 100%; max-width: 28rem; margin: 1.7rem auto 2rem; }
-.md-typeset .oc-screen--lead { max-width: 32rem; }
-.oc-screen-frame { position: relative; isolation: isolate; aspect-ratio: 880 / 552; background: url("../assets/guide/cmu-frame.svg") center / contain no-repeat; }
-.md-typeset .oc-screen-frame img { position: absolute; z-index: 1; top: 9.1304%; left: 7.2727%; display: block; width: 85.4545%; height: auto; }
+.md-typeset .oc-screen { width: 100%; max-width: 35rem; margin: 1.5rem auto 1.9rem; }
+.md-typeset .oc-screen--lead { max-width: 39rem; }
+.oc-screen-frame { position: relative; isolation: isolate; aspect-ratio: 1160 / 640; background: url("../assets/guide/cmu-frame.svg") center / contain no-repeat; }
+[data-md-color-scheme="slate"] .oc-screen-frame { background-image: url("../assets/guide/cmu-frame-dark.svg"); }
+.md-typeset .oc-screen-frame img { position: absolute; z-index: 1; top: 12.5%; left: 19.655%; display: block; width: 60.69%; height: auto; }
 .md-typeset .oc-screen figcaption { margin: .65rem auto 0; max-width: 26rem; color: var(--md-default-fg-color--light); font-size: .72rem; line-height: 1.5; text-align: center; }
 
 /* Text labels remain readable without color or icon support. */
@@ -95,7 +96,7 @@ button.oc-nav-path:hover, button.oc-nav-path[aria-expanded="true"] { text-decora
 .oc-nav-preview button:hover { background: var(--oc-surface-subtle); }
 .oc-nav-preview button:disabled { opacity: .45; cursor: default; }
 button.oc-nav-path:focus-visible, .oc-nav-preview button:focus-visible { outline: 2px solid var(--oc-red); outline-offset: 2px; }
-.oc-nav-preview .oc-screen-frame img { position: absolute; top: 9.1304%; left: 7.2727%; width: 85.4545%; height: auto; }
+.oc-nav-preview .oc-screen-frame img { position: absolute; top: 12.5%; left: 19.655%; width: 60.69%; height: auto; }
 .oc-nav-preview p { margin: .6rem .2rem; }
 .oc-nav-preview__note { color: var(--md-default-fg-color--light); }
 .oc-nav-preview__controls { justify-content: space-between; border-top: 1px solid var(--oc-border); padding-top: .3rem; }

@@ -1,6 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-label="Open Connect commander ring">
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-label="Mazda Open Connect screen mark">
   <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-  <path d="M49 15 A24 24 0 1 0 49 49" stroke="#929793" stroke-width="6"/>
-  <circle cx="32" cy="32" r="13" stroke="#929793" stroke-width="2"/>
-  <circle cx="55" cy="32" r="4" fill="#c4162a"/>
+  <g transform="translate(0 7.111) scale(0.8889)">
+    <path d="M3 47.5 Q36 40.6 69 47.5" stroke="#9ea4ad" stroke-width="2.6" stroke-linecap="round" opacity="0.6"/>
+    <path d="M9.9 45.3 L12.0 14.5 C12.4 11.5 14.8 9.5 18.0 9.5 H54.0 C57.2 9.5 59.6 11.5 60.0 14.5 L62.1 45.3" stroke="#c8cdd4" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M15.8 39 Q36 30.6 56.2 39" stroke="#9ea4ad" stroke-width="1.8" stroke-linecap="round" opacity="0.5"/>
+    <circle cx="22.8" cy="33.2" r="3.7" stroke="#c8cdd4" stroke-width="2.1" opacity="0.8"/>
+    <circle cx="49.2" cy="33.2" r="3.7" stroke="#c8cdd4" stroke-width="2.1" opacity="0.8"/>
+    <circle cx="15.1" cy="38.8" r="1.9" fill="#9ea4ad" opacity="0.5"/>
+    <circle cx="56.9" cy="38.8" r="1.9" fill="#9ea4ad" opacity="0.5"/>
+    <circle cx="36" cy="27.2" r="7.4" stroke="#e01e37" stroke-width="3.2"/>
+    <circle cx="36" cy="27.2" r="3.4" fill="#e01e37"/>
+  </g>
 </svg>

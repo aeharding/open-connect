@@ -1,7 +1,7 @@
 // Exercise the actual rendered policy, not a separately supplied hidden-ID list.
 const assert = require("node:assert/strict"), fs = require("node:fs"), vm = require("node:vm");
 const html = fs.readFileSync(process.argv[2], "utf8"), base = Number(process.argv[3]), warning = Number(process.argv[4]);
-const start = html.indexOf("(function (fw, applied) {"), close = html.indexOf("}(framework, [", start);
+const start = html.search(/\(function\s*\(fw,\s*applied\)\s*\{/), close = html.indexOf("}(framework,", start);
 assert.equal(start >= 0, Boolean(base || warning));
 if (start >= 0) { assert(close > start); }
 const end = html.indexOf("]));", close);

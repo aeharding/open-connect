@@ -68,13 +68,19 @@ body, input { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvet
 .md-nav__link--active { font-weight: 600; }
 .md-nav--primary .md-nav__item--active > .md-nav__link--active {
   --oc-selection-edge: linear-gradient(90deg, #ff6748, #e63424 45%, transparent);
+  --oc-selection-tail: #181719 95%;
   color: #fff;
   border-radius: 0;
   box-shadow: inset 1px 0 #ff6748;
   background:
     var(--oc-selection-edge) top / 100% 1px no-repeat,
     var(--oc-selection-edge) bottom / 100% 1px no-repeat,
-    linear-gradient(90deg, #bb402c, #8e2119 .7rem, #541917 40%, #181719 95%);
+    linear-gradient(90deg, #bb402c, #8e2119 .7rem, #541917 40%, var(--oc-selection-tail));
+}
+@media screen and (max-width: 76.234375em) {
+  .md-nav--primary .md-nav__item--active > .md-nav__link--active {
+    --oc-selection-tail: rgb(84 25 23 / 75%) calc(100% - 1rem), transparent;
+  }
 }
 @media (min-width: 76.25em) { .md-content__inner { margin-left: 1.8rem; margin-right: 1.8rem; } }
 @media (max-width: 44em) { .md-typeset h1 { font-size: 1.8rem; } }

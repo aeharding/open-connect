@@ -12,8 +12,8 @@ Control Mazda’s built-in Android Auto support.
     <dd><span class="oc-default oc-default--on">On</span></dd>
   </div>
   <div>
-    <dt>Impact</dt>
-    <dd>Off: +4.6 MiB vs stock</dd>
+    <dt>Impact (off vs stock)</dt>
+    <dd>+4.6 MiB avail proxy</dd>
   </div>
   <div>
     <dt>Applies</dt>

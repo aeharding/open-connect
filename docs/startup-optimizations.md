@@ -12,8 +12,8 @@ Reduce background logging and stop unused services at startup. Previously called
     <dd><span class="oc-default oc-default--off">Off</span></dd>
   </div>
   <div>
-    <dt>Impact</dt>
-    <dd>On: +21 MiB vs stock</dd>
+    <dt>Impact (on vs stock)</dt>
+    <dd>+21.2 MiB avail proxy</dd>
   </div>
   <div>
     <dt>Applies</dt>

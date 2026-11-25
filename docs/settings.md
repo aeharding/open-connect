@@ -74,7 +74,7 @@ RAM and CPU differences below are **versus Stock**, on published **v0.3.0-dev.20
 | [Startup disclaimer Skip](disclaimer.md) | ~4.3 s earlier in Base=0 | Not isolated | Not isolated | Whole Base=0 Skip vs Stock Show comparison; no isolated disclaimer wait measured. |
 | [Startup optimizations on](startup-optimizations.md), n=3 | ~7.7 s earlier; ~3.4 s beyond Base=0 Skip | +21.2 MiB; AnonPages −17.8 MiB | −4.8 pp | Unused services stop; Navigation delay with the saved Wireless override. |
 | [Wireless CarPlay on](wireless-carplay.md), n=1 | ~5.1 s earlier; ~0.8 s vs Base=0 | ~0 MiB (+0.1 observed) | +2.2 pp; settled +3.4 pp | Connected iPhone, Home workload; pairing and compatible hardware required. |
-| [Show CarPlay on connection](carplay-on-connection.md) | Not measured separately | No matched PSS measurement | Not measured separately | CarPlay may replace your current screen; tests held Factory. |
+| [Show CarPlay on connection](carplay-on-connection.md) | Not measured separately | Not measured separately | Not measured separately | CarPlay may replace your current screen; tests held Factory. |
 | [Android Auto off](android-auto.md), n=1 | ~4.7 s earlier; ~0.4 s vs Base=0 | +4.6 MiB | +0.9 pp | Built-in Android Auto becomes unavailable. |
 | [Pandora off](pandora.md), n=1 | ~3.9 s earlier; 0.4 s later vs Base=0 (one trial; repeatability unknown) | +1.9 MiB | +2.4 pp | Mazda’s Pandora integration disappears; CarPlay apps still work. |
 | [SiriusXM off](siriusxm.md), n=1 | ~5.5 s earlier; ~1.2 s vs Base=0 | +7.4 MiB | −0.6 pp | Satellite radio and SiriusXM data become unavailable. |

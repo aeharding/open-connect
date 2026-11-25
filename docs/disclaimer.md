@@ -13,7 +13,7 @@ Skip Mazda’s startup warning and continue to your usual screen.
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Home: −4.3 s vs stock</dd>
+    <dd>Not measured separately</dd>
   </div>
   <div>
     <dt>Applies</dt>

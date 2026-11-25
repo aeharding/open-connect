@@ -137,13 +137,119 @@ Trial 4 compares the last confirmed Base=0 trial 2 identity; trial 3 has none.
 
 ### Receipts and reproduction boundary
 
-The authoritative private packet is `runs/acc-bench-20261125/COHORT-9.md`, with
-`cohort.csv`, `resource-analysis.json`, raw camera/UART/resource captures,
-per-trial analysis, clock bounds and boot-identity receipts. Host-only analysis
-uses `analyze.py`, reviewed `score-camera.py` / `score-disclaimer.py` frame
-choices and `report-cohort.py`. Original capture manifests are not rewritten to
-claim newer code. This page publishes sanitized derived values, not raw captures,
-OEM files, credentials or device identifiers.
+Download the public, sanitized derived values:
+
+- [Primary attempts CSV](assets/performance/dev20-acc-cohort/primary-attempts.csv): **all 11 attempts**, unrounded Home bounds, resource values and exclusion flags.
+- [Isolated toggles CSV](assets/performance/dev20-acc-cohort/isolated-toggles.csv): the **five separate n=1 configurations**, unrounded resource values and matching Base references.
+- [Supplemental helper snapshot CSV](assets/performance/dev20-acc-cohort/supplemental-helper-snapshot.csv): the separately labeled **n=1 Base=0 helper observation**, not a primary trial.
+
+These are explicit field exports, not copies of private capture files. They contain
+no device/boot identifiers, serials, MACs, SSIDs, IPs, VINs, OEM paths or raw captures.
+Original capture manifests and private evidence stay unchanged. The source/CI/ZIP
+identity above applies to both measured batches, **not** the later PR #149 candidate.
+
+In the primary CSV, **filter `primary_usable=1` before every median**, including
+Home. All 11 Home observations stay visible; the two excluded rows are not extra
+primary successes. Base=0 trial 3 has blank resource values. Base=1 trial 2's
+`resource_epoch=recovery_kernel` labels its recovered resource values; they are
+not first-boot RAM and must not enter the clean medians. Blank means unobserved,
+not zero. `restart_acc_s` retains the restart at ACC+42.657 s. Stock trial 1's
+adjudication is preserved. The separate admission refusal opened no instruments
+and is not a twelfth ACC attempt. Install/setup and Apply changes restarts are
+excluded setup operations, not measured trials.
+
+The collector was the byte-identical
+[`metrics.sh` at 34d7c29](https://github.com/aeharding/open-connect/blob/34d7c293a9cc7476884f88c2061164a3d7b5becd/cmu/bench/metrics.sh),
+SHA-256 `04ce5017e08a4e62823135eb6a560cefbc51289edda256ff5f2b1946b3d5a109`.
+It ran locally for **180 s with a one-second minimum pause after each sample**,
+plus read/loop overhead, under a 190 s deadline. This is not an exact 1 Hz cadence.
+The CSVs retain first/last sample uptimes, actual selected window bounds and
+sample counts. No detailed process discovery ran in the timed collector;
+PSS/private pages and own-file allocation were read in postflight snapshots.
+
+Metric and aggregation rules:
+
+- For the first eight aggregate `/proc/stat` counters, `total=sum(counters)` and `busy=total−idle−iowait`. Boot CPU is `100×busy/total` at the sample whose start uptime is nearest 60 s; boot busy CPU-s is `busy/100` (assumed USER_HZ=100). Settled CPU is `100×Δbusy/Δtotal` between the first and last samples wholly inside uptime 60–170 s. Percentages use both cores' total capacity as 100%.
+- RAM uses samples wholly inside uptime 20–170 s. Per-run minimum MemFree is the minimum sampled field; ending values use the last qualifying sample. MiB values divide kernel kB (KiB) by 1024. Available proxy is `MemFree+Buffers+Cached+SReclaimable−Shmem`; raw used is `MemTotal−MemFree`. Neither is AnonPages or kernel MemAvailable.
+- Own tmpfs is `sum(st_blocks) × 512 / 1024 KiB` (512 bytes per block), counting each unique device/inode once and excluding persistent symlink targets. PSS values are post-window KiB; divide by 1024 for MiB. PSS snapshot ages differ, so their deltas are not isolated heap savings.
+- Compute each clean row's Home midpoint as `(home_lower_s+home_upper_s)/2`, then take the median. Median lower/upper bounds are computed separately. `*_native_s` uses the native SM clock; do not subtract it from ACC-camera time.
+- Take the median **of each per-run metric** over the three clean rows in a condition. Differences subtract **unrounded** medians; a toggle delta subtracts its earlier Stock or matching-Base median from that single observation. Round only for display. Do not pool the five toggle rows with the primary cohorts.
+
+From the repository root, this standard-library-only host command recomputes
+all primary medians, PSS conversions and the Stock/Base deltas used on this page
+and the setting pages. It opens only the public CSVs; no device, credentials,
+private packet or third-party package is needed:
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+import csv, json
+from statistics import median
+
+folder = Path("docs/assets/performance/dev20-acc-cohort")
+metadata = {"condition", "trial", "primary_usable", "resource_epoch",
+            "exclusion_reason", "adjudication", "toggle", "matching_base",
+            "base", "wireless", "android_auto", "pandora", "siriusxm"}
+
+def load(name):
+    with (folder / name).open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    for row in rows:
+        for key, value in list(row.items()):
+            if key not in metadata:
+                row[key] = float(value) if value else None
+        row["home_midpoint_s"] = (row["home_lower_s"] + row["home_upper_s"]) / 2
+        for key in ("opera_pss_kib", "L_jciMMUI_pss_kib", "L_jciVUI_pss_kib"):
+            row[key.replace("_kib", "_mib")] = (
+                row[key] / 1024 if row[key] is not None else None)
+    return rows
+
+def numbers(row):
+    return {key: value for key, value in row.items()
+            if key not in metadata and value is not None}
+
+def summarize(rows):
+    keys = set().union(*(numbers(row) for row in rows))
+    return {key: median(row[key] for row in rows if row.get(key) is not None)
+            for key in sorted(keys)}
+
+def delta(row, reference):
+    keys = {"home_midpoint_s", "boot_cpu_busy_pct", "boot_busy_cpu_seconds_hz100",
+            "settled_cpu_pct", "own_regular_tmpfs_kib"}
+    keys |= {key for key in row if key.endswith("_mib")}
+    return {key: row[key] - reference[key] for key in sorted(keys)
+            if row.get(key) is not None and reference.get(key) is not None}
+
+attempts = load("primary-attempts.csv")
+summary = {}
+for condition in ("stock", "base0", "base1"):
+    clean = [row for row in attempts if row["condition"] == condition
+             and row["primary_usable"] == "1"]
+    assert len(clean) == 3 and all(row["resource_epoch"] == "first_kernel" for row in clean)
+    summary[condition] = summarize(clean)
+    print("median", condition, json.dumps(summary[condition], sort_keys=True))
+for condition, reference in (("base0", "stock"), ("base1", "stock"), ("base1", "base0")):
+    print("delta", condition, reference,
+          json.dumps(delta(summary[condition], summary[reference]), sort_keys=True))
+for row in load("isolated-toggles.csv"):
+    print("single", row["toggle"], json.dumps(numbers(row), sort_keys=True))
+    for reference in ("stock", row["matching_base"]):
+        print("delta", row["toggle"], reference,
+              json.dumps(delta(row, summary[reference]), sort_keys=True))
+PY
+```
+
+For example, `delta base0 stock` gives boot CPU
+**+0.7248298662500474 percentage points → +0.72 pp** and ending available proxy
+**+0.61328125 MiB → +0.61 MiB**. The tables retain their named units and display
+precision; the setting pages round most differences to one decimal place.
+
+The private packet `runs/acc-bench-20261125/COHORT-9.md`, `cohort.csv` and
+`resource-analysis.json` retain capture/clock adjudications; analysis used
+`analyze.py`, reviewed `score-camera.py` / `score-disclaimer.py` choices and
+`report-cohort.py`. These public exports reproduce aggregate arithmetic, not
+independent camera-frame review or raw-sample acquisition. OEM files, raw
+camera/UART/resources and boot-identity receipts remain private.
 
 ## Stage 2B isolated toggle sweep (n=1)
 

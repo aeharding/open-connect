@@ -30,7 +30,7 @@ Open CarPlay when your iPhone connects, including after startup and reconnection
 
 <p><span class="oc-default oc-default--off">Factory behavior</span> (<strong>Factory</strong> in the list).</p>
 
-<p><strong>Not measured separately</strong> for startup or CPU. The dev.20 cohorts kept this at Factory. Source-accounted own file pages changed <strong>0 B</strong> (<code>carplay.js</code> +4 KiB offset by <code>settings.js</code> 32→28 KiB); matched timing and PSS measurements remain ahead.</p>
+<p><strong>Not measured separately</strong> for the available-RAM proxy, startup or CPU: the dev.20 cohorts kept this at Factory. The earlier <strong>dev.18 → dev.19 comparison in <a href="https://github.com/aeharding/open-connect/pull/140">PR #140</a></strong> accounted for <strong>0 B net packaged-file page change</strong> (<code>carplay.js</code> +4 KiB offset by <code>settings.js</code> 32→28 KiB). That source-accounted figure is not a dev.20 available-proxy or PSS measurement; matched auto-selection timing and PSS remain unmeasured.</p>
 
 <p>CarPlay may replace your current screen on connection. Input, calls, voice control, Settings and maintenance dialogs take priority; Mazda retains screen and reverse-camera control.</p>
 

@@ -119,8 +119,9 @@ Use this order on each setting page:
 The bar is for tidbits, not paragraphs. Use short defaults such as **Allow**,
 **Skip**, **Off**, **Factory**, **On**, **UART/SSH Off** or **—**. Use muted neutral
 ink for Off/Factory and subtle green for enabled defaults. Keep Impact on every
-page, using compact, evidence-backed wording such as **On: +21 MiB vs stock**
-or **Off: +7.4 MiB vs stock**. Use **Not measured separately**, **Enabled: unmeasured**,
+page, using compact, evidence-backed wording such as **+21.2 MiB avail proxy**
+or **+7.4 MiB avail proxy**. Qualify the Impact label with **(on vs stock)**
+or **(off vs stock)** to keep both the metric and comparison visible. Use **Not measured separately**, **Enabled: unmeasured**,
 **Restarts to apply**, **Restores pre-install** or **Read-only** where appropriate.
 Keep the complete RAM/CPU/startup comparison and limits in Notes below the screenshot.
 Use the published dev.20 cohorts and separate n=1 toggle sweep in [Performance evidence](performance.md);

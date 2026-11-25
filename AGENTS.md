@@ -71,6 +71,10 @@ For native replacement, retain same-filesystem hardlink holds across loaded-modu
 lifetime. Restoring disk bytes does not unload modified code. Verify physical root
 mount flags, actual mappings and restored-original startup when closing a trial.
 Keep the stock frontend heartbeat and native initialization/cleanup intact.
+CMU JavaScript must follow stock CMU loading, input, transition and lifecycle
+patterns. Inspect the equivalent stock path first and preserve framework
+ownership. Justify and document necessary deviations with source or runtime
+evidence, as required by the owner rule in STEERING.md.
 
 ## Publication
 

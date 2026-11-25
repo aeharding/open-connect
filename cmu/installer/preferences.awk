@@ -89,8 +89,8 @@ function load_preferences(path, partial, line, key, value, separator, previous, 
       previous=id;listed[id]=1
     }
     for(id in service_default) if(seen["service." id] && !(id in listed)) refuse()
-    if(seen["service.dvd"] && !("dvd" in listed)) refuse()
   } else if(!partial) refuse()
+  if(seen["service.dvd"] && !("dvd" in listed)) refuse()
 }
 function validate_preferences(key, value) {
   value=prefs["package"]

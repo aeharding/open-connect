@@ -212,6 +212,24 @@ class InstallerPreferences(unittest.TestCase):
             self.run_preferences("set", current, key="service.dvd", value="1").returncode, 0
         )
 
+    def test_retired_dvd_requires_list_membership_during_upgrade_write(self):
+        current = self.fresh()
+        values = dict(package_id="b" * 64, nvram_value="disable", metadata_value="775:1000:1000")
+        for dvd, missing_list in itertools.product((0, 1), (False, True)):
+            with self.subTest(dvd=dvd, missing_list=missing_list):
+                malformed = current.replace(
+                    b"service.pandora=1", f"service.dvd={dvd}\nservice.pandora=1".encode()
+                )
+                if missing_list:
+                    malformed = malformed.replace(
+                        b"service-ids=android-auto,pandora,siriusxm\n", b""
+                    )
+                refused = self.run_preferences("write", malformed, **values)
+                self.assertEqual(refused.returncode, 1)
+                self.assertEqual(refused.stdout, b"")
+                self.assertEqual(refused.stderr, b"invalid_preferences\n")
+                self.assertEqual(self.config.read_bytes(), malformed)
+
     def test_catalog_rejects_overlapping_resource_claims(self):
         original = self.fresh()
         catalog = self.catalog.read_text()
@@ -283,12 +301,29 @@ class InstallerPreferences(unittest.TestCase):
             )
 
     def test_dev9_changes_retain_supported_policy_and_reject_new_service_writes(self):
+        current = self.fresh()
         legacy = (
-            self.fresh()
+            current.replace(b"carplay-autoshow=0\n", b"")
             .replace(b"service.android-auto=1\n", b"")
             .replace(b"service.siriusxm=1\n", b"")
             .replace(b"service-ids=android-auto,pandora,siriusxm\n", b"")
         )
+        for pandora in (0, 1):
+            with self.subTest(pandora=pandora):
+                upgraded = self.run_preferences(
+                    "write",
+                    legacy.replace(b"service.pandora=1", f"service.pandora={pandora}".encode()),
+                    package_id="b" * 64,
+                    nvram_value="disable",
+                    metadata_value="775:1000:1000",
+                )
+                self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
+                self.assertEqual(
+                    upgraded.stdout,
+                    current.replace(b"a" * 64, b"b" * 64).replace(
+                        b"service.pandora=1", f"service.pandora={pandora}".encode()
+                    ),
+                )
         changed = self.run_preferences("set", legacy, legacy="1", key="service.pandora", value="0")
         self.assertEqual(changed.returncode, 0, changed.stderr)
         self.assertEqual(self.run_preferences("legacy", changed.stdout).stdout, b"1|1|0|0|0\n")

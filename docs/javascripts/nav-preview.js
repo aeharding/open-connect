@@ -24,32 +24,27 @@
   // Resolve from this file, including on nested pages and GitHub Pages subpaths.
   const assets = new URL("../assets/guide/", document.currentScript.src);
   const entry = ["settings-entry.png", "System tab → Open Connect"];
-  // Reuse reviewed captures only; the dev.19 group lists await native captures.
+  const settings = ["settings.png", "Open Connect settings"];
+  const phone = ["carplay-android-auto.png", "CarPlay & Android Auto"];
   const paths = {
-    "open-connect": [entry],
-    touchscreen: [entry, ["touch.png", "Touchscreen While Driving → Allow"]],
-    disclaimer: [entry, ["warning.png", "Startup disclaimer → Skip"]],
-    "wireless-setup": [entry,
+    "open-connect": [entry, settings],
+    touchscreen: [entry, settings, ["touch.png", "Touchscreen While Driving → Allow"]],
+    disclaimer: [entry, settings, ["warning.png", "Startup disclaimer → Skip"]],
+    "wireless-setup": [entry, settings, phone,
       ["wireless-enable.png", "Wireless CarPlay → Enable"],
       ["wireless-mode.png", "After a full restart: Devices → Wi-Fi → Apple CarPlay"]],
     "wireless-wifi": [["wireless-mode.png", "Devices → Wi-Fi → Apple CarPlay"]],
     "wireless-connect": [["wireless-mode.png", "First choose Apple CarPlay in Devices → Wi-Fi"]],
-    services: [entry],
-    "startup-optimizations": [entry],
-    "phone-connections": [entry],
-    "audio-sources": [entry],
-    "developer-options": [entry, ["developer-options.png", "Developer options"]],
-    uninstall: [entry, ["uninstall.png", "Uninstall confirmation"]],
+    services: [entry, settings, ["audio-sources-menu.png", "Audio sources"]],
+    "startup-optimizations": [entry, settings],
+    "phone-connections": [entry, settings, phone],
+    "audio-sources": [entry, settings, ["audio-sources-menu.png", "Audio sources"]],
+    "developer-options": [entry, settings, ["developer-options.png", "Developer options"]],
+    uninstall: [entry, settings, ["uninstall.png", "Uninstall confirmation"]],
     "version-info": [["settings-entry.png", "System tab → About (below Open Connect)"],
       ["version-info.png", "Version Information → OS Version"]],
   };
   const notes = {
-    "open-connect": "Open Connect now lists Startup optimizations, CarPlay & Android Auto, and Audio sources. Scroll down for Developer options, Uninstall and About.",
-    services: "Choose Startup optimizations in Open Connect, Android Auto under CarPlay & Android Auto, or DVD, Pandora and SiriusXM under Audio sources.",
-    "startup-optimizations": "Choose Startup optimizations in Open Connect.",
-    "phone-connections": "Choose CarPlay & Android Auto for Wireless CarPlay, Show CarPlay on connection, and Android Auto.",
-    "audio-sources": "Choose Audio sources for DVD, Pandora and SiriusXM.",
-    "wireless-setup": "In Open Connect, choose CarPlay & Android Auto → Wireless CarPlay. Then follow Mazda’s Wi-Fi and phone-pairing steps.",
     "wireless-connect": "After choosing Apple CarPlay here, return to Devices → Apple CarPlay, select your iPhone and choose Connect.",
   };
   const motion = matchMedia("(prefers-reduced-motion: reduce)");

@@ -5,8 +5,8 @@ Change your preferences in Mazda’s own menus. Choices save automatically.
 Open **<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>**, just above **About**.
 
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/settings-entry.png" alt="Mazda Settings, System tab, with Open Connect selected above About." width="800" height="480"></div>
-  <figcaption>Scroll down in the System tab to find Open Connect.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>
+  <figcaption>Open Connect settings (0.3.0-dev.19).</figcaption>
 </figure>
 
 <span id="change-a-preference"></span>

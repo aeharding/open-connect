@@ -11,8 +11,8 @@ Plug-and-play USB install.
 <p class="oc-availability">Still in testing. No public download yet, and no real-car installations have been validated. Currently for North American version <strong>74.00.324</strong> only. Startup gains vary by configuration; faster startup than stock is not established.</p>
 
 <figure class="oc-screen oc-screen--lead">
-  <div class="oc-screen-frame"><img src="assets/guide/settings-entry.png" alt="Mazda Settings System tab with Open Connect above About." width="800" height="480"></div>
-  <figcaption><span class="oc-nav-path" data-walkthrough="open-connect">Settings → System → Open Connect</span> — scroll down to Open Connect.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>
+  <figcaption><span class="oc-nav-path" data-walkthrough="open-connect">Settings → System → Open Connect</span> (0.3.0-dev.19).</figcaption>
 </figure>
 
 ## Features

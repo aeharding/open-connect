@@ -1,5 +1,32 @@
 # Guide image provenance
 
+## Reorganized Settings menu — November 24, 2026
+
+`settings.png`, `carplay-android-auto.png`, `audio-sources-menu.png`,
+`developer-options.png` and `startup-optimizations-confirm.png` are **unedited
+native 800×480** captures of **0.3.0-dev.19** on **74.00.324A NA/cmu150_NA**,
+reviewed for personal information, credentials, clipping and diagnostic
+overlays. Captured after a normal UI Update (`dev.18 → dev.19`) on kernel boot
+ID `4311a3f8…`, with Base/Startup optimizations, Wireless CarPlay and Show
+CarPlay on connection enabled. These are software UI verification captures on
+the bench, separate from real-car and physical Commander Dial qualification.
+
+Build: [CI 45542133658](https://github.com/aeharding/open-connect/actions/runs/45542133658),
+source [3a71ac10](https://github.com/aeharding/open-connect/tree/3a71ac105bf4bb006f6857925389fc7762529317).
+USB installer ZIP SHA256:
+`e885b78d88a011dba3d25a28dddadb0a77a5be5af93825fe10c8a43ebf054021`.
+All 47 public payload manifest hashes matched.
+
+| Asset | SHA256 |
+| --- | --- |
+| `settings.png` | `e594f37127607e3df59509b5c1b171568546ad67de8e392bc81002067d24e46c` |
+| `carplay-android-auto.png` | `6c4dca2e8c7add07d2db9e7f8de6f8024c78ab4fa59f3a2ea5a93af647a6406f` |
+| `audio-sources-menu.png` | `6f1dfe5fb28febd1bfbd1aedff130aff12b45476d4b3c1260ee4ff43386c74d0` |
+| `developer-options.png` | `b8f3294fe5c8b640a93e8a2307dd06e50eea19ac25f518821093d5af5cd53e04` |
+| `startup-optimizations-confirm.png` | `bcd6d1abcf18ad87f6d453febed37cff30db7296b263e7e2f02515842ea9b7cd` |
+
+Private originals: `runs/dev19-car-test-20261124/{settings-top.png,carplay-android-auto.png,audio-sources.png,developer-options.png,startup-optimizations-confirm.png}`.
+
 ## Version Information — November 24, 2026
 
 `version-info.png` is a direct, unedited native **800×480** capture of Mazda’s

@@ -36,7 +36,7 @@ Control Mazda’s built-in Android Auto support.
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p><a href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> records the separate toggle sweep and its limits. Android-phone use remains unqualified. The screenshot above remains dev.19. <strong>0.3.0-dev.20</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
+<p><a href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> records the separate toggle sweep and its limits. Android-phone use remains unqualified. The screenshot above remains dev.19. <strong>0.3.0-dev.21</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 
 ## Change the setting

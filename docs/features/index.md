@@ -4,17 +4,16 @@
 
 Choose your preferences in **<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>**.
 
-These features are in the **0.3.0-dev.20 development prerelease** for North American Mazda Connect **74.00.324**. Real-car qualification remains pending.
+These features are in the **0.3.0-dev.21 development prerelease** for North American Mazda Connect **74.00.324**. Real-car qualification remains pending.
 
 | Setting | What changes | Fresh-install default |
 | --- | --- | --- |
 | [Touchscreen While Driving](../touchscreen.md) | Keeps touch available while moving. | Allow |
 | [Startup disclaimer](../disclaimer.md) | Skips the startup warning. | Skip |
-| [Startup optimizations](../startup-optimizations.md) | Reduces logging and unused services. | Off |
+| [Startup optimizations](../startup-optimizations.md) | Reduces logging and unused services, including DVD on North American units. | Off |
 | CarPlay & Android Auto → [Wireless CarPlay](../wireless-carplay.md) | Enables wireless iPhone connections on compatible hardware. | Off, unless factory enabled |
 | CarPlay & Android Auto → [Show CarPlay on connection](../carplay-on-connection.md) | Opens CarPlay when an iPhone connects. | Factory |
 | CarPlay & Android Auto → [Android Auto](../android-auto.md) | Controls built-in Android Auto support. | On |
-| Audio sources → [DVD](../dvd.md) | Controls DVD video support. | Off |
 | Audio sources → [Pandora](../pandora.md) | Controls Mazda’s built-in Pandora integration. | On |
 | Audio sources → [SiriusXM](../siriusxm.md) | Controls satellite radio and SiriusXM data. | On |
 | [Developer options](../developer-options.md) | UART, SSH and Import public key for direct access to your head unit. | UART and SSH off |

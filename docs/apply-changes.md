@@ -36,7 +36,7 @@ Restart Mazda Connect to activate your saved choices. You don’t need a USB dri
 
 <p><strong>Apply changes</strong> is disabled when there are no pending changes. The Commander Dial skips the disabled row.</p>
 
-<p>Dev.20 Apply changes has software bench verification on <strong>74.00.324A NA</strong>. Real-car qualification remains pending; <a href="performance.md">Performance evidence</a> records the dev.20 cold ACC-off cohorts separately from this action. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
+<p>Dev.20 Apply changes has software bench verification on <strong>74.00.324A NA</strong>. Real-car qualification remains pending; <a href="performance.md">Performance evidence</a> records the dev.20 cold ACC-off cohorts separately from this action. <strong>0.3.0-dev.21</strong> is a development prerelease.</p>
 
 ## Restart now
 

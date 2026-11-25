@@ -1,6 +1,6 @@
 # Settings
 
-Change your preferences in Mazda’s own menus. Choices save automatically.
+Change your preferences in Mazda’s own menus. Choices save automatically; use <a href="apply-changes.md">Apply changes</a> to restart Mazda Connect when you’re ready.
 
 <dl class="oc-spec">
   <div>
@@ -23,7 +23,7 @@ Change your preferences in Mazda’s own menus. Choices save automatically.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen-while-driving.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>
-  <figcaption>Open Connect settings (0.3.0-dev.19).</figcaption>
+  <figcaption>Open Connect settings (retained 0.3.0-dev.19 capture).</figcaption>
 </figure>
 
 ## Notes
@@ -34,9 +34,9 @@ Change your preferences in Mazda’s own menus. Choices save automatically.
 
 <p>Each setting page explains the affected features and any startup delay.</p>
 
-<p>Choices save automatically and take effect on the <strong>next full Mazda Connect startup</strong>; <a href="uninstall.md">Uninstall</a> restarts automatically and <a href="about.md">About</a> is read-only.</p>
+<p>Choices save automatically. Use <a href="apply-changes.md">Apply changes</a> to restart Mazda Connect and activate them; <a href="uninstall.md">Uninstall</a> restarts automatically and <a href="about.md">About</a> is read-only.</p>
 
-<p><a href="performance.md">Performance evidence</a> records earlier measured configurations. The dev.19 menu has bench captures and Settings Uninstall verification; real-car qualification and matched dev.19 benchmarks remain ahead. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+<p><a href="performance.md">Performance evidence</a> records earlier measured configurations. Dev.20 has bench verification of Apply changes and Settings Uninstall; real-car qualification and matched dev.20 benchmarks remain ahead. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
 
 
 <span id="change-a-preference"></span>
@@ -57,8 +57,9 @@ Open Connect is just above **About** in Mazda’s System menu. Its settings foll
     - [Pandora](pandora.md): <span class="oc-default oc-default--on">On</span> by default.
     - [SiriusXM](siriusxm.md): <span class="oc-default oc-default--on">On</span> by default.
 6. [**Developer options**](developer-options.md): <span class="oc-default oc-default--off">UART Off; SSH Off</span>; no public key imported.
-7. [**Uninstall**](uninstall.md)
-8. [**About**](about.md)
+7. [**Apply changes**](apply-changes.md): restart to activate saved choices; disabled when there are no pending changes.
+8. [**Uninstall**](uninstall.md)
+9. [**About**](about.md)
 
 ## Impact at a glance
 
@@ -68,7 +69,7 @@ These comparisons describe enabling Startup optimizations or disabling an unused
 | --- | --- | --- | --- |
 | [Touchscreen While Driving](touchscreen.md) | Neutral | Not measured separately | Touch stays available while moving. |
 | [Startup disclaimer](disclaimer.md) | Neutral | Not measured separately | The startup warning is skipped. |
-| [Startup optimizations](startup-optimizations.md) | Faster in earlier wired tests | +9.9 MiB minimum MemFree; +2.58 MiB ending, dev.7 | Aha, Stitcher, DAB and TV stop; dev.19 delays Mazda Navigation about 20 s only with both Startup optimizations and the saved Open Connect Wireless CarPlay override on. |
+| [Startup optimizations](startup-optimizations.md) | Faster in earlier wired tests | +9.9 MiB minimum MemFree; +2.58 MiB ending, dev.7 | Aha, Stitcher, DAB and TV stop; Mazda Navigation is delayed about 20 s only with both Startup optimizations and the saved Open Connect Wireless CarPlay override on. |
 | [Wireless CarPlay](wireless-carplay.md) | Neutral | No isolated gain established | Requires compatible hardware and phone pairing. |
 | [Show CarPlay on connection](carplay-on-connection.md) | Neutral | No matched PSS measurement | CarPlay may replace your current screen on connection. |
 | [Android Auto off](android-auto.md) | Neutral | Not measured separately | Built-in Android Auto becomes unavailable. |
@@ -79,12 +80,12 @@ These comparisons describe enabling Startup optimizations or disabling an unused
 
 An already-checked **factory enabled** Wireless CarPlay row leaves the Open Connect wireless override off and does not trigger the Navigation delay.
 
-The [Performance evidence](performance.md) records the configurations and limits. Startup optimizations was called **Base optimizations** in those tests: dev.7’s wired dashboard was about 3.8 s earlier with it on. Pandora’s timing difference was below camera resolution. These are earlier bench results, not dev.19 measurements; do not add their RAM figures together. Free RAM here means **MemFree**, not memory available to apps. Later presets changed both behavior and memory costs; matched dev.19 results remain ahead.
+The [Performance evidence](performance.md) records the configurations and limits. Startup optimizations was called **Base optimizations** in those tests: dev.7’s wired dashboard was about 3.8 s earlier with it on. Pandora’s timing difference was below camera resolution. These are earlier bench results, not dev.20 measurements; do not add their RAM figures together. Free RAM here means **MemFree**, not memory available to apps. Later presets changed both behavior and memory costs; matched dev.20 results remain ahead.
 
 ## Apply changes
 
-Changes take effect on the **next full Mazda Connect startup**. Turn the ignition off and let the system shut down completely before starting again. A quick off/on may resume the same session.
+In **0.3.0-dev.20**, select [**Apply changes**](apply-changes.md) above **Uninstall**, then confirm **Restart**. Keep the car on until Mazda Connect restarts. You don’t need a USB drive or computer. The row is disabled when there are no pending changes.
 
-**restart needed** means a choice is saved but not active yet. If a save cannot be confirmed, reopen Open Connect and check the choice before trying again.
+**restart needed** means a choice is saved but not active yet. You can change several settings before applying them together. Saved choices also take effect on the next full startup; a quick ignition off/on may resume the same session. If a save cannot be confirmed, reopen Open Connect and check the choice before trying again.
 
-The guide describes the **0.3.0-dev.19 development prerelease** for North American version **74.00.324**. Real-car qualification remains pending.
+The guide describes the **0.3.0-dev.20 development prerelease** for North American version **74.00.324**. Real-car qualification remains pending.

@@ -46,8 +46,8 @@ Connect your iPhone to CarPlay without plugging in a USB cable. Open Connect ena
 If Open Connect shows **factory enabled**, start at step 3.
 
 1. Open **<span class="oc-nav-path" data-walkthrough="wireless-setup">Mazda Settings → System → Open Connect → CarPlay &amp; Android Auto</span>**. Turn on **Wireless CarPlay** and confirm **Enable**.
-2. Let Mazda Connect shut down completely, then start it again.
-3. Open **<span class="oc-nav-path" data-walkthrough="wireless-wifi">Mazda Settings → Devices → Wi-Fi</span>** and select **Apple CarPlay**.
+2. Select [**Apply changes**](apply-changes.md) in Open Connect and confirm **Restart**. Keep the car on until Mazda Connect restarts.
+3. Open **Mazda Settings → Devices → Wi-Fi** and select **Apple CarPlay**.
 
     <figure class="oc-screen">
       <div class="oc-screen-frame"><img src="assets/guide/wireless-mode.png" alt="Mazda Wi-Fi mode list with Off and Apple CarPlay options." width="800" height="480" loading="lazy"></div>
@@ -55,7 +55,7 @@ If Open Connect shows **factory enabled**, start at step 3.
     </figure>
 
 4. Enable Wi-Fi and Bluetooth on your iPhone. Pair it with Mazda Connect over Bluetooth and accept the wireless CarPlay prompt if shown.
-5. Open **<span class="oc-nav-path" data-walkthrough="wireless-connect">Mazda Settings → Devices → Apple CarPlay</span>**, select your iPhone and choose **Connect**.
+5. Open **Mazda Settings → Devices → Apple CarPlay**, select your iPhone and choose **Connect**.
 
 If **Connect** stays greyed out for an already paired iPhone, remove that phone’s pairing and pair it again. Leave other phones paired.
 

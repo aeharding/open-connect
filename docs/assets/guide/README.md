@@ -1,4 +1,61 @@
-# Guide image provenance
+# Guide media provenance
+
+## Commander Dial MP4 walkthroughs and Apply changes 2026-11-25
+
+The five `walkthroughs/*.mp4` videos and three Apply changes PNGs show
+**0.3.0-dev.20** on **74.00.324A NA/cmu150_NA**, captured from reviewed source
+[`e29b58258c0c9e9f4c4689c7912f634b80008424`](https://github.com/aeharding/open-connect/tree/e29b58258c0c9e9f4c4689c7912f634b80008424),
+[CI 45578042314](https://github.com/aeharding/open-connect/actions/runs/45578042314).
+This is their exact capture candidate, not the later final dev.20 qualification
+build. Older captures below retain their own identities.
+
+The operator visually reviewed all five final videos and three full PNGs for
+personal information, credentials, diagnostic overlays and framebuffer tearing.
+Navigation used Mazda Commander Dial events (rotate, select and right), with no
+touch input. Bluetooth was **off**; no VIN, unit serial, phone identity or personal
+map appears. These are bench software UI captures, separate from physical
+Commander hardware and real-car qualification. The documentation implementer
+inspected the three PNGs and verified all eight copied files offline.
+
+Each video starts at **Home**, follows Mazda’s native menus and retains real-time
+playback without acceleration. They are **800×480, 10 fps, H.264/yuv420p**, with
+no audio. H.264 is lossy; RGB pixel identity with the framebuffer is not claimed.
+Torn framebuffer samples were rejected and the **previous intact native frame
+was held at the original timestamp**. No UI pixels were invented and no waits
+were cut. Occasional capture stutter remains. These are **walkthroughs only, not
+performance timing evidence**.
+
+| Video | Duration | Bytes | Held frames / total |
+| --- | ---: | ---: | ---: |
+| `walkthroughs/open-connect.mp4` | 9.4 s | 132,589 | 7 / 94 |
+| `walkthroughs/carplay-android-auto.mp4` | 11.0 s | 141,895 | 12 / 110 |
+| `walkthroughs/audio-sources.mp4` | 11.1 s | 125,771 | 15 / 111 |
+| `walkthroughs/developer-options.mp4` | 11.4 s | 134,300 | 15 / 114 |
+| `walkthroughs/version-info.mp4` | 10.4 s | 126,677 | 8 / 104 |
+
+The PNGs are unedited native **800×480** readbacks. The disabled capture focuses
+adjacent **Uninstall** because Mazda’s Commander skips disabled rows; Apply changes
+remains visibly grey. The enabled and confirmation captures show a genuinely
+saved change waiting for restart, not a simulated state.
+
+| Asset | SHA-256 |
+| --- | --- |
+| `walkthroughs/audio-sources.mp4` | `79a0a92e87bd45e7bfe82b9850bf7703890fc145bf1b5ea60f2ec6953f4cecb1` |
+| `walkthroughs/carplay-android-auto.mp4` | `5f5541526ac1724fb8655f574e73b62e97e0d7c6803f3472336cd4c95c28920c` |
+| `walkthroughs/developer-options.mp4` | `80a6cb3de500d810bdd29ea57b86e0fb6a5528e85a7a52b42082142b4efb740b` |
+| `walkthroughs/open-connect.mp4` | `d372dbcf703996721b93a7ef96af75e8ff85721d4cbb194bd6d2e8a8f89c0538` |
+| `walkthroughs/version-info.mp4` | `23ff6a954f496c3eca4151ecb06a71589b19adc83476becd9af979221b21ccdf` |
+| `apply-changes-confirm.png` | `41302b32a058b15fda7ff8af217d48f2657a976ba0bc5f0fc66cab0d92c554a7` |
+| `setting-apply-changes-disabled.png` | `7f675da6a1b387a9b4cc12d60582a12f22a9ba54ad02e21a3a48b0935db80202` |
+| `setting-apply-changes-enabled.png` | `5ac5a1d2a406f9427de9374f101ef13fac00340a66009e3557343bc99f94b131` |
+
+Private supplied originals: `runs/dev20-qual-20261125/videos/{name}.mp4`,
+`apply-changes-disabled.png`, `apply-changes-enabled.png` and
+`apply-changes-confirmation.png`. The operator’s `videos/manifest.json`,
+`videos/SHA256SUMS`, `videos/frame-rejections.json` and `FINAL-QUAL.md` identify
+the source, exact file bytes, rejected sample indices and qualification limits.
+Raw masters and capture collections remain private; only the reviewed guide
+media listed above are included.
 
 <span id="commander-dial-setting-captures-november-24-2026"></span>
 <span id="commander-dial-setting-captures--november-24-2026"></span>

@@ -12,7 +12,7 @@ hashes document research; they are not downloads or grants of rights to OEM code
 Some integration tests require privately obtained exact firmware files and cannot
 run from a public checkout alone.
 
-## Documentation screenshots
+## Documentation screenshots and walkthroughs
 
 The PNG images in `docs/assets/guide/` were captured directly from the CMU's
 native display, without cropping or other image edits. Earlier captures use
@@ -22,7 +22,7 @@ its received SHA-256 and was reviewed for personal data, credentials and
 diagnostic overlays. The separately authored `cmu-frame.svg` is a decorative
 bezel displayed around the captures by the website; it is not part of the screen.
 
-The fourteen `setting-*.png` Commander Dial row captures show **0.3.0-dev.19**,
+The fourteen November 24 `setting-*.png` Commander Dial row captures show **0.3.0-dev.19**,
 tag commit `f478f3b282f6987d86e04c03d83b1a6971d5a3db`, supplied on November 24,
 2026 as native 800×480 `/dev/fb0` BGRA readbacks. The coordinator identified
 two distinct archive identities:
@@ -39,6 +39,25 @@ no new live identity or package verification was performed for this docs change.
 Each complete image was reviewed for publication; the native red focus was
 produced with Commander Dial events, not image edits. Per-file copied hashes
 and qualification limits are in the [guide asset notes](docs/assets/guide/README.md#commander-dial-setting-captures-2026-11-24).
+
+The five `docs/assets/guide/walkthroughs/*.mp4` files and
+`docs/assets/guide/setting-apply-changes-disabled.png`,
+`docs/assets/guide/setting-apply-changes-enabled.png` and
+`docs/assets/guide/apply-changes-confirm.png` are reviewed native UI captures
+supplied November 25, 2026 from **0.3.0-dev.20** on the same v74 firmware,
+exact source `e29b58258c0c9e9f4c4689c7912f634b80008424`,
+[CI 45578042314](https://github.com/aeharding/open-connect/actions/runs/45578042314).
+All eight files were copied and hash-checked offline. The PNGs are unedited
+800×480 captures; the silent MP4s are 800×480, 10 fps, H.264/yuv420p Home-first
+Commander Dial walkthroughs. Bluetooth was off and the operator reviewed every
+final clip and PNG for private content and diagnostic overlays. Torn framebuffer
+samples hold the previous intact native frame at the original timestamp;
+no waits were cut or accelerated. Lossy video pixel identity is not claimed.
+These are walkthroughs, not performance timing evidence. Exact hashes and
+capture limits are in the
+[dev.20 media notes](docs/assets/guide/README.md#commander-dial-mp4-walkthroughs-and-apply-changes-2026-11-25).
+This extends only the reviewed native UI capture scope; it does not include
+raw masters, general capture collections or OEM asset/source packages.
 
 Current dev.17 Install, loading/restart, Update, Settings, Uninstall
 and Base-confirmation captures use
@@ -71,7 +90,7 @@ Unchanged earlier captures retain these identities:
 These illustrate the v74 development candidate's UI from bench sessions. They do
 not establish physical USB launch or matching-car qualification; no qualified v74
 download has been published. Raw
-capture collections and OEM inputs stay private; only these reviewed UI images
+capture collections and OEM inputs stay private; only the reviewed UI images and walkthroughs
 are included in the owner guide.
 
 Mazda's interface appears alongside Open Connect's additions. This documentation

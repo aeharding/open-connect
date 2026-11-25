@@ -39,8 +39,8 @@ class InstallerWireless(unittest.TestCase):
         self.target.write_bytes(XML)
         self.target.chmod(0o640)
         self.boot = self.root / "boot"
-        self.boot.write_text("00000000-0000-0000-0000-000000000001\n")
-        (self.feature / "boot-id").write_bytes(self.boot.read_bytes())
+        self.boot.symlink_to("00000000-0000-0000-0000-000000000001")
+        (self.feature / "boot-id").write_text(self.boot.readlink().as_posix() + "\n")
         (self.feature / "wireless-applied").write_text("0\n")
         self.launcher = self.root / "session.py"
         self.launcher.write_text(
@@ -53,9 +53,11 @@ class InstallerWireless(unittest.TestCase):
         source = (ASSETS / "wireless.sh").read_text()
         source = source.replace("/tmp/open-connect/feature", str(self.feature))
         source = source.replace("/tmp/devmgr_config_edit.xml", str(self.target))
-        source = source.replace("/proc/sys/kernel/random/boot_id", str(self.boot))
+        source = source.replace("/tmp/open-connect/boot-id", str(self.boot))
+        source = source.replace("/tmp/open-connect", str(self.root))
         source = source.replace('test "$(id -u)" = 0', f'test "$(id -u)" = {os.getuid()}')
         source = source.replace("700:0:0", f"700:{os.getuid()}:{os.getgid()}")
+        source = source.replace(" = 36:0:0", f" = 36:{os.getuid()}:{os.getgid()}")
         source = source.replace(
             "PATH=/usr/bin:/bin:/usr/sbin:/sbin",
             "PATH=" + shlex.quote(str(self.tools) + os.pathsep + os.environ["PATH"]),
@@ -236,11 +238,23 @@ class InstallerWireless(unittest.TestCase):
         self.assert_released(0)
 
     def test_wrong_boot_refuses_without_signaling_readiness(self):
-        self.boot.write_text("00000000-0000-0000-0000-000000000002\n")
+        self.boot.unlink()
+        self.boot.symlink_to("00000000-0000-0000-0000-000000000002")
         result = self.run_helper()
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.feature / "wireless-ready").exists())
         self.assertEqual(self.target.read_bytes(), XML)
+
+    def test_missing_or_malformed_boot_marker_refuses_before_preparation(self):
+        for value in (None, "invalid", "00000000-0000-0000-0000-000000000001\n"):
+            with self.subTest(value=value):
+                self.boot.unlink(missing_ok=True)
+                if value is not None:
+                    self.boot.symlink_to(value)
+                result = self.run_helper()
+                self.assertNotEqual(result.returncode, 0, result.stderr)
+                self.assertFalse((self.feature / "wireless-ready").exists())
+                self.assertEqual(self.target.read_bytes(), XML)
 
     def interrupt_at(self, marker, expected):
         process = subprocess.Popen(

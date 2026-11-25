@@ -78,7 +78,7 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
             # A completion notice still promises fresh conflict detection, even
             # when Settings wins the race with the boot-completion status read.
             if test "$installed" = true && test "$notice" = installed && test "$selected" = "$R_CURRENT" &&
-                IFS= read -r kernel_boot < /proc/sys/kernel/random/boot_id && boot_id "$kernel_boot" &&
+                kernel_boot=$(completion_boot_id) &&
                 test "$R_BOOT" = "$kernel_boot"; then completion_check=true; fi
             if test "$operation:$argument" != status:settings || test "$completion_check" = true; then
                 if ! targets_match_loaded "$R_CURRENT" ||
@@ -140,13 +140,23 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
     if test "$installed" = true && test "$installed_version" != - && test "$pending" = false && test "$conflict" = false &&
         test "$restart" = false && test "$notice" = installed &&
-        IFS= read -r kernel_boot < /proc/sys/kernel/random/boot_id && boot_id "$kernel_boot" &&
+        kernel_boot=$(completion_boot_id) &&
         test "$R_BOOT" = "$kernel_boot"; then completion_ready=true; fi
     # Keep the retired boolean false for an installed v0.2.0-dev.1 client during
     # USB handoff. No endpoint or UI offers Undo.
     printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s%s}\n' \
         "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version" \
         "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current" "$service_status,\"completionReady\":$completion_ready"
+}
+
+completion_boot_id() {
+    # New maintenance media may serve a still-running pre-marker installation.
+    # Only absence permits the legacy proof; malformed markers fail closed.
+    if absent /tmp/open-connect/boot-id; then
+        local value
+        value=$(cat /proc/sys/kernel/random/boot_id) && boot_id "$value" || return 1
+        printf '%s\n' "$value"
+    else current_boot_id; fi
 }
 
 finish_removal() {

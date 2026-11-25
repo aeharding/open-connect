@@ -18,8 +18,39 @@ private_dir() {
 touch_value() { case "$1" in absent|enable|disable) true;; *) false;; esac; }
 bit() { case "$1" in 0|1) true;; *) false;; esac; }
 boot_id() {
+    local value=$1 digit
     case "$1" in ????????-????-????-????-????????????) ;; *) return 1;; esac
-    case "$1" in *[!a-f0-9-]*) return 1;; esac
+    for digit in 1 2 3 4; do value=${value%%-*}${value#*-}; done
+    hex "$value" 32
+}
+
+# Linux 3.0 on i.MX6 can repeat its early-entropy boot_id after a cold start.
+# The selector creates this once, under the operation lock and before recovery
+# can change OC1. A short tmpfs symlink stores the value inline (no data page).
+# It is data, never a pathname to follow. Readers must not synthesize a value.
+current_boot_id() {
+    local marker=/tmp/open-connect/boot-id value
+    test -L "$marker" && test "$(stat -c '%s:%u:%g' "$marker")" = "36:$(id -u):$(id -g)" || return 1
+    value=$(readlink "$marker") && boot_id "$value" || return 1
+    printf '%s\n' "$value"
+}
+
+boot_identity() {
+    local marker=/tmp/open-connect/boot-id kernel digest value digit
+    if absent "$marker"; then
+        kernel=$(cat /proc/sys/kernel/random/boot_id) && boot_id "$kernel" || return 1
+        digest=$(printf 'OCBOOT1|%s|%s|%s|%s\n' "$kernel" "$R_REV" "$R_BOOT" "$R_OFF" | openssl dgst -sha256) || return 1
+        digest=${digest##* }; hex "$digest" 64 || return 1
+        value=$(printf '%s\n' "$digest" | sed 's/^\(........\)\(....\)\(....\)\(....\)\(............\).*/\1-\2-\3-\4-\5/') || return 1
+        # Explicitly exclude both historical identities, including legacy raw
+        # UUIDs, even in the event of a digest collision. This is not a secret.
+        for digit in 0 1 2 3 4 5 6 7 8 9 a b c d e f; do
+            if test "$value" != "$R_BOOT" && test "$value" != "$R_OFF"; then break; fi
+            value=$digit${value#?}
+        done
+        ln -s "$value" "$marker" || return 1
+    fi
+    current_boot_id
 }
 
 verify_manifest() {

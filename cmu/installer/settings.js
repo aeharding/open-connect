@@ -338,7 +338,7 @@ function open(fw,store){
      "Restores original native logging after restarting Mazda Connect.")):
     serviceRow?(enabled?serviceRow.enable:serviceRow.disable):
     "Changes apply after restarting Mazda Connect.";
-   if(item==="base"&&enabled&&/^0\.3\.0-dev\.(16|17|18|19)$/.test(store.version)&&values.wireless){
+   if(item==="base"&&enabled&&/^0\.3\.0-dev\.(16|17|18|19|20)$/.test(store.version)&&values.wireless){
     serviceText += " Wireless CarPlay delays Mazda Navigation about 20 s.";
    }
    var servicePage=choice;

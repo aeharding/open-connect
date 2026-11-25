@@ -177,7 +177,9 @@ until restart. Settings uninstall has no USB-specific warning.
 
 The additive read-only `completionReady` status field requires settled,
 conflict-free installed state, the installed notice, no restart requirement,
-`selected == current`, and the recorded kernel UUID matching the current boot.
+`selected == current`, and the recorded boot identity matching the current boot.
+The volatile identity takes precedence over the kernel UUID; only absence of
+the marker permits legacy kernel-UUID proof. A malformed marker fails closed.
 The client additionally matches the boot page's token/version/notice to fresh
 installed-version evidence, including when maintenance USB remains inserted.
 Normal notice-free startup adds no status request.

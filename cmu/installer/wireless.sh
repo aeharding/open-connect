@@ -23,7 +23,11 @@ esac
 test "$(id -u)" = 0
 test "$(readlink -f "$R")" = "$R"
 test "$(stat -c '%a:%u:%g' "$R")" = 700:0:0
-test "$(cat /proc/sys/kernel/random/boot_id)" = "$(cat "$R/boot-id")"
+test "$(readlink -f /tmp/open-connect)" = /tmp/open-connect
+test "$(stat -c '%a:%u:%g' /tmp/open-connect)" = 700:0:0
+test -L /tmp/open-connect/boot-id
+test "$(stat -c '%s:%u:%g' /tmp/open-connect/boot-id)" = 36:0:0
+test "$(readlink /tmp/open-connect/boot-id)" = "$(cat "$R/boot-id")"
 absent "$R/wireless-ready"
 prepare() (
     # Keep every failure explicit; no partial output authorizes publication.

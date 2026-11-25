@@ -323,7 +323,7 @@ const catalog = fs.readFileSync(require("node:path").join(process.argv[3], "../s
         return {id, label, saved: Number(saved), current: Number(saved), enable, disable};
     });
 store.version = fs.readFileSync(require("node:path").join(process.argv[3], "../VERSION"), "utf8").trim();
-assert.equal(store.version, "0.3.0-dev.19");
+assert.equal(store.version, "0.3.0-dev.20");
 values = {...values, wireless: 0, wirelessCurrent: 0, wirelessFactory: false,
     carplayAutoshow: 0, carplayAutoshowCurrent: 0, services: catalog};
 settings.open(fw, store);
@@ -432,7 +432,7 @@ back(); back();
 
 // Current Base keeps the Navigation warning with Wireless enabled. Longest
 // enable body fits the fixed native dialog without the previous verbose copy.
-for (const version of ["0.3.0-dev.15", "0.3.0-dev.16", "0.3.0-dev.17", "0.3.0-dev.18", "0.3.0-dev.19"]) for (const wireless of [0, 1]) {
+for (const version of ["0.3.0-dev.15", "0.3.0-dev.16", "0.3.0-dev.17", "0.3.0-dev.18", "0.3.0-dev.19", "0.3.0-dev.20"]) for (const wireless of [0, 1]) {
     store.version = version;
     values = {...values, base: 0, wireless};
     settings.open(fw, store); toggle("base", true);
@@ -441,7 +441,7 @@ for (const version of ["0.3.0-dev.15", "0.3.0-dev.16", "0.3.0-dev.17", "0.3.0-de
     assert.ok(modal.props.text1.length <= 125);
     confirm("cancel"); back();
 }
-store.version = "0.3.0-dev.19";
+store.version = "0.3.0-dev.20";
 
 // A fresh-status response must not reopen Settings after detach or navigation.
 let freshReply;

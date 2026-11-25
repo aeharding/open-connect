@@ -38,7 +38,7 @@ The lab handoff, bench-state.txt, is deliberately excluded from the website.
 
 ## Keep the direction readable
 
-**Using Open Connect is for owners.** Organize it around Quick start, Settings
+**Guide is for owners.** Organize it around Quick start, Settings
 and Uninstall. Use short numbered steps, the exact on-screen labels, current
 direct CMU screenshots and simple diagrams. Explain what to do and what happens
 next. Keep the firmware/prerelease limit visible; move build commands, backend
@@ -46,10 +46,11 @@ mechanics and qualification evidence to Development or CMU research.
 Say “Mazda Connect's main screen,” not “at Home.” Center framed screenshots and
 their captions; keep the outer frame compact and the original capture unedited.
 
-**Features has one page and menu item per feature.** Explain what it changes,
-its default, the available choices and any qualification limits. Keep Settings
-focused on finding Open Connect in Mazda's menus and saving preferences; link
-to feature pages for detail.
+**Settings follows the in-car menu.** Match the current on-screen labels and
+order. Explain each setting’s effect, default and choices in plain English. Keep
+the overview focused on finding Open Connect and saving preferences. Developer
+options can stay technical. Keep existing file paths and URLs when reorganizing
+navigation. Group bench, performance and research pages under Development.
 
 Write feature introductions for people deciding whether they can use the feature:
 what changes, whether it is available, and where to go next. Put commands and

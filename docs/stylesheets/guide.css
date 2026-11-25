@@ -1,92 +1,16 @@
-.md-typeset .oc-screen {
-  width: 100%;
-  max-width: 26rem;
-  margin: 1.25rem auto 1.75rem;
-}
-.oc-screen-frame {
-  position: relative;
-  aspect-ratio: 880 / 552;
-  background: url("../assets/guide/cmu-frame.svg") center / contain no-repeat;
-}
-.md-typeset .oc-screen-frame img {
-  position: absolute;
-  top: 9.1304%;
-  left: 7.2727%;
-  display: block;
-  width: 85.4545%;
-  height: auto;
-}
-.md-typeset .oc-screen figcaption {
-  margin-top: .5rem;
-  color: var(--md-default-fg-color--light);
-  font-size: .8rem;
-  text-align: center;
-}
+/* Owner guide: unboxed introductions and unedited native screens. */
+.md-typeset .oc-intro { font-size: 1rem; line-height: 1.6; max-width: 36rem; }
+.md-typeset .oc-availability { color: var(--md-default-fg-color--light); font-size: .76rem; padding-top: .8rem; border-top: 1px solid var(--oc-border); margin: 1.3rem 0; }
+.oc-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1.2rem; margin: 1.4rem 0 1.6rem; }
+.md-typeset .oc-screen { width: 100%; max-width: 28rem; margin: 1.7rem auto 2rem; }
+.md-typeset .oc-screen--lead { max-width: 32rem; }
+.oc-screen-frame { position: relative; isolation: isolate; aspect-ratio: 880 / 552; background: url("../assets/guide/cmu-frame.svg") center / contain no-repeat; }
+.md-typeset .oc-screen-frame img { position: absolute; z-index: 1; top: 9.1304%; left: 7.2727%; display: block; width: 85.4545%; height: auto; }
+.md-typeset .oc-screen figcaption { margin: .65rem auto 0; max-width: 26rem; color: var(--md-default-fg-color--light); font-size: .72rem; line-height: 1.5; text-align: center; }
 
-.md-typeset ol.oc-install-flow {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-  margin: 1.75rem 0 2.25rem;
-  padding: 0;
-  list-style: none;
-}
-.md-typeset ol.oc-install-flow li {
-  position: relative;
-  margin: 0;
-  padding: .8rem .65rem 1rem;
-  border: 1px solid var(--md-default-fg-color--lightest);
-  border-radius: .65rem;
-  background: var(--md-code-bg-color);
-}
-.md-typeset ol.oc-install-flow li + li::before {
-  content: "→";
-  position: absolute;
-  top: 2.4rem;
-  left: -.85rem;
-  color: var(--md-default-fg-color--light);
-  font-size: 1rem;
-}
-.md-typeset ol.oc-install-flow img {
-  display: block;
-  width: 8rem;
-  max-width: 100%;
-  height: auto;
-  margin: 0 auto .65rem;
-}
-.md-typeset ol.oc-install-flow strong {
-  display: flex;
-  align-items: baseline;
-  gap: .35rem;
-  font-size: .78rem;
-}
-.md-typeset ol.oc-install-flow strong span {
-  color: var(--md-accent-fg-color);
-  font-variant-numeric: tabular-nums;
-}
-.md-typeset ol.oc-install-flow p {
-  margin: .45rem 0 0;
-  color: var(--md-default-fg-color--light);
-  font-size: .7rem;
-  line-height: 1.55;
-}
-@media (max-width: 44rem) {
-  .md-typeset ol.oc-install-flow {
-    grid-template-columns: 1fr;
-    gap: .65rem;
-  }
-  .md-typeset ol.oc-install-flow li {
-    display: grid;
-    grid-template-columns: 5.5rem minmax(0, 1fr);
-    column-gap: .7rem;
-    align-items: center;
-    padding: .65rem;
-  }
-  .md-typeset ol.oc-install-flow img {
-    grid-row: 1 / 3;
-    margin: 0;
-  }
-  .md-typeset ol.oc-install-flow strong { align-self: end; }
-  .md-typeset ol.oc-install-flow p { align-self: start; }
-  .md-typeset ol.oc-install-flow li + li::before { content: none; }
-}
+/* Text labels remain readable without color or icon support. */
+.oc-default { white-space: nowrap; font-weight: 500; }
+.oc-default--on { color: #256a4a; }
+.oc-default--off { color: #983f4b; }
+[data-md-color-scheme="slate"] .oc-default--on { color: #8ec7ac; }
+[data-md-color-scheme="slate"] .oc-default--off { color: #d8a2a8; }

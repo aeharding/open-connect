@@ -1,72 +1,33 @@
-# How Open Connect works
+<span id="how-open-connect-works"></span>
 
-Open Connect keeps Mazda's interface and saves your choices. At startup, it
-selects prepared files, keeping only the necessary temporary copies in RAM.
+# How it works
 
-## Original files, selected copies
+Open Connect adds preferences to Mazda’s own Settings. Your normal menus and controls stay in place.
 
-```mermaid
-flowchart TD
-    choices["Install or save choices"] --> saved["Verify inputs and save a launch plan"]
-    originals["Original Mazda apps and service files"] --> saved
-    saved --> ram["Startup: check the plan and select prepared files"]
-    ram --> screen["Mazda interface with your choices"]
-    originals --> screen
-```
+<span id="original-files-selected-copies"></span>
+<span id="shared-files-need-shared-rules"></span>
 
-The Mazda app and service originals stay on storage. Open Connect also adds a
-helper and modifies the startup entry, plus any requested touchscreen or access
-settings. Their pre-install state is recorded for [Uninstall](uninstall.md).
-System storage returns to read-only after owned file changes are saved.
+## Installation
 
-## A bounded startup fallback
+The USB installer checks the supported version and saves the original configuration before making changes. It stops if another modification has changed files it needs.
 
-```mermaid
-flowchart TD
-    safe{"Startup checks pass and attempts remain?"} -->|Yes| selected["Record an attempt, then start selected files"]
-    safe -->|No| stock["Continue through Mazda's normal startup path"]
-    uninstall["Uninstall from Settings or compatible USB"] --> restore["Restore saved state, remove Open Connect and restart"]
-```
+Your choices stay saved after removing the USB drive and across normal restarts.
 
-A three-attempt allowance limits repeated restarts without an ignition renewal.
-A sustained ignition-off period followed by a full system start renews it. Normal use
-isn't limited to three starts.
+<span id="a-bounded-startup-fallback"></span>
+<span id="prepare-ahead-of-startup"></span>
 
-Fallback leaves Open Connect installed. Uninstall restores the files and settings
-Open Connect changed to their saved pre-install state, including removing its
-added files. It preserves unrelated Mazda preferences; it isn't a factory reset.
+## Startup
 
-## Prepare ahead of startup
+Open Connect checks your saved choices, then applies them as Mazda Connect starts. Most changed app and service files are temporary copies in memory; the originals stay on storage.
 
-Installation and Settings saves perform full verification and prepare the launch
-files. Normal startup uses a small compiled selector: it checks the saved plan
-and file details, and verifies selected bytes. Some prepared files are used
-directly from Open Connect's private storage; the rest are copied to RAM. Changed
-inputs take a full-check or fallback path. The selector can work alongside
-Mazda's existing startup preparation, and must finish before the selected apps
-start.
+If repeated unexpected restarts exhaust its three-attempt allowance, Open Connect falls back to Mazda’s normal startup. Your choices are kept. A normal start after a sustained ignition-off shutdown renews that allowance.
 
-The recorded selector span was **0.56 seconds in one dev.9 bench start**. Timing
-varies, and approximately zero added delay versus stock remains a target. See
-[the timings, RAM and qualification limits](startup-overhead.md#native-selector-pilot-dev9).
+Startup and memory overhead remain under development. Bench improvements do not establish a faster start than stock. Measurements are in [Performance evidence](performance.md).
 
-## Shared files need shared rules
+## Removal
 
-```mermaid
-flowchart LR
-    oc["Open Connect expects a known file"] --> file["The same guarded system file"]
-    mod["Another mod replaces it"] --> file
-    file --> conflict["Conflict: preserve changes and stop"]
-```
+[Uninstall](uninstall.md) restores the configuration saved before installation and removes Open Connect’s files and backups. It leaves normal Mazda preferences and phone pairings alone.
 
-Direct edits to guarded files can block installation, updates or removal.
-Open Connect preserves unknown changes instead of overwriting them. See
-[existing modifications](installer-development.md#existing-modifications).
+This restores the state found before installation. It is not a factory reset.
 
-The [plugin architecture proposal](extension-architecture.md) would give built-in
-features and third-party additions one way to compose changes and check overlaps
-before activation. That system is being researched; a plugin marketplace isn't
-available yet. Follow [#117](https://github.com/aeharding/open-connect/issues/117).
-
-Ready to use it? Start with [Quick start](usb-installer.md), then
-[Settings](settings.md).
+The current preview is for North American version **74.00.324**. Real-car qualification is still ahead; no public download is available yet.

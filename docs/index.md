@@ -1,26 +1,36 @@
 # Mazda Open Connect
 
-Two optional improvements, inside Mazda's own interface:
+<p class="oc-intro">Make your Mazda infotainment screen faster, more capable, and customizable.</p>
 
-- [**Touchscreen While Driving**](touchscreen.md) — choose whether to keep Mazda's touch restriction.
-- [**Startup disclaimer**](disclaimer.md) — choose whether to show or skip the warning.
+Plug-and-play USB install.
 
-Install from USB, change your choices in Mazda Settings, and uninstall there
-whenever you want to restore your previous setup.
+[Start here](usb-installer.md){ .md-button .md-button--primary }
+[Browse settings →](settings.md)
+{ .oc-actions }
 
-> **Current target: exactly 74.00.324A North America. V74 release qualification is in progress.**
->
-> A qualified v74 download is not published yet. Bench testing continues;
-> physical touch while moving is not yet qualified.
+<p class="oc-availability">Still in testing. No public download yet, and no real-car installations have been validated. Currently for North American version <strong>74.00.324</strong> only. Startup gains vary by configuration; faster startup than stock is not established.</p>
 
-[Quick start](usb-installer.md){ .md-button .md-button--primary }
-[Settings](settings.md){ .md-button }
-[Uninstall](uninstall.md){ .md-button }
+<figure class="oc-screen oc-screen--lead">
+  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Wireless CarPlay, Services and Developer options." width="800" height="480"></div>
+  <figcaption>Settings → System → Open Connect (0.3.0-dev.17).</figcaption>
+</figure>
 
-[How Open Connect works](how-it-works.md) explains startup, fallback and restoration.
+## Features
 
-## Building Open Connect?
+- **[Touchscreen while moving](touchscreen.md)**: keep touch available for a passenger.
+- **[Skip the startup warning](disclaimer.md)**: continue to your usual screen.
+- **[Wireless CarPlay](wireless-carplay.md)**: connect your iPhone without a USB cable on compatible hardware.
+- **[Startup and services](services.md)**: reduce background startup work and turn off unused integrations.
+- **[Built-in uninstall](uninstall.md)**: restore the configuration saved before installation.
 
-Start with [contributing](development.md), [bench setup](bench-setup.md) or
-[the installer development guide](installer-development.md).
-The [CMU research](cmu/index.md) section explains Mazda's system and our findings.
+## Supported cars
+
+Open Connect is for the original **Mazda Connect / MZD Connect** with the **7-inch screen and commander knob**. Depending on year and trim, you’ll find it in the Mazda3, Mazda6, CX-3, CX-5, CX-9 and MX-5 Miata.
+
+The model name alone isn’t enough. Check **Settings → System → About → Version Information**. **OS Version** must read **74.00.324 NA N**. Other versions and regions are unsupported.
+
+<span id="building-open-connect"></span>
+
+## Open source
+
+Open Connect is built by contributors and licensed under AGPL-3.0-or-later. Code, issues and discussions live on [GitHub](https://github.com/aeharding/open-connect). Start with [Development](development.md) to contribute.

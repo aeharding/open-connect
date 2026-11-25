@@ -1,8 +1,10 @@
 # Show CarPlay on connection
 
-The dev.18 candidate adds **Show CarPlay on connection** under **Mazda Settings →
-System → Open Connect**. It defaults to **Factory behavior**. Choose
-**Automatically show**, confirm, then restart Mazda Connect to apply the change.
+Open **Mazda Settings → System → Open Connect → CarPlay & Android Auto → Show CarPlay on connection**. The list shows **Factory** or **Auto**. It defaults to **Factory behavior**. Choose **Automatically show**, confirm, then restart Mazda Connect.
+
+**Impact:** Neutral — no measured startup or free-RAM gain is established.<br>
+**Trade-off:** CarPlay can replace your current screen when your iPhone connects. Your input, calls and Mazda’s safety controls take priority.<br>
+**Evidence:** The connection-selection behavior has offline checks. [Performance evidence](performance.md) has no isolated autoshow timing or RAM result; final dev.18 pre-car measurements will be added after the benchmark work.
 
 With this option enabled, Open Connect requests CarPlay when your iPhone connects,
 including after startup and after disconnecting and reconnecting. It works with

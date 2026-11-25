@@ -2,6 +2,10 @@
 
 Remove Open Connect from Mazda Settings. You don’t need a USB drive or computer.
 
+**Impact:** Neutral — restores the configuration saved before installation; no startup or RAM improvement is promised.<br>
+**Trade-off:** Removes Open Connect and its saved choices. Use USB to install it again.<br>
+**Evidence:** Earlier builds have removal and restoration bench checks. [Performance evidence](performance.md) does not measure an isolated uninstall speed or RAM benefit.
+
 ## Remove from Settings
 
 1. Open **<span class="oc-nav-path" data-walkthrough="uninstall">Mazda Settings → System → Open Connect</span>**.
@@ -36,4 +40,4 @@ A compatible replacement drive works. You don’t need the original stick.
 
 Use USB and choose **Install**. A new installation starts with default preferences.
 
-These steps describe the **0.3.0-dev.17** preview for North American version **74.00.324**. Removal has bench checks; real-car qualification remains. No public download is available yet.
+These steps describe the **0.3.0-dev.19** preview for North American version **74.00.324**. Removal has bench checks; real-car qualification remains. No public download is available yet.

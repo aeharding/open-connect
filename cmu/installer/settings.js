@@ -60,7 +60,6 @@ function autoshow(s){
     bit(s.carplayAutoshowCurrent));
 }
 function toggle(title,on,key){return{text1:title,itemStyle:"styleOnOff",value:on ? 1 :2,hasCaret:false,appData:key};}
-function featureCount(v){return 2 + (v&&v.carplayAutoshow!==undefined ? 1 :0);}
 
 function replace(obj,key,fn){
   var previous=obj[key],local=own.call(obj,key);
@@ -200,20 +199,31 @@ function open(fw,store){
     var values=prefs.failure ? null :prefs.values();
     if(!values){index="unknown"; focus=0;}
     var rows=[],title="Open Connect",i,row;
+    function entry(i){
+      var e=entries[i];
+      if(values[e.key]!==undefined){rows.push({text1:e.title,
+        label1:e.key==="touch" ? ["Factory Default","Allow"][values.touch] :
+          i===2 ? ["Factory","Auto"][values.carplayAutoshow] :e.choices[values[e.key]],
+        itemStyle:"style06",labelWidth:i ? "normal" :"wide",hasCaret:true,appData:i});}
+    }
+    function integrations(phone){
+      if(values.services){
+        values.services.forEach(function(s){
+          if((s.id==="android-auto")===phone){
+            rows.push(toggle(s.label + (s.current===null ? " (startup unknown)" :
+              s.current!==s.saved ? " (restart needed)" :""),s.saved,s.id));
+          }
+        });
+      } else if(!phone&&values.pandora!==undefined){rows.push(toggle("Pandora",values.pandora,"pandora"));}
+    }
     if(index===null){
-      for (i=0; i < entries.length; i++){
-        row=entries[i];
-        if(values[row.key]===undefined){continue;}
-        rows.push({text1:row.title,label1:row.key==="touch" ? ["Default","Allow"][values.touch] :row.choices[values[row.key]],
-          itemStyle:"style06",hasCaret:true,appData:i});
+      entry(0); entry(1);
+      if(values.base!==undefined){rows.push(toggle("Startup optimizations",values.base,"base"));}
+      if(values.wireless!==undefined||values.carplayAutoshow!==undefined||service(values,"android-auto")){
+        rows.push({text1:"CarPlay & Android Auto",itemStyle:"style01",hasCaret:true,appData:"phone"});
       }
-      if(values.wireless!==undefined){
-        rows.push({text1:"Wireless CarPlay" + (values.wirelessFactory ? " (factory enabled)" :""),
-          itemStyle:"styleOnOff",value:values.wirelessFactory||values.wireless ? 1 :2,
-          disabled:values.wirelessFactory===true,hasCaret:false,appData:"wireless"});
-      }
-      if(values.services||values.pandora!==undefined||values.base!==undefined){
-        rows.push({text1:"Services",itemStyle:"style01",hasCaret:true,appData:"services"});
+      if(values.services||values.pandora!==undefined){
+        rows.push({text1:"Audio sources",itemStyle:"style01",hasCaret:true,appData:"sources"});
       }
       if(values.developer){
         rows.push({text1:"Developer options",itemStyle:"style01",hasCaret:true,appData:"developer"});
@@ -221,27 +231,24 @@ function open(fw,store){
       rows.push({text1:"Uninstall",itemStyle:"style01",hasCaret:false,appData:"uninstall",
         disabled:typeof store.uninstall!=="function"});
       rows.push({text1:"About",itemStyle:"style01",hasCaret:false,appData:"about"});
+    } else if(index==="phone"){
+      title="CarPlay & Android Auto";
+      if(values.wireless!==undefined){
+        rows.push({text1:"Wireless CarPlay" + (values.wirelessFactory ? " (factory enabled)" :""),
+          itemStyle:"styleOnOff",value:values.wirelessFactory||values.wireless ? 1 :2,
+          disabled:values.wirelessFactory===true,hasCaret:false,appData:"wireless"});
+      }
+      entry(2); integrations(true);
     } else if(index==="unknown"){
       title="Change could not be confirmed";
       rows.push({text1:"Return to Mazda Settings",itemStyle:"style01",hasCaret:false,appData:0});
-    } else if(index==="services"){
-      title="Services";
-      if(values.base!==undefined){
-        rows.push(toggle("Base optimizations",values.base,"base"));
-      }
-      if(values.services){
-        values.services.forEach(function(serviceRow){
-          rows.push(toggle(serviceRow.label + (serviceRow.current===null ? " (startup unknown)" :
-            serviceRow.current!==serviceRow.saved ? " (restart needed)" :""),serviceRow.saved,serviceRow.id));
-        });
-      } else if(values.pandora!==undefined){
-        rows.push(toggle("Pandora",values.pandora,"pandora"));
-      }
+    } else if(index==="sources"){
+      title="Audio sources"; integrations(false);
     } else if(index==="developer"){
       title="Developer options";
       rows.push(toggle("UART",values.uart,"uart"));
       row=toggle("SSH",values.ssh,"ssh"); row.disabled=values.key==="-"; rows.push(row);
-      rows.push({text1:"Import public key",itemStyle:"style01",hasCaret:false,appData:"import",
+      rows.push({text1:"Import public key",itemStyle:"style01",hasCaret:true,appData:"import",
         disabled:prefs.pending()||typeof store.importKey!=="function"});
     } else{
       row=entries[index];
@@ -251,11 +258,12 @@ function open(fw,store){
           itemStyle:"style03",hasCaret:false,appData:i});
       }
     }
+    for(i=0;i<rows.length;i++){if(rows[i].appData===focus){break;}}
     var listProps={dataList:{itemCountKnown:true,itemCount:rows.length,items:rows},
       titleConfiguration:"listTitle",title:{text1:title,titleStyle:"style02"},
-      smallItemText:true,focussedItem:focus,selectCallback:select};
+      smallItemText:true,focussedItem:i<rows.length ? i :0,selectCallback:select};
     if(typeof index==="number"){listProps.checkMinChangeInterval=0;}
-    if(index==="developer"||index==="services"){listProps.toggleMinChangeInterval=0;}
+    if(typeof index!=="number"){listProps.toggleMinChangeInterval=0;}
     var next=fw.instantiateTemplate("syssettings",host.divElt.parentNode,"List2Tmplt",
       {List2Ctrl:listProps});
     if(!next){return false;}
@@ -270,9 +278,9 @@ function open(fw,store){
   }
   function select(control,item,params){
     if(!current()||dismiss||!page||control!==page.list2Ctrl){return;}
-    if(choice===null&&item==="developer"){render("developer",0); return;}
-    if(choice===null&&item==="services"){render("services",0); return;}
-    if(choice===null&&item==="wireless"){
+    if(choice===null&&/^(developer|phone|sources)$/.test(item)){render(item,0); return;}
+    if(choice==="phone"&&item===2){var v=prefs.values(); if(v){render(2,v.carplayAutoshow);} return;}
+    if(choice==="phone"&&item==="wireless"){
       if(!params||(params.additionalData!==1&&params.additionalData!==2)){return;}
       var values=prefs.values(),enabled=params.additionalData===1;
       if(!values||values.wirelessFactory===true||values.wireless===undefined||
@@ -281,11 +289,11 @@ function open(fw,store){
           "Restores the original CarPlay behavior after restarting Mazda Connect.",enabled ? "Enable" :"Disable","apply",function(action){
           dismiss=null;
           if(action==="apply"&&current()){prefs.select("wireless",enabled ? 1 :0);}
-          if(current()&&choice===null){render(null,featureCount(values));}
+          if(current()&&choice==="phone"){render("phone","wireless");}
         });
       return;
     }
-    if(choice==="services"){
+    if(choice===null&&item==="base"||choice==="phone"||choice==="sources"){
       if(!params||(params.additionalData!==1&&params.additionalData!==2)){return;}
       var enabled=params.additionalData===1,desired=enabled ? 1 :0;
       var values=prefs.values();
@@ -293,28 +301,22 @@ function open(fw,store){
       var serviceRow=service(values,item);
       if(item!=="base"&&!serviceRow&&!(item==="pandora"&&!values.services)){return;}
       if(preference(values,item)===undefined||preference(values,item)===desired){return;}
-      var serviceLabel=item==="base" ? "Base optimizations" :serviceRow ? serviceRow.label :"Pandora";
+      var serviceLabel=item==="base" ? "Startup optimizations" :serviceRow ? serviceRow.label :"Pandora";
       var serviceText=item==="base" ? (enabled ?
-        (values.services ? "Reduces logging and startup work. Stops unused integrations. Applies after restart." :
+        (values.services ? "Reduces background logging and unused services. Applies after restart." :
           "Reduces native diagnostic logging. Applies after restart.") :
         (values.services ? "Restores original logging and startup behavior after restarting Mazda Connect." :
           "Restores original native logging after restarting Mazda Connect.")) :
         serviceRow ? (enabled ? serviceRow.enable :serviceRow.disable) :
         "Changes apply after restarting Mazda Connect.";
-      if(item==="base"&&enabled&&/^0\.3\.0-dev\.(16|17|18)$/.test(store.version)&&values.wireless){
-        serviceText += " With wireless CarPlay, Mazda Navigation starts about 20 seconds later.";
+      if(item==="base"&&enabled&&/^0\.3\.0-dev\.(16|17|18|19)$/.test(store.version)&&values.wireless){
+        serviceText += " Wireless CarPlay delays Mazda Navigation about 20 s.";
       }
-      var serviceFocus=item==="base"||values.base===undefined ? 0 :1;
-      if(serviceRow){
-        values.services.some(function(row,index){
-          if(row.id!==item){return false;}
-          serviceFocus += index; return true;
-        });
-      }
+      var servicePage=choice;
       dismiss=ask((enabled ? "Enable " :"Disable ") + serviceLabel + "?",serviceText,enabled ? "Enable" :"Disable","apply",function(action){
           dismiss=null;
           if(action==="apply"&&current()){prefs.select(item,desired);}
-          if(current()&&choice==="services"){render("services",serviceFocus);}
+          if(current()&&choice===servicePage){render(servicePage,item);}
         });
       return;
     }
@@ -328,7 +330,7 @@ function open(fw,store){
               "Changes apply after restarting Mazda Connect.","Enable","enable",function(action){
               dismiss=null;
               if(action==="enable"&&current()){prefs.select(item,1);}
-              if(current()&&choice==="developer"){render("developer",item==="uart" ? 0 :1);}
+              if(current()&&choice==="developer"){render("developer",item);}
             });
           return;
         }
@@ -339,7 +341,7 @@ function open(fw,store){
             if(action!=="import"||!current()){return;}
             prefs.importKey(function(actual){
               if(!current()||choice!=="developer"){return;}
-              render("developer",2);
+              render("developer","import");
               dismiss=dialogs.message(fw,actual ? "Public key imported" :"Key could not be imported",
                 actual ? "Fingerprint (MD5):\n" + actual.fingerprint.slice(0,23) + "\n" +
                   actual.fingerprint.slice(24) + "\nEnable SSH when ready." :
@@ -412,17 +414,7 @@ function open(fw,store){
     if(current()&&app==="common"&&(event==="Global.GoBack"||event==="Global.MenuUp")){
       if(dismiss){dismiss();}
       else if(choice!==null&&choice!=="unknown"){
-        var focus=choice;
-        if(choice==="services"){
-          var serviceValues=prefs.values();
-          focus=featureCount(serviceValues) + (serviceValues&&serviceValues.wireless!==undefined ? 1 :0);
-        }
-        if(choice==="developer"){
-          var values=prefs.values();
-          focus=featureCount(values) + (values&&values.wireless!==undefined ? 1 :0) +
-            (values&&(values.pandora!==undefined||values.base!==undefined) ? 1 :0);
-        }
-        render(null,focus);
+        render(choice===2 ? "phone" :null,choice);
       }
       else{if(choice==="unknown"){prefs.failure=null;} close();}
       return;

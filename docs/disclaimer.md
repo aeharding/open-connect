@@ -2,6 +2,10 @@
 
 Skip Mazda’s startup warning and continue to your usual screen.
 
+**Impact:** Neutral for measured startup speed; skips the warning before your usual screen.<br>
+**Trade-off:** The warning is not shown; the screen may briefly go black.<br>
+**Evidence:** Startup and restoration have bench checks. [Performance evidence](performance.md) does not isolate this setting’s timing or RAM effect.
+
 Open **<span class="oc-nav-path" data-walkthrough="disclaimer">Mazda Settings → System → Open Connect → Startup disclaimer</span>**.
 
 <figure class="oc-screen">

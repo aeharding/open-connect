@@ -21,7 +21,7 @@
   grid-template-columns: minmax(0, 1fr) repeat(3, max-content);
   margin: .9rem 0 1rem;
   border-block: 1px solid var(--oc-border);
-  border-left: 2px solid var(--oc-accent);
+  border-left: 2px solid var(--oc-red);
   background: var(--oc-surface-subtle);
   font-size: .7rem;
   line-height: 1.35;

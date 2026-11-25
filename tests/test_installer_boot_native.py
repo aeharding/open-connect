@@ -679,7 +679,7 @@ boot_snapshot_seal "$R_CURRENT"
         snapshot = fixture.data / "snapshots" / result.stdout.strip()
         index = (snapshot / "index.html").read_text()
         self.assertIn("saved off @TOKEN@\n", index)
-        self.assertIn('}(framework, [0,"pandora,dvd"]));', index)
+        self.assertIn('}(framework, [0,"pandora"]));', index)
         self.assertNotIn(b"\nbase/", (snapshot / "boot.plan").read_bytes())
         for profile in ("normal", "wcp"):
             services = {

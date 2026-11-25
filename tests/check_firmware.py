@@ -182,8 +182,8 @@ def base_logging_contract(output, paths, node, composed):
             config = destination / "config"
             config.write_text(
                 f"OC2\nbase={base}\nmetadata=755:{os.getuid()}:{os.getgid()}\n"
-                f"nvram=disable\npackage={composed.name}\nservice-ids=android-auto,dvd,pandora,siriusxm\n"
-                f"service.android-auto=1\nservice.dvd=0\nservice.pandora=1\nservice.siriusxm=1\ntouch=1\nwarning={warning}\nwireless=1\n"
+                f"nvram=disable\npackage={composed.name}\nservice-ids=android-auto,pandora,siriusxm\n"
+                f"service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\ntouch=1\nwarning={warning}\nwireless=1\n"
             )
             run(
                 [

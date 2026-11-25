@@ -406,10 +406,9 @@ boot_render_profiles() {
         BEGIN {
             count=split(services,entries,",")
             for(i=1;i<=count;i++) {split(entries[i],pair,"=");choice[pair[1]]=pair[2]}
-            if(base=="1") hidden="stitcher,dab,tv,aharadio,"
+            if(base=="1") hidden="stitcher,dab,tv,aharadio,dvd,"
             if(choice["pandora"]=="0") hidden=hidden "pandora,"
             if(choice["siriusxm"]=="0") hidden=hidden "satradio,xmaudio,xmdata,"
-            if(choice["dvd"]=="0") hidden=hidden "dvd,"
             aa_guard=(base=="1" && choice["android-auto"]=="0")
             if(aa_guard) hidden=hidden "androidauto,"
             sub(/,$/,"",hidden)

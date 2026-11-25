@@ -53,13 +53,14 @@ Open Connect is just above **About** in Mazda’s System menu. Its settings foll
     - [Show CarPlay on connection](carplay-on-connection.md): <span class="oc-default oc-default--off">Factory behavior</span> by default (**Factory** in the list); choose **Automatically show** for **Auto**.
     - [Android Auto](android-auto.md): <span class="oc-default oc-default--on">On</span> by default.
 5. **Audio sources**:
-    - [DVD](dvd.md): <span class="oc-default oc-default--off">Off</span> by default.
     - [Pandora](pandora.md): <span class="oc-default oc-default--on">On</span> by default.
     - [SiriusXM](siriusxm.md): <span class="oc-default oc-default--on">On</span> by default.
 6. [**Developer options**](developer-options.md): <span class="oc-default oc-default--off">UART Off; SSH Off</span>; no public key imported.
 7. [**Apply changes**](apply-changes.md): restart to activate saved choices; disabled when there are no pending changes.
 8. [**Uninstall**](uninstall.md)
 9. [**About**](about.md)
+
+On North American units, [DVD](dvd.md) is now folded into **Startup optimizations**. Older configurations migrate automatically, keeping your Startup optimizations choice and remaining preferences. The screenshots show dev.19; updated Audio sources captures await live qualification.
 
 ## Impact at a glance
 
@@ -69,11 +70,10 @@ These comparisons describe enabling Startup optimizations or disabling an unused
 | --- | --- | --- | --- |
 | [Touchscreen While Driving](touchscreen.md) | Neutral | Not measured separately | Touch stays available while moving. |
 | [Startup disclaimer](disclaimer.md) | Neutral | Not measured separately | The startup warning is skipped. |
-| [Startup optimizations](startup-optimizations.md) | Faster in earlier wired tests | +9.9 MiB minimum MemFree; +2.58 MiB ending, dev.7 | Aha, Stitcher, DAB and TV stop; Mazda Navigation is delayed about 20 s only with both Startup optimizations and the saved Open Connect Wireless CarPlay override on. |
+| [Startup optimizations](startup-optimizations.md) | Faster in earlier wired tests | +9.9 MiB minimum MemFree; +2.58 MiB ending, dev.7 | Aha, Stitcher, DAB, TV and the unused NA DVD service stop; Mazda Navigation is delayed about 20 s only with both Startup optimizations and the saved Open Connect Wireless CarPlay override on. |
 | [Wireless CarPlay](wireless-carplay.md) | Neutral | No isolated gain established | Requires compatible hardware and phone pairing. |
 | [Show CarPlay on connection](carplay-on-connection.md) | Neutral | No matched PSS measurement | CarPlay may replace your current screen on connection. |
 | [Android Auto off](android-auto.md) | Neutral | Not measured separately | Built-in Android Auto becomes unavailable. |
-| [DVD off](dvd.md) | Neutral | Not measured separately | DVD video disappears from Sources; CDs still work. |
 | [Pandora off](pandora.md) | Neutral | +3.2 MiB minimum MemFree, dev.6 | Mazda’s Pandora integration disappears from Sources; CarPlay apps still work. |
 | [SiriusXM off](siriusxm.md) | Neutral | Not measured separately | Satellite radio and SiriusXM data become unavailable. |
 | [Developer options](developer-options.md) | Neutral | Not measured separately | Gives direct access to the head unit; changes you make can affect maintenance. |
@@ -88,4 +88,4 @@ In **0.3.0-dev.20**, select [**Apply changes**](apply-changes.md) above **Uninst
 
 **restart needed** means a choice is saved but not active yet. You can change several settings before applying them together. Saved choices also take effect on the next full startup; a quick ignition off/on may resume the same session. If a save cannot be confirmed, reopen Open Connect and check the choice before trying again.
 
-The guide describes the **0.3.0-dev.20 development prerelease** for North American version **74.00.324**. Real-car qualification remains pending.
+The guide describes the **0.3.0-dev.20 development prerelease** for North American version **74.00.324A**, with the upcoming NA DVD change described above. Real-car qualification remains pending.

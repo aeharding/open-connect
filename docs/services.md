@@ -1,6 +1,6 @@
 # Services
 
-The former Services controls now have individual pages matching the **0.3.0-dev.19** menu. Start with [Settings](settings.md) for all fresh-install defaults and restart guidance.
+The former Services controls now have individual pages. Start with [Settings](settings.md) for all fresh-install defaults and restart guidance. Screenshots show the **0.3.0-dev.19** menu; updated captures for the NA DVD change await live qualification.
 
 <span id="base-optimizations"></span>
 
@@ -23,11 +23,7 @@ Open **<span class="oc-nav-path" data-walkthrough="phone-connections">Mazda Sett
 
 ## Audio sources
 
-Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings → System → Open Connect → Audio sources</span>**. Disabled integrations disappear from Mazda’s Sources list after restart.
-
-### DVD
-
-[DVD](dvd.md) controls DVD video support. It defaults to **Off**; audio CDs still work.
+Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings → System → Open Connect → Audio sources</span>** for **Pandora** and **SiriusXM**. Disabled integrations disappear from Mazda’s Sources list after restart. On North American units, [DVD](dvd.md) is now folded into Startup optimizations; older configurations migrate automatically. Audio CDs still work.
 
 ### Pandora
 
@@ -39,6 +35,6 @@ Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings
 
 ## Testing
 
-These are development controls for **74.00.324A NA/cmu150_NA**. The dev.19 menu has bench captures and Settings Uninstall verification; real-car checks, Android-phone use, equipped SiriusXM/DVD playback and matched dev.19 benchmarks remain ahead. **0.3.0-dev.19** is a development prerelease.
+These are development controls for **74.00.324A NA/cmu150_NA**. The dev.19 menu has bench captures and Settings Uninstall verification; the folded DVD policy and configuration migration have offline checks only. Live upgrade qualification, real-car checks, Android-phone use, equipped SiriusXM playback and matched benchmarks remain ahead.
 
 Each setting page links its evidence and limits. [Performance evidence](performance.md) records earlier configurations; faster startup than stock is not established.

@@ -339,8 +339,8 @@ assert.deepEqual(keys(), ["wireless", 2, "android-auto"]);
 assert.equal(pages.at(-1).ctrl.dataList.items[1].label1, "Factory");
 assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items.filter(r => r.itemStyle === "styleOnOff"), r => r.value), [2, 1]);
 back(); assert.equal(pages.at(-1).ctrl.focussedItem, 3);
-choose("sources"); assert.deepEqual(keys(), ["dvd", "pandora", "siriusxm"]);
-assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items, r => r.value), [2, 1, 1]);
+choose("sources"); assert.deepEqual(keys(), ["pandora", "siriusxm"]);
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items, r => r.value), [1, 1]);
 back(); assert.equal(pages.at(-1).ctrl.focussedItem, 4);
 choose("developer");
 assert.equal(pages.at(-1).ctrl.dataList.items[2].hasCaret, true);
@@ -348,7 +348,7 @@ back(); assert.equal(pages.at(-1).ctrl.focussedItem, 5);
 
 // Each toggle has a cancel-first native dialog, saves the same backend key and
 // returns focus to the selected row. Catalog current/restart state stays visible.
-for (const id of ["android-auto", "dvd", "pandora", "siriusxm"]) {
+for (const id of ["android-auto", "pandora", "siriusxm"]) {
     const group = id === "android-auto" ? "phone" : "sources";
     choose(group);
     const initial = values.services.find(row => row.id === id).saved;
@@ -427,7 +427,7 @@ for (const action of ["select", "back"]) {
 assert.equal(settings.open(fw, {read: () => ({...values, services: [...values.services, values.services[0]]})}), false);
 values = {...values, services: values.services.map(row => row.id === "pandora" ? {...row, current: null} : row)};
 settings.open(fw, store); choose("sources");
-assert.match(pages.at(-1).ctrl.dataList.items[1].text1, /startup unknown/);
+assert.match(pages.at(-1).ctrl.dataList.items[0].text1, /startup unknown/);
 back(); back();
 
 // Current Base keeps the Navigation warning with Wireless enabled. Longest

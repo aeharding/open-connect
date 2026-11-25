@@ -1,0 +1,9 @@
+Frozen authored DVD preference/rendering inputs from e29b5825 (dev.20).
+These files/functions are identical in f478f3b (dev.19). Physical adapters
+remain in the maintained host fixture; tests do not read Git history.
+6eacd9a24aab7751e46849c7562bac036dc5181eba1a5eb6150f192f26a5b89b  preferences.awk
+a697e5c2fa46a0218381510dcd678495602409a4449a8befd242cd410ba73939  services.tsv
+7fd3596201ef52472ee1830b215a67896ee86a31eafc77fb79ae58f012ff7084  sm-profile.awk
+c7d0ecd900fef0c32bc0c64629accaa2c648beedfd5d0789ce5724e9e90789ca  ui-profile.awk
+7c24b2429df7f82979b3263a137a1f00a8fdd40a559b8d7065ebcaa4599b64a4  ui-modules.tsv
+6009f64937e5a4cc13bd3c2f8472b53908bc4cf7528e518675c2d30ca631fcc5  render.sh

@@ -44,7 +44,7 @@ class PrivateFirmware(unittest.TestCase):
         folder = self.output / "autoshow-index"
         folder.mkdir()
         rows = []
-        for base, warning, aa, pandora, dvd, sxm, autoshow in itertools.product((0, 1), repeat=7):
+        for base, warning, aa, pandora, sxm, autoshow in itertools.product((0, 1), repeat=6):
             fields = {
                 "base": base,
                 "carplay-autoshow": autoshow,
@@ -53,18 +53,15 @@ class PrivateFirmware(unittest.TestCase):
                 "wireless": 1,
                 "service.android-auto": aa,
                 "service.pandora": pandora,
-                "service.dvd": dvd,
                 "service.siriusxm": sxm,
-                "service-ids": "android-auto,dvd,pandora,siriusxm",
+                "service-ids": "android-auto,pandora,siriusxm",
                 "metadata": f"755:{os.getuid()}:{os.getgid()}",
                 "nvram": "disable",
                 "package": self.composed.name,
             }
             config = folder / "config"
             config.write_text("OC2\n" + "".join(f"{k}={v}\n" for k, v in sorted(fields.items())))
-            destination = folder / "".join(
-                map(str, (base, warning, aa, pandora, dvd, sxm, autoshow))
-            )
+            destination = folder / "".join(map(str, (base, warning, aa, pandora, sxm, autoshow)))
             destination.mkdir()
             subprocess.run(
                 [
@@ -90,6 +87,9 @@ class PrivateFirmware(unittest.TestCase):
                 timeout=10,
             )
             template = (destination / "index.html").read_text()
+            applied = re.search(r'\}\(framework, \[[01],"([^"]*)"\]\)\);', template)
+            hidden = applied.group(1).split(",") if applied else []
+            self.assertEqual("dvd" in hidden, bool(base))
             insertion = '</script>\n<script src="file:///tmp/open-connect/feature/carplay.js"></script>\n<script>\n'
             self.assertEqual(template.count(insertion), autoshow)
             self.assertEqual(template.count("@BOOT@"), 1)
@@ -120,7 +120,7 @@ class PrivateFirmware(unittest.TestCase):
                         "pages": pages(selected),
                     }
                 )
-        self.assertEqual(len(rows), 640)
+        self.assertEqual(len(rows), 320)
         (folder / "sizes.json").write_text(json.dumps(rows, indent=2) + "\n")
 
     def test_voice_redirect_changes_only_the_exact_data_span(self):
@@ -156,16 +156,13 @@ class PrivateFirmware(unittest.TestCase):
     def test_all_board_choice_graphs_keep_nav_independent_of_projection(self):
         assets = ROOT / "cmu/installer"
         config = self.output / "matrix-config"
-        for board, base, wireless, aa, pandora, dvd, sxm, warning in itertools.product(
-            (0, 1), repeat=8
-        ):
+        for board, base, wireless, aa, pandora, sxm, warning in itertools.product((0, 1), repeat=7):
             with self.subTest(
                 board=board,
                 base=base,
                 wireless=wireless,
                 aa=aa,
                 pandora=pandora,
-                dvd=dvd,
                 sxm=sxm,
                 warning=warning,
             ):
@@ -176,9 +173,8 @@ class PrivateFirmware(unittest.TestCase):
                     "touch": 1,
                     "service.android-auto": aa,
                     "service.pandora": pandora,
-                    "service.dvd": dvd,
                     "service.siriusxm": sxm,
-                    "service-ids": "android-auto,dvd,pandora,siriusxm",
+                    "service-ids": "android-auto,pandora,siriusxm",
                     "metadata": "755:0:0",
                     "nvram": "disable",
                     "package": self.composed.name,
@@ -215,6 +211,9 @@ class PrivateFirmware(unittest.TestCase):
                     timeout=5,
                 )
                 jobs = {n.get("name"): n for n in ET.fromstring(rendered).iter("service")}
+                self.assertEqual(jobs["jcidvd"].get("autorun"), "no" if base else "yes")
+                original_jobs = {n.get("name"): n for n in ET.parse(path).iter("service")}
+                self.assertEqual(jobs["jciCD"].attrib, original_jobs["jciCD"].attrib)
                 parents = {
                     name: [
                         n.get("value")

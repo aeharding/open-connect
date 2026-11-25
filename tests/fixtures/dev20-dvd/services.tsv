@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# id|label|default|SM members|enable explanation|disable explanation
+android-auto|Android Auto|1|aap_service jciAAPA|Restores Android Auto after restart; adds startup work. CarPlay and CDs are unchanged.|Lighter startup; Android Auto unavailable after restart. CarPlay and CDs are unchanged.
+dvd|DVD|0|jcidvd|Restores DVD after restart; adds startup work. CarPlay and CDs are unchanged.|Hides DVD from Sources after restart. CarPlay and CDs are unchanged.
+pandora|Pandora|1|blm_ira_pandora|Restores Mazda's Pandora after restart; adds startup work. CarPlay and CDs are unchanged.|Hides Mazda's Pandora from Sources after restart. CarPlay and CDs are unchanged.
+siriusxm|SiriusXM|1|jciSXMS jciXMMGR jcixm jcixmad jciXMDATA|Restores SiriusXM radio and data after restart; adds startup work. CarPlay and CDs are unchanged.|Stops SiriusXM radio and data after restart; hides it from Sources. CarPlay and CDs are unchanged.

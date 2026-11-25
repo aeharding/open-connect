@@ -15,7 +15,7 @@ BEGIN {
         if(ui_line~/^#/) continue
         if(split(ui_line,ui_fields,"\t")!=4) ui_reject()
         ui_kind=ui_fields[1];ui_name=ui_fields[2];ui_group=ui_fields[3];ui_pin=ui_fields[4]
-        if(ui_group!~/^(keep|base|dvd|pandora|android-auto|siriusxm)$/ || ui_name!~/^[a-z0-9_.-]+$/) ui_reject()
+        if(ui_group!~/^(keep|base|pandora|android-auto|siriusxm)$/ || ui_name!~/^[a-z0-9_.-]+$/) ui_reject()
         if(ui_kind=="uia") {
             if(ui_name in ui_ids || ui_pin!~/^[0-9]+$/) ui_reject()
             ui_ids[ui_name]=ui_pin;ui_groups[ui_name]=ui_group;ui_count++

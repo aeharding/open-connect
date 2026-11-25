@@ -113,18 +113,16 @@ class NativePreferences(unittest.TestCase):
             config.replace(b"carplay-autoshow=0", b"carplay-autoshow=2"),
             config.replace(b"carplay-autoshow=0", b"carplay-autoshow=01"),
             config.replace(b"carplay-autoshow=0", b"carplay-autoshow=0\ncarplay-autoshow=1"),
+            config.replace(b"service-ids=android-auto,pandora,siriusxm", b"service-ids=pandora"),
             config.replace(
-                b"service-ids=android-auto,dvd,pandora,siriusxm", b"service-ids=pandora"
-            ),
-            config.replace(
-                b"service-ids=android-auto,dvd,pandora,siriusxm",
+                b"service-ids=android-auto,pandora,siriusxm",
                 b"service-ids=android-auto,android-auto,pandora",
             ),
             config.replace(
-                b"service-ids=android-auto,dvd,pandora,siriusxm",
+                b"service-ids=android-auto,pandora,siriusxm",
                 b"service-ids=pandora,android-auto",
             ),
-            config.replace(b"service-ids=android-auto,dvd,pandora,siriusxm\n", b""),
+            config.replace(b"service-ids=android-auto,pandora,siriusxm\n", b""),
             config[:-1],
             config + b"\n",
             config.replace(b"base=0\n", b"base=0\nbase=0\n"),
@@ -143,6 +141,21 @@ class NativePreferences(unittest.TestCase):
         config = self.fresh()
         self.catalog = b"catalog validation belongs to maintenance, not the native decoder"
         self.assertEqual(self.decode(config), 0)
+
+    def test_legacy_dvd_keys_remain_selectable_with_their_own_authenticated_list(self):
+        for dvd in (0, 1):
+            config = (
+                self.fresh()
+                .replace(
+                    b"service-ids=android-auto,pandora,siriusxm",
+                    b"service-ids=android-auto,dvd,pandora,siriusxm",
+                )
+                .replace(b"service.pandora=1", f"service.dvd={dvd}\nservice.pandora=1".encode())
+            )
+            self.assertEqual(self.decode(config), 0)
+            self.assertEqual(self.decode(config.replace(b"carplay-autoshow=0\n", b"")), 0)
+            self.assertNotEqual(self.decode(config.replace(b",dvd,", b",")), 0)
+            self.assertNotEqual(self.decode(config.replace(b"service.dvd=", b"service.other=")), 0)
 
     def test_only_actual_dev9_stock_and_active_forms_are_admitted(self):
         self.assertEqual(self.decode(b"-|0|0|absent|755:0:0\n", False), 0)

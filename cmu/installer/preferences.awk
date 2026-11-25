@@ -7,6 +7,9 @@ function refuse() {
   exit 1
 }
 function bit(value) { return value=="0" || value=="1" }
+# Only the upgrade writer admits retired NA DVD data. Stored snapshots keep
+# their package's reader; new snapshots and commands use the current catalog.
+function input_service(id) { return id in service_default || (operation=="write" && id=="dvd") }
 function service_id(value) {
   return length(value)<=32 && value~/^[a-z][a-z0-9-]*$/ &&
     value!~/^(touch|warning|base|wireless|uart|ssh|carplay-autoshow)$/
@@ -54,7 +57,7 @@ function known_key(key, id) {
   if(key~/^(package|touch|warning|nvram|metadata|base|wireless|service-ids|carplay-autoshow)$/) return 1
   if(index(key,"service.")!=1) return 0
   id=substr(key,9)
-  return id in service_default
+  return input_service(id)
 }
 function load_preferences(path, partial, line, key, value, separator, previous, bytes, i, id, count, keys, listed) {
   if((getline line < path)!=1 || line!="OC2") refuse()
@@ -82,10 +85,11 @@ function load_preferences(path, partial, line, key, value, separator, previous, 
     if(count<1 || count>16) refuse()
     for(i=1;i<=count;i++) {
       id=keys[i]
-      if(!(id in service_default) || id<=previous || !seen["service." id]) refuse()
+      if(!input_service(id) || id<=previous || !seen["service." id]) refuse()
       previous=id;listed[id]=1
     }
     for(id in service_default) if(seen["service." id] && !(id in listed)) refuse()
+    if(seen["service.dvd"] && !("dvd" in listed)) refuse()
   } else if(!partial) refuse()
 }
 function validate_preferences(key, value) {
@@ -136,11 +140,9 @@ BEGIN {
   prefs["service-ids"]=service_keys
   if(input!="") load_preferences(input,operation=="write" || operation=="legacy" || (operation=="set" && legacy=="1"))
   else if(operation!="write") refuse()
-  # Preserve legacy DVD-on.
-  if((operation=="legacy" || (operation=="set" && legacy=="1")) && !seen["service.dvd"])
-    prefs["service.dvd"]="1"
   if(input!="") validate_preferences()
   if(operation=="write") {
+    delete prefs["service.dvd"]
     prefs["package"]=package_id;prefs["nvram"]=nvram_value;prefs["metadata"]=metadata_value
   }
   if(operation=="set") {

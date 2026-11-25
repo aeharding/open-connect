@@ -3,7 +3,7 @@ const fs = require('node:fs'), vm = require('node:vm'), path = require('node:pat
 const folder = process.argv[2], boot = '12345678-1234-1234-1234-123456789abc';
 function fixture(shared = {}, load = true) {
   const calls = [], events = {}, timers = [], pendingContexts = [];
-  let deferContext=false, contextHandler, contextCompare;
+  let deferContext=false, background=false, contextHandler, contextCompare, nativeContext, nativeFocus;
   let now = 0, clock = 0;
   const state = {name: '', storage: new Map(), ...shared};
   const ctx = {log: {error() {}, addSrcFile() {}, debug() {}, info() {}, warn() {}}, Date: {now: () => now},
@@ -27,12 +27,13 @@ function fixture(shared = {}, load = true) {
     getCurrentApp() {return this._currTmpltInstance.contextInfo.uiaId;},
     getCurrCtxtId() {return this._currTmpltInstance.contextInfo.ctxtId;}, getAppInstance(id) {return apps[id];},
     _initApp() {}, _processNewFwkState() {}, _multicontrollerEventHandler() {return 'stock input';},
-    _focusStackChange(ids) {this._focusStack=ids;},
+    _focusStackChange(ids) {if(nativeFocus)nativeFocus.call(this,ids);else this._focusStack=ids;},
     _handleMessage(id,m) {if(id==='common'&&m.msgId==='vuiState')this.common._cachedVuiState=m.params.payload.state;return 'stock message';},
     routeMmuiMsg(m) {
       if(m.msgType==='focusStack')this._focusStackChange(m.appIdList);
       if(m.msgType==='ctxtChg'&&m.ctxtId!=='Idle') {
-        if(deferContext)pendingContexts.push(m);else apply(m);
+        cache(m);
+        if(!background){if(deferContext)pendingContexts.push(m);else apply(m);}
       }
       if(m.msgType==='msg')return this._handleMessage(m.uiaId,m);
     }, sendEventToMmui(...args) {calls.push(args);},
@@ -43,12 +44,19 @@ function fixture(shared = {}, load = true) {
     let m;try {m=JSON.parse(text);}catch{return;}
     if(!this._hasInitGui)this._preInitGuiMsgQueue.push(m);else fw.routeMmuiMsg(m);
   };
-  function apply(m) {
+  function cache(m) {
     const app=apps[m.uiaId] ||= {_contextTable:{}};
     if(contextHandler) {
       app.isContextDifferent=contextCompare;
-      contextHandler.call(app,m);fw._currTmpltInstance.contextInfo=app._currentContext;
-    } else {fw._currTmpltInstance.contextInfo=m;app._currentContext={ctxtId:m.ctxtId};}
+      app.uiaId=m.uiaId;
+      app.isContextDifferentFrom=x=>contextCompare(app._currentContext,x);
+      app.handleContext=function(x){return contextHandler.call(this,x);};
+      if(nativeContext){fw._appStack[m.uiaId]=true;nativeContext.call(fw,m);}
+      else contextHandler.call(app,m);
+    } else {app._currentContext=m;}
+  }
+  function apply(m) {
+    fw._currTmpltInstance.contextInfo=apps[m.uiaId]._currentContext;
   }
   const context = vm.createContext(ctx);
   function source(name, root=folder) {vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),context,{filename:name});}
@@ -80,7 +88,15 @@ function fixture(shared = {}, load = true) {
   function event(type, values={}) {(events[type]||[]).forEach(fn=>fn({type,...values}));}
   focus();
   return {ctx, fw, state, source, supports, session, menu, msg, send, native, focus, advance, count, connect, event, apps,
+    background(id,ctxt,seq=90){background=true;try{send({msgType:'ctxtChg',uiaId:id,ctxtId:ctxt,contextSeq:seq});}finally{background=false;}},
+    show(id){apply({uiaId:id});fw._processNewFwkState();},
     contexts(handler,compare){contextHandler=handler;contextCompare=compare;},
+    routing(proto){
+      nativeContext=proto._contextChange;nativeFocus=proto._focusStackChange;
+      fw._callHandleContext=proto._callHandleContext;fw._captureContext=()=>{};
+      fw._appStack={};fw._appInstances=apps;fw.getCurrAppInstance=()=>apps[fw.getCurrentApp()];
+      for(const [id,app] of Object.entries(apps)){app.uiaId=id;app.isContextDifferentFrom=x=>contextCompare(app._currentContext,x);}
+    },
     defer(value=true){deferContext=value;},applyContext(){apply(pendingContexts.shift());fw._processNewFwkState();}};
 }
 let f=fixture();f.connect();assert.equal(f.count(),1,'quiet boot');
@@ -402,3 +418,55 @@ if(process.argv[3]) {
   console.log('Stock BaseApp Home 13 -> 14 mutation replay passed');
 }
 console.log('Remaining P2 regressions: temporary-origin baseline and immutable early contexts passed');
+
+// Mazda caches non-focused app contexts without changing the displayed page.
+// Contacts can arrive before or after the CarPlay edge, including during load.
+function backgroundReplay(stock) {
+function make(lazy) {
+  const x=lazy?bootClient():fixture();
+  if(stock){x.contexts(stock.BaseApp.prototype._handleContext,stock.BaseApp.prototype._isContextDifferent);x.routing(stock.GuiFramework.prototype);}
+  return x;
+}
+for(const lazy of [false,true]) {
+  for(const before of [false,true]) {
+    for(const [id,ctxt] of [['contacts','Contacts'],['sms','Inbox'],['btaudio','NowPlaying']]) {
+      f=make(lazy);
+      if(before)f.background(id,ctxt);f.session(true);
+      if(!before)f.background(id,ctxt);f.menu();
+      if(lazy)f.complete();f.advance();
+      assert.equal(f.count(),1,'background cache does not block Home '+id+' before='+before+' lazy='+lazy);
+    }
+  }
+  // Focus makes an otherwise background context a real departure. A later
+  // background update cannot erase it, even if Home returns before lazy load.
+  f=make(lazy);f.session(true);
+  f.background('fmradio','NowPlaying',2);f.background('contacts','Contacts',3);
+  f.focus('fmradio');f.show('fmradio');f.focus();f.show('system');f.menu();
+  if(lazy)f.complete();f.advance();
+  assert.equal(f.count(),0,'applied audio focus departure survives background cache and return lazy='+lazy);
+  for(const [id,ctxt] of [['phone','ActiveCall'],['system','DisplayOff']]) {
+    f=make(lazy);f.session(true);f.background(id,ctxt);f.menu();
+    if(lazy)f.complete();f.advance();assert.equal(f.count(),0,'background safety remains binding '+id+' lazy='+lazy);
+  }
+  f=make(lazy);f.session(true);f.background('backupparking','TVMCameraDisplay');f.menu();
+  if(lazy)f.complete();f.advance();assert.equal(f.count(),0,'pending reverse remains binding lazy='+lazy);
+  f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});f.focus();f.advance();
+  assert.equal(f.count(),1,'safe focused return releases reverse lazy='+lazy);
+  f=make(lazy);f.native('emnavi','Active');f.session(true);f.menu();
+  if(lazy)f.complete();f.advance();assert.equal(f.count(),1,'active Mazda Nav is eligible lazy='+lazy);
+}
+f=make(false);f.native('emnavi','NaviPreparing');f.connect();
+assert.equal(f.count(),0,'unqualified Nav preparation stays guarded');
+console.log('Live regressions: non-focused cache, applied focus history, safety priority and active Nav passed');
+
+}
+backgroundReplay();
+if(process.argv[3]) {
+  const stock={log:{addSrcFile(){},debug(){},info(){},warn(){},error(){},writeError(){}}};
+  for(const name of ["BaseApp.js","GuiFramework.js"]) {
+    const source=path.join(path.dirname(process.argv[3]),name);
+    vm.runInNewContext(fs.readFileSync(source,"utf8"),stock,{filename:source});
+  }
+  backgroundReplay(stock);
+  console.log("Exact stock GuiFramework context/cache/focus and BaseApp replays passed");
+}

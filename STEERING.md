@@ -262,6 +262,13 @@ retain durable transactions, original preservation and unknown-state refusal.
 
 ## Release implementation
 
+**Owner rule (2026-11-25): CMU JavaScript must follow the stock CMU's patterns.**
+Inspect the equivalent stock path before implementing module loading, input
+dispatch, transitions, initialization or cleanup. Preserve the native framework's
+ownership and lifecycle. Any necessary deviation must be justified by an observed
+stock limitation and documented with source or runtime evidence. This applies to
+new work and fixes to existing integration code.
+
 Deliver one CI-built bundle that an owner extracts onto USB and installs on the
 supported stock CMU. The small generic loader launches the installer payload.
 The UI and install/uninstall backend run on the CMU without a host computer,

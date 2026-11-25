@@ -202,8 +202,7 @@ transaction_reconcile() {
         selector_pair_check "$R_BEFORE" "$R_AFTER" || fail selector_changed
         selector_pair=true
     fi
-    # Install the recovery entry before changing NVRAM. Remove it last on
-    # uninstall. Re-committing a matching NVRAM value repairs an interrupted commit.
+    # Install the recovery entry before changing NVRAM. Remove it last on uninstall.
     if test "$phase" != uninstall; then
         if test "$selector_pair" = true; then selector_apply "$R_BEFORE" "$R_AFTER" || fail selector_apply_failed; fi
         startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
@@ -211,7 +210,11 @@ transaction_reconcile() {
     if test -e "$D/snapshots/$R_AFTER/access"; then
         access_pair_apply "$R_BEFORE" "$R_AFTER" || fail access_apply_failed
     fi
-    nvram_change "$actual_nv" "$after_nv" || fail nvram_commit_failed
+    # Only a planned NVRAM transition needs a commit. Recommit even if sysfs
+    # already matches after: the prior write may have been interrupted before commit.
+    if test "$before_nv" != "$after_nv"; then
+        nvram_change "$actual_nv" "$after_nv" || fail nvram_commit_failed
+    fi
     if test "$phase" = uninstall; then
         startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
         if test -e "$D/snapshots/$R_AFTER/access"; then access_hold_cleanup || fail access_cleanup_failed; fi

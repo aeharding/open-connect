@@ -40,8 +40,10 @@ dependency_path() { test "$1" = relevant && printf '%s\n' "$D-relevant"; }
 dependencies_capture() { printf '%s  relevant\n' "$(sha "$D-relevant")"; }
 nvram_read() { cat "$D-nvram"; }
 nvram_change() {
+    printf '%s|%s\n' "$1" "$2" >> "$D-nvram-calls"
     test "$(cat "$D-nvram")" = "$1" || return 1
     printf '%s\n' "$2" > "$D-nvram"
+    test ! -e "$D-nvram-commit-fails" || return 1
     test "$CUT" != nvram || kill -KILL $$
 }
 startup_publish() {
@@ -326,6 +328,92 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(data.exists())
         self.assertEqual(self.target(data, "target").read_text(), "stock\n")
+
+    def test_pandora_only_change_never_invokes_failing_nvram_adapter(self):
+        data = self.create("pandora-no-nvram")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        calls = self.target(data, "nvram-calls")
+        calls.unlink()
+        self.target(data, "nvram-commit-fails").touch()
+        _, before = self.api("status")
+        result, status = self.api("set", before["revision"], "pandora", "1", "0")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((status["pandora"], status["touch"]), (0, 1))
+        self.assertFalse(status["pending"])
+        self.assertFalse(calls.exists())
+        self.assertEqual(self.target(data, "nvram").read_text(), "disable\n")
+        for revision in (before["revision"], status["revision"]):
+            self.assertIn("nvram=disable\n", (data / "snapshots" / revision / "config").read_text())
+        record = (data / "record").read_text().split("|")
+        self.assertEqual(
+            (record[1], record[5], record[6:8]), ("active", status["revision"], ["-", "-"])
+        )
+        _, fresh = self.api("status")
+        self.assertEqual((fresh["pandora"], fresh["pending"]), (0, False))
+        self.assertFalse(calls.exists())
+
+    def test_interrupted_touch_change_recommits_when_actual_already_matches_after(self):
+        data = self.create("touch-nvram-recommit")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        calls = self.target(data, "nvram-calls")
+        calls.unlink()
+        failing = self.target(data, "nvram-commit-fails")
+        failing.touch()
+        _, before = self.api("status")
+        result, error = self.api("set", before["revision"], "touch", "1", "0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "nvram_commit_failed")
+        self.assertEqual(self.target(data, "nvram").read_text(), "absent\n")
+        self.assertEqual(calls.read_text().splitlines(), ["disable|absent"])
+        record = (data / "record").read_bytes()
+        fields = record.decode().split("|")
+        self.assertEqual(
+            (fields[1], fields[5], fields[6]), ("set", before["revision"], before["revision"])
+        )
+        for revision, value in ((fields[6], "disable"), (fields[7], "absent")):
+            self.assertIn(
+                f"nvram={value}\n", (data / "snapshots" / revision / "config").read_text()
+            )
+        _, pending = self.api("status")
+        self.assertTrue(pending["pending"])
+        result, error = self.api("recover", pending["revision"])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "nvram_commit_failed")
+        self.assertEqual(calls.read_text().splitlines(), ["disable|absent", "absent|absent"])
+        self.assertEqual((data / "record").read_bytes(), record)
+        failing.unlink()
+        result, recovered = self.api("recover", pending["revision"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((recovered["touch"], recovered["pending"]), (0, False))
+        self.assertEqual(recovered["revision"], fields[7])
+        self.assertEqual(
+            calls.read_text().splitlines(), ["disable|absent", "absent|absent", "absent|absent"]
+        )
+
+    def test_pending_pandora_change_refuses_nvram_drift_then_recovers_without_writing(self):
+        data = self.create("pandora-nvram-drift")
+        self.run_ok(data, "install")
+        self.assertNotEqual(self.run_command(data, "service-off", "prepared").returncode, 0)
+        record = (data / "record").read_bytes()
+        self.backend_fixture(data)
+        calls = self.target(data, "nvram-calls")
+        calls.unlink()
+        self.target(data, "nvram-commit-fails").touch()
+        self.target(data, "nvram").write_text("enable\n")
+        _, pending = self.api("status")
+        result, error = self.api("recover", pending["revision"])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "nvram_changed")
+        self.assertEqual((data / "record").read_bytes(), record)
+        self.assertEqual(self.target(data, "nvram").read_text(), "enable\n")
+        self.assertFalse(calls.exists())
+        self.target(data, "nvram").write_text("disable\n")
+        result, recovered = self.api("recover", pending["revision"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((recovered["pandora"], recovered["pending"]), (0, False))
+        self.assertFalse(calls.exists())
 
     def test_wireless_choice_applied_status_and_other_choices_survive_until_uninstall(self):
         data = self.create("wireless-setting")

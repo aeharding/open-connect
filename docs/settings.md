@@ -36,7 +36,7 @@ Change your preferences in Mazda’s own menus. Choices save automatically; use 
 
 <p>Choices save automatically. Use <a href="apply-changes.md">Apply changes</a> to restart Mazda Connect and activate them; <a href="uninstall.md">Uninstall</a> restarts automatically and <a href="about.md">About</a> is read-only.</p>
 
-<p><a href="performance.md">Performance evidence</a> records published dev.20 cold ACC-off results and the separate n=1 toggle sweep. Apply changes and Settings Uninstall have bench verification; real-car qualification remains pending. <strong>0.3.0-dev.21</strong> is a development prerelease.</p>
+<p><a href="performance.md">Performance evidence</a> records published dev.20 cold ACC-off results and the separate n=1 toggle sweep. Apply changes and Settings Uninstall have bench verification; real-car qualification remains pending. <strong>0.3.0-dev.22</strong> is a development prerelease.</p>
 
 
 <span id="change-a-preference"></span>
@@ -93,4 +93,4 @@ Select [**Apply changes**](apply-changes.md) above **Uninstall**, then confirm *
 
 **restart needed** means a choice is saved but not active yet. You can change several settings before applying them together. Saved choices also take effect on the next full startup; a quick ignition off/on may resume the same session. If a save cannot be confirmed, reopen Open Connect and check the choice before trying again.
 
-The guide describes the **0.3.0-dev.21 development prerelease** for North American version **74.00.324A**. This build awaits its USB-insertion and installer-launch bench retest. Real-car qualification remains pending.
+The guide describes the **0.3.0-dev.22 development prerelease** for North American version **74.00.324A**. This build awaits its USB-insertion and installer-launch bench retest. Real-car qualification remains pending.

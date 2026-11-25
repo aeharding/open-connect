@@ -38,7 +38,7 @@ Connect your iPhone to CarPlay without plugging in a USB cable. Open Connect ena
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p><a id="testing" href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> records AP/association/CarPlay-session confirmation separately from visible projection. Automatically show stayed off and Home remained the workload. Real-car audio, physical controls and long-parked reliability remain unqualified. The screenshot above remains dev.19. <strong>0.3.0-dev.21</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
+<p><a id="testing" href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> records AP/association/CarPlay-session confirmation separately from visible projection. Automatically show stayed off and Home remained the workload. Real-car audio, physical controls and long-parked reliability remain unqualified. The screenshot above remains dev.19. <strong>0.3.0-dev.22</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 <span id="connect-an-iphone"></span>
 

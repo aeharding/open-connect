@@ -149,6 +149,10 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
         test "$restart" = false && test "$notice" = installed &&
         test "$audited:$completion_check" = true:true &&
         test "$R_BOOT" = "$kernel_boot"; then completion_ready=true; fi
+    if test "$completion_ready" = true; then
+        . "$P/service.sh"
+        service_usb_observe >/dev/null 2>&1 || :
+    fi
     # Keep the retired boolean false for an installed v0.2.0-dev.1 client during
     # USB handoff. No endpoint or UI offers Undo.
     printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s%s}\n' \

@@ -5,7 +5,7 @@ const source = fs.readFileSync(process.argv[2], "utf8");
 const element=require("./ui-element.js");
 const token = "a".repeat(32), revision = "b".repeat(32);
 function fixture(previous, loadingUSB, boot, port) {
-    const requests = [], intervals = [], timeouts = [], choices = [], messages = [], loads = [], progress = [];
+    const requests = [], intervals = [], timeouts = [], choices = [], messages = [], loads = [], progress = [], controls=[];
     let eligible = true, messageEligible=true;
     const fw = {_browserShown: true, getAppInstance() { return app; }};
     const app = {}, nodes = {}, scripts = [], scriptEvents = [];
@@ -13,6 +13,7 @@ function fixture(previous, loadingUSB, boot, port) {
         node.parentNode = head; scripts.push(node); loads.push(node.src);
         scriptEvents.push(() => {
             if (node.src.endsWith("runtime.js")) vm.runInNewContext(source, ctx);
+            if (node.src.endsWith("settings.js")) loadMenus();
             node.onload();
         });
     }, removeChild(node) {
@@ -21,7 +22,7 @@ function fixture(previous, loadingUSB, boot, port) {
     }};
     if (loadingUSB) { nodes["oc-usb-loader"] = {ocToken: token,
         src: "file:///tmp/open-connect/sessions/session-test/loader.js", ocPort: port}; }
-    let store, now = 0;
+    let store, storeMenus, now = 0;
     const ctx = {
         OpenConnect: previous,
         document: {querySelector(selector) {
@@ -79,11 +80,15 @@ function fixture(previous, loadingUSB, boot, port) {
         },
         OpenConnectSettings: {attach(fw, app, value) { store = value; return () => {}; }}
     };
-    function flushScripts() { while(scriptEvents.length) scriptEvents.shift()(); }
+    function flushScripts(count=Infinity) { while(scriptEvents.length&&count-->0) scriptEvents.shift()(); }
     ctx.window = ctx;
-    vm.runInNewContext(fs.readFileSync(require("node:path").join(require("node:path").dirname(process.argv[2]), "settings.js"), "utf8"), ctx);
-    const attachSettings=ctx.OpenConnectSettings.attach;
-    ctx.OpenConnectSettings.attach = (fw, app, value) => { store=value; return () => {}; };
+    function loadMenus(){
+        vm.runInNewContext(fs.readFileSync(require("node:path").join(require("node:path").dirname(process.argv[2]),"settings.js"),"utf8"),ctx);
+        const menus=ctx.OpenConnectSettings;
+        menus.nativeAttach=menus.attach;
+        menus.attach=(fw,app,value)=>{store=value;storeMenus=menus;return ()=>{};};
+    }
+    loadMenus();
     vm.runInNewContext(source, ctx);
     flushScripts();
     function reply(request, value, status) {
@@ -97,6 +102,21 @@ function fixture(previous, loadingUSB, boot, port) {
             restart: false, pending: false, touch: 0, warning: 0, notice: "-", version: "0.2.0-dev.1", ...extra};
     }
     return {ctx, nodes, scripts, requests, choices, messages, loads, reply, state, progress,
+        realDialogs() {
+            ctx.document.body=element();
+            ctx.document.addEventListener=ctx.document.removeEventListener=()=>{};
+            ctx.log={error(e){throw Error(e);}};
+            Object.assign(fw,{_currTmpltInstance:{},_frameworkState:"idle",_FWK_STATE_IDLE:"idle",
+                getCurrentApp:()=>"system",getCurrCtxtId:()=>"HomeScreen",
+                common:{handleControllerEvent(){},getCommonTransitionData(){}},
+                multicontroller:{getMode:()=>"controllerActive"},
+                instantiateControl(app,parent,kind,props){
+                    const control={props,divElt:element(parent),handleControllerEvent(){}};
+                    controls.push(control);return control;
+                },destroyControl(control){assert.equal(control.closed,undefined);control.closed=true;}});
+            vm.runInNewContext(fs.readFileSync(require("node:path").join(require("node:path").dirname(process.argv[2]),"dialog.js"),"utf8"),ctx);
+            return {controls,back(){fw.common.handleControllerEvent("goBack",false);}};
+        },
         start(value, usb) { ctx.OpenConnect.start(value,usb); flushScripts(); },
         eligible(value) { eligible=value; },
         messageEligible(value){messageEligible=value;},
@@ -115,24 +135,25 @@ function fixture(previous, loadingUSB, boot, port) {
                     dataList:{itemCount:1,items:[{appData:"SelectAbout"}]},
                     setDataList(data){this.dataList=data;},updateItems(){}};
                 Object.assign(app,{_currentContextTemplate:host,_contextTable:{SystemTab:{readyFunction(){}}}});
-                const detach=attachSettings(fw,app,store);
+                const detach=storeMenus.nativeAttach(fw,app,store);
                 return {pages,detach,tap(){list.properties.selectCallback(list,"open-connect-settings");},
                     pick(index){const c=pages.at(-1).list2Ctrl;c.selectCallback(c,c.dataList.items[index].appData);}};
             }
-            const close=ctx.OpenConnectSettings.open(fw,store);
+            const close=storeMenus.open(fw,store);
             assert.equal(typeof close,"function");
             function pick(index) {const c=pages.at(-1).list2Ctrl;c.selectCallback(c,c.dataList.items[index].appData);}
             if(!root) pick(0); // Touch radio page.
             function choose(key){const c=pages.at(-1).list2Ctrl;pick(c.dataList.items.findIndex(r=>r.appData===key));}
             return {pick,choose,close,pages,host,back(){fw.sendEventToMmui("common","Global.GoBack");}};
         },
-        insert(legacy = false) {
+        flush:flushScripts,
+        insert(legacy = false, count=Infinity) {
             nodes["oc-usb-loader"] = {ocToken: token, src: "file:///tmp/oc/loader.js",
                 parentNode: {removeChild(n) { if(nodes["oc-usb-loader"] === n) delete nodes["oc-usb-loader"]; }}};
             const path=require("node:path");
             const file=legacy ? path.join(__dirname,"legacy-usb-loader.js") : path.join(path.dirname(process.argv[2]),"loader.js");
             vm.runInNewContext(fs.readFileSync(file,"utf8"),ctx);
-            flushScripts();
+            flushScripts(count);
         },
         tick() { intervals.forEach(fn => fn()); },
         advance(ms) {
@@ -645,10 +666,11 @@ for(const at of [0,249]) {
 }
 f=fixture(); f.start(token,false); f.reply(f.requests[0],f.state({installed:true})); f.tick();
 const supersededPage=f.openSettings(), oldClient=f.ctx.OpenConnect;
-f.insert(true); assert.notEqual(f.ctx.OpenConnect,oldClient);
+f.insert(true); assert.equal(f.ctx.OpenConnect,oldClient);
 assert.equal(f.ctx.__ocUSBLoading,undefined);
 supersededPage.pick(1); f.advance(250);
-assert.equal(f.requests.filter(r=>r.body.includes("|set|")).length,0);
+assert.equal(f.requests.filter(r=>r.body.includes("|set|")).length,1);
+f.reply(f.requests.at(-1),f.state({installed:true,touch:1}));
 assert.equal(f.ctx.__ocUSBLoading,undefined);
 supersededPage.close();
 
@@ -708,7 +730,7 @@ f=fixture(); f.start(token,false); f.reply(f.requests[0],f.state({installed:true
 const originalClient=f.ctx.OpenConnect, originalModules=f.scripts.slice();
 assert.equal(originalModules.length,2);
 originalModules.forEach((node,index)=>node.id="oc-runtime-"+["dialog","settings"][index]);
-f.insert(); assert.equal(f.scripts.length,4);
+f.insert(); assert.equal(f.scripts.length,5);
 assert.equal(f.ctx.document.getElementById("oc-runtime-dialog"),originalModules[0]);
 const replacementModules=f.scripts.filter(n=>!originalModules.includes(n));
 f.reply(f.requests.at(-1),null);
@@ -718,7 +740,7 @@ assert.ok(originalModules.every(n=>n.parentNode));
 assert.ok(replacementModules.every(n=>!n.parentNode));
 for(let i=0;i<8;i++) {
     const prior=f.ctx.OpenConnect, priorModules=f.scripts.slice();
-    f.insert(); assert.equal(f.scripts.length,4);
+    f.insert(); assert.equal(f.scripts.length,5);
     f.reply(f.requests.at(-1),f.state({installed:true})); f.tick();
     assert.notEqual(f.ctx.OpenConnect,prior);
     assert.equal(f.scripts.length,2);
@@ -967,11 +989,10 @@ f.reply(f.requests[0],f.state({installed:true}));assert.equal(cold.pages.length,
 cold.pick(0);cold.pick(1);f.advance(250);assert.equal(f.requests.length,2);
 assert.match(f.requests[1].body,/\|set\|touch\|0\|1$/);
 f.reply(f.requests[1],f.state({installed:true,touch:1,restart:true,revision:"c".repeat(32)}));cold.detach();
-// A new intent retires old waiters and allows a new cold request immediately.
+// USB teardown preserves a cold native Settings tap already in flight.
 f=fixture(null,false,{version:"0.3.0-dev.20",notice:"-"});f.tick();cold=f.openSettings(true,true);
-cold.tap();cold.tap();f.ctx.OpenConnect.cancelUSB(token);cold.tap();assert.equal(f.requests.length,2);
-f.reply(f.requests[0],f.state({installed:true}));assert.equal(cold.pages.length,0);
-f.reply(f.requests[1],f.state({installed:true}));assert.equal(cold.pages.length,1);cold.detach();
+cold.tap();cold.tap();f.ctx.OpenConnect.cancelUSB(token);cold.tap();assert.equal(f.requests.length,1);
+f.reply(f.requests[0],f.state({installed:true}));assert.equal(cold.pages.length,1);cold.detach();
 
 function completionClick(usb=false,beforeClick){
     const f=fixture(null,usb,{version:"0.3.0-dev.20",notice:"installed"},35555);
@@ -1131,7 +1152,8 @@ for(const outcome of ["confirmed","deadline"]){
         assert.equal(click.navigations,0); // Late readback is never a second completion.
     }
     assert.equal(f.requests.filter(r=>r.body.includes("|dismiss|")).length,1);
-    assert.equal(owner.protected(),false);assert.equal(f.ctx.__ocUSBLoading,undefined);
+    assert.equal(owner.protected(),true);assert.equal(f.ctx.__ocUSBLoading,undefined);
+    if(outcome==="deadline")f.reply(f.requests[3],f.state({installed:true}));
     cold.detach();f.insert(true);assert.notEqual(f.ctx.OpenConnect,owner);assert.ok(f.loads.length>count);
 }
 
@@ -1170,7 +1192,7 @@ for(const visible of [false,true]){
     assert.equal(cold.pages.length,1);assert.equal(f.store.read().restart,true);
     f.messageEligible(true);f.tick();assert.equal(f.messages.length,1);
     assert.equal(f.messages[0].title,"Unable to confirm");f.messages[0].done("done");
-    assert.equal(f.ctx.OpenConnect.protected(),false);assert.equal(f.ctx.__ocUSBLoading,undefined);
+    assert.equal(f.ctx.OpenConnect.protected(),true);assert.equal(f.ctx.__ocUSBLoading,undefined);
     assert.equal(click.navigations,0);assert.equal(f.requests.length,4);cold.detach();
 }
 console.log("Lifecycle regressions: dismiss/refresh ownership, native feedback interruption and protected USB cleanup passed");
@@ -1194,7 +1216,7 @@ for(const operation of ["restart","uninstall"]){
     assert.equal(f.ctx.__ocUSBLoading,lease);assert.equal(owner.protected(),true);
     f.messages.at(-1).done("done");assert.equal(root.cleaned,false);
     f.reply(f.requests[1],{ok:true});
-    assert.equal(f.ctx.__ocUSBLoading,undefined);assert.equal(owner.protected(),false);
+    assert.equal(f.ctx.__ocUSBLoading,undefined);assert.equal(owner.protected(),true);
     rootUI.choose(operation);f.messages.at(-1).done(operation);
     assert.equal(root.cleaned,true);assert.equal(rootUI.host.divElt.style.display,"");
     assert.equal(f.progress.length,1);assert.equal(f.progress[0].hostDisplay,"");
@@ -1212,3 +1234,94 @@ for(const operation of ["restart","uninstall"]){
     assert.equal(f.requests.filter(r=>r.body.includes("|dismiss|")).length,1);
 }
 console.log("Admission regressions: Restart/Uninstall retain Settings on refusal and close before progress on retry passed");
+
+// The real chooser distinguishes USB teardown from the owner's explicit Cancel.
+for(const reason of ["removed","button","back"]){
+    f=fixture();const native=f.realDialogs();f.start(token,true);
+    f.reply(f.requests[0],f.state());f.tick();
+    const dialog=native.controls[0];assert.ok(dialog);
+    if(reason==="removed")f.ctx.OpenConnect.cancelUSB(token);
+    else if(reason==="button")dialog.props.defaultSelectCallback(dialog,"cancel");
+    else native.back();
+    assert.equal(dialog.closed,true);
+    assert.equal(f.requests.length,reason==="removed"?1:2);
+    if(reason!=="removed")assert.match(f.requests[1].body,/\|dismiss\|/);
+}
+console.log("Real dialog/runtime: physical removal tears down without dismiss; explicit Cancel still dismisses");
+
+// A slow USB audit remains private. The first native Settings tap consumes its
+// result once, even beyond the installed client's twelve-second cold deadline.
+for(const order of ["tap-first","audit-first","removed","host-changed"]){
+    f=fixture(null,false,{version:"0.3.0-dev.20",notice:"-"});f.tick();
+    const owner=f.ctx.OpenConnect;
+    cold=f.openSettings(true,true);
+    if(order==="tap-first")cold.tap();
+    f.insert();
+    assert.equal(f.ctx.OpenConnect,owner);
+    const audit=f.requests[0],attempt=f.ctx.__ocUSBLoading;
+    if(order!=="tap-first")cold.tap();
+    assert.equal(f.requests.length,1);
+    if(order==="host-changed")f.ctx.framework._currTmpltInstance={};
+    if(order==="removed"){
+        attempt.cancel();assert.equal(f.requests.length,2);
+        f.reply(f.requests[1],f.state({installed:true}));
+    }
+    f.advance(order==="tap-first"?1000:13230);
+    f.reply(audit,f.state({installed:true}));
+    assert.equal(cold.pages.length,order==="host-changed"?0:1);
+    if(order!=="host-changed"){
+        assert.equal(f.ctx.OpenConnect,owner);
+        cold.pick(0);cold.pick(1);f.advance(250);
+        assert.match(f.requests.at(-1).body,/\|set\|touch\|0\|1$/);
+        f.reply(f.requests.at(-1),f.state({installed:true,touch:1}));
+    }
+    cold.detach();
+    assert.equal(f.ctx.__ocUSBLoading,undefined);
+}
+console.log("Handoff regressions: slow first tap, both read orders, removal, host change and immediate save passed");
+
+// A retired candidate cannot consume a tap or overwrite a different attempt.
+f=fixture(null,false,{version:"0.3.0-dev.20",notice:"-"});f.tick();
+const incumbent=f.ctx.OpenConnect;f.insert();
+const foreign={token:"f".repeat(32)};f.ctx.__ocUSBLoading=foreign;
+f.reply(f.requests[0],f.state({installed:true}));
+assert.equal(f.ctx.OpenConnect,incumbent);assert.equal(f.ctx.__ocUSBLoading,foreign);
+
+// Partial module delivery keeps the incumbent's first tap: before runtime,
+// between runtime/dialog, and between dialog/settings are distinct events.
+for(const delivered of [0,1,2]){
+    f=fixture(null,false,{version:"0.3.0-dev.20",notice:"-"});f.tick();
+    const owner=f.ctx.OpenConnect;cold=f.openSettings(true,true);
+    f.insert(false,delivered);cold.tap();f.flush();
+    assert.equal(f.ctx.OpenConnect,owner);assert.equal(f.requests.length,1);
+    f.advance(delivered?13230:1000);
+    f.reply(f.requests[0],f.state({installed:true}));
+    assert.equal(cold.pages.length,1);assert.equal(f.ctx.OpenConnect,owner);
+    assert.equal(f.ctx.__ocUSBLoading,undefined);
+    cold.pick(0);cold.pick(1);f.advance(250);assert.match(f.requests[1].body,/\|set\|touch\|0\|1$/);
+    f.reply(f.requests[1],f.state({installed:true,touch:1}));cold.detach();
+}
+
+// Removing the first-ever candidate during module loading retires it too.
+f=fixture();f.ctx.OpenConnect=undefined;f.insert(false,1);const firstAttempt=f.ctx.__ocUSBLoading;
+firstAttempt.cancel();f.flush();assert.equal(f.requests.length,0);
+assert.equal(f.ctx.OpenConnect,undefined);assert.equal(f.scripts.length,0);
+assert.equal(f.ctx.__ocUSBLoading,undefined);
+
+// Failed/removed full audits retain the first tap through the original loader
+// deadline, including a retired request holding the backend lock past 12s.
+for(const removed of [false,true]){
+    f=fixture(null,false,{version:"0.3.0-dev.20",notice:"-"});f.tick();
+    const owner=f.ctx.OpenConnect;cold=f.openSettings(true,true);f.insert();cold.tap();
+    const audit=f.requests[0],attempt=f.ctx.__ocUSBLoading;
+    f.advance(100);
+    if(removed)attempt.cancel();else f.reply(audit,null);
+    assert.equal(f.requests.length,2);
+    let seen=1;
+    while(f.requests.length&&f.ctx.Date.now()<13230){
+        const next=f.requests.at(-1);f.reply(next,{ok:false,error:"busy"});f.advance(500);seen++;
+    }
+    f.reply(f.requests.at(-1),f.state({installed:true}));
+    assert.equal(cold.pages.length,1);assert.equal(f.ctx.OpenConnect,owner);
+    assert.ok(seen<30);cold.detach();
+}

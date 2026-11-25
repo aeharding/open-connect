@@ -35,8 +35,8 @@ class InstallerControls(unittest.TestCase):
             [
                 "node",
                 str(ROOT / "tests/fixtures/installer-settings.js"),
-                str(ROOT / "cmu/installer/settings.js"),
                 str(ROOT / "cmu/installer/dialog.js"),
+                str(ROOT / "cmu/installer/settings.js"),
             ],
             check=True,
         )

@@ -1,5 +1,6 @@
 // Minimal DOM surface shared by offline UI fixtures; animation delivery is explicit.
 module.exports=function element(parent=null) {
+    if(parent&&!parent.appendChild)parent.appendChild=function(n){n.parentNode=this;};
     const listeners=new Map(),classes=new Set();
     return {parentNode:parent,style:{display:""},classes,listeners,
         classList:{add(c){classes.add(c);},remove(c){classes.delete(c);}},

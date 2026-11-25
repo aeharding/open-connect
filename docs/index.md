@@ -8,7 +8,7 @@ Plug-and-play USB install.
 [Browse settings →](settings.md)
 { .oc-actions }
 
-<p class="oc-availability"><strong>0.3.0-dev.21</strong> is a development prerelease; real-car qualification remains pending. Currently for North American version <strong>74.00.324</strong> only. Startup gains vary by configuration; faster startup than stock is not established.</p>
+<p class="oc-availability"><strong>0.3.0-dev.22</strong> is a development prerelease; real-car qualification remains pending. Currently for North American version <strong>74.00.324</strong> only. Startup gains vary by configuration; faster startup than stock is not established.</p>
 
 <figure class="oc-screen oc-screen--lead">
   <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen-while-driving.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>

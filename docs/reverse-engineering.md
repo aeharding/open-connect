@@ -1229,3 +1229,59 @@ the custom renderer removed the old list immediately and had no native animation
 Private supporting inputs are `runs/dev19-settings-slow-20261125/` and the
 read-only `runs/firmware74-research/` archive/originals. The offline implementation
 tests establish request counts and animation cleanup, not CMU latency or RAM.
+
+
+## USB browser navigation and Settings ownership on v74
+
+The dev.21 post-install restart reported in [#157](https://github.com/aeharding/open-connect/issues/157)
+was reproduced with unchanged product bytes. Done closed the native completion
+view and posted dismiss. The backend cleared its notice and marked that runtime
+closed; the USB runner then used Opera `Navigate` for redundant JavaScript
+cleanup. This call cancels outstanding browser resource loads, even with a no-op
+URL. In an ABBA control, both uninterrupted delayed scripts executed and both
+interrupted scripts failed to execute despite delivery of their bodies.
+
+In the failing native boot, first Settings began 900 ms after Done. TabsCtrl and
+SliderCtrl were appended before runner cleanup and never registered. List2Ctrl
+registered, leaving exactly the owner's two missing controls. The framework
+remained on Home, timed out after eight seconds and exited Opera; Service
+Manager then stopped feeding the watchdog. The failure requires cleanup to
+interrupt the pending loads: earlier/later selections that put registration or
+cleanup outside that interval survived. Keep frontend heartbeat and native
+watchdogs intact. A completed session needs shell cleanup without another
+browser navigation. A superseded runner must leave its successor alone.
+
+A separate unchanged native trace captured the first Open Connect Settings tap
+while a USB client was loading. Early global publication and later predecessor
+disposal dropped ownership of that tap, removed the row, and reattached it about
+one second later. Keep the incumbent usable until a verified handoff, share an
+already-running status read with a pending tap, and transfer the exact native
+list binding in the same turn. The normal installed cold-read deadline alone
+cannot cover the observed 13.230-second USB audit.
+
+Root Back reused the hidden native template without the stock offscreen class
+or reparenting. Camera and animation events showed the incoming Settings page
+under the outgoing list and late completion. A bounded counterfactual using
+Mazda's offscreen initialization and incoming-element reparenting completed the
+incoming animation in 396 ms, versus 873 ms for the unchanged sequence. Follow
+the stock optional outgoing/incoming lifecycle hooks and owned-class cleanup;
+keep the shared MMUI transition manager and focus under native ownership.
+
+The retained-stick discriminator observes USB topology/devnum at the first
+successful completion proof or eligible scan under the existing operation lock.
+Rendering is too early: on the failing boot the page existed at 10.40 s, while
+the stick enumerated at 17.268 s. Preserve a successful empty observation. Match
+the current boot selection, immutable rendered completion notice, verified
+payload manifest excluding installed-only `INSTANCE`, and actual mounted USB
+incarnation. Reinsertion after that observation, different payloads, fallback
+and unavailable observations retain normal maintenance. A bounded comment in
+the separately rendered RAM index carries the observation without another
+allocated page. If the rendered variant has insufficient page slack, enumeration
+is unavailable or the trailer is malformed, preserve normal maintenance and let
+completion proceed. Whitespace compaction of the authored inline hook makes
+room for the maximum 96-byte observation in each current generated variant.
+Larger device sets retain normal maintenance.
+
+Private supporting records are `runs/dev21-settings-crash-20261125/ROOT-CAUSE.md`,
+`first-row-trial-2/`, `navigate-cancellation/` and `motion-counterfactual-2/`.
+These diagnose the failures; the fixed bundle's native validation is separate.

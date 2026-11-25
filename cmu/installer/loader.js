@@ -6,7 +6,7 @@
     if (!entry) { return; }
     var owner = window.OpenConnect, held = owner && owner.protected && owner.protected();
     if (window.__ocUSBLoading || held) {
-        if (held && entry.ocToken && window.__ocUSBLoading && entry.ocToken === window.__ocUSBLoading.token && entry.parentNode) {
+        if (held && entry.ocToken && (!window.__ocUSBLoading || entry.ocToken === window.__ocUSBLoading.token) && entry.parentNode) {
             entry.parentNode.removeChild(entry);
         }
         return;
@@ -14,10 +14,20 @@
     var token = entry.ocToken;
     var base = entry.src.slice(0, entry.src.lastIndexOf("/") + 1);
     var stopped = false, nodes = [entry];
-    var state = {token: token, cancel: finish};
+    var state = {token: token, until: Date.now() + 65000, owner: owner, valid: function () {
+        return window.__ocUSBLoading === state && window.OpenConnect === (owner || state.client);
+    }, done: finish, resolve: resolve, cancel: function () {
+        if (state.client) { state.client.cancelUSB(token); }
+        finish();
+    }};
     window.__ocUSBLoading = state;
+    function resolve(answer) {
+        var waits = state.wait || []; delete state.wait;
+        waits.forEach(function (fn) { fn(answer); });
+    }
     function finish() {
-        stopped = true;
+        resolve();
+        stopped = true; owner = null; state.owner = state.client = null;
         for (var i = 0; i < nodes.length; i++) {
             if (nodes[i] && nodes[i].parentNode) { nodes[i].parentNode.removeChild(nodes[i]); }
         }
@@ -33,7 +43,7 @@
     // Use this verified package's client, including its operation deadline.
     // Runtime retains the installed client until the replacement is ready.
     load("runtime.js", "oc-usb-ui", function () {
-        OpenConnect.start(token, true);
-        finish();
+        if (!state.client) { finish(); return; }
+        state.client.start(token, true);
     });
 }());

@@ -94,7 +94,7 @@ function show(fw, title, text, buttons, done, settings, progress) {
     }};
   }
   dialog.handleControllerEvent(fw.multicontroller.getMode());
-  return function () { finish("cancel"); };
+  return function () { finish("closed"); };
 }
 function versionText(version) {
   if (version===undefined||version==="-") { return "Unavailable"; }

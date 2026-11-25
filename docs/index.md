@@ -19,9 +19,9 @@ Plug-and-play USB install.
 
 - **[Touchscreen While Driving](touchscreen.md)**: keep touch available for a passenger.
 - **[Startup disclaimer](disclaimer.md)**: continue to your usual screen.
-- **[Startup optimizations](startup-optimizations.md)**: reduce background logging and unused services.
+- **[Startup optimizations](startup-optimizations.md)**: reduce background logging and unused services, including DVD on North American units.
 - **CarPlay & Android Auto**: [wireless connections](wireless-carplay.md), [Show CarPlay on connection](carplay-on-connection.md) and [Android Auto](android-auto.md).
-- **Audio sources**: choose [DVD](dvd.md), [Pandora](pandora.md) and [SiriusXM](siriusxm.md).
+- **Audio sources**: choose [Pandora](pandora.md) and [SiriusXM](siriusxm.md).
 - **[Developer options](developer-options.md)**: UART, SSH and Import public key for your own access.
 - **[Apply changes](apply-changes.md)**: restart Mazda Connect to activate saved choices.
 - **[Uninstall](uninstall.md)**: restore the configuration saved before installation.

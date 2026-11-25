@@ -25,7 +25,7 @@ Plug-and-play USB install.
 
 ## Supported cars
 
-Open Connect is for first-generation **Mazda Connect / MZD Connect** (commander knob, 7-inch or 8-inch display depending on model and trim). First-generation Mazda Connect was available on equipped trims in these North American model years; second-generation Mazda Connect (8.8-inch or 10.25-inch widescreen) is not supported.
+Open Connect is for first-generation **Mazda Connect / MZD Connect** (commander knob). First-generation Mazda Connect was available on equipped trims in these North American model years; second-generation Mazda Connect is not supported.
 
 | Model | Model years |
 | --- | --- |

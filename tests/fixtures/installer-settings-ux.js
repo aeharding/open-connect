@@ -1,13 +1,13 @@
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm"),element=require("./ui-element.js");
 function fixture() {
-    const timers=new Map(),pages=[],calls=[],dialogs=[];
+    const timers=new Map(),pages=[],calls=[],dialogs=[],inputs=[];
     let now=0,id=0,writes=[],reply,busy=false,restarts=0,refreshes=0,fresh;
     let values={touch:0,warning:1,restart:false,base:0,wireless:0,wirelessCurrent:0,
         carplayAutoshow:0,carplayAutoshowCurrent:0,developer:true,uart:0,ssh:0,key:"-",services:[
             {id:"android-auto",label:"Android Auto",saved:1,current:1,enable:"Enable",disable:"Disable"},
             {id:"pandora",label:"Pandora",saved:1,current:1,enable:"Enable",disable:"Disable"}]};
     const parent={removeChild(n){assert.equal(n.parentNode,this);n.parentNode=null;}};
-    const input=()=>"stock input",send=(...args)=>calls.push(args),transition=()=>"stock transition";
+    const input=(...args)=>{inputs.push(args);return "stock input";},send=(...args)=>calls.push(args),transition=()=>"stock transition";
     const host={divElt:element(parent),list2Ctrl:{},handleControllerEvent:input};
     const focus=[{id:"syssettings"}],nativeTransitions={owned:"Mazda"};
     const fw={_currTmpltInstance:host,_frameworkState:1,_FWK_STATE_IDLE:1,_focusStack:focus,transitionsObj:nativeTransitions,
@@ -35,7 +35,7 @@ function fixture() {
         timers.delete(n[0]);now=n[1].at;n[1].fn();}now=end;}
     function unchanged(){assert.equal(fw._currTmpltInstance,host);assert.equal(fw._frameworkState,1);
         assert.equal(fw._focusStack,focus);assert.equal(fw.transitionsObj,nativeTransitions);}
-    return {fw,host,store,settings,pages,calls,dialogs,timers,page,row,pick,advance,unchanged,input,send,transition,
+    return {fw,host,store,settings,pages,calls,dialogs,timers,inputs,page,row,pick,advance,unchanged,input,send,transition,
         open:()=>settings.open(fw,store),end:()=>page().divElt.emit("animationend"),back:()=>fw.sendEventToMmui("common","Global.GoBack"),
         values(v){values=v;},get value(){return values;},busy(v){busy=v;},get writes(){return writes;},ack(v){values=v;reply(v);},
         get restarts(){return restarts;},get refreshes(){return refreshes;},fresh(v){fresh(v);},get dialog(){return dialogs.at(-1);},
@@ -58,6 +58,43 @@ f.back();assert.equal(root.cleaned,1);assert.equal(child.cleaned,0);assert.ok(f.
 stale({target:child.divElt});assert.equal(child.cleaned,0);f.end();f.advance(2000);assert.equal(child.cleaned,1);
 f.back();assert.ok(f.host.divElt.classes.has(backwards));f.back();assert.equal(f.fw.sendEventToMmui,f.send);
 assert.deepEqual(f.calls.at(-1),["common","Global.GoBack"]);assert.equal(f.host.divElt.style.display,"");assert.equal(f.timers.size,0);
+// Stock Common sends Global.GoBack, then falls through to its cached host's
+// goBack handler for Commander input. Touch LeftButton Back sends only the event.
+for(const source of ["commander","touch"])for(const completion of ["event","timeout"]){
+    f=fixture();f.open();f.end();const root=f.page(),sent=f.calls.length;
+    f.back();if(source==="commander")f.host.handleControllerEvent("goBack");
+    assert.equal(root.cleaned,0);assert.equal(f.inputs.length,0);assert.equal(f.calls.length,sent);
+    assert.ok(f.host.divElt.classes.has(backwards));
+    assert.ok(root.divElt.classes.has("Transitions_slideOutRightTmpltWithStatusLeftBtn_0_400"));
+    assert.equal(f.host.divElt.style.display,"");f.unchanged();
+    f.advance(399);assert.equal(root.cleaned,0);assert.ok(f.host.divElt.classes.has(backwards));
+    if(completion==="event"){
+        f.advance(1);f.host.divElt.emit("animationend");
+    }else{
+        f.advance(500);assert.equal(root.cleaned,0);f.advance(1);
+    }
+    assert.equal(root.cleaned,1);assert.equal(f.timers.size,0);
+    assert.equal(f.host.handleControllerEvent,f.input);assert.equal(f.fw.sendEventToMmui,f.send);
+    assert.equal(f.fw.common.getCommonTransitionData,f.transition);assert.equal(f.host.divElt.classes.size,0);
+    assert.equal(root.divElt.classes.size,0);assert.equal(f.host.handleControllerEvent("cw"),"stock input");
+    assert.deepEqual(f.inputs,[["cw"]]);f.host.divElt.emit("animationend");f.advance(1000);
+    assert.equal(root.cleaned,1);const close=f.open();assert.equal(typeof close,"function");close();
+    assert.equal(f.timers.size,0);f.unchanged();
+}
+// Real host input and native transitions still interrupt the leaving slide.
+for(const event of ["cw","touchActive","controllerActive"]){
+    f=fixture();f.open();f.end();const root=f.page();f.back();f.host.handleControllerEvent("goBack");
+    assert.equal(f.host.handleControllerEvent(event),"stock input");assert.deepEqual(f.inputs,[[event]]);
+    assert.equal(root.cleaned,1);assert.equal(f.timers.size,0);f.unchanged();
+}
+for(const ctxtId of ["HomeScreen","Navigation","BackupCameraDisplay"]){
+    f=fixture();f.open();f.end();const root=f.page();f.back();f.host.handleControllerEvent("goBack");
+    const next={contextInfo:{ctxtId}};f.fw._currTmpltInstance=next;f.fw._frameworkState=2;
+    assert.equal(f.fw.common.getCommonTransitionData(next),"stock transition");
+    assert.equal(root.cleaned,1);assert.equal(f.timers.size,0);assert.equal(f.host.handleControllerEvent,f.input);
+    assert.equal(f.fw._currTmpltInstance,next);assert.equal(f.fw._frameworkState,2);
+    f.host.divElt.emit("animationend");f.advance(1000);assert.equal(root.cleaned,1);
+}
 for(const event of ["Global.IntentHome","Global.IntentNavigation"]) {
     f=fixture();f.open();f.pick("phone");const p=f.page();f.fw.sendEventToMmui("common",event);
     assert.equal(p.cleaned,1);assert.equal(f.host.divElt.style.display,"");assert.equal(f.timers.size,0);

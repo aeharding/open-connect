@@ -336,16 +336,16 @@ function open(fw,store){
    var enabled=params.additionalData===1,desired=enabled?1:0;
    var values=prefs.values();
    if(!values){render("unknown",0);return;}
-   var serviceRow=service(values,item);
-   if(item!=="base"&&!serviceRow&&!(item==="pandora"&&!values.services)){return;}
+   var row=service(values,item);
+   if(item!=="base"&&!row&&!(item==="pandora"&&!values.services)){return;}
    if(preference(values,item)===undefined||preference(values,item)===desired){return;}
-   var label=item==="base"?"Startup optimizations":serviceRow?serviceRow.label:"Pandora";
+   var label=item==="base"?"Startup optimizations":row?row.label:"Pandora";
    var text=item==="base"?(enabled?
     (values.services?"Reduces background logging and unused services. Applies after restart.":
      "Reduces native diagnostic logging. Applies after restart."):
     (values.services?"Restores original logging and startup behavior after restarting Mazda Connect.":
      "Restores original native logging after restarting Mazda Connect.")):
-    serviceRow?(enabled?serviceRow.enable:serviceRow.disable):
+    row?(enabled?row.enable:row.disable):
     "Changes apply after restarting Mazda Connect.";
    if(item==="base"&&enabled&&/^0\.3\.0-dev\.(16|17|18|19|20)$/.test(store.version)&&values.wireless){
     text+=" Wireless CarPlay delays Mazda Navigation about 20 s.";
@@ -448,7 +448,8 @@ function open(fw,store){
   return transition.apply(this,arguments);
  }));
  var input=host.handleControllerEvent;
- restorers.push(replace(host,"handleControllerEvent",function(){
+ restorers.push(replace(host,"handleControllerEvent",function(event){
+  if(leaving&&event==="goBack")return;
   if(!current()){close();return input.apply(this,arguments);}
   return page.handleControllerEvent.apply(page,arguments);
  }));

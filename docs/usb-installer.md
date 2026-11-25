@@ -6,7 +6,12 @@ Open Connect installs from a USB drive. After installation, use Mazda Settings t
 
 ## 1. Check your firmware version
 
-Open **Mazda Settings → System → About → Version Information**.
+Open **<span class="oc-nav-path" data-walkthrough="version-info">Mazda Settings → System → About → Version Information</span>**.
+
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/version-info.png" alt="Mazda Version Information: OS Version 74.00.324 NA N, Music Database Version 00.12.003 and Fail-Safe Version 74.00.324." width="800" height="480"></div>
+  <figcaption>Check OS Version: 74.00.324 NA N.</figcaption>
+</figure>
 
 Find **OS Version**. It must read **74.00.324 NA N**. This is the North American firmware supported by the current preview, also called **74.00.324A** in development records.
 

@@ -2,13 +2,13 @@
 
 # Settings reference
 
-Choose your preferences in **Mazda Settings → System → Open Connect**.
+Choose your preferences in **<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>**.
 
 These features are in the development preview for North American Mazda Connect **74.00.324**. Real-car testing is still ahead. There is no public download yet.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="../assets/guide/settings.png" alt="Open Connect settings showing the touchscreen and startup choices, Wireless CarPlay, Services and Developer options." width="800" height="480"></div>
-  <figcaption>Settings → System → Open Connect.</figcaption>
+  <figcaption><span class="oc-nav-path" data-walkthrough="open-connect">Settings → System → Open Connect</span>.</figcaption>
 </figure>
 
 | Feature | What changes | Fresh-install default |

@@ -64,3 +64,8 @@ body, input { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvet
 .md-nav__link--active { font-weight: 600; }
 @media (min-width: 76.25em) { .md-content__inner { margin-left: 1.8rem; margin-right: 1.8rem; } }
 @media (max-width: 44em) { .md-typeset h1 { font-size: 1.8rem; } }
+
+.md-typeset .md-button, .md-typeset .md-button:hover, .md-typeset .md-button:focus { text-decoration: none; }
+
+.md-typeset .mermaid { text-align: center; }
+.md-typeset .mermaid svg { display: block; margin-inline: auto; }

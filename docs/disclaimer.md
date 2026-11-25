@@ -2,7 +2,7 @@
 
 Skip Mazda’s startup warning and continue to your usual screen.
 
-Open **Mazda Settings → System → Open Connect → Startup disclaimer**.
+Open **<span class="oc-nav-path" data-walkthrough="disclaimer">Mazda Settings → System → Open Connect → Startup disclaimer</span>**.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/warning.png" alt="Startup disclaimer choices: Show and Skip, with Skip selected." width="800" height="480"></div>

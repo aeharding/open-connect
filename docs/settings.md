@@ -2,7 +2,7 @@
 
 Change your preferences in Mazda’s own menus. Choices save automatically.
 
-Open **Mazda Settings → System → Open Connect**, just above **About**.
+Open **<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>**, just above **About**.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/settings-entry.png" alt="Mazda Settings, System tab, with Open Connect selected above About." width="800" height="480"></div>

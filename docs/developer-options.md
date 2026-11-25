@@ -2,7 +2,7 @@
 
 **UART** provides a passwordless root serial shell. **SSH** authorizes an imported public key for network access. Both default to **Off** and apply after a full restart.
 
-Open **Mazda Settings → System → Open Connect → Developer options**. Neither control is needed for normal installation, settings or removal.
+Open **<span class="oc-nav-path" data-walkthrough="developer-options">Mazda Settings → System → Open Connect → Developer options</span>**. Neither control is needed for normal installation, settings or removal.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/developer-options.png" alt="Developer options with UART and SSH off and Import public key available." width="800" height="480"></div>

@@ -36,6 +36,29 @@ Keep one source for each subject. Product direction and the roadmap remain in
 the repository's STEERING.md and PLAN.md; link to them rather than copying them.
 The lab handoff, bench-state.txt, is deliberately excluded from the website.
 
+## Navigation previews
+
+Wrap an in-car navigation path in inline text with a walkthrough name:
+
+~~~html
+<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>
+~~~
+
+The website turns it into a button. Select it to open a modal with the reviewed
+CMU screens; use the step dots, arrow buttons or Left/Right keys to move between
+steps. Manual navigation pauses playback; Play resumes the 2.2-second cycle.
+Escape, the close button or the dimmed backdrop closes it and returns focus to
+the path. Tab stays inside the modal. Reduced-motion preferences start playback
+paused. The text stays readable in GitHub and with JavaScript disabled.
+
+The screen sequences are in **docs/javascripts/nav-preview.js**. Use existing
+reviewed captures from **docs/assets/guide/** and keep their provenance intact.
+The `version-info` sequence shows the System tab with About visible and the
+reviewed Version Information dialog. `wireless-connect`
+shows the Wi-Fi prerequisite with directions to the phone-selection screen. Image URLs resolve
+from the script location so previews also work on nested pages and under the
+GitHub Pages path.
+
 ## Keep the direction readable
 
 **Guide is for owners.** Organize it around Quick start, Settings

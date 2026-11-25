@@ -72,6 +72,32 @@ class InstallerPreferences(unittest.TestCase):
         self.assertEqual(android_restored.stdout, pandora_off.stdout)
         self.assertEqual(self.config.read_bytes(), both_off.stdout)
 
+    def test_autoshow_defaults_upgrade_and_unchanged_nine_field_decode(self):
+        current = self.fresh()
+        self.assertIn(b"carplay-autoshow=0\n", current)
+        old = current.replace(b"carplay-autoshow=0\n", b"")
+        for config in (old, current):
+            decoded = self.run_preferences("decode", config)
+            self.assertEqual(decoded.returncode, 0, decoded.stderr)
+            self.assertEqual(len(decoded.stdout.strip().split(b"|")), 9)
+        upgraded = self.run_preferences(
+            "write", old, package_id="b" * 64, nvram_value="disable", metadata_value="775:1000:1000"
+        )
+        self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
+        self.assertIn(b"carplay-autoshow=0\n", upgraded.stdout)
+        enabled = self.run_preferences("set", current, key="carplay-autoshow", value="1")
+        self.assertEqual(enabled.returncode, 0, enabled.stderr)
+        self.assertEqual(
+            enabled.stdout.replace(b"carplay-autoshow=1", b"carplay-autoshow=0"), current
+        )
+        for bad in (b"2", b"01", b"1\0", b"1\ncarplay-autoshow=1"):
+            self.assertNotEqual(
+                self.run_preferences(
+                    "decode", current.replace(b"carplay-autoshow=0", b"carplay-autoshow=" + bad)
+                ).returncode,
+                0,
+            )
+
     def test_missing_new_choice_defaults_only_during_upgrade_write(self):
         original = self.fresh()
         older = original.replace(b"service.android-auto=1\n", b"").replace(

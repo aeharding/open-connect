@@ -2,6 +2,10 @@
 
 Connect your iPhone to CarPlay without plugging in a USB cable.
 
+**Impact:** Neutral — no measured startup or free-RAM gain is established.<br>
+**Trade-off:** Uses Wi-Fi for CarPlay and requires compatible hardware and phone pairing. Wired CarPlay remains available when it is off.<br>
+**Evidence:** Earlier builds have connection and restart checks. [Performance evidence](performance.md) records wireless configurations, not an isolated wireless-enable speed or RAM saving.
+
 Open Connect enables Mazda’s built-in wireless connection on compatible hardware. It starts **Off**. Units with factory wireless CarPlay show **factory enabled** and need no change here.
 
 <figure class="oc-screen">
@@ -15,7 +19,7 @@ Open Connect enables Mazda’s built-in wireless connection on compatible hardwa
 
 If Open Connect shows **factory enabled**, start at step 3.
 
-1. Open **<span class="oc-nav-path" data-walkthrough="wireless-setup">Mazda Settings → System → Open Connect</span>**. Turn on **Wireless CarPlay** and confirm **Enable**.
+1. Open **<span class="oc-nav-path" data-walkthrough="wireless-setup">Mazda Settings → System → Open Connect → CarPlay &amp; Android Auto</span>**. Turn on **Wireless CarPlay** and confirm **Enable**.
 2. Let Mazda Connect shut down completely, then start it again.
 3. Open **<span class="oc-nav-path" data-walkthrough="wireless-wifi">Mazda Settings → Devices → Wi-Fi</span>** and select **Apple CarPlay**.
 
@@ -37,7 +41,7 @@ The North American Wi-Fi menu offers **Off** and **Apple CarPlay**. Hotspot swit
 
 If you enabled wireless through Open Connect, clear **Wireless CarPlay** and confirm **Disable**. Your unit’s original wireless availability returns on the next full startup. Saved phone pairings and Wi-Fi preferences stay in place.
 
-If you also enable [Base optimizations](services.md#base-optimizations), Mazda Navigation starts about 20 seconds later.
+If you also enable [Startup optimizations](services.md#base-optimizations), Mazda Navigation starts about 20 seconds later.
 
 ## Testing
 

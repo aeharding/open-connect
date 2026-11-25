@@ -280,6 +280,16 @@ def host_contract(output, paths, host_cc, node, composed):
         output,
         "javascript-lifecycle",
     )
+    run(
+        [
+            node,
+            ROOT / "tests/fixtures/carplay.js",
+            ASSETS,
+            paths["framework"].parent / "Websockets.js",
+        ],
+        output,
+        "carplay-stock-routing",
+    )
 
 
 def main(argv=None):
@@ -313,6 +323,7 @@ def main(argv=None):
         ROOT / "tests/fixtures/native-contract.c",
         ROOT / "tests/fixtures/disclaimer-behavior.js",
         ROOT / "tests/fixtures/system-hook-oem.js",
+        ROOT / "tests/fixtures/carplay.js",
         *sorted((ROOT / "cmu/installer").rglob("*")),
         *sorted((ROOT / "cmu/features/disclaimer").glob("*.*")),
         ROOT / "cmu/features/touch/setting.sh",

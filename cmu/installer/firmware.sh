@@ -187,7 +187,7 @@ compose() (
             }
             /<head>/{
                 print;print "<base href=\"file:///jci/gui/\" />"
-                print "<meta name=\"open-connect-token\" content=\"@TOKEN@\" />"
+                print "<meta name=\"open-connect-token\" content=\"@TOKEN@\" data-boot=\"@BOOT@\" />"
                 print "<meta name=\"open-connect-version\" content=\"@VERSION@\" />"
                 print "<meta name=\"open-connect-notice\" content=\"@NOTICE@\" />"
                 next
@@ -401,7 +401,7 @@ boot_render_profiles() {
     done
     # Keep the OEM script available through compatible-media purge and browser
     # reload. The authored override lives inside the already RAM-owned index.
-    awk -v base="$S_BASE" -v warning="$S_WARNING" -v services="$S_SERVICES" \
+    awk -v base="$S_BASE" -v warning="$S_WARNING" -v services="$S_SERVICES" -v autoshow="$S_AUTOSHOW" \
         -v hook="$P/system-hook.js" -v logger="$P/base-logging.js" '
         BEGIN {
             count=split(services,entries,",")
@@ -424,7 +424,8 @@ boot_render_profiles() {
             print "</script>"
             logging++;next
         }
-        /framework[.]init[(][)][;]/ && needed {
+        /framework[.]init[(][)][;]/ {
+          if(needed) {
             while((r=getline line < hook)>0) {
                 if(index(line,"/* OPEN_CONNECT_AA_BEGIN */")) {aa_block=1;continue}
                 if(index(line,"/* OPEN_CONNECT_AA_END */")) {aa_block=0;continue}
@@ -438,6 +439,12 @@ boot_render_profiles() {
             }
             if(r<0)exit 1
             close(hook);hooked++
+          }
+          if(autoshow=="1") {
+            print "</script>"
+            print "<script src=\"file:///tmp/open-connect/feature/carplay.js\"></script>"
+            print "<script>"
+          }
         }
         {print}
         END {if((base=="1" && logging!=1) || (needed && (hooked!=1 || applied!=1)))exit 1}

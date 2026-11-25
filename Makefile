@@ -31,6 +31,7 @@ check-ui:
 	node tests/fixtures/installer-runtime.js cmu/installer/runtime.js
 	node tests/fixtures/system-hook.js cmu/installer/system-hook.js
 	node tests/fixtures/usb-loader.js cmu/installer/loader.js
+	node tests/fixtures/carplay.js cmu/installer
 
 $(OUT):
 	mkdir -p "$@"

@@ -18,7 +18,7 @@ typedef struct {
     char current_manifest[4096],base_manifest[4096],package_manifest[8192],composed_manifest[4096],composed_digest[65];
     char dependencies[24576],plan_text[OC_PLAN_LIMIT+1],scratch[32768];
     char *plugins; /* Reuse parsed dependency storage after coverage checks. */
-    char *record_fields[13],*flags[8],*access_fields[6],*base_flags[8],*base_access_fields[6];
+    char *record_fields[13],*flags[9],*access_fields[6],*base_flags[9],*base_access_fields[6];
     OcManifest current,base,pkg,composition;
     OcInput inputs[OC_PLAN_ROWS]; unsigned input_count;
     char boot[40],token[34],nonce[33],stage_name[64],observer_name[64],log_name[64],times[1024]; unsigned time_count;
@@ -155,7 +155,7 @@ static int oc_order(const char *a,const char *b) {
 static int oc_service_id(const char *p) {
     unsigned n=0;
     if (*p<'a'||*p>'z') return 0;
-    const char *reserved[]={"touch","warning","base","wireless","uart","ssh"};
+    const char *reserved[]={"touch","warning","base","wireless","uart","ssh","carplay-autoshow"};
     for (unsigned i=0;i<sizeof reserved/sizeof *reserved;++i) if (oc_equal(p,reserved[i])) return 0;
     while (*p) {
         unsigned c=(unsigned char)*p++;
@@ -179,6 +179,7 @@ static int oc_service_keys(char *text,char **ids,unsigned *count) {
 }
 static int oc_config(OcBoot *b,char *text,char **f,int active) {
     unsigned mode,uid,gid;
+    f[8]="0";
     if (!oc_prefix(text,"OC2\n")) {
         if (!oc_one_line(text)||oc_fields(text,f,8)!=(active?8u:5u)) return 0;
         if (active?!oc_hex(f[0],64):!oc_equal(f[0],"-")) return 0;
@@ -204,6 +205,10 @@ static int oc_config(OcBoot *b,char *text,char **f,int active) {
         *p++=0;
         if (oc_order(key,previous)<=0) return 0;
         previous=key;
+        if (oc_equal(key,"carplay-autoshow")) {
+            if (!oc_bit(value)) return 0;
+            f[8]=value; continue;
+        }
         if (oc_equal(key,"service-ids")) {
             if (!oc_service_keys(value,ids,&count)) return 0;
             seen|=128; continue;
@@ -746,6 +751,7 @@ static int oc_stage(OcBoot *b) {
          !oc_package_copy(b,"defer-nav.sh",b->stage,"defer-nav.sh",0600))) return 0;
     const char *ui[]={"runtime.js","dialog.js","settings.js"};
     for (unsigned i=0;i<3;++i) if (!oc_package_copy(b,ui[i],b->stage,ui[i],0600)) return 0;
+    if (oc_equal(b->flags[8],"1") && !oc_package_copy(b,"carplay.js",b->stage,"carplay.js",0600)) return 0;
     if (!oc_package_copy(b,"service.sh",b->stage,"service.sh",0600)) return 0;
     if (oc_equal(b->flags[7],"1")) {
         if (!oc_package_copy(b,"wireless.sh",b->stage,"wireless.sh",0600)||
@@ -757,13 +763,13 @@ static int oc_stage(OcBoot *b) {
     if (!oc_saved_text(b->package,&b->pkg,"VERSION",version,sizeof version)||!oc_one_line(version)) { b->input_failure=1; return 0; }
     for (const char *p=version;*p;++p) if (!((*p>='0'&&*p<='9')||(*p>='a'&&*p<='z')||(*p>='A'&&*p<='Z')||*p=='.'||*p=='-')) return 0;
     if (!oc_saved_text(b->snapshot,&b->current,"index.html",b->scratch,sizeof b->scratch)) { b->input_failure=1; return 0; }
-    char output[32768]; unsigned used=0,slots[3]={0,0,0};
-    const char *needles[]={"@TOKEN@","@VERSION@","@NOTICE@"};
-    const char *values[]={b->token,version,b->record_fields[12]};
+    char output[32768]; unsigned used=0,slots[4]={0,0,0,0};
+    const char *needles[]={"@TOKEN@","@VERSION@","@NOTICE@","@BOOT@"};
+    const char *values[]={b->token,version,b->record_fields[12],b->boot};
     for (const char *p=b->scratch;*p;) {
         unsigned i=0;
-        while (i<3 && !oc_prefix(p,needles[i])) ++i;
-        if (i<3) {
+        while (i<4 && !oc_prefix(p,needles[i])) ++i;
+        if (i<4) {
             unsigned n=oc_length(values[i]);
             if (used+n>=sizeof output) return 0;
             for (unsigned j=0;j<n;++j) output[used++]=values[i][j];
@@ -771,7 +777,8 @@ static int oc_stage(OcBoot *b) {
         } else { if (used+1>=sizeof output) return 0; output[used++]=*p++; }
     }
     output[used]=0;
-    if (slots[0]!=1||slots[1]!=1||slots[2]!=1) { b->input_failure=1; return 0; }
+    if (slots[0]!=1||slots[1]!=1||slots[2]!=1||slots[3]>1||
+        (oc_equal(b->flags[8],"1")&&slots[3]!=1)) { b->input_failure=1; return 0; }
     if (!oc_new_text(b->stage,"index.html",output,0600)) return 0;
     return 1;
 }

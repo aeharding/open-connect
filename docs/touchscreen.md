@@ -2,6 +2,10 @@
 
 Keep touch available while the car is moving, including for a passenger using Mazda’s menus.
 
+**Impact:** Neutral — no measured startup or free-RAM gain is established.<br>
+**Trade-off:** Touch remains available while moving. Keep your attention on driving.<br>
+**Evidence:** The setting and restoration have bench checks; touch while moving in a car is unvalidated. [Performance evidence](performance.md) has no isolated timing or RAM measurement.
+
 Open **<span class="oc-nav-path" data-walkthrough="touchscreen">Mazda Settings → System → Open Connect → Touchscreen While Driving</span>**.
 
 <figure class="oc-screen">

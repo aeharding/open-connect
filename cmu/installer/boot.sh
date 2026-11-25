@@ -244,11 +244,15 @@ fi
 file "$R/token" && test "$(wc -c < "$R/token")" -eq 33 || fail invalid_token
 token=$(cat "$R/token"); hex "$token" 32 || fail invalid_token
 boot_copy_package "$work" runtime.js dialog.js settings.js service.sh || fail feature_ui_failed
+if test "$S_AUTOSHOW" = 1; then boot_copy_package "$work" carplay.js || fail feature_ui_failed; fi
 version=$(cat "$P/VERSION")
 case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
 index=$D/composed/$package/index-$setting.html
 if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then index=$D/snapshots/$R_CURRENT/index.html; fi
-sed -e "s/@TOKEN@/$token/" -e "s/@VERSION@/$version/" -e "s/@NOTICE@/$R_NOTICE/" \
+if test "$S_AUTOSHOW" = 1; then
+    awk '{n+=gsub(/@BOOT@/, "")}END{exit n!=1}' "$index" || fail invalid_boot_mark
+fi
+sed -e "s/@TOKEN@/$token/" -e "s/@VERSION@/$version/" -e "s/@NOTICE@/$R_NOTICE/" -e "s/@BOOT@/$boot/" \
     "$index" > "$work/index.html"
 mv "$work" /tmp/open-connect/feature
 # Preparation can be cancelled. Keep it in this shell, not a detached mutation.

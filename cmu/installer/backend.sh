@@ -40,7 +40,7 @@ fi
 status() {
     local installed=false retained=false conflict=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
     local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 wireless_current=0 applied
-    local installed_version=- installed_package=- pandora= base= wireless=
+    local installed_version=- installed_package=- pandora= base= wireless= autoshow= autoshow_current=0
     local saved_schema= saved_config= saved_catalog= selected_services= selected_wireless=0 rows=
     if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
     if test "$empty_state" = true; then pending=true; fi
@@ -58,6 +58,8 @@ status() {
                 pandora=$S_PANDORA; base=$S_BASE; wireless=$S_WIRELESS
             fi
             if test "$S_SCHEMA" = OC2; then
+                case "$S_PREFS" in *'
+carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
                 saved_config=$D/snapshots/$R_CURRENT/config
                 saved_catalog=$(preferences_package "$S_PACKAGE") || fail invalid_snapshot_package
             fi
@@ -98,6 +100,7 @@ status() {
             applied=$(cat /tmp/open-connect/selected)
             if snapshot_read "$applied"; then
                 selected_services=$S_SERVICES; selected_wireless=$S_WIRELESS
+                autoshow_current=$S_AUTOSHOW
             fi
         fi
         if test "$selected_wireless" = 1 && file /tmp/open-connect/feature/wireless-applied &&
@@ -110,6 +113,10 @@ status() {
             -v input_bytes="$(wc -c < "$saved_config")" -v selected_services="$selected_services" \
             -f "$saved_catalog/preferences.awk") || fail invalid_services_status
         service_status=$service_status',"services":'$rows
+    fi
+    if test -n "$autoshow"; then
+        service_status=$service_status',"carplayAutoshow":'$autoshow',"carplayAutoshowCurrent":'$autoshow_current
+        test "$autoshow" = "$autoshow_current" || restart=true
     fi
     version=$(cat "$P/VERSION")
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
@@ -250,7 +257,7 @@ set|import)
     else
         case "$expected:$desired" in [01]:[01]) ;; *) fail invalid_setting;; esac
         case "$argument" in
-            touch|warning|base|wireless) preference_key=$argument;;
+            touch|warning|base|wireless|carplay-autoshow) preference_key=$argument;;
             *) preference_key=service.$argument;;
         esac
         actual=$(preference_value "$prefs" "$preference_key") || fail invalid_setting

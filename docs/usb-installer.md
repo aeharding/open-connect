@@ -2,7 +2,7 @@
 
 Open Connect installs from a USB drive. After installation, use Mazda Settings to change preferences or uninstall.
 
-**Still in testing. No public download yet.** This guide shows the **0.3.0-dev.17** development preview. Bench checks do not establish real-car or physical-control qualification.
+**Still in testing. No public download yet.** The menu instructions describe **0.3.0-dev.19**; screenshots show the earlier dev.17 preview. Bench checks do not establish real-car or physical-control qualification.
 
 ## 1. Check your firmware version
 
@@ -68,7 +68,7 @@ Keep the drive connected and the car on until completion appears after restart. 
 
 ## Other modifications
 
-Remove conflicting modifications first, including older wireless CarPlay mods. If files don’t match what Open Connect expects, it stops instead of overwriting them.
+Remove conflicting modifications first, including older wireless CarPlay mods. If files don’t match what Open Connect expects, it stops instead of overwriting them. If previous modifications cannot be cleanly removed back to stock, reinstall Mazda firmware **74.00.324 NA N** before installing Open Connect.
 
 <span id="no-prompt"></span>
 

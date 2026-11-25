@@ -827,3 +827,30 @@ for(const installed of [true,false]) {
     assert.equal(f.ctx.__ocUSBLoading,undefined);
     assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,0);
 }
+// A superseding USB cancellation cannot strand or renew the boot reservation.
+f=fixture(null,false,{version:"0.3.0-dev.17",notice:"installed"});
+assert.equal(f.ctx.OpenConnect.autoshowState(),1);
+f.tick();
+f.ctx.OpenConnect.cancelUSB(token); // generation invalidates pending proof callback.
+f.advance(35000);
+assert.equal(f.ctx.OpenConnect.autoshowState(),0,'absolute proof deadline survives cancellation');
+
+// Wire IDs differ from saved-status fields for this preference. A committed
+// Set with a lost acknowledgement must reconcile and release maintenance.
+for(const saved of [0,1]) {
+    f=fixture();f.start(token,false);
+    const before=f.state({installed:true,carplayAutoshow:saved,carplayAutoshowCurrent:saved});
+    f.reply(f.requests[0],before);f.tick();
+    let acknowledged;
+    f.store.write('carplay-autoshow',saved,1-saved,v=>{acknowledged=v;});
+    assert.equal(f.ctx.OpenConnect.protected(),true);
+    f.reply(f.requests[1],null);
+    const after={...before,revision:'c'.repeat(32),carplayAutoshow:1-saved,restart:true};
+    f.reply(f.requests[2],after);
+    assert.equal(acknowledged.carplayAutoshow,1-saved);
+    assert.equal(f.ctx.OpenConnect.protected(),false);
+    assert.equal(f.ctx.__ocUSBLoading,undefined);
+    assert.equal(f.messages.length,0);
+    assert.equal(f.requests.filter(r=>r.body.split('|')[2]==='restart').length,0);
+    assert.equal(f.requests.filter(r=>r.body.split('|')[2]==='set').length,1);
+}

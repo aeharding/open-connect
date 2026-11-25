@@ -9,7 +9,7 @@ Make your Mazda infotainment screen faster, more capable, and customizable.
 
 Plug-and-play USB install.
 
-**Still in testing. No public download yet.** The current preview is **0.3.0-dev.17**. No real-car installations have been validated. Startup gains vary by configuration; faster startup than stock is not established.
+**Still in testing. No public download yet.** The current preview is **0.3.0-dev.19**. No real-car installations have been validated. Startup gains vary by configuration; faster startup than stock is not established.
 
 [Owner guide](https://aeharding.github.io/open-connect/) · [Quick start](docs/usb-installer.md) · [Settings](docs/settings.md) · [Uninstall](docs/uninstall.md)
 
@@ -25,9 +25,12 @@ Only North American version **74.00.324** is supported by the current preview. C
 | --- | --- | --- |
 | [Touchscreen While Driving](docs/touchscreen.md) | Keep touch available while moving. | Allow |
 | [Startup disclaimer](docs/disclaimer.md) | Skip the startup warning. | Skip |
-| [Wireless CarPlay](docs/wireless-carplay.md) | Connect an iPhone wirelessly on compatible hardware. | Off, unless factory enabled |
-| [Services](docs/services.md) | Turn off unused integrations or enable Base optimizations. | Base and DVD off; others on |
-| [Developer options](docs/developer-options.md) | Enable UART or SSH access for development. | Both off |
+| [Startup optimizations](docs/services.md#base-optimizations) | Reduce background logging and unused services. | Off |
+| CarPlay & Android Auto | [Wireless CarPlay](docs/wireless-carplay.md), [Show CarPlay on connection](docs/carplay-on-connection.md) and [Android Auto](docs/services.md#android-auto). | Wireless off unless factory enabled; Show CarPlay on connection set to Factory; Android Auto on |
+| [Audio sources](docs/services.md#audio-sources) | Choose DVD, Pandora and SiriusXM. | DVD off; Pandora and SiriusXM on |
+| [Developer options](docs/developer-options.md) | UART, SSH and Import public key for your own access. | UART and SSH off |
+| [Uninstall](docs/uninstall.md) | Restore your saved pre-install configuration. | — |
+| [About](docs/about.md) | See the installed version. | — |
 
 Use **Mazda Settings → System → Open Connect**. Changes apply on the next full startup. Uninstall restores your saved pre-install configuration.
 

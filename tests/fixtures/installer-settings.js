@@ -39,6 +39,7 @@ const back = () => fw.sendEventToMmui("common", "Global.GoBack");
 assert.equal(typeof settings.open(fw, store), "function");
 assert.equal(settings.open(fw, store), false);
 assert.equal(pages.at(-1).ctrl.dataList.items[0].label1, "Allow");
+assert.equal(pages.at(-1).ctrl.dataList.items[0].labelWidth, "wide");
 assert.equal(pages.at(-1).ctrl.checkMinChangeInterval,undefined);
 pick(0);
 let page = pages.at(-1);
@@ -51,7 +52,7 @@ pick(0); pick(1); pick(0);
 assert.equal(pages.at(-1),page);
 assert.deepEqual(Array.from(page.ctrl.dataList.items,r=>r.checked),[true,false]);
 assert.deepEqual(writes,[]);
-back(); assert.equal(pages.at(-1).ctrl.dataList.items[0].label1,"Default");
+back(); assert.equal(pages.at(-1).ctrl.dataList.items[0].label1,"Factory Default");
 back(); assert.equal(host.divElt.style.display,"");
 idle(); assert.deepEqual(writes,[["touch",1,0]]);
 settings.open(fw,store); pick(0); pick(1); idle();
@@ -259,234 +260,197 @@ assert.equal(fingerprintLines[2].length, 23);
 modal.props.defaultSelectCallback(modal, "done");
 back(); back();
 
-// Service choices are separate, default running, and take effect after restart.
+// Legacy scalar Pandora remains available in Audio sources.
+const choose = key => {
+    const ctrl = pages.at(-1).ctrl;
+    const row = ctrl.dataList.items.find(row => row.appData === key);
+    assert.ok(row, `missing ${key}`);
+    return pick(ctrl.dataList.items.indexOf(row));
+};
+const toggle = (key, enabled) => {
+    const ctrl = pages.at(-1).ctrl;
+    ctrl.selectCallback(ctrl, key, {additionalData: enabled ? 1 : 2});
+};
+const confirm = action => modal.props.defaultSelectCallback(modal, action);
+const keys = () => Array.from(pages.at(-1).ctrl.dataList.items, row => row.appData);
 values = {...values, pandora: 1};
-settings.open(fw, store);
-assert.equal(pages.at(-1).ctrl.dataList.items[2].text1, "Services");
-assert.equal(pages.at(-1).ctrl.dataList.items[2].hasCaret, true);
-pick(2);
-assert.equal(pages.at(-1).ctrl.title.text1, "Services");
-let servicesCtrl = pages.at(-1).ctrl;
-assert.equal(servicesCtrl.dataList.items[0].hasCaret, false);
-assert.equal(servicesCtrl.dataList.items[0].value, 1);
+settings.open(fw, store); choose("sources");
+assert.equal(pages.at(-1).ctrl.title.text1, "Audio sources");
+assert.deepEqual(keys(), ["pandora"]);
 const beforeService = writes.length;
-servicesCtrl.selectCallback(servicesCtrl, "pandora", {additionalData: 2});
-assert.equal(modal.props.title, "Disable Pandora?");
-assert.match(modal.props.text1, /after restart/);
-modal.props.defaultSelectCallback(modal, "cancel");
-idle();
+toggle("pandora", false);
+assert.match(modal.props.text1, /after restarting Mazda Connect/);
+assert.doesNotMatch(modal.props.text1, /Sources/);
+confirm("cancel"); idle();
 assert.equal(writes.length, beforeService);
 assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 1);
-servicesCtrl = pages.at(-1).ctrl;
-servicesCtrl.selectCallback(servicesCtrl, "pandora", {additionalData: 2});
-modal.props.defaultSelectCallback(modal, "apply");
-back(); back(); idle();
+toggle("pandora", false); confirm("apply"); back(); back(); idle();
 assert.deepEqual(writes.at(-1), ["pandora", 1, 0]);
 values = {...values, pandora: 0, restart: true}; reply(values);
-settings.open(fw, store); pick(2);
-assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 2);
-back();
-assert.equal(pages.at(-1).ctrl.focussedItem, 2);
-pick(3); back();
-assert.equal(pages.at(-1).ctrl.focussedItem, 3);
-back();
 
-// The measured base preset is independent of Pandora and only saved after its
-// confirmation. Both directions explain restart, with no navigation caret.
+// Legacy Base is now a root checkbox and retains the scalar logging explanation.
 values = {...values, base: 0};
-settings.open(fw, store); pick(2);
-let baseCtrl = pages.at(-1).ctrl;
-assert.deepEqual(Array.from(baseCtrl.dataList.items, x => x.text1), ["Base optimizations", "Pandora"]);
-assert.equal(baseCtrl.dataList.items[0].value, 2);
-assert.equal(baseCtrl.dataList.items[0].hasCaret, false);
-const beforeBase = writes.length;
-baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 1});
-assert.equal(modal.props.title, "Enable Base optimizations?");
-assert.match(modal.props.text1, /native diagnostic logging/);
-assert.doesNotMatch(modal.props.text1, /DAB|TV|Stitcher/);
-assert.match(modal.props.text1, /after restart/);
-modal.props.defaultSelectCallback(modal, "cancel"); idle();
-assert.equal(writes.length, beforeBase);
-baseCtrl = pages.at(-1).ctrl;
-baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 1});
-modal.props.defaultSelectCallback(modal, "apply");
-back(); back(); idle();
-assert.deepEqual(writes.at(-1), ["base", 0, 1]);
-values = {...values, base: 1, restart: true}; reply(values);
-settings.open(fw, store); pick(2);
-assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 1);
-assert.equal(pages.at(-1).ctrl.dataList.items[1].value, 2);
-baseCtrl = pages.at(-1).ctrl;
-baseCtrl.selectCallback(baseCtrl, "base", {additionalData: 2});
-assert.equal(modal.props.title, "Disable Base optimizations?");
-assert.match(modal.props.text1, /Restores original native logging/);
-assert.doesNotMatch(modal.props.text1, /DAB|TV|Stitcher/);
-modal.props.defaultSelectCallback(modal, "apply"); idle();
-assert.deepEqual(writes.at(-1), ["base", 1, 0]);
-values = {...values, base: 0}; reply(values);
-back(); back();
-
-// Status can become unavailable while a page is open. Keep Back usable and
-// refuse the new selection without sending a write.
-const beforeUnavailable = writes.length;
-const availableValues = values;
-settings.open(fw, store); pick(2);
-values = null;
-const unavailableServices = pages.at(-1).ctrl;
-assert.doesNotThrow(() => unavailableServices.selectCallback(unavailableServices, "pandora", {additionalData: 2}));
-assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
-back();
-values = availableValues;
-settings.open(fw, store); pick(3);
-values = null;
-assert.doesNotThrow(back);
-assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
-back();
-values = availableValues;
-assert.equal(writes.length, beforeUnavailable);
-
-// Wireless is a main-page checkbox; Cancel never saves, and nested-page Back
-// returns to the correct row after its insertion. Older status hid this row.
-values = {...values, wireless: 0, wirelessCurrent: 0};
 settings.open(fw, store);
-let wirelessCtrl = pages.at(-1).ctrl;
-assert.equal(wirelessCtrl.dataList.items[2].text1, "Wireless CarPlay");
-assert.equal(wirelessCtrl.dataList.items[2].value, 2);
-assert.equal(wirelessCtrl.dataList.items[2].hasCaret, false);
+assert.equal(pages.at(-1).ctrl.dataList.items[2].text1, "Startup optimizations");
+assert.equal(pages.at(-1).ctrl.dataList.items[2].hasCaret, false);
+toggle("base", true);
+assert.match(modal.props.title, /Enable Startup optimizations/);
+assert.match(modal.props.text1, /native diagnostic logging/);
+confirm("cancel"); idle();
+assert.equal(writes.length, beforeService + 1);
+toggle("base", true); confirm("apply"); idle();
+assert.deepEqual(writes.at(-1), ["base", 0, 1]);
+values = {...values, base: 1}; reply(values);
+assert.equal(pages.at(-1).ctrl.focussedItem, 2);
+toggle("base", false);
+assert.match(modal.props.text1, /Restores original native logging/);
+confirm("apply"); idle();
+values = {...values, base: 0}; reply(values); back();
+
+// Real catalog defaults, labels and wire IDs; no preference schema changes.
+const catalog = fs.readFileSync(require("node:path").join(process.argv[3], "../services.tsv"), "utf8")
+    .split("\n").filter(line => line && !line.startsWith("#")).map(line => {
+        const [id, label, saved, , enable, disable] = line.split("|");
+        return {id, label, saved: Number(saved), current: Number(saved), enable, disable};
+    });
+store.version = fs.readFileSync(require("node:path").join(process.argv[3], "../VERSION"), "utf8").trim();
+assert.equal(store.version, "0.3.0-dev.19");
+values = {...values, wireless: 0, wirelessCurrent: 0, wirelessFactory: false,
+    carplayAutoshow: 0, carplayAutoshowCurrent: 0, services: catalog};
+settings.open(fw, store);
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items, row => row.text1), [
+    "Touchscreen While Driving", "Startup disclaimer", "Startup optimizations",
+    "CarPlay & Android Auto", "Audio sources", "Developer options", "Uninstall", "About"
+]);
+assert.deepEqual(keys(), [0, 1, "base", "phone", "sources", "developer", "uninstall", "about"]);
+assert.equal(pages.at(-1).ctrl.toggleMinChangeInterval, 0);
+choose("phone");
+assert.equal(pages.at(-1).ctrl.title.text1, "CarPlay & Android Auto");
+assert.deepEqual(keys(), ["wireless", 2, "android-auto"]);
+assert.equal(pages.at(-1).ctrl.dataList.items[1].label1, "Factory");
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items.filter(r => r.itemStyle === "styleOnOff"), r => r.value), [2, 1]);
+back(); assert.equal(pages.at(-1).ctrl.focussedItem, 3);
+choose("sources"); assert.deepEqual(keys(), ["dvd", "pandora", "siriusxm"]);
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items, r => r.value), [2, 1, 1]);
+back(); assert.equal(pages.at(-1).ctrl.focussedItem, 4);
+choose("developer");
+assert.equal(pages.at(-1).ctrl.dataList.items[2].hasCaret, true);
+back(); assert.equal(pages.at(-1).ctrl.focussedItem, 5);
+
+// Each toggle has a cancel-first native dialog, saves the same backend key and
+// returns focus to the selected row. Catalog current/restart state stays visible.
+for (const id of ["android-auto", "dvd", "pandora", "siriusxm"]) {
+    const group = id === "android-auto" ? "phone" : "sources";
+    choose(group);
+    const initial = values.services.find(row => row.id === id).saved;
+    const index = keys().indexOf(id), before = writes.length;
+    toggle(id, !initial);
+    assert.equal(modal.props.initialFocus, 0);
+    assert.equal(modal.props.buttonConfig.button1.label, "Cancel");
+    assert.match(modal.props.text1, /CarPlay and CDs are unchanged/);
+    assert.match(modal.props.text1, /after restart/);
+    assert.ok(modal.props.text1.length <= 150);
+    confirm("cancel"); idle();
+    assert.equal(writes.length, before);
+    assert.equal(pages.at(-1).ctrl.dataList.items[index].value, initial ? 1 : 2);
+    toggle(id, !initial); confirm("apply"); idle();
+    assert.deepEqual(writes.at(-1), [id, initial, 1-initial]);
+    values = {...values, services: values.services.map(row => row.id === id ? {...row, saved: 1-initial} : row)};
+    reply(id === "android-auto" ? null : values); idle(); // lost acknowledgement reconciles, never resends
+    assert.equal(writes.length, before+1);
+    assert.equal(pages.at(-1).ctrl.focussedItem, index);
+    back(); choose(group);
+    assert.match(pages.at(-1).ctrl.dataList.items[index].text1, /restart needed/);
+    assert.equal(pages.at(-1).ctrl.dataList.items[index].value, initial ? 2 : 1);
+    toggle(id, !!initial); confirm("apply"); idle();
+    values = {...values, services: values.services.map(row => row.id === id ? {...row, saved: initial} : row)};
+    reply(values); back();
+}
+back();
+// Earlier installed catalogs retain their own explanations and do not promise
+// the later Sources filtering merely because a newer Settings UI is loaded.
+const currentCatalogValues = values;
+values = {...values, services: [{id: "pandora", label: "Pandora", saved: 1, current: 1,
+    enable: "Pandora will load after Mazda Connect restarts.",
+    disable: "Pandora will stop loading after Mazda Connect restarts."}]};
+settings.open(fw, store); choose("sources"); toggle("pandora", false);
+assert.equal(modal.props.text1, values.services[0].disable);
+assert.doesNotMatch(modal.props.text1, /Sources/);
+confirm("cancel"); back(); back();
+values = currentCatalogValues;
+settings.open(fw, store);
+
+// Wireless moved inside Phone. Cancel, factory-enabled refusal and vanished
+// status still preserve preference/session ownership and the native Back path.
+choose("phone");
 const beforeWireless = writes.length;
-wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 1});
-assert.equal(modal.props.title, "Enable Wireless CarPlay?");
+toggle("wireless", true);
 assert.match(modal.props.text1, /restarting Mazda Connect/);
 assert.match(modal.props.text1, /Bluetooth/);
-modal.props.defaultSelectCallback(modal, "cancel"); idle();
-assert.equal(writes.length, beforeWireless);
-assert.equal(pages.at(-1).ctrl.dataList.items[2].value, 2);
-wirelessCtrl = pages.at(-1).ctrl;
-wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 1});
-modal.props.defaultSelectCallback(modal, "apply");
-back(); idle();
+confirm("cancel"); idle(); assert.equal(writes.length, beforeWireless);
+assert.equal(pages.at(-1).ctrl.focussedItem, 0);
+toggle("wireless", true); confirm("apply"); idle();
 assert.deepEqual(writes.at(-1), ["wireless", 0, 1]);
-values = {...values, wireless: 1, wirelessCurrent: 0, restart: true}; reply(values);
-settings.open(fw, store);
-assert.equal(pages.at(-1).ctrl.dataList.items[2].value, 1);
-pick(3); back();
-assert.equal(pages.at(-1).ctrl.focussedItem, 3);
-pick(4); back();
-assert.equal(pages.at(-1).ctrl.focussedItem, 4);
-wirelessCtrl = pages.at(-1).ctrl;
-wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 2});
-assert.equal(modal.props.title, "Disable Wireless CarPlay?");
+values = {...values, wireless: 1}; reply(values);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 1);
+toggle("wireless", false);
 assert.match(modal.props.text1, /original CarPlay behavior/);
-modal.props.defaultSelectCallback(modal, "apply"); idle();
-assert.deepEqual(writes.at(-1), ["wireless", 1, 0]);
-values = {...values, wireless: 0}; reply(values);
-back();
+confirm("apply"); idle(); values = {...values, wireless: 0}; reply(values);
+back(); back();
+values = {...values, wirelessFactory: true};
+settings.open(fw, store); choose("phone");
+assert.match(pages.at(-1).ctrl.dataList.items[0].text1, /factory enabled/);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].value, 1);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].disabled, true);
+const beforeFactory = writes.length;
+toggle("wireless", false); toggle("wireless", true); idle();
+assert.equal(writes.length, beforeFactory); assert.equal(modal, null);
+back(); back(); values = {...values, wirelessFactory: false};
 
-// A disappearing status while backing out must not break native Back.
-settings.open(fw, store); pick(3);
-const availableWirelessValues = values;
-values = null;
-assert.doesNotThrow(back);
-assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
-back();
-values = availableWirelessValues;
+for (const action of ["select", "back"]) {
+    settings.open(fw, store); choose("phone");
+    const available = values, before = writes.length;
+    values = null;
+    assert.doesNotThrow(() => action === "select" ? toggle("android-auto", false) : back());
+    assert.match(pages.at(-1).ctrl.title.text1, /could not be confirmed/);
+    back(); values = available; assert.equal(writes.length, before);
+}
+assert.equal(settings.open(fw, {read: () => ({...values, services: [...values.services, values.services[0]]})}), false);
+values = {...values, services: values.services.map(row => row.id === "pandora" ? {...row, current: null} : row)};
+settings.open(fw, store); choose("sources");
+assert.match(pages.at(-1).ctrl.dataList.items[1].text1, /startup unknown/);
+back(); back();
 
-// Factory wireless is already available: show a checked, disabled row without
-// turning that into an Open Connect preference or allowing a confirmation/write.
-values = {...values, wireless: 0, wirelessCurrent: 0, wirelessFactory: true};
-settings.open(fw, store);
-wirelessCtrl = pages.at(-1).ctrl;
-assert.match(wirelessCtrl.dataList.items[2].text1, /factory enabled/);
-assert.equal(wirelessCtrl.dataList.items[2].value, 1);
-assert.equal(wirelessCtrl.dataList.items[2].disabled, true);
-const beforeFactory = writes.length, factoryModal = modal;
-wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 2});
-wirelessCtrl.selectCallback(wirelessCtrl, "wireless", {additionalData: 1});
-idle();
-assert.equal(writes.length, beforeFactory);
-assert.equal(modal, factoryModal);
-assert.equal(values.wireless, 0);
-back();
-values = {...values, wirelessFactory: false};
-settings.open(fw, store);
-assert.equal(pages.at(-1).ctrl.dataList.items[2].value, 2);
-assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, false);
-back();
+// Current Base keeps the Navigation warning with Wireless enabled. Longest
+// enable body fits the fixed native dialog without the previous verbose copy.
+for (const version of ["0.3.0-dev.15", "0.3.0-dev.16", "0.3.0-dev.17", "0.3.0-dev.18", "0.3.0-dev.19"]) for (const wireless of [0, 1]) {
+    store.version = version;
+    values = {...values, base: 0, wireless};
+    settings.open(fw, store); toggle("base", true);
+    assert.match(modal.props.text1, /background logging and unused services/);
+    assert.equal(/Mazda Navigation about 20 s/.test(modal.props.text1), version !== "0.3.0-dev.15" && wireless === 1);
+    assert.ok(modal.props.text1.length <= 125);
+    confirm("cancel"); back();
+}
+store.version = "0.3.0-dev.19";
 
 // A fresh-status response must not reopen Settings after detach or navigation.
-appName = "syssettings"; context = "SystemTab";
 let freshReply;
 store.refresh = done => { freshReply = done; };
 let deferredDetach = settings.attach(fw, app, store);
 let beforeDeferred = pages.length;
 list.properties.selectCallback(list, "open-connect-settings");
 assert.equal(pages.length, beforeDeferred);
-deferredDetach(); freshReply(true);
-assert.equal(pages.length, beforeDeferred);
+deferredDetach(); freshReply(true); assert.equal(pages.length, beforeDeferred);
 deferredDetach = settings.attach(fw, app, store);
 list.properties.selectCallback(list, "open-connect-settings");
 const selectedTemplate = fw._currTmpltInstance;
 fw._currTmpltInstance = {divElt: host.divElt, list2Ctrl: {}};
-freshReply(true);
-assert.equal(pages.length, beforeDeferred);
+freshReply(true); assert.equal(pages.length, beforeDeferred);
 fw._currTmpltInstance = selectedTemplate;
 deferredDetach(); delete store.refresh;
 
-// Current catalog rows carry their own saved bit through the real write queue.
-values = {...values, base: 0, services: [
-    {id: "android-auto", label: "Android Auto", saved: 1, current: 1,
-        enable: "Android Auto will load after restart.", disable: "Android Auto will stop after restart."},
-    {id: "pandora", label: "Pandora", saved: 0, current: null,
-        enable: "Pandora will load after restart.", disable: "Pandora will stop after restart."}
-]};
-settings.open(fw, store);
-let catalogMain = pages.at(-1).ctrl;
-catalogMain.selectCallback(catalogMain, "services");
-let catalogCtrl = pages.at(-1).ctrl;
-assert.deepEqual(Array.from(catalogCtrl.dataList.items, row => row.appData), ["base", "android-auto", "pandora"]);
-assert.match(catalogCtrl.dataList.items[2].text1, /startup unknown/);
-const beforeCatalog = writes.length;
-catalogCtrl.selectCallback(catalogCtrl, "android-auto", {additionalData: 2});
-assert.equal(modal.props.title, "Disable Android Auto?");
-assert.match(modal.props.text1, /Android Auto will stop/);
-modal.props.defaultSelectCallback(modal, "cancel"); idle();
-assert.equal(writes.length, beforeCatalog);
-assert.equal(pages.at(-1).ctrl.focussedItem, 1);
-catalogCtrl = pages.at(-1).ctrl;
-catalogCtrl.selectCallback(catalogCtrl, "android-auto", {additionalData: 2});
-modal.props.defaultSelectCallback(modal, "apply"); idle();
-assert.deepEqual(writes.at(-1), ["android-auto", 1, 0]);
-// State commits even when the response is lost; no duplicate request.
-values = {...values, services: values.services.map(row => row.id === "android-auto" ? {...row, saved: 0} : row)};
-reply(null); idle();
-assert.equal(writes.length, beforeCatalog + 1);
-assert.equal(pages.at(-1).ctrl.dataList.items[1].value, 2);
-assert.match(pages.at(-1).ctrl.dataList.items[1].text1, /restart needed/);
-assert.equal(pages.at(-1).ctrl.dataList.items[2].value, 2);
-back(); back();
-assert.equal(settings.open(fw, {read: () => ({...values, services: [...values.services, values.services[0]]})}), false);
-
-// Current catalog-backed Base includes qualified leaves, unlike dev.9 scalar status.
-settings.open(fw, store);
-let newBaseMain = pages.at(-1).ctrl; newBaseMain.selectCallback(newBaseMain, "services");
-let newBaseCtrl = pages.at(-1).ctrl; newBaseCtrl.selectCallback(newBaseCtrl, "base", {additionalData: 1});
-assert.match(modal.props.text1, /Stops unused integrations/);
-modal.props.defaultSelectCallback(modal, "cancel"); back(); back();
-// Exercise the actual projected preference view: it does not carry a version.
-// The installed package version belongs to the store supplied by runtime.js.
-for (const version of ["0.3.0-dev.15", "0.3.0-dev.16", "0.3.0-dev.17"]) for (const wireless of [0, 1]) {
-    store.version = version;
-    values = {...values, base: 0, wireless};
-    settings.open(fw, store);
-    const main = pages.at(-1).ctrl; main.selectCallback(main, "services");
-    const base = pages.at(-1).ctrl; base.selectCallback(base, "base", {additionalData: 1});
-    assert.equal(/Mazda Navigation starts about 20 seconds later/.test(modal.props.text1),
-        version !== "0.3.0-dev.15" && wireless === 1);
-    modal.props.defaultSelectCallback(modal, "cancel"); back(); back();
-}
-
-// Ownership starts before the existing 250 ms timer, survives Back, and ends
-// only after the final queued acknowledgement. Failed claims restore the dot.
+// Ownership begins before the debounce timer and survives Back until ack.
 let allow=true, pendingStates=[];
 store.pending = value => { pendingStates.push(value); return !value || allow; };
 settings.open(fw,store); pick(0);
@@ -496,9 +460,26 @@ assert.equal(queued,null);
 assert.equal(pages.at(-1).ctrl.dataList.items[values.touch].checked,true);
 allow=true; pick(1-values.touch);
 assert.equal(pendingStates.at(-1),true);
-assert.equal(writes.length,beforePending);
 back(); back(); idle();
 assert.equal(writes.length,beforePending+1);
 assert.equal(pendingStates.at(-1),true);
 values={...values,touch:1-values.touch}; reply(values);
 assert.equal(pendingStates.at(-1),false);
+
+// Autoshow retains radio confirmation, wire ID and two-level Back focus.
+settings.open(fw,store); choose("phone"); choose(2);
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items,r=>r.text1),["Factory behavior","Automatically show"]);
+const beforeAutoshow=writes.length;
+pick(1); assert.match(modal.props.text1,/restart/i); assert.equal(writes.length,beforeAutoshow);
+confirm("cancel");
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items,r=>r.checked),[true,false]);
+pick(1); confirm("apply"); idle();
+assert.deepEqual(writes.at(-1),["carplay-autoshow",0,1]);
+values={...values,carplayAutoshow:1}; reply(values); back();
+assert.equal(pages.at(-1).ctrl.title.text1, "CarPlay & Android Auto");
+assert.equal(pages.at(-1).ctrl.focussedItem, 1);
+assert.equal(pages.at(-1).ctrl.dataList.items[1].label1, "Auto");
+back(); assert.equal(pages.at(-1).ctrl.focussedItem, 3); back();
+assert.equal(settings.validStatus({...values,ok:true,revision:"-",installed:true,retained:false,conflict:false,restart:true,pending:false,version:store.version,wirelessCurrent:0}),true);
+assert.equal(settings.open(fw,{read:()=>({...values,carplayAutoshowCurrent:2})}),false);
+console.log("Reorganized native menus preserve defaults, confirmations, wire keys, restart state and Back focus");

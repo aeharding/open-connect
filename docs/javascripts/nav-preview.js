@@ -2,20 +2,43 @@
 (() => {
   "use strict";
 
+  const logo = document.querySelector('[data-md-component="logo"]');
+  const header = document.querySelector('[data-md-component="header-title"]');
+  const name = header?.querySelector(".md-header__topic:first-child .md-ellipsis");
+  if (logo && name) {
+    const home = document.createElement("a");
+    home.href = logo.getAttribute("href");
+    home.className = `${name.className} oc-header-home`;
+    home.textContent = name.textContent.trim();
+    home.setAttribute("aria-label", `${home.textContent} home`);
+    name.replaceWith(home);
+    const visibility = () => {
+      const hidden = header.classList.contains("md-header__title--active");
+      home.tabIndex = hidden ? -1 : 0;
+      home.setAttribute("aria-hidden", String(hidden));
+    };
+    new MutationObserver(visibility).observe(header, { attributes: true, attributeFilter: ["class"] });
+    visibility();
+  }
+
   // Resolve from this file, including on nested pages and GitHub Pages subpaths.
   const assets = new URL("../assets/guide/", document.currentScript.src);
   const entry = ["settings-entry.png", "System tab → Open Connect"];
   const settings = ["settings.png", "Open Connect settings"];
+  const phone = ["carplay-android-auto.png", "CarPlay & Android Auto"];
   const paths = {
     "open-connect": [entry, settings],
     touchscreen: [entry, settings, ["touch.png", "Touchscreen While Driving → Allow"]],
     disclaimer: [entry, settings, ["warning.png", "Startup disclaimer → Skip"]],
-    "wireless-setup": [entry, settings,
+    "wireless-setup": [entry, settings, phone,
       ["wireless-enable.png", "Wireless CarPlay → Enable"],
       ["wireless-mode.png", "After a full restart: Devices → Wi-Fi → Apple CarPlay"]],
     "wireless-wifi": [["wireless-mode.png", "Devices → Wi-Fi → Apple CarPlay"]],
     "wireless-connect": [["wireless-mode.png", "First choose Apple CarPlay in Devices → Wi-Fi"]],
-    services: [entry, settings, ["services.png", "Services"]],
+    services: [entry, settings, ["audio-sources-menu.png", "Audio sources"]],
+    "startup-optimizations": [entry, settings],
+    "phone-connections": [entry, settings, phone],
+    "audio-sources": [entry, settings, ["audio-sources-menu.png", "Audio sources"]],
     "developer-options": [entry, settings, ["developer-options.png", "Developer options"]],
     uninstall: [entry, settings, ["uninstall.png", "Uninstall confirmation"]],
     "version-info": [["settings-entry.png", "System tab → About (below Open Connect)"],

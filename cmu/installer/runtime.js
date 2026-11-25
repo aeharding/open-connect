@@ -11,31 +11,31 @@ if(!boot||!/^[a-f0-9]{32}$/.test(boot.token)||!versionRE.test(boot.version)||
 var base=entry&&entry.src?entry.src.slice(0,entry.src.lastIndexOf("/")+1):"file:///tmp/open-connect/feature/";
 var port=entry&&entry.ocPort===35555?35555:15555;
 var stopped=false,started=false,token=entry&&entry.ocToken,state=null,known=false,busy=false,saving=false;
-var timer,loading,dialog,view,detach,app,ui,menus,job,marker,pending=false;
-var nodes=[],queued=null,ready=false,usb=false,epoch=0,noticeShown=false,proofRead=false,refresh=null,dismissing=-1;
+var timer,loading,dialog,view,detach,app,ui,menus,job,marker,pending=false,feedback=false;
+var nodes=[],queued=null,ready=false,usb=false,epoch=0,shown=false,proofRead=false,refresh=null,dismissing=-1;
 var proofEnd=0,proved=false,proofNeeded=boot&&boot.notice==="installed";
 function autoshowState(){
  var cp=window.ocCarPlay;
- if(proofNeeded&&!noticeShown&&!proved){
+ if(proofNeeded&&!shown&&!proved){
   if(window.framework&&framework._browserShown&&!proofEnd){proofEnd=Date.now()+35000;}
   if(proofEnd&&Date.now()>=proofEnd){proved=true;if(cp){cp.cancel();}}
  }
- if(protectedOwner()||busy||usb||queued||dialog||view||state&&(state.pending||state.carplayAutoshow===0)||!noticeShown&&completion()){return 2;}
- return!ready||state&&!known||proofNeeded&&!noticeShown&&!proved?1:0;
+ if(isHeld()||busy||usb||queued||dialog||view||state&&(state.pending||state.carplayAutoshow===0)||!shown&&completion()){return 2;}
+ return!ready||state&&!known||proofNeeded&&!shown&&!proved?1:0;
 }
 function valid(s){return menus&&menus.validStatus(s);}
 function advance(){refresh=null;epoch++;}
 function values(){return known&&state.installed&&!state.pending&&!state.conflict?state:null;}
-function protectedOwner(){return!!job||pending||dismissing===epoch;}
+function isHeld(){return!!job||pending||feedback||dismissing===epoch;}
 function claim(){
- if(stopped||window.OpenConnect!==client||job&&(!saving||job.phase==="unresolved")){return false;}
+ if(stopped||feedback||window.OpenConnect!==client||job&&(!saving||job.phase==="unresolved")){return false;}
  if(window.__ocUSBLoading&&window.__ocUSBLoading!==marker){return false;}
  if(!marker){marker={token:token,cancel:function(){cancelUSB(token);}};}
  window.__ocUSBLoading=marker;
  return true;
 }
 function release(){
- if(!protectedOwner()&&window.__ocUSBLoading===marker){delete window.__ocUSBLoading;}
+ if(!isHeld()&&window.__ocUSBLoading===marker){delete window.__ocUSBLoading;}
 }
 function request(op,args,done,waitMs,intent){
  if(stopped){return;}
@@ -73,7 +73,6 @@ function readStatus(done,until,attempts,intent,fast){
  if(left<=0){done(null);return;}
  var end=until||Date.now()+left;
  request("status",fast?["settings","-","-"]:null,function(answer,code){
-  // Old listeners reject this syntax before dispatch.
   if(fast&&code===400){readStatus(done,end,attempts,intent,false);return;}
   if((answer&&answer.error==="busy"||(!answer&&until))&&(until||(attempts||0)<8)){
    setTimeout(function(){readStatus(done,until,(attempts||0)+1,intent,fast);},
@@ -83,20 +82,24 @@ function readStatus(done,until,attempts,intent,fast){
 }
 function closeDialog(){var close=dialog;dialog=null;if(close){close();}}
 function closeView(){var old=view;view=null;if(old){old.close();}}
-function message(title,text){
+function message(title,text,hold){
+ if(hold)feedback=true;
  queued=function(){
   return ui.message(framework,title,text,{button1:{label:"OK",appData:"done"}},function(){
-   dialog=null;
+   dialog=null;if(hold){feedback=false;release();}
   });
  };
 }
 function dismiss(done){
  if(dismissing===epoch)return;
+ if(!claim()){shown=false;return;}
  var intent=dismissing=epoch,until=Date.now()+12000,revision=state.revision;
  function finish(ok){
-  dismissing=-1;release();
-  if(ok){state.notice="-";if(done)done();}
-  else{noticeShown=false;if(!completion())message("Unable to confirm","Open Mazda Settings again.");}
+  dismissing=-1;
+  if(ok)state.notice="-";
+  else{shown=false;if(!completion())message("Unable to confirm","Open Mazda Settings again.",true);}
+  release();
+  if(ok&&done)done();
  }
  function send(){
   if(stopped||intent!==epoch)return;
@@ -208,7 +211,7 @@ importKey:function(reply){run("import",null,"settings",reply);},
 uninstall:function(){run("uninstall",null,"settings");},
 busy:function(){return busy||pending;},
 restart:function(){if(values()&&state.restart&&!pending){run("restart",null,"settings");}},
-opened:function(){if(completion()){noticeShown=true;if(queued&&queued.complete){queued=null;}}}};
+opened:function(){if(completion()){shown=true;if(queued&&queued.complete){queued=null;}}}};
 function choose(){
  usb=false;
  var revision=state.revision,target=state.version;
@@ -240,14 +243,14 @@ function tick(){
   if(job.phase==="waiting"){drive();}
   else if(!saving&&job.phase!=="unresolved"){paint();}
  }else if(!busy&&state&&state.pending){run("recover",null,entry?"usb":"settings");}
- else if(!noticeShown&&!proofRead&&proofNeeded&&!state){
+ else if(!shown&&!proofRead&&proofNeeded&&!state){
   proofRead=true;
   readStatus(function(answer){
    if(!valid(answer)||!completion()){proved=true;}
    if(window.ocCarPlay){if(!valid(answer)){ocCarPlay.cancel();}ocCarPlay.pump();}
   },proofEnd,0,epoch,true);
  }
- if(!job&&completion()&&!noticeShown&&!queued&&!dialog){
+ if(!job&&completion()&&!shown&&!queued&&!dialog){
   queued=function(){
    if(!completion()){queued=null;return false;}
    var opened=ui.complete(framework,state.installedVersion,function(action){
@@ -259,7 +262,7 @@ function tick(){
    if(opened){usb=false;}
    return opened;
   };
-  queued.complete=true;noticeShown=true;
+  queued.complete=true;shown=true;
  }
  if(usb&&!busy&&state&&!dialog&&!queued){choose();}
  if(queued&&!dialog){
@@ -302,22 +305,23 @@ function start(value,fromUSB){
  });
 }
 function cancelUSB(value){
- if(value!==token||pending||dismissing===epoch||job&&(job.sent||job.origin!=="usb")){return;}
+ if(value!==token)return;
+ var node=document.getElementById("oc-usb-loader");
+ if(node&&node.ocToken===token&&node.parentNode){node.parentNode.removeChild(node);}
+ if(pending||dismissing===epoch||job&&(job.sent||job.origin!=="usb")){return;}
  advance();
  if(!ready&&prior){abandon();return;}
  if(job){end(null);}
- usb=false;queued=null;closeDialog();
- var node=document.getElementById("oc-usb-loader");
- if(node&&node.ocToken===token&&node.parentNode){node.parentNode.removeChild(node);}
+ usb=false;if(!feedback){queued=null;closeDialog();}
  release();
 }
 function reopenUSB(value){
  if(stopped||!ready||value!==token){return false;}
- if(protectedOwner()){return true;}
+ if(isHeld()){return true;}
  advance();usb=false;queued=null;closeDialog();
  readStatus(function(answer){
   if(!valid(answer)){message("Unable to finish","Open Connect could not be reached.");return;}
-  noticeShown=false;usb=true;
+  shown=false;usb=true;
  });
  return true;
 }
@@ -326,7 +330,7 @@ function abandon(){
  dispose();if(window.OpenConnect===client){window.OpenConnect=prior;}
 }
 function dispose(){
- if(protectedOwner()){return false;}
+ if(isHeld()){return false;}
  stopped=true;advance();clearTimeout(loading);clearInterval(timer);
  queued=null;closeDialog();closeView();
  if(detach){detach();}
@@ -335,7 +339,7 @@ function dispose(){
  }
  release();return true;
 }
-var client={start:start,reopenUSB:reopenUSB,cancelUSB:cancelUSB,dispose:dispose,protected:protectedOwner,
+var client={start:start,reopenUSB:reopenUSB,cancelUSB:cancelUSB,dispose:dispose,protected:isHeld,
  autoshowState:autoshowState};
 if(entry){loading=setTimeout(abandon,65000);}
 if(boot&&!entry){start(boot.token,false);}

@@ -204,7 +204,11 @@ Manual Settings entry suppresses a pending completion notice for that client
 without a background acknowledgement competing with the first save. Browsing
 alone does not dismiss the durable notice. The completion dialog's explicit
 **Open settings** action waits for confirmed acknowledgement before navigating.
-The action retains ownership across normal USB cleanup. Busy refusals retry for
+The action claims the shared loader marker through acknowledgement and readback,
+including against legacy loaders. Normal USB cleanup removes its loader node
+without discarding queued or displayed unconfirmed-result feedback; that feedback
+retains ownership until dismissed. A refused claim restores the safe completion
+choice without sending dismissal. Busy refusals retry for
 up to six seconds, reserving the rest of a twelve-second budget for strict
 readback. Refusals refresh status; uncertain acknowledgements reconcile without
 replaying dismissal. Unconfirmed readback invalidates cached completion proof

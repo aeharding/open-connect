@@ -67,18 +67,25 @@ body, input { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvet
 .md-footer { border-top: 1px solid var(--oc-border); }
 .md-nav__link--active { font-weight: 600; }
 .md-nav--primary .md-nav__item--active > .md-nav__link--active {
-  --oc-selection-edge: linear-gradient(90deg, #ff6748, #e63424 45%, transparent);
-  --oc-selection-tail: #181719 95%;
-  color: #fff;
+  --oc-selection-edge: linear-gradient(90deg, #ae302738, transparent 85%);
+  --oc-selection-fill: linear-gradient(90deg, #ba29221c, transparent);
+  color: #77231e;
   border-radius: 0;
-  box-shadow: inset 1px 0 #ff6748;
+  box-shadow: inset 1px 0 var(--oc-red);
   background:
     var(--oc-selection-edge) top / 100% 1px no-repeat,
     var(--oc-selection-edge) bottom / 100% 1px no-repeat,
-    linear-gradient(90deg, #bb402c, #8e2119 .7rem, #541917 40%, var(--oc-selection-tail));
+    var(--oc-selection-fill);
+}
+[data-md-color-scheme="slate"] .md-nav--primary .md-nav__item--active > .md-nav__link--active {
+  --oc-selection-edge: linear-gradient(90deg, #ff6748, #e63424 45%, transparent);
+  --oc-selection-tail: #181719 95%;
+  --oc-selection-fill: linear-gradient(90deg, #bb402c, #8e2119 .7rem, #541917 40%, var(--oc-selection-tail));
+  color: #fff;
+  box-shadow: inset 1px 0 #ff6748;
 }
 @media screen and (max-width: 76.234375em) {
-  .md-nav--primary .md-nav__item--active > .md-nav__link--active {
+  [data-md-color-scheme="slate"] .md-nav--primary .md-nav__item--active > .md-nav__link--active {
     --oc-selection-tail: rgb(84 25 23 / 75%) calc(100% - 1rem), transparent;
   }
 }

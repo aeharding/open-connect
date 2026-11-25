@@ -222,6 +222,9 @@ the existing protected style27 restart flow and sends one restart command.
 Returning from About or either Uninstall dialog synchronizes the row with the
 latest saved state. Wireless preparation requires its staged boot identity to
 be a regular file containing exactly one UUID and newline (37 bytes).
+Restart and Uninstall acquire operation ownership before closing Settings, then
+acquire the progress view before sending the command. If another action owns the
+client, Settings stays open with a prompt to try again in a moment.
 Local Settings navigation uses the installed Mazda 400 ms list-slide classes,
 reversing direction on Back. Dialog3 controls use Mazda's 200 ms entry fade.
 Animation ownership is local to the elements; framework context, focus and native

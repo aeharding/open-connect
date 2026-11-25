@@ -304,6 +304,15 @@ function open(fw,store){
   return values&&values.restart===true&&!prefs.pending()&&
    typeof store.restart==="function"&&!(store.busy&&store.busy());
  }
+ function maintain(action){
+  dismiss=null;
+  if(!current())return;
+  if(action==="restart"&&canRestart()||action==="uninstall"&&!prefs.pending()){
+   if(store[action](close))return;
+   dismiss=dialogs.message(fw,"Try again in a moment.","Another action is finishing.",
+    {button1:{label:"OK",appData:"done"}},maintain);
+  }else prefs.changed(false);
+ }
  function select(control,item,params){
   if(!current()||dismiss||!page||control!==page.list2Ctrl){return;}
   if(moving){moving();}
@@ -330,8 +339,8 @@ function open(fw,store){
    var serviceRow=service(values,item);
    if(item!=="base"&&!serviceRow&&!(item==="pandora"&&!values.services)){return;}
    if(preference(values,item)===undefined||preference(values,item)===desired){return;}
-   var serviceLabel=item==="base"?"Startup optimizations":serviceRow?serviceRow.label:"Pandora";
-   var serviceText=item==="base"?(enabled?
+   var label=item==="base"?"Startup optimizations":serviceRow?serviceRow.label:"Pandora";
+   var text=item==="base"?(enabled?
     (values.services?"Reduces background logging and unused services. Applies after restart.":
      "Reduces native diagnostic logging. Applies after restart."):
     (values.services?"Restores original logging and startup behavior after restarting Mazda Connect.":
@@ -339,13 +348,13 @@ function open(fw,store){
     serviceRow?(enabled?serviceRow.enable:serviceRow.disable):
     "Changes apply after restarting Mazda Connect.";
    if(item==="base"&&enabled&&/^0\.3\.0-dev\.(16|17|18|19|20)$/.test(store.version)&&values.wireless){
-    serviceText+=" Wireless CarPlay delays Mazda Navigation about 20 s.";
+    text+=" Wireless CarPlay delays Mazda Navigation about 20 s.";
    }
-   var servicePage=choice;
-   dismiss=ask((enabled?"Enable ":"Disable ")+serviceLabel+"?",serviceText,enabled?"Enable":"Disable","apply",function(action){
+   var origin=choice;
+   dismiss=ask((enabled?"Enable ":"Disable ")+label+"?",text,enabled?"Enable":"Disable","apply",function(action){
      dismiss=null;
      if(action==="apply"&&current()){prefs.select(item,desired);}
-     if(current()&&choice===servicePage){render(servicePage,item);}
+     if(current()&&choice===origin){render(origin,item);}
     });
    return;
   }
@@ -387,20 +396,11 @@ function open(fw,store){
   }
   if(choice===null&&item==="restart"){
    if(!canRestart()){return;}
-   dismiss=ask("Apply changes?","Restart Mazda Connect to apply your saved changes.","Restart","restart",function(action){
-    dismiss=null;
-    if(action==="restart"&&current()&&canRestart()){close();store.restart();}
-   });
+   dismiss=ask("Apply changes?","Restart Mazda Connect to apply your saved changes.","Restart","restart",maintain);
    return;
   }
   if(choice===null&&item==="uninstall"&&typeof store.uninstall==="function"){
-   dismiss=dialogs.confirmUninstall(fw,prefs.pending(),function(action){
-    dismiss=null;
-    if(action==="uninstall"&&current()&&!prefs.pending()){
-     close();
-     store.uninstall();
-    }else if(current()){prefs.changed(false);}
-   });
+   dismiss=dialogs.confirmUninstall(fw,prefs.pending(),maintain);
    return;
   }
   if(typeof item!=="number"||item<0||item>=(choice===null?entries.length:2)){return;}

@@ -27,7 +27,7 @@ function fixture() {
     for(const p of process.argv.slice(2))vm.runInNewContext(fs.readFileSync(p,"utf8"),ctx);
     const settings=ctx.OpenConnectSettings;
     const store={read:()=>values,write(...args){reply=args.pop();writes.push(args);},busy:()=>busy,
-        restart(){restarts++;},refresh(done){refreshes++;fresh=done;}};
+        restart(leave){restarts++;leave();return true;},refresh(done){refreshes++;fresh=done;}};
     const page=()=>pages.at(-1),row=k=>page().list2Ctrl.dataList.items.find(r=>r.appData===k);
     const pick=k=>{assert.ok(row(k),String(k));page().list2Ctrl.selectCallback(page().list2Ctrl,k);};
     function advance(ms){const end=now+ms;while(true){
@@ -109,7 +109,7 @@ assert.equal(f.page(),aboutRoot);assert.equal(f.row("restart").disabled,false);
 f.pick("restart");assert.equal(f.dialog.props.buttonConfig.button2.label,"Restart");f.confirm("cancel");
 f.fw.sendEventToMmui("common","Global.IntentHome");assert.equal(f.timers.size,0);
 // Both Uninstall dialog paths restore the saved Apply state on cancellation.
-f=fixture();let removals=0;f.store.uninstall=()=>{removals++;};f.open();f.end();
+f=fixture();let removals=0;f.store.uninstall=leave=>{removals++;leave();return true;};f.open();f.end();
 f.pick(0);f.pick(1);f.back();f.pick("uninstall");const uninstallRoot=f.page();
 assert.match(f.dialog.props.text1,/Finishing your settings change/);
 assert.equal(f.dialog.props.buttonConfig.button2,undefined);f.advance(250);

@@ -61,11 +61,17 @@ function fixture(previous, loadingUSB, boot, port) {
                 }};
                 messages.push(m);return ()=>m.done("cancel");
             },
+            confirmUninstall(fw,pending,done){
+                assert.equal(pending,false);
+                return this.message(fw,"Uninstall Open Connect?","Mazda Connect will restart.",
+                    {button1:{label:"Cancel",appData:"cancel"},button2:{label:"Uninstall",appData:"uninstall"}},done);
+            },
             complete(fw, version, done) { if (!eligible) return false;
                 choices.push({complete: true, version, done}); return () => {}; },
             progress(fw, action, warning, suspended) {
                 if (!eligible) return false;
                 const v = {action, warning, suspended, closed: false,
+                    hostDisplay:fw._currTmpltInstance&&fw._currTmpltInstance.divElt.style.display,
                     close() { this.closed = true; suspended(); },
                     update(a,w) { this.action=a; this.warning=w; if(!eligible) { this.close(); return false; } return true; }};
                 progress.push(v); return v;
@@ -101,7 +107,7 @@ function fixture(previous, loadingUSB, boot, port) {
                 _currTmpltInstance:host,common:{getCommonTransitionData(){}},multicontroller:{getMode:()=>"controllerActive"},
                 sendEventToMmui(){},instantiateTemplate(app,parent,type,props){
                     const ctrl=props.List2Ctrl;ctrl.updateItems=()=>{};
-                    const page={list2Ctrl:ctrl,divElt:element(parent),cleanUp(){},handleControllerEvent(){}};
+                    const page={list2Ctrl:ctrl,divElt:element(parent),cleaned:false,cleanUp(){this.cleaned=true;},handleControllerEvent(){}};
                     pages.push(page);return page;
                 }});
             if(cold){
@@ -118,7 +124,7 @@ function fixture(previous, loadingUSB, boot, port) {
             function pick(index) {const c=pages.at(-1).list2Ctrl;c.selectCallback(c,c.dataList.items[index].appData);}
             if(!root) pick(0); // Touch radio page.
             function choose(key){const c=pages.at(-1).list2Ctrl;pick(c.dataList.items.findIndex(r=>r.appData===key));}
-            return {pick,choose,close,pages,back(){fw.sendEventToMmui("common","Global.GoBack");}};
+            return {pick,choose,close,pages,host,back(){fw.sendEventToMmui("common","Global.GoBack");}};
         },
         insert(legacy = false) {
             nodes["oc-usb-loader"] = {ocToken: token, src: "file:///tmp/oc/loader.js",
@@ -1168,3 +1174,41 @@ for(const visible of [false,true]){
     assert.equal(click.navigations,0);assert.equal(f.requests.length,4);cold.detach();
 }
 console.log("Lifecycle regressions: dismiss/refresh ownership, native feedback interruption and protected USB cleanup passed");
+
+// Admission precedes Settings teardown; teardown precedes style27 acquisition
+// and its POST. USB Cancel dismissal must retain its lease on refusal, and both
+// root actions must succeed on an explicit retry once that lease is released.
+for(const operation of ["restart","uninstall"]){
+    f=fixture(null,true,null,35555);f.start(token,true);
+    f.reply(f.requests[0],f.state({installed:true,restart:true,notice:"restart",version:"0.3.0-dev.20",installedVersion:"0.3.0-dev.20"}));
+    f.tick();f.choices[0].done("cancel");
+    assert.match(f.requests[1].body,/\|dismiss\|/);
+    const lease=f.ctx.__ocUSBLoading,owner=f.ctx.OpenConnect;
+    rootUI=f.openSettings(true);f.advance(900);const root=rootUI.pages[0];
+    assert.equal(rootUI.host.divElt.style.display,"none");
+    rootUI.choose(operation);f.messages.at(-1).done(operation);
+    assert.equal(f.requests.length,2);assert.equal(f.progress.length,0);
+    assert.equal(root.cleaned,false);assert.equal(rootUI.host.divElt.style.display,"none");
+    assert.equal(f.messages.at(-1).title,"Try again in a moment.");
+    assert.match(f.messages.at(-1).text,/Another action is finishing/);
+    assert.equal(f.ctx.__ocUSBLoading,lease);assert.equal(owner.protected(),true);
+    f.messages.at(-1).done("done");assert.equal(root.cleaned,false);
+    f.reply(f.requests[1],{ok:true});
+    assert.equal(f.ctx.__ocUSBLoading,undefined);assert.equal(owner.protected(),false);
+    rootUI.choose(operation);f.messages.at(-1).done(operation);
+    assert.equal(root.cleaned,true);assert.equal(rootUI.host.divElt.style.display,"");
+    assert.equal(f.progress.length,1);assert.equal(f.progress[0].hostDisplay,"");
+    assert.equal(f.progress[0].closed,false);
+    assert.equal(f.progress[0].action,operation==="restart"?"Restarting Mazda Connect":"Removing Open Connect");
+    assert.equal(f.requests.length,3);assert.equal(f.requests[2].body.split("|")[2],operation);
+    assert.equal(owner.protected(),true);assert.ok(f.ctx.__ocUSBLoading);
+    if(operation==="uninstall"){
+        f.reply(f.requests[2],f.state({revision:"-",installedVersion:"-"}));
+        assert.equal(f.requests[3].body.split("|")[2],"restart");
+    }
+    for(let i=0;i<10;i++)f.tick();
+    assert.equal(f.requests.filter(r=>r.body.includes("|"+operation+"|")).length,1);
+    assert.equal(f.requests.filter(r=>r.body.includes("|restart|")).length,1);
+    assert.equal(f.requests.filter(r=>r.body.includes("|dismiss|")).length,1);
+}
+console.log("Admission regressions: Restart/Uninstall retain Settings on refusal and close before progress on retry passed");

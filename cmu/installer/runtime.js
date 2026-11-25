@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-var OpenConnect=(function(prior){
+var OpenConnect=(function(prev){
 "use strict";
-if(prior&&prior.protected&&prior.protected()){return prior;}
+if(prev&&prev.protected&&prev.protected()){return prev;}
 var entry=document.getElementById("oc-usb-loader"),meta=document.querySelector('meta[name="open-connect-token"]');
 var vm=document.querySelector('meta[name="open-connect-version"]'),nm=document.querySelector('meta[name="open-connect-notice"]');
 var versionRE=/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/;
@@ -37,11 +37,11 @@ function claim(){
 function release(){
  if(!isHeld()&&window.__ocUSBLoading===marker){delete window.__ocUSBLoading;}
 }
-function request(op,args,done,waitMs,intent){
+function request(op,args,done,ms,intent){
  if(stopped){return;}
  intent=intent===undefined?epoch:intent;
  var xhr=new XMLHttpRequest(),answered=false;
- var deadline=setTimeout(function(){finish(null);xhr.abort();},waitMs||185000);
+ var deadline=setTimeout(function(){finish(null);xhr.abort();},ms||185000);
  function finish(answer){
   if(answered){return;}
   answered=true;clearTimeout(deadline);
@@ -186,7 +186,7 @@ function drive(){
   else{end(null);}
  });
 }
-function run(op,args,origin,reply){
+function run(op,args,origin,reply,leave){
  if(busy||!state||!claim()){if(reply){reply(null);}return false;}
  busy=true;saving=!!reply;advance();
  job={op:op,args:args,origin:origin,before:state,target:state.version,
@@ -194,7 +194,7 @@ function run(op,args,origin,reply){
   action:op==="uninstall"?"Removing Open Connect":op==="recover"?"Applying changes":
    op==="install"?(state.installed&&state.installedVersion&&state.installedVersion!=="-"?
     (state.installedVersion===state.version?"Reinstalling":"Updating"):"Installing")+" Open Connect":"Applying changes"};
- queued=null;closeDialog();drive();return true;
+ queued=null;closeDialog();if(leave)leave();drive();return true;
 }
 var store={read:values,pending:function(value){
  if(value&&!claim()){return false;}
@@ -202,16 +202,16 @@ var store={read:values,pending:function(value){
 },refresh:function(reply){
  if(busy||pending){reply(saving&&!!values());return;}
  if(refresh){refresh.push(reply);return;}
- if(!dismissing)advance();var waiters=refresh=[reply],intent=epoch;
+ if(!dismissing)advance();var waits=refresh=[reply],intent=epoch;
  readStatus(function(){
   refresh=null;
-  waiters.forEach(function(fn){if(intent===epoch)fn(!!values());});
+  waits.forEach(function(fn){if(intent===epoch)fn(!!values());});
  },boot&&!entry?Date.now()+12000:null,0,intent,true);
 },write:function(key,from,to,reply){run("set",[key,String(from),String(to)],"settings",reply);},
 importKey:function(reply){run("import",null,"settings",reply);},
-uninstall:function(){run("uninstall",null,"settings");},
+uninstall:function(leave){return run("uninstall",null,"settings",null,leave);},
 busy:function(){return busy||pending;},
-restart:function(){if(values()&&state.restart&&!pending){run("restart",null,"settings");}},
+restart:function(leave){return values()&&state.restart&&!pending&&run("restart",null,"settings",null,leave);},
 opened:function(){if(completion()){shown=true;if(queued&&queued.complete){queued=null;}}}};
 function choose(){
  usb=false;
@@ -288,14 +288,14 @@ function start(value,fromUSB){
    menus=OpenConnectSettings;
    function accept(answer){
     clearTimeout(loading);
-    if(prior&&prior.protected&&prior.protected()){abandon();return;}
+    if(prev&&prev.protected&&prev.protected()){abandon();return;}
     if(!valid(answer)&&!(boot&&!fromUSB)){
-     if(prior){abandon();return;}
+     if(prev){abandon();return;}
      message("Unable to finish","Open Connect could not be reached. Check the connection before trying again.");
     }else{
      ready=true;
-     if(prior&&prior.dispose){prior.dispose();}
-     prior=null;
+     if(prev&&prev.dispose){prev.dispose();}
+     prev=null;
      if(window.ocCarPlay){ocCarPlay.pump();}
     }
     timer=setInterval(tick,500);
@@ -311,7 +311,7 @@ function cancelUSB(value){
  if(node&&node.ocToken===token&&node.parentNode){node.parentNode.removeChild(node);}
  usb=false;if(isHeld())return;
  advance();
- if(!ready&&prior){abandon();return;}
+ if(!ready&&prev){abandon();return;}
  queued=null;closeDialog();
  release();
 }
@@ -327,7 +327,7 @@ function reopenUSB(value){
 }
 function abandon(){
  if(ready||stopped){return;}
- dispose();if(window.OpenConnect===client){window.OpenConnect=prior;}
+ dispose();if(window.OpenConnect===client){window.OpenConnect=prev;}
 }
 function dispose(){
  if(isHeld()){return false;}

@@ -156,7 +156,7 @@ pick("uninstall"); assert.equal(modal, undefined);
 pick("about"); assert.equal(modal.props.text1, "Installed version unavailable.");
 back(); back();
 store.version = "0.2.1";
-store.uninstall = () => { removals++; };
+store.uninstall = leave => { removals++; leave(); return true; };
 settings.open(fw, store);
 pick("about"); assert.equal(modal.props.title, "About"); assert.equal(modal.props.text1, "Open Connect 0.2.1");
 pick("uninstall"); assert.equal(modal.props.title, "About"); // background list cannot steal the modal

@@ -67,8 +67,8 @@ body, input { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvet
 .md-footer { border-top: 1px solid var(--oc-border); }
 .md-nav__link--active { font-weight: 600; }
 .md-nav--primary .md-nav__item--active > .md-nav__link--active {
-  --oc-selection-edge: linear-gradient(90deg, #ae302738, transparent 85%);
-  --oc-selection-fill: linear-gradient(90deg, #ba29221c, transparent);
+  --oc-selection-edge: linear-gradient(90deg, #bd382caa, #bd382c55 60%, transparent);
+  --oc-selection-fill: linear-gradient(90deg, #ce382a4d, #ce382a2e 65%, transparent);
   color: #77231e;
   border-radius: 0;
   box-shadow: inset 1px 0 var(--oc-red);

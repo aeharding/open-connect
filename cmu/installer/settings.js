@@ -538,7 +538,7 @@ return{open:open,fromHome:fromHome,attach:attach,validStatus:validStatus,
 
 (function(a,f){
 if(!a||a.loaded & 4){return;}
-var owner,held,camera,cameraSeen,displayOff,settle=750;
+var owner,held,camera,cameraSeen,displayOff;
 a.owner=function(){
   if(window.__ocUSBLoading){return 2;}
   var client=window.OpenConnect;
@@ -618,10 +618,7 @@ a.signal=function(m){
   if(edge&&m._cp.seq>edge.seq&&m.uiaId==="carplay"&&id==="TimedSbn_CarplayConnected")edge.ready=m;
   if(edge&&m._cp.seq>edge.seq&&m.uiaId==="system"&&p&&p.appName==="carplay"&&
       /^(StatusMenuVisibleCarPlay|StatusMenuCarPlayWifi)$/.test(id)){
-    if(id==="StatusMenuVisibleCarPlay" ? p.state==="Visible" :p.appStatus==="Available"){
-      if(!edge.menu)setTimeout(a.pump,Math.max(0,edge.end-15000+settle-Date.now()));
-      edge.menu=m;
-    }
+    if(id==="StatusMenuVisibleCarPlay" ? p.state==="Visible" :p.appStatus==="Available")edge.menu=m;
     else if(edge.menu&&edge.menu.msgId===id) edge.menu=null;
   }
   if(m.uiaId==="common"&&id==="vuiState"&&p) a.busy=a.busy & ~16 | (a.voice(p.state) ? 16 :0);
@@ -643,7 +640,7 @@ a.run=function(edge,input,trust,focus,next){
   var gate=a.check(focus,next);
   if(gate===2) a.cancel();
   if(gate!==0||a.edge()!==edge||!trust||!edge.menu||!edge.menu._cp.delivered||
-      !edge.delivered||!(edge.ready&&edge.ready._cp.delivered)&&Date.now()<edge.end-15000+settle||
+      !edge.delivered||!edge.ready||!edge.ready._cp.delivered||
       f.websockets._waitMsgArray.length||a.holding) return;
   a.cancel(); f.sendEventToMmui("system","SelectCarPlay");
 };

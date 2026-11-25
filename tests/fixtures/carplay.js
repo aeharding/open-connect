@@ -98,6 +98,7 @@ function fixture(shared = {}, load = true) {
     show(id){apply({uiaId:id});fw._processNewFwkState();},
     contexts(handler,compare){contextHandler=handler;contextCompare=compare;},
     phoneEnd(handler){callEnd=handler;},
+    pendingTimers(){return timers.filter(t=>t.live).map(t=>t.at);},
     routing(proto){
       nativeContext=proto._contextChange;nativeFocus=proto._focusStackChange;
       fw._callHandleContext=proto._callHandleContext;fw._captureContext=()=>{};
@@ -545,21 +546,21 @@ for(const priority of ['camera','call']) {
   f.session(false);f.connect();assert.equal(f.count(),0,'disconnect cannot resolve dropped '+priority+' history');
 }
 // Native SessionActive/WifiAvailable precede resource_status becoming ready.
-// Exercise both the observed ready message and the one settled fallback.
+// Only a delivered native ready message releases the request; time alone cannot.
 for(const lazy of [false,true]) {
   f=make(lazy);f.session(true);f.menu(false,false);if(lazy)f.complete();
   f.advance();assert.equal(f.count(),0,'menu availability alone cannot select lazy='+lazy);
-  f.advance(200);f.ready();f.advance();assert.equal(f.count(),1,'native ready releases immediately before fallback lazy='+lazy);
+  f.advance(200);f.ready();f.advance();assert.equal(f.count(),1,'native ready releases immediately lazy='+lazy);
   f.ready();f.menu();f.advance();assert.equal(f.count(),1,'duplicate ready never retries');
   f=make(lazy);f.session(true);f.menu(false,false);if(lazy)f.complete();
-  f.advance(749);assert.equal(f.count(),0,'settle fallback has not elapsed');
-  f.advance(1);assert.equal(f.count(),1,'one fallback after 750ms');
-  f.advance(1000);assert.equal(f.count(),1,'fallback cannot repeat');
+  f.advance(750);assert.equal(f.count(),0,'elapsed time cannot substitute for native readiness');
+  f.advance(1000);assert.equal(f.count(),0,'still waiting for genuine native readiness');
+  f.ready();f.advance();assert.equal(f.count(),1,'a later ready cue releases once');
   f=make(lazy);f.session(true);f.menu(false,false);f.native('syssettings','SystemTab');
-  if(lazy)f.complete();f.advance(751);assert.equal(f.count(),0,'Settings departure cancels fallback');
+  if(lazy)f.complete();f.advance(751);assert.equal(f.count(),0,'Settings departure cancels pending readiness');
   f=make(lazy);f.session(true);f.menu(false,false);f.native('backupparking','TVMCameraDisplay');
-  if(lazy)f.complete();f.advance(751);assert.equal(f.count(),0,'camera keeps priority over fallback');
-  f.native('system','HomeScreen');f.advance();assert.equal(f.count(),1,'confirmed safe return may use elapsed fallback');
+  if(lazy)f.complete();f.ready();f.advance(751);assert.equal(f.count(),0,'camera keeps priority over ready cue');
+  f.native('system','HomeScreen');f.advance();assert.equal(f.count(),1,'confirmed safe return may use delivered ready cue');
 }
 f=make(false);f.session(true);f.menu(false,false);
 const pendingReady={msgType:'msg',uiaId:'carplay',msgId:'TimedSbn_CarplayConnected',params:{payload:{type:1}},
@@ -570,13 +571,32 @@ f=make(false);f.session(true);f.ready();f.advance();assert.equal(f.count(),0,'re
 f.menu(false,false);f.advance();assert.equal(f.count(),1,'ready before menu remains eligible');
 f=make(false);f.ready();f.session(true);f.menu(false,false);f.advance();
 assert.equal(f.count(),0,'stale ready before session does not release selection');
-f.advance(750);assert.equal(f.count(),1);
+f.advance(750);assert.equal(f.count(),0,'stale cue is not replaced by elapsed time');
+f.ready();f.advance();assert.equal(f.count(),1);
 f=make(false);f.session(true);f.menu(false,false);f.advance(500);f.session(false);
-f.session(true);f.menu(false,false);f.advance(250);assert.equal(f.count(),0,'old timer cannot prematurely release new generation');
+f.session(true);f.menu(false,false);f.advance(250);assert.equal(f.count(),0,'elapsed time cannot release the new generation');
 f.ready();f.advance();assert.equal(f.count(),1,'new generation native ready releases once');
 f=make(true);f.session(true);f.menu(false,false);f.ready();
 assert.ok(f.ctx.ocCarPlay.early.some(m=>m.msgId==='TimedSbn_CarplayConnected'),'native ready retained before Settings support loads');
 f.complete();f.advance();assert.equal(f.count(),1,'early ready replays with original generation');
+for(const lazy of [false,true]) {
+  for(const nav of [false,true]) {
+    for(const menuAt of [35,810]) {
+      f=make(lazy);if(nav)f.native('emnavi','Active');f.session(true);
+      f.advance(menuAt);f.menu(false,false);if(lazy)f.complete();f.advance();
+      assert.equal(f.count(),0,'menu at '+menuAt+' cannot bypass missing ready lazy='+lazy+' nav='+nav);
+      if(menuAt<750){f.advance(750-menuAt);assert.equal(f.count(),0,'750ms does not dispatch');}
+      f.advance(900-Math.max(menuAt,750));f.ready();f.advance();
+      assert.equal(f.count(),1,'slow native ready dispatches at900ms lazy='+lazy+' nav='+nav);
+    }
+  }
+}
+f=make(false);f.session(true);
+for(let i=0;i<8;i++){
+  f.menu(false,false);f.msg('StatusMenuVisibleCarPlay',{appName:'carplay',state:'Hidden'},'system');
+}
+f.advance();assert.deepEqual(f.pendingTimers(),[15000],'visibility cycles leave only the original expiry timer');
+f.session(false);f.advance();assert.deepEqual(f.pendingTimers(),[],'disconnect leaves no readiness/fallback timer');
 f=make(false);f.session(true);f.menu(false,false);f.fw._frameworkState=2;f.advance(15001);
 f.fw._frameworkState=1;f.ready();f.advance();assert.equal(f.count(),0,'readiness cannot renew expired intent');
 console.log('Live regressions: non-focused cache, applied focus history, safety priority and active Nav passed');

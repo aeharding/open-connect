@@ -15,7 +15,10 @@ make release OUT=runs/my-release
 The output is `open-connect-<version>-usb.zip` plus `SHA256SUMS`. CI uploads the
 same files as `usb-installer`. A `v<version>` development tag matching
 `cmu/installer/VERSION` on reviewed main history prepares a draft prerelease after
-host checks. Publish it after qualifying that CI artifact on the bench.
+host checks. The dev.21 prerelease is published for the owner's USB-insertion
+and installer-launch bench retest. Its runtime changes were checked in PR #149's
+dev.20-versioned CI candidate; the newly versioned ZIP still needs that retest.
+Record the exact artifact and remaining qualification limits when publishing.
 
 Build scripts copy authored files and compile native assets; OEM files are read
 and composed privately on the CMU. The installer and its backend run on the CMU;

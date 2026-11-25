@@ -323,7 +323,7 @@ const catalog = fs.readFileSync(require("node:path").join(process.argv[3], "../s
         return {id, label, saved: Number(saved), current: Number(saved), enable, disable};
     });
 store.version = fs.readFileSync(require("node:path").join(process.argv[3], "../VERSION"), "utf8").trim();
-assert.equal(store.version, "0.3.0-dev.20");
+assert.equal(store.version, "0.3.0-dev.21");
 values = {...values, wireless: 0, wirelessCurrent: 0, wirelessFactory: false,
     carplayAutoshow: 0, carplayAutoshowCurrent: 0, services: catalog};
 settings.open(fw, store);

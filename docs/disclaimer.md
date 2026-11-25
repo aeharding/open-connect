@@ -34,7 +34,7 @@ Skip Mazda’s startup warning and continue to your usual screen.
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p>Startup and restoration have bench checks. <a href="performance.md#published-dev20-cold-acc-off-comparison-2026-11-25">Performance evidence</a> keeps the Show/Skip distinction explicit; #9 remains open. The screenshot above remains dev.19. <strong>0.3.0-dev.20</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
+<p>Startup and restoration have bench checks. <a href="performance.md#published-dev20-cold-acc-off-comparison-2026-11-25">Performance evidence</a> keeps the Show/Skip distinction explicit; #9 remains open. The screenshot above remains dev.19. <strong>0.3.0-dev.21</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 <span id="change-the-setting"></span>
 

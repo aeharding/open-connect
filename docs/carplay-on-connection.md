@@ -36,7 +36,7 @@ Open CarPlay when your iPhone connects, including after startup and reconnection
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p>Offline replays and wireless bench checks cover <strong>74.00.324A NA</strong>. One intermittent native acceptance miss occurred with Startup optimizations on; subsequent reconnects passed. Wired auto-selection, live call/Siri/reverse interaction and real-car use remain unqualified. See <a href="performance.md">Performance evidence</a>; isolated auto-selection benchmarks remain ahead. The screenshot above remains dev.19. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
+<p>Offline replays and wireless bench checks cover <strong>74.00.324A NA</strong>. One intermittent native acceptance miss occurred with Startup optimizations on; subsequent reconnects passed. Wired auto-selection, live call/Siri/reverse interaction and real-car use remain unqualified. See <a href="performance.md">Performance evidence</a>; isolated auto-selection benchmarks remain ahead. The screenshot above remains dev.19. <strong>0.3.0-dev.21</strong> is a development prerelease.</p>
 
 
 ## Options

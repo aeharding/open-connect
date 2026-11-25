@@ -4,7 +4,7 @@ Remove Open Connect from Mazda Settings. You don’t need a USB drive or compute
 
 ## Remove from Settings
 
-1. Open **Mazda Settings → System → Open Connect**.
+1. Open **<span class="oc-nav-path" data-walkthrough="uninstall">Mazda Settings → System → Open Connect</span>**.
 2. Scroll to **Uninstall**, select it and confirm **Uninstall**.
 3. Keep the car on while Mazda Connect restores the saved configuration and restarts.
 

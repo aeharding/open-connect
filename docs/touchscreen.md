@@ -2,7 +2,7 @@
 
 Keep touch available while the car is moving, including for a passenger using Mazda’s menus.
 
-Open **Mazda Settings → System → Open Connect → Touchscreen While Driving**.
+Open **<span class="oc-nav-path" data-walkthrough="touchscreen">Mazda Settings → System → Open Connect → Touchscreen While Driving</span>**.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/touch.png" alt="Touchscreen While Driving choices: Factory Default and Allow, with Allow selected." width="800" height="480"></div>

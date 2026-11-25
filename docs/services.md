@@ -2,7 +2,7 @@
 
 Turn off the phone and entertainment integrations you don’t use. Leave anything you use enabled.
 
-Open **Mazda Settings → System → Open Connect → Services**. Changes apply on the next full startup.
+Open **<span class="oc-nav-path" data-walkthrough="services">Mazda Settings → System → Open Connect → Services</span>**. Changes apply on the next full startup.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/services.png" alt="Services with Base optimizations off, Android Auto on, DVD off, Pandora on and SiriusXM on." width="800" height="480"></div>

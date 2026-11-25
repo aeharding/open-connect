@@ -1,5 +1,23 @@
 # Guide image provenance
 
+## Version Information — November 24, 2026
+
+`version-info.png` is a direct, unedited native **800×480** capture of Mazda’s
+**Settings → System → About → Version Information** dialog on
+**74.00.324A NA/cmu150_NA**, supplied by the capture operator and independently
+checked against the received hash. It shows **OS Version 74.00.324 NA N**,
+**Music Database Version 00.12.003** and **Fail-Safe Version 74.00.324**.
+The full image was reviewed for VIN, serial numbers, personal information,
+credentials and diagnostic overlays; none are visible. The decorative bezel is
+applied separately by the website.
+
+| Asset | SHA256 |
+| --- | --- |
+| `version-info.png` | `a84286239850a09c81a48a91543d4b3a0286b8b18065fa8392fc274906569117` |
+
+Received original: `runs/docs-brand-preview/version-info.png`. This documents
+firmware identity, not a new installer or real-car qualification.
+
 ## Animated maintenance dialogs — November 24, 2026
 
 The current `install.png`, `installing.png`, `complete.png`, `update.png`,

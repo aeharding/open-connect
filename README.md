@@ -2,7 +2,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/wordmark-dark.svg">
-  <img alt="Open Connect commander ring and wordmark" src="docs/assets/brand/wordmark-light.svg" width="560">
+  <img alt="Mazda Open Connect screen mark and wordmark" src="docs/assets/brand/wordmark-light.svg" width="560">
 </picture>
 
 Make your Mazda infotainment screen faster, more capable, and customizable.

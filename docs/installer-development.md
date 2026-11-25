@@ -182,8 +182,34 @@ The client additionally matches the boot page's token/version/notice to fresh
 installed-version evidence, including when maintenance USB remains inserted.
 Normal notice-free startup adds no status request.
 
+### Settings follow-up (offline)
+
+Settings uses `status|settings|-|-` for cold reads and opens immediately from
+validated cached preferences on warm entry, without a background status request.
+This read verifies snapshot/catalog integrity and installed-version evidence;
+its `conflict: false` does not establish unchanged OEM flash. Default
+`status|-|-|-` remains the full USB/reconciliation audit, and every feature
+mutation retains its strict checks. Any response that could authorize
+`completionReady` also performs the full audit. Status reuses each distinct
+current/selected/access-selected snapshot decode within its held lock. Failed
+readback invalidates the client cache. Older listeners that reject the new
+syntax with HTTP 400 receive one strict-status fallback within the same deadline.
+Manual Settings entry suppresses a pending completion notice for that client
+without a background acknowledgement competing with the first save. Browsing
+alone does not dismiss the durable notice. The completion dialog's explicit
+**Open settings** action waits for its acknowledgement before navigating.
+
+The root **Apply changes** row is enabled only for saved changes awaiting restart,
+with no pending save or other operation. Its Cancel/Restart confirmation enters
+the existing protected style27 restart flow and sends one restart command.
+Local Settings navigation uses the installed Mazda 400 ms list-slide classes,
+reversing direction on Back. Dialog3 controls use Mazda's 200 ms entry fade.
+Animation ownership is local to the elements; framework context, focus and native
+transition ownership stay intact. Offline fixtures cover interrupted transitions
+and missing/late animation events; they do not establish native timing or RAM.
+
 Packaging refuses page-budget overflow: dialog 8,192 B, runtime 16,384 B,
-Settings 32,768 B, loader 4,096 B and backend 20,480 B. These are per-file bounds,
+Settings 28,672 B, loader 4,096 B and backend 20,480 B. These are per-file bounds,
 not proof of unchanged Opera memory or timings. The
 [dev.17 maintenance UI record](maintenance-loading.md) separates native 800×480
 captures, spinner/input checks, lifecycle observations and nearby timing/RAM

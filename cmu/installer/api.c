@@ -124,7 +124,8 @@ static int run(int argc,char **argv) {
     }else{
         if(!equal(op,"status")&&!equal(op,"install")&&!equal(op,"uninstall")&&
            !equal(op,"restart")&&!equal(op,"dismiss")&&!equal(op,"recover")&&!equal(op,"import"))goto bad;
-        if(!equal(fields[3],"-")||!equal(fields[4],"-")||!equal(fields[5],"-"))goto bad;
+        if((!equal(fields[3],"-")&&!(equal(op,"status")&&equal(fields[3],"settings")))||
+           !equal(fields[4],"-")||!equal(fields[5],"-"))goto bad;
     }
     if(!response(200,0))return 1;
     char *args[]={"sh",argv[2],"api",fields[1],fields[2],fields[3],fields[4],fields[5],0};

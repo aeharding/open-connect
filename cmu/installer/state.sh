@@ -147,11 +147,12 @@ preferences_change() (
 
 config_decode() {
     local source=$1 header extra fields package folder decoded
-    S_AUTOSHOW=0
+    S_AUTOSHOW=0; S_CATALOG=
     file "$source" && read -r header < "$source" || return 1
     if test "$header" = OC2; then
         package=$(awk -F = '$1=="package"{n++;p=$2}END{if(n!=1)exit 1;print p}' "$source") || return 1
         folder=$(preferences_package "$package") || return 1
+        S_CATALOG=$folder
         decoded=$(awk -v operation=decode -v catalog="$folder/services.tsv" -v catalog_bytes="$(wc -c < "$folder/services.tsv")" -v input="$source" \
             -v input_bytes="$(wc -c < "$source")" -f "$folder/preferences.awk") || return 1
         IFS='|' read -r S_PACKAGE S_TOUCH S_WARNING S_NVRAM S_META S_PANDORA S_BASE S_WIRELESS S_SERVICES extra <<VALUES

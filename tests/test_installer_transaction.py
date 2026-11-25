@@ -622,6 +622,110 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(state["installedVersion"], "-")
 
+    def test_settings_status_reads_each_distinct_snapshot_once(self):
+        data = self.create("status-reads")
+        self.run_ok(data, "install")
+        applied = (data / "record").read_text().split("|")[5]
+        self.run_ok(data, "service-off")
+        current = (data / "record").read_text().split("|")[5]
+        self.backend_fixture(data)
+        runtime = self.root / "runtime"
+        state_file = self.tools / "state.sh"
+        state_file.write_text(
+            state_file.read_text().replace(
+                'snapshot_read() { snapshot_verify "$1" && snapshot_decode "$1"; }',
+                'snapshot_read() { printf "%s\\n" "$1" >> "$D/reads"; '
+                'snapshot_verify "$1" && snapshot_decode "$1"; }',
+            )
+        )
+        for selected in (current, applied):
+            with self.subTest(selected=selected):
+                (runtime / "selected").write_text(selected + "\n")
+                (runtime / "access-selected").write_text(selected + "\n")
+                (data / "reads").write_text("")
+                result, status = self.api("status", argument="settings")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(
+                    (data / "reads").read_text().splitlines(),
+                    [current] if selected == current else [current, applied],
+                )
+                pandora = next(row for row in status["services"] if row["id"] == "pandora")
+                self.assertEqual(pandora["saved"], 0)
+                self.assertEqual(pandora["current"], int(selected == applied))
+                self.assertEqual(status["restart"], selected != current)
+
+    def test_settings_read_skips_flash_audit_but_usb_and_mutations_refuse_edits(self):
+        data = self.create("status-guards")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        revision = (data / "record").read_text().split("|")[5]
+        for target in ("target", "relevant"):
+            with self.subTest(target=target):
+                path = self.target(data, target)
+                original = path.read_bytes()
+                path.write_bytes(b"external edit\n")
+                record = (data / "record").read_bytes()
+                result, fast = self.api("status", argument="settings")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertFalse(fast["conflict"])
+                self.assertFalse(fast["completionReady"])
+                _, strict = self.api("status")
+                self.assertTrue(strict["conflict"])
+                for operation, args in (
+                    ("set", ("warning", "1", "0")),
+                    ("import", ()),
+                    ("install", ()),
+                    ("uninstall", ()),
+                    ("restart", ()),
+                ):
+                    result, answer = self.api(operation, revision, *args)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(answer["error"], "state_changed")
+                    self.assertEqual((data / "record").read_bytes(), record)
+                    self.assertEqual(path.read_bytes(), b"external edit\n")
+                path.write_bytes(original)
+
+    def test_fast_status_cannot_authorize_conflicted_completion(self):
+        data = self.create("completion-conflict")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        record = (data / "record").read_text().split("|")
+        record[11] = "12345678-1234-1234-1234-123456789abc"
+        record[12] = "installed\n"
+        (data / "record").write_text("|".join(record))
+        kernel = self.root / "kernel"
+        kernel.write_text(record[11] + "\n")
+        backend = self.tools / "backend.sh"
+        backend.write_text(
+            backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
+        )
+        (self.root / "runtime/selected").write_text(record[5] + "\n")
+        for argument in ("-", "settings"):
+            result, ready = self.api("status", argument=argument)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(ready["completionReady"])
+            for target in ("target", "relevant"):
+                path = self.target(data, target)
+                original = path.read_bytes()
+                path.write_bytes(b"changed after boot\n")
+                result, answer = self.api("status", argument=argument)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue(answer["conflict"])
+                self.assertFalse(answer["completionReady"])
+                path.write_bytes(original)
+        package = data / "packages" / (data / "package-id").read_text().strip()
+        for name in ("VERSION", "services.tsv", "preferences.awk"):
+            path = package / name
+            original = path.read_bytes()
+            path.write_bytes(original + b"edited\n")
+            result, answer = self.api("status", argument="settings")
+            self.assertFalse(answer.get("completionReady", False))
+            if name == "VERSION":
+                self.assertTrue(answer["conflict"] or answer["installedVersion"] == "-")
+            else:
+                self.assertNotEqual(result.returncode, 0)
+            path.write_bytes(original)
+
     def test_completion_requires_selection_and_recorded_current_boot(self):
         data = self.create("completion")
         self.run_ok(data, "install")

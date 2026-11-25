@@ -3,7 +3,7 @@ const fs = require('node:fs'), vm = require('node:vm'), path = require('node:pat
 const folder = process.argv[2], boot = '12345678-1234-1234-1234-123456789abc';
 function fixture(shared = {}, load = true) {
   const calls = [], events = {}, timers = [], pendingContexts = [];
-  let deferContext=false, background=false, contextHandler, contextCompare, nativeContext, nativeFocus;
+  let deferContext=false, background=false, contextHandler, contextCompare, nativeContext, nativeFocus, loading;
   let now = 0, clock = 0;
   const state = {name: '', storage: new Map(), ...shared};
   const ctx = {log: {error() {}, addSrcFile() {}, debug() {}, info() {}, warn() {}}, Date: {now: () => now},
@@ -18,7 +18,7 @@ function fixture(shared = {}, load = true) {
   ctx.document = {body: {}, querySelector(selector) {
     return selector.includes('open-connect-token') ? {getAttribute: key => key === 'data-boot' ? boot : 'a'.repeat(32)} : null;
   },getElementById() {return null;}, addEventListener(key, fn) {(events[key] ||= []).push(fn);},removeEventListener() {}};
-  const apps = {system: {_currentContext: {ctxtId: 'HomeScreen'}, _contextTable: {Disclaimer: {controlProperties: {Dialog3Ctrl: {
+  const apps = {system: {_currentContext: {uiaId:'system',ctxtId:'HomeScreen',contextSeq:1}, _contextTable: {Disclaimer: {controlProperties: {Dialog3Ctrl: {
     defaultSelectCallback(control, action) {if(action==='Global.Yes')fw.sendEventToMmui('common',action);}
   }}}}}};
   const fw = ctx.framework = {_browserShown: true, _frameworkState: 1, _FWK_STATE_IDLE: 1,
@@ -30,7 +30,10 @@ function fixture(shared = {}, load = true) {
     _focusStackChange(ids) {if(nativeFocus)nativeFocus.call(this,ids);else this._focusStack=ids;},
     _handleMessage(id,m) {if(id==='common'&&m.msgId==='vuiState')this.common._cachedVuiState=m.params.payload.state;return 'stock message';},
     routeMmuiMsg(m) {
-      if(m.msgType==='focusStack')this._focusStackChange(m.appIdList);
+      if(m.msgType==='focusStack') {
+        if(loading===m.appIdList[0].id)this._loadingAppJsObj=m;
+        else this._focusStackChange(m.appIdList);
+      }
       if(m.msgType==='ctxtChg'&&m.ctxtId!=='Idle') {
         cache(m);
         if(!background){if(deferContext)pendingContexts.push(m);else apply(m);}
@@ -96,6 +99,14 @@ function fixture(shared = {}, load = true) {
       fw._callHandleContext=proto._callHandleContext;fw._captureContext=()=>{};
       fw._appStack={};fw._appInstances=apps;fw.getCurrAppInstance=()=>apps[fw.getCurrentApp()];
       for(const [id,app] of Object.entries(apps)){app.uiaId=id;app.isContextDifferentFrom=x=>contextCompare(app._currentContext,x);}
+    },
+    delayApp(id){loading=id;},
+    finishApp(proto){
+      if(proto){
+        fw._storeAppLoaded=id=>{fw._appStack[id]=true;};
+        proto._appFinishedLoading.call(fw);
+      }else fw._focusStackChange(fw._loadingAppJsObj.appIdList);
+      loading=null;
     },
     defer(value=true){deferContext=value;},applyContext(){apply(pendingContexts.shift());fw._processNewFwkState();}};
 }
@@ -394,7 +405,8 @@ function mutationReplay(handler,compare,label) {
   f=bootClient();f.contexts(handler,compare);f.native('system','Disclaimer');f.session(true);
   f.native('backupparking','TVMCameraDisplay');
   f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:13});f.focus();
-  const first=f.ctx.ocCarPlay.early.find(m=>m.msgType==='ctxtChg'&&m.ctxtId==='HomeScreen'&&m.contextSeq===13);
+  const first=f.apps.system._currentContext;
+  assert.ok(f.ctx.ocCarPlay.early.some(m=>m._cp.ctx&&m._cp.ctx[1]==='HomeScreen'&&m._cp.ctx[2]===13),'applied Home identity snapshotted');
   assert.ok(first,'first Home retained by BaseApp');
   f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:14});
   assert.equal(first.contextSeq,14,label+' really mutated the prior received object');
@@ -411,7 +423,7 @@ mutationReplay(function(m) {
   else this._currentContext.contextSeq=m.contextSeq;
 },differentContext,'authored mutable-context fixture');
 if(process.argv[3]) {
-  const stock={log:{addSrcFile(){},debug(){},info(){},warn(){},error(){},writeError(){}}};
+  const stock={guiConfig:{testMode:false},log:{addSrcFile(){},debug(){},info(){},warn(){},error(){},writeError(){}}};
   const base=path.join(path.dirname(process.argv[3]),'BaseApp.js');
   vm.runInNewContext(fs.readFileSync(base,'utf8'),stock,{filename:base});
   mutationReplay(stock.BaseApp.prototype._handleContext,stock.BaseApp.prototype._isContextDifferent,'stock v74 BaseApp');
@@ -457,12 +469,45 @@ for(const lazy of [false,true]) {
 }
 f=make(false);f.native('emnavi','NaviPreparing');f.connect();
 assert.equal(f.count(),0,'unqualified Nav preparation stays guarded');
+// Priority requests can precede the connection while their templates and
+// focus changes have not applied. Background cache traffic cannot clear them.
+for(const lazy of [false,true]) {
+  for(const [id,ctxt,nav] of [['backupparking','TVMCameraDisplay',false],['phone','ActiveCall',false],['system','DisplayOff',true]]) {
+    f=make(lazy);if(nav)f.native('emnavi','Active');
+    f.background(id,ctxt);f.session(true);f.background('contacts','Contacts');f.menu();
+    if(lazy)f.complete();f.advance();
+    assert.equal(f.count(),0,'pre-edge priority '+ctxt+' lazy='+lazy);
+  }
+  for(const contacts of [false,true]) {
+    f=make(lazy);f.session(true);f.background('backupparking','TVMCameraDisplay');
+    if(contacts)f.background('contacts','Contacts');f.focus();f.menu();
+    if(lazy)f.complete();f.advance();
+    assert.equal(f.count(),0,'unchanged Home cannot acknowledge pending reverse contacts='+contacts+' lazy='+lazy);
+    f.focus('backupparking');f.show('backupparking');
+    f.background('backupparking','Idle');
+    if(contacts)f.background('contacts','Contacts');f.focus();f.show('system');f.advance();
+    assert.equal(f.count(),1,'actual cached Home return releases reverse contacts='+contacts+' lazy='+lazy);
+  }
+  f=make(lazy);f.session(true);f.background('contacts','Contacts',2);f.delayApp('contacts');
+  f.focus('contacts');f.focus();f.finishApp(stock&&stock.GuiFramework.prototype);
+  f.show('contacts');f.focus();f.show('system');f.menu();
+  if(lazy)f.complete();f.advance();
+  assert.equal(f.count(),0,'delayed applied Contacts departure survives newer Home ingress lazy='+lazy);
+}
+for(const pairs of [16,40]) {
+  f=make(true);f.session(true);
+  for(let i=0;i<pairs;i++){f.background('contacts','Contacts',10+i);f.focus();}
+  assert.ok(f.ctx.ocCarPlay.early.length<10,'unchanged focus/background cache stay outside bounded history');
+  f.menu();f.complete();f.advance();assert.equal(f.count(),1,'benign startup traffic retains first edge pairs='+pairs);
+  f.session(false);f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:50});
+  f.focus();f.connect();assert.equal(f.count(),2,'benign startup traffic retains reconnect pairs='+pairs);
+}
 console.log('Live regressions: non-focused cache, applied focus history, safety priority and active Nav passed');
 
 }
 backgroundReplay();
 if(process.argv[3]) {
-  const stock={log:{addSrcFile(){},debug(){},info(){},warn(){},error(){},writeError(){}}};
+  const stock={guiConfig:{testMode:false},log:{addSrcFile(){},debug(){},info(){},warn(){},error(){},writeError(){}}};
   for(const name of ["BaseApp.js","GuiFramework.js"]) {
     const source=path.join(path.dirname(process.argv[3]),name);
     vm.runInNewContext(fs.readFileSync(source,"utf8"),stock,{filename:source});

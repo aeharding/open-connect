@@ -1,6 +1,6 @@
 # Services
 
-The former Services controls now have individual pages. Start with [Settings](settings.md) for all fresh-install defaults and restart guidance. Screenshots show the **0.3.0-dev.19** menu; updated captures for the NA DVD change await live qualification.
+The former Services controls now have individual pages. Start with [Settings](settings.md) for all fresh-install defaults and restart guidance. Retained **0.3.0-dev.19** screenshots and **0.3.0-dev.20** videos predate the upcoming NA DVD change; updated captures await live qualification.
 
 <span id="base-optimizations"></span>
 
@@ -23,7 +23,7 @@ Open **<span class="oc-nav-path" data-walkthrough="phone-connections">Mazda Sett
 
 ## Audio sources
 
-Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings → System → Open Connect → Audio sources</span>** for **Pandora** and **SiriusXM**. Disabled integrations disappear from Mazda’s Sources list after restart. On North American units, [DVD](dvd.md) is now folded into Startup optimizations; older configurations migrate automatically. Audio CDs still work.
+Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings → System → Open Connect → Audio sources</span>** for **Pandora** and **SiriusXM**. Disabled integrations disappear from Mazda’s Sources list after restart. In the upcoming North American development candidate, [DVD](dvd.md) is folded into Startup optimizations; older configurations migrate automatically. Audio CDs still work.
 
 ### Pandora
 

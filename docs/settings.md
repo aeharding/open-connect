@@ -60,7 +60,7 @@ Open Connect is just above **About** in Mazda’s System menu. Its settings foll
 8. [**Uninstall**](uninstall.md)
 9. [**About**](about.md)
 
-On North American units, [DVD](dvd.md) is now folded into **Startup optimizations**. Older configurations migrate automatically, keeping your Startup optimizations choice and remaining preferences. The screenshots show dev.19; updated Audio sources captures await live qualification.
+In the upcoming North American development candidate, [DVD](dvd.md) is folded into **Startup optimizations**. Older configurations migrate automatically, keeping your Startup optimizations choice and remaining preferences. Retained dev.19 screenshots and dev.20 videos predate this change; updated Audio sources captures await live qualification.
 
 ## Impact at a glance
 

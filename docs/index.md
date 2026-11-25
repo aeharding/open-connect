@@ -25,7 +25,7 @@ Plug-and-play USB install.
 
 ## Supported cars
 
-Open Connect is for the original **Mazda Connect / MZD Connect** with the **7-inch screen and commander knob**. These North American model years use that system; second-generation Mazda Connect with an 8.8-inch or 10.25-inch screen is excluded.
+Open Connect is for first-generation **Mazda Connect / MZD Connect** (commander knob, 7-inch or 8-inch display depending on model and trim). First-generation Mazda Connect was available on equipped trims in these North American model years; second-generation Mazda Connect (8.8-inch or 10.25-inch widescreen) is not supported.
 
 | Model | Model years |
 | --- | --- |
@@ -36,9 +36,9 @@ Open Connect is for the original **Mazda Connect / MZD Connect** with the **7-in
 | CX-5 | 2016–2020 (2021+ US uses 10.25-inch second-generation Mazda Connect) |
 | CX-9 | 2016–2020 (2021+ US uses 10.25-inch second-generation Mazda Connect) |
 
-Some Canadian/Mexican trims and sister models (Mazda2, Toyota Yaris iA / Scion iA) also use this system — always check your screen for exact **OS Version 74.00.324 NA N** in [Quick start](usb-installer.md#1-check-your-firmware-version).
+Some Canadian/Mexican trims and sister models (Mazda2, Toyota Yaris iA / Scion iA) were also offered with first-generation Mazda Connect.
 
-The model name alone isn’t enough. Check **<span class="oc-nav-path" data-walkthrough="version-info">Settings → System → About → Version Information</span>**. **OS Version** must read **74.00.324 NA N**. Other versions and regions are unsupported.
+Model year and trim alone aren’t enough. Check **<span class="oc-nav-path" data-walkthrough="version-info">Settings → System → About → Version Information</span>** (see [Quick start](usb-installer.md#1-check-your-firmware-version)). **OS Version** must read **74.00.324 NA N**; other versions and regions are unsupported.
 
 <span id="building-open-connect"></span>
 

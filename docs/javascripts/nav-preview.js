@@ -159,24 +159,53 @@
     }
   });
   panel.addEventListener("cancel", event => { event.preventDefault(); close(); });
-  panel.addEventListener("keydown", event => {
-    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+  window.addEventListener("keydown", event => {
+    if (!panel.open) return;
+    const key = event.key;
+    const lower = key.toLowerCase();
+    if (key === "Escape") {
       event.preventDefault();
-      paused = true;
-      showStep(index + (event.key === "ArrowRight" ? 1 : -1));
-    } else if (event.key === "Tab") {
+      event.stopPropagation();
+      close();
+      return;
+    }
+    if ((key === "ArrowRight" || key === "ArrowLeft") && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (steps.length > 1) {
+        paused = true;
+        showStep(index + (key === "ArrowRight" ? 1 : -1));
+      }
+      return;
+    }
+    if (key === "Tab") {
       const controls = [...panel.querySelectorAll("button:not(:disabled)")];
       const first = controls[0];
       const last = controls[controls.length - 1];
-      if (event.shiftKey && event.target === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && event.target === last) {
+      const idx = controls.indexOf(document.activeElement);
+      if (event.shiftKey) {
+        if (idx <= 0) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (idx === -1 || idx === controls.length - 1) {
         event.preventDefault();
         first.focus();
       }
+      event.stopPropagation();
+      return;
     }
-  });
+    if ((event.metaKey || event.ctrlKey) && lower === "k") {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (!event.altKey && !event.ctrlKey && !event.metaKey && key === "/") {
+      event.preventDefault();
+    }
+    // Keep Zensical global keyboard shortcuts from firing behind the open modal.
+    event.stopPropagation();
+  }, true);
   document.addEventListener("visibilitychange", playback);
   motion.addEventListener("change", () => { if (motion.matches) paused = true; playback(); });
 })();

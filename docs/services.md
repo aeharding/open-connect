@@ -63,6 +63,6 @@ Satellite radio and SiriusXM data services default to **On**.
 
 ## Testing
 
-These are development controls for North American version **74.00.324**. Earlier builds have bench checks for saving, startup and removal. The dev.19 menu reorganization has offline checks; its native screen layout still needs a bench check. Real-car checks, Android-phone use and equipped SiriusXM/DVD playback remain unqualified. There is no public download yet.
+These are development controls for North American version **74.00.324**. Earlier builds have bench checks for saving, startup and removal, and the dev.19 menu layout has live 800×480 bench captures and Settings Uninstall verification. Real-car checks, Android-phone use, equipped SiriusXM/DVD playback and matched dev.19 benchmarks remain ahead. There is no public download yet.
 
 Startup results vary by configuration. See [Performance evidence](performance.md) for the complete measurements. A faster start than stock is not established.

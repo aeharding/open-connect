@@ -16,40 +16,40 @@ function save(m){
   return n!=null&&s!=null&&(n===v||s===v)&&(m==="C"||n!==mark+"C"&&s!==mark+"C");
 }
 arm=[get(0),get(1)].every(function(v){return v!=null&&(v.indexOf(mark)!==0||v===mark+"A");});
-function stop(){edge=null; clearTimeout(ttl);}
-function soon(){clearTimeout(job); job=setTimeout(pump,0);}
+function stop(){edge=null;clearTimeout(ttl);clearTimeout(job);}
+function soon(){if(!edge)return;clearTimeout(job);job=setTimeout(pump,0);}
 function wrap(o,k,b,e){
   var old=o[k];
   o[k]=function(){
-    try{if(b) b.apply(this,arguments);} catch(e){stop();}
+    try{if(b)b.apply(this,arguments);}catch(e){stop();}
     var r=old.apply(this,arguments);
-    try{if(e) e.apply(this,arguments);} catch(e){stop();}
+    try{if(e)e.apply(this,arguments);}catch(e){stop();}
     return r;
   };
 }
 function note(m){
-  if(m._cp) return;
+  if(m._cp)return;
   var s=at||{t:Date.now(),k:k};
   Object.defineProperty(m,"_cp",{value:{end:s.t+15000,k:s.k,seq:++n}});
   var p=m.params&&m.params.payload,id=m.msgId;
-  if(m.msgType==="focusStack") ids=m.appIdList;
+  if(m.msgType==="focusStack")ids=m.appIdList;
   if(m.msgType==="ctxtChg"){
     var fg=m.uiaId===f.getCurrentApp()||ids&&ids[0].id===m.uiaId;
-    if(fg&&m.ctxtId!=="Idle") to=m;
-    if(fg||/^(backupparking|phone)$/.test(m.uiaId)||m.ctxtId==="DisplayOff") m._cp.ctx=a.copy(m);
-    if(m.uiaId==="backupparking") m._cp.base=a.copy(f._currTmpltInstance&&f._currTmpltInstance.contextInfo);
+    if(fg&&m.ctxtId!=="Idle")to=m;
+    if(fg||/^(backupparking|phone)$/.test(m.uiaId)||m.ctxtId==="DisplayOff")m._cp.ctx=a.copy(m);
+    if(m.uiaId==="backupparking")m._cp.base=a.copy(f._currTmpltInstance&&f._currTmpltInstance.contextInfo);
   }
   if(m.uiaId==="carplay"&&id==="SendCPSessionState"&&p){
-    if(p.state===false){stop(); live=""; arm=save("A"); one=false;}
+    if(p.state===false){stop();live="";arm=save("A");one=false;}
     if(p.state===true&&(typeof p.serialId==="string"&&p.serialId&&p.serialId.length<=256||
         typeof p.btMacAddress==="string"&&/^(?:[\da-f]{2}:){5}[\da-f]{2}$/i.test(p.btMacAddress))){
       id=(p.serialId||"")+"/"+(p.btMacAddress||"");
-      if(live===id) return;
-      stop(); live=id;
-      var ok=arm; arm=false;
+      if(live===id)return;
+      stop();live=id;
+      var ok=arm;arm=false;
       if(save("C")&&ok&&(!one||!k)){
         s=f._currTmpltInstance;
-        edge=m._cp; edge.origin=a.copy(s&&s.contextInfo);
+        edge=m._cp;edge.origin=a.copy(s&&s.contextInfo);
         ttl=setTimeout(stop,Math.max(0,edge.end-Date.now()));
       }
       one=false;

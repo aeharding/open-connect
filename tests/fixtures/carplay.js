@@ -599,7 +599,21 @@ f.advance();assert.deepEqual(f.pendingTimers(),[15000],'visibility cycles leave 
 f.session(false);f.advance();assert.deepEqual(f.pendingTimers(),[],'disconnect leaves no readiness/fallback timer');
 f=make(false);f.session(true);f.menu(false,false);f.fw._frameworkState=2;f.advance(15001);
 f.fw._frameworkState=1;f.ready();f.advance();assert.equal(f.count(),0,'readiness cannot renew expired intent');
-console.log('Live regressions: non-focused cache, applied focus history, safety priority and active Nav passed');
+f=make(false);
+let idleTimers=0;
+const origSetTimeout=f.ctx.setTimeout;
+f.ctx.setTimeout=(fn,ms)=>{idleTimers++;return origSetTimeout(fn,ms);};
+for(let i=0;i<100;i++){
+  f.msg('StatusUpdateAudio',{value:i},'system');
+  f.advance();
+}
+assert.equal(idleTimers,0,'idle UI messages schedule zero timers without a pending connection');
+assert.deepEqual(f.pendingTimers(),[],'no pending timers after idle traffic');
+f.ctx.setTimeout=origSetTimeout;
+f.msg('StatusPhoneCall',{phoneCallStatus:'IncomingCall'},'system');
+f.session(true);f.menu(false,false);f.ready();f.advance();
+assert.equal(f.count(),0,'pre-connection safety tracking still suppresses after idle traffic');
+console.log('Live regressions: non-focused cache, applied focus history, safety priority, active Nav and idle timer guard passed');
 
 }
 backgroundReplay();

@@ -207,7 +207,9 @@ alone does not dismiss the durable notice. The completion dialog's explicit
 The action claims the shared loader marker through acknowledgement and readback,
 including against legacy loaders. Normal USB cleanup removes its loader node
 without discarding queued or displayed unconfirmed-result feedback; that feedback
-retains ownership until dismissed. A refused claim restores the safe completion
+retains ownership until the user presses OK. Native transitions suspend and requeue
+the feedback. Settings refreshes preserve active dismissal readback, and protected
+USB cleanup preserves in-flight refreshes. A refused claim restores the safe completion
 choice without sending dismissal. Busy refusals retry for
 up to six seconds, reserving the rest of a twelve-second budget for strict
 readback. Refusals refresh status; uncertain acknowledgements reconcile without

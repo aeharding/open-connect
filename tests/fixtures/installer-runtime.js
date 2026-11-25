@@ -174,6 +174,7 @@ f.reply(f.requests[0], f.state({installed: true, version: "0.3.0-dev.6",
     installedVersion: "0.3.0-dev.5"}));
 f.tick(); f.choices[0].done("cancel");
 assert.equal(f.store.read().pandora, undefined);
+f.reply(f.requests.at(-1), {ok: true});
 f.store.write("touch", 0, 1, () => {});
 assert.equal(f.requests.at(-1).body, token + "|" + revision + "|set|touch|0|1");
 f = fixture();
@@ -533,8 +534,8 @@ assert.equal(f.requests.filter(r=>r.body.includes("|install|")).length,1);
 
 f=fixture(); f.start(token,true); f.reply(f.requests[0],f.state()); f.tick();
 f.eligible(false); f.choices[0].done("install"); f.ctx.OpenConnect.cancelUSB(token);
-f.eligible(true); f.tick(); assert.equal(f.requests.filter(r=>r.body.includes("|install|")).length,0);
-assert.equal(f.ctx.__ocUSBLoading,undefined);
+assert.equal(f.ctx.OpenConnect.protected(),true);assert.ok(f.ctx.__ocUSBLoading);
+f.eligible(true); f.tick(); assert.equal(f.requests.filter(r=>r.body.includes("|install|")).length,1);
 
 // Settings removal survives purge and old-media arrivals with no USB wording.
 f=fixture(); f.start(token,false); f.reply(f.requests[0],f.state({installed:true})); f.tick();
@@ -1097,3 +1098,73 @@ for(const failure of ["invalid_record","deadline"])for(const deferred of [false,
     f.insert(true);assert.notEqual(f.ctx.OpenConnect,owner);assert.ok(f.loads.length>count);
 }
 console.log("Lease regressions: legacy exclusion, claim refusal and retained unconfirmed feedback passed");
+
+// A manual cold Settings tap cannot retire a lost-ACK dismissal's strict
+// readback, deadline or loader lease. New writes cannot take its intent either.
+for(const outcome of ["confirmed","deadline"]){
+    click=completionClick(true);f=click.f;
+    const owner=f.ctx.OpenConnect,lease=f.ctx.__ocUSBLoading,count=f.loads.length;
+    f.reply(f.requests[1],null);f.reply(f.requests[2],{ok:false,error:"busy"});
+    cold=f.openSettings(true,true);cold.tap();cold.tap();
+    assert.equal(f.requests.length,4);assert.match(f.requests[3].body,/\|status\|settings\|-\|-$/);
+    assert.equal(f.store.pending(true),false);
+    f.store.uninstall();assert.equal(f.requests.length,4);
+    f.insert(true);assert.equal(f.ctx.OpenConnect,owner);assert.equal(f.loads.length,count);
+    f.ctx.OpenConnect.cancelUSB(token);f.advance(500);
+    assert.equal(f.requests.length,5);assert.match(f.requests[4].body,/\|status\|-\|-\|-$/);
+    if(outcome==="confirmed"){
+        f.reply(f.requests[3],f.state({installed:true}));assert.equal(cold.pages.length,1);
+        f.reply(f.requests[4],f.state({installed:true,notice:"-",installedVersion:"0.3.0-dev.20"}));
+        assert.equal(click.navigations,1);assert.equal(f.messages.length,0);
+    }else{
+        f.advance(11500);assert.equal(f.requests[4].aborted,true);
+        f.tick();assert.equal(f.messages.at(-1).title,"Unable to confirm");
+        assert.equal(click.navigations,0);assert.equal(f.ctx.__ocUSBLoading,lease);
+        f.messages.at(-1).done("done");
+        f.reply(f.requests[4],f.state({installed:true,notice:"-",installedVersion:"0.3.0-dev.20"}));
+        assert.equal(click.navigations,0); // Late readback is never a second completion.
+    }
+    assert.equal(f.requests.filter(r=>r.body.includes("|dismiss|")).length,1);
+    assert.equal(owner.protected(),false);assert.equal(f.ctx.__ocUSBLoading,undefined);
+    cold.detach();f.insert(true);assert.notEqual(f.ctx.OpenConnect,owner);assert.ok(f.loads.length>count);
+}
+
+// Native transitions cancel the visible alert, not its acknowledgment lease.
+// Hold through repeated interruptions and ineligible ticks until explicit OK.
+click=completionClick(true);f=click.f;
+const feedbackOwner=f.ctx.OpenConnect,feedbackLease=f.ctx.__ocUSBLoading,feedbackLoads=f.loads.length;
+f.reply(f.requests[1],null);f.reply(f.requests[2],{ok:false,error:"invalid_record"});f.tick();
+for(let i=0;i<3;i++){
+    assert.equal(f.messages.length,i+1);const alert=f.messages.at(-1);
+    f.messageEligible(false);alert.done("cancel");f.tick();
+    assert.equal(alert.closed,true);assert.equal(f.messages.length,i+1);
+    assert.equal(feedbackOwner.protected(),true);assert.equal(f.ctx.__ocUSBLoading,feedbackLease);
+    f.insert(true);assert.equal(f.ctx.OpenConnect,feedbackOwner);assert.equal(f.loads.length,feedbackLoads);
+    f.ctx.OpenConnect.cancelUSB(token);f.tick();assert.equal(f.messages.length,i+1);
+    assert.equal(f.ctx.document.getElementById("oc-usb-loader"),undefined);
+    f.messageEligible(true);f.tick();assert.equal(f.messages.at(-1).title,"Unable to confirm");
+}
+f.messages.at(-1).done("done");f.tick();f.tick();
+assert.equal(f.messages.length,4);assert.equal(feedbackOwner.protected(),false);
+assert.equal(f.ctx.__ocUSBLoading,undefined);assert.equal(click.navigations,0);
+f.insert(true);assert.notEqual(f.ctx.OpenConnect,feedbackOwner);assert.ok(f.loads.length>feedbackLoads);
+
+// Same-token cleanup during queued feedback preserves the actual Settings
+// refresh and all coalesced cold-entry waiters, including its first response.
+for(const visible of [false,true]){
+    click=completionClick(true);f=click.f;f.messageEligible(visible);
+    f.reply(f.requests[1],null);f.reply(f.requests[2],{ok:false,error:"invalid_record"});
+    f.tick();assert.equal(f.messages.length,visible?1:0);
+    cold=f.openSettings(true,true);cold.tap();cold.tap();const refresh=f.requests[3];
+    assert.equal(f.requests.length,4);const lease=f.ctx.__ocUSBLoading;
+    f.insert(true);f.ctx.OpenConnect.cancelUSB(token);
+    assert.equal(f.ctx.document.getElementById("oc-usb-loader"),undefined);
+    assert.equal(f.ctx.__ocUSBLoading,lease);assert.equal(refresh.aborted,undefined);
+    f.reply(refresh,f.state({installed:true,restart:true}));
+    assert.equal(cold.pages.length,1);assert.equal(f.store.read().restart,true);
+    f.messageEligible(true);f.tick();assert.equal(f.messages.length,1);
+    assert.equal(f.messages[0].title,"Unable to confirm");f.messages[0].done("done");
+    assert.equal(f.ctx.OpenConnect.protected(),false);assert.equal(f.ctx.__ocUSBLoading,undefined);
+    assert.equal(click.navigations,0);assert.equal(f.requests.length,4);cold.detach();
+}
+console.log("Lifecycle regressions: dismiss/refresh ownership, native feedback interruption and protected USB cleanup passed");

@@ -200,4 +200,4 @@ Download [1,698 samples](assets/performance/pandora/startup-samples.csv),
 [20 visual timing intervals](assets/performance/pandora/startup-timings.csv) and
 [200 separate-device I/O records](assets/performance/pandora/startup-io.csv).
 The summary and figure are derived from those files. The Services control is
-explained in the [owner guide](services.md).
+explained in the [Pandora guide](pandora.md).

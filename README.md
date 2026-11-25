@@ -9,7 +9,7 @@ Make your Mazda infotainment screen faster, more capable, and customizable.
 
 Plug-and-play USB install.
 
-**Still in testing. No public download yet.** The current preview is **0.3.0-dev.19**. No real-car installations have been validated. Startup gains vary by configuration; faster startup than stock is not established.
+**0.3.0-dev.19 is a development prerelease.** Real-car qualification remains pending. Startup gains vary by configuration; faster startup than stock is not established.
 
 [Owner guide](https://aeharding.github.io/open-connect/) · [Quick start](docs/usb-installer.md) · [Settings](docs/settings.md) · [Uninstall](docs/uninstall.md)
 

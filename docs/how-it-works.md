@@ -30,4 +30,4 @@ Startup and memory overhead remain under development. Bench improvements do not 
 
 This restores the state found before installation. It is not a factory reset.
 
-The current preview is for North American version **74.00.324**. Real-car qualification is still ahead; no public download is available yet.
+The **0.3.0-dev.19 development prerelease** is for North American version **74.00.324**. Real-car qualification remains pending.

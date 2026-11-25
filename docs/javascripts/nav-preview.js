@@ -24,27 +24,51 @@
   // Resolve from this file, including on nested pages and GitHub Pages subpaths.
   const assets = new URL("../assets/guide/", document.currentScript.src);
   const entry = ["settings-entry.png", "System tab → Open Connect"];
-  const settings = ["settings.png", "Open Connect settings"];
-  const phone = ["carplay-android-auto.png", "CarPlay & Android Auto"];
+  const settings = ["setting-touchscreen-while-driving.png", "Open Connect settings"];
+  const phone = ["setting-carplay-android-auto.png", "Open Connect → CarPlay & Android Auto"];
+  const wireless = ["setting-wireless-carplay.png", "CarPlay & Android Auto → Wireless CarPlay"];
+  const audio = ["setting-audio-sources.png", "Open Connect → Audio sources"];
+  const sources = ["setting-dvd.png", "Audio sources → DVD"];
+  // Reviewed native Commander Dial highlights; per-file identities are in the asset notes.
   const paths = {
     "open-connect": [entry, settings],
-    touchscreen: [entry, settings, ["touch.png", "Touchscreen While Driving → Allow"]],
-    disclaimer: [entry, settings, ["warning.png", "Startup disclaimer → Skip"]],
-    "wireless-setup": [entry, settings, phone,
+    touchscreen: [entry, ["setting-touchscreen-while-driving.png", "Open Connect → Touchscreen While Driving"]],
+    disclaimer: [entry, ["setting-startup-disclaimer.png", "Open Connect → Startup disclaimer"]],
+    "startup-optimizations": [entry, ["setting-startup-optimizations.png", "Open Connect → Startup optimizations"]],
+    "wireless-carplay": [entry, phone, wireless],
+    "carplay-on-connection": [entry, phone,
+      ["setting-show-carplay-on-connection.png", "CarPlay & Android Auto → Show CarPlay on connection"]],
+    "android-auto": [entry, phone, ["setting-android-auto.png", "CarPlay & Android Auto → Android Auto"]],
+    "wireless-setup": [entry, phone, wireless,
       ["wireless-enable.png", "Wireless CarPlay → Enable"],
       ["wireless-mode.png", "After a full restart: Devices → Wi-Fi → Apple CarPlay"]],
     "wireless-wifi": [["wireless-mode.png", "Devices → Wi-Fi → Apple CarPlay"]],
     "wireless-connect": [["wireless-mode.png", "First choose Apple CarPlay in Devices → Wi-Fi"]],
-    services: [entry, settings, ["audio-sources-menu.png", "Audio sources"]],
-    "startup-optimizations": [entry, settings],
-    "phone-connections": [entry, settings, phone],
-    "audio-sources": [entry, settings, ["audio-sources-menu.png", "Audio sources"]],
-    "developer-options": [entry, settings, ["developer-options.png", "Developer options"]],
-    uninstall: [entry, settings, ["uninstall.png", "Uninstall confirmation"]],
+    services: [entry, audio, sources],
+    "phone-connections": [entry, phone, wireless],
+    "audio-sources": [entry, audio, sources],
+    dvd: [entry, audio, sources],
+    pandora: [entry, audio, ["setting-pandora.png", "Audio sources → Pandora"]],
+    siriusxm: [entry, audio, ["setting-siriusxm.png", "Audio sources → SiriusXM"]],
+    "developer-options": [entry, ["setting-developer-options.png", "Open Connect → Developer options"],
+      ["developer-options.png", "Developer options"]],
+    uninstall: [entry, ["setting-uninstall.png", "Open Connect → Uninstall"]],
+    about: [entry, ["setting-about.png", "Open Connect → About"]],
     "version-info": [["settings-entry.png", "System tab → About (below Open Connect)"],
       ["version-info.png", "Version Information → OS Version"]],
   };
   const notes = {
+    touchscreen: "Select Touchscreen While Driving, then choose Allow or Factory Default.",
+    disclaimer: "Select Startup disclaimer, then choose Skip or Show.",
+    "wireless-carplay": "Turn on Wireless CarPlay and confirm Enable. The screenshot shows it on; fresh installations leave it off unless factory enabled.",
+    "carplay-on-connection": "Select Show CarPlay on connection, then choose Factory behavior or Automatically show. The screenshot shows the Factory default.",
+    "android-auto": "Turn Android Auto on or off and confirm the change.",
+    "startup-optimizations": "Turn Startup optimizations on or off and confirm the change. The screenshot shows it on; the fresh-install default is Off.",
+    dvd: "Turn DVD on or off and confirm the change. Audio CDs are independent of DVD video support.",
+    pandora: "Turn Pandora on or off and confirm the change. This controls Mazda’s integration, not Pandora through CarPlay or Bluetooth.",
+    siriusxm: "Turn SiriusXM on or off and confirm the change. This controls satellite radio and SiriusXM data.",
+    uninstall: "Select Uninstall and confirm Uninstall. Keep the car on until the automatic restart finishes.",
+    about: "Select About to see the installed Open Connect version.",
     "wireless-connect": "After choosing Apple CarPlay here, return to Devices → Apple CarPlay, select your iPhone and choose Connect.",
   };
   const motion = matchMedia("(prefers-reduced-motion: reduce)");

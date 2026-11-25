@@ -1,28 +1,55 @@
 # Show CarPlay on connection
 
-Open **Mazda Settings → System → Open Connect → CarPlay & Android Auto → Show CarPlay on connection**. The list shows **Factory** or **Auto**. It defaults to **Factory behavior**. Choose **Automatically show**, confirm, then restart Mazda Connect.
+Open CarPlay when your iPhone connects, including after startup and reconnection.
 
-**Impact:** Neutral — no measured startup or free-RAM gain is established.<br>
-**Trade-off:** CarPlay can replace your current screen when your iPhone connects. Your input, calls and Mazda’s safety controls take priority.<br>
-**Evidence:** Offline replays and bench wireless checks on 74.00.324A NA; source-accounted own file-page delta is 0 B (`carplay.js` +4 KiB offset by `settings.js` 32→28 KiB). Matched [Performance evidence](performance.md) timing and PSS measurements remain ahead.
+<dl class="oc-spec">
+  <div>
+    <dt>Menu</dt>
+    <dd><span class="oc-nav-path" data-walkthrough="carplay-on-connection">Open Connect → CarPlay &amp; Android Auto</span></dd>
+  </div>
+  <div>
+    <dt>Default</dt>
+    <dd><span class="oc-default oc-default--off">Factory</span></dd>
+  </div>
+  <div>
+    <dt>Impact</dt>
+    <dd>Neutral</dd>
+  </div>
+  <div>
+    <dt>Applies</dt>
+    <dd>Next full startup</dd>
+  </div>
+</dl>
 
-With this option enabled, Open Connect requests CarPlay when your iPhone connects,
-including after startup and after disconnecting and reconnecting. It supports
-wired CarPlay and an already configured wireless connection. Use the separate
-[Wireless CarPlay](wireless-carplay.md) option to enable wireless availability.
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/setting-show-carplay-on-connection.png" alt="Show CarPlay on connection highlighted in the CarPlay and Android Auto submenu, with Factory displayed." width="800" height="480"></div>
+  <figcaption>Show CarPlay on connection highlighted (dev.19), showing the Factory default.</figcaption>
+</figure>
 
-You can return to Mazda Connect at any time. Open Connect makes at most one
-request for each connection; it does not repeatedly pull you back into CarPlay.
-Calls, voice control, Settings, maintenance dialogs and deliberate input take
-priority. A pending request expires after 15 seconds. Mazda still controls
-screen ownership, reverse-camera priority and whether the request succeeds.
+## Notes
 
-Choose **Factory behavior** and restart to restore Mazda's original selection
-behavior. Updates retain your choice; upgrading from dev.17 starts with it off.
+<p><span class="oc-default oc-default--off">Factory behavior</span> (<strong>Factory</strong> in the list).</p>
 
-On the bench, wireless auto-selection succeeded from Mazda Home and OEM
-Navigation (`emnavi/Active`) with deliberate suppression in Settings and clean
-Long-Home return. One intermittent post-cue native acceptance miss was observed
-on the headless bench with Startup optimizations enabled (subsequent reconnects
-passed). Wired CarPlay, live call/Siri/reverse interaction, real-car testing
-and matched timing/RAM benchmarks remain ahead.
+<p><strong>Neutral</strong> — no isolated startup gain is established. Source-accounted own file pages changed <strong>0 B</strong> (<code>carplay.js</code> +4 KiB offset by <code>settings.js</code> 32→28 KiB); matched timing and PSS measurements remain ahead.</p>
+
+<p>CarPlay may replace your current screen on connection. Input, calls, voice control, Settings and maintenance dialogs take priority; Mazda retains screen and reverse-camera control.</p>
+
+<p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
+
+<p>Offline replays and wireless bench checks cover <strong>74.00.324A NA</strong>. One intermittent native acceptance miss occurred with Startup optimizations on; subsequent reconnects passed. Wired auto-selection, live call/Siri/reverse interaction and real-car use remain unqualified. See <a href="performance.md">Performance evidence</a>; matched dev.19 benchmarks remain ahead. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+
+
+## Options
+
+| Choice | List label | Behavior |
+| --- | --- | --- |
+| **Factory behavior** | Factory | Uses Mazda’s original screen-selection behavior. |
+| **Automatically show** | Auto | Requests CarPlay when your iPhone connects. |
+
+Select **Automatically show**, confirm **Enable**, then let Mazda Connect shut down fully before restarting. Select **Factory behavior** and restart to restore Mazda’s behavior. Updates retain your choice; upgrading from dev.17 starts with it off.
+
+This supports wired CarPlay and an already configured wireless connection. Use [Wireless CarPlay](wireless-carplay.md) to enable wireless availability.
+
+You can return to Mazda Connect at any time. Open Connect makes at most one request per connection; a pending request expires after 15 seconds. It does not repeatedly pull you back into CarPlay. Bench wireless selection worked from Mazda’s main screen and Navigation, with deliberate suppression in Settings and a clean Long-Home return.
+
+[Back to Settings](settings.md)

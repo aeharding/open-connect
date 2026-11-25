@@ -86,6 +86,123 @@ Label proposals as proposals and match detail to implementation maturity.
 A useful experiment or partial improvement is not automatically a delivered
 feature. Separate device observations from failures in the capture or runner.
 
+## Setting page template
+
+Give every setting its own Markdown page and sidebar entry, using the exact
+in-car label and menu order. Link directly to that page. Keep the old Services
+index and its anchors working for existing links.
+
+Use this order on each setting page:
+
+1. The in-car setting name as the H1, followed by a short introduction.
+2. A compact `<dl class="oc-spec">` bar with four cells in the same order on every
+   page: **Menu**, **Default**, **Impact**, **Applies**. Each cell groups one `<dt>`
+   and one `<dd>` in a `<div>`.
+3. The unedited native 800×480 screenshot in the existing `.oc-screen` figure.
+4. **Notes** below the screenshot for default exceptions, measured startup/RAM
+   context, trade-offs, boot implications, restart guidance and evidence limits.
+5. Setting-specific choices or steps, then a link back to Settings.
+
+The bar is for tidbits, not paragraphs. Use short defaults such as **Allow**,
+**Skip**, **Off**, **Factory**, **On**, **UART/SSH Off** or **—**. Use muted neutral
+ink for Off/Factory and subtle green for enabled defaults. Keep Impact on every
+page: **Neutral** where no measured startup gain is established,
+**Faster · +9.9 MiB free (dev.7)** for Startup optimizations, and
+**+3.2 MiB free off (dev.6)** for Pandora. Keep the complete startup/RAM notes
+below every screenshot, including the neutral settings.
+Use **Next full startup**, **Auto restart**, **Read-only** or **Per setting** for
+Applies. Keep the exact memory metric, comparison configuration and outstanding
+qualification in Notes.
+
+Keep Menu short: **Open Connect** for top-level settings, **Open Connect →
+CarPlay & Android Auto** for phone settings, and **Open Connect → Audio sources**
+for audio settings. The overview uses **Settings → System → Open Connect**.
+Make the location clickable with `.oc-nav-path` and the existing
+`data-walkthrough`; the modal still shows the complete navigation sequence.
+Use medium-weight text and dotted text decoration rather than a border underline.
+
+The bar fills the desktop width with four horizontal cells and uses a 2×2 grid
+below 40rem. Keep it around 70–90px tall on desktop so the screenshot remains
+visible immediately.
+Use hairline rules, a subtle surface tint and a 2px red left edge in both schemes.
+Long menu names may wrap on narrow screens; never clip text or overflow the page.
+Keep `.oc-default--on` or `.oc-default--off` with `.oc-default` where applicable.
+
+Write clean HTML inside the bar. Only `attr_list` is enabled, so Markdown inside
+HTML containers will not be parsed. For example:
+
+~~~html
+<dl class="oc-spec">
+  <div>
+    <dt>Menu</dt>
+    <dd><span class="oc-nav-path" data-walkthrough="dvd">Open Connect → Audio sources</span></dd>
+  </div>
+  <div>
+    <dt>Default</dt>
+    <dd><span class="oc-default oc-default--off">Off</span></dd>
+  </div>
+  <div>
+    <dt>Impact</dt>
+    <dd>Neutral</dd>
+  </div>
+  <div>
+    <dt>Applies</dt>
+    <dd>Next full startup</dd>
+  </div>
+</dl>
+~~~
+
+In Notes, retain all factual limits: the dev.19 development prerelease status,
+pending real-car qualification, links to [Performance evidence](performance.md)
+and [restart guidance](settings.md#apply-changes), and the exact conditions for
+any Navigation delay. Neutral means no measured startup gain is established.
+Identify earlier-build measurements, name MemFree when reporting free RAM, and
+keep its caveats. Preserve existing anchors when moving content.
+
+Use `<strong>`, `<code>` and `<a>` inside HTML paragraphs. Use documentation
+source filenames in links, such as `performance.md` and `settings.md#apply-changes`.
+Zensical rewrites these to directory URLs (`../performance/` and
+`../settings/#apply-changes`) in generated setting pages. Hardcoding those output
+URLs in source adds the page depth twice. Validate both the root and
+`/open-connect/` builds and crawl the generated links after changing them.
+
+Use the reviewed `setting-*.png` capture with the corresponding row highlighted
+for each setting’s figure and walkthrough. The red highlight is Mazda’s native
+Commander Dial focus. Show the selected value accurately in captions; captures
+may differ from fresh-install defaults. Keep capture provenance accurate. Use
+plain prose and lists; avoid hero cards and badges.
+
+Describe the current dev.19 restart behavior. Document new controls only after
+their implementation merges.
+
+## Commander Dial capture provenance
+
+The fourteen `setting-*.png` images added for
+[#137](https://github.com/aeharding/open-connect/issues/137) and
+[#143](https://github.com/aeharding/open-connect/issues/143) were supplied on
+**November 24, 2026** from **v0.3.0-dev.19**, **74.00.324A NA/cmu150_NA**.
+They are unedited native **800×480 `/dev/fb0` BGRA readbacks**, navigated with
+Commander Dial events and no touch injection, with Bluetooth disconnected.
+Both the documentation implementer and coordinator inspected all fourteen for
+personal data, credentials and diagnostic overlays before publication.
+
+The coordinator identified tag commit
+[`f478f3b2`](https://github.com/aeharding/open-connect/tree/f478f3b282f6987d86e04c03d83b1a6971d5a3db)
+and supplied two archive identities:
+
+- Published GitHub [v0.3.0-dev.19 prerelease](https://github.com/aeharding/open-connect/releases/tag/v0.3.0-dev.19)
+  ZIP, as recorded in the release’s `SHA256SUMS`: `c2c09b3123a2145f3582d3ee7f1e692581b1196ab18c5ba60fc198d79716c486`.
+- Local coordinator build ZIP: `d4f0feaf4813ef5707d0f2528a0a98b70b571b1def56582b50e35ec463e5048d`.
+
+The coordinator reports that all **50 extracted file members are byte-for-byte
+identical** between these archives; the ZIP archive hashes differ.
+
+The [per-file provenance and SHA-256 table](assets/guide/README.md#commander-dial-setting-captures-2026-11-24)
+records the copied bytes, shown preferences and private supplied-original paths.
+Copying and hash checks were offline; this docs change makes no new live package,
+physical-controller or real-car qualification claim. Older ancillary captures
+retain their existing identities.
+
 ## Write useful reverse-engineering notes
 
 A finding should name the exact firmware and component, explain what was learned,

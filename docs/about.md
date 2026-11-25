@@ -2,12 +2,47 @@
 
 See which version of Open Connect is installed.
 
-**Impact:** Neutral — viewing the installed version changes no settings.<br>
-**Trade-off:** None; this page only shows version information.<br>
-**Evidence:** Read-only version display; no startup or RAM claim. See [Performance evidence](performance.md) for measured configurations.
+<dl class="oc-spec">
+  <div>
+    <dt>Menu</dt>
+    <dd><span class="oc-nav-path" data-walkthrough="about">Open Connect</span></dd>
+  </div>
+  <div>
+    <dt>Default</dt>
+    <dd>—</dd>
+  </div>
+  <div>
+    <dt>Impact</dt>
+    <dd>Neutral</dd>
+  </div>
+  <div>
+    <dt>Applies</dt>
+    <dd>Read-only</dd>
+  </div>
+</dl>
 
-Open **<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>**, scroll down and select **About**.
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/setting-about.png" alt="About highlighted at the bottom of the Open Connect menu." width="800" height="480"></div>
+  <figcaption>About highlighted (dev.19).</figcaption>
+</figure>
 
-The current development preview is **0.3.0-dev.19** for North American Mazda Connect **74.00.324**. It is still in testing. Real-car qualification remains, and no public download is available yet.
+## Notes
+
+<p>No preference; displays the installed Open Connect version.</p>
+
+<p><strong>Neutral</strong> — viewing version information changes no settings; no startup or RAM claim.</p>
+
+<p>None; opening About does not change startup behavior.</p>
+
+<p>Read-only; opens immediately and needs no restart.</p>
+
+<p>The dev.19 menu has bench captures on <strong>74.00.324A NA</strong>; real-car qualification remains ahead. <a href="performance.md">Performance evidence</a> describes measured configurations. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+
+
+## Check the version
+
+Select **About**. The current development preview is **0.3.0-dev.19** for North American Mazda Connect **74.00.324**.
+
+This is Open Connect’s About entry. To check Mazda’s firmware version, use **<span class="oc-nav-path" data-walkthrough="version-info">Mazda Settings → System → About → Version Information</span>** instead.
 
 [Back to Settings](settings.md)

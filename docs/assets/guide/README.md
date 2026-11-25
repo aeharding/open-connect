@@ -1,5 +1,64 @@
 # Guide image provenance
 
+<span id="commander-dial-setting-captures-november-24-2026"></span>
+<span id="commander-dial-setting-captures--november-24-2026"></span>
+
+## Commander Dial setting captures 2026-11-24
+
+The fourteen `setting-*.png` images are direct, unedited native **800×480**
+**BGRA framebuffer (`/dev/fb0`) readbacks**, supplied by the capture operator.
+They show **0.3.0-dev.19** on **74.00.324A NA/cmu150_NA**. Navigation used
+Commander Dial events, with no touch injection; Bluetooth was disconnected.
+Each complete PNG was visually reviewed by the documentation implementer and
+coordinator for personal data, credentials, clipping and diagnostic overlays.
+The red highlight is Mazda’s native row focus, not an image edit.
+These are bench software UI captures, separate from real-car qualification and
+physical Commander Dial hardware validation.
+
+The coordinator identified **v0.3.0-dev.19**, tag commit
+[`f478f3b2`](https://github.com/aeharding/open-connect/tree/f478f3b282f6987d86e04c03d83b1a6971d5a3db),
+with two distinct archive identities:
+
+- Published GitHub [v0.3.0-dev.19 prerelease](https://github.com/aeharding/open-connect/releases/tag/v0.3.0-dev.19)
+  ZIP, as recorded in the release’s `SHA256SUMS`: `c2c09b3123a2145f3582d3ee7f1e692581b1196ab18c5ba60fc198d79716c486`.
+- Local coordinator build ZIP: `d4f0feaf4813ef5707d0f2528a0a98b70b571b1def56582b50e35ec463e5048d`.
+
+The coordinator reports that all **50 extracted file members are byte-for-byte
+identical** between these archives; the ZIP archive hashes differ.
+
+The documentation implementer inspected and copied the supplied files offline;
+no new live identity or package verification was performed for this docs change.
+
+Captures show Touchscreen Allow, disclaimer Skip, Startup optimizations and
+Wireless CarPlay on, Show CarPlay on connection Factory, Android Auto/Pandora/
+SiriusXM on and DVD off. A highlighted row is not a changed preference; shown
+values are not all fresh-install defaults. The Developer options capture shows
+its parent row rather than its access controls.
+
+| Asset | SHA-256 |
+| --- | --- |
+| `setting-touchscreen-while-driving.png` | `cfd64b084b0417cd531957390e6875c2f5e5df17b58cae044a9cca80f769a3aa` |
+| `setting-startup-disclaimer.png` | `9b5eaf8fadc9af939db645fb126070c30e112b0424ebbbb276a0d9a2cbad19ed` |
+| `setting-startup-optimizations.png` | `4750d5d7841f1c17329fc6820335f6ba4f37f54dd2259fc6b1589ee3ad3cb7a0` |
+| `setting-carplay-android-auto.png` | `6c11b8bf9c8f51f61b95bef93b5bf5110a3e1581f2b4a3a592d3f7fcd815e0d3` |
+| `setting-wireless-carplay.png` | `d61310e8fb7f10e6dad0616a01188f6165977e5132d3b810f3d321e46cb4cc03` |
+| `setting-show-carplay-on-connection.png` | `33eebd70ca15e1d0caa1826ec40c339372e87c9640edb552a90c4cf36073e652` |
+| `setting-android-auto.png` | `342879f73ca3974a1ee0694d64f40ddba41410d0bcecab10be675f8398031b2e` |
+| `setting-audio-sources.png` | `15a577980a3d1553bb1d140e9894e2b63171e00bb40646c2d2f3af594dd1c725` |
+| `setting-dvd.png` | `61f6f0234040b201af85db8f1df4ccbbf847f84e00918f6017b546ca39419c16` |
+| `setting-pandora.png` | `f8a8a82173921c6b8aa843630d6a5f0a59e80b0333312ebaeaff646b0197ec10` |
+| `setting-siriusxm.png` | `910c54500e9e8507ba857108515d62d7968ab83a8c4f163e1fdf158b305c3555` |
+| `setting-developer-options.png` | `384aca291b48f190823f346433fc04257752798828ad61fef89fe320c84c76ce` |
+| `setting-uninstall.png` | `f7e12d35c2b77027a19609d4b6237e83ba9c4079e9a486d45cf4477f32321649` |
+| `setting-about.png` | `a26b812d028c3fdecdfb224a06e187cf88f05e2d72a9544a6e81b03916d73b9d` |
+
+Private supplied originals: `runs/fb0-capture-proto/highlighted/{name}.png`;
+`events.json` in that directory records the initial twelve captures. The final
+Touchscreen While Driving and Startup disclaimer PNGs were supplied afterward,
+and their received hashes were separately confirmed by the coordinator.
+All copied hashes were checked against the supplied bytes. Existing images and
+historical records below retain their own capture methods and identities.
+
 ## Reorganized Settings menu — November 24, 2026
 
 `settings.png`, `carplay-android-auto.png`, `audio-sources-menu.png`,
@@ -123,7 +182,10 @@ completion is from its new boot and Open settings opened the installed page.
 The older per-version records below are
 historical provenance; Git retains their superseded image bytes.
 
-## Applied Audio Sources — November 23, 2026
+<span id="applied-audio-sources-november-23-2026"></span>
+<span id="applied-audio-sources--november-23-2026"></span>
+
+## Applied Audio Sources 2026-11-23
 
 `audio-sources.png` is a direct, unedited 800×480 native screenshot of
 **0.3.0-dev.15** on **74.00.324A NA/cmu150_NA**. Base is on, Android Auto and

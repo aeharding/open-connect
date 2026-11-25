@@ -8,10 +8,10 @@ Plug-and-play USB install.
 [Browse settings →](settings.md)
 { .oc-actions }
 
-<p class="oc-availability">Still in testing. No public download yet, and no real-car installations have been validated. Currently for North American version <strong>74.00.324</strong> only. Startup gains vary by configuration; faster startup than stock is not established.</p>
+<p class="oc-availability"><strong>0.3.0-dev.19</strong> is a development prerelease; real-car qualification remains pending. Currently for North American version <strong>74.00.324</strong> only. Startup gains vary by configuration; faster startup than stock is not established.</p>
 
 <figure class="oc-screen oc-screen--lead">
-  <div class="oc-screen-frame"><img src="assets/guide/settings.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>
+  <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen-while-driving.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>
   <figcaption><span class="oc-nav-path" data-walkthrough="open-connect">Settings → System → Open Connect</span> (0.3.0-dev.19).</figcaption>
 </figure>
 
@@ -19,9 +19,9 @@ Plug-and-play USB install.
 
 - **[Touchscreen While Driving](touchscreen.md)**: keep touch available for a passenger.
 - **[Startup disclaimer](disclaimer.md)**: continue to your usual screen.
-- **[Startup optimizations](services.md#base-optimizations)**: reduce background logging and unused services.
-- **CarPlay & Android Auto**: [wireless connections](wireless-carplay.md), [Show CarPlay on connection](carplay-on-connection.md) and [Android Auto](services.md#android-auto).
-- **[Audio sources](services.md#audio-sources)**: choose DVD, Pandora and SiriusXM.
+- **[Startup optimizations](startup-optimizations.md)**: reduce background logging and unused services.
+- **CarPlay & Android Auto**: [wireless connections](wireless-carplay.md), [Show CarPlay on connection](carplay-on-connection.md) and [Android Auto](android-auto.md).
+- **Audio sources**: choose [DVD](dvd.md), [Pandora](pandora.md) and [SiriusXM](siriusxm.md).
 - **[Developer options](developer-options.md)**: UART, SSH and Import public key for your own access.
 - **[Uninstall](uninstall.md)**: restore the configuration saved before installation.
 - **[About](about.md)**: check the installed version.

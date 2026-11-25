@@ -21,16 +21,16 @@ nav = [
     { "Overview" = "settings.md" },
     { "Touchscreen While Driving" = "touchscreen.md" },
     { "Startup disclaimer" = "disclaimer.md" },
-    { "Startup optimizations" = "services/#base-optimizations" },
+    { "Startup optimizations" = "startup-optimizations.md" },
     { "CarPlay & Android Auto" = [
       { "Wireless CarPlay" = "wireless-carplay.md" },
       { "Show CarPlay on connection" = "carplay-on-connection.md" },
-      { "Android Auto" = "services/#android-auto" }
+      { "Android Auto" = "android-auto.md" }
     ] },
     { "Audio sources" = [
-      { "DVD" = "services/#dvd" },
-      { "Pandora" = "services/#pandora" },
-      { "SiriusXM" = "services/#siriusxm" }
+      { "DVD" = "dvd.md" },
+      { "Pandora" = "pandora.md" },
+      { "SiriusXM" = "siriusxm.md" }
     ] },
     { "Developer options" = "developer-options.md" },
     { "Uninstall" = "uninstall.md" },

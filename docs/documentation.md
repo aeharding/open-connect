@@ -94,12 +94,53 @@ index and its anchors working for existing links.
 
 Use this order on each setting page:
 
-1. The in-car setting name as the H1, followed by one sentence describing it.
-2. The complete clickable menu path with `.oc-nav-path` and `data-walkthrough`.
+1. The in-car setting name as the H1, followed by a short introduction.
+2. A `<dl class="oc-spec">` specification header immediately below the introduction,
+   with six rows in this order: **Location**, **Default**, **Startup & RAM**,
+   **Trade-offs & boot**, **Applies**, **Evidence**.
 3. An unedited native 800×480 screenshot in the existing `.oc-screen` figure.
-4. A compact list: **Default**, **Startup & RAM impact**, **Trade-offs & boot implications**,
-   **Applies**, **Evidence & limits**.
-5. Setting-specific choices or steps, then a link back to Settings.
+4. Setting-specific choices or steps, then a link back to Settings.
+
+Keep Location short: **Open Connect** for top-level settings, **Open Connect →
+CarPlay & Android Auto** for phone settings, and **Open Connect → Audio sources**
+for audio settings. The overview uses **Settings → System → Open Connect**.
+Make that short location clickable with `.oc-nav-path` and the setting’s existing
+`data-walkthrough`; the modal still shows the complete navigation sequence.
+Use medium-weight text and dotted text decoration rather than a border underline,
+so wrapped text has no line extending across the page.
+
+The header uses aligned label/value columns, hairline row rules, a subtle surface
+tint and a 2px red left edge. Below 40rem, each label stacks above its value.
+The same markup works in both light and dark schemes.
+
+Write clean HTML inside the definition list. Only `attr_list` is enabled;
+Markdown emphasis and links inside HTML containers will not be parsed. Use
+`<strong>`, `<code>` and `<a>` instead. Use documentation source filenames in
+HTML links, such as `performance.md` and `settings.md#apply-changes`. Zensical
+rewrites these to directory URLs (`../performance/` and
+`../settings/#apply-changes`) in the generated setting pages. Do not hardcode
+those generated URLs in the source: the renderer adds the page depth again.
+Keep local section links as `#section-id`. Validate both the root and
+`/open-connect/` builds and crawl the generated links after changing them.
+
+For example, the structure for an audio setting is:
+
+~~~html
+<dl class="oc-spec">
+  <dt>Location</dt>
+  <dd><span class="oc-nav-path" data-walkthrough="dvd">Open Connect → Audio sources</span></dd>
+  <dt>Default</dt>
+  <dd><span class="oc-default oc-default--off">Off</span>.</dd>
+  <dt>Startup &amp; RAM</dt>
+  <dd><strong>Neutral</strong> — no isolated startup or free-RAM gain is established.</dd>
+  <dt>Trade-offs &amp; boot</dt>
+  <dd>Turning DVD off hides it from Sources and stops DVD video support. Audio CDs and CarPlay still work.</dd>
+  <dt>Applies</dt>
+  <dd>Next full Mazda Connect startup. See <a href="settings.md#apply-changes">restart guidance</a>.</dd>
+  <dt>Evidence</dt>
+  <dd><a href="performance.md">Performance evidence</a> has no isolated DVD comparison. The dev.19 development prerelease awaits real-car qualification.</dd>
+</dl>
+~~~
 
 Use `.oc-default--on` or `.oc-default--off` with `.oc-default` for applicable
 fresh-install defaults; keep the text meaningful without color. Begin impact

@@ -2,24 +2,31 @@
 
 Change your preferences in Mazda’s own menus. Choices save automatically.
 
-Open **<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>**, just above **About**.
+<dl class="oc-spec">
+  <dt>Location</dt>
+  <dd><span class="oc-nav-path" data-walkthrough="open-connect">Settings → System → Open Connect</span></dd>
+  <dt>Default</dt>
+  <dd>Fresh installations use the choices listed below; updates keep your choices.</dd>
+  <dt>Startup &amp; RAM</dt>
+  <dd><strong>Neutral</strong> for browsing Settings. Individual settings have different measured effects; see <a href="#impact-at-a-glance">Impact at a glance</a>.</dd>
+  <dt>Trade-offs &amp; boot</dt>
+  <dd>Each setting page explains the affected features and any startup delay.</dd>
+  <dt>Applies</dt>
+  <dd>Choices save automatically and take effect on the <strong>next full Mazda Connect startup</strong>; <a href="uninstall.md">Uninstall</a> restarts automatically and <a href="about.md">About</a> is read-only.</dd>
+  <dt>Evidence</dt>
+  <dd><a href="performance.md">Performance evidence</a> records earlier measured configurations. The dev.19 menu has bench captures and Settings Uninstall verification; real-car qualification and matched dev.19 benchmarks remain ahead. <strong>0.3.0-dev.19</strong> is a development prerelease.</dd>
+</dl>
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen-while-driving.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>
   <figcaption>Open Connect settings (0.3.0-dev.19).</figcaption>
 </figure>
 
-- **Default**: Fresh installations use the choices listed below; updates keep your choices.
-- **Startup & RAM impact**: **Neutral** for browsing Settings. Individual settings have different measured effects; see [Impact at a glance](#impact-at-a-glance).
-- **Trade-offs & boot implications**: Each setting page explains the affected features and any startup delay.
-- **Applies**: Choices save automatically and take effect on the **next full Mazda Connect startup**; [Uninstall](uninstall.md) restarts automatically and [About](about.md) is read-only.
-- **Evidence & limits**: [Performance evidence](performance.md) records earlier measured configurations. The dev.19 menu has bench captures and Settings Uninstall verification; real-car qualification and matched dev.19 benchmarks remain ahead. **0.3.0-dev.19** is a development prerelease.
-
 <span id="change-a-preference"></span>
 
 ## Choose a setting
 
-The list follows this order:
+Open Connect is just above **About** in Mazda’s System menu. Its settings follow this order:
 
 1. [**Touchscreen While Driving**](touchscreen.md): <span class="oc-default oc-default--on">Allow</span> by default; **Factory Default** restores the saved pre-install setting.
 2. [**Startup disclaimer**](disclaimer.md): <span class="oc-default oc-default--on">Skip</span> by default; **Show** restores the warning.

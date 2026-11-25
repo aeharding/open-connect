@@ -2,18 +2,25 @@
 
 Control Mazda’s built-in Pandora integration.
 
-**<span class="oc-nav-path" data-walkthrough="pandora">Mazda Settings → System → Open Connect → Audio sources → Pandora</span>**
+<dl class="oc-spec">
+  <dt>Location</dt>
+  <dd><span class="oc-nav-path" data-walkthrough="pandora">Open Connect → Audio sources</span></dd>
+  <dt>Default</dt>
+  <dd><span class="oc-default oc-default--on">On</span>.</dd>
+  <dt>Startup &amp; RAM</dt>
+  <dd><strong>Neutral</strong> for startup in the dev.6 comparison: the wired-dashboard timing difference was below camera resolution. Turning it off left about <strong>3.2 MiB more minimum MemFree</strong>.</dd>
+  <dt>Trade-offs &amp; boot</dt>
+  <dd>Turning it off hides Mazda’s Pandora integration from <strong>Sources</strong>. Pandora through CarPlay or Bluetooth, and audio CDs, still work.</dd>
+  <dt>Applies</dt>
+  <dd>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</dd>
+  <dt>Evidence</dt>
+  <dd><a href="performance.md">Performance evidence</a> links the <a href="pandora-comparison.md">dev.6 comparison</a>: five starts per choice on one bench. MemFree is free RAM, not memory available to apps; these are not dev.19 results. Dev.19 UI bench captures on <strong>74.00.324A NA</strong>; real-car qualification and matched dev.19 benchmarks remain pending. <strong>0.3.0-dev.19</strong> is a development prerelease.</dd>
+</dl>
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/setting-pandora.png" alt="Pandora highlighted and on in the Audio sources submenu." width="800" height="480"></div>
   <figcaption>Pandora highlighted (dev.19).</figcaption>
 </figure>
-
-- **Default**: <span class="oc-default oc-default--on">On</span>.
-- **Startup & RAM impact**: **Neutral** for startup in the dev.6 comparison: the wired-dashboard timing difference was below camera resolution. Turning it off left about **3.2 MiB more minimum MemFree**.
-- **Trade-offs & boot implications**: Turning it off hides Mazda’s Pandora integration from **Sources**. Pandora through CarPlay or Bluetooth, and audio CDs, still work.
-- **Applies**: Saved automatically; takes effect on the **next full Mazda Connect startup**. See [restart guidance](settings.md#apply-changes).
-- **Evidence & limits**: [Performance evidence](performance.md) links the [dev.6 comparison](pandora-comparison.md): five starts per choice on one bench. MemFree is free RAM, not memory available to apps; these are not dev.19 results. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. **0.3.0-dev.19** is a development prerelease.
 
 ## Change the setting
 

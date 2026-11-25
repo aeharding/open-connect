@@ -2,18 +2,25 @@
 
 Remove Open Connect from Mazda Settings. You don’t need a USB drive or computer.
 
-**<span class="oc-nav-path" data-walkthrough="uninstall">Mazda Settings → System → Open Connect → Uninstall</span>**
+<dl class="oc-spec">
+  <dt>Location</dt>
+  <dd><span class="oc-nav-path" data-walkthrough="uninstall">Open Connect</span></dd>
+  <dt>Default</dt>
+  <dd>No preference; removal requires confirmation.</dd>
+  <dt>Startup &amp; RAM</dt>
+  <dd><strong>Neutral</strong> — restores the saved pre-install configuration; no isolated startup or RAM improvement is measured.</dd>
+  <dt>Trade-offs &amp; boot</dt>
+  <dd>Removes Open Connect, its backups and saved choices. Install again using USB; radio presets, phone pairings and other normal Mazda preferences remain.</dd>
+  <dt>Applies</dt>
+  <dd>Confirming <strong>Uninstall</strong> starts removal and an automatic Mazda Connect restart. Keep the car on until it finishes.</dd>
+  <dt>Evidence</dt>
+  <dd>Dev.19 Settings Uninstall has bench verification on <strong>74.00.324A NA</strong>; real-car removal remains unqualified. <a href="performance.md">Performance evidence</a> does not measure an isolated uninstall benefit. <strong>0.3.0-dev.19</strong> is a development prerelease.</dd>
+</dl>
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/setting-uninstall.png" alt="Uninstall highlighted in the Open Connect menu, between Developer options and About." width="800" height="480"></div>
   <figcaption>Uninstall highlighted (dev.19).</figcaption>
 </figure>
-
-- **Default**: No preference; removal requires confirmation.
-- **Startup & RAM impact**: **Neutral** — restores the saved pre-install configuration; no isolated startup or RAM improvement is measured.
-- **Trade-offs & boot implications**: Removes Open Connect, its backups and saved choices. Install again using USB; radio presets, phone pairings and other normal Mazda preferences remain.
-- **Applies**: Confirming **Uninstall** starts removal and an automatic Mazda Connect restart. Keep the car on until it finishes.
-- **Evidence & limits**: Dev.19 Settings Uninstall has bench verification on **74.00.324A NA**; real-car removal remains unqualified. [Performance evidence](performance.md) does not measure an isolated uninstall benefit. **0.3.0-dev.19** is a development prerelease.
 
 ## Remove from Settings
 

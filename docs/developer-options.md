@@ -2,18 +2,25 @@
 
 Use direct SSH or UART access to the head unit for your own purposes. Neither is needed for normal installation, settings or removal.
 
-**<span class="oc-nav-path" data-walkthrough="developer-options">Mazda Settings → System → Open Connect → Developer options</span>**
+<dl class="oc-spec">
+  <dt>Location</dt>
+  <dd><span class="oc-nav-path" data-walkthrough="developer-options">Open Connect</span></dd>
+  <dt>Default</dt>
+  <dd><span class="oc-default oc-default--off">UART Off; SSH Off</span>; no Open Connect public key imported.</dd>
+  <dt>Startup &amp; RAM</dt>
+  <dd><strong>Neutral</strong> — no isolated access-toggle startup or RAM benchmark is established.</dd>
+  <dt>Trade-offs &amp; boot</dt>
+  <dd>UART enables a passwordless root serial shell; SSH authorizes your imported key. Changes you leave on head-unit storage can prevent maintenance. Diagnostic logging is separate from interactive login.</dd>
+  <dt>Applies</dt>
+  <dd>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</dd>
+  <dt>Evidence</dt>
+  <dd><a href="reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74">Access and restoration bench checks</a> cover earlier builds. <a href="performance.md">Performance evidence</a> has no isolated access comparison. Dev.19 UI bench captures on <strong>74.00.324A NA</strong>; real-car qualification and matched dev.19 benchmarks remain pending. <strong>0.3.0-dev.19</strong> is a development prerelease.</dd>
+</dl>
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/setting-developer-options.png" alt="Developer options highlighted in the Open Connect menu." width="800" height="480"></div>
   <figcaption>Developer options highlighted (dev.19).</figcaption>
 </figure>
-
-- **Default**: <span class="oc-default oc-default--off">UART Off; SSH Off</span>; no Open Connect public key imported.
-- **Startup & RAM impact**: **Neutral** — no isolated access-toggle startup or RAM benchmark is established.
-- **Trade-offs & boot implications**: UART enables a passwordless root serial shell; SSH authorizes your imported key. Changes you leave on head-unit storage can prevent maintenance. Diagnostic logging is separate from interactive login.
-- **Applies**: Saved automatically; takes effect on the **next full Mazda Connect startup**. See [restart guidance](settings.md#apply-changes).
-- **Evidence & limits**: [Access and restoration bench checks](reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74) cover earlier builds. [Performance evidence](performance.md) has no isolated access comparison. Dev.19 UI bench captures on **74.00.324A NA**; real-car qualification and matched dev.19 benchmarks remain pending. **0.3.0-dev.19** is a development prerelease.
 
 Restore any changes you make to head-unit storage before installing, upgrading or uninstalling Open Connect. Leaving storage modified can make these operations fail. If you cannot return it cleanly to stock, reinstall Mazda firmware **74.00.324 NA N** first.
 

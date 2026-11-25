@@ -76,6 +76,24 @@ patterns. Inspect the equivalent stock path first and preserve framework
 ownership. Justify and document necessary deviations with source or runtime
 evidence, as required by the owner rule in STEERING.md.
 
+Treat Opera `Navigate`, including a `javascript:` URL, as browser navigation:
+it cancels pending resource loads. Product code must not use it for routine
+JavaScript execution or teardown already completed by the owning frontend.
+Necessary USB launch/removal must check the current session and its close state
+before crossing that boundary. Preserve native loading, heartbeat and watchdogs.
+
+Keep the incumbent client public and usable until its candidate has verified
+state and can take ownership. Bind modules to their client, preserve pending
+intents through the bounded handoff, and transfer the native view/callback in the
+same turn. Cleanup must affect only its own attempt; honor a refused disposal.
+Visible controls must always have a live owner.
+
+For changes to navigation, teardown or handoff, cover partial module delivery,
+late/failed replies, cancellation and real dialog lifecycle callbacks in behavior
+tests. Native verification must witness dependency registration and framework
+idle beyond the reproduced failure window. See the
+[v74 diagnosis](docs/reverse-engineering.md#usb-browser-navigation-and-settings-ownership-on-v74).
+
 ## Publication
 
 Use aeharding/open-connect, branches and PRs. Original work is AGPL-3.0-or-later.

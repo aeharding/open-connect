@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="72" height="56" viewBox="0 0 72 56" fill="none" role="img" aria-label="Mazda Open Connect screen mark">
   <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-  <path d="M3 47.5 Q36 40.6 69 47.5" stroke="#d0d5dc" stroke-width="2.4" stroke-linecap="round" opacity="0.52"/>
-  <path d="M9.9 45.3 L12.0 14.5 C12.4 11.5 14.8 9.5 18.0 9.5 H54.0 C57.2 9.5 59.6 11.5 60.0 14.5 L62.1 45.3" stroke="#e6e8ea" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M15.8 39 Q36 30.6 56.2 39" stroke="#d0d5dc" stroke-width="1.65" stroke-linecap="round" opacity="0.45"/>
-  <circle cx="22.8" cy="33.2" r="3.7" stroke="#d0d5dc" stroke-width="2" opacity="0.76"/>
-  <circle cx="49.2" cy="33.2" r="3.7" stroke="#d0d5dc" stroke-width="2" opacity="0.76"/>
-  <circle cx="15.1" cy="38.8" r="1.85" fill="#d0d5dc" opacity="0.45"/>
-  <circle cx="56.9" cy="38.8" r="1.85" fill="#d0d5dc" opacity="0.45"/>
-  <circle cx="36" cy="27.2" r="7.3" stroke="#e01e37" stroke-width="2.95"/>
+  <path d="M3 47.5 Q36 40.6 69 47.5" stroke="#7d8590" stroke-width="2.4" stroke-linecap="round" opacity="0.68"/>
+  <path d="M9.9 45.3 L12.0 14.5 C12.4 11.5 14.8 9.5 18.0 9.5 H54.0 C57.2 9.5 59.6 11.5 60.0 14.5 L62.1 45.3" stroke="#8b939e" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M15.8 39 Q36 30.6 56.2 39" stroke="#7d8590" stroke-width="1.65" stroke-linecap="round" opacity="0.58"/>
+  <circle cx="22.8" cy="33.2" r="3.7" stroke="#8b939e" stroke-width="2" opacity="0.85"/>
+  <circle cx="49.2" cy="33.2" r="3.7" stroke="#8b939e" stroke-width="2" opacity="0.85"/>
+  <circle cx="15.1" cy="38.8" r="1.85" fill="#7d8590" opacity="0.58"/>
+  <circle cx="56.9" cy="38.8" r="1.85" fill="#7d8590" opacity="0.58"/>
+  <circle cx="36" cy="27.2" r="7.3" stroke="#e01e37" stroke-width="3"/>
   <circle cx="36" cy="27.2" r="3.3" fill="#e01e37"/>
 </svg>

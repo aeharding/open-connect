@@ -44,7 +44,8 @@ body, input { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvet
 }
 .md-header__title { font-weight: 500; }
 .oc-header-home { color: inherit; cursor: pointer; }
-.md-header__button.md-logo img { width: 1.5rem; height: 1.5rem; }
+.md-header__button.md-logo { padding: .2rem; }
+.md-header__button.md-logo img { width: auto; height: 1.85rem; }
 .md-tabs__link { opacity: .75; }
 .md-tabs__link--active, .md-tabs__link:hover { opacity: 1; }
 .md-tabs__item--active { border-bottom: 2px solid var(--oc-red); }

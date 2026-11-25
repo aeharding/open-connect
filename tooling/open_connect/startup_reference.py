@@ -32,6 +32,9 @@ def main():
         "--wireless", type=int, choices=[0, 1], help="assert saved/applied wireless policy"
     )
     parser.add_argument(
+        "--autoshow", type=int, choices=[0, 1], help="assert saved/applied CarPlay autoshow"
+    )
+    parser.add_argument(
         "--pandora",
         type=int,
         choices=[0, 1],
@@ -67,6 +70,8 @@ def main():
         parser.error("--pandora requires open-connect")
     if args.wireless is not None and args.condition != "open-connect":
         parser.error("--wireless requires open-connect")
+    if args.autoshow is not None and args.condition != "open-connect":
+        parser.error("--autoshow requires open-connect")
     if not args.live:
         print(
             json.dumps(
@@ -81,6 +86,7 @@ def main():
                     "package": args.package,
                     "pandora": args.pandora,
                     "wireless": args.wireless,
+                    "autoshow": args.autoshow,
                     **({"base": args.base} if args.base is not None else {}),
                 }
             )
@@ -147,6 +153,7 @@ def main():
         "package": args.package,
         "pandora": args.pandora,
         "wireless": args.wireless,
+        "autoshow": args.autoshow,
     }
     if args.log_level is not None:
         record["log_level"] = args.log_level
@@ -203,7 +210,13 @@ def main():
         if result.returncode:
             raise RuntimeError("condition preflight refused before any device opened")
         old_boot = validate_condition(
-            result.stdout, args.condition, args.pandora, args.log_level, args.base, args.wireless
+            result.stdout,
+            args.condition,
+            args.pandora,
+            args.log_level,
+            args.base,
+            args.wireless,
+            args.autoshow,
         )
         cameras = subprocess.check_output(
             ["system_profiler", "SPCameraDataType", "-json"], timeout=12
@@ -300,6 +313,7 @@ def main():
                 args.log_level,
                 args.base,
                 args.wireless,
+                args.autoshow,
             )
             != trace["boot_id"]
         ):
@@ -329,7 +343,13 @@ def main():
         raise SystemExit(error)
 
 
-def validate_condition(raw, condition, pandora=None, log_level=None, base=None, wireless=None):
+def validate_condition(
+    raw, condition, pandora=None, log_level=None, base=None, wireless=None, autoshow=None
+):
+    if autoshow is not None and (
+        type(autoshow) is not int or autoshow not in (0, 1) or condition != "open-connect"
+    ):
+        raise ValueError("invalid autoshow condition")
     boots = re.findall(rb"^REFERENCE_BOOT\|(" + metrics.UUID.encode() + rb")$", raw, re.M)
     if len(boots) != 1:
         raise ValueError("missing exact condition boot record")
@@ -401,6 +421,11 @@ def validate_condition(raw, condition, pandora=None, log_level=None, base=None, 
             expected["notice"] = "restart"
         if any(state.get(key) != value for key, value in expected.items()):
             raise ValueError("candidate preferences or applied state do not match")
+        if autoshow is not None and any(
+            type(state.get(k)) is not int or state[k] != autoshow
+            for k in ("carplayAutoshow", "carplayAutoshowCurrent")
+        ):
+            raise ValueError("saved/applied autoshow missing or changed")
         if base is not None and (type(state.get("base")) is not int or state["base"] != base):
             raise ValueError("installed base preference is missing or changed")
         if wireless is not None:
@@ -421,7 +446,12 @@ def validate_condition(raw, condition, pandora=None, log_level=None, base=None, 
             if snapshots[0][0] == b"OC2":
                 rows = state.get("services")
                 wanted = {"android-auto": 1, "pandora": state.get("pandora")}
-                if state.get("installedVersion") in ("0.3.0-dev.15", "0.3.0-dev.16"):
+                if state.get("installedVersion") in (
+                    "0.3.0-dev.15",
+                    "0.3.0-dev.16",
+                    "0.3.0-dev.17",
+                    "0.3.0-dev.18",
+                ):
                     wanted.update(dvd=0, siriusxm=1)
                 if (
                     not isinstance(rows, list)

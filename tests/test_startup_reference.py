@@ -177,6 +177,18 @@ class StartupReferenceTests(unittest.TestCase):
             ).encode()
 
         self.assertEqual(m.validate_condition(output(state), "open-connect"), boot)
+        for value in (0, 1):
+            configured = {**state, "carplayAutoshow": value, "carplayAutoshowCurrent": value}
+            self.assertEqual(
+                m.validate_condition(output(configured), "open-connect", autoshow=value), boot
+            )
+            for bad in (
+                state,
+                {**configured, "carplayAutoshowCurrent": 1 - value},
+                {**configured, "carplayAutoshow": bool(value)},
+            ):
+                with self.assertRaisesRegex(ValueError, "autoshow"):
+                    m.validate_condition(output(bad), "open-connect", autoshow=value)
         wireless_state = {**state, "wireless": 1, "wirelessCurrent": 1}
         wireless_rows = b"WIRELESS_SNAPSHOT|8|1\nWIRELESS_LINK|0|0\n"
         # A failed association remains an observed attempt; wrong applied policy

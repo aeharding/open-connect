@@ -9,6 +9,49 @@ R=/tmp/oc-bench-startup
 test "$(id -u)" = 0
 test "$(readlink -f "$D")" = "$D"
 test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0
+# Claim once before starting either finite bench observer.
+mkdir "$R"
+read -r boot < /proc/sys/kernel/random/boot_id
+# Match silent-ui-v1 before the one-shot CarPlay focus request, on every cohort.
+# This child never delays Service Manager and never retries a mutating request.
+(
+    ulimit -f 128
+    set +e
+    timeout -t 25 sh -s -- "$boot" > "$R/audio-profile" 2> "$R/audio-stderr" <<'OC_AUDIO'
+set -eu
+boot=$1
+bus=unix:path=/tmp/dbus_hmi_socket
+service=com.xsembedded.service.AudioManagement
+call() { dbus-send --address="$bus" --dest="$1" --type=method_call --print-reply --reply-timeout=1000 "$2" "$3" "${4:-}" "${5:-}"; }
+# Keep empty arguments out of DBus methods that take none.
+owner() { dbus-send --address="$bus" --dest=org.freedesktop.DBus --type=method_call --print-reply --reply-timeout=1000 /org/freedesktop/DBus org.freedesktop.DBus.GetNameOwner "string:$service"; }
+scalar() { sed -n 's/^   string "\(.*\)"$/\1/p'; }
+attempt=0
+while ! reply=$(owner 2>/dev/null); do
+    attempt=$((attempt+1)); test "$attempt" -le 20
+    sleep 1
+done
+o=$(printf '%s\n' "$reply" | scalar)
+printf '%s\n' "$o" | awk 'END{exit !(NR==1&&$0~/^:[0-9]+[.][0-9]+$/)}'
+request() { call "$o" /com/xse/service/AudioManagement/HmiMode com.xsembedded.ServiceProvider.Request "string:$1" "string:$2"; }
+read -r started rest < /proc/uptime
+before=$(request enableStatus '{}' | scalar)
+case "$before" in
+    '{"enable":false}') test "$(request enable '{"enable":true}' | scalar)" = '{}';;
+    '{"enable":true}') ;;
+    *) exit 76;;
+esac
+after=$(request enableStatus '{}' | scalar)
+test "$after" = '{"enable":true}'
+test "$(owner | scalar)" = "$o"
+read -r current < /proc/sys/kernel/random/boot_id
+test "$current" = "$boot"
+read -r ended rest < /proc/uptime
+printf 'AUDIO_PROFILE|silent-ui-v1|%s|%s|%s|%s|%s|%s\n' "$boot" "$o" "$before" "$after" "$started" "$ended"
+OC_AUDIO
+    code=$?
+    printf '%s\n' "$code" > "$R/audio-exit"
+) &
 # Optional bench fixture: an old installer USB must not replace the measured
 # candidate's listener. Bind deauthorization to this device and a private serial.
 quarantine=-
@@ -40,10 +83,7 @@ if test -e "$policy" || test -L "$policy"; then
     test "$authorized" = 0
     quarantine=$(openssl dgst -sha256 < "$policy"); quarantine=${quarantine##* }
 fi
-# A boot-local claim prevents duplicate collectors and accidental trace overwrite.
-mkdir "$R"
 ulimit -f 8192
-boot=$(cat /proc/sys/kernel/random/boot_id)
 token=$(printf '%s' "$boot" | tr -d -)
 test "${#token}" = 32
 sha() { value=$(openssl dgst -sha256 < "$1"); printf '%s\n' "${value##* }"; }

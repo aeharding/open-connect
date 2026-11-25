@@ -4,6 +4,321 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
+## Published dev.20 cold ACC-off comparison 2026-11-25
+
+**Primary COHORT-9: Stock versus published v0.3.0-dev.20, Base=0 and Base=1.**
+There were **11 attempts and nine clean resource traces: n=3 per condition**.
+Both failures remain in the attempt ledger below. **[#9](https://github.com/aeharding/open-connect/issues/9)
+remains open**: these data do not establish zero boot/CPU/RAM overhead, real-car
+qualification or long-parked CarPlay reliability.
+
+Published build: source `63de79f896aec5ba16a41df3cb97b2cce5d6afd2`,
+[CI 45591321686](https://github.com/aeharding/open-connect/actions/runs/45591321686),
+ZIP SHA-256 `dd165194295807d6386f7222eacf0217e9e53f01bb517600897c79c40fa41d63`.
+Normal UI Install and all 47 shipped / 48 installed manifest members were verified.
+The later PR #149 candidate and its screenshots are **separate qualification**;
+it received no new performance cohort. Do not relabel these results as that build.
+
+### Fixture, settings and measurement
+
+One physical **74.00.324A NA/cmu150_NA** unit, the **same working Navigation SD**
+in its OEM read/write mount, with zero agent writes or staging on that card.
+Each start followed a real **30 s ACC-off interval with B+ retained**. No B+ cut
+or supply-setting change occurred. Bluetooth stayed on, with the same as-found
+phone/peripherals and **no foreground projection**. The installation USB was
+deauthorized for the measurements, with its bytes untouched.
+
+Stock used its original disclaimer **Show** and stock services. Both installed
+blocks used Touchscreen Allow, disclaimer **Skip**, Wireless off, Show CarPlay on
+connection Factory, Android Auto/Pandora/SiriusXM on and the published build's
+separate DVD choice off; developer UART/SSH choices stayed unchanged.
+**Base=0/1 means Startup optimizations off/on**, the only difference between
+installed blocks. Stock-to-installed Home gains include disclaimer bypass and
+service choices; this is not isolated Open Connect overhead or read-ahead benefit.
+
+Acquisition order was Stock → excluded Install/setup → Base=0 → excluded
+Base-enable Apply changes restart → Base=1. The clean medians exclude the two
+failed resource captures, while all attempts stay visible below. One unit,
+blocked acquisition order/drift, phone/Navigation activity and the small sample
+limit causal attribution.
+
+Home is the first stable actual HomeScreen with visible portions of all five
+icons at final geometry, excluding the introductory carousel. Camera frame PTS
+and host-monotonic mapping give ACC-command bounds; relay/sensor latency is
+uncalibrated. Home is **not first accepted physical touch/Commander input or
+usable CarPlay**. Native SM timestamps use a separate clock.
+
+Boot CPU is cumulative `/proc/stat` from kernel start to the nearest ~60 s
+sample, excluding idle+iowait, with USER_HZ=100. Percentages use **total two-core
+capacity = 100%**; busy CPU-seconds sum both cores. Settled CPU uses samples
+wholly within uptime **60–170 s**. RAM minima/end use observed samples wholly
+within **20–170 s**, ending near 169 s. Collection starts around 18–20 s;
+**earlier RAM is unobserved**. Post-window PSS snapshots have different ages and
+are not shared-window peak or per-library heap measurements.
+
+### Primary timing and CPU medians (n=3 clean traces per condition)
+
+| Condition | Attempts / clean traces | Home ACC bounds, s (median endpoints) | Native stage1 start, s | Native MMUI STARTED, s | Boot CPU % | Busy CPU-s | Settled CPU % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Stock, Show | 3 / 3 | 39.794–39.995 | 8.314 | 22.994 | 68.32 | 81.78 | 12.62 |
+| Base=0, Skip | 4 / 3 | 35.479–35.680 | 8.554 | 23.158 | 69.05 | 82.35 | 13.13 |
+| Base=1, Skip | 4 / 3 | 32.082–32.283 | 8.434 | 20.410 | 63.53 | 75.76 | 12.19 |
+
+Home midpoint medians are **39.9 / 35.6 / 32.2 s**. The Stock Show → Base=0
+Skip difference is about **4.3 s** and includes skipping the disclaimer as well
+as other installed configuration differences. It does not measure the disclaimer
+wait in isolation; there is no isolated Show/Skip toggle trial here. Base=1 is about **3.4 s earlier
+than Base=0 Skip**, or **7.7 s earlier than Stock Show**. Versus Stock, Base=0
+boot CPU is **+0.72 percentage points** and Base=1 **−4.79 points**, with Base=1
+busy CPU **−6.02 CPU-s**. A faster Home does not establish zero runtime overhead.
+
+Differences below are calculated before rounding the displayed medians.
+
+### Named RAM medians
+
+**Linux 3.0.35 has no kernel `MemAvailable` field.** The **available-RAM proxy** is
+`MemFree + Buffers + Cached + SReclaimable − Shmem`; it is not guaranteed
+allocatable RAM. Raw `MemFree` is a different counter. `AnonPages` counts
+resident anonymous pages; **Committed_AS** is the separate commit-accounting
+counter. A cache-to-free shift is not equivalent to an AnonPages reduction. Raw used = MemTotal − MemFree and includes cache. MemTotal is
+746.160 MiB; MiB = 1,024 KiB (decimal MB = MiB × 1.048576).
+
+| Condition | Min MemFree MiB | End MemFree MiB | End raw used MiB | End available proxy MiB | Cached MiB | Shmem MiB | AnonPages MiB | Slab MiB | Own allocated tmpfs KiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Stock | 122.43 | 131.04 | 615.12 | 377.74 | 237.39 | 4.10 | 269.82 | 21.38 | 0 |
+| Base=0 | 121.86 | 130.89 | 615.27 | 378.36 | 239.78 | 5.93 | 267.38 | 21.50 | 396 |
+| Base=1 | 208.20 | 209.72 | 536.44 | 398.92 | 179.55 | 4.18 | 252.06 | 20.77 | 500 |
+
+Against Stock, Base=0 has **+0.61 MiB available proxy**, **−2.45 MiB AnonPages**
+and **396 KiB own allocated tmpfs**. Base=1 has **+21.18 MiB available proxy**
+and **−17.77 MiB AnonPages**; its much larger raw MemFree gain partly replaces
+cache. Own tmpfs counts allocated 512-byte blocks once per unique device/inode,
+excluding persistent symlink targets. It is not all process memory and must not
+be blindly added to PSS/private pages.
+
+| Condition | Post-window Opera PSS MiB | MMUI PSS MiB | VUI PSS MiB |
+| --- | ---: | ---: | ---: |
+| Stock | 50.00 | 14.51 | 2.64 |
+| Base=0 | 48.01 | 14.44 | 2.64 |
+| Base=1 | 48.05 | 13.09 | 2.54 |
+
+One separate Base=0 helper snapshot at uptime 251.50 s measured listener
+85 KiB PSS / 72 KiB private and ignition 160 KiB PSS / 136 KiB private.
+It is **n=1 supplemental**, not an n=3 helper-RAM result.
+
+### All 11 primary attempts, including both failures
+
+| Condition / trial | Home ACC bounds, s | Resource disposition |
+| --- | ---: | --- |
+| Stock / 1 | 39.794–39.995 | Clean primary; runner GPIO receipt rejected, independently adjudicated from hardware ACC OFF and fresh kernel. |
+| Stock / 2 | 40.990–41.191 | Clean primary. |
+| Stock / 3 | 37.119–37.321 | Clean primary. |
+| Base=0 / 1 | 35.476–35.677 | Clean primary. |
+| Base=0 / 2 | 35.679–35.880 | Clean primary. |
+| Base=0 / 3 | 35.289–35.490 | OEM **sshd:36000 bind collision**, “Address already in use”; camera/UART retained, resource/clock/boot-marker receipts unavailable. |
+| Base=0 / 4 | 35.479–35.680 | Recovery ACC cycle supplies third clean resource trace. |
+| Base=1 / 1 | 31.651–31.852 | Clean primary. |
+| Base=1 / 2 | 79.070–79.271 | **Uncommanded restart at ACC+42.657 s** (second kernel epoch); delayed Home retained. |
+| Base=1 / 3 | 33.287–33.488 | Clean primary. |
+| Base=1 / 4 | 32.082–32.283 | Recovery ACC cycle supplies third clean resource trace. |
+
+**Neither failure is erased by a replacement trace.** Base=0 trial 3 is a
+transport/retrieval failure caused by the OEM SSH bind collision; no missing
+resource values or boot identity are invented. Base=1 trial 2 lost first-boot
+RAM; its later-retrieved 173-sample trace belongs to the **recovery kernel** and
+is excluded from primary CPU/RAM medians. The restart cause is **unestablished**;
+native `_isStack` errors alone do not establish causation. Recovery budget was
+1 on that boot and 2 on clean ACC starts.
+
+A separate Base=1 admission check confused a persistent restart notice with a
+pending restart; it opened no UART/camera/relay and is **not a cold attempt**.
+All six clean installed starts have fresh matching boot-identity symlinks.
+Trial 4 compares the last confirmed Base=0 trial 2 identity; trial 3 has none.
+
+### Receipts and reproduction boundary
+
+Download the public, sanitized derived values:
+
+- [Primary attempts CSV](assets/performance/dev20-acc-cohort/primary-attempts.csv): **all 11 attempts**, unrounded Home bounds, resource values and exclusion flags.
+- [Isolated toggles CSV](assets/performance/dev20-acc-cohort/isolated-toggles.csv): the **five separate n=1 configurations**, unrounded resource values and matching Base references.
+- [Supplemental helper snapshot CSV](assets/performance/dev20-acc-cohort/supplemental-helper-snapshot.csv): the separately labeled **n=1 Base=0 helper observation**, not a primary trial.
+
+These are explicit field exports, not copies of private capture files. They contain
+no device/boot identifiers, serials, MACs, SSIDs, IPs, VINs, OEM paths or raw captures.
+Original capture manifests and private evidence stay unchanged. The source/CI/ZIP
+identity above applies to both measured batches, **not** the later PR #149 candidate.
+
+In the primary CSV, **filter `primary_usable=1` before every median**, including
+Home. All 11 Home observations stay visible; the two excluded rows are not extra
+primary successes. Base=0 trial 3 has blank resource values. Base=1 trial 2's
+`resource_epoch=recovery_kernel` labels its recovered resource values; they are
+not first-boot RAM and must not enter the clean medians. Blank means unobserved,
+not zero. `restart_acc_s` retains the restart at ACC+42.657 s. Stock trial 1's
+adjudication is preserved. The separate admission refusal opened no instruments
+and is not a twelfth ACC attempt. Install/setup and Apply changes restarts are
+excluded setup operations, not measured trials.
+
+The collector was the byte-identical
+[`metrics.sh` at 34d7c29](https://github.com/aeharding/open-connect/blob/34d7c293a9cc7476884f88c2061164a3d7b5becd/cmu/bench/metrics.sh),
+SHA-256 `04ce5017e08a4e62823135eb6a560cefbc51289edda256ff5f2b1946b3d5a109`.
+It ran locally for **180 s with a one-second minimum pause after each sample**,
+plus read/loop overhead, under a 190 s deadline. This is not an exact 1 Hz cadence.
+The CSVs retain first/last sample uptimes, actual selected window bounds and
+sample counts. No detailed process discovery ran in the timed collector;
+PSS/private pages and own-file allocation were read in postflight snapshots.
+
+Metric and aggregation rules:
+
+- For the first eight aggregate `/proc/stat` counters, `total=sum(counters)` and `busy=total−idle−iowait`. Boot CPU is `100×busy/total` at the sample whose start uptime is nearest 60 s; boot busy CPU-s is `busy/100` (assumed USER_HZ=100). Settled CPU is `100×Δbusy/Δtotal` between the first and last samples wholly inside uptime 60–170 s. Percentages use both cores' total capacity as 100%.
+- RAM uses samples wholly inside uptime 20–170 s. Per-run minimum MemFree is the minimum sampled field; ending values use the last qualifying sample. MiB values divide kernel kB (KiB) by 1024. Available proxy is `MemFree+Buffers+Cached+SReclaimable−Shmem`; raw used is `MemTotal−MemFree`. Neither is AnonPages or kernel MemAvailable.
+- Own tmpfs is `sum(st_blocks) × 512 / 1024 KiB` (512 bytes per block), counting each unique device/inode once and excluding persistent symlink targets. PSS values are post-window KiB; divide by 1024 for MiB. PSS snapshot ages differ, so their deltas are not isolated heap savings.
+- Compute each clean row's Home midpoint as `(home_lower_s+home_upper_s)/2`, then take the median. Median lower/upper bounds are computed separately. `*_native_s` uses the native SM clock; do not subtract it from ACC-camera time.
+- Take the median **of each per-run metric** over the three clean rows in a condition. Differences subtract **unrounded** medians; a toggle delta subtracts its earlier Stock or matching-Base median from that single observation. Round only for display. Do not pool the five toggle rows with the primary cohorts.
+
+From the repository root, this standard-library-only host command recomputes
+all primary medians, PSS conversions and the Stock/Base deltas used on this page
+and the setting pages. It opens only the public CSVs; no device, credentials,
+private packet or third-party package is needed:
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+import csv, json
+from statistics import median
+
+folder = Path("docs/assets/performance/dev20-acc-cohort")
+metadata = {"condition", "trial", "primary_usable", "resource_epoch",
+            "exclusion_reason", "adjudication", "toggle", "matching_base",
+            "base", "wireless", "android_auto", "pandora", "siriusxm"}
+
+def load(name):
+    with (folder / name).open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    for row in rows:
+        for key, value in list(row.items()):
+            if key not in metadata:
+                row[key] = float(value) if value else None
+        row["home_midpoint_s"] = (row["home_lower_s"] + row["home_upper_s"]) / 2
+        for key in ("opera_pss_kib", "L_jciMMUI_pss_kib", "L_jciVUI_pss_kib"):
+            row[key.replace("_kib", "_mib")] = (
+                row[key] / 1024 if row[key] is not None else None)
+    return rows
+
+def numbers(row):
+    return {key: value for key, value in row.items()
+            if key not in metadata and value is not None}
+
+def summarize(rows):
+    keys = set().union(*(numbers(row) for row in rows))
+    return {key: median(row[key] for row in rows if row.get(key) is not None)
+            for key in sorted(keys)}
+
+def delta(row, reference):
+    keys = {"home_midpoint_s", "boot_cpu_busy_pct", "boot_busy_cpu_seconds_hz100",
+            "settled_cpu_pct", "own_regular_tmpfs_kib"}
+    keys |= {key for key in row if key.endswith("_mib")}
+    return {key: row[key] - reference[key] for key in sorted(keys)
+            if row.get(key) is not None and reference.get(key) is not None}
+
+attempts = load("primary-attempts.csv")
+summary = {}
+for condition in ("stock", "base0", "base1"):
+    clean = [row for row in attempts if row["condition"] == condition
+             and row["primary_usable"] == "1"]
+    assert len(clean) == 3 and all(row["resource_epoch"] == "first_kernel" for row in clean)
+    summary[condition] = summarize(clean)
+    print("median", condition, json.dumps(summary[condition], sort_keys=True))
+for condition, reference in (("base0", "stock"), ("base1", "stock"), ("base1", "base0")):
+    print("delta", condition, reference,
+          json.dumps(delta(summary[condition], summary[reference]), sort_keys=True))
+for row in load("isolated-toggles.csv"):
+    print("single", row["toggle"], json.dumps(numbers(row), sort_keys=True))
+    for reference in ("stock", row["matching_base"]):
+        print("delta", row["toggle"], reference,
+              json.dumps(delta(row, summary[reference]), sort_keys=True))
+PY
+```
+
+For example, `delta base0 stock` gives boot CPU
+**+0.7248298662500474 percentage points → +0.72 pp** and ending available proxy
+**+0.61328125 MiB → +0.61 MiB**. The tables retain their named units and display
+precision; the setting pages round most differences to one decimal place.
+
+The private packet `runs/acc-bench-20261125/COHORT-9.md`, `cohort.csv` and
+`resource-analysis.json` retain capture/clock adjudications; analysis used
+`analyze.py`, reviewed `score-camera.py` / `score-disclaimer.py` choices and
+`report-cohort.py`. These public exports reproduce aggregate arithmetic, not
+independent camera-frame review or raw-sample acquisition. OEM files, raw
+camera/UART/resources and boot-identity receipts remain private.
+
+## Stage 2B isolated toggle sweep (n=1)
+
+**TOGGLES-IMPACT is separate from COHORT-9:** five additional real 30 s ACC-off
+starts on the **same published dev.20 build and Nav SD fixture**, with B+
+retained, a 180 s passive observer and the same Bluetooth-on phone fixture.
+Each profile was applied through the normal guarded installed Set/restart
+backend before its measured boot; setup restarts are excluded. No package
+patch, direct snapshot edit or verification bypass was used.
+
+Touch Allow, disclaimer Skip, Show CarPlay on connection Factory and legacy DVD
+off were held fixed. The first four cases keep **Base=0**, changing only the
+named choice. **Max-off** uses Base=1 with Android Auto/Pandora/SiriusXM/Wireless
+off; it is a combined feature-removing preset, not an isolated toggle or a
+feature-neutral improvement. Controls are the **earlier n=3 primary medians**;
+these observations do not increase primary cohort counts.
+
+### Single-trial Home and CPU observations
+
+| Configuration | Home ACC bounds s | Home Δ vs Stock Show s | Home Δ vs matching Base Skip s | Boot CPU % | Boot CPU Δ vs Stock pp | Busy CPU-s | Settled CPU % | Settled CPU Δ vs Stock pp |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| SiriusXM off | 34.278–34.480 | −5.515 | −1.201 | 67.70 | −0.62 | 81.32 | 12.31 | −0.31 |
+| Android Auto off | 35.096–35.297 | −4.698 | −0.383 | 69.24 | +0.92 | 83.00 | 14.62 | +2.00 |
+| Pandora off | 35.899–36.100 | −3.895 | +0.420 | 70.75 | +2.43 | 83.90 | 12.55 | −0.07 |
+| Wireless on, iPhone connected | 34.682–34.883 | −5.112 | −0.797 | 70.48 | +2.16 | 84.77 | 16.03 | +3.41 |
+| Max-off (Base=1) | 28.865–29.066 | −10.929 | −3.217 | 64.03 | −4.30 | 75.80 | 10.05 | −2.57 |
+
+“Matching Base” means Base=0 for the isolated toggles and Base=1 for Max-off.
+CPU definitions/windows match the primary table; **pp means percentage points**,
+not relative percent. Stock Show versus installed Skip confounds total Home
+gains. With n=1 against earlier blocked controls, small timing/CPU differences
+can be run variation; Pandora's +0.420 s does not establish a repeatable slowdown
+or benefit. Home is not CarPlay readiness or input latency.
+
+### Single-trial named RAM observations
+
+| Configuration | Min MemFree MiB | Min MemFree Δ vs Stock MiB | Min MemFree Δ vs matching Base MiB | End available proxy MiB | Proxy Δ vs Stock MiB | End raw used MiB | Own tmpfs KiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| SiriusXM off | 135.02 | +12.59 | +13.16 | 385.13 | +7.39 | 602.52 | 392 |
+| Android Auto off | 129.66 | +7.23 | +7.80 | 382.33 | +4.59 | 607.89 | 396 |
+| Pandora off | 124.32 | +1.89 | +2.46 | 379.60 | +1.86 | 613.30 | 396 |
+| Wireless on | 122.75 | +0.32 | +0.89 | 377.85 | +0.11 | 616.28 | 432 |
+| Max-off (Base=1) | 234.86 | +112.43 | +26.66 | 414.46 | +36.71 | 511.29 | 500 |
+
+Available proxy uses the formula above, **not kernel MemAvailable, raw MemFree
+or AnonPages**. Against Base=0, ending available-proxy differences are
+**+6.77 / +3.98 / +1.24 / −0.50 MiB** for SiriusXM off / Android Auto off /
+Pandora off / Wireless on. Thus the compact **+7.4 / +4.6 / +1.9 MiB** labels
+are **versus Stock**, not Base=0. Do not add isolated differences to predict a
+combined configuration. Max-off's **29.0 s Home / +36.7 MiB proxy / −4.3 pp boot
+CPU versus Stock** is a single observed combined result that removes features.
+
+Wireless setup confirmed AP on, one associated station and a post-ACC connected
+CarPlay session. Autoshow stayed off and Home remained visible: session state
+is separate from visible projection. No new pairing or phone move was requested.
+Wi-Fi off and clean defaults were restored before PR #149 qualification.
+
+The separate private `TOGGLES-IMPACT.md`, `toggles-impact.csv`, `toggles-pss.csv`
+and `toggles-mapped-modules.csv` retain exact profiles, named global RAM fields,
+post-window PSS ages and mapped-library limits. Analysis used
+`analyze-toggles.py`, reviewed `score-camera.py` choices and `report-toggles.py`.
+Mapped library pages exclude plugin-owned heaps; no n=3 per-library baseline is
+invented. A post-Uninstall Stock snapshot is explicitly nonprimary and not
+another ACC trial. PR #149 restoration is recorded separately in `PR149-QUAL.md`.
+These are limited observations, not stock parity, release qualification or
+long-parked reliability; **#9 remains open**.
+
+## Earlier measurements
+
 The [dev.17 maintenance UI checks](maintenance-loading.md) pair one normal boot
 per version and Base setting. Home was unchanged at camera resolution and own
 allocated tmpfs changed 0 B. Opera memory increased in the single snapshots,
@@ -169,7 +484,7 @@ idle snapshot.
 
 | Measurement | Record |
 | --- | --- |
-| System RAM | Available `/proc/meminfo` fields: total/free memory, buffers, cache, shared memory and slab; `MemAvailable` if this kernel provides it |
+| System RAM | Available `/proc/meminfo` fields: total/free memory, buffers, cache, shared memory and slab; no kernel `MemAvailable` on Linux 3.0.35; label the available-RAM proxy explicitly |
 | Process RAM | Named process RSS and, where supported, bounded `smaps`/PSS snapshots; process identity and sample phase |
 | CPU | Deltas over declared intervals, with profiler overhead checked |
 | I/O | Comparable read/write activity, logging volume and any relevant faults/reclaim counters the kernel provides |

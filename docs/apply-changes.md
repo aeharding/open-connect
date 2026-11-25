@@ -13,7 +13,7 @@ Restart Mazda Connect to activate your saved choices. You don’t need a USB dri
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Neutral</dd>
+    <dd>Restarts to apply</dd>
   </div>
   <div>
     <dt>Applies</dt>
@@ -30,13 +30,13 @@ Restart Mazda Connect to activate your saved choices. You don’t need a USB dri
 
 <p>No preference; this action asks for confirmation before restarting.</p>
 
-<p><strong>Neutral</strong> — applies your saved choices; no isolated startup or RAM improvement is measured. Individual settings have their own effects.</p>
+<p><strong>Restarts to apply your saved choices.</strong> No isolated RAM/CPU/startup improvement is measured for this action. Individual settings have their own effects.</p>
 
 <p>Choices save automatically. You can change several settings before applying them together. <strong>restart needed</strong> means a choice is saved but not active yet.</p>
 
 <p><strong>Apply changes</strong> is disabled when there are no pending changes. The Commander Dial skips the disabled row.</p>
 
-<p>Dev.20 Apply changes has software bench verification on <strong>74.00.324A NA</strong>. Real-car qualification and matched dev.20 benchmarks remain pending; <a href="performance.md">Performance evidence</a> records earlier configurations. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
+<p>Dev.20 Apply changes has software bench verification on <strong>74.00.324A NA</strong>. Real-car qualification remains pending; <a href="performance.md">Performance evidence</a> records the dev.20 cold ACC-off cohorts separately from this action. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
 
 ## Restart now
 

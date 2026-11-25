@@ -13,7 +13,7 @@ Use direct SSH or UART access to the head unit for your own purposes. Neither is
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Neutral</dd>
+    <dd>Enabled: unmeasured</dd>
   </div>
   <div>
     <dt>Applies</dt>
@@ -30,20 +30,20 @@ Use direct SSH or UART access to the head unit for your own purposes. Neither is
 
 <p><span class="oc-default oc-default--off">UART Off; SSH Off</span>; no Open Connect public key imported.</p>
 
-<p><strong>Neutral</strong> — no isolated access-toggle startup or RAM benchmark is established.</p>
+<p><strong>Enabled: unmeasured.</strong> UART and SSH have no isolated toggle RAM/CPU/boot comparison. SSH can start a daemon; no zero-cost claim is established. The dev.20 cohorts held developer access unchanged.</p>
 
 <p>UART enables a passwordless root serial shell; SSH authorizes your imported key. Changes you leave on head-unit storage can prevent maintenance. Diagnostic logging is separate from interactive login.</p>
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p><a href="reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74">Access and restoration bench checks</a> cover earlier builds. <a href="performance.md">Performance evidence</a> has no isolated access comparison. Dev.19 UI bench captures on <strong>74.00.324A NA</strong>; real-car qualification and matched dev.19 benchmarks remain pending. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+<p><a href="reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74">Access and restoration bench checks</a> cover earlier builds. <a href="performance.md">Performance evidence</a> has no isolated access comparison. The screenshot above remains dev.19 on <strong>74.00.324A NA</strong>; real-car qualification and isolated access measurements remain pending. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
 
 
 Restore any changes you make to head-unit storage before installing, upgrading or uninstalling Open Connect. Leaving storage modified can make these operations fail. If you cannot return it cleanly to stock, reinstall Mazda firmware **74.00.324 NA N** first.
 
 ## UART
 
-UART is for bench work with the CMU out of the dashboard and jumper wires connected to blue connector 2.
+Requires physical access to the back of the infotainment unit (a wired serial connection to the rear harness connector) — intended for developers and troubleshooting, not normal use.
 
 Enables **passwordless root shell access** over the CMU’s physical serial port (`115200` baud, `8N1`, no flow control). Turning it off restores Mazda’s original authenticated serial login without changing passwords or suppressing diagnostic output.
 
@@ -65,7 +65,7 @@ See [Wire a bench — pin maps](bench-setup.md#pin-maps) and [UART cables](bench
 
 Authorizes your imported public key on Mazda’s built-in SSH server (port **36000**, account `cmu`) while leaving any pre-existing SSH keys untouched. Turning SSH off removes Open Connect’s key authorization on the next full restart.
 
-SSH requires a network path to the CMU — enabling it does not configure Wi-Fi. Plug a supported **USB-to-Ethernet adapter** into the Mazda USB hub’s front data port on the same network as your computer (see [network cables](bench-setup.md#cables)).
+SSH requires a network path to the CMU — enabling it does not configure Wi-Fi. Plug a supported **USB-to-Ethernet adapter** into one of the car’s USB ports on the same network as your computer (see [network cables](bench-setup.md#cables)).
 
 ### Import a public key
 

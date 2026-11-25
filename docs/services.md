@@ -1,6 +1,6 @@
 # Services
 
-The former Services controls now have individual pages. Start with [Settings](settings.md) for all fresh-install defaults and restart guidance. Retained **0.3.0-dev.19** screenshots and **0.3.0-dev.20** videos predate the upcoming NA DVD change; updated captures await live qualification.
+The former Services controls now have individual pages. Start with [Settings](settings.md) for all fresh-install defaults and restart guidance. The new [Pandora](pandora.md) and [SiriusXM](siriusxm.md) screenshots show the merged post-dev.20 menu with Bluetooth OFF and no DVD row (PR #149 candidate `ecddb381`, CI 45597702470, merged main `291492fa`). Other retained dev.19 screenshots and dev.20 walkthroughs predate that change.
 
 <span id="base-optimizations"></span>
 
@@ -23,7 +23,7 @@ Open **<span class="oc-nav-path" data-walkthrough="phone-connections">Mazda Sett
 
 ## Audio sources
 
-Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings → System → Open Connect → Audio sources</span>** for **Pandora** and **SiriusXM**. Disabled integrations disappear from Mazda’s Sources list after restart. In the upcoming North American development candidate, [DVD](dvd.md) is folded into Startup optimizations; older configurations migrate automatically. Audio CDs still work.
+Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings → System → Open Connect → Audio sources</span>** for **Pandora** and **SiriusXM**. Disabled integrations disappear from Mazda’s Sources list after restart. In the merged post-dev.20 North American candidate, [DVD](dvd.md) is folded into Startup optimizations; older configurations migrate automatically. Published dev.20 still has a separate DVD toggle. Audio CDs still work.
 
 ### Pandora
 
@@ -35,6 +35,6 @@ Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings
 
 ## Testing
 
-These are development controls for **74.00.324A NA/cmu150_NA**. The dev.19 menu has bench captures and Settings Uninstall verification; the folded DVD policy and configuration migration have offline checks only. Live upgrade qualification, real-car checks, Android-phone use, equipped SiriusXM playback and matched benchmarks remain ahead.
+These are development controls for **74.00.324A NA/cmu150_NA**. Published **0.3.0-dev.20** has [matched cold ACC-off Stock/Base cohorts and a separate n=1 toggle sweep](performance.md#published-dev20-cold-acc-off-comparison-2026-11-25). The post-dev.20 PR #149 candidate has separate live same-version Reinstall, DVD-policy/migration and Settings Uninstall checks; it has no new performance cohort. Real-car checks, Android-phone use and equipped SiriusXM playback remain unqualified; **#9 stays open**.
 
-Each setting page links its evidence and limits. [Performance evidence](performance.md) records earlier configurations; faster startup than stock is not established.
+Each setting page links its evidence and limits. Total Home gains versus Stock Show include disclaimer Skip; they do not establish zero boot/CPU/RAM overhead.

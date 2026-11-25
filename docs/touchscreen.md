@@ -13,7 +13,7 @@ Keep touch available while the car is moving, including for a passenger using Ma
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Neutral</dd>
+    <dd>Not measured separately</dd>
   </div>
   <div>
     <dt>Applies</dt>
@@ -28,13 +28,13 @@ Keep touch available while the car is moving, including for a passenger using Ma
 
 ## Notes
 
-<p><strong>Neutral</strong> — no isolated startup or RAM measurement is established.</p>
+<p><strong>Not measured separately</strong> for RAM, CPU or startup. The dev.20 installed cohorts held Touchscreen While Driving at Allow; their results do not isolate this preference.</p>
 
 <p>Touch remains available while moving. The commander knob and normal Mazda controls remain available. Keep your attention on driving.</p>
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p>The setting and restoration have bench checks; touch while moving in a real car remains unvalidated. <a href="performance.md">Performance evidence</a> has no isolated comparison. Dev.19 UI bench captures on <strong>74.00.324A NA</strong>; real-car qualification and matched dev.19 benchmarks remain pending. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+<p>The setting and restoration have bench checks; touch while moving in a real car remains unvalidated. <a href="performance.md">Performance evidence</a> has no isolated comparison. The screenshot above remains dev.19 on <strong>74.00.324A NA</strong>. <strong>0.3.0-dev.20</strong> is a development prerelease; real-car qualification remains pending.</p>
 
 
 <span id="change-the-setting"></span>

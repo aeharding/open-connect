@@ -13,7 +13,7 @@ Open CarPlay when your iPhone connects, including after startup and reconnection
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Neutral</dd>
+    <dd>Not measured separately</dd>
   </div>
   <div>
     <dt>Applies</dt>
@@ -30,13 +30,13 @@ Open CarPlay when your iPhone connects, including after startup and reconnection
 
 <p><span class="oc-default oc-default--off">Factory behavior</span> (<strong>Factory</strong> in the list).</p>
 
-<p><strong>Neutral</strong> — no isolated startup gain is established. Source-accounted own file pages changed <strong>0 B</strong> (<code>carplay.js</code> +4 KiB offset by <code>settings.js</code> 32→28 KiB); matched timing and PSS measurements remain ahead.</p>
+<p><strong>Not measured separately</strong> for the available-RAM proxy, startup or CPU: the dev.20 cohorts kept this at Factory. The earlier <strong>dev.18 → dev.19 comparison in <a href="https://github.com/aeharding/open-connect/pull/140">PR #140</a></strong> accounted for <strong>0 B net packaged-file page change</strong> (<code>carplay.js</code> +4 KiB offset by <code>settings.js</code> 32→28 KiB). That source-accounted figure is not a dev.20 available-proxy or PSS measurement; matched auto-selection timing and PSS remain unmeasured.</p>
 
 <p>CarPlay may replace your current screen on connection. Input, calls, voice control, Settings and maintenance dialogs take priority; Mazda retains screen and reverse-camera control.</p>
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p>Offline replays and wireless bench checks cover <strong>74.00.324A NA</strong>. One intermittent native acceptance miss occurred with Startup optimizations on; subsequent reconnects passed. Wired auto-selection, live call/Siri/reverse interaction and real-car use remain unqualified. See <a href="performance.md">Performance evidence</a>; matched dev.19 benchmarks remain ahead. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+<p>Offline replays and wireless bench checks cover <strong>74.00.324A NA</strong>. One intermittent native acceptance miss occurred with Startup optimizations on; subsequent reconnects passed. Wired auto-selection, live call/Siri/reverse interaction and real-car use remain unqualified. See <a href="performance.md">Performance evidence</a>; isolated auto-selection benchmarks remain ahead. The screenshot above remains dev.19. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
 
 
 ## Options

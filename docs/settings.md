@@ -13,7 +13,7 @@ Change your preferences in Mazda’s own menus. Choices save automatically; use 
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Neutral</dd>
+    <dd>Varies by setting</dd>
   </div>
   <div>
     <dt>Applies</dt>
@@ -30,13 +30,13 @@ Change your preferences in Mazda’s own menus. Choices save automatically; use 
 
 <p>Fresh installations use the choices listed below; updates keep your choices.</p>
 
-<p><strong>Neutral</strong> for browsing Settings. Individual settings have different measured effects; see <a href="#impact-at-a-glance">Impact at a glance</a>.</p>
+<p>Browsing Settings has no isolated RAM/CPU/startup measurement. Individual settings have different measured effects; see <a href="#impact-at-a-glance">Impact at a glance</a>.</p>
 
 <p>Each setting page explains the affected features and any startup delay.</p>
 
 <p>Choices save automatically. Use <a href="apply-changes.md">Apply changes</a> to restart Mazda Connect and activate them; <a href="uninstall.md">Uninstall</a> restarts automatically and <a href="about.md">About</a> is read-only.</p>
 
-<p><a href="performance.md">Performance evidence</a> records earlier measured configurations. Dev.20 has bench verification of Apply changes and Settings Uninstall; real-car qualification and matched dev.20 benchmarks remain ahead. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
+<p><a href="performance.md">Performance evidence</a> records published dev.20 cold ACC-off results and the separate n=1 toggle sweep. Apply changes and Settings Uninstall have bench verification; real-car qualification remains pending. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
 
 
 <span id="change-a-preference"></span>
@@ -60,27 +60,32 @@ Open Connect is just above **About** in Mazda’s System menu. Its settings foll
 8. [**Uninstall**](uninstall.md)
 9. [**About**](about.md)
 
-In the upcoming North American development candidate, [DVD](dvd.md) is folded into **Startup optimizations**. Older configurations migrate automatically, keeping your Startup optimizations choice and remaining preferences. Retained dev.19 screenshots and dev.20 videos predate this change; updated Audio sources captures await live qualification.
+In the merged post-dev.20 North American candidate, [DVD](dvd.md) is folded into **Startup optimizations**. Published dev.20 still has a separate DVD toggle. Older configurations migrate automatically, keeping your Startup optimizations choice and remaining preferences. The [Pandora](pandora.md) and [SiriusXM](siriusxm.md) pages show newly qualified PR #149 captures matching that two-row menu; unchanged dev.19 screenshots and dev.20 videos retain their capture identities.
 
 ## Impact at a glance
 
-These comparisons describe enabling Startup optimizations or disabling an unused integration. Other rows describe choosing the feature. **Neutral** means no measured startup gain is established. **Faster** and **Slightly faster** are reserved for measured gains; they do not promise faster startup than stock.
+RAM and CPU differences below are **versus Stock**, on published **v0.3.0-dev.20**; additional Home comparisons against Base=0 are labeled. Stock used disclaimer **Show**; installed boots used **Skip**, so total Home gains include that difference. **Base=0/1** means Startup optimizations off/on. Service RAM labels describe switching the named integration off; “avail” means the proxy defined below. CPU differences are **percentage points (pp)** of total two-core capacity. Primary Base medians have **n=3** clean cold ACC-off traces per condition; isolated toggles are a **separate n=1 sweep**, compared with the earlier control medians.
 
-| Setting | Startup speed | Free RAM (bench) | Trade-off |
-| --- | --- | --- | --- |
-| [Touchscreen While Driving](touchscreen.md) | Neutral | Not measured separately | Touch stays available while moving. |
-| [Startup disclaimer](disclaimer.md) | Neutral | Not measured separately | The startup warning is skipped. |
-| [Startup optimizations](startup-optimizations.md) | Faster in earlier wired tests | +9.9 MiB minimum MemFree; +2.58 MiB ending, dev.7 | Aha, Stitcher, DAB, TV and the unused NA DVD service stop; Mazda Navigation is delayed about 20 s only with both Startup optimizations and the saved Open Connect Wireless CarPlay override on. |
-| [Wireless CarPlay](wireless-carplay.md) | Neutral | No isolated gain established | Requires compatible hardware and phone pairing. |
-| [Show CarPlay on connection](carplay-on-connection.md) | Neutral | No matched PSS measurement | CarPlay may replace your current screen on connection. |
-| [Android Auto off](android-auto.md) | Neutral | Not measured separately | Built-in Android Auto becomes unavailable. |
-| [Pandora off](pandora.md) | Neutral | +3.2 MiB minimum MemFree, dev.6 | Mazda’s Pandora integration disappears from Sources; CarPlay apps still work. |
-| [SiriusXM off](siriusxm.md) | Neutral | Not measured separately | Satellite radio and SiriusXM data become unavailable. |
-| [Developer options](developer-options.md) | Neutral | Not measured separately | Gives direct access to the head unit; changes you make can affect maintenance. |
+**Open Connect Base=0 baseline:** Home **35.6 s** versus Stock **39.9 s**, **+0.6 MiB available proxy**, **+0.7 pp boot CPU** and **396 KiB own allocated tmpfs** versus none on Stock. This does not establish zero overhead; **#9 remains open**.
 
-An already-checked **factory enabled** Wireless CarPlay row leaves the Open Connect wireless override off and does not trigger the Navigation delay.
+| Setting / configuration | Home vs Stock Show | Available proxy vs Stock | Boot CPU vs Stock | Trade-off / limits |
+| --- | --- | --- | --- | --- |
+| [Touchscreen While Driving](touchscreen.md) | Not measured separately | Not measured separately | Not measured separately | Touch stays available while moving. |
+| [Startup disclaimer Skip](disclaimer.md) | ~4.3 s earlier in Base=0 | Not isolated | Not isolated | Whole Base=0 Skip vs Stock Show comparison; no isolated disclaimer wait measured. |
+| [Startup optimizations on](startup-optimizations.md), n=3 | ~7.7 s earlier; ~3.4 s beyond Base=0 Skip | +21.2 MiB; AnonPages −17.8 MiB | −4.8 pp | Unused services stop; Navigation delay with the saved Wireless override. |
+| [Wireless CarPlay on](wireless-carplay.md), n=1 | ~5.1 s earlier; ~0.8 s vs Base=0 | ~0 MiB (+0.1 observed) | +2.2 pp; settled +3.4 pp | Connected iPhone, Home workload; pairing and compatible hardware required. |
+| [Show CarPlay on connection](carplay-on-connection.md) | Not measured separately | Not measured separately | Not measured separately | CarPlay may replace your current screen; tests held Factory. |
+| [Android Auto off](android-auto.md), n=1 | ~4.7 s earlier; ~0.4 s vs Base=0 | +4.6 MiB | +0.9 pp | Built-in Android Auto becomes unavailable. |
+| [Pandora off](pandora.md), n=1 | ~3.9 s earlier; 0.4 s later vs Base=0 (one trial; repeatability unknown) | +1.9 MiB | +2.4 pp | Mazda’s Pandora integration disappears; CarPlay apps still work. |
+| [SiriusXM off](siriusxm.md), n=1 | ~5.5 s earlier; ~1.2 s vs Base=0 | +7.4 MiB | −0.6 pp | Satellite radio and SiriusXM data become unavailable. |
+| Max-off combined preset, n=1 | **29.0 s Home**, ~10.9 s earlier | **+36.7 MiB** | **−4.3 pp** | Base=1; Android Auto, Pandora, SiriusXM and Wireless off. Removes optional features; gains are not additive. |
+| [Developer options](developer-options.md) | Not measured separately | Not measured separately | Not measured separately | Direct access; enabled SSH can start a daemon. |
 
-The [Performance evidence](performance.md) records the configurations and limits. Startup optimizations was called **Base optimizations** in those tests: dev.7’s wired dashboard was about 3.8 s earlier with it on. Pandora’s timing difference was below camera resolution. These are earlier bench results, not dev.20 measurements; do not add their RAM figures together. Free RAM here means **MemFree**, not memory available to apps. Later presets changed both behavior and memory costs; matched dev.20 results remain ahead.
+“Available” is the **MemFree + Buffers + Cached + SReclaimable − Shmem proxy**. **Linux 3.0.35 has no kernel MemAvailable**; the proxy is not guaranteed allocatable RAM. It differs from raw **MemFree** and resident anonymous **AnonPages** (commit accounting is **Committed_AS**). MiB = 1,048,576 bytes. Do not add differences from separate trials.
+
+Startup optimizations delays Navigation about **20 s** only with the **saved Open Connect Wireless CarPlay override** on. An already-checked **factory enabled** row leaves that override off and does not trigger the delay.
+
+[Performance evidence](performance.md#published-dev20-cold-acc-off-comparison-2026-11-25) retains all primary attempts, both failures, timing bounds and named RAM metrics. Its [separate toggle sweep](performance.md#stage-2b-isolated-toggle-sweep-n1) records the single-trial limits. Small timing/CPU differences can reflect background phone/Navigation activity. PR #149’s folded DVD policy and screenshots have separate qualification; the published dev.20 numbers are not new measurements of that candidate.
 
 ## Apply changes
 
@@ -88,4 +93,4 @@ In **0.3.0-dev.20**, select [**Apply changes**](apply-changes.md) above **Uninst
 
 **restart needed** means a choice is saved but not active yet. You can change several settings before applying them together. Saved choices also take effect on the next full startup; a quick ignition off/on may resume the same session. If a save cannot be confirmed, reopen Open Connect and check the choice before trying again.
 
-The guide describes the **0.3.0-dev.20 development prerelease** for North American version **74.00.324A**, with the upcoming NA DVD change described above. Real-car qualification remains pending.
+The guide describes the **0.3.0-dev.20 development prerelease** for North American version **74.00.324A**, with the merged post-dev.20 NA DVD change described above. Real-car qualification remains pending.

@@ -13,7 +13,7 @@ Remove Open Connect from Mazda Settings. You don’t need a USB drive or compute
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Neutral</dd>
+    <dd>Restores pre-install</dd>
   </div>
   <div>
     <dt>Applies</dt>
@@ -30,13 +30,13 @@ Remove Open Connect from Mazda Settings. You don’t need a USB drive or compute
 
 <p>No preference; removal requires confirmation.</p>
 
-<p><strong>Neutral</strong> — restores the saved pre-install configuration; no isolated startup or RAM improvement is measured.</p>
+<p><strong>Restores the saved pre-install configuration.</strong> This is a removal action, with no isolated RAM/CPU/startup improvement claimed.</p>
 
 <p>Removes Open Connect, its backups and saved choices. Install again using USB; radio presets, phone pairings and other normal Mazda preferences remain.</p>
 
 <p>Confirming <strong>Uninstall</strong> starts removal and an automatic Mazda Connect restart. Keep the car on until it finishes.</p>
 
-<p>Dev.19 Settings Uninstall has bench verification on <strong>74.00.324A NA</strong>; real-car removal remains unqualified. <a href="performance.md">Performance evidence</a> does not measure an isolated uninstall benefit. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+<p>Dev.20 Settings Uninstall and the post-dev.20 PR #149 candidate have bench verification on <strong>74.00.324A NA</strong>; real-car removal remains unqualified. <a href="performance.md">Performance evidence</a> does not measure an isolated uninstall benefit. The screenshot above remains dev.19. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
 
 
 ## Remove from Settings

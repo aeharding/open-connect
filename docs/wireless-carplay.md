@@ -13,7 +13,7 @@ Connect your iPhone to CarPlay without plugging in a USB cable. Open Connect ena
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Neutral</dd>
+    <dd>+2.2 pp CPU vs stock</dd>
   </div>
   <div>
     <dt>Applies</dt>
@@ -30,14 +30,15 @@ Connect your iPhone to CarPlay without plugging in a USB cable. Open Connect ena
 
 <p><span class="oc-default oc-default--off">Off</span>, unless the unit has factory wireless CarPlay. <strong>factory enabled</strong> units need no change here.</p>
 
-<p><strong>Neutral</strong> — no isolated wireless-enable startup or RAM saving is established.</p>
+<p>With Wireless CarPlay <strong>on and an iPhone connected</strong>: <strong>+2.2 percentage points boot CPU</strong>, <strong>+3.4 points settled CPU</strong> and approximately <strong>0 MiB available-proxy change versus Stock</strong> (+0.1 MiB observed). Versus Base=0: +1.4/+2.9 CPU points and −0.5 MiB proxy. Home was <strong>34.8 s</strong>, about <strong>5.1 s earlier than Stock Show</strong> or <strong>0.8 s earlier than Base=0 Skip</strong>; this does not establish a wireless startup benefit.</p>
 
-<p>Uses Wi-Fi for CarPlay and requires compatible hardware and phone pairing. Wired CarPlay remains available when this setting is off. In dev.19, Mazda Navigation starts about <strong>20 s later</strong> only when <strong>both</strong> <a href="startup-optimizations.md">Startup optimizations</a> and the <strong>saved Open Connect Wireless CarPlay override</strong> are on, even if no phone connects. An already-checked <strong>factory enabled</strong> row leaves that override off and does not trigger this delay.</p>
+<p>Published <strong>0.3.0-dev.20</strong>, one cold ACC-off boot (<strong>n=1</strong>) against earlier Stock and Base=0 medians; all other installed choices held fixed. Stock used disclaimer <strong>Show</strong>; installed boots used <strong>Skip</strong>. Small timing/CPU differences may be run variation. This sweep is separate from the primary n=3 cohorts. “Available” means the <strong>MemFree + Buffers + Cached + SReclaimable − Shmem proxy</strong>; Linux 3.0.35 has no kernel <code>MemAvailable</code>. It is not guaranteed allocatable RAM, raw <code>MemFree</code> or resident anonymous <code>AnonPages</code>; <code>Committed_AS</code> is the separate commitment counter.</p>
+
+<p>Uses Wi-Fi for CarPlay and requires compatible hardware and phone pairing. Wired CarPlay remains available when this setting is off. In dev.20, Mazda Navigation starts about <strong>20 s later</strong> only when <strong>both</strong> <a href="startup-optimizations.md">Startup optimizations</a> and the <strong>saved Open Connect Wireless CarPlay override</strong> are on, even if no phone connects. An already-checked <strong>factory enabled</strong> row leaves that override off and does not trigger this delay.</p>
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p id="testing"><a href="performance.md">Performance evidence</a> records wireless configurations, not an isolated enable-toggle benefit. Earlier builds have connection and full-restart reconnection checks; real-car audio, physical controls and long-parked reliability remain unqualified. Dev.19 UI bench captures on <strong>74.00.324A NA</strong>; real-car qualification and matched dev.20 benchmarks remain pending. <strong>0.3.0-dev.20</strong> is a development prerelease.</p>
-
+<p><a id="testing" href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> records AP/association/CarPlay-session confirmation separately from visible projection. Automatically show stayed off and Home remained the workload. Real-car audio, physical controls and long-parked reliability remain unqualified. The screenshot above remains dev.19. <strong>0.3.0-dev.20</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 <span id="connect-an-iphone"></span>
 

@@ -13,7 +13,7 @@ See which version of Open Connect is installed.
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Neutral</dd>
+    <dd>Read-only</dd>
   </div>
   <div>
     <dt>Applies</dt>
@@ -30,7 +30,7 @@ See which version of Open Connect is installed.
 
 <p>No preference; displays the installed Open Connect version.</p>
 
-<p><strong>Neutral</strong> — viewing version information changes no settings; no startup or RAM claim.</p>
+<p><strong>Read-only</strong> — viewing version information changes no settings; no RAM/CPU/startup claim.</p>
 
 <p>None; opening About does not change startup behavior.</p>
 

@@ -26,7 +26,7 @@
   // Reviewed Home-first Commander Dial videos; identities are in the asset notes.
   const root = ["open-connect.mp4", "Home → Settings → System → Open Connect"];
   const phone = ["carplay-android-auto.mp4", `${root[1]} → CarPlay & Android Auto`];
-  const audio = ["audio-sources.mp4", `${root[1]} → Audio sources`];
+  const audio = ["audio-sources.mp4", `${root[1]} → Audio sources (dev.20 capture)`];
   const paths = {
     "open-connect": root,
     touchscreen: root,
@@ -43,12 +43,13 @@
     "phone-connections": phone,
     "audio-sources": audio,
     services: audio,
-    dvd: audio,
+    dvd: root,
     pandora: audio,
     siriusxm: audio,
     "developer-options": ["developer-options.mp4", `${root[1]} → Developer options`],
     "version-info": ["version-info.mp4", "Home → Settings → System → About → Version Information"],
   };
+  const audioNote = "This dev.20 video shows the published dev.19/dev.20 layout, with DVD under Audio sources. In the upcoming North American candidate, Audio sources contains only Pandora and SiriusXM; DVD is managed by Startup optimizations.";
   const notes = {
     touchscreen: "Select Touchscreen While Driving, then choose Allow or Factory Default.",
     disclaimer: "Select Startup disclaimer, then choose Skip or Show.",
@@ -56,7 +57,9 @@
     "carplay-on-connection": "Select Show CarPlay on connection, then choose Factory behavior or Automatically show. The inline screenshot shows the Factory default.",
     "android-auto": "Turn Android Auto on or off and confirm the change.",
     "startup-optimizations": "Turn Startup optimizations on or off and confirm the change. The inline screenshot shows it on; the fresh-install default is Off.",
-    dvd: "Turn DVD on or off and confirm the change. Audio CDs are independent of DVD video support.",
+    "audio-sources": audioNote,
+    services: audioNote,
+    dvd: "Published dev.19/dev.20 have DVD under Audio sources. In the upcoming North American candidate, use Startup optimizations in Open Connect to manage the unused DVD service. Audio CDs still work. This video shows dev.20.",
     pandora: "Turn Pandora on or off and confirm the change. This controls Mazda’s integration, not Pandora through CarPlay or Bluetooth.",
     siriusxm: "Turn SiriusXM on or off and confirm the change. This controls satellite radio and SiriusXM data.",
     "apply-changes": "Select Apply changes, then confirm Restart to apply saved choices. It is disabled when there are no pending changes. Keep the car on until Mazda Connect restarts.",

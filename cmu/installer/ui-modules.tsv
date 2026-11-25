@@ -24,7 +24,7 @@ uia	auxin	keep	23
 uia	satradio	siriusxm	24
 uia	diag	keep	25
 uia	cd	keep	26
-uia	dvd	dvd	27
+uia	dvd	base	27
 uia	tv	base	28
 uia	stitcher	base	29
 uia	aharadio	base	30
@@ -63,8 +63,8 @@ vui	vui_plugin_contacts.so	keep	1114e260aa224fca29aa77e71d535e53425b36651bf74d5a
 vui	vui_plugin_contacts.xml	keep	5b15e9781fd70fd728f74ddf7a9f786609e95201f63ec966ce81f35b67aedadd
 vui	vui_plugin_dab.so	base	e73fc134a5caf04262e1d8136dcf82e02679c45e9be48a8e656ddd0e9745eaac
 vui	vui_plugin_dab.xml	base	6228c62042d4b85c9cbb8b3ea9ade53105bde1fd5dc993d1a549f93dadda85f1
-vui	vui_plugin_dvd.so	dvd	cb98b30421a78e208385138e743f3038845240187a7f92630391526c9a69e5cc
-vui	vui_plugin_dvd.xml	dvd	c6eaed903d1d1e4b282bc1eb3995ad9327065ada6eff835706c248698070fb39
+vui	vui_plugin_dvd.so	base	cb98b30421a78e208385138e743f3038845240187a7f92630391526c9a69e5cc
+vui	vui_plugin_dvd.xml	base	c6eaed903d1d1e4b282bc1eb3995ad9327065ada6eff835706c248698070fb39
 vui	vui_plugin_email.so	keep	4af365cb025641d50e058600a25e2882b99cdff31a6fb03fb3a8ec38121b5689
 vui	vui_plugin_email.xml	keep	8f6c200e3cf6e42b0ea74c44f7a9485187e82966726497c3db6a90ee74629dec
 vui	vui_plugin_emnavi.so	keep	fb5494c1d1289124e0f63df7e1c3d3f78f4151c49ef63ed42eb3aed0d69d6d77

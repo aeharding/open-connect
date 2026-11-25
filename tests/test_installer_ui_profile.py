@@ -68,16 +68,13 @@ class UIProfile(unittest.TestCase):
                 plugins.append((name, group))
         with tempfile.TemporaryDirectory() as temp:
             config = Path(temp) / "config"
-            for base, warning, aa, pandora, dvd, sxm in itertools.product((0, 1), repeat=6):
-                with self.subTest(
-                    base=base, warning=warning, aa=aa, pandora=pandora, dvd=dvd, sxm=sxm
-                ):
+            for base, warning, aa, pandora, sxm in itertools.product((0, 1), repeat=5):
+                with self.subTest(base=base, warning=warning, aa=aa, pandora=pandora, sxm=sxm):
                     choices = {
                         "base": base,
                         "warning": warning,
                         "service.android-auto": aa,
                         "service.pandora": pandora,
-                        "service.dvd": dvd,
                         "service.siriusxm": sxm,
                     }
                     values = dict(
@@ -87,7 +84,7 @@ class UIProfile(unittest.TestCase):
                         package="a" * 64,
                         touch=1,
                         wireless=1,
-                        **{"service-ids": "android-auto,dvd,pandora,siriusxm"},
+                        **{"service-ids": "android-auto,pandora,siriusxm"},
                     )
                     config.write_text(
                         "OC2\n" + "".join(f"{k}={v}\n" for k, v in sorted(values.items()))
@@ -141,6 +138,6 @@ class UIProfile(unittest.TestCase):
                         self.assertEqual(xml, original)  # Includes Base=0/AA=0.
                     if base:
                         self.assertGreaterEqual(len(nodes), 33)
-                        self.assertLessEqual(len(nodes), 39)
+                        self.assertLessEqual(len(nodes), 38)
                         self.assertGreaterEqual(len(names), 36)
-                        self.assertLessEqual(len(names), 48)
+                        self.assertLessEqual(len(names), 46)

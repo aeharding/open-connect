@@ -28,7 +28,6 @@ nav = [
       { "Android Auto" = "android-auto.md" }
     ] },
     { "Audio sources" = [
-      { "DVD" = "dvd.md" },
       { "Pandora" = "pandora.md" },
       { "SiriusXM" = "siriusxm.md" }
     ] },

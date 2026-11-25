@@ -299,6 +299,24 @@ The native selector validates choices against this list in the already
 authenticated config, avoiding a separate catalog read before Service Manager.
 The existing OCBP1 package row still guards the catalog metadata.
 
+On the supported NA baseline, Audio sources contains Pandora and SiriusXM.
+Startup optimizations controls `jcidvd` alongside the Aha/Stitcher/DAB/TV leaves:
+Off retains stock DVD autorun and native loading; On disables autorun, hides DVD
+and omits its MMUI/voice modules. The regional/hardware findings are recorded in
+[DVD gating](reverse-engineering.md#dvd-hardware-and-regional-gating-offline-v74-na-analysis).
+
+Upgrade reads dev.15-dev.20 OC2 snapshots with their authenticated package's
+interpreter/catalog. The new writer alone accepts the retired `service.dvd=0`
+or `1` plus the old sorted `service-ids` list, validates them, then drops DVD
+from the new snapshot. `base` and all remaining choices are preserved. New
+decodes, commands and profiles require the reduced catalog; there is no DVD
+toggle. The native selector already admits either authenticated key list.
+Before/after snapshots keep their own readers during pending recovery, and
+original baselines remain unchanged. A downgrade to the dev.19/dev.20 writer
+reintroduces its DVD default of Off; it does not recover the discarded choice.
+Dedicated host fixtures cover those installs, interrupted recovery, target-owned
+downgrade and Uninstall; they do not establish a live upgrade qualification.
+
 Maintenance supports the actual dev.9 predecessor: its stock baseline and
 Uninstall output have five fields with package `-`; its active policy has eight.
 A newer client executes the verified target package's serializer and renderer for

@@ -1,8 +1,9 @@
 // Exercise the actual rendered policy, not a separately supplied hidden-ID list.
 const assert = require("node:assert/strict"), fs = require("node:fs"), vm = require("node:vm");
-const html = fs.readFileSync(process.argv[2], "utf8"), base = Number(process.argv[3]);
+const html = fs.readFileSync(process.argv[2], "utf8"), base = Number(process.argv[3]), warning = Number(process.argv[4]);
 const start = html.indexOf("(function (fw, applied) {"), close = html.indexOf("}(framework, [", start);
-assert(start >= 0 && close > start);
+assert.equal(start >= 0, Boolean(base || warning));
+if (start >= 0) { assert(close > start); }
 const end = html.indexOf("]));", close);
 let calls = 0, method, callback;
 const fw = {_appInstances: {}, _initApp(id) {
@@ -19,7 +20,7 @@ const fw = {_appInstances: {}, _initApp(id) {
     app._messageTable = {StatusMenuVisibleAndroidAuto: callback};
     this._appInstances[id] = app;
 }};
-vm.runInNewContext(html.slice(start, end + 4), {framework: fw});
+if (start >= 0) { vm.runInNewContext(html.slice(start, end + 4), {framework: fw}); }
 fw._initApp("system");
 const app = fw._appInstances.system;
 assert.equal(app._StatusMenuVisibleAndroidAutoMsgHandler === method, !base);

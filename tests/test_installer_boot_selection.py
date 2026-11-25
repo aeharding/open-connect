@@ -424,6 +424,24 @@ class NativeBootSelection(unittest.TestCase):
         self.assertNotIn("@BOOT@", index)
         self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
 
+    def test_retired_dvd_config_selects_and_debits_with_its_authenticated_keys(self):
+        config = (
+            (self.snapshot / "config")
+            .read_text()
+            .replace(
+                "service-ids=android-auto,pandora",
+                "service-ids=android-auto,dvd,pandora,siriusxm",
+            )
+            .replace(
+                "service.pandora=1\n", "service.dvd=1\nservice.pandora=1\nservice.siriusxm=1\n"
+            )
+        )
+        self.change_current("config", config)
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.ram / "selected").read_text().strip(), self.snapshot.name)
+        self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
     def test_autoshow_missing_boot_provenance_refuses_before_debit(self):
         config = (
             (self.snapshot / "config")
@@ -633,7 +651,7 @@ class NativeBootSelection(unittest.TestCase):
             if not line.startswith("vui\t"):
                 continue
             _, name, group, _ = line.split("\t")
-            if group in ("base", "dvd"):
+            if group == "base":
                 continue
             payload = "authored retained plugin " + name + "\n"
             path = "/jci/vui/plugins/" + name

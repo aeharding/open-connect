@@ -30,11 +30,15 @@ Reduce background logging and stop unused services at startup. Previously called
 
 <p><strong>Faster</strong> in dev.7 wired tests: CarPlay dashboard about <strong>3.8 s earlier</strong>, with <strong>+9.9 MiB minimum MemFree</strong> and <strong>+2.58 MiB ending MemFree</strong>.</p>
 
-<p>Stops Aha, Stitcher, DAB and TV. In dev.19, Mazda Navigation starts about <strong>20 s later</strong> only when <strong>both this setting and the saved Open Connect Wireless CarPlay override</strong> are on, even if no phone connects. An already-checked <strong>factory enabled</strong> wireless row leaves that override off and does not trigger this delay. Android Auto, DVD, Pandora and SiriusXM stay independent.</p>
+<p>Stops Aha, Stitcher, DAB and TV. Mazda Navigation starts about <strong>20 s later</strong> only when <strong>both this setting and the saved Open Connect Wireless CarPlay override</strong> are on, even if no phone connects. An already-checked <strong>factory enabled</strong> wireless row leaves that override off and does not trigger this delay. Android Auto, Pandora and SiriusXM stay independent.</p>
+
+<p>In the upcoming development candidate for North American firmware <strong>74.00.324A NA</strong>, enabling Startup optimizations also turns off Mazda’s unused DVD service automatically. Mazda’s DVD interface (<code>libjciuiadvd.so</code>) <a href="reverse-engineering.md#dvd-hardware-and-regional-gating-offline-v74-na-analysis">excludes North America from DVD playback</a>. Audio CDs use a separate service and still work. Older configurations migrate automatically, preserving your Startup optimizations choice; the separate <a href="dvd.md">DVD setting</a> is retired.</p>
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
 <p><a href="performance.md">Performance evidence</a> links the <a href="base-comparison.md">dev.7 comparison</a> and later presets’ <a href="sparse-native-loading.md">memory costs and workload limits</a>. These are earlier results, not dev.19 measurements or proof of faster startup than stock. Dev.19 UI bench captures on <strong>74.00.324A NA</strong>; real-car qualification and matched dev.19 benchmarks remain pending. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+
+The folded DVD policy has offline checks only; updated screenshots and live upgrade qualification remain pending. No isolated DVD startup or RAM gain is established.
 
 
 ## Change the setting

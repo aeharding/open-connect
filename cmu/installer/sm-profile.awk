@@ -17,8 +17,8 @@ function put_attribute(name, value, previous, at, size, space) {
 BEGIN {
     if(operation!="compose" || invalid) refuse()
     early_wireless=(prefs["base"]=="1" && prefs["wireless"]=="1")
-    split("jciDAB jcitv blm_ira_stitcher irsstitcher_server blm_ira_aha offboard_service",base_names," ")
-    for(i=1;i<=6;i++) {
+    split("jciDAB jcitv blm_ira_stitcher irsstitcher_server blm_ira_aha offboard_service jcidvd",base_names," ")
+    for(i=1;i<=7;i++) {
         name=base_names[i]
         if(name in service_owner) refuse()
         base_hits[name]=0

@@ -5,6 +5,57 @@ offline source analysis and unqualified behavior are distinguished below.
 Retired experiments remain in [Git history](https://github.com/aeharding/open-connect/blob/84471d2c69c13829c714650edf67ea22a1f9b2c0/docs/reverse-engineering.md);
 old evidence has not been relabeled as testing the current implementation.
 
+## DVD hardware and regional gating (offline v74 NA analysis)
+
+The private `firmware74-research/rootfs.tar.gz` image identifies itself as
+**74.00.324A / cmu150_NA**. Both `sm.conf` and `sm_WCP.conf` start `jcidvd`
+(`/jci/dvd/svcjcidvd.so`) unconditionally after `jciBCA`, `jciVBS` and
+`audio_manager`. `jciCD` is a separate service. Presence of the DVD service,
+JavaScript, translations or voice plugins in this NA image does not establish
+DVD playback hardware.
+
+Static ARM disassembly of `libjciuiadvd.so` explains the OEM gate:
+`dvd_dbus_GetFeatureRegion_cb` (`0xe610`) receives the Settings region;
+`dvd_dbus_InformAboutOurRegionAndDeviceVisibility` (`0xe3ec`) requires the DVD
+service to be available, an equipped-device status (`81`, `0x51`), and region
+`3` or `5`. It also accepts the initial unknown region `0`. The Settings
+configuration `maz_cmu-root.xml` defines the named regions below and selects
+`2` for NA. The gate sends `StatusMenuVisible` after native initialization;
+`systemApp.js` initially lists DVD as hidden and disabled and applies those
+messages when building Entertainment/Sources.
+
+| Settings region | DVD region gate in this image |
+| --- | --- |
+| `1` Europe | Excluded |
+| `2` North America (`cmu150_NA`) | Excluded |
+| `3` 4A | Allowed only with equipped playback hardware |
+| `4` China/Taiwan | Excluded |
+| `5` Japan | Allowed only with equipped playback hardware |
+
+Japan and 4A are therefore the firmware's DVD-capable market families, with
+fitment determined separately. This is evidence of software eligibility, not
+an exhaustive vehicle/trim shipment inventory or verification of another
+firmware flavor. In particular, do not infer that every 4A vehicle has a player,
+or map a language, destination or DVD disc region code directly to hardware.
+`dvd_dbus_SendRegionToGUI` (`0xeb80`) maps Settings `3` to `A4` and `5` to
+`Japan`; `dvdApp.js` uses those values for parental controls. Disc-region
+violation handling is separate from this market gate.
+
+`svcjcidvd.so` binds the VBS CD interface, subscribes to
+`VBS_CD_cdDvdConfigStatusResponse_enable` in `DVD_vbs_init` (`0x867c`), and
+queries `VBS_CD_GetDVDConfigStatus` from `DVD_VBS_cmd_getDeviceType` (`0xb894`).
+Its status maps distinguish no connected device, DVD not equipped and DVD
+equipped; disabling its NA autorun does not remove the CD service. A future
+non-NA port must preserve the Japan/4A hardware gate before deciding which
+services belong in Startup optimizations. No non-NA support is qualified here.
+
+This investigation used local XML/JavaScript, ELF symbols and LLVM disassembly;
+no CMU execution or new timing/RAM claim. Reproduction inputs are the above
+image paths; SHA-256: `svcjcidvd.so`
+`dfacb0ffc3c15469b1d372d00267717ade28e74ef79cfa276bef73899afbc66b`,
+`libjciuiadvd.so`
+`06e0077c4b9cbf74d2dad6af6c988cbbe636daeb34749e6353ce72ae725fd929`.
+
 ## Owner-key access after the replacement's v74 upgrade
 
 After the owner completed the update, authenticated root inspection identified

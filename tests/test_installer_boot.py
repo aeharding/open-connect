@@ -653,7 +653,13 @@ record_write
                 )
                 index = self.data / "snapshots" / result.stdout.strip() / "index.html"
                 subprocess.run(
-                    ["node", ROOT / "tests/fixtures/system-hook-rendered.js", index, str(base)],
+                    [
+                        "node",
+                        ROOT / "tests/fixtures/system-hook-rendered.js",
+                        index,
+                        str(base),
+                        str(warning),
+                    ],
                     check=True,
                     capture_output=True,
                     timeout=5,

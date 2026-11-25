@@ -1,46 +1,13 @@
 # DVD
 
-Control in-dash DVD video support.
+The published **v0.3.0-dev.19** and **v0.3.0-dev.20** prereleases expose a separate **DVD** setting under **Audio sources**.
 
-<dl class="oc-spec">
-  <div>
-    <dt>Menu</dt>
-    <dd><span class="oc-nav-path" data-walkthrough="dvd">Open Connect → Audio sources</span></dd>
-  </div>
-  <div>
-    <dt>Default</dt>
-    <dd><span class="oc-default oc-default--off">Off</span></dd>
-  </div>
-  <div>
-    <dt>Impact</dt>
-    <dd>Neutral</dd>
-  </div>
-  <div>
-    <dt>Applies</dt>
-    <dd>Next full startup</dd>
-  </div>
-</dl>
+In the upcoming development candidate, DVD is folded into [Startup optimizations](startup-optimizations.md) on North American units running **74.00.324A NA**. Its Audio sources menu contains **Pandora** and **SiriusXM** only.
 
-<figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/setting-dvd.png" alt="DVD highlighted and off in the Audio sources submenu." width="800" height="480"></div>
-  <figcaption>DVD highlighted (dev.19).</figcaption>
-</figure>
+Enabling Startup optimizations also turns off Mazda’s unused DVD service. Turning it off restores the stock service startup policy; Mazda’s [regional gate](reverse-engineering.md#dvd-hardware-and-regional-gating-offline-v74-na-analysis) still excludes North America from DVD playback. Audio CDs and CarPlay still work.
 
-## Notes
+Older configurations migrate automatically. Your Startup optimizations choice and remaining preferences are kept; the former DVD choice is retired.
 
-<p><strong>Neutral</strong> — no isolated startup or free-RAM gain is established.</p>
-
-<p>Turning it off hides DVD from Mazda’s <strong>Sources</strong> list and stops DVD video support. Audio CDs and CarPlay still work.</p>
-
-<p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
-
-<p><a href="performance.md">Performance evidence</a> has no isolated DVD comparison. Equipped DVD playback remains unqualified. Dev.19 UI bench captures on <strong>74.00.324A NA</strong>; real-car qualification and matched dev.19 benchmarks remain pending. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
-
-
-## Change the setting
-
-Leave **DVD** off if you do not use in-dash DVD video. Turn it on and confirm **Enable** to restore support after a full restart.
-
-Enabled sources retain Mazda’s hardware, connection and availability requirements. This choice is independent of [Startup optimizations](startup-optimizations.md).
+The migration and folded policy have offline checks only. Updated screenshots and live upgrade qualification remain pending.
 
 [Back to Settings](settings.md)

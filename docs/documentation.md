@@ -119,10 +119,14 @@ Use this order on each setting page:
 The bar is for tidbits, not paragraphs. Use short defaults such as **Allow**,
 **Skip**, **Off**, **Factory**, **On**, **UART/SSH Off** or **—**. Use muted neutral
 ink for Off/Factory and subtle green for enabled defaults. Keep Impact on every
-page: **Neutral** where no measured startup gain is established,
-**Faster · +9.9 MiB free (dev.7)** for Startup optimizations, and
-**+3.2 MiB free off (dev.6)** for Pandora. Keep the complete startup/RAM notes
-below every screenshot, including the neutral settings.
+page, using compact, evidence-backed wording such as **On: +21 MiB vs stock**
+or **Off: +7.4 MiB vs stock**. Use **Not measured separately**, **Enabled: unmeasured**,
+**Restarts to apply**, **Restores pre-install** or **Read-only** where appropriate.
+Keep the complete RAM/CPU/startup comparison and limits in Notes below the screenshot.
+Use the published dev.20 cohorts and separate n=1 toggle sweep in [Performance evidence](performance.md);
+name Stock Show versus installed Skip and Base=0/1 explicitly. Keep Stock comparators in the bar; explain available-RAM proxy values,
+CPU percentage points, n=3 versus n=1, and full timing comparisons in Notes.
+“Avail” abbreviates the available-RAM proxy, not kernel MemAvailable or raw MemFree.
 Use **Next full startup**, **Auto restart**, **Read-only** or **Per setting** for
 Applies. Keep the exact memory metric, comparison configuration and outstanding
 qualification in Notes.
@@ -156,7 +160,7 @@ HTML containers will not be parsed. For example:
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Neutral</dd>
+    <dd>Not measured separately</dd>
   </div>
   <div>
     <dt>Applies</dt>
@@ -168,9 +172,10 @@ HTML containers will not be parsed. For example:
 In Notes, retain all factual limits: the dev.20 development prerelease status,
 pending real-car qualification, links to [Performance evidence](performance.md)
 and [restart guidance](settings.md#apply-changes), and the exact conditions for
-any Navigation delay. Neutral means no measured startup gain is established.
-Identify earlier-build measurements, name MemFree when reporting free RAM, and
-keep its caveats. Preserve existing anchors when moving content.
+any Navigation delay. Unknown cost is not zero cost, including SSH when enabled.
+Linux 3.0.35 has no kernel MemAvailable: distinguish the available proxy
+(MemFree + Buffers + Cached + SReclaimable − Shmem), raw MemFree and resident
+anonymous AnonPages (Committed_AS is the separate commitment counter). Identify earlier-build measurements and retain their caveats. Preserve existing anchors when moving content.
 
 Use `<strong>`, `<code>` and `<a>` inside HTML paragraphs. Use documentation
 source filenames in links, such as `performance.md` and `settings.md#apply-changes`.
@@ -212,7 +217,7 @@ dev.20 qualification used another source revision.
 
 ## Commander Dial capture provenance
 
-The fourteen `setting-*.png` images added for
+The fourteen original November 24 `setting-*.png` images added for
 [#137](https://github.com/aeharding/open-connect/issues/137) and
 [#143](https://github.com/aeharding/open-connect/issues/143) were supplied on
 **November 24, 2026** from **v0.3.0-dev.19**, **74.00.324A NA/cmu150_NA**.
@@ -231,6 +236,11 @@ and supplied two archive identities:
 
 The coordinator reports that all **50 extracted file members are byte-for-byte
 identical** between these archives; the ZIP archive hashes differ.
+
+The Pandora and SiriusXM row captures have since been replaced by the reviewed
+post-dev.20 PR #149 images (source `ecddb381`, CI 45597702470, merged main
+`291492fa`), with Bluetooth OFF and no DVD row. Their [current provenance](assets/guide/README.md#audio-sources-pr-149-captures-2026-11-25)
+is separate; unchanged dev.19 captures retain their attribution.
 
 The [per-file provenance and SHA-256 table](assets/guide/README.md#commander-dial-setting-captures-2026-11-24)
 records the copied bytes, shown preferences and private supplied-original paths.

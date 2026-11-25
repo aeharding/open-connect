@@ -1,5 +1,37 @@
 # Guide media provenance
 
+## Audio sources PR #149 captures 2026-11-25
+
+`setting-pandora.png` and `setting-siriusxm.png` replace the earlier dev.19
+captures with direct, **unedited native 800×480** Commander-highlighted PNGs
+from the **post-dev.20 PR #149 candidate**, source
+`ecddb381185ec4985b87b5ab6acbb3792807fe21`,
+[CI 45597702470](https://github.com/aeharding/open-connect/actions/runs/45597702470),
+merged as `291492fa4badba2d8479f23add82867d83bf68b6` (`291492fa`).
+VERSION still reads dev.20; these are **not captures of the published dev.20
+release**. They match merged main's Audio sources menu: **Pandora and SiriusXM
+only, no DVD row**, both on. **Bluetooth was OFF** during capture.
+
+The capture operator and documentation implementer visually reviewed each full
+image: **zero visible PII**, VIN/unit serials, credentials or diagnostic overlays.
+Native red focus comes from Commander navigation, with no image edits. The
+implementer inspected and hash-checked the supplied originals offline; this
+change performs no live hardware verification. Real-car audio remains unqualified.
+
+| Asset | SHA-256 |
+| --- | --- |
+| `setting-pandora.png` | `90f9c522c97a251e3c0796dcc8ffb0489a25c95bc3f0b8f285aaf70e707f0670` |
+| `setting-siriusxm.png` | `adc2e570d4e47c85bd64d22c130987f66958629309061e5a41da0458fc3a2944` |
+
+Private supplied originals:
+`runs/acc-bench-20261125/audio-sources-pr149-pandora.png` and
+`runs/acc-bench-20261125/audio-sources-pr149-siriusxm.png`.
+`PR149-QUAL.md` and `pr149-screenshots.json` retain capture/qualification receipts.
+The PR #149 packet covers normal same-version Reinstall, DVD policy in both Base
+states, migration and Settings Uninstall; it has **no new performance cohort**.
+Published-dev.20 performance results retain their separate source identity.
+Only these two reviewed PNGs are copied; raw captures remain private.
+
 ## Commander Dial MP4 walkthroughs and Apply changes 2026-11-25
 
 The five `walkthroughs/*.mp4` videos and three Apply changes PNGs show
@@ -65,9 +97,11 @@ media listed above are included.
 
 ## Commander Dial setting captures 2026-11-24
 
-The fourteen `setting-*.png` images are direct, unedited native **800×480**
+The fourteen original November 24 `setting-*.png` images were direct, unedited native **800×480**
 **BGRA framebuffer (`/dev/fb0`) readbacks**, supplied by the capture operator.
-They show **0.3.0-dev.19** on **74.00.324A NA/cmu150_NA**. Navigation used
+They showed **0.3.0-dev.19** on **74.00.324A NA/cmu150_NA**. The two
+Audio sources row captures are superseded by the PR #149 images above; their
+original hashes below are historical, with old bytes retained in Git. Navigation used
 Commander Dial events, with no touch injection; Bluetooth was disconnected.
 Each complete PNG was visually reviewed by the documentation implementer and
 coordinator for personal data, credentials, clipping and diagnostic overlays.
@@ -95,7 +129,7 @@ SiriusXM on and DVD off. A highlighted row is not a changed preference; shown
 values are not all fresh-install defaults. The Developer options capture shows
 its parent row rather than its access controls.
 
-| Asset | SHA-256 |
+| Original November 24 asset (Pandora/SiriusXM superseded) | Original SHA-256 |
 | --- | --- |
 | `setting-touchscreen-while-driving.png` | `cfd64b084b0417cd531957390e6875c2f5e5df17b58cae044a9cca80f769a3aa` |
 | `setting-startup-disclaimer.png` | `9b5eaf8fadc9af939db645fb126070c30e112b0424ebbbb276a0d9a2cbad19ed` |

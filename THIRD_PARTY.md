@@ -22,10 +22,35 @@ its received SHA-256 and was reviewed for personal data, credentials and
 diagnostic overlays. The separately authored `cmu-frame.svg` is a decorative
 bezel displayed around the captures by the website; it is not part of the screen.
 
-The fourteen November 24 `setting-*.png` Commander Dial row captures show **0.3.0-dev.19**,
+### Refreshed Audio sources captures 2026-11-25
+
+`setting-pandora.png` and `setting-siriusxm.png` are unedited native **800×480**
+Commander-highlighted captures from the **post-dev.20 PR #149 candidate**,
+source `ecddb381185ec4985b87b5ab6acbb3792807fe21`,
+[CI 45597702470](https://github.com/aeharding/open-connect/actions/runs/45597702470),
+merged as `291492fa4badba2d8479f23add82867d83bf68b6` (`291492fa`).
+They match merged main: Pandora and SiriusXM only, both on, **no DVD row**,
+with **Bluetooth OFF**. VERSION still reads dev.20; these are not published
+release captures or a new performance cohort. Both complete images were
+visually reviewed by the operator and documentation implementer: **zero visible
+PII**, VIN/unit serials, credentials or diagnostic overlays. Offline byte/hash
+checks confirm the supplied originals; raw captures remain private.
+
+| Asset | SHA-256 |
+| --- | --- |
+| `setting-pandora.png` | `90f9c522c97a251e3c0796dcc8ffb0489a25c95bc3f0b8f285aaf70e707f0670` |
+| `setting-siriusxm.png` | `adc2e570d4e47c85bd64d22c130987f66958629309061e5a41da0458fc3a2944` |
+
+Exact private source paths and qualification limits are in the
+[guide asset notes](docs/assets/guide/README.md#audio-sources-pr-149-captures-2026-11-25).
+
+### Earlier captures
+
+The fourteen original November 24 `setting-*.png` Commander Dial row captures showed **0.3.0-dev.19**,
 tag commit `f478f3b282f6987d86e04c03d83b1a6971d5a3db`, supplied on November 24,
 2026 as native 800×480 `/dev/fb0` BGRA readbacks. The coordinator identified
-two distinct archive identities:
+two distinct archive identities. Pandora and SiriusXM are now superseded by the
+two PR #149 captures above; unchanged dev.19 images retain this attribution:
 
 - Published GitHub [v0.3.0-dev.19 prerelease](https://github.com/aeharding/open-connect/releases/tag/v0.3.0-dev.19)
   ZIP, as recorded in the release’s `SHA256SUMS`: `c2c09b3123a2145f3582d3ee7f1e692581b1196ab18c5ba60fc198d79716c486`.

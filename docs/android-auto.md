@@ -13,7 +13,7 @@ Control Mazda’s built-in Android Auto support.
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Neutral</dd>
+    <dd>Off: +4.6 MiB vs stock</dd>
   </div>
   <div>
     <dt>Applies</dt>
@@ -28,13 +28,15 @@ Control Mazda’s built-in Android Auto support.
 
 ## Notes
 
-<p><strong>Neutral</strong> — no isolated startup or free-RAM gain is established.</p>
+<p>With Android Auto <strong>off</strong>: <strong>+4.6 MiB ending available proxy versus Stock</strong> (+4.0 MiB versus Base=0), and <strong>+7.8 MiB minimum MemFree versus Base=0</strong> (+7.2 MiB versus Stock). Home was <strong>35.2 s</strong>: about <strong>0.4 s earlier than Base=0</strong> or <strong>4.7 s earlier than Stock Show</strong>. Boot CPU was <strong>0.9 percentage points higher than Stock</strong>.</p>
+
+<p>Published <strong>0.3.0-dev.20</strong>, one cold ACC-off boot (<strong>n=1</strong>) against earlier Stock and Base=0 medians; all other installed choices held fixed. Stock used disclaimer <strong>Show</strong>; installed boots used <strong>Skip</strong>. Small timing/CPU differences may be run variation. This sweep is separate from the primary n=3 cohorts. “Available” means the <strong>MemFree + Buffers + Cached + SReclaimable − Shmem proxy</strong>; Linux 3.0.35 has no kernel <code>MemAvailable</code>. It is not guaranteed allocatable RAM, raw <code>MemFree</code> or resident anonymous <code>AnonPages</code>; <code>Committed_AS</code> is the separate commitment counter.</p>
 
 <p>Turning it off makes built-in Android Auto unavailable. CarPlay, Bluetooth audio, USB music and audio CDs still work.</p>
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p><a href="performance.md">Performance evidence</a> covers combined service configurations, not an isolated Android Auto gain. Android-phone use remains unqualified. Dev.19 UI bench captures on <strong>74.00.324A NA</strong>; real-car qualification and matched dev.19 benchmarks remain pending. <strong>0.3.0-dev.19</strong> is a development prerelease.</p>
+<p><a href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> records the separate toggle sweep and its limits. Android-phone use remains unqualified. The screenshot above remains dev.19. <strong>0.3.0-dev.20</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 
 ## Change the setting

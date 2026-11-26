@@ -161,6 +161,7 @@ cp() {
     case "$2" in
         "$D"/.originals-*/dependency) head -c 3 "$1" > "$2"; fault originals || return 1;;
         "$D"/packages/.new-*/state.sh) head -c 3 "$1" > "$2"; fault package || return 1;;
+        "$D"/snapshots/.new-*/autostart) head -c 3 "$1" > "$2"; fault snapshot || return 1;;
     esac
     command cp "$@"
 }
@@ -490,22 +491,36 @@ flush() {
         self.assertEqual(self.fingerprint(), self.stock)
 
     def test_mount_guard_preserves_private_tree_including_nested_access_work(self):
-        (self.root / "overmount").touch()
-        result, _ = self.api("install", fault="record-file", mode="fail")
-        self.assertNotEqual(result.returncode, 0)
-        private = list(self.root.glob(".open-connect-initial-*"))
-        self.assertEqual(len(private), 1)
-        self.assertTrue(list(private[0].glob(".access-*/access")))
-        saved = self.tree(private[0])
-        self.assertFalse(self.data.exists())
-        self.assertEqual(self.fingerprint(), self.stock)
-        (self.root / "overmount").unlink()
-        self.replacement()
-        self.popup(self.metadata())
-        result, _ = self.api("install")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.check_installed()
-        self.assertEqual(self.tree(private[0]), saved)
+        for cut, member in (
+            ("record-file", ".access-*/access"),
+            ("package", "packages/.new-*/state.sh"),
+            ("snapshot", "snapshots/.new-*/autostart"),
+        ):
+            with self.subTest(cut=cut):
+                f = self.independent()
+                (f.root / "overmount").touch()
+                result, _ = f.api("install", fault=cut, mode="fail")
+                self.assertNotEqual(result.returncode, 0)
+                private = list(f.root.glob(".open-connect-initial-*"))
+                self.assertEqual(len(private), 1)
+                children = list(private[0].glob(member))
+                self.assertEqual(len(children), 1, "nested cleanup must defer to the outer guard")
+                if cut == "package":
+                    self.assertEqual(
+                        children[0].read_bytes(), (f.tools / "state.sh").read_bytes()[:3]
+                    )
+                elif cut == "snapshot":
+                    self.assertEqual(children[0].read_bytes(), f.target.read_bytes()[:3])
+                saved = self.tree(private[0])
+                self.assertFalse(f.data.exists())
+                self.assertEqual(f.fingerprint(), f.stock)
+                (f.root / "overmount").unlink()
+                f.replacement()
+                f.popup(f.metadata())
+                result, _ = f.api("install")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                f.check_installed()
+                self.assertEqual(f.tree(private[0]), saved)
 
     def test_distinct_legacy_removed_snapshots_keep_saved_baseline(self):
         result, _ = self.api("install", fault="composed")
@@ -533,11 +548,27 @@ flush() {
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotEqual(self.record()[4], self.record()[5])
+        old_current = self.record()[5]
+        old_dependencies = (self.data / "snapshots" / old_current / "dependencies").read_bytes()
+        self.assertGreater(len(old_dependencies.splitlines()), 1)
         saved = self.tree(self.data / "snapshots" / baseline)
         self.replacement()
         metadata = self.metadata()
         self.popup(metadata)
-        result, _ = self.api("install", metadata["revision"])
+        result, _ = self.api("install", metadata["revision"], fault="pending-flush", mode="fail")
+        self.assertNotEqual(result.returncode, 0)
+        pending = self.record()
+        self.assertEqual(pending[1], "install")
+        self.assertNotEqual(
+            pending[4], pending[6], "distinct saved dependency authority must survive conversion"
+        )
+        self.assertEqual(
+            (self.data / "snapshots" / pending[6] / "dependencies").read_bytes(), old_dependencies
+        )
+        self.assertEqual(self.fingerprint(), self.stock)
+        metadata = self.metadata()
+        self.popup(metadata, "pending")
+        result, _ = self.api("recover", metadata["revision"])
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.check_installed(baseline)
         self.assertEqual(self.tree(self.data / "snapshots" / baseline), saved)

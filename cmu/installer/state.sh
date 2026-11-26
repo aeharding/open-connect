@@ -357,7 +357,7 @@ _snapshot_create() (
     local name resources=$6 prefs=$7 package=$2 nvram=$3 mode=$4
     work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail snapshot_create_failed
     snapshot_work=$work
-    trap 'if directory "$snapshot_work"; then rm -rf "$snapshot_work"; fi' EXIT
+    trap 'if test -z "${initial_work:-}" && directory "$snapshot_work"; then rm -rf "$snapshot_work"; fi' EXIT
     cp "$1" "$work/autostart" || fail snapshot_copy_failed
     if test "$5" = -; then : > "$work/dependencies" || fail snapshot_copy_failed; else
         file "$5" && cp "$5" "$work/dependencies" || fail snapshot_copy_failed

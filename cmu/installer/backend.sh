@@ -266,6 +266,10 @@ completion_boot_id() {
     else current_boot_id; fi
 }
 
+access_snapshot() {
+    snapshot_create "$D/snapshots/$1/autostart" - "$S_NVRAM" "$S_META" "$D/snapshots/$1/dependencies" "$access_work" ""
+}
+
 transaction_admit() {
     if test "$role:${transaction_admitted:-0}" = usb:0; then
         usb_helpers=true; . "$P/usb-service.sh"
@@ -344,7 +348,7 @@ install)
         if test "$exists" = true; then
             before=$R_CURRENT
             snapshot_read "$before" || fail invalid_snapshot
-            if test "$S_ACCESS" = false; then before=$(state_capture - "$access_work" "") || fail checkpoint_failed; fi
+            if test "$S_ACCESS" = false; then before=$(access_snapshot "$before") || fail checkpoint_failed; fi
         else
             before=$(state_capture - "$access_work" "") || fail checkpoint_failed
             R_BASE=$before
@@ -353,7 +357,7 @@ install)
     if test "$exists" = true; then
         snapshot_read "$R_BASE" || fail originals_changed
         if test "$S_ACCESS" = false; then
-            R_BASE=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - "$S_NVRAM" "$S_META" "$D/snapshots/$R_BASE/dependencies" "$access_work" "") || fail access_backup_failed
+            R_BASE=$(access_snapshot "$R_BASE") || fail access_backup_failed
         fi
     fi
     if test -n "$prefs" && test "$(preference_value "$prefs" base)" = 1; then native_log_inputs_verify || fail base_inputs_changed; fi

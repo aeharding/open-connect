@@ -4,6 +4,22 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
+## Ordinary-USB discovery: dev.22 and unreleased dev.23
+
+The [dev.22/candidate comparison](usb-discovery-performance.md) retains four
+separate three-boot blocks plus the excluded attempts and a separate diagnostic.
+Adaptive backoff reduced **130 → 34 immediate-empty reads in a 65 s host replay**.
+The older **+2,048 KiB Opera PSS** difference did not reproduce against fresh
+published dev.22: b386 was **164 KiB lower**, with **396 KiB own allocated files
+unchanged**. CPU medians were **+0.1865 / +0.2676 pp** in 20–170 / 60–170 s,
+with overlapping ranges. The older and fresh baselines differed by 2,212 KiB.
+
+Sanitized per-run CSVs and selected numeric samples reproduce the resource
+arithmetic. Drift/confounding remains possible; maps causation, a JavaScript
+heap leak, stock parity and blanket non-regression are unproved. **Dev.23 is
+unreleased; draft PR #179 remains held for #185 completion work and performance
+disposition.** No RAM acceptance is inferred.
+
 ## Published dev.20 cold ACC-off comparison 2026-11-25
 
 **Primary COHORT-9: Stock versus published v0.3.0-dev.20, Base=0 and Base=1.**

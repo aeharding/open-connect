@@ -49,6 +49,7 @@ nav = [
     { "Performance evidence" = [
       { "Summary & methods" = "performance.md" },
       { "Startup & overhead" = [
+        { "USB discovery (dev.22/23)" = "usb-discovery-performance.md" },
         { "Stock startup comparison" = "stock-startup-comparison.md" },
         { "First startup comparison" = "startup-comparison.md" },
         { "Startup verification optimization" = "startup-verification.md" },

@@ -17,9 +17,6 @@ trap record_clean EXIT
 fail() {
     printf '{"ok":false,"error":"%s"}\n' "$1"; exit 1
 }
-firmware_guard
-private_dir /tmp/open-connect || fail runtime_unavailable
-file /tmp/open-connect/lock || fail invalid_lock
 test "${1:-}" = api && test "$#" -eq 6 || fail invalid_request
 revision=$2; operation=$3; argument=$4; expected=$5; desired=$6
 runtime_pointer=/tmp/open-connect/runtime
@@ -29,6 +26,9 @@ if test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" != "$P"; then
     test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
     role=usb
 fi
+firmware_guard "$role:$operation:$argument"
+private_dir /tmp/open-connect || fail runtime_unavailable
+file /tmp/open-connect/lock || fail invalid_lock
 if test "$operation:$argument" = dismiss:usb; then
     test "$role" = usb || fail invalid_request
     : > "$P/closed"
@@ -212,11 +212,11 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
                     audit_identity=$(status_identity) || fail state_changed
                     flock -u 9 || fail invalid_lock
                 fi
-                if ( if test "$view_id" != "$R_CURRENT"; then snapshot_read "$R_CURRENT" || exit 1; fi
+                if ! ( if test "$view_id" != "$R_CURRENT"; then snapshot_read "$R_CURRENT" || exit 1; fi
                     targets_match_loaded "$R_CURRENT" &&
                     { test "$S_ACCESS" != true || access_login_check; } &&
                     dependencies_match "$R_CURRENT"
-                ); then :; else conflict=true; fi
+                ); then conflict=true; fi
                 if test "$operation" = status; then
                     flock -n -x 9 || fail busy
                     test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced

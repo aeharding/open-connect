@@ -180,6 +180,28 @@ f=fixture(folder,{notice:'installed'});f.install();f.reply(f.requests[0],f.proof
 const beforeRefusal=f.requests.length;f.reply(f.operation('dismiss')[0],{ok:false,error:'stale_state'});
 assert.equal(f.requests.length,beforeRefusal);assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,0);
 assert.match(f.dialog.props.title,/Unable to confirm/);
+// Terminal ACK feedback owns its real dialog until OK, then cannot block
+// either an already queued or a later eligible USB chooser.
+for(const outcome of ['stale','mismatch'])for(const arrival of ['queued','later']){
+ f=fixture(folder,{notice:'installed'});f.install();f.reply(f.requests[0],f.proof());f.pick('settings');
+ const ack=f.operation('dismiss')[0];
+ if(outcome==='stale')f.reply(ack,{ok:false,error:'stale_state'});
+ else{f.advance(6000);f.reply(f.requests.at(-1),f.proof({notice:'-',completionReady:false,package:'e'.repeat(64)}));}
+ const owner=f.ctx.OpenConnectCompletion;
+ assert.ok(owner);assert.equal(owner.protected(),true);assert.match(f.dialog.props.title,/Unable to confirm/);
+ if(arrival==='queued'){f.usb();metadata(f,{installed:true,installedVersion:f.version,revision:'b'.repeat(64)});f.advance(1000);assert.match(f.dialog.props.title,/Unable to confirm/);}
+ f.pick('done');assert.equal(f.ctx.OpenConnectCompletion,null,'feedback OK closes terminal completion');
+ if(arrival==='later'){f.usb();metadata(f,{installed:true,installedVersion:f.version,revision:'b'.repeat(64)});}
+ f.advance(1000);assert.match(f.dialog.props.title,/Reinstall/);
+ assert.equal(f.operation('dismiss').length,1);assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,0);
+}
+// A malformed busy response is not a definite refusal and cannot resend ACK.
+f=fixture(folder,{notice:'installed'});f.install();f.reply(f.requests[0],f.proof());f.pick('settings');
+f.reply(f.operation('dismiss')[0],{error:'busy'});f.advance(500);
+assert.equal(f.operation('dismiss').length,1);assert.equal(f.requests.at(-1).body.split('|')[3],'completion');
+f.reply(f.requests.at(-1),f.proof({notice:'-',completionReady:true}));
+assert.match(f.dialog.props.title,/Unable to confirm/);f.pick('done');
+assert.equal(f.ctx.OpenConnectCompletion,null);assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,0);
 // Busy is a definite refusal: retry within the original deadline with the same proof.
 f=fixture(folder,{notice:'installed'});f.install();f.reply(f.requests[0],f.proof());f.pick('done');
 const ackBody=f.operation('dismiss')[0].body;f.reply(f.operation('dismiss')[0],{ok:false,error:'busy'});f.advance(500);

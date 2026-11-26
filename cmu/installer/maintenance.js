@@ -174,7 +174,7 @@ function proof(a){
  return a&&a.ok===true&&/^[a-f0-9]{64}$/.test(a.revision)&&/^[a-f0-9]{64}$/.test(a.package)&&
  /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(a.boot)&&
  /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(a.installedVersion)&&
- /^(?:-|installed)$/.test(a.notice)&&typeof a.completionReady==="boolean";
+ /^(?:-|installed)$/.test(a.notice)&&a.completionReady===(a.notice==="installed");
 }
 function sameProof(a,b){
  return proof(a)&&a.revision===b.revision&&a.package===b.package&&a.boot===b.boot&&a.installedVersion===b.installedVersion;
@@ -254,7 +254,7 @@ function message(title,text,hold){
  queued=function(){
  if(!job&&(framework.getCurrentApp()!=="system"||framework.getCurrCtxtId()!=="HomeScreen"))return false;
  return ui.message(framework,title,text,{button1:{label:"OK",appData:"done"}},function(action){
-  dialog=null;if(hold){if(action==="done"){feedback=false;release();}else message(title,text,hold);}
+  dialog=null;if(hold){if(action==="done"){feedback=false;if(boot)close();else release();}else message(title,text,hold);}
   else if(action==="done"&&originUSB&&!job)closeUSB();
 });
 };wake();
@@ -277,7 +277,7 @@ function dismiss(done){
  if(left<=0){finish(false);return;}
  post("dismiss",null,function(a){
   if(a&&a.ok===true){finish(true);}
-  else if(a&&a.error==="busy"){setTimeout(send,Math.min(500,until-Date.now()));}
+  else if(a&&a.ok===false&&a.error==="busy"){setTimeout(send,Math.min(500,until-Date.now()));}
   else if(a&&a.ok===false){known=false;finish(false);}
   else{read(function(fresh){
    var matched=sameProof(fresh,confirmation);if(!matched)known=false;

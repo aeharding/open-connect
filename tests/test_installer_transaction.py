@@ -4,6 +4,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -808,6 +809,117 @@ class InstallerTransaction(unittest.TestCase):
         # manifest identifies the selected package, not the maintenance media.
         shutil.copyfile(data / "packages" / fields[3] / "files.sha256", self.tools / "files.sha256")
         return data, runtime, fields
+
+    def test_completion_keeps_environment_guards_without_rehashing_boot_inputs(self):
+        data, runtime, fields = self.completion_fixture("completion-guard")
+        version, mounts = self.root / "version.ini", self.root / "mounts"
+        framework, display, calls = (
+            self.root / name for name in ("framework", "display", "md5-calls")
+        )
+        (self.root / "mnt/persist").mkdir(parents=True)
+        version.write_text(
+            'JCI_SW_VER="MAZ_CMU-150_74.00.324"\nJCI_SW_VER_PATCH="A"\nJCI_SW_FLAVOR="cmu150_NA"\n'
+        )
+        mounts.write_text(
+            "/dev/ffx01p1 / relfs ro,noatime 0 0\n"
+            f"/dev/mmcblk0p2 {self.root}/mnt/persist relfs rw 0 0\n"
+        )
+        source = (ROOT / "cmu/installer/firmware.sh").read_text()
+        guard = source[
+            source.index("firmware_guard() {") : source.index("native_dependency_guard()")
+        ]
+        # Run the real guard. Only host UID, physical paths and input digests
+        # are synthetic; no OEM files or physical devices are involved.
+        guard = guard.replace('test "$(id -u)" = 0', f'test "$(id -u)" = {os.getuid()}')
+        paths = {
+            "/jci/version.ini": version,
+            "/proc/mounts": mounts,
+            "/proc/self/mounts": mounts,
+            "/jci/gui/framework/js/GuiFramework.js": framework,
+            "/jci/lvds/lvds_service": display,
+            "/tmp/open-connect": runtime,
+            "/tmp/mnt/data_persist": self.root / "mnt/persist",
+            "/tmp/mnt": self.root / "mnt",
+            "/tmp": self.root,
+        }
+        guard = re.sub(
+            "|".join(re.escape(path) for path in sorted(paths, key=len, reverse=True)),
+            lambda match: str(paths[match[0]]),
+            guard,
+        )
+        module = self.tools / "firmware.sh"
+        adapter = (
+            f"\nmd5sum() {{ printf call >> {shlex.quote(str(calls))}; "
+            'local value; IFS= read -r value; case "$value" in '
+            'framework) printf "0228bd6330c544eb500dacd7b00a9e79  -\\n";; '
+            'display) printf "1d3e74362d4a97814a9f0fb316ff583f  -\\n";; '
+            "*) return 1;; esac; }\n"
+        )
+        original = module.read_text() + "\n" + guard + adapter
+        module.write_text(original)
+        # Missing physical input files prove that neither completion nor its
+        # readback accidentally executes the old upfront hash checks.
+        for _ in range(2):
+            result, proof = self.api("status", argument="completion")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue(proof["completionReady"])
+        self.assertFalse(calls.exists())
+        framework.write_text("framework\n")
+        display.write_text("display\n")
+        for operation in (
+            "status",
+            "set",
+            "install",
+            "import",
+            "uninstall",
+            "restart",
+            "recover",
+            "dismiss",
+        ):
+            calls.unlink(missing_ok=True)
+            self.api(operation, "f" * 64)
+            self.assertEqual(calls.read_text(), "callcall", operation)
+        # Role is part of the skip capability; USB cannot take the installed read.
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        calls.unlink()
+        result, _ = self.api("status", argument="completion")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(calls.read_text(), "callcall")
+        (runtime / "usb-runtime").unlink()
+        (runtime / "runtime").symlink_to(self.tools)
+        for fact, error in (
+            ("root", "root_required"),
+            ("version", "unsupported_firmware"),
+            ("mount", "persistence_unavailable"),
+            ("root-mount", "invalid_boot_mounts"),
+            ("path", "invalid_persistence_path"),
+        ):
+            with self.subTest(fact=fact):
+                saved_version, saved_mounts = version.read_text(), mounts.read_text()
+                if fact == "root":
+                    module.write_text(
+                        original.replace(
+                            f"= {os.getuid()} || fail root_required",
+                            f"= {os.getuid() + 1} || fail root_required",
+                        )
+                    )
+                elif fact == "version":
+                    version.write_text('JCI_SW_VER="unsupported"\n')
+                elif fact == "mount":
+                    mounts.write_text(saved_mounts.replace("relfs rw", "relfs ro"))
+                elif fact == "root-mount":
+                    mounts.write_text(saved_mounts.replace("relfs ro,noatime", "relfs rw"))
+                else:
+                    (self.root / "mnt/persist").rmdir()
+                result, answer = self.api("status", argument="completion")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(answer["error"], error)
+                module.write_text(original)
+                version.write_text(saved_version)
+                mounts.write_text(saved_mounts)
+                if fact == "path":
+                    (self.root / "mnt/persist").mkdir()
 
     def test_completion_is_a_narrow_fresh_selected_boot_proof(self):
         data, runtime, fields = self.completion_fixture("narrow-completion")

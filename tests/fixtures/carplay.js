@@ -419,11 +419,12 @@ for(const yieldTimer of [false,true]) {
 f=bootClient('installed');f.session(true);
 assert.doesNotThrow(()=>f.complete(),'installed-notice ownership query waits for validator');
 assert.equal(f.count(),0);f.menu();f.tick();assert.equal(f.requests.length,1);
-const proof=f.requests[0];proof.status=200;proof.readyState=4;
-proof.responseText=JSON.stringify({ok:true,revision:'b'.repeat(32),installed:true,retained:false,conflict:false,
-  restart:false,pending:false,touch:1,warning:1,notice:'installed',version:'0.3.0-dev.18',
-  installedVersion:'0.3.0-dev.18',carplayAutoshow:1,carplayAutoshowCurrent:1,completionReady:true});
-proof.onreadystatechange();f.advance();assert.equal(f.count(),0,'completion proof keeps priority after validation binds');
+const proof=f.requests[0],completion=f.ctx.OpenConnectCompletion;
+assert.ok(completion,'completion owner exists before proof');
+f.reply(proof,{ok:true,revision:'b'.repeat(64),package:'d'.repeat(64),boot,
+  notice:'installed',installedVersion:'0.3.0-dev.18',completionReady:true});
+f.advance();assert.equal(f.ctx.OpenConnectCompletion,completion,'valid proof keeps its live completion owner');
+assert.equal(f.count(),0,'completion proof keeps priority after validation binds');
 console.log('Final review regressions: Idle no-op, early DisplayOff, event-ordered reverse return and lazy validator passed');
 // Replay the same reverse/Home ordering when all messages preceded Settings.
 f=bootClient();f.session(true);f.native('backupparking','TVMCameraDisplay');

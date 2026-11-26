@@ -233,13 +233,7 @@ flush() {
         )
         reply = None
         if result.stdout:
-            try:
-                reply = json.loads(result.stdout)
-            except json.JSONDecodeError:
-                # The existing originals pipeline can emit both its child and
-                # parent error. Preserve raw stdout; metadata must parse exactly.
-                if result.returncode == 0:
-                    raise
+            reply = json.loads(result.stdout)
         return result, reply
 
     def metadata(self):
@@ -373,6 +367,48 @@ flush() {
                 self.assertEqual(list(self.root.glob(".open-connect-initial-*")), [unknown])
                 self.assertEqual(self.tree(unknown), original)
                 self.popup(self.metadata())
+
+    def test_originals_failures_return_one_error_and_keep_fresh_install_actionable(self):
+        for cut in ("originals", "originals-flush"):
+            with self.subTest(cut=cut):
+                f = self.independent()
+                unknown = f.root / ".open-connect-initial-unknown"
+                unknown.mkdir(mode=0o700)
+                (unknown / "foreign").write_text("unexplained scratch\n")
+                original = f.tree(unknown)
+                # Fail the real flush helper boundary on the second original;
+                # every other flush still runs the compiled host helper.
+                flush = f.tools / "flush"
+                real_flush = f.tools / "flush-real"
+                flush.rename(real_flush)
+                flush.write_text(
+                    "#!/bin/sh\n"
+                    'case "$1:$2" in f:*/.originals-*/dependency)\n'
+                    '  if test "$INITIAL_FAULT" = originals-flush; then exit 1; fi;;\n'
+                    'esac\nexec "${0%/*}/flush-real" "$@"\n'
+                )
+                flush.chmod(0o700)
+                f.manifest(f.tools)
+                result, reply = f.api("install", fault=cut, mode="fail")
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(reply, {"ok": False, "error": "backup_failed"})
+                self.assertEqual(f.fingerprint(), f.stock)
+                self.assertNotIn("effect ", f.operations.read_text())
+                self.assertFalse(f.data.exists())
+                self.assertEqual(list(f.root.glob(".open-connect-initial-*")), [unknown])
+                self.assertEqual(f.tree(unknown), original)
+                flush.unlink()
+                real_flush.rename(flush)
+                f.manifest(f.tools)
+                f.replacement()
+                metadata = f.metadata()
+                f.popup(metadata)
+                self.assertFalse(metadata["retained"])
+                self.assertFalse(metadata["pending"])
+                result, _ = f.api("install", metadata["revision"])
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                f.check_installed()
+                self.assertEqual(f.tree(unknown), original)
 
     def test_parent_flush_failure_requires_a_successful_barrier_on_retry(self):
         result, _ = self.api("install", fault="parent", mode="fail")

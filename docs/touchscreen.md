@@ -34,7 +34,7 @@ Keep touch available while the car is moving, including for a passenger using Ma
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p>The setting and restoration have bench checks; touch while moving in a real car remains unvalidated. <a href="performance.md">Performance evidence</a> has no isolated comparison. The screenshot above remains dev.19 on <strong>74.00.324A NA</strong>. <strong>0.3.0-dev.22</strong> is a development prerelease; real-car qualification remains pending.</p>
+<p>The setting and restoration have bench checks; touch while moving in a real car remains unvalidated. <a href="performance.md">Performance evidence</a> has no isolated comparison. The screenshot above remains dev.19 on <strong>74.00.324A NA</strong>. <strong>0.3.0-dev.23</strong> is a development prerelease; real-car qualification remains pending.</p>
 
 
 <span id="change-the-setting"></span>

@@ -36,12 +36,12 @@ See which version of Open Connect is installed.
 
 <p>Read-only; opens immediately and needs no restart.</p>
 
-<p>The retained dev.19 screenshot shows the menu on <strong>74.00.324A NA</strong>; real-car qualification remains ahead. <a href="performance.md">Performance evidence</a> describes measured configurations. <strong>0.3.0-dev.22</strong> is a development prerelease.</p>
+<p>The retained dev.19 screenshot shows the menu on <strong>74.00.324A NA</strong>; real-car qualification remains ahead. <a href="performance.md">Performance evidence</a> describes measured configurations. <strong>0.3.0-dev.23</strong> is a development prerelease.</p>
 
 
 ## Check the version
 
-Select **About**. The current development preview is **0.3.0-dev.22** for North American Mazda Connect **74.00.324**.
+Select **About**. The current development preview is **0.3.0-dev.23** for North American Mazda Connect **74.00.324**.
 
 This is Open Connect’s About entry. To check Mazda’s firmware version, use **<span class="oc-nav-path" data-walkthrough="version-info">Mazda Settings → System → About → Version Information</span>** instead.
 

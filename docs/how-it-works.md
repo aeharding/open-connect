@@ -30,4 +30,4 @@ Startup and memory overhead remain under development. Bench improvements do not 
 
 This restores the state found before installation. It is not a factory reset.
 
-The **0.3.0-dev.22 development prerelease** is for North American version **74.00.324**. Real-car qualification remains pending.
+The **0.3.0-dev.23 development prerelease** is for North American version **74.00.324**. Real-car qualification remains pending.

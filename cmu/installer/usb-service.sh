@@ -2,8 +2,21 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Temporary maintenance endpoint. Never publishes or stops installed Settings.
 # Sourced only by an admitted USB writer, with the operation lock held.
+usb_fence_restore() {
+    local pointer=/tmp/open-connect/runtime fresh pid start target extra
+    test -n "${legacy_identity:-}" || return 0
+    # Only this exact endpoint and freshly unchanged authority permit return.
+    if absent "$pointer" && fresh=$(status_identity) && test "$fresh" = "$legacy_identity" &&
+        file /tmp/open-connect/listener && test "$(cat /tmp/open-connect/listener)" = "$legacy_listener"; then
+        read -r pid start target extra <<LISTENER
+$legacy_listener
+LISTENER
+        if service_owns_listener "$pid" "$start" "$target" "$legacy_port"; then ln -s "$target" "$pointer" || :; fi
+    fi
+}
+
 usb_fence() {
-    local pointer=/tmp/open-connect/runtime target selected package source digest listener pid start old extra port identity fresh
+    local pointer=/tmp/open-connect/runtime target selected package source digest listener pid start old extra port
     absent "$pointer" && return 0
     test -L "$pointer" || fail invalid_legacy_runtime
     target=$(readlink "$pointer") || fail invalid_legacy_runtime
@@ -31,17 +44,14 @@ LISTENER
     service_owns_listener "$pid" "$start" "$target" "$port" || {
         port=35555; service_owns_listener "$pid" "$start" "$target" "$port" || fail listener_replaced
     }
-    identity=$(status_identity) || fail state_changed
+    legacy_identity=$(status_identity) || fail state_changed
+    legacy_listener=$listener; legacy_port=$port
     # The legacy backend checks this exact pointer after taking our same flock,
     # before reading OC1. Keep its process, port and immutable RAM packet intact.
     if rm "$pointer" && absent "$pointer"; then return 0; fi
     # A failed withdrawal is definitely before prepare. Restore only this exact
     # link with freshly unchanged authority; never replace another publication.
-    if absent "$pointer" && fresh=$(status_identity) && test "$fresh" = "$identity" &&
-        test "$(cat /tmp/open-connect/listener)" = "$listener" &&
-        service_owns_listener "$pid" "$start" "$target" "$port"; then
-        ln -s "$target" "$pointer" || :
-    fi
+    usb_fence_restore
     fail legacy_fence_failed
 }
 if test "${usb_helpers:-false}" = true; then return; fi

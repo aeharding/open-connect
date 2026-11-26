@@ -1207,11 +1207,32 @@ class InstallerTransaction(unittest.TestCase):
         self.real_flock()
         return target, fields[5]
 
+    def legacy_api(self, target, revision, operation="status", *args):
+        result = subprocess.run(
+            [
+                "sh",
+                target / "backend.sh",
+                "api",
+                revision,
+                operation,
+                *(args or ("settings", "-", "-")),
+            ],
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        return result, json.loads(result.stdout)
+
     def test_legacy22_endpoint_is_fenced_before_prepare_and_refuses_successor(self):
         data = self.create("legacy-fence")
         self.run_ok(data, "install")
         self.backend_fixture(data)
         target, revision = self.legacy_endpoint(data)
+        result, changed = self.legacy_api(target, revision, "set", "warning", "1", "0")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(changed["warning"], 0)
+        revision = changed["revision"]
         runtime = self.root / "runtime"
         pointer = runtime / "runtime"
         record = (data / "record").read_bytes()
@@ -1222,14 +1243,13 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(pointer.readlink(), target)
         self.assertEqual((data / "record").read_bytes(), record)
         self.target(data, "relevant").write_text("dependency\n")
-        # Stop immediately at prepare, after the real admission hook. No reboot,
-        # browser replacement or legacy packet removal participates in fencing.
+        # Witness withdrawal after staging and immediately before publication.
         transaction = self.tools / "transaction.sh"
         transaction.write_text(
             transaction.read_text().replace(
-                "    R_PHASE=$1; R_BEFORE=$2; R_AFTER=$3",
+                "    if ! record_publish; then",
                 '    absent "' + str(pointer) + '" || fail fence_missing; '
-                "R_PHASE=$1; R_BEFORE=$2; R_AFTER=$3",
+                "if ! record_publish; then",
             )
         )
         self.target(data, "nvram-commit-fails").touch()
@@ -1272,6 +1292,7 @@ class InstallerTransaction(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(reply["error"], "unsupported_legacy_runtime")
         self.assertEqual((data / "record").read_bytes(), record)
+        self.assertEqual(list(data.glob("record.*")), [])
         self.assertEqual((self.root / "runtime/runtime").readlink(), target)
 
     def test_legacy_recovery_checks_physical_state_before_withdrawal(self):
@@ -1309,6 +1330,7 @@ class InstallerTransaction(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(reply["error"], "invalid_legacy_source")
         self.assertEqual((data / "record").read_bytes(), record)
+        self.assertEqual(list(data.glob("record.*")), [])
         self.assertEqual((self.root / "runtime/runtime").readlink(), target)
 
     def test_failed_withdrawal_restores_only_unchanged_authority(self):
@@ -1336,10 +1358,198 @@ class InstallerTransaction(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(reply["error"], "legacy_fence_failed")
                 self.assertEqual((data / "record").read_bytes(), record)
+                self.assertEqual(list(data.glob("record.*")), [])
                 self.assertEqual(os.path.lexists(pointer), not changed)
                 if not changed:
                     self.assertEqual(pointer.readlink(), target)
                 shutil.rmtree(runtime)
+
+    def test_legacy_record_staging_failures_leave_old_endpoint_public(self):
+        cuts = {
+            "create": (
+                'mktemp() { if test "$1" = "$D/record.XXXXXX"; then cut_record; return 1; fi; command mktemp "$@"; }',
+                "record_create_failed",
+            ),
+            "write": (
+                'printf() { case "$1" in OC1\\|*) cut_record; return 1;; esac; command printf "$@"; }',
+                "record_write_failed",
+            ),
+            "mode": (
+                'chmod() { case "${2:-}" in "$D"/record.*) cut_record; return 1;; esac; command chmod "$@"; }',
+                "record_mode_failed",
+            ),
+            "flush": (
+                'flush() { case "$2" in "$D"/record.*) cut_record; fail flush_failed;; esac; "$P/flush" "$@" || fail flush_failed; }',
+                "flush_failed",
+            ),
+        }
+        for cut, (injection, error) in cuts.items():
+            with self.subTest(cut=cut):
+                shutil.rmtree(self.root / "runtime", ignore_errors=True)
+                data = self.create("record-stage-" + cut)
+                self.run_ok(data, "install")
+                self.backend_fixture(data)
+                target, revision = self.legacy_endpoint(data)
+                runtime = self.root / "runtime"
+                pointer = runtime / "runtime"
+                watched = [
+                    data / "record",
+                    runtime / "listener",
+                    runtime / "selected",
+                    target / "backend.sh",
+                    self.target(data, "target"),
+                    self.target(data, "nvram"),
+                ]
+                before = {p: (p.stat().st_ino, p.stat().st_mode, p.read_bytes()) for p in watched}
+                reached = self.root / ("reached-" + cut)
+                # Exercise the exact existing backend resource-trap bodies too.
+                cleanup_traps = [
+                    line.strip()
+                    for line in (self.tools / "backend.sh").read_text().splitlines()
+                    if line.strip().startswith("trap '")
+                ]
+                resources = self.root / ("resource-" + cut)
+                resources.mkdir()
+                backend = self.tools / "backend.sh"
+                backend.write_text(
+                    backend.read_text().replace(
+                        '    transaction_prepare uninstall "$before" "$after"',
+                        "    access_work="
+                        + shlex.quote(str(resources))
+                        + "; resources=$access_work\n"
+                        + "    "
+                        + cleanup_traps[list(cuts).index(cut) % len(cleanup_traps)]
+                        + "\n"
+                        + '    transaction_prepare uninstall "$before" "$after"',
+                    )
+                )
+                with (self.tools / "firmware.sh").open("a") as stream:
+                    stream.write(
+                        '\ncut_record() { test "$(readlink '
+                        + shlex.quote(str(pointer))
+                        + ')" = '
+                        + shlex.quote(str(target))
+                        + " || fail pointer_withdrawn; "
+                        + 'test "$(sh '
+                        + shlex.quote(str(target / "backend.sh"))
+                        + " api "
+                        + shlex.quote(revision)
+                        + ' status settings - - || :)" = '
+                        + shlex.quote('{"ok":false,"error":"busy"}')
+                        + " || fail writer_lock_missing; "
+                        + "command printf reached > "
+                        + shlex.quote(str(reached))
+                        + "; }\n"
+                        + injection
+                        + "\n"
+                    )
+                result, reply = self.api("uninstall", revision)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(reply["error"], error)
+                self.assertTrue(reached.exists())
+                self.assertEqual(pointer.readlink(), target)
+                self.assertEqual(list(data.glob("record.*")), [])
+                self.assertFalse(resources.exists())
+                self.assertEqual(
+                    {p: (p.stat().st_ino, p.stat().st_mode, p.read_bytes()) for p in watched},
+                    before,
+                )
+                result, reply = self.legacy_api(target, revision)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(reply["installedVersion"], "0.3.0-dev.22")
+                shutil.rmtree(runtime)
+
+    def test_failed_legacy_record_rename_restores_only_definite_unchanged_authority(self):
+        for cut in (
+            "unchanged",
+            "record",
+            "selected",
+            "access-selected",
+            "boot-id",
+            "listener",
+            "ownership",
+            "replacement",
+            "published",
+            "missing-candidate",
+            "directory-flush",
+        ):
+            with self.subTest(cut=cut):
+                shutil.rmtree(self.root / "runtime", ignore_errors=True)
+                data = self.create("record-rename-" + cut)
+                self.run_ok(data, "install")
+                self.backend_fixture(data)
+                target, revision = self.legacy_endpoint(data)
+                runtime = self.root / "runtime"
+                pointer = runtime / "runtime"
+                record = (data / "record").read_bytes()
+                reached = self.root / ("rename-reached-" + cut)
+                lost = self.root / ("listener-lost-" + cut)
+                with (self.tools / "service.sh").open("a") as stream:
+                    stream.write(
+                        "\nservice_owns_listener() { test ! -e "
+                        + shlex.quote(str(lost))
+                        + ' && test "$1:$2:$3:$4" = '
+                        + shlex.quote("123:456:" + str(target) + ":15555")
+                        + "; }\n"
+                    )
+                mutations = {
+                    "unchanged": ":",
+                    "record": 'printf changed >> "$D/record"',
+                    "selected": "printf '%064d\\n' 1 > " + shlex.quote(str(runtime / "selected")),
+                    "access-selected": "printf '%064d\\n' 1 > "
+                    + shlex.quote(str(runtime / "access-selected")),
+                    "boot-id": "ln -s 12345678-1234-1234-1234-123456789abc "
+                    + shlex.quote(str(runtime / "boot-id")),
+                    "listener": "printf changed >> " + shlex.quote(str(runtime / "listener")),
+                    "ownership": "touch " + shlex.quote(str(lost)),
+                    "replacement": "ln -s "
+                    + shlex.quote(str(self.tools))
+                    + " "
+                    + shlex.quote(str(pointer)),
+                    "published": 'command mv "$@" || return',
+                    "missing-candidate": 'command rm "$2" || return',
+                    "directory-flush": 'command mv "$@" || return; return 0',
+                }
+                with (self.tools / "firmware.sh").open("a") as stream:
+                    stream.write(
+                        '\nmv() { if test "$3" = "$D/record"; then '
+                        "absent " + shlex.quote(str(pointer)) + " || fail fence_missing; "
+                        'test -f "$2" || fail candidate_missing; '
+                        "command printf reached > "
+                        + shlex.quote(str(reached))
+                        + "; "
+                        + mutations[cut]
+                        + '; return 1; fi; command mv "$@"; }\n'
+                    )
+                    if cut == "directory-flush":
+                        stream.write(
+                            'flush() { if test "$1:$2" = "d:$D"; then fail flush_failed; fi; '
+                            '"$P/flush" "$@" || fail flush_failed; }\n'
+                        )
+                result, reply = self.api("uninstall", revision)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(
+                    reply["error"],
+                    "flush_failed" if cut == "directory-flush" else "record_rename_failed",
+                )
+                self.assertTrue(reached.exists())
+                self.assertEqual(list(data.glob("record.*")), [])
+                if cut == "unchanged":
+                    self.assertEqual(pointer.readlink(), target)
+                    result, reply = self.legacy_api(target, revision)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(reply["installedVersion"], "0.3.0-dev.22")
+                elif cut == "replacement":
+                    self.assertEqual(pointer.readlink(), self.tools)
+                else:
+                    self.assertFalse(os.path.lexists(pointer))
+                    result, reply = self.legacy_api(target, revision)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(reply["error"], "session_replaced")
+                if cut in ("published", "directory-flush"):
+                    self.assertEqual((data / "record").read_text().split("|")[1], "uninstall")
+                elif cut != "record":
+                    self.assertEqual((data / "record").read_bytes(), record)
 
     def test_usb_metadata_never_runs_catalog_probe_or_flash_audit(self):
         data = self.create("usb-metadata")

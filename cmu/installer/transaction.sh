@@ -162,14 +162,28 @@ uninstall_owned() (
     test "$current_nvram" = "$S_NVRAM" || test "$current_touch:$current_nvram" = 1:disable
 )
 
+# Only transaction staging opts into backend EXIT cleanup. Ordinary record_write
+# keeps its existing behavior, and backend resource traps also call this helper.
+prepared_candidate=
+record_clean() {
+    if test -n "$prepared_candidate"; then rm -f "$prepared_candidate"; fi
+}
+
 transaction_prepare() {
     # phase, before, after; preserve originals until restoration is verified.
+    local next
     settled || fail operation_pending
     snapshot_read "$2" && snapshot_read "$3" || fail invalid_plan
     targets_match "$2" && dependencies_pair_match "$2" "$3" || fail state_changed
-    if command -v transaction_admit >/dev/null 2>&1; then transaction_admit; fi
     R_PHASE=$1; R_BEFORE=$2; R_AFTER=$3
-    record_write
+    # Finish fallible staging before withdrawing a supported legacy endpoint.
+    record_stage prepare
+    if command -v transaction_admit >/dev/null 2>&1; then transaction_admit; fi
+    if ! record_publish; then
+        # A missing candidate makes publication uncertain. Leave it fenced.
+        if file "$next" && command -v usb_fence_restore >/dev/null 2>&1; then usb_fence_restore; fi
+        fail record_rename_failed
+    fi
     PREPARED_REV=$R_REV
 }
 

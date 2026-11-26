@@ -11,6 +11,7 @@ AUTOSTART=/usr/bin/autostart
 . "$P/access.sh"
 . "$P/transaction.sh"
 . "$P/service.sh"
+trap record_clean EXIT
 
 # Errors are fixed identifiers, never device output or interpolated user text.
 fail() {
@@ -321,7 +322,7 @@ install)
     originals_save
     old_package=-; prefs=; uart=0; owner_ssh=0; key=-
     access_work=$(mktemp -d "$D/.access-XXXXXX") || fail access_plan_failed
-    trap 'rm -rf "$access_work"' EXIT
+    trap 'record_clean; rm -rf "$access_work"' EXIT
     if test "$exists" = true && test "$R_PHASE" = active; then
         snapshot_read "$R_CURRENT" || fail invalid_snapshot
         test "$S_SCHEMA" = OC2 || test "$S_SCHEMA" = dev9 || fail unsupported_snapshot
@@ -385,7 +386,7 @@ set|import)
         test "$S_ACCESS" = true || fail developer_update_required
         test "$S_LOGIN_INODE" != - || fail developer_reinstall_required
         access_work=$(mktemp -d "$D/.access-XXXXXX") || fail access_plan_failed
-        trap 'rm -rf "$access_work"' EXIT
+        trap 'record_clean; rm -rf "$access_work"' EXIT
         if test "$operation" = import; then
             test "$argument:$expected:$desired" = -:-:- || fail invalid_request
             key=$(access_key_import) || fail public_key_import_failed
@@ -434,7 +435,7 @@ uninstall)
         # An upgrade can retain a dev.8 baseline. Keep the new helper's known
         # original absence explicit through removed/purge cleanup as well.
         resources=$(mktemp -d "$D/.access-XXXXXX") || fail selector_plan_failed
-        trap 'rm -rf "$resources"' EXIT
+        trap 'record_clean; rm -rf "$resources"' EXIT
         if test "$S_ACCESS" = true; then
             for name in access runlogin sshd.conf; do cp "$D/snapshots/$R_BASE/$name" "$resources/$name" || fail selector_plan_failed; done
         fi

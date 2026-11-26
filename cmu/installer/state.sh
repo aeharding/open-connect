@@ -95,18 +95,27 @@ record_read() {
     case "$R_NOTICE" in -|installed|removed|undone|restart) ;; *) return 1;; esac
 }
 
-record_write() {
-    local next
+record_stage() {
     R_REV=$(uuid); hex "$R_REV" 32 || fail random_failed
     next=$(mktemp "$D/record.XXXXXX") || fail record_create_failed
+    if test "${1:-}" = prepare; then prepared_candidate=$next; fi
     printf 'OC1|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
         "$R_PHASE" "$R_REV" "$R_BACKEND" "$R_BASE" "$R_CURRENT" "$R_BEFORE" \
         "$R_AFTER" - "$R_BUDGET" "$R_OFF" "$R_BOOT" "$R_NOTICE" > "$next" || fail record_write_failed
     chmod 600 "$next" || fail record_mode_failed
     flush f "$next"
-    mv -f "$next" "$D/record" || fail record_rename_failed
+}
+
+record_publish() {
+    mv -f "$next" "$D/record" || return 1
     flush d "$D"
     record_read || fail invalid_committed_record
+}
+
+record_write() {
+    local next
+    record_stage
+    record_publish || fail record_rename_failed
 }
 
 # A snapshot contains an autostart file and data, not executable operation state.

@@ -829,7 +829,7 @@ package_save() (
     # Hardlink creation/unlink changes a sealed member's ctime even on failure.
     # Keep committed generations untouched until their actual removal.
     work=$(mktemp -d "$D/packages/.new-XXXXXX") || fail package_create_failed
-    package_work=$work; trap 'rm -rf "$package_work"' EXIT
+    package_work=$work; trap 'test -n "${initial_work:-}" || rm -rf "$package_work"' EXIT
     while read -r digest name extra; do
         # INSTANCE is private data added below, never supplied by a USB package.
         test "$name" != INSTANCE || continue

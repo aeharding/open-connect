@@ -1285,3 +1285,58 @@ Larger device sets retain normal maintenance.
 Private supporting records are `runs/dev21-settings-crash-20261125/ROOT-CAUSE.md`,
 `first-row-trial-2/`, `navigate-cancellation/` and `motion-counterfactual-2/`.
 These diagnose the failures; the fixed bundle's native validation is separate.
+
+## Separate Settings and maintenance lifetimes
+
+The dev.22 handoff retained a first tap but could still make installed Settings
+wait for a USB audit. The owner's correction in [#161](https://github.com/aeharding/open-connect/issues/161)
+removes that handoff: installed code, menu bindings, catalog and endpoint belong
+to the selected boot. A USB popup owns only maintenance and uses a separate
+endpoint and capability. Committing a different package requires restart before
+installed Settings interprets or changes that package's preferences. One durable
+OC1 record and the existing writer lock still own persistent changes.
+
+Independent host reviews of the dev.23 work found additional boundaries worth
+testing explicitly: committed catalog versus selected program, recovery after a
+failed writer and replacement media, delayed restart versus another writer,
+suspended native progress, cold module delivery, and lost dismissal replies.
+The maintained fixtures exercise the actual authored modules and backend, with
+native surfaces and physical adapters simulated. They do not qualify Opera
+scheduling, physical controls or CMU memory.
+
+The [ordinary-USB performance comparison](usb-discovery-performance.md) records
+added work from the first dev.23 discovery poller and its bounded backoff. The
+Opera RAM gap against historical dev.22 did not reproduce against fresh dev.22;
+whole-process snapshots do not isolate a heap or establish maps causation.
+Source pins, numeric exports, exclusions and release limits accompany the result.
+
+Stock v74 provides a browser-side USB connection notification. In a bounded
+November 25 experiment, software re-enumeration of the identified maintenance
+stick produced `usbaudio/TimedSbn_ConnectionStatus` with `Connected`, port A and
+type `UMASS`, about 1.3 seconds after reauthorization. The native handler and
+framework idle survived. The stick's original 47-member payload and read-only
+mount were restored; no installed product or native module was changed.
+An asynchronous absolute file read from the stock page raised `NETWORK_ERR`.
+Relative reads from an installed page remain untested.
+
+A separate warm stock-browser check delivered 16 distinguishable classic scripts
+through Mazda's actual `Utility.loadScript`, delaying alternating HTTP responses.
+Every execution was immediately followed by its own load callback, and every
+callback saw that script's factory. The authored loaders keep initialization in
+that direct callback and remain passive on execution alone. Host fixtures that
+artificially separate execution from load are useful cancellation probes, but do
+not establish that Opera interleaves other scripts between those steps. The
+private result is `native-factory-order.json` in the same evidence directory.
+
+The dev.23 implementation observes the USB app's existing message handler after
+stock initialization. It uses an authenticated native discovery read and a
+bounded retry window after a connection, with no permanent lookup interval.
+The runner exposes an immutable session/token pair only after its final
+retained-stick and ownership checks under the existing lock. A published listener
+alone is insufficient. Receiver-equipped boots load the popup without Opera
+navigation; stock and older installed releases retain the necessary bootstrap.
+The integrated CI bundle still needs its own insertion/first-Settings check,
+including dependency registration and idle beyond the reproduced eight-second
+failure window. Private supporting records are in
+`runs/separate-installer-settings-20261125/usb-signal.json`,
+`usb-signal-closeout.out` and `usb-entry-plan-review.md`.

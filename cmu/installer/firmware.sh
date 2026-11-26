@@ -41,8 +41,11 @@ firmware_guard() {
          $0=="JCI_SW_VER_PATCH=\"A\""{p++}
          $0=="JCI_SW_FLAVOR=\"cmu150_NA\""{f++}
          END{exit !(v==1&&p==1&&f==1)}' /jci/version.ini || fail unsupported_firmware
+    # Selected-boot confirmation reuses the selector's input verification.
+    if test "${1:-}" != settings:status:completion; then
     test "$(md5sum < /jci/gui/framework/js/GuiFramework.js)" = '0228bd6330c544eb500dacd7b00a9e79  -' || fail unsupported_framework
     test "$(md5sum < /jci/lvds/lvds_service)" = '1d3e74362d4a97814a9f0fb316ff583f  -' || fail unsupported_display
+    fi
     awk '$1=="/dev/mmcblk0p2"&&$2=="/tmp/mnt/data_persist"&&$3=="relfs"{
         n++;split($4,a,",");for(i in a)if(a[i]=="rw")rw++} END{exit !(n==1&&rw==1)}' /proc/mounts || fail persistence_unavailable
     for path in /tmp /tmp/mnt /tmp/mnt/data_persist; do directory "$path" || fail invalid_persistence_path; done
@@ -93,11 +96,12 @@ originals_save() {
     local work
     if ! absent "$D/originals"; then originals_verify || fail originals_changed; return; fi
     work=$(mktemp -d "$D/.originals-XXXXXX") || fail backup_create_failed
+    # Pipeline children return status; this caller owns the fixed error reply.
     original_files | while read -r digest name target; do
-        file "$target" && test "$(sha "$target")" = "$digest" || fail unsupported_original
-        cp "$target" "$work/$name" && chmod 600 "$work/$name" || fail backup_copy_failed
-        test "$(sha "$work/$name")" = "$digest" || fail backup_verification_failed
-        flush f "$work/$name"
+        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+        cp "$target" "$work/$name" && chmod 600 "$work/$name" || exit 1
+        test "$(sha "$work/$name")" = "$digest" || exit 1
+        "$P/flush" f "$work/$name" || exit 1
     done || fail backup_failed
     flush d "$work"
     mv "$work" "$D/originals" || fail backup_publish_failed
@@ -821,15 +825,18 @@ stock_dependencies() {
 
 package_save() (
     set -eu
-    local work digest name extra id
+    local work digest name extra id mode
     verify_manifest "$P" || fail damaged_source_package
+    # Hardlink creation/unlink changes a sealed member's ctime even on failure.
+    # Keep committed generations untouched until their actual removal.
     work=$(mktemp -d "$D/packages/.new-XXXXXX") || fail package_create_failed
+    package_work=$work; trap 'test -n "${initial_work:-}" || rm -rf "$package_work"' EXIT
     while read -r digest name extra; do
         # INSTANCE is private data added below, never supplied by a USB package.
         test "$name" != INSTANCE || continue
+        mode=600; case "$name" in api|flush|boot-select) mode=700;; esac
         cp "$P/$name" "$work/$name" || fail package_copy_failed
-        chmod 600 "$work/$name" || fail package_mode_failed
-        case "$name" in api|flush|boot-select) chmod 700 "$work/$name" || fail package_mode_failed;; esac
+        chmod "$mode" "$work/$name" || fail package_mode_failed
         test "$(sha "$work/$name")" = "$digest" || fail package_copy_changed
         printf '%s  %s\n' "$digest" "$name" || fail package_manifest_failed
         flush f "$work/$name"

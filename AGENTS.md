@@ -6,10 +6,16 @@ Historical plans, ready profiles and assignments are evidence, not current autho
 
 ## Ownership and pace
 
-One primary owns implementation, tests, bench operation, recovery and integration.
-No standing specialists. Use ephemeral peers for final PR review and major-plan
-review as described in CONTRIBUTING.md, using GPT-6.2-Astra; teammates are equals with room to challenge
-the approach. Keep live bench ownership serialized.
+One primary owns integration, complete validation, bench operation and recovery.
+Delegate independent fixes in isolated branches when useful. During the current
+architecture refinement, use multiple fresh adversarial peers in repeated rounds
+to challenge code quality, Mazda patterns, ownership and unnecessary complexity.
+Keep the findings and their dispositions in GitHub issues; refine that list as
+fixes and new evidence arrive. Verify claimed bugs and have revised code reviewed
+again. No standing specialists. Use a mix of models for architecture critiques,
+including GPT-6.2-Astra. Use GPT-6.2-Astra for major-plan and final PR reviews as
+described in CONTRIBUTING.md; peers are equals with room to
+challenge the approach. Keep live bench ownership serialized.
 Create fresh Herdr agents; do not reuse the owner's previously open sessions.
 Use --no-parent --no-notify so inherited context cannot route updates into them.
 Attach each new reviewer to a visible Herdr tab immediately.
@@ -82,13 +88,15 @@ JavaScript execution or teardown already completed by the owning frontend.
 Necessary USB launch/removal must check the current session and its close state
 before crossing that boundary. Preserve native loading, heartbeat and watchdogs.
 
-Keep the incumbent client public and usable until its candidate has verified
-state and can take ownership. Bind modules to their client, preserve pending
-intents through the bounded handoff, and transfer the native view/callback in the
-same turn. Cleanup must affect only its own attempt; honor a refused disposal.
-Visible controls must always have a live owner.
+Installed Settings and the transient installer popup have independent ownership.
+Settings loads only from the boot-selected installed package; USB must never
+replace its code, row, callbacks or backend, or make entry wait for USB verification.
+The popup sends maintenance choices to the backend and never installs a Settings
+interface into the running browser. Updates take effect through normal restart.
+Cleanup affects only the interface/session that created it. Preserve one durable
+transaction record and protection against conflicting changes. See STEERING.md.
 
-For changes to navigation, teardown or handoff, cover partial module delivery,
+For changes to navigation, teardown or maintenance, cover partial module delivery,
 late/failed replies, cancellation and real dialog lifecycle callbacks in behavior
 tests. Native verification must witness dependency registration and framework
 idle beyond the reproduced failure window. See the

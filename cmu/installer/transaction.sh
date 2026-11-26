@@ -162,13 +162,70 @@ uninstall_owned() (
     test "$current_nvram" = "$S_NVRAM" || test "$current_touch:$current_nvram" = 1:disable
 )
 
+# Only transaction staging opts into backend EXIT cleanup. Ordinary record_write
+# keeps its existing behavior, and backend resource traps also call this helper.
+prepared_candidate=
+record_clean() {
+    if test -n "$prepared_candidate"; then rm -f "$prepared_candidate" || :; fi
+    # Only this process's mktemp tree is owned. Never infer ownership of an
+    # orphan (or canonical state) from a missing record or a familiar name.
+    if test -n "${initial_work:-}" && private_dir "$initial_work" &&
+        test "$(stat -c '%d:%i' "$initial_work")" = "$initial_identity" &&
+        ( D=$initial_work; cleanup_mount_guard ); then rm -rf "$initial_work" || :; fi
+}
+
+initial_begin() {
+    local path
+    if test "$exists" = false; then
+        absent "$D" || fail invalid_record
+        initial_destination=$D
+        D=$(mktemp -d "${D%/*}/.open-connect-initial-XXXXXX") || fail state_create_failed
+        initial_work=$D
+        initial_identity=$(stat -c '%d:%i' "$D") || fail state_create_failed
+    fi
+    for path in snapshots packages composed keys; do
+        if absent "$D/$path"; then mkdir -m 700 "$D/$path" || fail state_create_failed; fi
+        private_dir "$D/$path" || fail invalid_state_directory
+    done
+    flush d "$D"
+}
+
+initial_publish() {
+    if test "$exists" = false; then
+        R_PHASE=removed; R_CURRENT=$before; R_BEFORE=-; R_AFTER=-
+        R_BUDGET=0; R_OFF=-; R_BOOT=-; R_NOTICE=-
+        record_write
+        absent "$initial_destination" || fail state_create_failed
+        mv "$D" "$initial_destination" || fail state_publish_failed
+        D=$initial_destination; initial_work=
+        access_work=$D/${access_work##*/}; exists=true
+    fi
+    # A same-boot retry may see a rename whose parent fsync failed. Establish
+    # the canonical name durably before a prepared record can change targets.
+    if test "$R_PHASE" = removed; then flush d "${D%/*}"; fi
+}
+
+retained_match() {
+    originals_verify || return 1
+    test "$R_BASE" = "$R_CURRENT" ||
+        { targets_match "$R_BASE" && dependencies_match "$R_BASE"; }
+}
+
 transaction_prepare() {
     # phase, before, after; preserve originals until restoration is verified.
+    local next
     settled || fail operation_pending
     snapshot_read "$2" && snapshot_read "$3" || fail invalid_plan
     targets_match "$2" && dependencies_pair_match "$2" "$3" || fail state_changed
     R_PHASE=$1; R_BEFORE=$2; R_AFTER=$3
-    record_write
+    # Finish fallible staging before withdrawing a supported legacy endpoint.
+    record_stage prepare
+    if command -v transaction_admit >/dev/null 2>&1; then transaction_admit; fi
+    if ! record_publish; then
+        # A missing candidate makes publication uncertain. Leave it fenced.
+        if file "$next" && command -v usb_fence_restore >/dev/null 2>&1; then usb_fence_restore; fi
+        fail record_rename_failed
+    fi
     PREPARED_REV=$R_REV
 }
 
@@ -190,6 +247,7 @@ transaction_reconcile() {
     # The immediate caller just did this before committing the same record.
     if test "${PREPARED_REV:-}" != "$R_REV"; then
         dependencies_pair_match "$R_BEFORE" "$R_AFTER" || fail dependencies_changed
+        flush d "$D"
     fi
     file "$AUTOSTART" || fail startup_changed
     actual_hash=$(sha "$AUTOSTART"); actual_mode=$(stat -c '%a:%u:%g' "$AUTOSTART"); actual_nv=$(nvram_read) || fail nvram_unreadable
@@ -202,8 +260,8 @@ transaction_reconcile() {
         selector_pair_check "$R_BEFORE" "$R_AFTER" || fail selector_changed
         selector_pair=true
     fi
-    # Install the recovery entry before changing NVRAM. Remove it last on
-    # uninstall. Re-committing a matching NVRAM value repairs an interrupted commit.
+    if command -v transaction_admit >/dev/null 2>&1; then transaction_admit; fi
+    # Install the recovery entry before changing NVRAM. Remove it last on uninstall.
     if test "$phase" != uninstall; then
         if test "$selector_pair" = true; then selector_apply "$R_BEFORE" "$R_AFTER" || fail selector_apply_failed; fi
         startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
@@ -211,7 +269,11 @@ transaction_reconcile() {
     if test -e "$D/snapshots/$R_AFTER/access"; then
         access_pair_apply "$R_BEFORE" "$R_AFTER" || fail access_apply_failed
     fi
-    nvram_change "$actual_nv" "$after_nv" || fail nvram_commit_failed
+    # Only a planned NVRAM transition needs a commit. Recommit even if sysfs
+    # already matches after: the prior write may have been interrupted before commit.
+    if test "$before_nv" != "$after_nv"; then
+        nvram_change "$actual_nv" "$after_nv" || fail nvram_commit_failed
+    fi
     if test "$phase" = uninstall; then
         startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
         if test -e "$D/snapshots/$R_AFTER/access"; then access_hold_cleanup || fail access_cleanup_failed; fi
@@ -258,9 +320,10 @@ uninstall_cleanup() {
         removed)
             targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
             startup_staging_guard || fail startup_stage_changed
+            if command -v transaction_admit >/dev/null 2>&1; then transaction_admit; fi
             R_PHASE=purge
             record_write;;
-        purge) ;; # Restoration was durably verified before this phase began.
+        purge) ;; # Durable restoration proof survives deletion of its snapshots.
         *) fail not_removed;;
     esac
     # Keep the authoritative record until every other entry is gone. USB

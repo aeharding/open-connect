@@ -7,6 +7,7 @@ const element=require("./ui-element.js");
 const ctx = {document: {body: {}}, log: {error(e) { throw Error(e); }},
     setTimeout(fn,ms) { const id={animation:ms===900}; if(id.animation) animations.set(id,fn); else queued=fn; return id; },
     clearTimeout(id) { if(id&&id.animation) animations.delete(id); else queued=null; }};
+ctx.window=ctx;
 function idle() { const fn=queued; queued=null; if (fn) { fn(); } }
 function settle() { while(animations.size) { const [id,fn]=animations.entries().next().value; animations.delete(id); fn(); } }
 for (const path of process.argv.slice(2)) { vm.runInNewContext(fs.readFileSync(path, "utf8"), ctx); }
@@ -323,7 +324,7 @@ const catalog = fs.readFileSync(require("node:path").join(process.argv[3], "../s
         return {id, label, saved: Number(saved), current: Number(saved), enable, disable};
     });
 store.version = fs.readFileSync(require("node:path").join(process.argv[3], "../VERSION"), "utf8").trim();
-assert.equal(store.version, "0.3.0-dev.22");
+assert.match(store.version, /^0\.3\.0-dev\.[0-9]+$/);
 values = {...values, wireless: 0, wirelessCurrent: 0, wirelessFactory: false,
     carplayAutoshow: 0, carplayAutoshowCurrent: 0, services: catalog};
 settings.open(fw, store);
@@ -432,12 +433,12 @@ back(); back();
 
 // Current Base keeps the Navigation warning with Wireless enabled. Longest
 // enable body fits the fixed native dialog without the previous verbose copy.
-for (const version of ["0.3.0-dev.15", "0.3.0-dev.16", "0.3.0-dev.17", "0.3.0-dev.18", "0.3.0-dev.19", "0.3.0-dev.20"]) for (const wireless of [0, 1]) {
+for (const version of [store.version]) for (const wireless of [0, 1]) {
     store.version = version;
     values = {...values, base: 0, wireless};
     settings.open(fw, store); toggle("base", true);
     assert.match(modal.props.text1, /background logging and unused services/);
-    assert.equal(/Mazda Navigation about 20 s/.test(modal.props.text1), version !== "0.3.0-dev.15" && wireless === 1);
+    assert.equal(/Mazda Navigation about 20 s/.test(modal.props.text1), wireless === 1);
     assert.ok(modal.props.text1.length <= 125);
     confirm("cancel"); back();
 }

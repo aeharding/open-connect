@@ -1,16 +1,26 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Mazda context; runtime operations. */
 var OpenConnectInstaller=(function () {
 "use strict";
-var active=null, own=Object.prototype.hasOwnProperty;
+var active=null, own=Object.prototype.hasOwnProperty, owner={};
+function foreign(fw){return!!(fw.common._openConnectOperation&&fw.common._openConnectOperation!==owner);}
+function claim(fw){
+ var c=fw.common;
+ if(!c||c._openConnectOperation&&c._openConnectOperation!==owner||window.__ocUSBLoading)return false;
+ c._openConnectOperation=owner;return true;
+}
+function release(fw){if(fw.common._openConnectOperation===owner)delete fw.common._openConnectOperation;}
 function show(fw, title, text, buttons, done, settings, progress) {
   var host=fw._currTmpltInstance, app=fw.getCurrentApp(), context=fw.getCurrCtxtId(), common=fw.common;
   function eligible() {
     return fw._currTmpltInstance===host&&fw._frameworkState===fw._FWK_STATE_IDLE&&
       fw.getCurrentApp()===app&&fw.getCurrCtxtId()===context&&
-      !common._vuiHelpDialog&&!common._vuiExamplesDialog;
+      !common._vuiHelpDialog&&!common._vuiExamplesDialog&&
+      !/^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(common._cachedVuiState);
   }
-  if (active||!host||!common||!eligible()||(settings ?
+  if (active||!host||!common||!eligible()||
+      common._openConnectOperation&&common._openConnectOperation!==owner||
+      common._openConnectDialog||window.__ocUSBLoading||
+      document.querySelector&&document.querySelector(".Dialog3Ctrl_Style19_NoTemplateInstance")||(settings ?
       !/^(syssettings|audiosettings|vehsettings)$/.test(app)||!/Tab$/.test(context) :
       app!=="system"||context!=="HomeScreen")) { return false; }
   if (typeof ocCarPlay!=="undefined"&&ocCarPlay) { ocCarPlay.cancel(); }
@@ -26,6 +36,7 @@ function show(fw, title, text, buttons, done, settings, progress) {
   function finish(action) {
     if (active!==dialog) { return; }
     active=null;
+    if(common._openConnectDialog===dialog)delete common._openConnectDialog;
     while (restores.length) { restores.pop()(); }
     fw.destroyControl(dialog);
     try { done(action); } catch (error) { log.error("Open Connect dialog: " + error); }
@@ -54,7 +65,7 @@ function show(fw, title, text, buttons, done, settings, progress) {
     }};
   var dialog=fw.instantiateControl("system", document.body, "Dialog3Ctrl", props);
   if (!dialog) { return false; }
-  active=dialog;
+  active=dialog;common._openConnectDialog=dialog;
   dialog.divElt.classList.add("Dialog3Ctrl_Style19_NoTemplateInstance");
   dialog.divElt.classList.add("Transitions_fadeIn_0_200");
   var previousInput=replace(common, "handleControllerEvent", input);
@@ -103,33 +114,23 @@ function versionText(version) {
   }
   return version;
 }
-function choose(fw, installed, done, version, retained, from) {
-  if (typeof installed!=="boolean") { throw new TypeError("Expected verified install state"); }
-  var label=installed&&from&&from!=="-" ? (from===version ? "Reinstall" : "Update") : "Install";
-  var buttons={button1: {label: "Cancel", appData: "cancel"}, button2: {label: label, appData: "install"}};
-  if (installed||retained) { buttons.button3={label: "Uninstall", appData: "uninstall"}; }
-  return show(fw, label + " Open Connect?", (installed ?
-    "From: " + versionText(from) + "\nTo: " + versionText(version) : "Version " + versionText(version) + ".") +
-    "\nMazda Connect will restart.", buttons, done);
-}
+
 function message(fw, title, text, buttons, done) {
   return show(fw, title, text, buttons, done, /settings$/.test(fw.getCurrentApp()));
 }
-return {choose: choose, message: message, progress: function (fw, action, warning, suspended) {
+return {claim:claim,release:release,foreign:foreign,message: message,progress: function (fw, action, warning, suspended) {
   return show(fw, action, warning, null, suspended, /settings$/.test(fw.getCurrentApp()), true);
-}, complete: function (fw, version, done) {
-  return show(fw, "Open Connect installed", "Version " + versionText(version) + ".\nYou can now remove the USB drive.", {
-    button1: {label: "Done", appData: "done"}, button2: {label: "Open settings", appData: "settings"}}, done);
-}, about: function (fw, version, done) {
+},about: function (fw, version, done) {
   return message(fw, "About", version===undefined ? "Installed version unavailable." : "Open Connect " + versionText(version),
     {button1: {label: "OK", appData: "done"}}, done);
-}, confirmUninstall: function (fw, pending, done) {
+},confirmUninstall: function (fw, pending, done) {
   return message(fw, "Uninstall Open Connect?", pending ? "Finishing your settings change. Try again in a moment." :
     "Open Connect will be removed.\nMazda Connect will restart.", pending ?
     {button1: {label: "OK", appData: "cancel"}} :
     {button1: {label: "Cancel", appData: "cancel"}, button2: {label: "Uninstall", appData: "uninstall"}}, done);
 }};
-}());
+})();
+
 (function (a) {
 if (!a||a.loaded & 2) { return; }
 var f=framework, create=f.instantiateControl, destroy=f.destroyControl;

@@ -1,63 +1,33 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-var OpenConnect=(function(prev){
+/* Boot-selected Settings. */
+var OpenConnect=(function(){
 "use strict";
-if(prev&&prev.protected&&prev.protected())return prev;
-var entry=document.getElementById("oc-usb-loader"),meta=document.querySelector('meta[name="open-connect-token"]');
-var vm=document.querySelector('meta[name="open-connect-version"]'),nm=document.querySelector('meta[name="open-connect-notice"]');
-var versionRE=/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/;
-var boot=meta&&vm&&nm&&{token:meta.getAttribute("content"),version:vm.getAttribute("content"),notice:nm.getAttribute("content")};
-if(!boot||!/^[a-f0-9]{32}$/.test(boot.token)||!versionRE.test(boot.version)||
- !/^(?:-|installed|removed|undone|restart)$/.test(boot.notice)){boot=null;}
-var base=entry&&entry.src?entry.src.slice(0,entry.src.lastIndexOf("/")+1):"file:///tmp/open-connect/feature/";
-var port=entry&&entry.ocPort===35555?35555:15555;
-var dead=false,begun=false,token=entry&&entry.ocToken,s=null,known=false,busy=false,saving=false;
-var timer,expiry,dialog,view,detach,app,ui,menus,job,marker,pending=false,feedback=false;
-var nodes=[],queued=null,ready=false,usb=false,epoch=0,shown=false,readOnce=false,refresh=null,acking=false;
-var due=0,proved=false,proof=boot&&boot.notice==="installed";
-var attempt=entry&&window.__ocUSBLoading;
-function loaded(){if(attempt&&attempt.done)attempt.done();attempt=null;}
-function held(){return isHeld()||!!refresh||!!(menus&&menus.blocked());}
-function receive(a){
- known=!!valid(a);
- if(known){s=a;store.version=a.installedVersion===undefined?a.version:
- (a.installedVersion==="-"?undefined:a.installedVersion);}
-}
-function autoshow(){
- var cp=window.ocCarPlay;
- if(proof&&!shown&&!proved){
- if(window.framework&&framework._browserShown&&!due){due=Date.now()+35000;}
- if(due&&Date.now()>=due){proved=true;if(cp){cp.cancel();}}
-}
- if(isHeld()||busy||usb||queued||dialog||view||s&&(s.pending||s.carplayAutoshow===0)||!shown&&complete())return 2;
- return!ready||s&&!known||proof&&!shown&&!proved?1:0;
-}
-function valid(s){return menus&&menus.validStatus(s);}
+if(window.OpenConnect)return window.OpenConnect;
+var meta=document.querySelector('meta[name="open-connect-token"]');
+var vm=document.querySelector('meta[name="open-connect-version"]');
+var token=meta&&meta.getAttribute("content"),version=vm&&vm.getAttribute("content");
+if(!/^[a-f0-9]{32}$/.test(token)||!/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(version))return null;
+var base="file:///tmp/open-connect/feature/";
+var s=null,known=false,busy=false,saving=false,pending=false,epoch=0;
+var timer,dialog,view,app,detach,ui,menus,job,queued=null,refresh=null;
+var openIntent=null,openTimer;
+function valid(a){return menus&&menus.validStatus(a);}
+function receive(a){known=!!valid(a);if(known)s=a;}
 function advance(){refresh=null;epoch++;}
 function values(){return known&&s.installed&&!s.pending&&!s.conflict?s:null;}
-function isHeld(){return!!job||pending||feedback||acking;}
-function claim(){
- if(dead||feedback||acking||OpenConnect!==client||job&&(!saving||job.phase==="unresolved"))return false;
- if(window.__ocUSBLoading&&window.__ocUSBLoading!==marker){
- if(window.__ocUSBLoading.owner!==client)return false;
- window.__ocUSBLoading.cancel();
-}
- if(!marker){marker={token:token,cancel:function(){cancelUSB(token);}};}
- window.__ocUSBLoading=marker;
- return true;
-}
-function release(){
- if(!isHeld()&&window.__ocUSBLoading===marker){delete window.__ocUSBLoading;}
-}
+function held(){return!!job||pending||!!refresh||!!(menus&&menus.blocked());}
+function claim(){return !(job&&(!saving||job.phase==="unresolved"))&&ui.claim(framework);}
+function release(){if(!job&&!pending&&ui)ui.release(framework);}
+function autoshow(){return openIntent||held()||dialog||view?2:!menus||s&&!known?1:0;}
 function post(op,args,done,ms,intent){
- if(dead)return;
  intent=intent===undefined?epoch:intent;
  var xhr=new XMLHttpRequest(),answered=false;
  var deadline=setTimeout(function(){finish(null);xhr.abort();},ms||185000);
  function finish(a){
  if(answered)return;
  answered=true;clearTimeout(deadline);
- if(dead||intent!==epoch)return;
- if(op!=="dismiss")receive(a);
+ if(intent!==epoch)return;
+ if(op!=="restart")receive(a);
  done(a,xhr.status);
 }
  xhr.onreadystatechange=function(){
@@ -67,63 +37,34 @@ function post(op,args,done,ms,intent){
  finish(a);
 };
  try{
- xhr.open("POST","http://127.0.0.1:"+port+"/control",true);
+ xhr.open("POST","http://127.0.0.1:15555/control",true);
  xhr.setRequestHeader("Content-Type","text/plain");
  xhr.send([token,op==="status"||!s?"-":s.revision,op].concat(args||["-","-","-"]).join("|"));
  }catch(error){finish(null);}
 }
-function read(done,until,attempts,intent,fast){
+function read(done,until,intent,fast){
  intent=intent===undefined?epoch:intent;
- if(intent!==epoch||dead)return;
- var left=until?until-Date.now():185000;
+ if(intent!==epoch)return;
+ var left=until-Date.now();
  if(left<=0){done(null);return;}
- var end=until||Date.now()+left;
  post("status",fast?["settings","-","-"]:null,function(a,code){
- if(fast&&code===400){read(done,end,attempts,intent,false);return;}
- if((a&&a.error==="busy"||(!a&&until))&&(until||(attempts||0)<8)){
-  setTimeout(function(){read(done,until,(attempts||0)+1,intent,fast);},
-   until?Math.min(500,Math.max(0,until-Date.now())):500);
+ if(fast&&code===400){read(done,until,intent,false);return;}
+ if(a&&a.error==="busy"||!a){
+  setTimeout(function(){read(done,until,intent,fast);},Math.min(500,Math.max(0,until-Date.now())));
  }else{done(a);}
  },left,intent);
 }
 function closeUI(){var close=dialog;dialog=null;if(close){close();}}
 function endView(){var old=view;view=null;if(old){old.close();}}
-function message(title,text,hold){
- if(hold)feedback=true;
+function message(title,text){
  queued=function(){
- return ui.message(framework,title,text,{button1:{label:"OK",appData:"done"}},function(action){
-  dialog=null;if(hold){if(action==="done"){feedback=false;release();}else message(title,text,hold);}
-});
-};
-}
-function dismiss(done){
- if(acking)return;
- if(!claim()){shown=false;return;}
- acking=true;
- var intent=epoch,until=Date.now()+12000,revision=s.revision;
- function finish(ok){
- acking=false;
- if(ok)s.notice="-";
- else{shown=false;if(!complete())message("Unable to confirm","Open Mazda Settings again.",true);}
- release();
- if(ok&&done)done();
-}
- function send(){
- if(dead||intent!==epoch)return;
- var left=until-Date.now()-6000;
- if(left<=0){finish(false);return;}
- post("dismiss",null,function(a){
-  if(a&&a.ok===true){finish(true);}
-  else if(a&&a.error==="busy"){setTimeout(send,Math.min(500,until-Date.now()));}
-  else{read(function(s){known=!!valid(s);finish(!!(s&&values()&&s.notice==="-"&&s.revision===revision));},until,0,intent);}
- },left,intent);
-}
- send();
+ return ui.message(framework,title,text,{button1:{label:"OK",appData:"done"}},function(){dialog=null;});
+ };wake();
 }
 function paint(){
  var action=job.phase==="restart"||job.op==="restart"?"Restarting Mazda Connect":job.phase==="checking"?
- "Checking Open Connect":job.action;
- var warning=job.origin==="usb"?"Do not remove the USB drive\nor turn off the car.":"Do not turn off the car.";
+ "Checking Open Connect":"Removing Open Connect";
+ var warning="Do not turn off the car.";
  if(view&&!view.update(action,warning)){view=null;}
  if(!view){view=ui.progress(framework,action,warning,function(){view=null;});}
  return!!view;
@@ -133,36 +74,35 @@ function end(actual){
  job=null;busy=saving=false;endView();release();
  if(reply){reply(actual);}
 }
-function refuse(lost){
+function refuse(lost,restartRequired){
  if(lost){known=false;}
- var reply=job.reply,origin=job.origin;
+ var reply=job.reply;
  endView();
  if(lost){job.phase="unresolved";job.reply=null;}
  else{job=null;busy=saving=false;release();}
- if(reply){reply(null,true);}
+ if(reply){reply(null,lost||restartRequired?"restart":true);return;}
  message(lost?"Unable to confirm the change":"Unable to finish",(lost?
  "Restart Mazda Connect before making more changes.":
- "Check your settings before trying again.")+
- (lost&&origin==="usb"?"\nKeep the USB drive connected until restart.":""));
+ "Check your settings before trying again."));
 }
 function budget(){if(!job.until){job.until=Date.now()+12000;}return job.until;}
 function restart(){
  if(job.restartSent)return;
- job.restartSent=true;job.phase="restart";paint();
- var current=job,until=budget();
+ job.phase="restart";if(!paint())return;
+ job.restartSent=true;
+ var current=job;
+ // Restart admission starts at this send, independently of prior readback.
+ job.until=Date.now()+12000;
  post("restart",null,function(a){
- if(!valid(a)){reconcile(a);}
- },Math.max(1,until-Date.now()));
- setTimeout(function(){if(job===current&&job.phase!=="unresolved"){refuse(true);}},Math.max(0,until-Date.now()));
+ if(a&&a.ok===true&&a.restarting===true){
+  setTimeout(function(){if(job===current){refuse(true);}},12000);
+ }else{reconcile(a);}
+ },12000);
 }
 function changed(a){
  if(!valid(a)||a.pending||a.conflict)return false;
  var old=job.before;
  if(job.op==="uninstall")return!a.installed&&!a.retained&&a.revision==="-";
- if(job.op==="install"){
- return a.installed&&a.installedVersion===job.target&&a.notice==="installed"&&
-  a.revision!==old.revision&&(!old.installed||old.installedVersion&&old.installedVersion!=="-"&&old.installedVersion!==job.target);
-}
  if(job.op==="set"){
  var key=job.args[0],wanted=Number(job.args[2]),value=a[key==="carplay-autoshow"?"carplayAutoshow":key];
  (a.services||[]).forEach(function(row){if(row.id===key){value=row.saved;}});
@@ -173,200 +113,193 @@ function changed(a){
 function reconcile(a){
  job.phase="checking";if(!saving){paint();}
  read(function(fresh){
- if(a&&a.ok===false){refuse(!valid(fresh)||fresh.pending);}
- else if(a===null&&changed(fresh)){
-  if(saving){end(values());}else if(!job.restartSent){restart();}
+ if(a&&a.ok===false){refuse(!valid(fresh)||fresh.pending,a.error==="restart_required");}
+ else if(a===null&&!job.restartSent&&changed(fresh)){
+  if(saving){end(values());}else{restart();}
  }else{refuse(true);}
  },budget());
 }
 function drive(){
  if(!job||job.phase!=="waiting")return;
- if(job.op!=="recover"&&(s.revision!==job.before.revision||s.version!==job.target)){end(null);return;}
- if(!saving&&!paint()&&job.op!=="recover")return;
- if(job.op==="restart"){job.sent=true;restart();return;}
- job.sent=true;job.phase="writing";
+ if(s.revision!==job.before.revision||s.version!==job.target){end(null);return;}
+ if(!saving&&!paint())return;
+ if(job.op==="restart"){restart();return;}
+ job.phase="writing";
  post(job.op,job.args,function(a){
  if(!valid(a)){reconcile(a);return;}
  if(saving){end(values());}
- else if(job.op==="install"||job.op==="uninstall"||a.restart){restart();}
+ else if(job.op==="uninstall"||a.restart){restart();}
  else{end(null);}
 });
 }
-function run(op,args,origin,reply,leave){
+function run(op,args,reply,leave){
  if(busy||!s||!claim()){if(reply){reply(null);}return false;}
  busy=true;saving=!!reply;advance();
- job={op:op,args:args,origin:origin,before:s,target:s.version,
- reply:reply,phase:"waiting",sent:false,restartSent:false,
- action:op==="uninstall"?"Removing Open Connect":op==="recover"?"Applying changes":
-  op==="install"?(s.installed&&s.installedVersion&&s.installedVersion!=="-"?
-   (s.installedVersion===s.version?"Reinstalling":"Updating"):"Installing")+" Open Connect":"Applying changes"};
- queued=null;closeUI();if(leave)leave();drive();return true;
+ job={op:op,args:args,before:s,target:s.version,reply:reply,phase:"waiting",restartSent:false};
+ queued=null;closeUI();if(leave)leave();drive();wake();return true;
 }
-var store={read:values,pending:function(value){
+var store={version:version,read:values,
+pending:function(value){
  if(value&&!claim())return false;
  pending=value;release();return true;
-},refresh:function(reply){
+},
+refresh:function(reply){
  if(busy||pending){reply(saving&&!!values());return;}
  if(refresh){refresh.push(reply);return;}
- if(!acking)advance();var waits=refresh=[reply],intent=epoch;
- function finish(a){
- if(dead||intent!==epoch)return;
- receive(a);refresh=null;
- waits.forEach(function(fn){if(intent===epoch)fn(!!values());});
+ advance();var waits=refresh=[reply],intent=epoch;
+ read(function(a){
+  if(intent!==epoch)return;
+  refresh=null;waits.forEach(function(fn){if(intent===epoch)fn(!!values());});
+ },Date.now()+12000,intent,true);
+},
+unavailable:function(){
+ if(dialog||queued||menus.blocked())return;
+ dialog=ui.message(framework,"Settings unavailable",job&&job.phase==="unresolved"?
+  "Restart Mazda Connect before making more changes.":"Open Connect could not be reached. Try again.",
+  {button1:{label:"OK",appData:"done"}},function(){dialog=null;});
+},
+write:function(key,from,to,reply){run("set",[key,String(from),String(to)],reply);},importKey:function(reply){run("import",null,reply);},uninstall:function(leave){return run("uninstall",null,null,leave);},busy:function(){return busy||pending;},restart:function(leave){return values()&&s.restart&&!pending&&run("restart",null,null,leave);}};
+function openSettings(){
+ if(openIntent)return true;
+ if(!homeAvailable()||held())return false;
+ var host=framework._currTmpltInstance;
+ var intent=openIntent={host:host,seq:host.contextInfo&&host.contextInfo.contextSeq,until:Date.now()+12000};
+ openTimer=setTimeout(function(){if(openIntent===intent)openIntent=null;},12000);
+ openWhenReady();return true;
 }
- function fetch(until){read(finish,until||(boot&&!entry?Date.now()+12000:null),0,intent,true);}
- var usbLoad=window.__ocUSBLoading;
- if(usbLoad&&usbLoad.owner===client&&usbLoad.wait){
- usbLoad.wait.push(function(a){if(valid(a))finish(a);else fetch(usbLoad.until);});return;
+function homeAvailable(){
+ var c=framework.common;
+ return framework._browserShown&&framework._frameworkState===framework._FWK_STATE_IDLE&&
+ framework.getCurrentApp()==="system"&&framework.getCurrCtxtId()==="HomeScreen"&&
+ c&&!c._openConnectDialog&&!c._openConnectPage&&!c._openConnectOperation&&
+ !c._vuiHelpDialog&&!c._vuiExamplesDialog&&
+ !/^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(c._cachedVuiState)&&
+ !document.querySelector(".Dialog3Ctrl_Style19_NoTemplateInstance");
 }
- fetch();
-},write:function(key,from,to,reply){run("set",[key,String(from),String(to)],"settings",reply);},
-importKey:function(reply){run("import",null,"settings",reply);},
-uninstall:function(leave){return run("uninstall",null,"settings",null,leave);},
-busy:function(){return busy||pending;},
-restart:function(leave){return values()&&s.restart&&!pending&&run("restart",null,"settings",null,leave);},
-opened:function(){if(complete()){shown=true;if(queued&&queued.complete){queued=null;}}}};
-function choose(){
- usb=false;
- var revision=s.revision,target=s.version;
- queued=function(){
- return ui.choose(framework,s.installed,function(action){
-  dialog=null;
-  if(s.revision!==revision||s.version!==target)return;
-  if(action==="install"||action==="uninstall"){run(action,null,"usb");}
-  else if(action==="cancel"){dismiss();}
- },s.version,s.retained,s.installedVersion);
-};
-}
-function complete(){
- return known&&boot&&boot.token===token&&boot.notice==="installed"&&valid(s)&&s.installed&&
- !s.pending&&!s.conflict&&!s.restart&&s.notice==="installed"&&
- s.completionReady===true&&s.installedVersion===boot.version;
+function openWhenReady(){
+ var intent=openIntent;
+ if(!intent||!menus)return;
+ function current(){
+  return openIntent===intent&&Date.now()<intent.until&&homeAvailable()&&
+   framework._currTmpltInstance===intent.host&&
+   (!intent.host.contextInfo||intent.host.contextInfo.contextSeq===intent.seq);
+ }
+ if(!current()||held()){openIntent=null;clearTimeout(openTimer);return;}
+ function open(ok){
+  if(!current())return;
+  openIntent=null;clearTimeout(openTimer);
+  if(ok)menus.fromHome(framework,store,function(){});else store.unavailable();
+ }
+ if(values())open(true);else store.refresh(open);
 }
 function bind(){
- if(s?s.installed:boot){
  var current=framework.getAppInstance("syssettings");
- if(current&&current!==app){
-  if(detach){detach();}
-  app=current;detach=menus.attach(framework,app,store);
+ if(current&&current._contextTable&&current._contextTable.SystemTab&&current!==app){
+  if(detach)detach();app=current;detach=menus.attach(framework,app,store);
+ }
 }
-}
-}
-function tick(){
- autoshow();
- if(dead||!window.framework||!framework._browserShown)return;
- bind();
+function wake(){
+ clearTimeout(timer);
+ if(!window.framework||!framework._browserShown){timer=setTimeout(wake,250);return;}
  if(job){
- if(job.phase==="waiting"){drive();}
- else if(!saving&&job.phase!=="unresolved"){paint();}
- }else if(!busy&&s&&s.pending){run("recover",null,entry?"usb":"settings");}
- else if(!shown&&!readOnce&&proof&&!s){
- readOnce=true;
- read(function(a){
-  if(!valid(a)||!complete()){proved=true;}
-  if(window.ocCarPlay){if(!valid(a)){ocCarPlay.cancel();}ocCarPlay.pump();}
- },due,0,epoch,true);
+  if(job.phase==="waiting")drive();else if(job.phase==="restart"&&!job.restartSent)restart();else if(!saving&&job.phase!=="unresolved")paint();
+ }
+ if(queued&&!dialog){var opened=queued();if(opened){queued=null;dialog=opened;}}
+ if(queued||job&&job.phase!=="unresolved")timer=setTimeout(wake,250);
 }
- if(!job&&complete()&&!shown&&!queued&&!dialog){
- queued=function(){
-  if(!complete()){queued=null;return false;}
-  var opened=ui.complete(framework,s.installedVersion,function(action){
-   dialog=null;
-   if(complete()&&(action==="done"||action==="settings")){
-    dismiss(action==="settings"?function(){menus.fromHome(framework,store,function(){});}:null);
-}
-});
-  if(opened){usb=false;}
-  return opened;
-};
- queued.complete=true;shown=true;
-}
- if(usb&&!busy&&s&&!dialog&&!queued){choose();}
- if(queued&&!dialog){
- var opened=queued();
- if(opened){queued=null;dialog=opened;}
-}
-}
-function load(name,next){
- var node=document.createElement("script");
- node.type="text/javascript";node.src=base+name+".js";
- node.onload=function(){if(!dead){next();}};
- nodes.push(node);
- document.querySelector("head").appendChild(node);
-}
-function start(value,fromUSB){
- if(begun||dead||!/^[a-f0-9]{32}$/.test(value)){return;}
- begun=true;token=value;usb=fromUSB;
- if(prev&&prev.protected&&prev.protected()){abandon();return;}
- clearTimeout(expiry);expiry=setTimeout(abandon,65000);
- if(attempt&&attempt.done)attempt.wait=[];
- load("dialog",function(){
+function load(name,next){utility.loadScript(base+name+".js",null,next);}
+load("dialog",function(){
  ui=OpenConnectInstaller;
  load("settings",function(){
   menus=OpenConnectSettings;
-  function accept(a){
-   if(fromUSB&&(attempt&&attempt.valid?!attempt.valid():OpenConnect!==client)){abandon();return;}
-   var swap=prev;if(attempt&&attempt.resolve)attempt.resolve(a);
-   clearTimeout(expiry);
-   if(prev&&prev.protected&&prev.protected()){abandon();return;}
-   if(!valid(a)&&!(boot&&!fromUSB)){
-    if(prev){abandon();return;}
-    message("Unable to finish","Open Connect could not be reached. Check the connection before trying again.");
-   }else{
-    if(prev&&prev.dispose&&prev.dispose(a&&a.installed)===false){abandon();return;}
-    OpenConnect=client;prev=null;ready=true;
-    if(window.ocCarPlay){ocCarPlay.pump();}
-}
-   if(swap)bind();timer=setInterval(tick,500);
-   loaded();
-}
-  if(!fromUSB&&boot){store.version=boot.version;accept(null);}
-  else{read(accept);}
+  var initialize=framework._initApp;
+  if(initialize)framework._initApp=function(id){var result=initialize.apply(this,arguments);if(id==="syssettings")bind();return result;};
+  bind();if(window.ocCarPlay)ocCarPlay.pump();
+  openWhenReady();
+ });
 });
-});
+return {protected:held,autoshowState:autoshow,openSettings:openSettings};
+}());
+
+/* OC_USB_OFFER_V1: USB entry observes Mazda's existing connection callback.
+ * This bootstrap never inspects or changes the installed Settings client. */
+(function(){
+"use strict";
+var meta=document.querySelector('meta[name="open-connect-token"]');
+var token=meta&&meta.getAttribute("content"),f=window.framework;
+if(!f||!/^[a-f0-9]{32}$/.test(token)||window.__ocUSBReceiver)return;
+window.__ocUSBReceiver=true;
+var generation=0,until=0,retry=500,timer,xhr,bound,last,loading;
+function stop(){clearTimeout(timer);if(xhr){var old=xhr;xhr=null;old.abort();}}
+function start(wait){
+ stop();generation++;retry=500;until=wait?Date.now()+65000:0;read(generation);
 }
-function cancelUSB(value){
- if(value!==token)return;
- var node=document.getElementById("oc-usb-loader");
- if(node&&node.ocToken===token&&node.parentNode){node.parentNode.removeChild(node);}
- usb=false;if(held())return;
- advance();
- if(!ready){abandon();return;}
- queued=null;closeUI();
- release();
+function launch(media){
+ if(media.token===last)return false;
+ last=media.token;
+ if(loading&&loading.parentNode)loading.parentNode.removeChild(loading);
+ var old=document.getElementById("oc-maintenance-loader");
+ if(old&&old.parentNode)old.parentNode.removeChild(old);
+ var node,done=false;
+ var deadline=setTimeout(function(){done=true;if(node&&node.parentNode)node.parentNode.removeChild(node);},65000);
+ utility.loadScript("file:///tmp/open-connect/sessions/"+media.session+"/loader.js",
+  {id:"oc-maintenance-loader",ocToken:media.token,ocPort:15557},function(){
+   clearTimeout(deadline);
+   if(!done&&loading===node&&node===document.getElementById("oc-maintenance-loader")&&
+    typeof window.OpenConnectUSBStart==="function")OpenConnectUSBStart(node);
+   else if(node&&node.parentNode)node.parentNode.removeChild(node);
+  });
+ node=document.getElementById("oc-maintenance-loader");loading=node;return true;
 }
-function reopenUSB(value){
- if(dead||!ready||value!==token)return false;
- if(held())return true;
- advance();usb=false;queued=null;closeUI();
- read(function(a){
- if(!valid(a)){message("Unable to finish","Open Connect could not be reached.");return;}
- shown=false;usb=true;
-});
- return true;
+function read(intent){
+ var left=until?until-Date.now():3000;if(left<=0)return;
+ var request=new XMLHttpRequest(),answered=false;
+ xhr=request;
+ var deadline=setTimeout(function(){finish(null);request.abort();},Math.min(3000,left));
+ function finish(answer){
+  if(answered)return;answered=true;clearTimeout(deadline);
+  if(intent!==generation||xhr!==request)return;
+  xhr=null;
+  var media=answer&&answer.ok===true&&answer.media;
+  if(media&&typeof media.session==="string"&&typeof media.token==="string"&&
+   /^session-[a-zA-Z0-9]{6}$/.test(media.session)&&/^[a-f0-9]{32}$/.test(media.token)){
+   if(launch(media)){until=0;return;}
+  }
+  // Ordinary USB drives never publish an offer; avoid a burst of native HTTP
+  // handlers while keeping the first retry prompt and the same event deadline.
+  if(Date.now()<until){
+   timer=setTimeout(function(){read(intent);},Math.min(retry,until-Date.now()));
+   retry=Math.min(retry*2,2000);
+  }
+ }
+ request.onreadystatechange=function(){
+  if(request.readyState!==4)return;
+  var answer=null;try{if(request.status===200)answer=JSON.parse(request.responseText);}catch(ignore){}
+  finish(answer);
+ };
+ try{
+  request.open("POST","http://127.0.0.1:15555/control",true);
+  request.setRequestHeader("Content-Type","text/plain");
+  request.send(token+"|-|status|media|-|-");
+ }catch(error){finish(null);}
 }
-function abandon(){
- if(ready||dead)return;
- dispose();if(OpenConnect===client){OpenConnect=prev;}
- loaded();
+function bind(){
+ var app=f.getAppInstance("usbaudio"),table=app&&app._messageTable;
+ if(!table||app===bound||typeof table.TimedSbn_ConnectionStatus!=="function")return;
+ bound=app;var original=table.TimedSbn_ConnectionStatus;
+ table.TimedSbn_ConnectionStatus=function(message){
+  var result=original.apply(this,arguments),p=message&&message.params&&message.params.payload;
+  if(p&&p.status==="Connected"&&p.type==="UMASS"&&/^[AB]$/.test(p.usb))start(true);
+  return result;
+ };
+ var devices=app._connectedDevs;
+ if(devices&&[devices.A,devices.B].some(function(d){return d&&d.deviceId&&d.type==="UMASS";}))start(true);
 }
-function dispose(transfer){
- if(held())return false;
- dead=true;advance();clearTimeout(expiry);clearInterval(timer);
- queued=null;closeUI();endView();
- if(detach){detach(transfer);}
- nodes.forEach(function(n){if(n.parentNode)n.parentNode.removeChild(n);});
- release();return true;
-}
-var client={start:start,reopenUSB:reopenUSB,cancelUSB:cancelUSB,dispose:dispose,protected:held,
- autoshowState:autoshow};
-if(entry){
- expiry=setTimeout(abandon,65000);
- if(attempt&&attempt.done){attempt.client=client;return prev||client;}
-}
-if(boot&&!entry){start(boot.token,false);}
-return client;
-}(OpenConnect));
+var initialize=f._initApp;
+f._initApp=function(id){var result=initialize.apply(this,arguments);if(id==="usbaudio")bind();return result;};
+bind();if(!generation)start(false);
+}());
+
 
 (function(a){
 if(!a||a.loaded&1){return;}
@@ -407,3 +340,34 @@ a.wrap(f,"_initApp",null,bind);
 if(f.getAppInstance("system")){bind("system");}
 a.loaded|=1;a.pump();
 }(window.ocCarPlay));
+
+/* Independent boot completion entry. */
+(function(){
+"use strict";
+var notice=document.querySelector('meta[name="open-connect-notice"]');
+if(notice&&notice.getAttribute("content")==="installed"){
+ var token=document.querySelector('meta[name="open-connect-token"]').getAttribute("content");
+ var version=document.querySelector('meta[name="open-connect-version"]').getAttribute("content");
+ var state={},node,stopped=false;
+ window.__ocCompletionLoading=state;
+ window.__ocCompletionGeneration=state;
+ var finish=function(){
+  stopped=true;clearTimeout(timer);
+  if(window.__ocCompletionLoading===state)delete window.__ocCompletionLoading;
+  if(node&&node.parentNode)node.parentNode.removeChild(node);
+ };
+ var timer=setTimeout(function(){
+  if(window.__ocCompletionGeneration===state)delete window.__ocCompletionGeneration;
+  finish();if(window.ocCarPlay){ocCarPlay.cancel();ocCarPlay.pump();}
+ },35000);
+ utility.loadScript("file:///tmp/open-connect/feature/maintenance.js",{id:"oc-completion"},function(){
+  if(!stopped&&window.__ocCompletionLoading===state&&typeof window.OpenConnectMaintenanceStart==="function"){
+   OpenConnectMaintenanceStart({token:token,port:15555,role:"completion",boot:{notice:"installed",version:version,
+    id:document.querySelector('meta[name="open-connect-token"]').getAttribute("data-boot")},
+    current:function(){return window.__ocCompletionGeneration===state;}});
+  }
+  finish();
+ });
+ node=document.getElementById("oc-completion");
+}
+}());

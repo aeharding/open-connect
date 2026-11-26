@@ -784,6 +784,13 @@ static int oc_stage(OcBoot *b) {
          !oc_package_copy(b,"defer-nav.sh",b->stage,"defer-nav.sh",0600))) return 0;
     const char *ui[]={"runtime.js","dialog.js","settings.js"};
     for (unsigned i=0;i<3;++i) if (!oc_package_copy(b,ui[i],b->stage,ui[i],0600)) return 0;
+    if (oc_equal(b->record_fields[12],"installed")) {
+        char target[192];
+        if (!oc_package_copy(b,"maintenance.js",-1,0,0)||
+            !oc_join(target,sizeof target,"../../mnt/data_persist/open-connect/packages/",b->record_fields[3])||
+            !oc_join(target,sizeof target,target,"/maintenance.js")||
+            oc_symlink(target,b->stage,"maintenance.js")<0) return 0;
+    }
     if (oc_equal(b->flags[8],"1") && !oc_package_copy(b,"carplay.js",b->stage,"carplay.js",0600)) return 0;
     if (!oc_package_copy(b,"service.sh",b->stage,"service.sh",0600)) return 0;
     if (oc_equal(b->flags[7],"1")) {

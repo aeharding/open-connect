@@ -136,8 +136,12 @@ class InstallerComposition(unittest.TestCase):
                     + ' "$@"\n'
                 )
                 wrapper.chmod(0o700)
-            backend = (ASSETS / "backend.sh").read_text().splitlines()
-            error_handler = next(line for line in backend if line.startswith("fail()"))
+            backend_source = (ASSETS / "backend.sh").read_text()
+            backend = backend_source.splitlines()
+            # Keep the actual complete handler, including multiline definitions.
+            start = backend_source.index("fail() {")
+            end = backend_source.index("\n}\n", start) + len("\n}\n")
+            error_handler = backend_source[start:end]
             invocation = next(
                 line for line in backend if line.lstrip().startswith('compose "$package"')
             )
@@ -169,6 +173,7 @@ class InstallerComposition(unittest.TestCase):
                         timeout=10,
                     )
                     self.assertNotEqual(result.returncode, 0)
+                    self.assertTrue(result.stdout, result.stderr)
                     self.assertEqual(
                         json.loads(result.stdout), {"ok": False, "error": "composition_failed"}
                     )

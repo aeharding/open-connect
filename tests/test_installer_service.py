@@ -5,6 +5,7 @@ import hashlib
 import http.client
 import json
 import os
+import shlex
 import shutil
 import signal
 import socket
@@ -28,18 +29,475 @@ HAS_TCPSVD = bool(
 )
 
 
+class InstallerUSBStaging(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+        self.source = self.root / "oc-usb-ABC123"
+        self.source.mkdir(mode=0o700)
+        self.runtime = self.root / "runtime"
+        self.runtime.mkdir(mode=0o700)
+        self.tools = self.root / "tools"
+        self.tools.mkdir()
+        if shutil.which("gstat"):
+            (self.tools / "stat").symlink_to(shutil.which("gstat"))
+        self.env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
+        service = (ASSETS / "service.sh").read_text()
+        service = service.replace("usb:/tmp:oc-usb-", f"usb:{self.root}:oc-usb-")
+        (self.source / "service.sh").write_text(service)
+        shutil.copyfile(ASSETS / "state.sh", self.source / "state.sh")
+        for name in ("api", "flush", "backend.sh", "runtime.js"):
+            (self.source / name).write_text("verified " + name + "\n")
+        self.manifest(self.source)
+
+    def manifest(self, source):
+        (source / "files.sha256").unlink(missing_ok=True)
+        (source / "files.sha256").write_text(
+            "".join(
+                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                for p in sorted(source.iterdir())
+            )
+        )
+        for path in source.iterdir():
+            path.chmod(0o700 if path.name in ("api", "flush") else 0o600)
+
+    def stage(self, source=None, kind="usb"):
+        source = source or self.source
+        identity = hashlib.sha256((source / "files.sha256").read_bytes()).hexdigest()
+        return subprocess.run(
+            [
+                "sh",
+                "-c",
+                'set -eu; umask 077; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                "uuid() { openssl rand -hex 16; }; "
+                'service_files "$3" "$4"; printf "%s\\n" "$runtime"',
+                "staging",
+                source,
+                self.runtime,
+                identity,
+                kind,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=self.env,
+        )
+
+    def witness(self, source):
+        return {
+            p.name: (p.stat().st_ino, p.stat().st_nlink, p.stat().st_mode, p.stat().st_ctime_ns)
+            for p in source.iterdir()
+        }
+
+    def test_private_packet_survives_scanner_cleanup_with_independent_replacement(self):
+        first = self.stage()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        old = Path(first.stdout.strip())
+        originals = {p.name: p.read_bytes() for p in self.source.iterdir()}
+        for name in originals:
+            self.assertEqual((old / name).stat().st_ino, (self.source / name).stat().st_ino)
+        other = self.root / "oc-usb-DEF456"
+        shutil.copytree(self.source, other)
+        (other / "backend.sh").write_text("different verified payload\n")
+        self.manifest(other)
+        second = self.stage(other)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        new = Path(second.stdout.strip())
+        self.assertNotEqual((old / "token").read_bytes(), (new / "token").read_bytes())
+        self.assertEqual((new / "backend.sh").read_text(), "different verified payload\n")
+        for name in originals:
+            self.assertNotEqual((old / name).stat().st_ino, (new / name).stat().st_ino)
+        shutil.rmtree(self.source)
+        for name, data in originals.items():
+            self.assertEqual((old / name).read_bytes(), data)
+
+    def test_sealed_usb_and_held_sources_keep_inodes_modes_and_ctime(self):
+        for relative in (
+            "data/packages/" + "a" * 64,
+            "data/snapshots/" + "b" * 64,
+            "mnt/sda1/open-connect",
+            "runtime/sessions/session-held",
+        ):
+            for damaged in (False, True):
+                with self.subTest(source=relative, damaged=damaged):
+                    source = self.root / relative
+                    self.addCleanup(shutil.rmtree, source, ignore_errors=True)
+                    shutil.rmtree(source, ignore_errors=True)
+                    shutil.copytree(self.source, source)
+                    if damaged:
+                        (source / "api").write_text("corrupt payload\n")
+                    before = self.witness(source)
+                    result = self.stage(source)
+                    self.assertEqual(self.witness(source), before)
+                    if damaged:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn("damaged_runtime", result.stderr)
+                    else:
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        staged = Path(result.stdout.strip())
+                        for name in before:
+                            self.assertNotEqual(
+                                (staged / name).stat().st_ino, (source / name).stat().st_ino
+                            )
+                            self.assertEqual(
+                                (staged / name).read_bytes(), (source / name).read_bytes()
+                            )
+                        shutil.rmtree(staged)
+                    shutil.rmtree(source)
+
+    def test_packet_with_a_held_member_gets_fresh_copies_without_touching_donor(self):
+        sealed = self.root / "sealed"
+        sealed.mkdir(mode=0o700)
+        os.link(self.source / "api", sealed / "api")
+        before = self.witness(self.source)
+        result = self.stage()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.witness(self.source), before)
+        staged = Path(result.stdout.strip())
+        self.assertNotEqual((staged / "api").stat().st_ino, (sealed / "api").stat().st_ino)
+        self.assertEqual((sealed / "api").read_bytes(), (staged / "api").read_bytes())
+
+    def test_nonprivate_packet_does_not_donate_inodes(self):
+        self.source.chmod(0o755)
+        before = self.witness(self.source)
+        result = self.stage()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.witness(self.source), before)
+        for name in before:
+            self.assertNotEqual(
+                (Path(result.stdout.strip()) / name).stat().st_ino,
+                (self.source / name).stat().st_ino,
+            )
+
+    def test_full_staging_copies_even_a_private_usb_packet(self):
+        before = self.witness(self.source)
+        result = self.stage(kind="full")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.witness(self.source), before)
+        for name in before:
+            self.assertNotEqual(
+                (Path(result.stdout.strip()) / name).stat().st_ino,
+                (self.source / name).stat().st_ino,
+            )
+
+    def test_corrupt_packet_removes_only_unpublished_links(self):
+        published = self.runtime / "sessions/session-published"
+        published.mkdir(parents=True, mode=0o700)
+        published.parent.chmod(0o700)
+        (published / "reader").write_text("reader still owns this\n")
+        (self.runtime / "runtime").symlink_to(published)
+        (self.source / "api").write_text("corrupt payload\n")
+        result = self.stage()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("damaged_runtime", result.stderr)
+        self.assertEqual(list(published.parent.iterdir()), [published])
+        self.assertEqual((published / "reader").read_text(), "reader still owns this\n")
+        self.assertEqual((self.runtime / "runtime").resolve(), published)
+        self.assertTrue(all(p.stat().st_nlink == 1 for p in self.source.iterdir()))
+
+    def test_interrupted_linking_removes_partial_unpublished_directory(self):
+        real_ln = shlex.quote(shutil.which("ln"))
+        wrapper = self.tools / "ln"
+        wrapper.write_text(
+            "#!/bin/sh\nfor target; do :; done\n"
+            + real_ln
+            + ' "$1" "$target/" || exit\nkill -TERM "$PPID"\nexit 1\n'
+        )
+        wrapper.chmod(0o700)
+        result = self.stage()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(list((self.runtime / "sessions").iterdir()), [])
+        self.assertTrue(all(p.stat().st_nlink == 1 for p in self.source.iterdir()))
+
+    def test_manifest_symlink_refused_without_changing_the_target(self):
+        manifest = self.source / "files.sha256"
+        sealed = self.root / "sealed-manifest"
+        manifest.rename(sealed)
+        manifest.symlink_to(sealed)
+        before = sealed.stat()
+        result = self.stage()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(sealed.stat().st_ctime_ns, before.st_ctime_ns)
+        self.assertEqual(sealed.stat().st_nlink, 1)
+        self.assertEqual(list((self.runtime / "sessions").iterdir()), [])
+
+
+class InstallerPrivateStaging(unittest.TestCase):
+    def test_expired_admission_is_reclaimed_by_stop_and_replacement(self):
+        for action in ("stop", "start"):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder).resolve()
+                runtime = root / "runtime"
+                old = runtime / "sessions/session-old"
+                old.mkdir(parents=True, mode=0o700)
+                old.parent.chmod(0o700)
+                runtime.chmod(0o700)
+                source = root / "source"
+                source.mkdir(mode=0o700)
+                tools = root / "tools"
+                tools.mkdir()
+                if shutil.which("gstat"):
+                    (tools / "stat").symlink_to(shutil.which("gstat"))
+                for path in (old, source):
+                    shutil.copyfile(ASSETS / "state.sh", path / "state.sh")
+                    service = (
+                        (ASSETS / "service.sh")
+                        .read_text()
+                        .replace("/tmp/open-connect", str(runtime))
+                    )
+                    service += (
+                        "\nservice_lock() { :; }\nstop_listener() { :; }\n"
+                        'service_files() { runtime="$R/sessions/session-new"; '
+                        'mkdir -m 700 "$runtime"; cp "$P/"* "$runtime/"; }\n'
+                        'service_listen() { ln -sfn "$1" "$service_runtime"; }\n'
+                    )
+                    (path / "service.sh").write_text(service)
+                    usb = (
+                        (ASSETS / "usb-service.sh")
+                        .read_text()
+                        .replace("/tmp/open-connect", str(runtime))
+                        .replace("/tmp/mnt/data_persist/open-connect", str(root / "absent-data"))
+                    )
+                    # No native requests/listeners in this host lifetime replay.
+                    usb = usb.replace(
+                        "for cmd in /proc/[0-9]*/cmdline; do", 'for cmd in "$R"/no-processes/*; do'
+                    )
+                    (path / "usb-service.sh").write_text(usb)
+                    (path / "files.sha256").write_text("fixture manifest\n")
+                (old / "closed").touch()
+                (old / "admitted").symlink_to("OCUSB1|0|-")
+                (runtime / "usb-runtime").symlink_to(old)
+                env = {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
+                script = old if action == "stop" else source
+                result = subprocess.run(
+                    ["sh", script / "usb-service.sh", action],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                deadline = time.monotonic() + 3
+                while old.exists() and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                self.assertFalse(old.exists())
+
+    def test_retirement_rejects_unknown_symlink_without_following_admitted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            session = root / "sessions/session-owned"
+            session.mkdir(parents=True, mode=0o700)
+            tools = root / "tools"
+            tools.mkdir()
+            if shutil.which("gstat"):
+                (tools / "stat").symlink_to(shutil.which("gstat"))
+            for name in ("state.sh", "service.sh", "usb-service.sh"):
+                text = (ASSETS / name).read_text().replace("/tmp/open-connect", str(root))
+                text = text.replace(
+                    "for cmd in /proc/[0-9]*/cmdline; do", 'for cmd in "$R"/no-processes/*; do'
+                )
+                (session / name).write_text(text)
+            (session / "closed").touch()
+            outside = root / "outside"
+            outside.write_text("untouched\n")
+            (session / "admitted").symlink_to(outside)
+            env = {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
+            for name in ("unknown", ".unknown"):
+                unknown = session / name
+                unknown.symlink_to(outside)
+                result = subprocess.run(["sh", session / "usb-service.sh", "retire"], env=env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertTrue((session / "closed").exists())
+                unknown.unlink()
+            subprocess.run(["sh", session / "usb-service.sh", "retire"], env=env, check=True)
+            self.assertFalse(session.exists())
+            self.assertEqual(outside.read_text(), "untouched\n")
+
+    def test_boot_flush_shares_only_mode700_and_verifies_shared_bytes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            source = root / "source"
+            source.mkdir(mode=0o700)
+            runtime = root / "runtime"
+            runtime.mkdir(mode=0o700)
+            ignition = runtime / "ignition"
+            ignition.mkdir(mode=0o700)
+            shared = ignition / "flush"
+            shared.write_text("verified flush fixture\n")
+            for name in (
+                "backend.sh",
+                "state.sh",
+                "firmware.sh",
+                "access.sh",
+                "transaction.sh",
+                "service.sh",
+                "console.sh",
+                "touch.sh",
+                "preferences.awk",
+                "services.tsv",
+                "VERSION",
+                "api",
+                "flush",
+                "runtime.js",
+                "dialog.js",
+                "settings.js",
+            ):
+                (source / name).write_text("fixture bytes\n")
+            shutil.copyfile(shared, source / "flush")
+            shutil.copyfile(ASSETS / "service.sh", source / "service.sh")
+            shutil.copyfile(ASSETS / "state.sh", source / "state.sh")
+            (source / "files.sha256").write_text(
+                "".join(
+                    hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                    for p in sorted(source.iterdir())
+                )
+            )
+            identity = hashlib.sha256((source / "files.sha256").read_bytes()).hexdigest()
+            source_mode = (source / "flush").stat().st_mode & 0o777
+            tools = root / "tools"
+            tools.mkdir()
+            if shutil.which("gstat"):
+                (tools / "stat").symlink_to(shutil.which("gstat"))
+            for mode, damaged in ((0o700, False), (0o400, False), (0o755, False), (0o700, True)):
+                with self.subTest(mode=oct(mode), damaged=damaged):
+                    shared.chmod(mode)
+                    if damaged:
+                        shared.write_text("foreign shared executable\n")
+                    result = subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            'set -eu; umask 077; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                            "uuid() { openssl rand -hex 16; }; "
+                            'service_files "$3" boot; printf "%s\\n" "$runtime"',
+                            "staging",
+                            source,
+                            runtime,
+                            identity,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                        env={**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]},
+                    )
+                    if damaged:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn("damaged_runtime", result.stderr)
+                    else:
+                        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                        staged = Path(result.stdout.strip()) / "flush"
+                        self.assertEqual(
+                            staged.stat().st_ino == shared.stat().st_ino, mode == 0o700
+                        )
+                        self.assertEqual(staged.stat().st_mode & 0o777, 0o700)
+                        self.assertEqual(staged.read_bytes(), (source / "flush").read_bytes())
+                        token = staged.parent / "token"
+                        self.assertEqual(token.stat().st_ino, (runtime / "token").stat().st_ino)
+                        self.assertEqual(token.read_bytes(), (runtime / "token").read_bytes())
+                    self.assertEqual(shared.stat().st_mode & 0o777, mode)
+                    self.assertEqual((source / "flush").read_text(), "verified flush fixture\n")
+                    self.assertEqual((source / "flush").stat().st_mode & 0o777, source_mode)
+                    self.assertEqual(
+                        shared.read_text(),
+                        "foreign shared executable\n" if damaged else "verified flush fixture\n",
+                    )
+
+    def test_failed_installed_staging_removes_only_its_unpublished_directory(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            source = root / "source"
+            source.mkdir(mode=0o700)
+            runtime = root / "runtime"
+            runtime.mkdir(mode=0o700)
+            sessions = runtime / "sessions"
+            sessions.mkdir(mode=0o700)
+            published = sessions / "session-published"
+            published.mkdir(mode=0o700)
+            (published / "reader").write_text("preserve published bytes\n")
+            (runtime / "runtime").symlink_to(published)
+            feature = runtime / "feature"
+            feature.mkdir(mode=0o700)
+            (feature / "runtime.js").write_text("foreign shared bytes\n")
+            for name in (
+                "backend.sh",
+                "state.sh",
+                "firmware.sh",
+                "access.sh",
+                "transaction.sh",
+                "service.sh",
+                "console.sh",
+                "touch.sh",
+                "preferences.awk",
+                "services.tsv",
+                "VERSION",
+                "api",
+                "flush",
+                "runtime.js",
+                "dialog.js",
+                "settings.js",
+            ):
+                (source / name).write_text("fixture bytes\n")
+            shutil.copyfile(ASSETS / "service.sh", source / "service.sh")
+            shutil.copyfile(ASSETS / "state.sh", source / "state.sh")
+            (source / "files.sha256").write_text(
+                "".join(
+                    hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                    for p in sorted(source.iterdir())
+                )
+            )
+            tools = root / "tools"
+            tools.mkdir()
+            if shutil.which("gstat"):
+                (tools / "stat").symlink_to(shutil.which("gstat"))
+            for kind in ("boot", "full"):
+                with self.subTest(kind=kind):
+                    manifest = hashlib.sha256((source / "files.sha256").read_bytes()).hexdigest()
+                    if kind == "full":
+                        # A missing copied member also exercises failure before
+                        # verification, with a complete private directory owner.
+                        (source / "backend.sh").unlink()
+                    result = subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            'set -eu; umask 077; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                            'service_files "$3" "$4"',
+                            "test",
+                            source,
+                            runtime,
+                            manifest,
+                            kind,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                        env={**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]},
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(
+                        list(sessions.iterdir()), [published], result.stdout + result.stderr
+                    )
+                    self.assertEqual(
+                        (published / "reader").read_text(), "preserve published bytes\n"
+                    )
+                    self.assertEqual((runtime / "runtime").resolve(), published)
+                    self.assertEqual((feature / "runtime.js").read_text(), "foreign shared bytes\n")
+
+
 @unittest.skipUnless(HAS_TCPSVD, "Linux /proc, flock and BusyBox tcpsvd required")
 class InstallerService(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
-        self.source = self.root / "source"
+        self.source = self.root / "oc-usb-ABC123"
         self.source.mkdir(mode=0o700)
         self.runtime = self.root / "runtime"
         self.busybox = str(Path(BUSYBOX).resolve())
         source = (ASSETS / "service.sh").read_text()
         source = source.replace("/tmp/open-connect", str(self.runtime))
+        source = source.replace("usb:/tmp:oc-usb-", f"usb:{self.root}:oc-usb-")
         source = source.replace("/bin/busybox", self.busybox)
         source = source.replace('test "$(id -u)" = 0', f'test "$(id -u)" = {os.getuid()}')
         source = source.replace("700:0:0", f"700:{os.getuid()}:{os.getgid()}")
@@ -74,10 +532,17 @@ class InstallerService(unittest.TestCase):
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
         shutil.copyfile(ROOT / "cmu/features/touch/setting.sh", self.source / "touch.sh")
+        usb = (
+            (ASSETS / "usb-service.sh").read_text().replace("/tmp/open-connect", str(self.runtime))
+        )
+        usb = usb.replace("/tmp/mnt/data_persist/open-connect", str(self.root / "data"))
+        (self.source / "usb-service.sh").write_text(usb)
         self.manifest()
         self.addCleanup(self.stop_listener)
 
     def manifest(self):
+        for item in self.source.iterdir():
+            item.chmod(0o700 if item.name in ("api", "flush") else 0o600)
         (self.source / "files.sha256").write_text(
             "".join(
                 hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
@@ -87,22 +552,23 @@ class InstallerService(unittest.TestCase):
         )
 
     def stop_listener(self):
-        record = self.runtime / "listener"
-        if not record.exists():
-            return
-        pid, start, session = record.read_text().split()
-        proc = Path("/proc") / pid
-        try:
-            fields = (proc / "stat").read_text().split()
-            args = (proc / "cmdline").read_bytes().split(b"\0")
-            if fields[21] == start and (session + "/api").encode() in args:
-                os.kill(int(pid), signal.SIGTERM)
-        except (FileNotFoundError, ProcessLookupError):
-            pass
+        for name in ("listener", "usb-listener"):
+            record = self.runtime / name
+            if not record.exists():
+                continue
+            pid, start, session = record.read_text().split()
+            proc = Path("/proc") / pid
+            try:
+                fields = (proc / "stat").read_text().split()
+                args = (proc / "cmdline").read_bytes().split(b"\0")
+                if fields[21] == start and (session + "/api").encode() in args:
+                    os.kill(int(pid), signal.SIGTERM)
+            except (FileNotFoundError, ProcessLookupError):
+                pass
 
     def invoke(self, env=None):
         return subprocess.run(
-            ["sh", self.source / "service.sh"],
+            ["sh", self.source / "usb-service.sh"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -123,7 +589,7 @@ class InstallerService(unittest.TestCase):
             timeout=5,
         )
 
-    def client(self, port=15555):
+    def client(self, port=15557):
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
         try:
             conn.request("GET", "/")
@@ -137,9 +603,10 @@ class InstallerService(unittest.TestCase):
         self.runtime.mkdir(mode=0o700)
         feature = self.runtime / "feature"
         feature.mkdir(mode=0o700)
-        for name in ("runtime.js", "dialog.js", "settings.js", "service.sh"):
+        for name in ("runtime.js", "dialog.js", "settings.js", "service.sh", "flush"):
             shutil.copyfile(self.source / name, feature / name)
-            (feature / name).chmod(0o600)
+            (feature / name).chmod(0o700 if name == "flush" else 0o600)
+        flush_source = (self.source / "flush").read_bytes()
         for name in ("LICENSE", "boot-select", "native.bin"):
             (self.source / name).write_text("not needed by the installed listener\n")
         self.manifest()
@@ -148,64 +615,52 @@ class InstallerService(unittest.TestCase):
         session = (self.runtime / "runtime").resolve()
         for name in ("LICENSE", "boot-select", "native.bin", "sm-profile.awk"):
             self.assertFalse((session / name).exists())
-        for name in ("runtime.js", "dialog.js", "settings.js", "service.sh"):
+        for name in ("runtime.js", "dialog.js", "settings.js", "service.sh", "flush"):
             self.assertEqual((session / name).stat().st_ino, (feature / name).stat().st_ino)
+        self.assertEqual((session / "flush").stat().st_mode & 0o777, 0o700)
+        self.assertEqual((feature / "flush").stat().st_mode & 0o777, 0o700)
+        self.assertEqual((feature / "flush").read_bytes(), flush_source)
+        self.assertEqual((self.source / "flush").read_bytes(), flush_source)
+        self.assertEqual((self.source / "flush").stat().st_mode & 0o777, 0o700)
         self.assertEqual(
             (session / "files.sha256").read_bytes(), (self.source / "files.sha256").read_bytes()
         )
-        self.assertEqual(self.client()["backend"], "backend-one\n")
+        self.assertEqual(self.client(15555)["backend"], "backend-one\n")
 
     def legacy_selected_client(self):
         self.runtime.mkdir(mode=0o700)
-        feature = self.runtime / "feature"
-        feature.mkdir(mode=0o700)
         (self.runtime / "selected").write_text("a" * 64 + "\n")
-        (feature / "runtime.js").write_text(
-            'xhr.open("POST", "http://127.0.0.1:35555/control", true);\n'
-        )
 
-    def test_usb_before_delayed_legacy_worker_preserves_client_endpoint(self):
-        self.legacy_selected_client()
-        (self.runtime / "lock").touch(mode=0o600)
-        data = self.root / "data"
-        data.mkdir(mode=0o700)
-        script = self.source / "service.sh"
-        script.write_text(
-            script.read_text().replace("/tmp/mnt/data_persist/open-connect", str(data))
-        )
-        self.manifest()
-        worker = subprocess.Popen(
-            ["sh", script, "boot"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    def test_usb_before_delayed_worker_keeps_endpoints_independent(self):
+        worker, _, _ = self.installed_worker()
+        process = subprocess.Popen(
+            ["sh", worker, "boot"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         try:
-            time.sleep(0.1)
             result = self.invoke()
             self.assertEqual(result.returncode, 0, result.stderr)
-            before = (self.runtime / "listener").read_bytes()
-            out, error = worker.communicate(timeout=7)
-            self.assertEqual(worker.returncode, 0, (out, error))
-            self.assertEqual((self.runtime / "listener").read_bytes(), before)
-            self.assertEqual(self.client(35555)["backend"], "backend-one\n")
+            before = (self.runtime / "usb-listener").read_bytes()
+            out, error = process.communicate(timeout=10)
+            self.assertEqual(process.returncode, 0, (out, error))
+            self.assertEqual((self.runtime / "usb-listener").read_bytes(), before)
+            self.assertEqual(self.client()["backend"], "backend-one\n")
+            self.assertEqual(self.client(15555)["backend"], "backend-one\n")
+            self.assertNotEqual(
+                (self.runtime / "token").read_text(),
+                (Path(result.stdout.strip()) / "token").read_text(),
+            )
         finally:
-            if worker.poll() is None:
-                worker.terminate()
-                worker.communicate(timeout=3)
+            if process.poll() is None:
+                process.terminate()
+                process.communicate(timeout=3)
 
-    def test_usb_collision_recovery_uses_new_port_with_selected_legacy_client(self):
-        # Reproduce the real MMUI -> SM connection that occupied our former
-        # listener port. An established client socket is absent from LISTEN rows.
-        self.legacy_selected_client()
-        with socket.socket() as peer, socket.socket() as mmui:
-            mmui.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            mmui.bind(("127.0.0.1", 35555))
-            peer.bind(("127.0.0.1", 0))
-            peer.listen()
-            mmui.connect(peer.getsockname())
-            connection, _ = peer.accept()
-            with connection:
-                result = self.invoke()
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(self.client()["backend"], "backend-one\n")
+    def test_installed_port_collision_does_not_block_usb(self):
+        with socket.socket() as occupied:
+            occupied.bind(("127.0.0.1", 15555))
+            occupied.listen()
+            result = self.invoke()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(self.client()["backend"], "backend-one\n")
 
     def test_boot_closure_rejects_wrong_shared_bytes_before_listener(self):
         self.runtime.mkdir(mode=0o700)
@@ -219,60 +674,105 @@ class InstallerService(unittest.TestCase):
         self.assertFalse((self.runtime / "listener").exists())
         self.assertEqual(shared.read_text(), "foreign bytes\n")
         self.assertEqual(shared.stat().st_mode & 0o777, 0o400)
+        self.assertEqual(list((self.runtime / "sessions").iterdir()), [])
 
-    def test_usb_replacement_preserves_live_legacy_client_endpoint_on_cancel(self):
-        script = self.source / "service.sh"
-        current = script.read_text()
-        # Model the installed dev.12 listener with the same real identity/record.
-        script.write_text(current.replace("service_port=15555", "service_port=35555"))
-        self.manifest()
-        first = self.invoke()
-        self.assertEqual(first.returncode, 0, first.stderr)
-        token = self.client(35555)["token"]
-        script.write_text(current)
-        (self.source / "backend.sh").write_text("replacement-backend\n")
-        self.manifest()
-        replacement = self.invoke()
-        self.assertEqual(replacement.returncode, 0, replacement.stderr)
-        runtime = Path(replacement.stdout.strip())
-        self.assertEqual(len((self.runtime / "listener").read_text().split()), 3)
-        self.assertFalse((runtime / "port").exists())
-        # Cancelling script loading restores the previous browser client. Its
-        # unchanged URL/capability still reaches the replacement RAM service.
-        self.assertEqual(self.client(35555), {"token": token, "backend": "replacement-backend\n"})
-        self.assertFalse(
-            any(
-                fields[1] == "0100007F:3CC3" and fields[3] == "0A"
-                for line in Path("/proc/net/tcp").read_text().splitlines()[1:]
-                if len(fields := line.split()) > 3
-            )
+    def test_usb_cancel_leaves_installed_endpoint_token_and_bytes_unchanged(self):
+        result = self.boot()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        installed = (self.runtime / "runtime").resolve()
+        record = (self.runtime / "listener").read_bytes()
+        token = (self.runtime / "token").read_bytes()
+        started = self.invoke()
+        self.assertEqual(started.returncode, 0, started.stderr)
+        usb = Path(started.stdout.strip())
+        stopped = subprocess.run(
+            ["sh", usb / "usb-service.sh", "stop"], capture_output=True, text=True, timeout=5
         )
+        self.assertEqual(stopped.returncode, 0, stopped.stderr)
+        self.assertFalse((self.runtime / "usb-listener").exists())
+        self.assertEqual((self.runtime / "runtime").resolve(), installed)
+        self.assertEqual((self.runtime / "listener").read_bytes(), record)
+        self.assertEqual((self.runtime / "token").read_bytes(), token)
+        self.assertEqual(self.client(15555)["backend"], "backend-one\n")
 
-    def test_ready_session_serves_first_client_and_replacement_preserves_old_bytes(self):
+    def test_ready_usb_shares_verified_packet_and_each_insertion_has_its_own_token(self):
         first = self.invoke()
         self.assertEqual(first.returncode, 0, first.stderr)
-        session = Path(first.stdout.strip())
-        token = (self.runtime / "token").read_text().strip()
+        old = Path(first.stdout.strip())
+        token = (old / "token").read_text().strip()
         self.assertEqual(self.client(), {"token": token, "backend": "backend-one\n"})
         for line in (self.source / "files.sha256").read_text().splitlines():
             digest, name = line.split()
-            self.assertEqual(hashlib.sha256((session / name).read_bytes()).hexdigest(), digest)
-        (self.source / "backend.sh").write_text("backend-two\n")
+            self.assertEqual(hashlib.sha256((old / name).read_bytes()).hexdigest(), digest)
+            self.assertEqual((old / name).stat().st_ino, (self.source / name).stat().st_ino)
+        # Another scan starts with another verified private staging directory.
+        other = self.root / "oc-usb-DEF456"
+        shutil.copytree(self.source, other)
+        self.source = other
+        (other / "backend.sh").write_text("backend-two\n")
         self.manifest()
         second = self.invoke()
         self.assertEqual(second.returncode, 0, second.stderr)
-        self.assertNotEqual(second.stdout, first.stdout)
-        self.assertEqual((session / "backend.sh").read_text(), "backend-one\n")
-        self.assertEqual(self.client(), {"token": token, "backend": "backend-two\n"})
+        new = Path(second.stdout.strip())
+        self.assertNotEqual((new / "token").read_text().strip(), token)
+        self.assertEqual(self.client()["backend"], "backend-two\n")
 
-    def test_boot_preserves_live_usb_session_after_its_staging_lock_is_released(self):
+    def test_boot_starts_independently_of_live_usb(self):
         self.assertEqual(self.invoke().returncode, 0)
-        before = (self.runtime / "listener").read_bytes()
+        before = (self.runtime / "usb-listener").read_bytes()
         result = self.boot()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("busy", result.stderr)
-        self.assertEqual((self.runtime / "listener").read_bytes(), before)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.runtime / "usb-listener").read_bytes(), before)
         self.assertEqual(self.client()["backend"], "backend-one\n")
+        self.assertEqual(self.client(15555)["backend"], "backend-one\n")
+
+    def test_closed_generation_keeps_bytes_until_request_child_drains(self):
+        first = self.invoke()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        old = Path(first.stdout.strip())
+        token = (old / "token").read_text().strip()
+        with socket.create_connection(("127.0.0.1", 15557), timeout=3) as reader:
+            reader.sendall(b"GET / HTTP/1.0\r\n")
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                pending = False
+                for cmd in Path("/proc").glob("[0-9]*/cmdline"):
+                    try:
+                        args = cmd.read_bytes().split(b"\0")
+                    except OSError:
+                        continue
+                    if args[:2] == [b"/usr/bin/python3", str(old / "api").encode()]:
+                        pending = True
+                        break
+                if pending:
+                    break
+                time.sleep(0.01)
+            else:
+                self.fail("request child did not start")
+            other = self.root / "oc-usb-DEF456"
+            shutil.copytree(self.source, other)
+            self.source = other
+            (other / "backend.sh").write_text("backend-two\n")
+            self.manifest()
+            second = self.invoke()
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertTrue((old / "closed").is_file())
+            self.assertEqual((old / "backend.sh").read_text(), "backend-one\n")
+            self.assertEqual(self.client()["backend"], "backend-two\n")
+            # Retirement must still see this old child after its listener stops.
+            time.sleep(1.1)
+            self.assertTrue(old.is_dir())
+            reader.sendall(b"\r\n")
+            with reader.makefile("rb") as response_file:
+                response = response_file.read()
+            self.assertEqual(
+                json.loads(response.split(b"\r\n\r\n", 1)[1]),
+                {"token": token, "backend": "backend-one\n"},
+            )
+        deadline = time.monotonic() + 3
+        while old.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertFalse(old.exists())
 
     def installed_worker(self):
         data = self.root / "data"
@@ -306,7 +806,7 @@ class InstallerService(unittest.TestCase):
         worker, _, _ = self.installed_worker()
         result = subprocess.run(["sh", worker, "boot"], capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.client()["backend"], "backend-one\n")
+        self.assertEqual(self.client(15555)["backend"], "backend-one\n")
         self.assertTrue((self.runtime / "selected").is_file())
 
     def test_sm_worker_refuses_missing_malformed_or_stale_boot_identity(self):
@@ -337,15 +837,16 @@ class InstallerService(unittest.TestCase):
         self.assertFalse(marker.exists())
         self.assertFalse((self.runtime / "listener").exists())
 
-    def test_sm_worker_yields_to_preceding_usb_without_replacing_its_listener(self):
+    def test_sm_worker_does_not_replace_a_preceding_usb_listener(self):
         worker, _, _ = self.installed_worker()
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
-        before = (self.runtime / "listener").read_bytes()
+        before = (self.runtime / "usb-listener").read_bytes()
         result = subprocess.run(["sh", worker, "boot"], capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual((self.runtime / "listener").read_bytes(), before)
+        self.assertEqual((self.runtime / "usb-listener").read_bytes(), before)
         self.assertEqual(self.client()["backend"], "backend-one\n")
+        self.assertEqual(self.client(15555)["backend"], "backend-one\n")
 
     def test_ash_sm_worker_refuses_missing_or_symlinked_selection(self):
         worker, _, _ = self.installed_worker()
@@ -393,11 +894,11 @@ class InstallerService(unittest.TestCase):
     def test_recovery_files_preserve_existing_usb_listener(self):
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
-        before = (self.runtime / "listener").read_bytes()
+        before = (self.runtime / "usb-listener").read_bytes()
         result = self.recovery_files()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((Path(result.stdout.strip()) / "state.sh").is_file())
-        self.assertEqual((self.runtime / "listener").read_bytes(), before)
+        self.assertEqual((self.runtime / "usb-listener").read_bytes(), before)
         self.assertEqual(self.client()["backend"], "backend-one\n")
 
     def test_recovery_files_do_not_require_an_available_port(self):
@@ -418,7 +919,7 @@ class InstallerService(unittest.TestCase):
         (self.runtime / "runtime").symlink_to(old)
         with socket.socket() as listener:
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            listener.bind(("127.0.0.1", 15555))
+            listener.bind(("127.0.0.1", 15557))
             listener.listen()
             started = time.monotonic()
             result = self.invoke()
@@ -426,23 +927,24 @@ class InstallerService(unittest.TestCase):
             self.assertIn("listener_start_failed", result.stderr)
             self.assertLess(time.monotonic() - started, 3)
             self.assertEqual((self.runtime / "runtime").resolve(), old)
-            self.assertFalse((self.runtime / "listener").exists())
+            self.assertFalse((self.runtime / "usb-listener").exists())
 
-    def test_corrupt_ram_copy_refuses_before_listener_or_pointer(self):
+    def test_corrupt_shared_packet_refuses_and_removes_unpublished_links(self):
         tools = self.root / "tools"
         tools.mkdir()
-        cp = tools / "cp"
-        cp.write_text(
-            "#!/bin/sh\n" + shutil.which("cp") + ' "$@" || exit\n'
-            "for dest; do :; done\n"
-            'if test -d "$dest" && test -f "$dest/api"; then printf "\\n#corrupt\\n" >> "$dest/api"; fi\n'
+        link = tools / "ln"
+        link.write_text(
+            "#!/bin/sh\n" + shutil.which("ln") + ' "$@" || exit\n'
+            "for target; do :; done\n"
+            'if test -d "$target"; then printf "corrupt" >> "$target/api"; fi\n'
         )
-        cp.chmod(0o700)
+        link.chmod(0o700)
         result = self.invoke({**os.environ, "PATH": str(tools) + ":" + os.environ["PATH"]})
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("damaged_runtime", result.stderr)
-        self.assertFalse((self.runtime / "runtime").exists())
-        self.assertFalse((self.runtime / "listener").exists())
+        self.assertFalse((self.runtime / "usb-runtime").exists())
+        self.assertFalse((self.runtime / "usb-listener").exists())
+        self.assertEqual(list((self.runtime / "sessions").iterdir()), [])
 
     def test_boot_refuses_real_lock_contention_without_runtime_effects(self):
         self.runtime.mkdir(mode=0o700)
@@ -460,13 +962,13 @@ class InstallerService(unittest.TestCase):
         with (self.runtime / "lock").open("w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             process = subprocess.Popen(
-                ["sh", self.source / "service.sh"],
+                ["sh", self.source / "usb-service.sh"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
             time.sleep(0.15)
             self.assertIsNone(process.poll())
-            self.assertFalse((self.runtime / "runtime").exists())
+            self.assertFalse((self.runtime / "usb-runtime").exists())
             fcntl.flock(lock, fcntl.LOCK_UN)
             out, err = process.communicate(timeout=10)
             self.assertEqual(process.returncode, 0, err)
@@ -480,14 +982,14 @@ class InstallerService(unittest.TestCase):
         )
         self.manifest()
         process = subprocess.Popen(
-            ["sh", self.source / "service.sh"],
+            ["sh", self.source / "usb-service.sh"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline:
             if any(
-                fields[1] == "0100007F:3CC3" and fields[3] == "0A"
+                fields[1] == "0100007F:3CC5" and fields[3] == "0A"
                 for line in Path("/proc/net/tcp").read_text().splitlines()[1:]
                 if len(fields := line.split()) > 3
             ):
@@ -496,15 +998,15 @@ class InstallerService(unittest.TestCase):
         else:
             process.kill()
             self.fail("new listener did not reach the interrupted-start window")
-        self.assertFalse((self.runtime / "runtime").exists())
+        self.assertFalse((self.runtime / "usb-runtime").exists())
         process.send_signal(signal.SIGTERM)
         process.communicate(timeout=3)
         self.assertNotEqual(process.returncode, 0)
-        self.assertFalse((self.runtime / "runtime").exists())
-        self.assertFalse((self.runtime / "listener").exists())
+        self.assertFalse((self.runtime / "usb-runtime").exists())
+        self.assertFalse((self.runtime / "usb-listener").exists())
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            probe.bind(("127.0.0.1", 15555))
+            probe.bind(("127.0.0.1", 15557))
 
     def test_signal_during_unpublished_start_reaps_child_and_cannot_publish_later(self):
         self.assert_interrupted_start("service_tick; deadline=")
@@ -514,26 +1016,26 @@ class InstallerService(unittest.TestCase):
 
     def test_term_at_ready_handoff_is_not_forgotten(self):
         script = self.source / "service.sh"
-        script.write_text(
-            script.read_text().replace(
-                "trap - EXIT HUP INT TERM",
-                self.busybox + " usleep 500000\ntrap - EXIT HUP INT TERM",
-                1,
-            )
+        needle = (
+            "trap - EXIT HUP INT TERM\n"
+            "unset pending_pid pending_start pending_work pending_cancel pending_published"
         )
+        source = script.read_text()
+        self.assertEqual(source.count(needle), 1)
+        script.write_text(source.replace(needle, self.busybox + " usleep 500000\n" + needle, 1))
         self.manifest()
         process = subprocess.Popen(
-            ["sh", self.source / "service.sh"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            ["sh", self.source / "usb-service.sh"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         deadline = time.monotonic() + 2
-        while not (self.runtime / "runtime").exists() and time.monotonic() < deadline:
+        while not (self.runtime / "usb-runtime").exists() and time.monotonic() < deadline:
             time.sleep(0.01)
-        self.assertTrue((self.runtime / "runtime").exists())
+        self.assertTrue((self.runtime / "usb-runtime").exists())
         process.send_signal(signal.SIGTERM)
         process.communicate(timeout=3)
         self.assertNotEqual(process.returncode, 0)
-        self.assertFalse((self.runtime / "runtime").exists())
-        self.assertFalse((self.runtime / "listener").exists())
+        self.assertFalse((self.runtime / "usb-runtime").exists())
+        self.assertFalse((self.runtime / "usb-listener").exists())
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            probe.bind(("127.0.0.1", 15555))
+            probe.bind(("127.0.0.1", 15557))

@@ -208,6 +208,7 @@ class NativeBootSelection(unittest.TestCase):
             "runtime.js",
             "dialog.js",
             "settings.js",
+            "maintenance.js",
             "carplay.js",
             "preferences.awk",
             "services.tsv",
@@ -401,6 +402,90 @@ class NativeBootSelection(unittest.TestCase):
         self.seal()
         self.record[5] = self.snapshot.name
         self.save_record()
+
+    def test_completion_links_exact_selected_plan_member_and_survives_update(self):
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        link = self.ram / "feature/maintenance.js"
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(link.resolve(), self.package / "maintenance.js")
+        expected = (ASSETS / "maintenance.js").read_bytes()
+        self.assertEqual(link.read_bytes(), expected)
+        successor = self.data / "packages" / ("f" * 64)
+        successor.mkdir(mode=0o700)
+        (successor / "maintenance.js").write_text("successor\n")
+        self.assertEqual(link.read_bytes(), expected)
+        with link.open("rb") as reader:
+            shutil.rmtree(self.data / "packages")
+            self.assertFalse(link.exists())
+            self.assertEqual(reader.read(), expected)
+
+    def test_completion_native_omits_optional_link_without_notice(self):
+        self.record[12] = "-"
+        self.save_record()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(os.path.lexists(self.ram / "feature/maintenance.js"))
+
+    def test_completion_native_rejects_unplanned_changed_or_symlink_source(self):
+        source = self.package / "maintenance.js"
+        original = source.read_bytes()
+        for damage in ("missing", "symlink", "changed"):
+            with self.subTest(damage=damage):
+                source.unlink(missing_ok=True)
+                if damage == "symlink":
+                    source.symlink_to(ASSETS / "maintenance.js")
+                elif damage == "changed":
+                    source.write_bytes(original + b"changed")
+                result = self.invoke()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse((self.ram / "feature").exists())
+                source.unlink(missing_ok=True)
+                source.write_bytes(original)
+
+    def test_interrupted_package_staging_keeps_sealed_original_selectable(self):
+        # The real writer must not create even a temporary hardlink to sealed
+        # members: unlinking that name would change ctime and fail gated select.
+        def fingerprint():
+            return {
+                p.name: (p.read_bytes(), p.stat().st_mode, p.stat().st_ino, p.stat().st_ctime_ns)
+                for p in self.package.iterdir()
+            }
+
+        original = fingerprint()
+        record = (self.data / "record").read_bytes()
+        result = subprocess.run(
+            [
+                "sh",
+                "-c",
+                r"""
+set -eu
+D=$1; P=$2; R_BACKEND=$3
+. "$4/state.sh"; . "$4/firmware.sh"
+uuid() { openssl rand -hex 16; }
+flush() { case "$2" in */.new-*/boot-select) fail interrupted;; esac; }
+package_save
+""",
+                "interrupted-package",
+                self.data,
+                self.package,
+                self.package_id,
+                ASSETS,
+            ],
+            env={**os.environ, "PATH": self.build.name + os.pathsep + os.environ["PATH"]},
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("interrupted", result.stderr)
+        self.assertEqual(fingerprint(), original)
+        self.assertEqual((self.data / "record").read_bytes(), record)
+        self.assertFalse(list((self.data / "packages").glob(".new-*")))
+        selected = self.invoke(mode="select-gated")
+        self.assertEqual(selected.returncode, 0, selected.stderr)
+        self.assertEqual((self.ram / "selected").read_text().strip(), self.snapshot.name)
+        self.assertFalse((self.data / "reseal").exists())
 
     def test_autoshow_stages_only_applied_choice_with_nonsecret_boot_mark(self):
         self.change_current(

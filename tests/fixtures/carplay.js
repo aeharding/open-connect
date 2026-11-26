@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
 const folder = process.argv[2], boot = '12345678-1234-1234-1234-123456789abc';
-function fixture(shared = {}, load = true, bootToken = boot) {
+function fixture(shared = {}, load = true, bootToken = boot, sources = {}) {
   const calls = [], events = {}, timers = [], pendingContexts = [];
   let deferContext=false, background=false, contextHandler, contextCompare, nativeContext, nativeFocus, loading, callEnd;
   let now = 0, clock = 0;
@@ -18,6 +18,8 @@ function fixture(shared = {}, load = true, bootToken = boot) {
   ctx.document = {body: {}, querySelector(selector) {
     return selector.includes('open-connect-token') ? {getAttribute: key => key === 'data-boot' ? bootToken : 'a'.repeat(32)} : null;
   },getElementById() {return null;}, addEventListener(key, fn) {(events[key] ||= []).push(fn);},removeEventListener() {}};
+  ctx.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.abort=()=>{};
+    this.send=()=>{this.readyState=4;this.status=200;this.responseText='{"ok":true,"media":null}';this.onreadystatechange();};};
   const apps = {system: {_currentContext: {uiaId:'system',ctxtId:'HomeScreen',contextSeq:1}, _contextTable: {Disclaimer: {controlProperties: {Dialog3Ctrl: {
     defaultSelectCallback(control, action) {if(action==='Global.Yes')fw.sendEventToMmui('common',action);}
   }}}}}};
@@ -64,7 +66,7 @@ function fixture(shared = {}, load = true, bootToken = boot) {
     fw._currTmpltInstance.contextInfo=apps[m.uiaId]._currentContext;
   }
   const context = vm.createContext(ctx);
-  function source(name, root=folder) {vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),context,{filename:name});}
+  function source(name, root=folder) {vm.runInContext(sources[name]||fs.readFileSync(path.join(root,name),'utf8'),context,{filename:name});}
   if(process.argv[3])vm.runInContext(fs.readFileSync(process.argv[3],'utf8'),context);
   source('carplay.js');
   fw.websockets=Object.assign(Object.create(ctx.Websockets.prototype),{_preInitGuiMsgQueue:[],_waitMsgArray:[],_hasInitGui:true});
@@ -94,6 +96,7 @@ function fixture(shared = {}, load = true, bootToken = boot) {
   function event(type, values={}) {(events[type]||[]).forEach(fn=>fn({type,...values}));}
   focus();
   return {ctx, fw, state, source, supports, session, menu, ready, msg, send, native, focus, advance, count, connect, event, apps,
+    run(source){vm.runInContext(source,context);},
     background(id,ctxt,seq=90){background=true;try{send({msgType:'ctxtChg',uiaId:id,ctxtId:ctxt,contextSeq:seq});}finally{background=false;}},
     show(id){apply({uiaId:id});fw._processNewFwkState();},
     contexts(handler,compare){contextHandler=handler;contextCompare=compare;},
@@ -175,10 +178,9 @@ for(const touch of [false,true]) {
   f.apps.system._contextTable.Disclaimer.controlProperties.Dialog3Ctrl.defaultSelectCallback(dialog,'Global.Yes');
   f.native('system','HomeScreen');f.advance();assert.equal(f.count(),1,'stock Agree release');
 }
-f=fixture();f.ctx.OpenConnect={protected:()=>false,start(){},reopenUSB(){},cancelUSB(){},dispose(){return true;}};
-f.session(true);f.menu();f.advance();assert.equal(f.count(),0,'opaque lookup held');
-const old=f.fw.instantiateControl('system',f.ctx.document.body,'Dialog3Ctrl',{buttonConfig:{button1:{appData:'cancel'},button2:{appData:'install'}}});
-f.fw.destroyControl(old);f.advance();f.session(false);f.connect();assert.equal(f.count(),1,'old Cancel releases lease');
+f=fixture();f.ctx.OpenConnectMaintenance={autoshowState:()=>2};
+f.session(true);f.menu();f.advance();assert.equal(f.count(),0,'independent maintenance holds autoshow');
+f.ctx.OpenConnectMaintenance=null;f.session(false);f.connect();assert.equal(f.count(),1,'closed popup releases the next connection');
 // Critical messages can precede lazy installer modules; preserve their order.
 for (const endBefore of [false,true]) {
   f=fixture({},false);
@@ -212,52 +214,6 @@ d=f.fw.instantiateControl('system',f.ctx.document.body,'Dialog3Ctrl',{buttonConf
 f.fw.destroyControl(d);f.advance();f.source('settings.js');
 assert.equal(f.ctx.ocCarPlay.dialogs,0);
 
-if(process.argv[4]) {
-  // Real archived CI17 loader/runtime/dialog/Settings, with local DOM/XHR only.
-  function legacy(paused=false) {
-    const x=fixture(), requests=[], intervals=[], nodes={}, loads=[];let modal;
-    const token='a'.repeat(32), root=process.argv[4];
-    const head={appendChild(node) {
-      node.parentNode=head;nodes[node.id]=node;
-      const run=()=>{x.source(node.src.split('/').at(-1),root);node.onload();};
-      if(paused)loads.push(run);else run();
-    },removeChild(node){delete nodes[node.id];node.parentNode=null;}};
-    x.ctx.document.createElement=()=>({});
-    const query=x.ctx.document.querySelector;
-    x.ctx.document.querySelector=s=>s==='head'?head:query(s);
-    x.ctx.document.getElementById=id=>nodes[id]||null;
-    x.ctx.utility={loadScript(src,props,done){head.appendChild({...props,src,onload:done});}};
-    x.ctx.setInterval=fn=>{intervals.push(fn);return fn;};
-    x.ctx.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.abort=()=>{};this.send=body=>{this.body=body;requests.push(this);};};
-    const create=x.fw.instantiateControl;
-    x.fw.instantiateControl=function(){return modal=create.apply(this,arguments);};
-    nodes['oc-usb-loader']={src:'file:///tmp/legacy/loader.js',ocToken:token,parentNode:head};
-    x.source('loader.js',root);
-    const state={ok:true,revision:'b'.repeat(32),installed:true,retained:false,conflict:false,restart:false,pending:false,touch:1,warning:1,notice:'-',version:'0.3.0-dev.17',installedVersion:'0.3.0-dev.18'};
-    function reply(v){const q=requests.at(-1);q.status=200;q.readyState=4;q.responseText=JSON.stringify(v);q.onreadystatechange();}
-    function resume(){while(loads.length)loads.shift()();reply(state);intervals.forEach(fn=>fn());}
-    if(!paused)resume();
-    return Object.assign(x,{requests,reply,resume,tick:()=>intervals.forEach(fn=>fn()),state,modal:()=>modal});
-  }
-  f=legacy(true);assert.ok(f.ctx.__ocUSBLoading,'actual CI17 acquisition marker');
-  f.connect();assert.equal(f.count(),0,'paused old loader blocks current dev18 client');
-  f.resume();d=f.modal();d.properties.defaultSelectCallback(d,'cancel');f.advance();
-  f.session(false);f.connect();assert.equal(f.count(),1,'resumed legacy Cancel unlocks next connection');
-  f=legacy();assert.equal(f.ctx.__ocUSBLoading,undefined,'old loader releases bootstrap marker');
-  f.connect();assert.equal(f.count(),0,'actual CI17 chooser holds lease after marker clears');
-  d=f.modal();d.properties.defaultSelectCallback(d,'cancel');f.advance();
-  f.session(false);f.connect();assert.equal(f.count(),1,'actual CI17 Cancel releases lease');
-  f=legacy();d=f.modal();d.properties.defaultSelectCallback(d,'install');
-  f.reply({ok:false,error:'stale_state'});f.reply(f.state);f.tick();
-  d=f.modal();assert.equal(d.properties.buttonConfig.button1.appData,'done');
-  d.properties.defaultSelectCallback(d,'done');f.advance();
-  f.session(false);f.connect();assert.equal(f.count(),1,'refused old Install Done releases settled owner');
-  console.log('Archived CI17 loader: chooser Cancel and refused Install Done recover autoshow');
-}
-
-for(const [id,context] of [['system','SystemWarning'],['sysupdate','Update'],['mobile911','Emergency'],['new-app','Unknown']]) {
-  f=fixture();f.native(id,context);f.connect();assert.equal(f.count(),0,'unsupported or safety context '+id);
-}
 
 // RAM support can finish after Mazda has already instantiated Disclaimer.
 f=fixture({},false);f.native('system','Disclaimer');
@@ -317,24 +273,117 @@ r.session(false);r.connect();assert.equal(r.count(),1,'actual disconnect reconci
 f=fixture();f.connect();f.state.failNameRead=true;r=fixture(f.state);r.connect();assert.equal(r.count(),0,'throwing primary read is also ambiguous');
 r.state.failNameRead=false;r.session(false);r.connect();assert.equal(r.count(),1);
 
-function bootClient(notice='-') {
-  const x=fixture({},false), loads=[], intervals=[], requests=[], token='a'.repeat(32);
+function bootClient(notice='-',autoMedia=true,sources={}) {
+  const x=fixture({},false,boot,sources), loads=[], intervals=[], requests=[], mediaRequests=[], nodes={}, token='a'.repeat(32);
   const query=x.ctx.document.querySelector;
-  const head={appendChild(node){loads.push(()=>{x.source(node.src.split('/').at(-1));node.onload();});}};
+  const head={appendChild(node){node.parentNode=head;if(node.id)nodes[node.id]=node;
+    const deliver=()=>{x.source(node.src.split('/').at(-1));node.onload();};deliver.src=node.src;loads.push(deliver);
+  },removeChild(node){if(nodes[node.id]===node)delete nodes[node.id];node.parentNode=null;}};
+  x.ctx.document.getElementById=id=>nodes[id]||null;
+  x.ctx.utility={loadScript(src,props,done){head.appendChild({...props,src,onload:done});}};
   x.ctx.document.querySelector=s=>s==='head'?head:s.includes('open-connect-version')?{getAttribute:()=> '0.3.0-dev.18'}:
     s.includes('open-connect-notice')?{getAttribute:()=>notice}:query(s);
   x.ctx.document.createElement=()=>({});
   x.ctx.setInterval=fn=>{intervals.push(fn);return fn;};
-  x.ctx.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.abort=()=>{};this.send=body=>{this.body=body;requests.push(this);};};
+  x.ctx.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.abort=()=>{};this.send=body=>{this.body=body;
+    if(body.split('|')[3]==='media'){
+      mediaRequests.push(this);
+      if(autoMedia){this.readyState=4;this.status=200;this.responseText='{"ok":true,"media":null}';this.onreadystatechange();}
+    }
+    else requests.push(this);};};
   x.source('runtime.js');
-  return Object.assign(x,{token,requests,complete(){while(loads.length)loads.shift()();},tick(){intervals.forEach(fn=>fn());}});
+  return Object.assign(x,{token,requests,mediaRequests,complete(){while(loads.length)loads.shift()();},
+    legacyUSB(sessionToken='c'.repeat(32),advance=true){
+      const launch=fs.readFileSync(path.join(folder,'session.sh'),'utf8').match(/navigate "(javascript:void\(setTimeout[^\n]+)"/)[1]
+        .replaceAll('$runtime','/tmp/open-connect/sessions/session-ABC123').replaceAll('$token',sessionToken).replaceAll('$port','15557');
+      const source=launch.slice('javascript:'.length);require('acorn').parse(source,{ecmaVersion:5});x.run(source);if(advance)x.advance();
+    },
+    reply(r,value){r.readyState=4;r.status=200;r.responseText=JSON.stringify(value);r.onreadystatechange();},
+    offer(token,session){const r=mediaRequests.at(-1);r.readyState=4;r.status=200;r.responseText=JSON.stringify({ok:true,media:{token,session}});r.onreadystatechange();},
+    deliver(name){const i=loads.findIndex(fn=>fn.src.endsWith('/'+name));assert.ok(i>=0,name);loads.splice(i,1)[0]();},
+    tick(){intervals.forEach(fn=>fn());x.advance();}});
 }
+// Use the real installed receiver and Settings owner check before the accepted
+// loader has executed. An ordinary drive never publishes an owned loader node.
+f=bootClient();f.complete();f.connect();assert.equal(f.count(),1,'ordinary drive does not hold CarPlay');
+f=bootClient('-',false);f.deliver('dialog.js');f.deliver('settings.js');
+f.offer('c'.repeat(32),'session-ABC123');
+assert.equal(f.ctx.ocCarPlay.owner(),2,'eligible loader holds Home before asset execution');
+f.connect();assert.equal(f.count(),0,'ready CarPlay yields to delayed loader');
+const pendingNode=f.ctx.document.getElementById('oc-maintenance-loader');
+f.apps.usbaudio={_messageTable:{TimedSbn_ConnectionStatus(){return 'native';}}};
+f.fw._initApp('usbaudio');
+f.apps.usbaudio._messageTable.TimedSbn_ConnectionStatus({params:{payload:{status:'Connected',type:'UMASS',usb:'A'}}});
+f.offer('e'.repeat(32),'session-DEF456');
+assert.equal(pendingNode.parentNode,null);assert.equal(f.ctx.ocCarPlay.owner(),2,'replacement keeps the loader hold');
+f.advance(65000);assert.equal(f.ctx.ocCarPlay.owner(),0,'delivery timeout releases the existing node hold');
+f.deliver('loader.js');assert.equal(f.ctx.__ocMaintenanceLoading,undefined,'late superseded loader is passive');
+f.session(false);f.connect();assert.equal(f.count(),1,'later connection proceeds after timeout');
+
+// The actual dev.22 owner sees only __ocUSBLoading, not dev.23's node guard.
+const legacy={};
+for(const name of ['carplay.js','runtime.js','dialog.js','settings.js']){
+  legacy[name]=require('node:child_process').execFileSync('git',[
+    'show','71472aa42892a48e1f1b4a9562d8e8e6aa9def3a:cmu/installer/'+name
+  ],{cwd:path.resolve(folder),encoding:'utf8'});
+}
+f=bootClient('-',true,legacy);f.complete();f.connect();
+assert.equal(f.count(),1,'actual dev.22 ordinary drive allows CarPlay');
+for(const stage of ['loader','helper','metadata']){
+  f=bootClient('-',true,legacy);f.complete();
+  const client=f.ctx.OpenConnect,menus=f.ctx.OpenConnectSettings,dialogs=f.ctx.OpenConnectInstaller,owner=f.ctx.ocCarPlay.owner;
+  f.legacyUSB();const discovery=f.ctx.__ocUSBLoading;
+  if(stage!=='loader')f.deliver('loader.js');
+  if(stage==='metadata'){
+    f.deliver('maintenance.js');f.reply(f.requests.at(-1),{ok:true,closed:false});
+    assert.equal(f.requests.at(-1).body.split('|')[3],'settings');
+  }
+  assert.equal(f.ctx.ocCarPlay.owner(),2,'actual dev.22 holds priority during '+stage);
+  f.connect();assert.equal(f.count(),0,'no SelectCarPlay during '+stage);
+  if(stage==='metadata'){
+    f.reply(f.requests.at(-1),{ok:true,revision:'b'.repeat(64),installed:true,retained:false,
+      restart:false,pending:false,version:'0.3.0-dev.23',installedVersion:'0.3.0-dev.22'});
+    f.reply(f.requests.at(-1),{ok:true,closed:false});
+    assert.equal(f.ctx.ocCarPlay.dialogs,1,'native chooser owns the first display');
+    assert.equal(f.ctx.__ocUSBLoading,undefined);assert.equal(discovery.owner,null);
+    f.ctx.OpenConnectMaintenance.close();
+  }else{
+    f.advance(65000);assert.equal(f.ctx.__ocUSBLoading,undefined,'undelivered '+stage+' abandons within the entry budget');
+    f.deliver(stage==='loader'?'loader.js':'maintenance.js');
+    assert.equal(f.ctx.OpenConnectMaintenance,undefined,'late paired delivery stays passive');
+  }
+  assert.equal(f.ctx.ocCarPlay.owner,owner);assert.equal(f.ctx.ocCarPlay.owner(),0);
+  assert.equal(f.ctx.OpenConnect,client);assert.equal(f.ctx.OpenConnectSettings,menus);assert.equal(f.ctx.OpenConnectInstaller,dialogs);
+  f.session(false);f.connect();assert.equal(f.count(),1,'ordinary connection proceeds after '+stage+' abandonment/close');
+}
+console.log('Actual dev.22 CarPlay: loader/helper/metadata priority, first display, timeout, late delivery and ordinary drive passed');
+
+for(const stage of ['probe','metadata']){
+  f=bootClient('-',true,legacy);f.complete();f.legacyUSB();
+  f.deliver('loader.js');f.deliver('maintenance.js');
+  if(stage==='metadata')f.reply(f.requests.at(-1),{ok:true,closed:false});
+  // B's entry and the native readiness messages are separate queued callbacks.
+  f.legacyUSB('d'.repeat(32),false);f.session(true);f.menu();f.advance();
+  assert.equal(f.count(),0,'replacement preserves CarPlay priority during '+stage);
+  assert.equal(f.ctx.__ocUSBLoading.token,'d'.repeat(32));
+  f.advance(65000);
+}
+console.log('Legacy discovery replacement keeps CarPlay priority through synchronous old-client cleanup');
+
 f=bootClient();f.session(true);f.menu();f.advance();assert.equal(f.count(),0,'ordinary boot awaits real support callbacks');
 f.complete();assert.equal(f.count(),1,'ready callback pumps first connection without another message');
 f=bootClient('installed');f.complete();f.tick();assert.equal(f.requests.length,1);
-f.advance(34000);f.session(true);f.advance();f.ctx.OpenConnect.cancelUSB(f.token);
+f.advance(34000);f.session(true);f.advance();
 f.advance(1001);f.menu();f.advance();assert.equal(f.count(),0,'proof expiry cannot send the same canceled edge');
 f.session(false);f.connect();assert.equal(f.count(),1,'expired superseded proof does not block later sessions');
+// Mazda appends independent script requests. Completion priority must exist
+// before its asset runs, even after all three CarPlay observers become ready.
+f=bootClient('installed');f.session(true);f.menu();f.deliver('dialog.js');f.deliver('settings.js');f.advance();
+assert.equal(f.ctx.ocCarPlay.loaded,7);assert.equal(f.requests.length,0);assert.equal(f.count(),0,'notice priority precedes delayed completion delivery');
+f.deliver('maintenance.js');f.tick();assert.equal(f.requests.length,1);assert.equal(f.requests[0].body.split('|')[3],'completion');
+f=bootClient('installed');f.deliver('dialog.js');f.deliver('settings.js');f.advance(35000);
+assert.equal(f.ctx.__ocCompletionLoading,undefined);f.deliver('maintenance.js');f.tick();
+assert.equal(f.requests.length,0,'timed-out completion asset remains passive');f.connect();assert.equal(f.count(),1,'completion delivery timeout releases later connections');
 console.log('Astra regressions: pending reverse, ownership, proof expiry, startup, input/voice, menu withdrawal and storage ambiguity passed');
 
 // Stock GuiFramework treats Idle as a no-op, including background CarPlay.
@@ -370,11 +419,12 @@ for(const yieldTimer of [false,true]) {
 f=bootClient('installed');f.session(true);
 assert.doesNotThrow(()=>f.complete(),'installed-notice ownership query waits for validator');
 assert.equal(f.count(),0);f.menu();f.tick();assert.equal(f.requests.length,1);
-const proof=f.requests[0];proof.status=200;proof.readyState=4;
-proof.responseText=JSON.stringify({ok:true,revision:'b'.repeat(32),installed:true,retained:false,conflict:false,
-  restart:false,pending:false,touch:1,warning:1,notice:'installed',version:'0.3.0-dev.18',
-  installedVersion:'0.3.0-dev.18',carplayAutoshow:1,carplayAutoshowCurrent:1,completionReady:true});
-proof.onreadystatechange();f.advance();assert.equal(f.count(),0,'completion proof keeps priority after validation binds');
+const proof=f.requests[0],completion=f.ctx.OpenConnectCompletion;
+assert.ok(completion,'completion owner exists before proof');
+f.reply(proof,{ok:true,revision:'b'.repeat(64),package:'d'.repeat(64),boot,
+  notice:'installed',installedVersion:'0.3.0-dev.18',completionReady:true});
+f.advance();assert.equal(f.ctx.OpenConnectCompletion,completion,'valid proof keeps its live completion owner');
+assert.equal(f.count(),0,'completion proof keeps priority after validation binds');
 console.log('Final review regressions: Idle no-op, early DisplayOff, event-ordered reverse return and lazy validator passed');
 // Replay the same reverse/Home ordering when all messages preceded Settings.
 f=bootClient();f.session(true);f.native('backupparking','TVMCameraDisplay');

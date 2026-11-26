@@ -1,7 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Shared synchronous RAM staging. Boot calls these functions under its existing
-# lock; the USB entry takes that same lock here. Old sessions survive requests.
+# RAM staging. Old sessions survive readers.
 
 # Freeze attachment facts at completion proof/first scan, under R/lock. Keep the
 # successful empty observation; a later insertion must remain maintenance.
@@ -70,20 +69,18 @@ service_lock() {
     done
 }
 
+service_config() {
+    service_role=${1:-settings}
+    service_port=15555; service_runtime=$R/runtime; service_listener=$R/listener
+    if test "$service_role" = usb; then
+        service_port=15557; service_runtime=$R/usb-runtime; service_listener=$R/usb-listener
+    fi
+}
+
 stop_listener() {
-service_port=15555
-# USB can beat the selected dev.12 Settings worker's four-second delay.
-# Its client is already in RAM; keep that endpoint when it is available.
-if test "${1:-}" = usb && absent "$R/listener" && file "$R/selected" &&
-    private_dir "$R/feature" && file "$R/feature/runtime.js" &&
-    grep -F -q 'http://127.0.0.1:35555/control' "$R/feature/runtime.js"; then
-    set -- /proc/net/tcp
-    if test -f /proc/net/tcp6; then set -- "$@" /proc/net/tcp6; fi
-    if awk '$2~/:8AE3$/{busy=1}END{exit busy}' "$@"; then service_port=35555; fi
-fi
-if ! absent "$R/listener"; then
-    file "$R/listener" || fail invalid_listener
-    read -r pid start old extra < "$R/listener" || fail invalid_listener
+if ! absent "$service_listener"; then
+    file "$service_listener" || fail invalid_listener
+    read -r pid start old extra < "$service_listener" || fail invalid_listener
     case "$pid:$start" in *[!0-9:]*|:*) fail invalid_listener;; esac
     case "$old" in "$R"/sessions/session-*) ;; *) fail invalid_listener;; esac
     test -z "$extra" || fail invalid_listener
@@ -91,12 +88,10 @@ if ! absent "$R/listener"; then
         test "$(awk '{print $22}' "/proc/$pid/stat")" = "$start" &&
             test "$(readlink "/proc/$pid/exe")" = /bin/busybox &&
             tr '\0' '\n' < "/proc/$pid/cmdline" | grep -F -q "$old/api" || fail listener_replaced
-        # A live dev.12 client still uses 35555 if USB loading is cancelled.
-        # Keep its endpoint for this replacement; the next boot uses 15555.
-        if service_owns_listener "$pid" "$start" "$old" 35555; then service_port=35555; fi
         kill -TERM "$pid" || fail listener_stop_failed
         count=0
         while test -d "/proc/$pid" && test "$(awk '{print $22}' "/proc/$pid/stat" 2>/dev/null)" = "$start"; do
+            test "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null || :)" != Z || break
             count=$((count+1)); test "$count" -lt 4 || fail listener_stop_failed
             sleep 1
         done
@@ -117,6 +112,7 @@ service_owns_listener() {
     case "${4:-15555}" in
         15555) address=0100007F:3CC3;;
         35555) address=0100007F:8AE3;;
+        15557) address=0100007F:3CC5;;
         *) return 1;;
     esac
     service_child_matches "$1" "$2" "$3" || return 1
@@ -137,6 +133,27 @@ service_tick() {
     service_now=$((${tick%.*} * 100 + 1${tick#*.} - 100))
 }
 
+# Call under the operation flock; this inline lease retains only readback.
+service_usb_retained() (
+    local format deadline revision lease current=-
+    test -L "$1/admitted" && lease=$(readlink "$1/admitted") || return 1
+    test "$(stat -c %s "$1/admitted")" -eq "${#lease}" || return 1
+    IFS='|' read -r format deadline revision <<LEASE
+$lease
+LEASE
+    test "$format" = OCUSB1 && test "$lease" = "$format|$deadline|$revision" || return 1
+    case "$deadline" in ''|*[!0-9]*) return 1;; esac
+    test "${#deadline}" -le 12 || return 1
+    service_tick
+    test "$deadline" -gt "$service_now" && test "$deadline" -le "$((service_now+12000))" || return 1
+    if ! absent "$D/record"; then
+        record_read || return 1
+        case "$R_PHASE" in active|removed) current=$R_CURRENT;; *) return 1;; esac
+    elif ! absent "$D"; then return 1
+    fi
+    test "$revision" = "$current"
+)
+
 service_discard_child() {
     if test -n "$2" && test "$(awk '{print $4 ":" $22}' "/proc/$1/stat" 2>/dev/null)" = "$$:$2"; then
         kill -TERM "$1" || :
@@ -145,26 +162,45 @@ service_discard_child() {
         wait "$1" 2>/dev/null || :
     fi
     # Publication can itself fail. Remove only this unpublished child's pointers.
-    if test "$(readlink "$R/runtime" 2>/dev/null || :)" = "$3"; then rm "$R/runtime"; fi
+    if test "$(readlink "$service_runtime" 2>/dev/null || :)" = "$3"; then rm "$service_runtime"; fi
     local pointer value
-    for pointer in "$R/listener" "$R/listener.next"; do
+    for pointer in "$service_listener" "$service_listener.next"; do
         if test -f "$pointer" && test ! -L "$pointer"; then
             value=$(cat "$pointer")
             if test "$value" = "$1 $2 $3"; then rm "$pointer"; fi
         fi
     done
+    if test "${service_role:-}" = usb && test -d "$3"; then
+        : > "$3/closed"
+        (exec 8>&- 9>&-; sh "$3/usb-service.sh" retire) </dev/null >/dev/null 2>&1 &
+    elif test -n "$3" && test "${pending_published:-false}" != true; then
+        service_discard_private "$3"
+    fi
+}
+
+service_discard_private() {
+    case "$1" in "$R"/sessions/session-*) ;; *) return 1;; esac
+    private_dir "$1" || return 1
+    rm -f "$1"/* "$1"/.[!.]* "$1"/..?*
+    rmdir "$1"
 }
 
 service_files() {
-    # A verified RAM closure can recover/purge even when USB owns the listener
-    # or the loopback port is unavailable. This does not publish a session.
+    runtime=$(_service_files "$@")
+}
+
+_service_files() (
+    set -eu
     local package_id=$1 kind=${2:-full} work digest name extra token expected= actual count=0 linked shared
-    local seen='|' copied=
+    local seen='|' copied= reuse=false links
 if absent "$R/sessions"; then mkdir -m 700 "$R/sessions"; fi
 private_dir "$R/sessions" || fail invalid_sessions
 work=$(mktemp -d "$R/sessions/session-XXXXXX")
-# Validate the canonical parent once; restricted direct basenames cannot escape it.
+service_staging_work=$work
+trap 'service_discard_private "$service_staging_work"' EXIT
+trap 'exit 1' HUP INT TERM
 directory "$P" || fail invalid_source
+if test "$kind" = usb; then file "$P/files.sha256" || fail invalid_source; fi
 set --
 while read -r digest name extra; do
     hex "$digest" 64 && test -n "$name" && test -z "$extra" || fail invalid_manifest
@@ -182,9 +218,10 @@ while read -r digest name extra; do
     expected="$expected$digest *$work/$name
 "
     linked=false
-    case "$kind:$name" in boot:runtime.js|boot:dialog.js|boot:settings.js|boot:service.sh|boot:state.sh)
+    case "$kind:$name" in boot:runtime.js|boot:dialog.js|boot:settings.js|boot:service.sh|boot:state.sh|boot:flush)
         for shared in "$R/feature/$name" "$R/ignition/$name"; do
             if test -f "$shared" && test ! -L "$shared"; then
+                if test "$name" = flush && test "$(stat -c %a "$shared")" != 700; then continue; fi
                 ln "$shared" "$work/$name" || fail runtime_link_failed
                 linked=true
                 break
@@ -198,17 +235,27 @@ while read -r digest name extra; do
 "
     fi
 done < "$P/files.sha256"
-# Active snapshots always use their verified persistent package's renderer.
-# The installed listener needs no private RAM copy of sm-profile.awk.
+# Active snapshots use their persistent package's renderer.
 if test "$kind" = boot; then test "$count" -eq 16 || fail incomplete_runtime; fi
-cp "$@" "$P/files.sha256" "$work/"
+case "$kind:${P%/*}:${P##*/}" in usb:/tmp:oc-usb-??????)
+    # Reuse only run.sh's unshared RAM packet; linking sealed/held inodes changes ctime.
+    if private_dir "$P" && links=$(stat -c %h "$@" "$P/files.sha256") &&
+        printf '%s\n' "$links" | awk '$0!="1"{bad=1}END{exit bad}'; then reuse=true; fi
+    ;;
+esac
+if test "$reuse" = true; then
+    ln "$@" "$P/files.sha256" "$work/" || fail runtime_link_failed
+    copied=
+else
+    cp "$@" "$P/files.sha256" "$work/"
+fi
 set -- "$work/files.sha256"
 while IFS= read -r name; do
     if test -n "$name"; then set -- "$@" "$work/$name"; fi
 done <<COPIED
 $copied
 COPIED
-# Do not change the mode of an existing feature inode shared by a hardlink.
+# Preserve modes of shared feature inodes.
 chmod 600 "$@"
 chmod 700 "$work/api" "$work/flush"
 set --
@@ -218,25 +265,25 @@ done < "$P/files.sha256"
 test "$(sha "$work/files.sha256")" = "$package_id" || fail damaged_runtime
 actual=$(openssl dgst -sha256 -r "$@") || fail damaged_runtime
 test "$actual" = "${expected%?}" || fail damaged_runtime
-# One capability per boot keeps the installed Settings client usable while a
-# replacement USB service is staged, even if its UI loading is cancelled.
-if absent "$R/token"; then
-    uuid > "$R/token.next"
-    mv "$R/token.next" "$R/token"
+if test "$kind" = usb; then
+    uuid > "$work/token"
+else
+    if absent "$R/token"; then uuid > "$R/token.next"; mv "$R/token.next" "$R/token"; fi
+    file "$R/token" && test "$(wc -c < "$R/token")" -eq 33 || fail token_failed
+    ln "$R/token" "$work/token" || fail token_failed
 fi
-file "$R/token" && test "$(wc -c < "$R/token")" -eq 33 || fail token_failed
-token=$(cat "$R/token"); hex "$token" 32 || fail token_failed
-cp "$R/token" "$work/token"
-runtime=$work
-}
+token=$(cat "$work/token"); hex "$token" 32 || fail token_failed
+printf '%s\n' "$work"
+trap - EXIT HUP INT TERM
+)
 
 service_listen() {
 local work=$1 pid start deadline
-stop_listener "${2:-boot}"
-if ! absent "$R/runtime"; then test -L "$R/runtime" || fail invalid_runtime_pointer; fi
-# Catch cancellation before fork; defer exit until $! and its birth time are
-# captured. A parent-only TERM must not strand an unrecorded listening child.
-pending_pid=; pending_start=; pending_work=$work; pending_cancel=false
+service_config "${2:-settings}"
+stop_listener
+if ! absent "$service_runtime"; then test -L "$service_runtime" || fail invalid_runtime_pointer; fi
+# Defer cancellation until the child identity is captured for owned cleanup.
+pending_pid=; pending_start=; pending_work=$work; pending_cancel=false; pending_published=false
 trap 'service_discard_child "$pending_pid" "$pending_start" "$pending_work"' EXIT
 trap 'pending_cancel=true' HUP INT TERM
 ( exec 8>&- 9>&-; exec /bin/busybox tcpsvd -E -c 4 127.0.0.1 "$service_port" \
@@ -257,33 +304,32 @@ until test -n "$start" && service_owns_listener "$pid" "$start" "$work" "$servic
 done
 if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
 # Publish only after identity and owned socket readiness are established.
-printf '%s %s %s\n' "$pid" "$start" "$work" > "$R/listener.next"
-ln -sfn "$work" "$R/runtime"
-mv -f "$R/listener.next" "$R/listener"
+printf '%s %s %s\n' "$pid" "$start" "$work" > "$service_listener.next"
+ln -sfn "$work" "$service_runtime"
+pending_published=true
+mv -f "$service_listener.next" "$service_listener"
 runtime=$work
-# End the deferred fork window before checking its flag. EXIT cleanup remains
-# armed until no cancellation can be forgotten at the completion handoff.
+# Keep EXIT cleanup armed through the final cancellation check.
 trap 'exit 1' HUP INT TERM
 if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
 trap - EXIT HUP INT TERM
-unset pending_pid pending_start pending_work pending_cancel
+unset pending_pid pending_start pending_work pending_cancel pending_published
 }
 
 service_stage() {
-    # A USB session can release its lock while its UI remains live. Ordinary
-    # boot staging must yield to it; recovery uses service_files independently.
-    if test "$1" = boot; then absent "$R/runtime" || fail busy; fi
+    service_config settings
+    if test "$1" = boot; then absent "$service_runtime" || fail busy; fi
     service_files "$2" "$1"
     service_listen "$runtime" "$1"
 }
 
 service_boot() {
-    # This verified RAM entry must establish package trust without sourcing
-    # writable code first. SM owns this bounded worker, outside boot selection.
+    # SM's bounded RAM worker verifies the package before sourcing it.
     set -eu
     umask 077
     D=/tmp/mnt/data_persist/open-connect
     R=/tmp/open-connect
+    service_config settings
     test "$(id -u)" = 0
     test "$(readlink -f "$D")" = "$D" && test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0 || exit 1
     test "$(readlink -f "$R")" = "$R" && test "$(stat -c '%a:%u:%g' "$R")" = 700:0:0 || exit 1
@@ -295,8 +341,8 @@ service_boot() {
         tries=$((tries+1)); test "$tries" -lt 80 || exit 0
         /bin/busybox usleep 100000
     done
-    # USB may already serve Settings; never replace its live session.
-    if test -e "$R/runtime" || test -L "$R/runtime"; then exit 0; fi
+    # The installed endpoint is independent of a temporary USB endpoint.
+    if test -e "$service_runtime" || test -L "$service_runtime"; then exit 0; fi
     test -f "$D/record" && test ! -L "$D/record" && test "$(wc -l < "$D/record")" -eq 1 || exit 1
     IFS='|' read -r format phase rev package base current before after undo budget off boot notice extra < "$D/record"
     test "$format:$phase:$before:$after" = OC1:active:-:- && test -z "$extra" || exit 1
@@ -340,33 +386,5 @@ service_boot() {
     service_stage boot "$package"
 }
 
-service_main() {
-    if test "${1:-}" = boot; then service_boot; return; fi
-    set -eu
-    umask 077
-    P=$(dirname "$(readlink -f "$0")")
-    . "$P/state.sh"
-    R=/tmp/open-connect
-    service_lock usb
-    case "${1:-start}" in
-      stop)
-        verify_manifest "$P" || fail damaged_package
-        test "$(readlink -f "$R/runtime")" = "$P" || return 0
-        absent "$R/selected" || return 0
-        D=/tmp/mnt/data_persist/open-connect
-        if ! absent "$D/record"; then
-            private_dir "$D" && record_read || fail invalid_record
-            test "$R_PHASE" = removed || return 0
-        fi
-        stop_listener
-        rm "$R/runtime" "$R/listener";;
-      start)
-        service_stage usb "$(sha "$P/files.sha256")"
-        printf '%s\n' "$runtime";;
-      *) fail invalid_action;;
-    esac
-}
-
-# A sourced module only defines functions. The fixed installed filename is also
-# its standalone entry (used by USB); boot sources it from boot.sh or sh -c.
-case "${0##*/}" in service.sh) service_main "$@";; esac
+# Boot selection may source these helpers without starting a listener.
+case "${0##*/}" in service.sh) test "${1:-}" = boot || exit 1; service_boot;; esac

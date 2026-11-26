@@ -95,18 +95,27 @@ record_read() {
     case "$R_NOTICE" in -|installed|removed|undone|restart) ;; *) return 1;; esac
 }
 
-record_write() {
-    local next
+record_stage() {
     R_REV=$(uuid); hex "$R_REV" 32 || fail random_failed
     next=$(mktemp "$D/record.XXXXXX") || fail record_create_failed
+    if test "${1:-}" = prepare; then prepared_candidate=$next; fi
     printf 'OC1|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
         "$R_PHASE" "$R_REV" "$R_BACKEND" "$R_BASE" "$R_CURRENT" "$R_BEFORE" \
         "$R_AFTER" - "$R_BUDGET" "$R_OFF" "$R_BOOT" "$R_NOTICE" > "$next" || fail record_write_failed
     chmod 600 "$next" || fail record_mode_failed
     flush f "$next"
-    mv -f "$next" "$D/record" || fail record_rename_failed
+}
+
+record_publish() {
+    mv -f "$next" "$D/record" || return 1
     flush d "$D"
     record_read || fail invalid_committed_record
+}
+
+record_write() {
+    local next
+    record_stage
+    record_publish || fail record_rename_failed
 }
 
 # A snapshot contains an autostart file and data, not executable operation state.
@@ -129,8 +138,35 @@ snapshot_verify() {
 }
 snapshot_read() { snapshot_verify "$1" && snapshot_decode "$1"; }
 
-# Read only the target package's preferences interpreter and catalog. Their
-# expected bytes belong to the content-addressed manifest, not the USB client.
+# Package identity is authenticated data. Inspect it before choosing executable
+# preference helpers (in particular when the running Settings package is older).
+snapshot_package() {
+    local dir=$D/snapshots/$1 digest
+    hex "$1" 64 && private_dir "$dir" && file "$dir/files.sha256" &&
+        test "$(sha "$dir/files.sha256")" = "$1" && file "$dir/config" || return 1
+    digest=$(awk '$2=="config"{n++;v=$1;if(NF!=2)bad=1}END{if(bad||n!=1)exit 1;print v}' "$dir/files.sha256") &&
+        hex "$digest" 64 && test "$(sha "$dir/config")" = "$digest" || return 1
+    awk '
+        NR==1 {if($0=="OC2")modern=1;else {
+            n=split($0,a,"|");if(n!=5&&n!=8)exit 1;p=a[1];count++
+        }}
+        modern&&/^package=/ {p=substr($0,9);count++}
+        END {if(count!=1||(p!="-"&&(length(p)!=64||p~/[^a-f0-9]/)))exit 1;print p}
+    ' "$dir/config"
+}
+
+package_version() {
+    local folder=$D/packages/$1 digest value
+    hex "$1" 64 && private_dir "$folder" && file "$folder/files.sha256" &&
+        test "$(sha "$folder/files.sha256")" = "$1" && file "$folder/VERSION" || return 1
+    digest=$(awk '$2=="VERSION"{n++;v=$1;if(NF!=2)bad=1}END{if(bad||n!=1)exit 1;print v}' "$folder/files.sha256") &&
+        hex "$digest" 64 && test "$(sha "$folder/VERSION")" = "$digest" || return 1
+    value=$(cat "$folder/VERSION") || return 1
+    case "$value" in ''|*[!a-zA-Z0-9.-]*) return 1;; esac
+    printf '%s\n' "$value"
+}
+
+# Authenticate the target's interpreter and catalog from its package manifest.
 preferences_package() {
     local folder=$D/packages/$1 expected actual name
     hex "$1" 64 && private_dir "$folder" && file "$folder/files.sha256" &&
@@ -182,7 +218,7 @@ config_decode() {
     file "$source" && read -r header < "$source" || return 1
     if test "$header" = OC2; then
         package=$(awk -F = '$1=="package"{n++;p=$2}END{if(n!=1)exit 1;print p}' "$source") || return 1
-        folder=$(preferences_package "$package") || return 1
+        folder=$(preferences_package "${settings_package:-$package}") || return 1
         S_CATALOG=$folder
         decoded=$(awk -v operation=decode -v catalog="$folder/services.tsv" -v catalog_bytes="$(wc -c < "$folder/services.tsv")" -v input="$source" \
             -v input_bytes="$(wc -c < "$source")" -f "$folder/preferences.awk") || return 1
@@ -221,8 +257,7 @@ carplay-autoshow='}; S_AUTOSHOW=${S_AUTOSHOW%%'
         bit "$S_WIRELESS" && touch_value "$S_NVRAM" && metadata "$S_META"
 }
 
-# Internal parser for snapshots already verified in the caller's held critical
-# section. Ordinary callers use snapshot_read; no on-disk verification cache.
+# Decode only after verification under the caller's held lock.
 snapshot_decode() {
     local extra
     config_decode "$D/snapshots/$1/config" || return 1
@@ -256,8 +291,7 @@ snapshot_decode() {
     fi
 }
 snapshot_finish() (
-    # Publish either a plain transaction snapshot or its verified boot plan.
-    # The caller owns this private work directory and names every payload.
+    # Publish the caller's private snapshot and its named payloads.
     set -eu
     local work=$1 id name digest seen='|'
     shift
@@ -316,15 +350,14 @@ VALUES
 )
 
 _snapshot_create() (
-    # Target-owned current-format writer. All rendered policy is validated
-    # before the caller can prepare a transaction or publish physical changes.
+    # The target's writer validates rendered policy before any effects.
     set -eu
     test "$#" = 7 && file "$1" && { test "$2" = - || hex "$2" 64; } &&
         touch_value "$3" && metadata "$4" || fail invalid_snapshot
     local name resources=$6 prefs=$7 package=$2 nvram=$3 mode=$4
     work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail snapshot_create_failed
     snapshot_work=$work
-    trap 'if directory "$snapshot_work"; then rm -rf "$snapshot_work"; fi' EXIT
+    trap 'if test -z "${initial_work:-}" && directory "$snapshot_work"; then rm -rf "$snapshot_work"; fi' EXIT
     cp "$1" "$work/autostart" || fail snapshot_copy_failed
     if test "$5" = -; then : > "$work/dependencies" || fail snapshot_copy_failed; else
         file "$5" && cp "$5" "$work/dependencies" || fail snapshot_copy_failed

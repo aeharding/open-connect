@@ -1,12 +1,16 @@
 """Interrupt the maintained transaction code around real file publications."""
 
+import fcntl
 import hashlib
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -40,8 +44,10 @@ dependency_path() { test "$1" = relevant && printf '%s\n' "$D-relevant"; }
 dependencies_capture() { printf '%s  relevant\n' "$(sha "$D-relevant")"; }
 nvram_read() { cat "$D-nvram"; }
 nvram_change() {
+    printf '%s|%s\n' "$1" "$2" >> "$D-nvram-calls"
     test "$(cat "$D-nvram")" = "$1" || return 1
     printf '%s\n' "$2" > "$D-nvram"
+    test ! -e "$D-nvram-commit-fails" || return 1
     test "$CUT" != nvram || kill -KILL $$
 }
 startup_publish() {
@@ -236,10 +242,15 @@ class InstallerTransaction(unittest.TestCase):
         runtime.mkdir(mode=0o700)
         (runtime / "lock").touch()
         (runtime / "runtime").symlink_to(self.tools)
+        if (data / "record").exists():
+            fields = (data / "record").read_text().split("|")
+            if fields[1] not in ("removed", "purge"):
+                (runtime / "selected").write_text(fields[5] + "\n")
         for name in (
             "state.sh",
             "transaction.sh",
             "service.sh",
+            "usb-service.sh",
             "access.sh",
             "VERSION",
             "preferences.awk",
@@ -256,6 +267,16 @@ class InstallerTransaction(unittest.TestCase):
         )
         state = state.replace("/tmp/open-connect", str(runtime))
         (self.tools / "state.sh").write_text(state)
+        uptime = self.root / "uptime"
+        uptime.write_text("100.00 0.00\n")
+        service = self.tools / "service.sh"
+        service.write_text(
+            service.read_text()
+            .replace("/tmp/open-connect", str(runtime))
+            .replace("/proc/uptime", str(uptime))
+        )
+        usb = self.tools / "usb-service.sh"
+        usb.write_text(usb.read_text().replace("/tmp/open-connect", str(runtime)))
         # Use the real backend and state/transaction code; replace only physical
         # firmware, NVRAM, mount, root-publication and reboot adapters.
         adapters = DRIVER[DRIVER.index("root_mode()") : DRIVER.index('if test "$ACTION" = init;')]
@@ -326,6 +347,156 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(data.exists())
         self.assertEqual(self.target(data, "target").read_text(), "stock\n")
+
+    def test_operation_replies_do_not_repeat_their_physical_verification(self):
+        data = self.create("operation-audits")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        backend = self.tools / "backend.sh"
+        backend.write_text(backend.read_text().replace("set -eu\n", "set -eux\n", 1))
+
+        def counted(operation, *args, passes):
+            result, answer = self.api(operation, *args)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            for function in ("targets_match_loaded", "dependencies_match"):
+                self.assertEqual(
+                    len(re.findall(r"^\++ " + function + r" ", result.stderr, re.M)),
+                    passes,
+                    (operation, function),
+                )
+            return answer
+
+        before = counted("status", passes=1)
+        counted("status", "-", "settings", passes=0)
+        saved = counted("set", before["revision"], "pandora", "1", "0", passes=3)
+        row = next(row for row in saved["services"] if row["id"] == "pandora")
+        self.assertEqual((row["saved"], row["current"]), (0, 1))
+        self.assertTrue(saved["restart"])
+        self.assertEqual(saved, counted("status", passes=1))
+        second = counted("set", saved["revision"], "warning", "1", "0", passes=3)
+        self.assertEqual((second["pandora"], second["warning"]), (0, 0))
+        self.assertNotEqual(second["revision"], saved["revision"])
+        # A no-op is already validated by admission, with no new transaction.
+        record = (data / "record").read_bytes()
+        counted("set", second["revision"], "warning", "0", "0", passes=1)
+        self.assertEqual((data / "record").read_bytes(), record)
+        ack = counted("restart", second["revision"], passes=1)
+        self.assertEqual(ack, {"ok": True, "restarting": True})
+        self.assertEqual((data / "record").read_bytes(), record)
+
+    def test_save_final_verification_failure_requires_fresh_reconciliation(self):
+        data = self.create("save-final-conflict")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        _, before = self.api("status")
+        firmware = self.tools / "firmware.sh"
+        # Change a dependency after admission/preparation, while publishing the
+        # new target, so only the command's final verification can reject it.
+        firmware.write_text(
+            firmware.read_text().replace(
+                'mv "$AUTOSTART.next" "$AUTOSTART"',
+                'mv "$AUTOSTART.next" "$AUTOSTART"\nprintf changed > "$D-relevant"',
+            )
+        )
+        result, answer = self.api("set", before["revision"], "pandora", "1", "0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(answer, {"ok": False, "error": "final_verification_failed"})
+        self.assertEqual((data / "record").read_text().split("|")[1], "set")
+        _, fresh = self.api("status")
+        self.assertTrue(fresh["pending"])
+        self.assertTrue(fresh["conflict"])
+        # A fresh full read must observe subsequent physical changes, rather
+        # than inheriting the failed write's admission or any displayed model.
+        self.target(data, "relevant").write_text("dependency\n")
+        _, fresh = self.api("status")
+        self.assertTrue(fresh["pending"])
+        self.assertFalse(fresh["conflict"])
+
+    def test_pandora_only_change_never_invokes_failing_nvram_adapter(self):
+        data = self.create("pandora-no-nvram")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        calls = self.target(data, "nvram-calls")
+        calls.unlink()
+        self.target(data, "nvram-commit-fails").touch()
+        _, before = self.api("status")
+        result, status = self.api("set", before["revision"], "pandora", "1", "0")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((status["pandora"], status["touch"]), (0, 1))
+        self.assertFalse(status["pending"])
+        self.assertFalse(calls.exists())
+        self.assertEqual(self.target(data, "nvram").read_text(), "disable\n")
+        for revision in (before["revision"], status["revision"]):
+            self.assertIn("nvram=disable\n", (data / "snapshots" / revision / "config").read_text())
+        record = (data / "record").read_text().split("|")
+        self.assertEqual(
+            (record[1], record[5], record[6:8]), ("active", status["revision"], ["-", "-"])
+        )
+        _, fresh = self.api("status")
+        self.assertEqual((fresh["pandora"], fresh["pending"]), (0, False))
+        self.assertFalse(calls.exists())
+
+    def test_interrupted_touch_change_recommits_when_actual_already_matches_after(self):
+        data = self.create("touch-nvram-recommit")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        calls = self.target(data, "nvram-calls")
+        calls.unlink()
+        failing = self.target(data, "nvram-commit-fails")
+        failing.touch()
+        _, before = self.api("status")
+        result, error = self.api("set", before["revision"], "touch", "1", "0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "nvram_commit_failed")
+        self.assertEqual(self.target(data, "nvram").read_text(), "absent\n")
+        self.assertEqual(calls.read_text().splitlines(), ["disable|absent"])
+        record = (data / "record").read_bytes()
+        fields = record.decode().split("|")
+        self.assertEqual(
+            (fields[1], fields[5], fields[6]), ("set", before["revision"], before["revision"])
+        )
+        for revision, value in ((fields[6], "disable"), (fields[7], "absent")):
+            self.assertIn(
+                f"nvram={value}\n", (data / "snapshots" / revision / "config").read_text()
+            )
+        _, pending = self.api("status")
+        self.assertTrue(pending["pending"])
+        result, error = self.api("recover", pending["revision"])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "nvram_commit_failed")
+        self.assertEqual(calls.read_text().splitlines(), ["disable|absent", "absent|absent"])
+        self.assertEqual((data / "record").read_bytes(), record)
+        failing.unlink()
+        result, recovered = self.api("recover", pending["revision"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((recovered["touch"], recovered["pending"]), (0, False))
+        self.assertEqual(recovered["revision"], fields[7])
+        self.assertEqual(
+            calls.read_text().splitlines(), ["disable|absent", "absent|absent", "absent|absent"]
+        )
+
+    def test_pending_pandora_change_refuses_nvram_drift_then_recovers_without_writing(self):
+        data = self.create("pandora-nvram-drift")
+        self.run_ok(data, "install")
+        self.assertNotEqual(self.run_command(data, "service-off", "prepared").returncode, 0)
+        record = (data / "record").read_bytes()
+        self.backend_fixture(data)
+        calls = self.target(data, "nvram-calls")
+        calls.unlink()
+        self.target(data, "nvram-commit-fails").touch()
+        self.target(data, "nvram").write_text("enable\n")
+        _, pending = self.api("status")
+        result, error = self.api("recover", pending["revision"])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "nvram_changed")
+        self.assertEqual((data / "record").read_bytes(), record)
+        self.assertEqual(self.target(data, "nvram").read_text(), "enable\n")
+        self.assertFalse(calls.exists())
+        self.target(data, "nvram").write_text("disable\n")
+        result, recovered = self.api("recover", pending["revision"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((recovered["pandora"], recovered["pending"]), (0, False))
+        self.assertFalse(calls.exists())
 
     def test_wireless_choice_applied_status_and_other_choices_survive_until_uninstall(self):
         data = self.create("wireless-setting")
@@ -687,233 +858,1337 @@ class InstallerTransaction(unittest.TestCase):
                     self.assertEqual(path.read_bytes(), b"external edit\n")
                 path.write_bytes(original)
 
-    def test_fast_status_cannot_authorize_conflicted_completion(self):
-        data = self.create("completion-conflict")
+    def completion_fixture(self, name):
+        data = self.create(name)
         self.run_ok(data, "install")
         self.backend_fixture(data)
-        record = (data / "record").read_text().split("|")
-        record[11] = "12345678-1234-1234-1234-123456789abc"
-        record[12] = "installed\n"
-        (data / "record").write_text("|".join(record))
-        kernel = self.root / "kernel"
-        kernel.write_text(record[11] + "\n")
-        backend = self.tools / "backend.sh"
-        backend.write_text(
-            backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
-        )
-        (self.root / "runtime/selected").write_text(record[5] + "\n")
-        for argument in ("-", "settings"):
-            result, ready = self.api("status", argument=argument)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue(ready["completionReady"])
-            for target in ("target", "relevant"):
-                path = self.target(data, target)
-                original = path.read_bytes()
-                path.write_bytes(b"changed after boot\n")
-                result, answer = self.api("status", argument=argument)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertTrue(answer["conflict"])
-                self.assertFalse(answer["completionReady"])
-                path.write_bytes(original)
-        package = data / "packages" / (data / "package-id").read_text().strip()
-        for name in ("VERSION", "services.tsv", "preferences.awk"):
-            path = package / name
-            original = path.read_bytes()
-            path.write_bytes(original + b"edited\n")
-            result, answer = self.api("status", argument="settings")
-            self.assertFalse(answer.get("completionReady", False))
-            if name == "VERSION":
-                self.assertTrue(answer["conflict"] or answer["installedVersion"] == "-")
-            else:
-                self.assertNotEqual(result.returncode, 0)
-            path.write_bytes(original)
-
-    def test_completion_requires_selection_and_recorded_current_boot(self):
-        data = self.create("completion")
-        self.run_ok(data, "install")
-        self.backend_fixture(data)
-        runtime = self.root / "runtime"
-        kernel = self.root / "kernel-boot"
+        fields = (data / "record").read_text().strip().split("|")
         boot = "12345678-1234-1234-1234-123456789abc"
-        kernel.write_text(boot + "\n")
-        backend = self.tools / "backend.sh"
-        backend.write_text(
-            backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
+        fields[3] = (data / "package-id").read_text().strip()
+        fields[11:13] = [boot, "installed"]
+        (data / "record").write_text("|".join(fields) + "\n")
+        runtime = self.root / "runtime"
+        (runtime / "boot-id").symlink_to(boot)
+        # service_stage already authenticates this installed endpoint. Its
+        # manifest identifies the selected package, not the maintenance media.
+        shutil.copyfile(data / "packages" / fields[3] / "files.sha256", self.tools / "files.sha256")
+        return data, runtime, fields
+
+    def test_completion_keeps_environment_guards_without_rehashing_boot_inputs(self):
+        data, runtime, fields = self.completion_fixture("completion-guard")
+        version, mounts = self.root / "version.ini", self.root / "mounts"
+        framework, display, calls = (
+            self.root / name for name in ("framework", "display", "md5-calls")
         )
-        record = (data / "record").read_text().split("|")
-        record[11] = boot
-        record[12] = "installed\n"
-        selected = runtime / "selected"
-        selected.write_text(record[5] + "\n")
-        (data / "record").write_text("|".join(record))
-        for variant in (
-            "ready",
-            "previous-boot",
-            "unselected",
-            "no-notice",
-            "invalid-kernel",
-            "same-boot-commit",
+        (self.root / "mnt/persist").mkdir(parents=True)
+        version.write_text(
+            'JCI_SW_VER="MAZ_CMU-150_74.00.324"\nJCI_SW_VER_PATCH="A"\nJCI_SW_FLAVOR="cmu150_NA"\n'
+        )
+        mounts.write_text(
+            "/dev/ffx01p1 / relfs ro,noatime 0 0\n"
+            f"/dev/mmcblk0p2 {self.root}/mnt/persist relfs rw 0 0\n"
+        )
+        source = (ROOT / "cmu/installer/firmware.sh").read_text()
+        guard = source[
+            source.index("firmware_guard() {") : source.index("native_dependency_guard()")
+        ]
+        # Run the real guard. Only host UID, physical paths and input digests
+        # are synthetic; no OEM files or physical devices are involved.
+        guard = guard.replace('test "$(id -u)" = 0', f'test "$(id -u)" = {os.getuid()}')
+        paths = {
+            "/jci/version.ini": version,
+            "/proc/mounts": mounts,
+            "/proc/self/mounts": mounts,
+            "/jci/gui/framework/js/GuiFramework.js": framework,
+            "/jci/lvds/lvds_service": display,
+            "/tmp/open-connect": runtime,
+            "/tmp/mnt/data_persist": self.root / "mnt/persist",
+            "/tmp/mnt": self.root / "mnt",
+            "/tmp": self.root,
+        }
+        guard = re.sub(
+            "|".join(re.escape(path) for path in sorted(paths, key=len, reverse=True)),
+            lambda match: str(paths[match[0]]),
+            guard,
+        )
+        module = self.tools / "firmware.sh"
+        adapter = (
+            f"\nmd5sum() {{ printf call >> {shlex.quote(str(calls))}; "
+            'local value; IFS= read -r value; case "$value" in '
+            'framework) printf "0228bd6330c544eb500dacd7b00a9e79  -\\n";; '
+            'display) printf "1d3e74362d4a97814a9f0fb316ff583f  -\\n";; '
+            "*) return 1;; esac; }\n"
+        )
+        original = module.read_text() + "\n" + guard + adapter
+        module.write_text(original)
+        # Missing physical input files prove that neither completion nor its
+        # readback accidentally executes the old upfront hash checks.
+        for _ in range(2):
+            result, proof = self.api("status", argument="completion")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue(proof["completionReady"])
+        self.assertFalse(calls.exists())
+        framework.write_text("framework\n")
+        display.write_text("display\n")
+        for operation in (
+            "status",
+            "set",
+            "install",
+            "import",
+            "uninstall",
+            "restart",
+            "recover",
+            "dismiss",
         ):
-            with self.subTest(variant=variant):
-                current = record.copy()
-                current[11] = "-" if variant == "same-boot-commit" else boot
-                current[12] = "-\n" if variant == "no-notice" else "installed\n"
-                (data / "record").write_text("|".join(current))
-                kernel.write_text(
-                    (
-                        "87654321-1234-1234-1234-123456789abc"
-                        if variant == "previous-boot"
-                        else "invalid"
-                        if variant == "invalid-kernel"
-                        else boot
+            calls.unlink(missing_ok=True)
+            self.api(operation, "f" * 64)
+            self.assertEqual(calls.read_text(), "callcall", operation)
+        # Role is part of the skip capability; USB cannot take the installed read.
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        calls.unlink()
+        result, _ = self.api("status", argument="completion")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(calls.read_text(), "callcall")
+        (runtime / "usb-runtime").unlink()
+        (runtime / "runtime").symlink_to(self.tools)
+        for fact, error in (
+            ("root", "root_required"),
+            ("version", "unsupported_firmware"),
+            ("mount", "persistence_unavailable"),
+            ("root-mount", "invalid_boot_mounts"),
+            ("path", "invalid_persistence_path"),
+        ):
+            with self.subTest(fact=fact):
+                saved_version, saved_mounts = version.read_text(), mounts.read_text()
+                if fact == "root":
+                    module.write_text(
+                        original.replace(
+                            f"= {os.getuid()} || fail root_required",
+                            f"= {os.getuid() + 1} || fail root_required",
+                        )
                     )
-                    + "\n"
-                )
-                selected.write_text(("0" * 64 if variant == "unselected" else record[5]) + "\n")
-                before = (data / "record").read_bytes()
-                result, status = self.api("status")
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(status["completionReady"], variant == "ready")
-                self.assertEqual((data / "record").read_bytes(), before)
+                elif fact == "version":
+                    version.write_text('JCI_SW_VER="unsupported"\n')
+                elif fact == "mount":
+                    mounts.write_text(saved_mounts.replace("relfs rw", "relfs ro"))
+                elif fact == "root-mount":
+                    mounts.write_text(saved_mounts.replace("relfs ro,noatime", "relfs rw"))
+                else:
+                    (self.root / "mnt/persist").rmdir()
+                result, answer = self.api("status", argument="completion")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(answer["error"], error)
+                module.write_text(original)
+                version.write_text(saved_version)
+                mounts.write_text(saved_mounts)
+                if fact == "path":
+                    (self.root / "mnt/persist").mkdir()
 
-    def test_completion_uses_volatile_identity_when_kernel_uuid_repeats(self):
-        data = self.create("repeated-completion")
-        self.run_ok(data, "install")
-        self.backend_fixture(data)
-        runtime = self.root / "runtime"
+    def test_completion_is_a_narrow_fresh_selected_boot_proof(self):
+        data, runtime, fields = self.completion_fixture("narrow-completion")
+        for module, functions in (
+            ("state.sh", ("snapshot_decode",)),
+            ("transaction.sh", ("targets_match_loaded", "dependencies_match")),
+            ("access.sh", ("access_login_check",)),
+            ("firmware.sh", ("factory_wireless",)),
+        ):
+            with (self.tools / module).open("a") as stream:
+                for function in functions:
+                    stream.write("\n" + function + "() { exit 99; }\n")
+        before = (data / "record").read_bytes()
+        result, proof = self.api("status", argument="completion")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            proof,
+            dict(
+                ok=True,
+                revision=fields[5],
+                package=fields[3],
+                boot=fields[11],
+                installedVersion="0.3.0-dev.10-fixture",
+                notice="installed",
+                completionReady=True,
+            ),
+        )
+        self.assertEqual((data / "record").read_bytes(), before)
+        # A read-only proof is of selection, not a second physical-state audit.
+        self.target(data, "target").write_text("external edit after selected boot\n")
+        self.target(data, "relevant").write_text("external dependency edit\n")
+        _, fresh = self.api("status", argument="completion")
+        self.assertEqual(fresh, proof)
+        # ACC may rotate OC1's write nonce without changing the selected boot.
+        fields[2] = "f" * 32
+        (data / "record").write_text("|".join(fields) + "\n")
+        result, answer = self.api("dismiss", proof["revision"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(answer, {"ok": True})
+        self.assertTrue((self.tools / "closed").exists())
+        _, cleared = self.api("status", argument="completion")
+        self.assertEqual(cleared, {**proof, "notice": "-", "completionReady": False})
+        before = (data / "record").read_bytes()
+        _, refused = self.api("dismiss", proof["revision"])
+        self.assertEqual(refused["error"], "stale_state")
+        self.assertEqual((data / "record").read_bytes(), before)
+        self.assertEqual((runtime / "selected").read_text(), fields[5] + "\n")
+
+    def test_completion_and_ack_refuse_incomplete_or_mismatched_authority(self):
+        cases = (
+            "no-selected",
+            "malformed-selected",
+            "unselected",
+            "no-boot",
+            "bad-boot",
+            "regular-boot",
+            "previous-boot",
+            "same-boot-commit",
+            "pending",
+            "removed",
+            "config",
+            "version",
+            "manifest",
+            "package",
+            "old-endpoint",
+            "replaced",
+            "usb",
+        )
+        for case in cases:
+            with self.subTest(case=case):
+                shutil.rmtree(self.root / "runtime", ignore_errors=True)
+                data, runtime, fields = self.completion_fixture("completion-" + case)
+                selected, marker = runtime / "selected", runtime / "boot-id"
+                if case == "no-selected":
+                    selected.unlink()
+                elif case == "malformed-selected":
+                    selected.write_text(fields[5] + "\nextra\n")
+                elif case == "unselected":
+                    selected.write_text("0" * 64 + "\n")
+                elif case == "no-boot":
+                    marker.unlink()
+                elif case in ("bad-boot", "regular-boot", "previous-boot"):
+                    marker.unlink()
+                    if case == "regular-boot":
+                        marker.write_text(fields[11] + "\n")
+                    else:
+                        marker.symlink_to(
+                            "invalid"
+                            if case == "bad-boot"
+                            else "87654321-1234-1234-1234-123456789abc"
+                        )
+                elif case == "same-boot-commit":
+                    fields[11] = "-"
+                elif case == "pending":
+                    fields[1], fields[6], fields[7] = "set", fields[5], fields[5]
+                elif case == "removed":
+                    fields[1] = "removed"
+                elif case == "config":
+                    (data / "snapshots" / fields[5] / "config").write_text("invalid config\n")
+                elif case == "version":
+                    (data / "packages" / fields[3] / "VERSION").write_text("0.3.0-forged\n")
+                elif case == "package":
+                    fields[3] = "f" * 64
+                elif case == "manifest":
+                    (self.tools / "files.sha256").write_text("invalid identity\n")
+                elif case == "old-endpoint":
+                    (self.tools / "files.sha256").write_text("0" * 64 + "  VERSION\n")
+                elif case in ("replaced", "usb"):
+                    (runtime / "runtime").unlink()
+                    (runtime / ("usb-runtime" if case == "usb" else "runtime")).symlink_to(
+                        self.tools if case == "usb" else self.root / "successor"
+                    )
+                (data / "record").write_text("|".join(fields) + "\n")
+                before = (data / "record").read_bytes()
+                for operation, args in (("status", ("-", "completion")), ("dismiss", (fields[5],))):
+                    result, error = self.api(operation, *args)
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertFalse(error.get("completionReady", False))
+                    if case == "pending":
+                        self.assertEqual(error["error"], "operation_pending")
+                    self.assertEqual((data / "record").read_bytes(), before)
+                self.assertFalse((self.tools / "closed").exists())
+
+    def test_completion_uses_only_the_volatile_boot_identity(self):
+        data, runtime, fields = self.completion_fixture("repeated-completion")
         kernel = self.root / "kernel-boot"
-        raw = "f7a1f4aa-1234-1234-1234-123456789abc"
-        kernel.write_text(raw + "\n")
+        kernel.write_text(fields[11] + "\n")
         backend = self.tools / "backend.sh"
         backend.write_text(
             backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
         )
-        fields = (data / "record").read_text().split("|")
-        fields[12] = "installed\n"
-        (runtime / "selected").write_text(fields[5] + "\n")
         marker = runtime / "boot-id"
-        first = "12345678-1234-1234-1234-123456789abc"
-        second = "87654321-1234-1234-1234-123456789abc"
-        for token, recorded, ready in (
-            (first, first, True),
-            (second, first, False),  # New kernel; installation was not selected.
-            (second, second, True),
-            (second, raw, False),  # Repeated raw UUID must never rescue a mismatch.
-            (None, raw, True),  # New USB serving a live dev.19 installation.
-            (None, second, False),
-            ("invalid", raw, False),
-            (raw + "\n", raw, False),
+        for current, recorded, ready in (
+            (fields[11], fields[11], True),
+            ("87654321-1234-1234-1234-123456789abc", fields[11], False),
+            ("87654321-1234-1234-1234-123456789abc", "87654321-1234-1234-1234-123456789abc", True),
+            (None, fields[11], False),  # Repeated raw UUID cannot replace selection evidence.
         ):
-            with self.subTest(token=token, recorded=recorded):
+            with self.subTest(current=current, recorded=recorded):
                 marker.unlink(missing_ok=True)
-                if token is not None:
-                    marker.symlink_to(token)
+                if current:
+                    marker.symlink_to(current)
                 fields[11] = recorded
-                (data / "record").write_text("|".join(fields))
-                before = (data / "record").read_bytes()
-                result, status = self.api("status")
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(status["completionReady"], ready)
-                self.assertEqual((data / "record").read_bytes(), before)
-        marker.unlink()
-        marker.write_text(raw + "\n")  # A regular file is not a legacy absence.
-        fields[11] = raw
-        (data / "record").write_text("|".join(fields))
-        result, status = self.api("status")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse(status["completionReady"])
-        self.assertEqual(kernel.read_text(), raw + "\n")
+                (data / "record").write_text("|".join(fields) + "\n")
+                result, proof = self.api("status", argument="completion")
+                self.assertEqual(result.returncode == 0, ready, result.stdout + result.stderr)
+                self.assertEqual(proof.get("completionReady", False), ready)
 
-    def test_fast_completion_audit_uses_volatile_identity_with_repeated_kernel_uuid(self):
-        data = self.create("fast-repeated-completion")
+    def test_real_package_writer_gives_reinstalls_distinct_capabilities(self):
+        data = self.create("install-generations")
+        source = data / "packages" / (data / "package-id").read_text().strip()
+        script = (
+            'set -eu; D=$1; P=$2; . "$3/state.sh"; . "$3/firmware.sh"; '
+            "uuid() { openssl rand -hex 16; }; package_save; package_save"
+        )
+        result = subprocess.run(
+            ["sh", "-c", script, "packages", data, source, ROOT / "cmu/installer"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        first, second = result.stdout.splitlines()
+        self.assertNotEqual(first, second)
+        self.assertNotIn(source.name, (first, second))
+        for identity in (first, second):
+            folder = data / "packages" / identity
+            self.assertEqual(
+                hashlib.sha256((folder / "files.sha256").read_bytes()).hexdigest(), identity
+            )
+            self.assertTrue((folder / "INSTANCE").is_file())
+        # Even repeated randomness cannot publish the same generation twice.
+        collision = (
+            script[: script.index("uuid()")]
+            + 'repeat_instance=$D/packages/$4/INSTANCE; uuid() { cat "$repeat_instance"; }; package_save'
+        )
+        result = subprocess.run(
+            ["sh", "-c", collision, "packages", data, source, ROOT / "cmu/installer", first],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("package_collision", result.stderr)
+
+    def test_pending_recovery_still_audits_physical_targets_and_dependencies(self):
+        for target, error in (("target", "startup_changed"), ("relevant", "dependencies_changed")):
+            with self.subTest(target=target):
+                shutil.rmtree(self.root / "runtime", ignore_errors=True)
+                data = self.create("recover-audit-" + target)
+                self.run_ok(data, "install")
+                self.assertNotEqual(self.run_command(data, "service-off", "prepared").returncode, 0)
+                self.backend_fixture(data)
+                record = (data / "record").read_bytes()
+                revision = record.decode().split("|")[2]
+                path = self.target(data, target)
+                path.write_text("external edit while recovery was pending\n")
+                result, answer = self.api("recover", revision)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(answer["error"], error)
+                self.assertEqual((data / "record").read_bytes(), record)
+                self.assertEqual(path.read_text(), "external edit while recovery was pending\n")
+
+    def test_completion_ack_cannot_clear_a_new_install_before_its_boot(self):
+        data, runtime, fields = self.completion_fixture("stale-completion-ack")
+        _, proof = self.api("status", argument="completion")
+        # Even a synthetic reinstall reusing identical fixture bytes cannot be
+        # acknowledged on this boot: all non-apply commits clear R_BOOT.
         self.run_ok(data, "install")
+        before = (data / "record").read_bytes()
+        _, refused = self.api("dismiss", proof["revision"])
+        self.assertEqual(refused["error"], "completion_unavailable")
+        self.assertEqual((data / "record").read_bytes(), before)
+        self.assertEqual((data / "record").read_text().split("|")[12], "installed\n")
+        self.assertFalse((self.tools / "closed").exists())
+
+    def test_old_ack_refuses_a_valid_successor_selected_boot(self):
+        data, runtime, fields = self.completion_fixture("successor-completion-ack")
+        _, old = self.api("status", argument="completion")
+        source = data / "packages" / fields[3]
+        result = subprocess.run(
+            [
+                "sh",
+                "-c",
+                'set -eu; D=$1; P=$2; . "$3/state.sh"; . "$3/firmware.sh"; '
+                "uuid() { openssl rand -hex 16; }; package_save",
+                "reinstall",
+                data,
+                source,
+                ROOT / "cmu/installer",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        successor = result.stdout.strip()
+        (data / "package-id").write_text(successor + "\n")
+        self.run_ok(data, "install")
+        fields = (data / "record").read_text().strip().split("|")
+        fields[3] = successor
+        fields[11] = "87654321-1234-1234-1234-123456789abc"
+        (data / "record").write_text("|".join(fields) + "\n")
+        (runtime / "boot-id").unlink()
+        (runtime / "boot-id").symlink_to(fields[11])
+        (runtime / "selected").write_text(fields[5] + "\n")
+        shutil.copyfile(data / "packages" / successor / "files.sha256", self.tools / "files.sha256")
+        _, fresh = self.api("status", argument="completion")
+        self.assertTrue(fresh["completionReady"])
+        self.assertNotEqual(fresh["revision"], old["revision"])
+        before = (data / "record").read_bytes()
+        _, refused = self.api("dismiss", old["revision"])
+        self.assertEqual(refused["error"], "stale_state")
+        self.assertEqual((data / "record").read_bytes(), before)
+        self.assertFalse((self.tools / "closed").exists())
+
+    def test_status_refuses_an_unreadable_authority_fingerprint(self):
+        data = self.create("authority-read-failure")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        module = self.tools / "state.sh"
+        module.write_text(
+            module.read_text().replace("sha() {", "raw_sha() {", 1)
+            + '\nsha() { test "$1" != "$D/record" || return 1; raw_sha "$@"; }\n'
+        )
+        result, answer = self.api("status")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(answer["error"], "state_changed")
+        self.assertNotIn("installed", answer)
+
+    def test_status_refuses_malformed_authority_digests_on_either_sample(self):
+        data = self.create("authority-shape")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        module = self.tools / "state.sh"
+        original = module.read_text().replace("sha() {", "raw_sha() {", 1)
+        for value in ("", "a" * 63, "g" * 64, "A" * 64):
+            for sample in (1, 2):
+                with self.subTest(value=value, sample=sample):
+                    counter = self.root / "hash-count"
+                    counter.write_text("0\n")
+                    module.write_text(
+                        original
+                        + '\nsha() { if test "$1" = "$D/record"; then '
+                        + f"n=$(cat {shlex.quote(str(counter))}); n=$((n+1)); "
+                        + f'printf "%s\\n" "$n" > {shlex.quote(str(counter))}; '
+                        + f'if test "$n" = {sample}; then printf "%s\\n" '
+                        + shlex.quote(value)
+                        + '; return 0; fi; fi; raw_sha "$@"; }\n'
+                    )
+                    result, answer = self.api("status")
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(answer, {"ok": False, "error": "state_changed"})
+
+    def test_installed_settings_keep_selected_program_catalog_and_refuse_new_package_writes(self):
+        data = self.create("selected-package")
+        self.run_ok(data, "install")
+        selected = (data / "record").read_text().split("|")[5]
+        old_package = (data / "package-id").read_text().strip()
         self.backend_fixture(data)
         runtime = self.root / "runtime"
-        raw = "f7a1f4aa-1234-1234-1234-123456789abc"
-        kernel = self.root / "kernel-boot"
-        kernel.write_text(raw + "\n")
-        backend = self.tools / "backend.sh"
-        backend.write_text(
-            backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
-        )
-        fields = (data / "record").read_text().split("|")
-        fields[12] = "installed\n"
-        (runtime / "selected").write_text(fields[5] + "\n")
-        marker = runtime / "boot-id"
-        for token in (
-            "12345678-1234-1234-1234-123456789abc",
-            "87654321-1234-1234-1234-123456789abc",
-        ):
-            with self.subTest(volatile_boot=token):
-                marker.unlink(missing_ok=True)
-                marker.symlink_to(token)
-                fields[11] = token
-                (data / "record").write_text("|".join(fields))
-                before = (data / "record").read_bytes()
-                result, ready = self.api("status", argument="settings")
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertTrue(ready["completionReady"])
-                self.assertFalse(ready["conflict"])
-                for target in ("target", "relevant"):
-                    with self.subTest(changed=target):
-                        path = self.target(data, target)
-                        original = path.read_bytes()
-                        path.write_bytes(b"external edit after selected boot\n")
-                        try:
-                            result, refused = self.api("status", argument="settings")
-                            self.assertEqual(result.returncode, 0, result.stderr)
-                            self.assertTrue(refused["conflict"])
-                            self.assertFalse(refused["completionReady"])
-                            self.assertEqual(
-                                path.read_bytes(), b"external edit after selected boot\n"
-                            )
-                            self.assertEqual((data / "record").read_bytes(), before)
-                        finally:
-                            path.write_bytes(original)
-                self.assertEqual(os.readlink(marker), token)
-                self.assertEqual(kernel.read_text(), raw + "\n")
+        (runtime / "selected").write_text(selected + "\n")
+        result, before = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        result, saved = self.api("set", before["revision"], "warning", "1", "0")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(saved["warning"], 0)
+        _, same_package = self.api("status", argument="settings")
+        self.assertEqual(same_package["warning"], 0)
 
-    def test_completion_identity_failure_cannot_bypass_audit_on_a_second_read(self):
-        data = self.create("single-completion-proof")
+        successor = data / "packages/.successor"
+        shutil.copytree(data / "packages" / old_package, successor)
+        (successor / "VERSION").write_text("0.3.0-successor\n")
+        catalog = successor / "services.tsv"
+        catalog.write_text(catalog.read_text().replace("Pandora", "Successor Pandora"))
+        marker = self.root / "successor-interpreter-ran"
+        interpreter = successor / "preferences.awk"
+        interpreter.write_text(f'BEGIN {{ system("touch {marker}") }}\n' + interpreter.read_text())
+        manifest = "".join(
+            hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+            for p in sorted(successor.iterdir())
+            if p.name != "files.sha256"
+        )
+        (successor / "files.sha256").write_text(manifest)
+        package = hashlib.sha256(manifest.encode()).hexdigest()
+        successor.rename(successor.with_name(package))
+        (data / "package-id").write_text(package + "\n")
         self.run_ok(data, "install")
-        self.backend_fixture(data)
         fields = (data / "record").read_text().split("|")
-        fields[11] = "12345678-1234-1234-1234-123456789abc"
-        fields[12] = "installed\n"
+        fields[3] = package
         (data / "record").write_text("|".join(fields))
-        (self.root / "runtime/selected").write_text(fields[5] + "\n")
-        backend = self.tools / "backend.sh"
-        backend.write_text(
-            backend.read_text().replace(
-                "completion_boot_id() {",
-                "completion_boot_id() {\n"
-                ' local reads; IFS= read -r reads < "$D/identity-reads"\n'
-                ' reads=$((reads+1)); printf "%s\\n" "$reads" > "$D/identity-reads"\n'
-                ' printf "%s\\n" "$R_BOOT"\n'
-                ' test "$reads" -gt 1; return $?\n',
+        marker.unlink()
+        for argument in ("settings", "-"):
+            result, view = self.api("status", argument=argument)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(view["revision"], fields[5])
+            self.assertTrue(view["restart"])
+            self.assertEqual(view["installedVersion"], before["installedVersion"])
+            self.assertEqual(view["warning"], 1)
+            self.assertIn("Pandora", [row["label"] for row in view["services"]])
+            self.assertNotIn("Successor Pandora", [row["label"] for row in view["services"]])
+            self.assertFalse(marker.exists())
+        expected = (data / "record").read_bytes()
+        for operation, args in (("set", ("warning", "1", "0")), ("import", ())):
+            result, answer = self.api(operation, fields[5], *args)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(answer["error"], "restart_required")
+            self.assertEqual((data / "record").read_bytes(), expected)
+            self.assertFalse(marker.exists())
+
+        # Missing or malformed volatile evidence must never select B's program.
+        def saved_files():
+            return {
+                str(p.relative_to(data)): (p.read_bytes(), p.stat().st_mode, p.stat().st_ctime_ns)
+                for p in data.rglob("*")
+                if p.is_file()
+            }
+
+        unchanged = saved_files()
+        selected_file = runtime / "selected"
+        for content in (None, selected + "\n\n", selected + "\nextra\n"):
+            selected_file.unlink(missing_ok=True)
+            if content is not None:
+                selected_file.write_text(content)
+            for operation, args in (("status", ("settings",)), ("set", ("warning", "1", "0"))):
+                result, answer = self.api(operation, fields[5], *args)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(answer["error"], "invalid_selected_snapshot")
+                self.assertEqual((data / "record").read_bytes(), expected)
+                self.assertEqual(saved_files(), unchanged)
+                self.assertFalse(marker.exists())
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        result, view = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(view["installedVersion"], "0.3.0-successor")
+        self.assertFalse(marker.exists())
+
+    def legacy_endpoint(self, data, pinned=False, version="0.3.0-dev.22"):
+        """Actual main/dev.22 backend, with only host physical paths adapted."""
+        runtime = self.root / "runtime"
+        target = runtime / "sessions/session-legacy"
+        target.parent.mkdir(mode=0o700)
+        shutil.copytree(self.tools, target)
+        target.chmod(0o700)
+        old = (ROOT / "tests/fixtures/dev22/backend.sh").read_text()
+        self.assertEqual(
+            hashlib.sha256(old.encode()).hexdigest(),
+            "518809f76ea2bfe6cbe33387ee1646c607c00dde7e798c22702510285bf89485",
+        )
+        if pinned:
+            old = (ROOT / "cmu/installer/backend.sh").read_text()
+        old = (
+            old.replace("/tmp/open-connect", str(runtime))
+            .replace("/tmp/mnt/data_persist/open-connect", str(data))
+            .replace("/usr/bin/autostart", str(self.target(data, "target")))
+        )
+        (target / "backend.sh").write_text(old)
+        package = data / "packages" / (data / "package-id").read_text().strip()
+        source = package.with_name(".legacy")
+        shutil.copytree(package, source)
+        (source / "backend.sh").write_text(old)
+        (source / "VERSION").write_text(version + "\n")
+        manifest = "".join(
+            hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+            for p in sorted(source.iterdir())
+            if p.name != "files.sha256"
+        )
+        (source / "files.sha256").write_text(manifest)
+        package_id = hashlib.sha256(manifest.encode()).hexdigest()
+        source.rename(source.with_name(package_id))
+        (data / "package-id").write_text(package_id + "\n")
+        self.run_ok(data, "install")
+        fields = (data / "record").read_text().split("|")
+        fields[3] = package_id
+        (data / "record").write_text("|".join(fields))
+        (runtime / "selected").write_text(fields[5] + "\n")
+        shutil.copyfile(data / "packages" / package_id / "files.sha256", target / "files.sha256")
+        pointer = runtime / "runtime"
+        pointer.unlink()
+        pointer.symlink_to(target)
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        (runtime / "listener").write_text("123 456 " + str(target) + "\n")
+        # Source/socket ownership is tested on Linux separately. This fixture
+        # keeps the real pre-OC1 gate and real inherited writer flock.
+        with (self.tools / "service.sh").open("a") as stream:
+            stream.write('\nservice_owns_listener() { test "$1:$2:$3:$4" = ')
+            stream.write(shlex.quote("123:456:" + str(target) + ":15555") + "; }\n")
+        helper = self.tools / "usb-service.sh"
+        helper.write_text(
+            helper.read_text().replace(
+                "518809f76ea2bfe6cbe33387ee1646c607c00dde7e798c22702510285bf89485",
+                hashlib.sha256(old.encode()).hexdigest(),
             )
         )
-        for argument in ("settings", "-"):
-            with self.subTest(argument=argument):
-                (data / "identity-reads").write_text("0\n")
-                before = (data / "record").read_bytes()
-                result, denied = self.api("status", argument=argument)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertFalse(denied["completionReady"])
-                self.assertEqual((data / "identity-reads").read_text(), "1\n")
-                _, ready = self.api("status", argument=argument)
-                self.assertTrue(ready["completionReady"])
-                self.assertEqual((data / "identity-reads").read_text(), "2\n")
-                dependency = self.target(data, "relevant")
-                original = dependency.read_bytes()
-                dependency.write_bytes(b"external edit\n")
+        self.real_flock()
+        return target, fields[5]
+
+    def legacy_api(self, target, revision, operation="status", *args):
+        result = subprocess.run(
+            [
+                "sh",
+                target / "backend.sh",
+                "api",
+                revision,
+                operation,
+                *(args or ("settings", "-", "-")),
+            ],
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        return result, json.loads(result.stdout)
+
+    def test_legacy22_endpoint_is_fenced_before_prepare_and_refuses_successor(self):
+        data = self.create("legacy-fence")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, revision = self.legacy_endpoint(data)
+        result, changed = self.legacy_api(target, revision, "set", "warning", "1", "0")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(changed["warning"], 0)
+        revision = changed["revision"]
+        runtime = self.root / "runtime"
+        pointer = runtime / "runtime"
+        record = (data / "record").read_bytes()
+        # Normal preflight failure leaves the exact old publication in place.
+        self.target(data, "relevant").write_text("external edit\n")
+        _, error = self.api("uninstall", revision)
+        self.assertEqual(error["error"], "state_changed")
+        self.assertEqual(pointer.readlink(), target)
+        self.assertEqual((data / "record").read_bytes(), record)
+        self.target(data, "relevant").write_text("dependency\n")
+        # Witness withdrawal after staging and immediately before publication.
+        transaction = self.tools / "transaction.sh"
+        transaction.write_text(
+            transaction.read_text().replace(
+                "    if ! record_publish; then",
+                '    absent "' + str(pointer) + '" || fail fence_missing; '
+                "if ! record_publish; then",
+            )
+        )
+        self.target(data, "nvram-commit-fails").touch()
+        result, _ = self.api("uninstall", revision)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(os.path.lexists(pointer))
+        self.assertTrue((runtime / "listener").is_file())
+        self.assertTrue((target / "backend.sh").is_file())
+        expected = (data / "record").read_bytes()
+        # Both actual old22 entry points fail before interpreting pending OC1.
+        for operation, args in (("status", ("settings", "-", "-")), ("set", ("warning", "1", "0"))):
+            reply = subprocess.run(
+                ["sh", target / "backend.sh", "api", revision, operation, *args],
+                env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertNotEqual(reply.returncode, 0)
+            self.assertEqual(json.loads(reply.stdout)["error"], "session_replaced")
+            self.assertEqual((data / "record").read_bytes(), expected)
+
+    def test_verified_pinned_endpoint_stays_public_during_usb_change(self):
+        data = self.create("pinned-public")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, revision = self.legacy_endpoint(data, pinned=True, version="0.3.0-dev.23")
+        result, reply = self.api("uninstall", revision)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(reply["restart"])
+        self.assertEqual((self.root / "runtime/runtime").readlink(), target)
+
+    def test_unknown_legacy_contract_refuses_before_prepare(self):
+        data = self.create("unknown-legacy")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, revision = self.legacy_endpoint(data, version="0.3.0-dev.21")
+        record = (data / "record").read_bytes()
+        result, reply = self.api("uninstall", revision)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(reply["error"], "unsupported_legacy_runtime")
+        self.assertEqual((data / "record").read_bytes(), record)
+        self.assertEqual(list(data.glob("record.*")), [])
+        self.assertEqual((self.root / "runtime/runtime").readlink(), target)
+
+    def test_legacy_recovery_checks_physical_state_before_withdrawal(self):
+        data = self.create("legacy-recovery")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, _ = self.legacy_endpoint(data)
+        self.assertNotEqual(self.run_command(data, "uninstall", "prepared").returncode, 0)
+        revision = (data / "record").read_text().split("|")[2]
+        pointer = self.root / "runtime/runtime"
+        record = (data / "record").read_bytes()
+        self.target(data, "nvram").write_text("enable\n")
+        result, reply = self.api("recover", revision)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(reply["error"], "nvram_changed")
+        self.assertEqual((data / "record").read_bytes(), record)
+        self.assertEqual(pointer.readlink(), target)
+        self.target(data, "nvram").write_text("disable\n")
+        result, reply = self.api("recover", revision)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(reply["restart"])
+        self.assertFalse(os.path.lexists(pointer))
+        self.assertFalse(data.exists())
+        self.assertTrue((target / "backend.sh").is_file())
+
+    def test_changed_legacy_endpoint_refuses_before_prepare(self):
+        data = self.create("changed-legacy")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, revision = self.legacy_endpoint(data)
+        with (target / "backend.sh").open("a") as stream:
+            stream.write("# unknown endpoint revision\n")
+        record = (data / "record").read_bytes()
+        result, reply = self.api("uninstall", revision)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(reply["error"], "invalid_legacy_source")
+        self.assertEqual((data / "record").read_bytes(), record)
+        self.assertEqual(list(data.glob("record.*")), [])
+        self.assertEqual((self.root / "runtime/runtime").readlink(), target)
+
+    def test_failed_withdrawal_restores_only_unchanged_authority(self):
+        for changed in (False, True):
+            with self.subTest(changed=changed):
+                data = self.create("withdraw-" + str(changed))
+                self.run_ok(data, "install")
+                self.backend_fixture(data)
+                target, revision = self.legacy_endpoint(data)
+                runtime = self.root / "runtime"
+                pointer = runtime / "runtime"
+                record = (data / "record").read_bytes()
+                with (self.tools / "firmware.sh").open("a") as stream:
+                    stream.write(
+                        '\nrm() { if test "$1" = '
+                        + shlex.quote(str(pointer))
+                        + '; then command rm "$@" || return; '
+                    )
+                    if changed:
+                        stream.write(
+                            "printf changed > " + shlex.quote(str(runtime / "boot-id")) + "; "
+                        )
+                    stream.write('return 1; fi; command rm "$@"; }\n')
+                result, reply = self.api("uninstall", revision)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(reply["error"], "legacy_fence_failed")
+                self.assertEqual((data / "record").read_bytes(), record)
+                self.assertEqual(list(data.glob("record.*")), [])
+                self.assertEqual(os.path.lexists(pointer), not changed)
+                if not changed:
+                    self.assertEqual(pointer.readlink(), target)
+                shutil.rmtree(runtime)
+
+    def test_legacy_record_staging_failures_leave_old_endpoint_public(self):
+        cuts = {
+            "create": (
+                'mktemp() { if test "$1" = "$D/record.XXXXXX"; then cut_record; return 1; fi; command mktemp "$@"; }',
+                "record_create_failed",
+            ),
+            "write": (
+                'printf() { case "$1" in OC1\\|*) cut_record; return 1;; esac; command printf "$@"; }',
+                "record_write_failed",
+            ),
+            "mode": (
+                'chmod() { case "${2:-}" in "$D"/record.*) cut_record; return 1;; esac; command chmod "$@"; }',
+                "record_mode_failed",
+            ),
+            "flush": (
+                'flush() { case "$2" in "$D"/record.*) cut_record; fail flush_failed;; esac; "$P/flush" "$@" || fail flush_failed; }',
+                "flush_failed",
+            ),
+        }
+        for cut, (injection, error) in cuts.items():
+            with self.subTest(cut=cut):
+                shutil.rmtree(self.root / "runtime", ignore_errors=True)
+                data = self.create("record-stage-" + cut)
+                self.run_ok(data, "install")
+                self.backend_fixture(data)
+                target, revision = self.legacy_endpoint(data)
+                runtime = self.root / "runtime"
+                pointer = runtime / "runtime"
+                watched = [
+                    data / "record",
+                    runtime / "listener",
+                    runtime / "selected",
+                    target / "backend.sh",
+                    self.target(data, "target"),
+                    self.target(data, "nvram"),
+                ]
+                before = {p: (p.stat().st_ino, p.stat().st_mode, p.read_bytes()) for p in watched}
+                reached = self.root / ("reached-" + cut)
+                # Exercise the exact existing backend resource-trap bodies too.
+                cleanup_traps = [
+                    line.strip()
+                    for line in (self.tools / "backend.sh").read_text().splitlines()
+                    if line.strip().startswith("trap '")
+                ]
+                resources = self.root / ("resource-" + cut)
+                resources.mkdir()
+                backend = self.tools / "backend.sh"
+                backend.write_text(
+                    backend.read_text().replace(
+                        '    transaction_prepare uninstall "$before" "$after"',
+                        "    access_work="
+                        + shlex.quote(str(resources))
+                        + "; resources=$access_work\n"
+                        + "    "
+                        + cleanup_traps[list(cuts).index(cut) % len(cleanup_traps)]
+                        + "\n"
+                        + '    transaction_prepare uninstall "$before" "$after"',
+                    )
+                )
+                with (self.tools / "firmware.sh").open("a") as stream:
+                    stream.write(
+                        '\ncut_record() { test "$(readlink '
+                        + shlex.quote(str(pointer))
+                        + ')" = '
+                        + shlex.quote(str(target))
+                        + " || fail pointer_withdrawn; "
+                        + 'test "$(sh '
+                        + shlex.quote(str(target / "backend.sh"))
+                        + " api "
+                        + shlex.quote(revision)
+                        + ' status settings - - || :)" = '
+                        + shlex.quote('{"ok":false,"error":"busy"}')
+                        + " || fail writer_lock_missing; "
+                        + "command printf reached > "
+                        + shlex.quote(str(reached))
+                        + "; }\n"
+                        + injection
+                        + "\n"
+                    )
+                result, reply = self.api("uninstall", revision)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(reply["error"], error)
+                self.assertTrue(reached.exists())
+                self.assertEqual(pointer.readlink(), target)
+                self.assertEqual(list(data.glob("record.*")), [])
+                self.assertFalse(resources.exists())
+                self.assertEqual(
+                    {p: (p.stat().st_ino, p.stat().st_mode, p.read_bytes()) for p in watched},
+                    before,
+                )
+                result, reply = self.legacy_api(target, revision)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(reply["installedVersion"], "0.3.0-dev.22")
+                shutil.rmtree(runtime)
+
+    def test_failed_legacy_record_rename_restores_only_definite_unchanged_authority(self):
+        for cut in (
+            "unchanged",
+            "record",
+            "selected",
+            "access-selected",
+            "boot-id",
+            "listener",
+            "ownership",
+            "replacement",
+            "published",
+            "missing-candidate",
+            "directory-flush",
+        ):
+            with self.subTest(cut=cut):
+                shutil.rmtree(self.root / "runtime", ignore_errors=True)
+                data = self.create("record-rename-" + cut)
+                self.run_ok(data, "install")
+                self.backend_fixture(data)
+                target, revision = self.legacy_endpoint(data)
+                runtime = self.root / "runtime"
+                pointer = runtime / "runtime"
+                record = (data / "record").read_bytes()
+                reached = self.root / ("rename-reached-" + cut)
+                lost = self.root / ("listener-lost-" + cut)
+                with (self.tools / "service.sh").open("a") as stream:
+                    stream.write(
+                        "\nservice_owns_listener() { test ! -e "
+                        + shlex.quote(str(lost))
+                        + ' && test "$1:$2:$3:$4" = '
+                        + shlex.quote("123:456:" + str(target) + ":15555")
+                        + "; }\n"
+                    )
+                mutations = {
+                    "unchanged": ":",
+                    "record": 'printf changed >> "$D/record"',
+                    "selected": "printf '%064d\\n' 1 > " + shlex.quote(str(runtime / "selected")),
+                    "access-selected": "printf '%064d\\n' 1 > "
+                    + shlex.quote(str(runtime / "access-selected")),
+                    "boot-id": "ln -s 12345678-1234-1234-1234-123456789abc "
+                    + shlex.quote(str(runtime / "boot-id")),
+                    "listener": "printf changed >> " + shlex.quote(str(runtime / "listener")),
+                    "ownership": "touch " + shlex.quote(str(lost)),
+                    "replacement": "ln -s "
+                    + shlex.quote(str(self.tools))
+                    + " "
+                    + shlex.quote(str(pointer)),
+                    "published": 'command mv "$@" || return',
+                    "missing-candidate": 'command rm "$2" || return',
+                    "directory-flush": 'command mv "$@" || return; return 0',
+                }
+                with (self.tools / "firmware.sh").open("a") as stream:
+                    stream.write(
+                        '\nmv() { if test "$3" = "$D/record"; then '
+                        "absent " + shlex.quote(str(pointer)) + " || fail fence_missing; "
+                        'test -f "$2" || fail candidate_missing; '
+                        "command printf reached > "
+                        + shlex.quote(str(reached))
+                        + "; "
+                        + mutations[cut]
+                        + '; return 1; fi; command mv "$@"; }\n'
+                    )
+                    if cut == "directory-flush":
+                        stream.write(
+                            'flush() { if test "$1:$2" = "d:$D"; then fail flush_failed; fi; '
+                            '"$P/flush" "$@" || fail flush_failed; }\n'
+                        )
+                result, reply = self.api("uninstall", revision)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(
+                    reply["error"],
+                    "flush_failed" if cut == "directory-flush" else "record_rename_failed",
+                )
+                self.assertTrue(reached.exists())
+                self.assertEqual(list(data.glob("record.*")), [])
+                if cut == "unchanged":
+                    self.assertEqual(pointer.readlink(), target)
+                    result, reply = self.legacy_api(target, revision)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(reply["installedVersion"], "0.3.0-dev.22")
+                elif cut == "replacement":
+                    self.assertEqual(pointer.readlink(), self.tools)
+                else:
+                    self.assertFalse(os.path.lexists(pointer))
+                    result, reply = self.legacy_api(target, revision)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(reply["error"], "session_replaced")
+                if cut in ("published", "directory-flush"):
+                    self.assertEqual((data / "record").read_text().split("|")[1], "uninstall")
+                elif cut != "record":
+                    self.assertEqual((data / "record").read_bytes(), record)
+
+    def test_usb_metadata_never_runs_catalog_probe_or_flash_audit(self):
+        data = self.create("usb-metadata")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        runtime = self.root / "runtime"
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        with (self.tools / "firmware.sh").open("a") as target:
+            target.write("\nfactory_wireless() { exit 99; }\n")
+        with (self.tools / "state.sh").open("a") as target:
+            target.write("\nsnapshot_decode() { exit 98; }\n")
+        self.target(data, "relevant").write_text("physical conflict\n")
+        result, metadata = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(metadata["installedVersion"], "0.3.0-dev.10-fixture")
+        self.assertTrue(metadata["installed"])
+        self.assertFalse(metadata["completionReady"])
+        self.assertNotIn("services", metadata)
+        package = data / "packages" / (data / "package-id").read_text().strip()
+        version = (package / "VERSION").read_bytes()
+        (package / "VERSION").write_text("unverified-version\n")
+        result, error = self.api("status", argument="settings")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "invalid_version")
+        (package / "VERSION").write_bytes(version)
+        config = data / "snapshots" / metadata["revision"] / "config"
+        original = config.read_bytes()
+        config.write_bytes(original + b"unknown=1\n")
+        result, error = self.api("status", argument="settings")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "invalid_snapshot")
+        config.write_bytes(original)
+        (data / "record").unlink()
+        result, error = self.api("status", argument="settings")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "invalid_record")
+        shutil.rmtree(data)
+        data.mkdir(mode=0o700)
+        result, empty = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(empty["pending"])
+        self.assertFalse(empty["installed"])
+
+    def real_flock(self):
+        flock = self.tools / "flock"
+        flock.write_text(
+            f"#!{sys.executable}\nimport fcntl,sys\n"
+            "flags=fcntl.LOCK_UN if '-u' in sys.argv else "
+            "(fcntl.LOCK_SH if '-s' in sys.argv else fcntl.LOCK_EX)\n"
+            "if '-n' in sys.argv: flags|=fcntl.LOCK_NB\n"
+            "try: fcntl.flock(int(sys.argv[-1]),flags)\n"
+            "except OSError: sys.exit(1)\n"
+        )
+        flock.chmod(0o700)
+
+    def delayed_status(self, name):
+        data = self.create(name)
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        self.real_flock()
+        transaction = self.tools / "transaction.sh"
+        transaction.write_text(
+            transaction.read_text().replace(
+                "targets_match_loaded() {",
+                "targets_match_loaded() {\n"
+                ' if test "${operation:-}" = status && test "${argument:-}" != settings; then\n'
+                '  printf ready > "$D-audit-started"; local count=0\n'
+                '  while test ! -f "$D-audit-go"; do\n'
+                '   count=$((count+1)); test "$count" -lt 2000 || return 1; sleep 0.01\n'
+                "  done\n"
+                " fi",
+                1,
+            )
+        )
+        process = subprocess.Popen(
+            ["sh", self.tools / "backend.sh", "api", "-", "status", "-", "-", "-"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        gate = self.target(data, "audit-go")
+
+        def cleanup():
+            gate.touch()
+            try:
+                process.communicate(timeout=15)
+            except subprocess.TimeoutExpired:
+                process.terminate()
+                process.communicate(timeout=3)
+
+        self.addCleanup(cleanup)
+        deadline = time.monotonic() + 5
+        while not self.target(data, "audit-started").exists():
+            self.assertIsNone(process.poll(), "audit exited before the barrier")
+            self.assertLess(time.monotonic(), deadline)
+            time.sleep(0.01)
+        return data, process, gate
+
+    def test_restart_response_keeps_writer_excluded_until_bounded_reboot_handoff(self):
+        data = self.create("restart-writer-lock")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        self.real_flock()
+        backend = self.tools / "backend.sh"
+        reboot = self.root / "reboot.py"
+        # The host adapter enforces the same finite timeout as BusyBox on target.
+        timeout = self.root / "timeout.py"
+        timeout.write_text(
+            "import subprocess,sys\n"
+            "assert sys.argv[1:3] == ['timeout', '-t']\n"
+            "assert sys.argv[3] == '10'\n"
+            "try: sys.exit(subprocess.run(sys.argv[4:], timeout=0.2).returncode)\n"
+            "except subprocess.TimeoutExpired: sys.exit(124)\n"
+        )
+        source = backend.read_text()
+        start = self.root / "delay-started"
+        gate = self.root / "reboot-go"
+        delay = (
+            f"touch {shlex.quote(str(start))}; n=0; "
+            f"while test ! -f {shlex.quote(str(gate))}; do "
+            'n=$((n+1)); test "$n" -lt 500 || exit 1; sleep 0.01; done'
+        )
+        source = source.replace("sleep 2;", delay + ";")
+        source = source.replace(
+            "/bin/busybox", shlex.quote(sys.executable) + " " + shlex.quote(str(timeout))
+        )
+        source = source.replace(
+            "printf restarted > " + shlex.quote(str(self.root / "restarted")),
+            shlex.quote(sys.executable) + " " + shlex.quote(str(reboot)),
+        )
+        backend.write_text(source)
+        fields = (data / "record").read_text().split("|")
+        expected = (data / "record").read_bytes()
+        for behavior in ("return", "fail", "hang"):
+            with self.subTest(behavior=behavior):
+                start.unlink(missing_ok=True)
+                gate.unlink(missing_ok=True)
+                reboot.write_text(
+                    "import sys,time\n"
+                    + ("time.sleep(5)\n" if behavior == "hang" else "")
+                    + ("sys.exit(1)\n" if behavior == "fail" else "")
+                )
+                result, answer = self.api("restart", fields[5])
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertTrue(answer["ok"])
                 try:
-                    _, refused = self.api("status", argument=argument)
-                    self.assertTrue(refused["conflict"])
-                    self.assertFalse(refused["completionReady"])
+                    deadline = time.monotonic() + 2
+                    while not start.exists():
+                        self.assertLess(time.monotonic(), deadline)
+                        time.sleep(0.01)
+                    # A complete second backend write must fail before prepare.
+                    result, answer = self.api("uninstall", fields[5])
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(answer["error"], "busy")
+                    self.assertEqual((data / "record").read_bytes(), expected)
                 finally:
-                    dependency.write_bytes(original)
-                self.assertEqual((data / "record").read_bytes(), before)
+                    gate.touch()
+                deadline = time.monotonic() + 3
+                with (self.root / "runtime/lock").open("r+") as lock:
+                    while True:
+                        try:
+                            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                            break
+                        except BlockingIOError:
+                            self.assertLess(time.monotonic(), deadline)
+                            time.sleep(0.01)
+
+    def test_failed_usb_writer_allows_removal_and_replacement_recovery(self):
+        data = self.create("usb-failed-writer")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        runtime = self.root / "runtime"
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        fields = (data / "record").read_text().split("|")
+        failure = self.target(data, "nvram-commit-fails")
+        failure.touch()
+        result, answer = self.api("uninstall", fields[5])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(answer["error"], "nvram_commit_failed")
+        self.assertEqual((data / "record").read_text().split("|")[1], "uninstall")
+        self.assertFalse(os.path.lexists(self.tools / "admitted"))
+        self.api("dismiss", argument="usb")
+        # Exercise the actual stop and replacement branches. Only the native
+        # listener and its Linux /proc retirement adapter are replaced on host.
+        service = self.tools / "service.sh"
+        with service.open("a") as target:
+            target.write(
+                "\nstop_listener() { :; }\n"
+                'service_listen() { service_config "$2"; ln -sfn "$1" "$service_runtime"; }\n'
+            )
+        usb = (ROOT / "cmu/installer/usb-service.sh").read_text()
+        usb = usb.replace("/tmp/open-connect", str(runtime))
+        usb = usb.replace("/tmp/mnt/data_persist/open-connect", str(data))
+        usb = usb.replace("retire) retire;;", "retire) exit 0;;")
+        (self.tools / "usb-service.sh").write_text(usb)
+        sessions = runtime / "sessions"
+        sessions.mkdir(mode=0o700)
+        old = sessions / "session-old"
+        self.tools.rename(old)
+        self.tools = old
+        (runtime / "usb-runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(old)
+        env = {**os.environ, "PATH": str(old) + os.pathsep + os.environ["PATH"]}
+        stopped = subprocess.run(
+            ["sh", old / "usb-service.sh", "stop"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=env,
+        )
+        self.assertEqual(stopped.returncode, 0, stopped.stdout + stopped.stderr)
+        self.assertFalse((runtime / "usb-runtime").exists())
+        replacement = self.root / "replacement"
+        shutil.copytree(old, replacement)
+        (replacement / "closed").unlink()
+        (replacement / "api").write_text("#!/bin/sh\nexit 0\n")
+        (replacement / "files.sha256").write_text(
+            "".join(
+                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                for p in sorted(replacement.iterdir())
+                if p.is_file() and not p.is_symlink() and p.name != "files.sha256"
+            )
+        )
+        started = subprocess.run(
+            ["sh", replacement / "usb-service.sh"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=env,
+        )
+        self.assertEqual(started.returncode, 0, started.stdout + started.stderr)
+        self.tools = Path(started.stdout.strip())
+        _, pending = self.api("status", argument="settings")
+        self.assertTrue(pending["pending"])
+        self.assertFalse(pending["completionReady"])
+        failure.unlink()
+        result, recovered = self.api("recover", pending["revision"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(data.exists())
+        self.assertFalse(recovered["pending"])
+        self.assertTrue(recovered["restart"])
+        self.assertTrue((self.tools / "admitted").is_symlink())
+
+    def test_successful_usb_removal_retains_bounded_readback_and_restart(self):
+        data = self.create("usb-success-retention")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        runtime = self.root / "runtime"
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        revision = (data / "record").read_text().split("|")[5]
+        result, _ = self.api("uninstall", revision)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(data.exists())
+        admitted = self.tools / "admitted"
+        lease = os.readlink(admitted)
+        self.assertEqual(lease, "OCUSB1|22000|-")
+        self.api("dismiss", argument="usb")
+        result, readback = self.api("status")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(readback["installed"])
+        self.assertFalse(readback["pending"])
+        for malformed in (lease + "\n", lease + "|extra", "OCUSB1|999999|-", "", "OCUSB1|22000|a"):
+            admitted.unlink()
+            if malformed:
+                admitted.symlink_to(malformed)
+            else:
+                admitted.touch()  # Legacy empty markers have no authority.
+            result, error = self.api("restart")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(error["error"], "session_closed")
+        admitted.unlink()
+        admitted.symlink_to(lease)
+        (self.root / "uptime").write_text("220.00 0.00\n")
+        result, error = self.api("restart")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "session_closed")
+        (self.root / "uptime").write_text("219.99 0.00\n")
+        result, answer = self.api("restart")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(answer["ok"])
+
+    def test_usb_writer_outlives_expired_lease_and_refreshes_it_at_success(self):
+        data = self.create("usb-writer-expired-lease")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        self.real_flock()
+        runtime = self.root / "runtime"
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        current = (data / "record").read_text().split("|")[5]
+        (self.tools / "admitted").symlink_to(f"OCUSB1|10001|{current}")
+        adapter = self.tools / "firmware.sh"
+        adapter.write_text(
+            adapter.read_text().replace(
+                "nvram_change() {",
+                "nvram_change() {\n"
+                ' printf ready > "$D-writer-started"; local count=0\n'
+                ' while test ! -f "$D-writer-go"; do\n'
+                '  count=$((count+1)); test "$count" -lt 1000 || return 1; sleep 0.01\n'
+                " done\n",
+            )
+        )
+        writer = subprocess.Popen(
+            ["sh", self.tools / "backend.sh", "api", current, "uninstall", "-", "-", "-"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        gate = self.target(data, "writer-go")
+        try:
+            deadline = time.monotonic() + 5
+            while not self.target(data, "writer-started").exists():
+                self.assertIsNone(writer.poll())
+                self.assertLess(time.monotonic(), deadline)
+                time.sleep(0.01)
+            (self.root / "uptime").write_text("1000.00 0.00\n")
+            self.assertFalse(os.path.lexists(self.tools / "admitted"))
+            prepared = (data / "record").read_bytes()
+            self.assertEqual(prepared.decode().split("|")[1], "uninstall")
+            result, error = self.api("recover", prepared.decode().split("|")[2])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(error["error"], "busy")
+            self.assertEqual((data / "record").read_bytes(), prepared)
+        finally:
+            gate.touch()
+            out, err = writer.communicate(timeout=10)
+        self.assertEqual(writer.returncode, 0, out + err)
+        self.assertTrue(json.loads(out)["ok"])
+        self.assertEqual(os.readlink(self.tools / "admitted"), "OCUSB1|112000|-")
+
+    def test_slow_audit_allows_an_unchanged_exclusive_settings_reader(self):
+        _, process, gate = self.delayed_status("concurrent-read")
+        backend = self.tools / "backend.sh"
+        source = backend.read_text()
+        lock = (
+            'if test "$operation:$argument" = status:settings; then flock -n -s 9 || fail busy\n'
+            "else flock -n -x 9 || fail busy; fi"
+        )
+        self.assertIn(lock, source)
+        # The old installed reader takes an exclusive lock. Merely changing the
+        # new audit to a shared lock would still block this exact behavior.
+        legacy = source.replace(lock, "flock -n -x 9 || fail busy")
+        result = subprocess.run(
+            ["sh", "-c", legacy, str(backend), "api", "-", "status", "settings", "-", "-"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(json.loads(result.stdout)["installed"])
+        self.assertIsNone(process.poll())
+        self.assertFalse(gate.exists())
+        gate.touch()
+        out, err = process.communicate(timeout=15)
+        self.assertEqual(process.returncode, 0, out + err)
+
+    def test_audit_discards_a_changed_authoritative_record(self):
+        data, process, gate = self.delayed_status("changed-audit-record")
+        with (self.root / "runtime/lock").open("r+") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            record = data / "record"
+            fields = record.read_text().split("|")
+            fields[2] = "f" * 32
+            pending = data / "record-test-new"
+            pending.write_text("|".join(fields))
+            pending.chmod(0o600)
+            pending.replace(record)
+        expected = record.read_bytes()
+        gate.touch()
+        out, _ = process.communicate(timeout=15)
+        self.assertNotEqual(process.returncode, 0)
+        self.assertEqual(json.loads(out)["error"], "busy")
+        self.assertEqual(record.read_bytes(), expected)
+
+    def test_audit_discards_a_retired_runtime(self):
+        _, process, gate = self.delayed_status("retired-audit-runtime")
+        pointer = self.root / "runtime/runtime"
+        with (self.root / "runtime/lock").open("r+") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            pointer.unlink()
+            pointer.symlink_to(self.root / "successor")
+        gate.touch()
+        out, _ = process.communicate(timeout=15)
+        self.assertNotEqual(process.returncode, 0)
+        self.assertEqual(json.loads(out)["error"], "session_replaced")
+
+    def test_usb_cancel_closes_only_its_own_session(self):
+        data = self.create("usb-cancel-notice")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        pointer = self.root / "runtime/runtime"
+        pointer.unlink()
+        (self.root / "runtime/usb-runtime").symlink_to(self.tools)
+        expected = (data / "record").read_bytes()
+        result, answer = self.api("dismiss", argument="usb")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(answer, {"ok": True})
+        self.assertTrue((self.tools / "closed").exists())
+        self.assertEqual((data / "record").read_bytes(), expected)
+        self.assertFalse(os.path.lexists(self.tools / "admitted"))
+        result, answer = self.api("install", (data / "record").read_text().split("|")[5])
+        self.assertEqual(answer["error"], "session_closed")
+        self.assertEqual((data / "record").read_bytes(), expected)
+
+    def test_definite_prewrite_refusal_releases_its_volatile_admission(self):
+        data = self.create("usb-refused-admission")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        (self.root / "runtime/runtime").unlink()
+        (self.root / "runtime/usb-runtime").symlink_to(self.tools)
+        expected = (data / "record").read_bytes()
+        result, answer = self.api("install", "f" * 64)
+        self.assertEqual(answer["error"], "stale_state")
+        self.assertFalse(os.path.lexists(self.tools / "admitted"))
+        self.assertEqual((data / "record").read_bytes(), expected)
 
     def test_selection_markers_require_the_complete_canonical_file(self):
         data = self.create("selection-markers")
@@ -968,11 +2243,11 @@ class InstallerTransaction(unittest.TestCase):
                 with self.subTest(marker=name, content=content):
                     marker.write_text(content)
                     result, status = self.api("status", argument="settings")
-                    self.assertEqual(result.returncode, 0, result.stderr)
                     if name == "selected":
-                        self.assertTrue(status["restart"])
-                        self.assertTrue(all(r["current"] is None for r in status["services"]))
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertEqual(status["error"], "invalid_selected_snapshot")
                     else:
+                        self.assertEqual(result.returncode, 0, result.stderr)
                         self.assertEqual(status["uart"], 1)
                         self.assertEqual(status["uartCurrent"], 0)
             marker.write_text(current + "\n")
@@ -1005,6 +2280,50 @@ class InstallerTransaction(unittest.TestCase):
                     before,
                 )
                 path.write_bytes(original)
+
+    def test_usb_recovers_partial_purge_with_live_pinned_endpoint(self):
+        data = self.create("pinned-partial-purge")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, _ = self.legacy_endpoint(data, pinned=True, version="0.3.0-dev.23")
+        pointer = self.root / "runtime/runtime"
+        self.run_ok(data, "uninstall")
+        self.assertNotEqual(self.run_command(data, "cleanup", "snapshots").returncode, 0)
+        self.assertFalse((data / "snapshots").exists())
+        self.assertEqual((data / "record").read_text().split("|")[1], "purge")
+        result, pending = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(pending["pending"])
+        record = (data / "record").read_bytes()
+        env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
+        refused = subprocess.run(
+            ["sh", target / "backend.sh", "api", pending["revision"], "set", "warning", "1", "0"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertEqual(json.loads(refused.stdout)["error"], "operation_pending")
+        self.assertEqual((data / "record").read_bytes(), record)
+        result, recovered = self.api("recover", pending["revision"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(data.exists())
+        self.assertFalse(recovered["pending"])
+        self.assertTrue(recovered["restart"])
+        self.assertEqual(pointer.readlink(), target)
+        self.assertTrue((target / "backend.sh").is_file())
+        # The surviving installed endpoint cannot create settings after purge.
+        refused = subprocess.run(
+            ["sh", target / "backend.sh", "api", "-", "set", "warning", "1", "0"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertEqual(json.loads(refused.stdout)["error"], "not_installed")
+        self.assertFalse(data.exists())
 
     def test_backend_recovers_after_snapshots_or_record_have_been_deleted(self):
         for cut in ("snapshots", "record"):

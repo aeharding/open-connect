@@ -6,7 +6,7 @@ out=$1
 case "$out" in /*) ;; *) out=$PWD/$out;; esac
 test -f "$out/api" || { echo 'Build with make release.' >&2; exit 1; }
 # Each UI inode has its own tmpfs page budget; unused space is not transferable.
-for limit in dialog.js:8192 runtime.js:16384 settings.js:28672 carplay.js:4096 loader.js:4096 backend.sh:20480 state.sh:20480 firmware.sh:45056 transaction.sh:16384 service.sh:16384 preferences.awk:8192; do
+for limit in dialog.js:8192 runtime.js:16384 maintenance.js:20480 settings.js:28672 carplay.js:4096 loader.js:4096 backend.sh:24576 state.sh:20480 firmware.sh:45056 transaction.sh:16384 service.sh:16384 preferences.awk:8192; do
     name=${limit%:*}; bytes=${limit#*:}
     test "$(wc -c < "cmu/installer/$name")" -le "$bytes" || {
         echo "$name exceeds its RAM page budget ($bytes bytes)." >&2; exit 1;
@@ -19,7 +19,7 @@ test "$#" -eq 1 && test -f "$1" && test ! -L "$1"
 cp "$1" cmu/installer/usb-root/jci-autoupdate "$out/usb/"
 package=$out/usb/open-connect
 mkdir "$package"
-for file in run.sh session.sh service.sh loader.js runtime.js dialog.js settings.js carplay.js \
+for file in run.sh session.sh service.sh usb-service.sh loader.js runtime.js maintenance.js dialog.js settings.js carplay.js \
     backend.sh state.sh transaction.sh firmware.sh access.sh console.sh boot.sh startup-hook.sh startup-join.sh ignition.sh \
     system-hook.js base-logging.js defer-gap2.sh defer-nav.sh ui-profile.awk ui-modules.tsv wireless.sh wireless-device.awk preferences.awk services.tsv sm-profile.awk VERSION KENATIA-LICENSE; do
     cp "cmu/installer/$file" "$package/$file"

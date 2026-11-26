@@ -275,6 +275,24 @@ The UI and install/uninstall backend run on the CMU without a host computer,
 SSH, network access or `oc`. Preserve the runtime pieces needed for Settings and
 uninstall on the CMU; a compatible replacement USB must also support maintenance.
 
+**Owner rule (2026-11-25): installed Settings and the installer popup are separate.**
+Settings loads only from the boot-selected installed package and remains the same
+running interface until restart. USB insertion must never replace its code, menu
+row, callbacks or backend with a USB version. The transient installer popup owns
+only maintenance prompts and progress; it sends choices to the backend, which
+owns verified installation, update, uninstall and recovery writes. USB loading or
+verification must not hold an ordinary Settings tap. A committed update becomes
+the installed Settings version through the normal restart. Keep one authoritative
+transaction record and serialize conflicting changes without coupling the two
+interfaces' loading, state or cleanup.
+
+Owner direction (2026-11-25): spend independent agent effort on repeated
+adversarial architecture and code-quality reviews, with particular attention to
+following Mazda's own patterns. Maintain and refine the findings as GitHub issues,
+including bugs discovered along the way. Delegate suitable independent fixes,
+integrate them, and have the revised code challenged again. Keep these reviews
+focused on concrete evidence and useful simplification, not invented ceremony.
+
 Keep loader, UI and backend logic in checked-in static files. Runtime tokens,
 ports and paths are data. Build output should be compiled native code and
 checksum/version manifests, not generated shell or JavaScript application logic.

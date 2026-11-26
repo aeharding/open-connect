@@ -18,8 +18,7 @@ function validServices(rows){
  return rows.every(function(row){
  if(!row||!/^[a-z][a-z0-9-]{0,31}$/.test(row.id)||row.id<=previous||
    /^(touch|warning|base|wireless|uart|ssh|carplay-autoshow)$/.test(row.id)||
-   (row.saved!==0&&row.saved!==1)||
-   (row.current!==null&&row.current!==0&&row.current!==1)){return false;}
+   !bit(row.saved)||(row.current!==null&&!bit(row.current))){return false;}
  previous=row.id;
  return["label","enable","disable"].every(function(key){
   return typeof row[key]==="string"&&row[key].length>0&&
@@ -61,7 +60,7 @@ function autoshow(s){
 }
 function toggle(title,on,key){return{text1:title,itemStyle:"styleOnOff",value:on?1:2,hasCaret:false,appData:key};}
 
-// Stock offscreen/reparent/lifecycle sequence; MMUI keeps context ownership.
+// Stock offscreen slide/reparent; MMUI owns context.
 function slide(from,to,back,done,reveal){
  var a=from.divElt,b=to.divElt,timer,finished=false;
  var init=back?"Transitions_Init_OffscreenLeft":"Transitions_Init_OffscreenRight";
@@ -94,12 +93,17 @@ function replace(obj,key,fn){
 }
 
 function settingsApp(id){
- return id==="syssettings"||id==="vehsettings"||id==="audiosettings";
+ return /^(sys|veh|audio)settings$/.test(id);
 }
 
+function voice(fw){
+ var c=fw.common;
+ return c._vuiHelpDialog||c._vuiExamplesDialog||
+ /^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(c._cachedVuiState);
+}
 function inTab(fw){
  return settingsApp(fw.getCurrentApp())&&/Tab$/.test(fw.getCurrCtxtId())&&
- fw._frameworkState===fw._FWK_STATE_IDLE&&!fw.common._vuiHelpDialog&&!fw.common._vuiExamplesDialog;
+ fw._frameworkState===fw._FWK_STATE_IDLE&&!voice(fw)&&!dialogs.foreign(fw);
 }
 
 function preferences(store){
@@ -140,17 +144,17 @@ function preferences(store){
  }
  busy=true;
  var answered=false;
- function finish(actual){
+ function finish(actual,outcome){
   if(answered){return;}
   answered=true;
   busy=false;
   // Never resend after a lost ack.
-  if(!valid(actual)){actual=read();}
+  if(outcome==="restart"){wanted={};}else if(!valid(actual)){actual=read();}
   if(valid(actual)){saved=actual;}
   var failed=!valid(actual)||(preference(actual,key)!==requested&&wanted[key]===requested);
   if(failed){
    delete wanted[key];
-   prefs.failure=key;
+   prefs.failure=outcome||key;
    if(prefs.changed){prefs.changed(true);}
   }else if(wanted[key]===requested){delete wanted[key];}
   flush();
@@ -175,7 +179,10 @@ function preferences(store){
   if(answered){return;}
   answered=true;busy=false;
   if(valid(actual)){saved=actual;}
-  done(valid(actual)&&!failed?actual:null);
+  if(failed==="restart"){
+   wanted={};prefs.failure=failed;
+   if(prefs.changed){prefs.changed(true);}
+  }else{done(valid(actual)&&!failed?actual:null,failed);}
   flush();
  }
  try{store.importKey(finish);}catch(error){finish(null);}
@@ -211,6 +218,7 @@ function open(fw,store){
  while(restorers.length){restorers.pop()();}
  discard(page);
  host.divElt.style.display=oldDisplay;
+ if(fw.common._openConnectPage===close)delete fw.common._openConnectPage;
  active=false;
  }
  function ask(title,text,label,action,done){
@@ -222,6 +230,9 @@ function open(fw,store){
  var values=prefs.failure?null:prefs.values();
  if(!values){index="unknown";focus=0;}
  var rows=[],title="Open Connect",i,row;
+ function action(text,key,caret,disabled){
+  rows.push({text1:text,itemStyle:"style01",hasCaret:!!caret,appData:key,disabled:!!disabled});
+ }
  function entry(i){
   var e=entries[i];
   if(values[e.key]!==undefined){rows.push({text1:e.title,
@@ -243,18 +254,17 @@ function open(fw,store){
   entry(0);entry(1);
   if(values.base!==undefined){rows.push(toggle("Startup optimizations",values.base,"base"));}
   if(values.wireless!==undefined||values.carplayAutoshow!==undefined||service(values,"android-auto")){
-   rows.push({text1:"CarPlay & Android Auto",itemStyle:"style01",hasCaret:true,appData:"phone"});
+   action("CarPlay & Android Auto","phone",true);
   }
   if(values.services||values.pandora!==undefined){
-   rows.push({text1:"Audio sources",itemStyle:"style01",hasCaret:true,appData:"sources"});
+   action("Audio sources","sources",true);
   }
   if(values.developer){
-   rows.push({text1:"Developer options",itemStyle:"style01",hasCaret:true,appData:"developer"});
+   action("Developer options","developer",true);
   }
-  rows.push({text1:"Apply changes",itemStyle:"style01",hasCaret:false,appData:"restart",disabled:!canRestart()});
-  rows.push({text1:"Uninstall",itemStyle:"style01",hasCaret:false,appData:"uninstall",
-   disabled:typeof store.uninstall!=="function"});
-  rows.push({text1:"About",itemStyle:"style01",hasCaret:false,appData:"about"});
+  action("Apply changes","restart",false,!canRestart());
+  action("Uninstall","uninstall",false,typeof store.uninstall!=="function");
+  action("About","about");
  }else if(index==="phone"){
   title="CarPlay & Android Auto";
   if(values.wireless!==undefined){
@@ -264,16 +274,15 @@ function open(fw,store){
   }
   entry(2);integrations(true);
  }else if(index==="unknown"){
-  title="Change could not be confirmed";
-  rows.push({text1:"Return to Mazda Settings",itemStyle:"style01",hasCaret:false,appData:0});
+  title=prefs.failure==="restart"?"Restart Mazda Connect":"Change could not be confirmed";
+  action("Return to Mazda Settings",0);
  }else if(index==="sources"){
   title="Audio sources";integrations(false);
  }else if(index==="developer"){
   title="Developer options";
   rows.push(toggle("UART",values.uart,"uart"));
   row=toggle("SSH",values.ssh,"ssh");row.disabled=values.key==="-";rows.push(row);
-  rows.push({text1:"Import public key",itemStyle:"style01",hasCaret:true,appData:"import",
-   disabled:prefs.pending()||typeof store.importKey!=="function"});
+  action("Import public key","import",true,prefs.pending()||typeof store.importKey!=="function");
  }else{
   row=entries[index];
   title=row.title;
@@ -328,7 +337,8 @@ function open(fw,store){
   var values=prefs.values(),enabled=params.additionalData===1;
   if(!values||values.wirelessFactory===true||values.wireless===undefined||
     values.wireless===(enabled?1:0)){return;}
-  dismiss=ask((enabled?"Enable":"Disable")+" Wireless CarPlay?",enabled?"Changes apply after restarting Mazda Connect. Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth.":
+  dismiss=ask((enabled?"Enable":"Disable")+" Wireless CarPlay?",enabled?"Changes apply after restarting Mazda Connect. Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth."+
+    (values.base?" Delays Mazda Navigation about 20 s.":""):
     "Restores the original CarPlay behavior after restarting Mazda Connect.",enabled?"Enable":"Disable","apply",function(action){
     dismiss=null;
     if(action==="apply"&&current()){prefs.select("wireless",enabled?1:0);}
@@ -352,7 +362,7 @@ function open(fw,store){
     "Restores original native logging after restarting Mazda Connect.")):
    row?(enabled?row.enable:row.disable):
    "Changes apply after restarting Mazda Connect.";
-  if(item==="base"&&enabled&&/^0\.3\.0-dev\.(16|17|18|19|20)$/.test(store.version)&&values.wireless){
+  if(item==="base"&&enabled&&values.wireless){
    text+=" Wireless CarPlay delays Mazda Navigation about 20 s.";
   }
   var origin=choice;
@@ -426,6 +436,7 @@ function open(fw,store){
  }
  if(!render(null,0)){return false;}
  active=true;
+ fw.common._openConnectPage=close;
  if(store.opened){store.opened();}
  if(typeof ocCarPlay!=="undefined"&&ocCarPlay){ocCarPlay.cancel();}
  prefs.revert=function(){if(current()){render(choice,0);}};
@@ -495,8 +506,9 @@ function attach(fw,app,store){
   if(control===ctrl&&value===id){
    var selectedHost=template();
    var show=function(fresh){
-    if(!fresh||list!==ctrl||fw._currTmpltInstance!==selectedHost||
+    if(list!==ctrl||fw._currTmpltInstance!==selectedHost||
       template()!==selectedHost){return;}
+    if(!fresh){if(store.unavailable)store.unavailable();return;}
     var opened=open(fw,store);
     if(opened){closePage=opened;}
    };
@@ -552,14 +564,15 @@ function attach(fw,app,store){
  repaint();
  return result;
  });
- return function detach(transfer){
+ return function detach(){
  undoReady();
- if(release){release(!transfer&&template()&&template().list2Ctrl===list);}
+ if(release){release(template()&&template().list2Ctrl===list);}
  list=release=null;
  };
 }
 function fromHome(fw,store,result){
- if(active||waiting||fw._frameworkState!==fw._FWK_STATE_IDLE||fw.common._vuiHelpDialog||
+ if(active||waiting||fw._frameworkState!==fw._FWK_STATE_IDLE||voice(fw)||
+  fw.common._openConnectDialog||dialogs.foreign(fw)||
   fw.getCurrentApp()!=="system"||fw.getCurrCtxtId()!=="HomeScreen"){return false;}
  var attempts=0;
  var timer=setInterval(function(){
@@ -590,20 +603,14 @@ return{open:open,fromHome:fromHome,attach:attach,validStatus:validStatus,
 
 (function(a,f){
 if(!a||a.loaded&4){return;}
-var owner,held,camera,cameraSeen,displayOff;
+var camera,cameraSeen,displayOff;
+function owner(client){return client&&client.autoshowState();}
 a.owner=function(){
- if(window.__ocUSBLoading){return 2;}
- var client=window.OpenConnect;
- if(!client){return 1;}
- if(client.autoshowState){return client.autoshowState();}
- if(client!==owner){
- owner=client;held=true;a.cancel();
- ["start","reopenUSB"].forEach(function(k){if(owner[k]){a.wrap(owner,k,function(){held=true;a.cancel();});}});
- ["cancelUSB","dispose"].forEach(function(k){if(owner[k]){a.wrap(owner,k,null,function(){a.closed();});}});
- }
- return held||owner.protected()?2:0;
+ if(f.common._openConnectOperation||window.__ocCompletionLoading||window.__ocMaintenanceLoading||
+  document.getElementById("oc-maintenance-loader"))return 2;
+ return owner(window.OpenConnectCompletion)||owner(window.OpenConnectMaintenance)||
+  (window.OpenConnect?owner(window.OpenConnect):1);
 };
-a.closed=function(){if(owner===window.OpenConnect&&!owner.protected()&&!a.dialogs){held=false;}};
 function context(id,ctx){
  if(id==="backupparking"||/^(IntroAnimation|QuickStartLoop|Disclaimer)$/.test(ctx))return 1;
  if(id==="emnavi"&&ctx==="Active")return 0;
@@ -647,8 +654,8 @@ function depart(m,edge){
 a.signal=function(m){
  var id=m.msgId,p=m.params&&m.params.payload;
  var edge=a.edge(),c=m._cp.ctx;
- // Cache traffic cannot acknowledge a pending camera. Require applied focus
- // with an observed camera or a changed safe context, or explicit withdrawal.
+ // Reverse needs applied focus plus observed camera, changed safe context,
+ // or explicit withdrawal; cached traffic cannot acknowledge it.
  if(c){
  if(c[0]==="backupparking"){
   if(c[1]==="Idle"){if(!cameraSeen)camera=null;}

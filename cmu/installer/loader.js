@@ -1,49 +1,31 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* The launch URL supplies data only; authored application files stay separate. */
-(function () {
-    "use strict";
-    var entry = document.getElementById("oc-usb-loader");
-    if (!entry) { return; }
-    var owner = window.OpenConnect, held = owner && owner.protected && owner.protected();
-    if (window.__ocUSBLoading || held) {
-        if (held && entry.ocToken && (!window.__ocUSBLoading || entry.ocToken === window.__ocUSBLoading.token) && entry.parentNode) {
-            entry.parentNode.removeChild(entry);
-        }
-        return;
-    }
-    var token = entry.ocToken;
-    var base = entry.src.slice(0, entry.src.lastIndexOf("/") + 1);
-    var stopped = false, nodes = [entry];
-    var state = {token: token, until: Date.now() + 65000, owner: owner, valid: function () {
-        return window.__ocUSBLoading === state && window.OpenConnect === (owner || state.client);
-    }, done: finish, resolve: resolve, cancel: function () {
-        if (state.client) { state.client.cancelUSB(token); }
-        finish();
-    }};
-    window.__ocUSBLoading = state;
-    function resolve(answer) {
-        var waits = state.wait || []; delete state.wait;
-        waits.forEach(function (fn) { fn(answer); });
-    }
-    function finish() {
-        resolve();
-        stopped = true; owner = null; state.owner = state.client = null;
-        for (var i = 0; i < nodes.length; i++) {
-            if (nodes[i] && nodes[i].parentNode) { nodes[i].parentNode.removeChild(nodes[i]); }
-        }
-        if (window.__ocUSBLoading === state) { delete window.__ocUSBLoading; }
-    }
-    function load(file, id, next) {
-        if (stopped) { return; }
-        utility.loadScript(base + file, {id: id, ocToken: token}, function () {
-            if (!stopped) { next(); }
-        });
-        nodes.push(document.getElementById(id));
-    }
-    // Use this verified package's client, including its operation deadline.
-    // Runtime retains the installed client until the replacement is ready.
-    load("runtime.js", "oc-usb-ui", function () {
-        if (!state.client) { finish(); return; }
-        state.client.start(token, true);
-    });
-}());
+/* USB loads its popup only. Installed Settings is never inspected or replaced. */
+var OpenConnectUSBStart=function(entry){
+"use strict";
+if(!entry||document.getElementById("oc-maintenance-loader")!==entry||
+ window.__ocMaintenanceLoading&&window.__ocMaintenanceLoading.entry===entry)return;
+var token=entry.ocToken,base=entry.src.slice(0,entry.src.lastIndexOf("/")+1),discovery=entry.ocDiscovery;
+if(!/^[a-f0-9]{32}$/.test(token)||entry.ocPort!==15557)return;
+if(window.__ocMaintenanceLoading)window.__ocMaintenanceLoading.finish();
+var state={token:token,entry:entry,finish:finish},node,stopped=false;
+window.__ocMaintenanceGeneration=state;
+window.__ocMaintenanceLoading=state;
+function current(){return window.__ocMaintenanceGeneration===state;}
+function finish(){
+ if(stopped)return;stopped=true;clearTimeout(timer);
+ [entry,node].forEach(function(n){if(n&&n.parentNode)n.parentNode.removeChild(n);});
+ if(window.__ocMaintenanceLoading===state)delete window.__ocMaintenanceLoading;
+}
+// Legacy entry already owns the deadline, including time before this delivery.
+if(discovery)discovery.stop=finish;
+var timer=discovery?null:setTimeout(finish,65000);
+utility.loadScript(base+"maintenance.js",{id:"oc-maintenance-popup"},function(){
+ if(!stopped&&current()&&document.getElementById("oc-maintenance-loader")===entry&&
+   typeof window.OpenConnectMaintenanceStart==="function"){
+  var client=OpenConnectMaintenanceStart({token:token,port:15557,role:"usb",current:current,discovery:discovery});
+  if(discovery&&!client)discovery.cancel();
+ }else if(discovery)discovery.cancel();
+ finish();
+});
+node=document.getElementById("oc-maintenance-popup");
+};

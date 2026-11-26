@@ -20,8 +20,10 @@ STATIC = (
     "run.sh",
     "session.sh",
     "service.sh",
+    "usb-service.sh",
     "loader.js",
     "runtime.js",
+    "maintenance.js",
     "dialog.js",
     "settings.js",
     "carplay.js",
@@ -248,35 +250,59 @@ class UsbBuild(unittest.TestCase):
                 self.assertEqual(index.read_text(), body)
 
     def test_session_teardown_preserves_the_frontend_owner(self):
-        for reason, expected_calls in (
-            ("done", 1),
-            ("done-and-removed", 1),
-            ("removed", 2),
-            ("superseded", 1),
-            ("preclosed", 0),
-        ):
-            with self.subTest(reason=reason), tempfile.TemporaryDirectory() as tmp:
+        cases = (
+            "done",
+            "done-and-removed",
+            "removed",
+            "superseded",
+            "preclosed",
+            "removed-at-publication",
+            "superseded-at-publication",
+        )
+        for receiver, reason in [(v, r) for v in (False, True) for r in cases] + [
+            (True, "final-suppressed")
+        ]:
+            no_entry = reason in (
+                "preclosed",
+                "removed-at-publication",
+                "superseded-at-publication",
+                "final-suppressed",
+            )
+            expected_calls = int(not receiver and not no_entry)
+            with (
+                self.subTest(receiver=receiver, reason=reason),
+                tempfile.TemporaryDirectory() as tmp,
+            ):
                 root = Path(tmp).resolve()
                 work, runtime, media, bin_dir = (
-                    root / n for n in ("work", "runtime", "media", "bin")
+                    root / n for n in ("work", "session-abc123", "media", "bin")
                 )
                 for path in (work, runtime, media, bin_dir):
                     path.mkdir()
                 registry = root / "registry"
                 registry.mkdir()
-                (registry / "runtime").symlink_to(runtime)
-                (registry / "listener").write_text(f"1 2 {runtime}\n")
+                if receiver:
+                    feature = registry / "feature"
+                    feature.mkdir()
+                    (feature / "runtime.js").write_text("/* OC_USB_OFFER_V1: receiver */\n")
+                (work / "state.sh").write_text("")
+                (registry / "usb-runtime").symlink_to(runtime)
+                (registry / "usb-listener").write_text(f"1 2 {runtime}\n")
                 (runtime / "token").write_text("a" * 32 + "\n")
                 (media / "run.sh").touch()
-                service = (
-                    'service_owns_listener() { test "$4" = 15555; }\n'
-                    'if test "${0##*/}" = service.sh; then\n'
-                    ' if test "${1:-}" = stop; then echo stop >> "$OC_TEST_EVENTS";\n'
-                    ' else if test "$OC_TEST_REASON" = preclosed; then : > "$OC_TEST_RUNTIME/closed"; fi; echo "$OC_TEST_RUNTIME"; fi\n'
-                    "fi\n"
-                )
+                service = 'service_owns_listener() { test "$4" = 15557; }\nservice_lock() { :; }\n'
                 for path in (work / "service.sh", runtime / "service.sh"):
                     path.write_text(service)
+                usb_service = (
+                    'if test "${1:-}" = stop; then echo stop >> "$OC_TEST_EVENTS";\n'
+                    'else case "$OC_TEST_REASON" in\n'
+                    ' preclosed) : > "$OC_TEST_RUNTIME/closed";;\n'
+                    ' removed-at-publication) rm "$OC_TEST_MEDIA/run.sh";;\n'
+                    ' superseded-at-publication) ln -sfn "$OC_TEST_OTHER" "$OC_TEST_REGISTRY/usb-runtime";;\n'
+                    'esac; echo "$OC_TEST_RUNTIME"; fi\n'
+                )
+                for path in (work / "usb-service.sh", runtime / "usb-service.sh"):
+                    path.write_text(usb_service)
                 stub = bin_dir / "dbus-send"
                 stub.write_text(
                     "#!/bin/sh\n"
@@ -287,18 +313,31 @@ class UsbBuild(unittest.TestCase):
                     " esac\n"
                     ' case "$OC_TEST_REASON" in\n'
                     '  removed|done-and-removed) rm "$OC_TEST_MEDIA/run.sh";;\n'
-                    '  superseded) ln -sfn "$OC_TEST_OTHER" "$OC_TEST_REGISTRY/runtime";;\n'
+                    '  superseded) ln -sfn "$OC_TEST_OTHER" "$OC_TEST_REGISTRY/usb-runtime";;\n'
                     " esac;;\n"
                     "esac\n"
                 )
                 stub.chmod(0o700)
+                sleep = bin_dir / "sleep"
+                sleep.write_text(
+                    '#!/bin/sh\ncase "$OC_TEST_REASON" in\n'
+                    'done|done-and-removed) : > "$OC_TEST_RUNTIME/closed";;\n'
+                    'removed) rm "$OC_TEST_MEDIA/run.sh";;\n'
+                    'superseded) ln -sfn "$OC_TEST_OTHER" "$OC_TEST_REGISTRY/usb-runtime";;\n'
+                    "*) exit 1;;\nesac\n"
+                )
+                sleep.chmod(0o700)
                 logger = bin_dir / "logger"
                 logger.write_text("#!/bin/sh\nexit 0\n")
                 logger.chmod(0o700)
                 script = root / "session.sh"
-                script.write_text(
-                    (ASSETS / "session.sh").read_text().replace("/tmp/open-connect", str(registry))
-                )
+                body = (ASSETS / "session.sh").read_text()
+                if reason == "final-suppressed":
+                    begin, end = body.index("post_restart() ("), body.index("navigate()")
+                    body = (
+                        body[:begin] + 'post_restart() { test "${1:-}" = locked; }\n' + body[end:]
+                    )
+                script.write_text(body.replace("/tmp/open-connect", str(registry)))
                 calls, events = root / "calls", root / "events"
                 env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ["PATH"])
                 env.update(
@@ -319,8 +358,15 @@ class UsbBuild(unittest.TestCase):
                 self.assertEqual(len(sent), expected_calls)
                 if sent:
                     self.assertIn("loadScript", sent[0])
-                if reason == "removed":
-                    self.assertIn("cancelUSB", sent[1])
+                    self.assertIn("oc-maintenance-loader", sent[0])
+                    self.assertNotIn("cancelUSB", sent[0])
+                    self.assertIn("OpenConnectUSBStart(entry)", sent[0])
+                if receiver and not no_entry:
+                    self.assertEqual(
+                        (runtime / "offer").read_text(), runtime.name + "|" + "a" * 32 + "\n"
+                    )
+                else:
+                    self.assertFalse((runtime / "offer").exists())
                 self.assertEqual(events.read_text(), "stop\n")
                 self.assertFalse(work.exists())
 
@@ -392,7 +438,7 @@ class UsbBuild(unittest.TestCase):
                         (len(z.read("open-connect/" + name)) + 4095) // 4096
                         for name in (*PAYLOAD, "files.sha256")
                     ),
-                    114,
+                    124,
                 )
                 for name in STATIC:
                     self.assertEqual(z.read("open-connect/" + name), (ASSETS / name).read_bytes())

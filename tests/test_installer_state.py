@@ -325,7 +325,15 @@ class InstallerState(unittest.TestCase):
 
         def run():
             return subprocess.run(
-                ["sh", source / "service.sh"],
+                [
+                    "sh",
+                    "-c",
+                    'set -eu; umask 077; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                    'service_lock usb; service_stage full "$(sha "$P/files.sha256")"',
+                    "staging",
+                    source,
+                    runtime,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=5,
@@ -346,3 +354,4 @@ class InstallerState(unittest.TestCase):
         self.assertNotEqual(failed.returncode, 0)
         self.assertIn("token_failed", failed.stderr)
         self.assertEqual((runtime / "token").read_bytes(), b"corrupt\n")
+        self.assertEqual(len(list((runtime / "sessions").iterdir())), 2)

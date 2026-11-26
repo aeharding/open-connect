@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# RAM staging under the shared operation lock. Old sessions survive readers.
+# RAM staging. Old sessions survive readers.
 
 # Freeze attachment facts at completion proof/first scan, under R/lock. Keep the
 # successful empty observation; a later insertion must remain maintenance.
@@ -191,18 +191,16 @@ service_files() {
 
 _service_files() (
     set -eu
-    # A verified RAM closure can recover/purge even when USB owns the listener
-    # or the loopback port is unavailable. This does not publish a session.
     local package_id=$1 kind=${2:-full} work digest name extra token expected= actual count=0 linked shared
-    local seen='|' copied=
+    local seen='|' copied= reuse=false links
 if absent "$R/sessions"; then mkdir -m 700 "$R/sessions"; fi
 private_dir "$R/sessions" || fail invalid_sessions
 work=$(mktemp -d "$R/sessions/session-XXXXXX")
 service_staging_work=$work
 trap 'service_discard_private "$service_staging_work"' EXIT
 trap 'exit 1' HUP INT TERM
-# Validate the canonical parent once; restricted direct basenames cannot escape it.
 directory "$P" || fail invalid_source
+if test "$kind" = usb; then file "$P/files.sha256" || fail invalid_source; fi
 set --
 while read -r digest name extra; do
     hex "$digest" 64 && test -n "$name" && test -z "$extra" || fail invalid_manifest
@@ -231,10 +229,6 @@ while read -r digest name extra; do
         done
         ;;
     esac
-    if test "$kind" = usb; then
-        ln "$P/$name" "$work/$name" || fail runtime_link_failed
-        linked=true
-    fi
     if test "$linked" = false; then
         set -- "$@" "$P/$name"
         copied="$copied$name
@@ -243,15 +237,25 @@ while read -r digest name extra; do
 done < "$P/files.sha256"
 # Active snapshots use their persistent package's renderer.
 if test "$kind" = boot; then test "$count" -eq 16 || fail incomplete_runtime; fi
-if test "$kind" = usb; then ln "$P/files.sha256" "$work/files.sha256" || fail runtime_link_failed
-else cp "$@" "$P/files.sha256" "$work/"; fi
+case "$kind:${P%/*}:${P##*/}" in usb:/tmp:oc-usb-??????)
+    # Reuse only run.sh's unshared RAM packet; linking sealed/held inodes changes ctime.
+    if private_dir "$P" && links=$(stat -c %h "$@" "$P/files.sha256") &&
+        printf '%s\n' "$links" | awk '$0!="1"{bad=1}END{exit bad}'; then reuse=true; fi
+    ;;
+esac
+if test "$reuse" = true; then
+    ln "$@" "$P/files.sha256" "$work/" || fail runtime_link_failed
+    copied=
+else
+    cp "$@" "$P/files.sha256" "$work/"
+fi
 set -- "$work/files.sha256"
 while IFS= read -r name; do
     if test -n "$name"; then set -- "$@" "$work/$name"; fi
 done <<COPIED
 $copied
 COPIED
-# Do not change the mode of an existing feature inode shared by a hardlink.
+# Preserve modes of shared feature inodes.
 chmod 600 "$@"
 chmod 700 "$work/api" "$work/flush"
 set --

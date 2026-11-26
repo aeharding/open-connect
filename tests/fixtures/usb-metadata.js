@@ -14,7 +14,7 @@ assert.equal(Object.hasOwn(raw,'conflict'),false,'exercise the unaudited backend
 if(expected==='fresh'){
  assert.equal(raw.pending,false);assert.equal(raw.installed,false);
  assert.equal(f.dialog.props.title,'Install Open Connect?');
- assert.deepEqual(Object.values(f.dialog.props.buttonConfig).map(b=>b.appData),['cancel','install']);
+ assert.deepEqual(Object.values(f.dialog.props.buttonConfig).map(b=>b.appData),raw.retained?['cancel','install','uninstall']:['cancel','install']);
  f.pick('install');
 }else assert.equal(raw.pending,true);
 const op=expected==='fresh'?'install':'recover';

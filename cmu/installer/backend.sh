@@ -60,6 +60,7 @@ if ! absent "$D"; then
         done
     fi
 fi
+if test "$exists:$empty_state" = false:false && ! absent "$D"; then fail invalid_record; fi
 
 selection_id() {
     local value
@@ -99,7 +100,6 @@ fi
 
 usb_metadata() {
     local installed=false retained=false pending=$empty_state restart=false rev=- notice=- version installed_version=- package
-    if test "$exists:$empty_state" = false:false && ! absent "$D"; then fail invalid_record; fi
     if test "$exists" = true; then
         rev=$R_CURRENT; notice=$R_NOTICE
         if settled; then
@@ -309,20 +309,18 @@ install)
     # Installation requires the full maintenance bundle, not the boot closure.
     verify_manifest "$P" || fail incomplete_maintenance_bundle
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
-    if test "$exists" = true && test "$R_PHASE" = active; then
+    if test "$exists" = true; then
         targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
+        if test "$R_PHASE" = removed; then
+            retained_match || fail originals_changed
+        fi
     fi
     stock_dependencies || fail unsupported_original
-    if absent "$D"; then mkdir -m 700 "$D" || fail state_create_failed; flush d /tmp/mnt/data_persist; fi
-    for path in snapshots packages composed keys; do
-        if absent "$D/$path"; then mkdir -m 700 "$D/$path" || fail state_create_failed; fi
-        private_dir "$D/$path" || fail invalid_state_directory
-    done
-    flush d "$D"
+    initial_begin
     originals_save
     old_package=-; prefs=; uart=0; owner_ssh=0; key=-
     access_work=$(mktemp -d "$D/.access-XXXXXX") || fail access_plan_failed
-    trap 'record_clean; rm -rf "$access_work"' EXIT
+    trap 'record_clean; test -n "${initial_work:-}" || rm -rf "$access_work"' EXIT
     if test "$exists" = true && test "$R_PHASE" = active; then
         snapshot_read "$R_CURRENT" || fail invalid_snapshot
         test "$S_SCHEMA" = OC2 || test "$S_SCHEMA" = dev9 || fail unsupported_snapshot
@@ -337,21 +335,31 @@ install)
         access_capture "$access_work" "$uart" "$owner_ssh" "$key" "$login_inode" || fail access_backup_failed
         selector_capture "$access_work" || fail selector_backup_failed
         before=$(state_capture "$old_package" "$access_work" "$prefs") || fail checkpoint_failed
-        snapshot_read "$R_BASE" || fail originals_changed
-        if test "$S_ACCESS" = false; then
-            R_BASE=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - "$S_NVRAM" "$S_META" "$D/snapshots/$R_BASE/dependencies" "$access_work" "") || fail access_backup_failed
-        fi
     else
         test "$(sha "$AUTOSTART")" = "$(sha "$D/originals/autostart")" || fail unsupported_startup
         test "$(sha /usr/bin/runlogin)" = b77e4dadaa1173578e58d319dd3d37bb24117cb9b3baf73731c401f5a47360b8 || fail unsupported_console
         absent "/usr/bin/.open-connect-runlogin-$(stat -c %i /usr/bin/runlogin)" || fail console_hold_conflict
         access_capture "$access_work" 0 0 - || fail access_backup_failed
         selector_capture "$access_work" || fail selector_backup_failed
-        before=$(state_capture - "$access_work" "") || fail checkpoint_failed
-        R_BASE=$before
+        if test "$exists" = true; then
+            before=$R_CURRENT
+            snapshot_read "$before" || fail invalid_snapshot
+            if test "$S_ACCESS" = false; then before=$(state_capture - "$access_work" "") || fail checkpoint_failed; fi
+        else
+            before=$(state_capture - "$access_work" "") || fail checkpoint_failed
+            R_BASE=$before
+        fi
+    fi
+    if test "$exists" = true; then
+        snapshot_read "$R_BASE" || fail originals_changed
+        if test "$S_ACCESS" = false; then
+            R_BASE=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - "$S_NVRAM" "$S_META" "$D/snapshots/$R_BASE/dependencies" "$access_work" "") || fail access_backup_failed
+        fi
     fi
     if test -n "$prefs" && test "$(preference_value "$prefs" base)" = 1; then native_log_inputs_verify || fail base_inputs_changed; fi
     package=$(package_save) || fail package_failed
+    R_BACKEND=$package
+    initial_publish
     compose "$package" >/dev/null || fail composition_failed
     access_compose "$access_work" "$uart" "$owner_ssh" "$key" || fail access_plan_failed
     selector_compose "$access_work" "$package" || fail selector_plan_failed
@@ -362,12 +370,6 @@ install)
     dependencies_capture "$package" > "$deps" || fail checkpoint_dependencies_failed
     after=$(snapshot_create "$D/composed/$package/autostart" "$package" "$nvram" "$mode" "$deps" "$access_work" "$prefs") || fail plan_failed
     rm "$deps"
-    R_BACKEND=$package
-    if test "$exists" = false; then
-        R_PHASE=removed; R_CURRENT=$before; R_BEFORE=-; R_AFTER=-
-        R_BUDGET=0; R_OFF=-; R_BOOT=-; R_NOTICE=-
-        record_write; exists=true
-    fi
     transaction_prepare install "$before" "$after"
     transaction_reconcile
     ;;

@@ -167,6 +167,48 @@ uninstall_owned() (
 prepared_candidate=
 record_clean() {
     if test -n "$prepared_candidate"; then rm -f "$prepared_candidate" || :; fi
+    # Only this process's mktemp tree is owned. Never infer ownership of an
+    # orphan (or canonical state) from a missing record or a familiar name.
+    if test -n "${initial_work:-}" && private_dir "$initial_work" &&
+        test "$(stat -c '%d:%i' "$initial_work")" = "$initial_identity" &&
+        ( D=$initial_work; cleanup_mount_guard ); then rm -rf "$initial_work" || :; fi
+}
+
+initial_begin() {
+    local path
+    if test "$exists" = false; then
+        absent "$D" || fail invalid_record
+        initial_destination=$D
+        D=$(mktemp -d "${D%/*}/.open-connect-initial-XXXXXX") || fail state_create_failed
+        initial_work=$D
+        initial_identity=$(stat -c '%d:%i' "$D") || fail state_create_failed
+    fi
+    for path in snapshots packages composed keys; do
+        if absent "$D/$path"; then mkdir -m 700 "$D/$path" || fail state_create_failed; fi
+        private_dir "$D/$path" || fail invalid_state_directory
+    done
+    flush d "$D"
+}
+
+initial_publish() {
+    if test "$exists" = false; then
+        R_PHASE=removed; R_CURRENT=$before; R_BEFORE=-; R_AFTER=-
+        R_BUDGET=0; R_OFF=-; R_BOOT=-; R_NOTICE=-
+        record_write
+        absent "$initial_destination" || fail state_create_failed
+        mv "$D" "$initial_destination" || fail state_publish_failed
+        D=$initial_destination; initial_work=
+        access_work=$D/${access_work##*/}; exists=true
+    fi
+    # A same-boot retry may see a rename whose parent fsync failed. Establish
+    # the canonical name durably before a prepared record can change targets.
+    if test "$R_PHASE" = removed; then flush d "${D%/*}"; fi
+}
+
+retained_match() {
+    originals_verify || return 1
+    test "$R_BASE" = "$R_CURRENT" ||
+        { targets_match "$R_BASE" && dependencies_match "$R_BASE"; }
 }
 
 transaction_prepare() {
@@ -205,6 +247,7 @@ transaction_reconcile() {
     # The immediate caller just did this before committing the same record.
     if test "${PREPARED_REV:-}" != "$R_REV"; then
         dependencies_pair_match "$R_BEFORE" "$R_AFTER" || fail dependencies_changed
+        flush d "$D"
     fi
     file "$AUTOSTART" || fail startup_changed
     actual_hash=$(sha "$AUTOSTART"); actual_mode=$(stat -c '%a:%u:%g' "$AUTOSTART"); actual_nv=$(nvram_read) || fail nvram_unreadable

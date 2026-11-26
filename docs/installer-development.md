@@ -137,6 +137,22 @@ After interruption, reinserting a compatible USB lets it reconcile each target
 against those states. An unknown third state is preserved. An unconfirmed response
 does not cause the UI to repeat a write automatically.
 
+First Install prepares verified originals, a stock snapshot, an immutable package
+and the initial `removed` OC1 in a private sibling on the persistence filesystem.
+It publishes the whole directory with one rename before composing the install
+plan at its canonical paths. Before publication a compatible USB still offers
+Install; afterward it offers Install from that saved baseline. Retry verifies the
+saved originals and physical baseline rather than adopting later edits. Fresh
+recovery flushes the visible pending record before any target effects.
+
+Handled failures remove only the private tree created by that process, subject
+to ownership and mount checks. A hard interruption can leave an inert private
+sibling. Future attempts preserve unexplained siblings and use fresh work;
+repeated cuts can consume persistent storage. These siblings neither authorize
+recovery nor enable features, and are outside the canonical uninstall tree.
+Host filesystem/flush cuts and real backend-to-popup tests cover these choices;
+native relfs interruption and replacement-media UI timing remain unqualified.
+
 Startup publication uses one staging path named by the pending record revision.
 Recovery accepts a partial copy only when its bytes match the planned prefix;
 handled failures remove the owned stage and restore root read-only. Unknown

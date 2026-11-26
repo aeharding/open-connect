@@ -218,7 +218,7 @@ function post(op,args,done,ms,intent){
  answered=true;clearTimeout(deadline);
  var index=requests.indexOf(cancelRequest);if(index!==-1)requests.splice(index,1);
  if(dead||intent!==epoch)return;
- if(op!=="dismiss"&&!(op==="status"&&args&&args[0]==="session"))receive(a,originUSB&&op==="status"&&args&&args[0]==="settings",op==="status"&&args&&args[0]==="completion");
+ if(op!=="restart"&&op!=="dismiss"&&!(op==="status"&&args&&args[0]==="session"))receive(a,originUSB&&op==="status"&&args&&args[0]==="settings",op==="status"&&args&&args[0]==="completion");
  done(a,xhr.status);
 }
  xhr.onreadystatechange=function(){
@@ -313,11 +313,14 @@ function restart(){
  if(job.restartSent)return;
  job.phase="restart";if(!paint())return;
  job.restartSent=true;
- var current=job,until=budget();
+ var current=job;
+ // Restart admission starts at this send, independently of prior readback.
+ job.until=Date.now()+12000;
  post("restart",null,function(a){
- if(!valid(a)){reconcile(a);}
- },Math.max(1,until-Date.now()));
- setTimeout(function(){if(job===current&&job.phase!=="unresolved"){refuse(true);}},Math.max(0,until-Date.now()));
+ if(a&&a.ok===true&&a.restarting===true){
+  setTimeout(function(){if(job===current){refuse(true);}},12000);
+ }else{reconcile(a);}
+ },12000);
 }
 function changed(a){
  if(!valid(a)||a.pending||a.conflict)return false;
@@ -333,8 +336,8 @@ function reconcile(a){
  job.phase="checking";paint();
  read(function(fresh){
  if(a&&a.ok===false){refuse(!valid(fresh)||fresh.pending);}
- else if(a===null&&changed(fresh)){
-  if(!job.restartSent){restart();}
+ else if(a===null&&!job.restartSent&&changed(fresh)){
+  restart();
  }else{refuse(true);}
  },budget());
 }

@@ -165,18 +165,17 @@ usb_retain() {
     fi
 }
 
-status() {
-    local installed=false retained=false conflict=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
+status_view() {
+    local conflict=$1 installed=false retained=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
     local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 wireless_current=0
     local installed_version=- installed_package=- pandora= base= wireless= autoshow= autoshow_current=0
     local saved_schema= saved_config= saved_catalog= selected_services= selected_wireless=0 rows=
-    local selected= access_selected= audit_identity= audit_after= view_id=
+    local selected= access_selected= view_id=
     selected=$selected_snapshot
     access_selected=$(selection_id /tmp/open-connect/access-selected) || access_selected=
     if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
     if test "$empty_state" = true; then pending=true; fi
     if test "$exists" = true; then
-        record_read || fail invalid_record
         rev=$R_CURRENT; notice=$R_NOTICE
         if test "$R_PHASE" = purge; then
             rev=$R_REV; restart=true; pending=true
@@ -206,24 +205,6 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
             fi
             if test "$R_PHASE" = active; then installed=true; fi
             if test "$R_PHASE" = removed; then retained=true; fi
-            if test "$operation:$argument" != status:settings; then
-                # Fence unlocked read audits; mutations retain the writer lock.
-                if test "$operation" = status; then
-                    audit_identity=$(status_identity) || fail state_changed
-                    flock -u 9 || fail invalid_lock
-                fi
-                if ! ( if test "$view_id" != "$R_CURRENT"; then snapshot_read "$R_CURRENT" || exit 1; fi
-                    targets_match_loaded "$R_CURRENT" &&
-                    { test "$S_ACCESS" != true || access_login_check; } &&
-                    dependencies_match "$R_CURRENT"
-                ); then conflict=true; fi
-                if test "$operation" = status; then
-                    flock -n -x 9 || fail busy
-                    test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
-                    audit_after=$(status_identity) || fail state_changed
-                    test "$audit_after" = "$audit_identity" || fail busy
-                fi
-            fi
             # The authenticated view package owns this version, not USB P.
             if test "$installed" = true && test "$conflict" = false; then
                 installed_version=$(package_version "$installed_package") || installed_version=-
@@ -270,7 +251,6 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
     version=$(cat "$P/VERSION")
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
     # Retain undo=false for a running dev.1 client.
-    if test "$operation" != status; then usb_retain; fi
     printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s%s}\n' \
         "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version" \
         "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current" "$service_status,\"completionReady\":false"
@@ -278,6 +258,27 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
 
 access_snapshot() {
     snapshot_create "$D/snapshots/$1/autostart" - "$S_NVRAM" "$S_META" "$D/snapshots/$1/dependencies" "$access_work" ""
+}
+
+# Full physical read audit, fenced across the unlocked work. Rendering is also
+# usable after a verified write while the same writer lock still protects OC1.
+status() {
+    local conflict=false audit_identity= audit_after=
+    if test "$exists" = true && test "$R_PHASE" != purge; then
+        if test "$operation" = status; then
+            audit_identity=$(status_identity) || fail state_changed
+            flock -u 9 || fail invalid_lock
+        fi
+        if ! (targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT"); then conflict=true; fi
+        if test "$operation" = status; then
+            flock -n -x 9 || fail busy
+            test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
+            audit_after=$(status_identity) || fail state_changed
+            test "$audit_after" = "$audit_identity" || fail busy
+        fi
+    fi
+    if test "$operation" != status; then usb_retain; fi
+    status_view "$conflict"
 }
 
 transaction_admit() {
@@ -293,7 +294,9 @@ finish_removal() {
 }
 
 if test "$operation" = status; then
-    if test "$role:$argument" = usb:settings; then usb_metadata; else status; fi
+    if test "$role:$argument" = usb:settings; then usb_metadata
+    elif test "$argument" = settings; then status_view false
+    else status; fi
     exit
 fi
 if test "$role" = usb; then rm -f "$P/admitted"; fi
@@ -426,7 +429,7 @@ set|import)
         test "$actual" = "$expected" || fail stale_setting
         prefs=$(preferences_change "$prefs" "$package" "$preference_key" "$desired" "$schema") || fail invalid_setting
     fi
-    if test "$operation" = set && test "$expected" = "$desired"; then status; exit; fi
+    if test "$operation" = set && test "$expected" = "$desired"; then status_view false; exit; fi
     if test "$(preference_value "$prefs" base)" = 1; then native_log_inputs_verify || fail base_inputs_changed; fi
     touch=$(preference_value "$prefs" touch) || fail invalid_preferences
     snapshot_read "$R_BASE" || fail originals_changed
@@ -434,6 +437,8 @@ set|import)
     after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$access_source" "$prefs") || fail plan_failed
     transaction_prepare set "$R_CURRENT" "$after"
     transaction_reconcile
+    # Final verification and publication are protected by this same lock.
+    status_view false; exit
     ;;
 uninstall)
     test "$exists" = true || fail not_installed
@@ -472,10 +477,11 @@ restart)
     fi
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
     # Restart never replenishes the existing finite boot budget.
-    status
+    usb_retain
     # The child inherits the writer lock through the delayed handoff. A failed
     # or returning reboot releases it within the command's bounded lifetime.
     ( sleep 2; /bin/busybox timeout -t 10 /sbin/reboot ) </dev/null >/dev/null 2>&1 &
+    printf '{"ok":true,"restarting":true}\n'
     exit
     ;;
 *) fail invalid_request;;

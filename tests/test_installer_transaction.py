@@ -348,6 +348,70 @@ class InstallerTransaction(unittest.TestCase):
         self.assertFalse(data.exists())
         self.assertEqual(self.target(data, "target").read_text(), "stock\n")
 
+    def test_operation_replies_do_not_repeat_their_physical_verification(self):
+        data = self.create("operation-audits")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        backend = self.tools / "backend.sh"
+        backend.write_text(backend.read_text().replace("set -eu\n", "set -eux\n", 1))
+
+        def counted(operation, *args, passes):
+            result, answer = self.api(operation, *args)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            for function in ("targets_match_loaded", "dependencies_match"):
+                self.assertEqual(
+                    len(re.findall(r"^\++ " + function + r" ", result.stderr, re.M)),
+                    passes,
+                    (operation, function),
+                )
+            return answer
+
+        before = counted("status", passes=1)
+        counted("status", "-", "settings", passes=0)
+        saved = counted("set", before["revision"], "pandora", "1", "0", passes=3)
+        row = next(row for row in saved["services"] if row["id"] == "pandora")
+        self.assertEqual((row["saved"], row["current"]), (0, 1))
+        self.assertTrue(saved["restart"])
+        self.assertEqual(saved, counted("status", passes=1))
+        second = counted("set", saved["revision"], "warning", "1", "0", passes=3)
+        self.assertEqual((second["pandora"], second["warning"]), (0, 0))
+        self.assertNotEqual(second["revision"], saved["revision"])
+        # A no-op is already validated by admission, with no new transaction.
+        record = (data / "record").read_bytes()
+        counted("set", second["revision"], "warning", "0", "0", passes=1)
+        self.assertEqual((data / "record").read_bytes(), record)
+        ack = counted("restart", second["revision"], passes=1)
+        self.assertEqual(ack, {"ok": True, "restarting": True})
+        self.assertEqual((data / "record").read_bytes(), record)
+
+    def test_save_final_verification_failure_requires_fresh_reconciliation(self):
+        data = self.create("save-final-conflict")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        _, before = self.api("status")
+        firmware = self.tools / "firmware.sh"
+        # Change a dependency after admission/preparation, while publishing the
+        # new target, so only the command's final verification can reject it.
+        firmware.write_text(
+            firmware.read_text().replace(
+                'mv "$AUTOSTART.next" "$AUTOSTART"',
+                'mv "$AUTOSTART.next" "$AUTOSTART"\nprintf changed > "$D-relevant"',
+            )
+        )
+        result, answer = self.api("set", before["revision"], "pandora", "1", "0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(answer, {"ok": False, "error": "final_verification_failed"})
+        self.assertEqual((data / "record").read_text().split("|")[1], "set")
+        _, fresh = self.api("status")
+        self.assertTrue(fresh["pending"])
+        self.assertTrue(fresh["conflict"])
+        # A fresh full read must observe subsequent physical changes, rather
+        # than inheriting the failed write's admission or any displayed model.
+        self.target(data, "relevant").write_text("dependency\n")
+        _, fresh = self.api("status")
+        self.assertTrue(fresh["pending"])
+        self.assertFalse(fresh["conflict"])
+
     def test_pandora_only_change_never_invokes_failing_nvram_adapter(self):
         data = self.create("pandora-no-nvram")
         self.run_ok(data, "install")

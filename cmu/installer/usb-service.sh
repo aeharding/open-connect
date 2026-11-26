@@ -35,9 +35,7 @@ retire() {
 }
 
 needed() {
-    # A volatile admission holds its own endpoint through readback and restart.
-    # It is not a second transaction record. OC1 determines committed effects.
-    test -f "$1/admitted"
+    service_usb_retained "$1"
 }
 
 case "${1:-start}" in

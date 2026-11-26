@@ -1,7 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Shared synchronous RAM staging. Boot calls these functions under its existing
-# lock; the USB entry takes that same lock here. Old sessions survive requests.
+# RAM staging under the shared operation lock. Old sessions survive readers.
 
 # Freeze attachment facts at completion proof/first scan, under R/lock. Keep the
 # successful empty observation; a later insertion must remain maintenance.
@@ -134,6 +133,27 @@ service_tick() {
     service_now=$((${tick%.*} * 100 + 1${tick#*.} - 100))
 }
 
+# Call under the operation flock; this inline lease retains only readback.
+service_usb_retained() (
+    local format deadline revision lease current=-
+    test -L "$1/admitted" && lease=$(readlink "$1/admitted") || return 1
+    test "$(stat -c %s "$1/admitted")" -eq "${#lease}" || return 1
+    IFS='|' read -r format deadline revision <<LEASE
+$lease
+LEASE
+    test "$format" = OCUSB1 && test "$lease" = "$format|$deadline|$revision" || return 1
+    case "$deadline" in ''|*[!0-9]*) return 1;; esac
+    test "${#deadline}" -le 12 || return 1
+    service_tick
+    test "$deadline" -gt "$service_now" && test "$deadline" -le "$((service_now+12000))" || return 1
+    if ! absent "$D/record"; then
+        record_read || return 1
+        case "$R_PHASE" in active|removed) current=$R_CURRENT;; *) return 1;; esac
+    elif ! absent "$D"; then return 1
+    fi
+    test "$revision" = "$current"
+)
+
 service_discard_child() {
     if test -n "$2" && test "$(awk '{print $4 ":" $22}' "/proc/$1/stat" 2>/dev/null)" = "$$:$2"; then
         kill -TERM "$1" || :
@@ -153,10 +173,24 @@ service_discard_child() {
     if test "${service_role:-}" = usb && test -d "$3"; then
         : > "$3/closed"
         (exec 8>&- 9>&-; sh "$3/usb-service.sh" retire) </dev/null >/dev/null 2>&1 &
+    elif test -n "$3" && test "${pending_published:-false}" != true; then
+        service_discard_private "$3"
     fi
 }
 
+service_discard_private() {
+    case "$1" in "$R"/sessions/session-*) ;; *) return 1;; esac
+    private_dir "$1" || return 1
+    rm -f "$1"/* "$1"/.[!.]* "$1"/..?*
+    rmdir "$1"
+}
+
 service_files() {
+    runtime=$(_service_files "$@")
+}
+
+_service_files() (
+    set -eu
     # A verified RAM closure can recover/purge even when USB owns the listener
     # or the loopback port is unavailable. This does not publish a session.
     local package_id=$1 kind=${2:-full} work digest name extra token expected= actual count=0 linked shared
@@ -164,7 +198,9 @@ service_files() {
 if absent "$R/sessions"; then mkdir -m 700 "$R/sessions"; fi
 private_dir "$R/sessions" || fail invalid_sessions
 work=$(mktemp -d "$R/sessions/session-XXXXXX")
-if test "$kind" = usb; then staged=$work; fi
+service_staging_work=$work
+trap 'service_discard_private "$service_staging_work"' EXIT
+trap 'exit 1' HUP INT TERM
 # Validate the canonical parent once; restricted direct basenames cannot escape it.
 directory "$P" || fail invalid_source
 set --
@@ -184,9 +220,10 @@ while read -r digest name extra; do
     expected="$expected$digest *$work/$name
 "
     linked=false
-    case "$kind:$name" in boot:runtime.js|boot:dialog.js|boot:settings.js|boot:service.sh|boot:state.sh)
+    case "$kind:$name" in boot:runtime.js|boot:dialog.js|boot:settings.js|boot:service.sh|boot:state.sh|boot:flush)
         for shared in "$R/feature/$name" "$R/ignition/$name"; do
             if test -f "$shared" && test ! -L "$shared"; then
+                if test "$name" = flush && test "$(stat -c %a "$shared")" != 700; then continue; fi
                 ln "$shared" "$work/$name" || fail runtime_link_failed
                 linked=true
                 break
@@ -204,8 +241,7 @@ while read -r digest name extra; do
 "
     fi
 done < "$P/files.sha256"
-# Active snapshots always use their verified persistent package's renderer.
-# The installed listener needs no private RAM copy of sm-profile.awk.
+# Active snapshots use their persistent package's renderer.
 if test "$kind" = boot; then test "$count" -eq 16 || fail incomplete_runtime; fi
 if test "$kind" = usb; then ln "$P/files.sha256" "$work/files.sha256" || fail runtime_link_failed
 else cp "$@" "$P/files.sha256" "$work/"; fi
@@ -230,20 +266,20 @@ if test "$kind" = usb; then
 else
     if absent "$R/token"; then uuid > "$R/token.next"; mv "$R/token.next" "$R/token"; fi
     file "$R/token" && test "$(wc -c < "$R/token")" -eq 33 || fail token_failed
-    cp "$R/token" "$work/token"
+    ln "$R/token" "$work/token" || fail token_failed
 fi
 token=$(cat "$work/token"); hex "$token" 32 || fail token_failed
-runtime=$work
-}
+printf '%s\n' "$work"
+trap - EXIT HUP INT TERM
+)
 
 service_listen() {
 local work=$1 pid start deadline
 service_config "${2:-settings}"
 stop_listener
 if ! absent "$service_runtime"; then test -L "$service_runtime" || fail invalid_runtime_pointer; fi
-# Catch cancellation before fork; defer exit until $! and its birth time are
-# captured. A parent-only TERM must not strand an unrecorded listening child.
-pending_pid=; pending_start=; pending_work=$work; pending_cancel=false
+# Defer cancellation until the child identity is captured for owned cleanup.
+pending_pid=; pending_start=; pending_work=$work; pending_cancel=false; pending_published=false
 trap 'service_discard_child "$pending_pid" "$pending_start" "$pending_work"' EXIT
 trap 'pending_cancel=true' HUP INT TERM
 ( exec 8>&- 9>&-; exec /bin/busybox tcpsvd -E -c 4 127.0.0.1 "$service_port" \
@@ -266,14 +302,14 @@ if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
 # Publish only after identity and owned socket readiness are established.
 printf '%s %s %s\n' "$pid" "$start" "$work" > "$service_listener.next"
 ln -sfn "$work" "$service_runtime"
+pending_published=true
 mv -f "$service_listener.next" "$service_listener"
 runtime=$work
-# End the deferred fork window before checking its flag. EXIT cleanup remains
-# armed until no cancellation can be forgotten at the completion handoff.
+# Keep EXIT cleanup armed through the final cancellation check.
 trap 'exit 1' HUP INT TERM
 if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
 trap - EXIT HUP INT TERM
-unset pending_pid pending_start pending_work pending_cancel
+unset pending_pid pending_start pending_work pending_cancel pending_published
 }
 
 service_stage() {
@@ -284,8 +320,7 @@ service_stage() {
 }
 
 service_boot() {
-    # This verified RAM entry must establish package trust without sourcing
-    # writable code first. SM owns this bounded worker, outside boot selection.
+    # SM's bounded RAM worker verifies the package before sourcing it.
     set -eu
     umask 077
     D=/tmp/mnt/data_persist/open-connect

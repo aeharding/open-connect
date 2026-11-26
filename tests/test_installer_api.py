@@ -1,9 +1,12 @@
 """Exercise the real request parser with a harmless shell backend and pipes."""
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 
@@ -85,6 +88,104 @@ class InstallerApi(unittest.TestCase):
             )
         result = self.invoke(self.request(("f" * 32 + "|-|status|session|-|-").encode()))
         self.assertIn(b"403 Forbidden", result.stdout)
+
+    def media_fixture(self):
+        registry = self.root / "registry"
+        sessions = registry / "sessions"
+        installed, usb = (sessions / n for n in ("session-ABC123", "session-xyz789"))
+        installed.mkdir(parents=True)
+        usb.mkdir()
+        self.token = installed / "token"
+        self.token.write_text(TOKEN + "\n")
+        self.backend.write_text("exit 99\n")
+        (registry / "runtime").symlink_to(installed)
+        (registry / "usb-runtime").symlink_to(usb)
+        usb_token = "b" * 32
+        (usb / "token").write_text(usb_token + "\n")
+        offer = f"{usb.name}|{usb_token}\n"
+        return registry, usb, offer
+
+    def media(self):
+        result = self.invoke(self.request((TOKEN + "|-|status|media|-|-").encode()))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout.split(b"\r\n\r\n", 1)[1])
+
+    def test_media_discovery_requires_a_final_offer_and_installed_role(self):
+        registry, usb, offer = self.media_fixture()
+        self.assertEqual(self.media(), {"ok": True, "media": None})
+        (usb / "offer").write_text(offer)
+        self.assertEqual(
+            self.media(),
+            {"ok": True, "media": {"session": usb.name, "token": "b" * 32}},
+        )
+        (usb / "closed").touch()
+        self.assertEqual(self.media(), {"ok": True, "media": None})
+        (usb / "closed").unlink()
+        # Knowing a USB capability does not grant discovery of other sessions.
+        installed_token = self.token
+        self.token = usb / "token"
+        request = self.request(("b" * 32 + "|-|status|media|-|-").encode())
+        result = self.invoke(request)
+        self.assertEqual(json.loads(result.stdout.split(b"\r\n\r\n", 1)[1])["media"], None)
+        self.token = installed_token
+        (registry / "runtime").unlink()
+        self.assertEqual(self.media(), {"ok": True, "media": None})
+
+    def test_media_discovery_rejects_malformed_or_unmatched_pairs(self):
+        registry, usb, offer = self.media_fixture()
+        for data in (
+            offer.rstrip(),
+            offer + "x",
+            offer.replace("b", "c"),
+            "session-OTHER1|" + "b" * 32 + "\n",
+        ):
+            with self.subTest(data=data):
+                (usb / "offer").write_text(data)
+                self.assertEqual(self.media(), {"ok": True, "media": None})
+        (usb / "offer").unlink()
+        (self.root / "offer").write_text(offer)
+        (usb / "offer").symlink_to(self.root / "offer")
+        self.assertEqual(self.media(), {"ok": True, "media": None})
+        (usb / "offer").unlink()
+        (usb / "offer").write_text(offer)
+        (registry / "usb-runtime").unlink()
+        # The offer cannot redirect discovery outside the private registry.
+        (registry / "usb-runtime").symlink_to(self.root)
+        self.assertEqual(self.media(), {"ok": True, "media": None})
+
+    def test_media_discovery_discards_a_pointer_replaced_during_read(self):
+        registry, usb, offer = self.media_fixture()
+        successor = usb.parent / "session-NEW123"
+        successor.mkdir()
+        os.mkfifo(usb / "offer")
+        failures = []
+
+        def replace_while_reading():
+            until = time.monotonic() + 3
+            try:
+                while True:
+                    try:
+                        fd = os.open(usb / "offer", os.O_WRONLY | os.O_NONBLOCK)
+                        break
+                    except OSError:
+                        if time.monotonic() >= until:
+                            raise
+                        time.sleep(0.005)
+                with os.fdopen(fd, "w") as writer:
+                    (registry / "usb-runtime").unlink()
+                    (registry / "usb-runtime").symlink_to(successor)
+                    writer.write(offer)
+            except Exception as error:
+                failures.append(error)
+
+        writer = threading.Thread(target=replace_while_reading)
+        writer.start()
+        try:
+            self.assertEqual(self.media(), {"ok": True, "media": None})
+        finally:
+            writer.join(timeout=4)
+        self.assertFalse(writer.is_alive())
+        self.assertEqual(failures, [])
 
     def test_bad_framing_and_commands_never_dispatch(self):
         valid = self.request()

@@ -61,7 +61,7 @@ function autoshow(s){
 }
 function toggle(title,on,key){return{text1:title,itemStyle:"styleOnOff",value:on?1:2,hasCaret:false,appData:key};}
 
-// Stock offscreen/reparent/lifecycle sequence; MMUI keeps context ownership.
+// Stock offscreen slide/reparent; MMUI owns context.
 function slide(from,to,back,done,reveal){
  var a=from.divElt,b=to.divElt,timer,finished=false;
  var init=back?"Transitions_Init_OffscreenLeft":"Transitions_Init_OffscreenRight";
@@ -97,9 +97,14 @@ function settingsApp(id){
  return id==="syssettings"||id==="vehsettings"||id==="audiosettings";
 }
 
+function voice(fw){
+ var c=fw.common;
+ return c._vuiHelpDialog||c._vuiExamplesDialog||
+ /^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(c._cachedVuiState);
+}
 function inTab(fw){
  return settingsApp(fw.getCurrentApp())&&/Tab$/.test(fw.getCurrCtxtId())&&
- fw._frameworkState===fw._FWK_STATE_IDLE&&!fw.common._vuiHelpDialog&&!fw.common._vuiExamplesDialog;
+ fw._frameworkState===fw._FWK_STATE_IDLE&&!voice(fw)&&!dialogs.foreign(fw);
 }
 
 function preferences(store){
@@ -211,6 +216,7 @@ function open(fw,store){
  while(restorers.length){restorers.pop()();}
  discard(page);
  host.divElt.style.display=oldDisplay;
+ if(fw.common._openConnectPage===close)delete fw.common._openConnectPage;
  active=false;
  }
  function ask(title,text,label,action,done){
@@ -427,6 +433,7 @@ function open(fw,store){
  }
  if(!render(null,0)){return false;}
  active=true;
+ fw.common._openConnectPage=close;
  if(store.opened){store.opened();}
  if(typeof ocCarPlay!=="undefined"&&ocCarPlay){ocCarPlay.cancel();}
  prefs.revert=function(){if(current()){render(choice,0);}};
@@ -561,7 +568,8 @@ function attach(fw,app,store){
  };
 }
 function fromHome(fw,store,result){
- if(active||waiting||fw._frameworkState!==fw._FWK_STATE_IDLE||fw.common._vuiHelpDialog||
+ if(active||waiting||fw._frameworkState!==fw._FWK_STATE_IDLE||voice(fw)||
+  fw.common._openConnectDialog||dialogs.foreign(fw)||
   fw.getCurrentApp()!=="system"||fw.getCurrCtxtId()!=="HomeScreen"){return false;}
  var attempts=0;
  var timer=setInterval(function(){
@@ -593,12 +601,11 @@ return{open:open,fromHome:fromHome,attach:attach,validStatus:validStatus,
 (function(a,f){
 if(!a||a.loaded&4){return;}
 var camera,cameraSeen,displayOff;
+function owner(client){return client&&client.autoshowState();}
 a.owner=function(){
- if(window.__ocMaintenanceLoading){return 2;}
- var popup=window.OpenConnectMaintenance,gate=popup&&popup.autoshowState();
- if(gate)return gate;
- var client=window.OpenConnect;
- return client?client.autoshowState():1;
+ if(f.common._openConnectOperation||window.__ocCompletionLoading||window.__ocMaintenanceLoading)return 2;
+ return owner(window.OpenConnectCompletion)||owner(window.OpenConnectMaintenance)||
+  (window.OpenConnect?owner(window.OpenConnect):1);
 };
 function context(id,ctx){
  if(id==="backupparking"||/^(IntroAnimation|QuickStartLoop|Disclaimer)$/.test(ctx))return 1;
@@ -643,8 +650,8 @@ function depart(m,edge){
 a.signal=function(m){
  var id=m.msgId,p=m.params&&m.params.payload;
  var edge=a.edge(),c=m._cp.ctx;
- // Cache traffic cannot acknowledge a pending camera. Require applied focus
- // with an observed camera or a changed safe context, or explicit withdrawal.
+ // Reverse needs applied focus plus observed camera, changed safe context,
+ // or explicit withdrawal; cached traffic cannot acknowledge it.
  if(c){
  if(c[0]==="backupparking"){
   if(c[1]==="Idle"){if(!cameraSeen)camera=null;}

@@ -10,11 +10,10 @@ AUTOSTART=/usr/bin/autostart
 . "$P/firmware.sh"
 . "$P/access.sh"
 . "$P/transaction.sh"
+. "$P/service.sh"
 
 # Errors are fixed identifiers, never device output or interpolated user text.
 fail() {
-    if test "${admission_created:-false}" = true &&
-        test "$(status_identity 2>/dev/null || :)" = "$admission_before"; then rm -f "$P/admitted"; fi
     printf '{"ok":false,"error":"%s"}\n' "$1"; exit 1
 }
 firmware_guard
@@ -41,7 +40,7 @@ else flock -n -x 9 || fail busy; fi
 test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
 if test "$role" = usb && test "$operation" != status; then
     if test -f "$P/closed"; then
-        test "$operation" = restart && test -f "$P/admitted" || fail session_closed
+        test "$operation" = restart && service_usb_retained "$P" || fail session_closed
     fi
     case "$operation" in install|uninstall|recover|restart) ;; *) fail invalid_request;; esac
 fi
@@ -72,7 +71,7 @@ status_identity() {
     local marker path value
     if absent "$D/record"; then printf 'record=absent\n'
     else
-        file "$D/record" && value=$(sha "$D/record") || return 1
+        file "$D/record" && value=$(sha "$D/record") && hex "$value" 64 || return 1
         printf 'record=%s\n' "$value"
     fi
     for marker in selected access-selected boot-id; do
@@ -82,10 +81,50 @@ status_identity() {
             value=$(readlink "$path") || return 1
             printf '%s=link:%s\n' "$marker" "$value"
         elif file "$path"; then
-            value=$(sha "$path") || return 1
+            value=$(sha "$path") && hex "$value" 64 || return 1
             printf '%s=file:%s\n' "$marker" "$value"
         else return 1; fi
     done
+}
+
+settings_package=
+selected_snapshot=$(selection_id /tmp/open-connect/selected) || selected_snapshot=
+if test "$role" = settings && test -n "$selected_snapshot" && test "$exists" = true && test "$R_PHASE" != purge; then
+    settings_package=$(snapshot_package "$selected_snapshot") || fail invalid_selected_snapshot
+    test "$settings_package" != - || fail invalid_selected_snapshot
+fi
+
+usb_metadata() {
+    local installed=false retained=false pending=$empty_state restart=false rev=- notice=- version installed_version=- package
+    if test "$exists:$empty_state" = false:false && ! absent "$D"; then fail invalid_record; fi
+    if test "$exists" = true; then
+        rev=$R_CURRENT; notice=$R_NOTICE
+        if settled; then
+            package=$(snapshot_package "$R_CURRENT") || fail invalid_snapshot
+            if test "$R_PHASE" = active; then
+                installed=true
+                installed_version=$(package_version "$package") || fail invalid_version
+                test "$selected_snapshot" = "$R_CURRENT" || restart=true
+            else retained=true; fi
+        else
+            pending=true; restart=true; rev=$R_REV
+        fi
+    fi
+    version=$(cat "$P/VERSION") || fail invalid_version
+    case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
+    test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
+    test ! -f "$P/closed" || fail session_closed
+    printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"pending":%s,"restart":%s,"notice":"%s","version":"%s","installedVersion":"%s","completionReady":false}\n' \
+        "$rev" "$installed" "$retained" "$pending" "$restart" "$notice" "$version" "$installed_version"
+}
+
+usb_retain() {
+    if test "$role" = usb; then
+        service_tick
+        local current=-
+        if test "$exists" = true; then current=$R_CURRENT; fi
+        ln -s "OCUSB1|$((service_now+12000))|$current" "$P/admitted"
+    fi
 }
 
 status() {
@@ -93,7 +132,7 @@ status() {
     local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 wireless_current=0
     local installed_version=- installed_package=- pandora= base= wireless= autoshow= autoshow_current=0
     local saved_schema= saved_config= saved_catalog= selected_services= selected_wireless=0 rows=
-    local selected= access_selected= version_hash= completion_check=false audited=false kernel_boot= audit_identity=
+    local selected= access_selected= completion_check=false audited=false kernel_boot= audit_identity= audit_after= view_id=
     selected=$(selection_id /tmp/open-connect/selected) || selected=
     access_selected=$(selection_id /tmp/open-connect/access-selected) || access_selected=
     if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
@@ -104,7 +143,12 @@ status() {
         if test "$R_PHASE" = purge; then
             rev=$R_REV; restart=true; pending=true
         else
-            snapshot_read "$R_CURRENT" || fail invalid_snapshot
+            view_id=$R_CURRENT
+            if test -n "$settings_package"; then
+                installed_package=$(snapshot_package "$R_CURRENT") || fail invalid_snapshot
+                if test "$installed_package" != "$settings_package"; then view_id=$selected; restart=true; fi
+            fi
+            snapshot_read "$view_id" || fail invalid_snapshot
             installed_package=$S_PACKAGE
             touch=$S_TOUCH; warning=$S_WARNING
             saved_schema=$S_SCHEMA
@@ -114,7 +158,7 @@ status() {
             if test "$S_SCHEMA" = OC2; then
                 case "$S_PREFS" in *'
 carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
-                saved_config=$D/snapshots/$R_CURRENT/config
+                saved_config=$D/snapshots/$view_id/config
                 saved_catalog=$S_CATALOG
             fi
             developer=$S_ACCESS; uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
@@ -124,56 +168,48 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
             fi
             if test "$R_PHASE" = active; then installed=true; fi
             if test "$R_PHASE" = removed; then retained=true; fi
-            # Settings reads authenticate saved data, not every OEM flash file.
-            # Default USB status and every mutating endpoint retain full checks.
-            # A completion notice still promises fresh conflict detection, even
-            # when Settings wins the race with the boot-completion status read.
+            # Settings authenticates saved data; completion and mutations also
+            # audit physical state. Only explicit completion can prove a boot.
             if test "$operation:$argument" = status:completion &&
                 test "$installed" = true && test "$notice" = installed && test "$selected" = "$R_CURRENT" &&
                 kernel_boot=$(completion_boot_id) &&
                 test "$R_BOOT" = "$kernel_boot"; then completion_check=true; fi
             if test "$operation:$argument" != status:settings || test "$completion_check" = true; then
-                # Slow read-only audits must not hold ordinary Settings (including
-                # an older installed exclusive reader). Fence the sampled state
-                # again under the lock before using it. Mutations keep the lock.
+                # Unlock slow reads for Settings, then fence their sampled state.
+                # Mutations retain the writer lock.
                 if test "$operation" = status; then
                     audit_identity=$(status_identity) || fail state_changed
                     flock -u 9 || fail invalid_lock
                 fi
-                if ! targets_match_loaded "$R_CURRENT" ||
-                    { test "$S_ACCESS" = true && ! access_login_check; } ||
-                    ! dependencies_match "$R_CURRENT"; then conflict=true; else audited=true; fi
+                if ( if test "$view_id" != "$R_CURRENT"; then snapshot_read "$R_CURRENT" || exit 1; fi
+                    targets_match_loaded "$R_CURRENT" &&
+                    { test "$S_ACCESS" != true || access_login_check; } &&
+                    dependencies_match "$R_CURRENT"
+                ); then audited=true; else conflict=true; fi
                 if test "$operation" = status; then
                     flock -n -x 9 || fail busy
                     test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
-                    test "$(status_identity)" = "$audit_identity" || fail busy
+                    audit_after=$(status_identity) || fail state_changed
+                    test "$audit_after" = "$audit_identity" || fail busy
                 fi
             fi
-            # Authenticate VERSION even on the lightweight read. P may be newer
-            # maintenance media; its version is not the installed version.
-            if test "$installed" = true && test "$conflict" = false && test "$installed_package" != - &&
-                file "$D/packages/$installed_package/VERSION" &&
-                { test "$saved_schema" = OC2 || { file "$D/packages/$installed_package/files.sha256" &&
-                    test "$(sha "$D/packages/$installed_package/files.sha256")" = "$installed_package"; }; }; then
-                version_hash=$(awk '$2=="VERSION"{n++;v=$1}END{if(n!=1)exit 1;print v}' "$D/packages/$installed_package/files.sha256") || version_hash=-
-                if test "$(sha "$D/packages/$installed_package/VERSION")" = "$version_hash"; then
-                    installed_version=$(cat "$D/packages/$installed_package/VERSION") || installed_version=-
-                fi
-                case "$installed_version" in ''|*[!a-zA-Z0-9.-]*) installed_version=-;; esac
+            # The authenticated view package owns this version, not USB P.
+            if test "$installed" = true && test "$conflict" = false; then
+                installed_version=$(package_version "$installed_package") || installed_version=-
             fi
             if test "$R_PHASE" = active; then
                 if test "$selected" != "$R_CURRENT"; then restart=true; fi
             elif test -e /tmp/open-connect/selected; then restart=true; fi
             if ! settled; then restart=true; pending=true; rev=$R_REV; fi
             # Reuse the current decode, then read each distinct applied ID once.
-            if test "$access_selected" = "$R_CURRENT"; then uart_current=$uart; ssh_current=$owner_ssh; fi
-            if test "$selected" = "$R_CURRENT"; then
+            if test "$access_selected" = "$view_id"; then uart_current=$uart; ssh_current=$owner_ssh; fi
+            if test "$selected" = "$view_id"; then
                 selected_services=$S_SERVICES; selected_wireless=$S_WIRELESS; autoshow_current=$S_AUTOSHOW
             elif test -n "$selected" && snapshot_read "$selected"; then
                 selected_services=$S_SERVICES; selected_wireless=$S_WIRELESS; autoshow_current=$S_AUTOSHOW
                 if test "$access_selected" = "$selected"; then uart_current=$S_UART; ssh_current=$S_SSH; fi
             fi
-            if test -n "$access_selected" && test "$access_selected" != "$R_CURRENT" && test "$access_selected" != "$selected"; then
+            if test -n "$access_selected" && test "$access_selected" != "$view_id" && test "$access_selected" != "$selected"; then
                 if snapshot_read "$access_selected"; then uart_current=$S_UART; ssh_current=$S_SSH; fi
             fi
         fi
@@ -207,11 +243,12 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
         test "$audited:$completion_check" = true:true &&
         test "$R_BOOT" = "$kernel_boot"; then completion_ready=true; fi
     if test "$completion_ready" = true; then
-        . "$P/service.sh"
         service_usb_observe >/dev/null 2>&1 || :
     fi
-    # Keep the retired boolean false for an installed v0.2.0-dev.1 client during
-    # USB handoff. No endpoint or UI offers Undo.
+    # Retain undo=false for a running dev.1 client.
+    # Refresh after successful checks, so a slow writer never consumes the
+    # popup's readback window. Its flock remains authoritative until it exits.
+    if test "$operation" != status; then usb_retain; fi
     printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s%s}\n' \
         "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version" \
         "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current" "$service_status,\"completionReady\":$completion_ready"
@@ -232,16 +269,13 @@ finish_removal() {
     exists=false; empty_state=false; removed_now=true
 }
 
-if test "$operation" = status; then status; exit; fi
-if test "$role" = usb && absent "$P/admitted"; then
-    admission_before=$(status_identity) || fail state_changed
-    : > "$P/admitted"
-    admission_created=true
+if test "$operation" = status; then
+    if test "$role:$argument" = usb:settings; then usb_metadata; else status; fi
+    exit
 fi
+if test "$role" = usb; then rm -f "$P/admitted"; fi
 if test "$exists" = true; then
-    # UI comparisons bind the affected state. ACC and dismissed notices do not
-    # invalidate an otherwise-current preference page. Pending work uses its
-    # unique record revision instead.
+    # Bind settled config or the unique pending operation, independent of ACC.
     current_revision=$R_CURRENT
     settled || current_revision=$R_REV
     test "$revision" = "$current_revision" || fail stale_state
@@ -263,8 +297,7 @@ recover)
     if test "$empty_state" = true; then finish_removal; fi
     ;;
 install)
-    # Installation needs the complete maintenance bundle, not the boot listener's
-    # smaller verified RAM closure. Refuse before any persistent operation.
+    # Installation requires the full maintenance bundle, not the boot closure.
     verify_manifest "$P" || fail incomplete_maintenance_bundle
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
     if test "$exists" = true && test "$R_PHASE" = active; then
@@ -331,6 +364,9 @@ install)
     ;;
 set|import)
     test "$exists" = true && test "$R_PHASE" = active || fail not_installed
+    if test -n "$settings_package"; then
+        test "$(snapshot_package "$R_CURRENT")" = "$settings_package" || fail restart_required
+    fi
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
     snapshot_read "$R_CURRENT" || fail invalid_snapshot
     package=$S_PACKAGE; prefs=$S_PREFS; schema=$S_SCHEMA; mode=$S_META
@@ -381,9 +417,7 @@ uninstall)
     test "$R_PHASE" = active || fail not_installed
     targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
     uninstall_owned "$R_CURRENT" || fail state_changed
-    # Targets/dependencies and ownership already match this authenticated state.
-    # Reserializing an older schema would change its ID and break recovery's
-    # deliberate R_BEFORE == R_CURRENT ownership check.
+    # Preserve the authenticated ID for recovery's R_BEFORE == R_CURRENT check.
     before=$R_CURRENT
     selector_recorded=$S_SELECTOR_RECORDED
     snapshot_read "$R_BASE" || fail originals_changed
@@ -404,8 +438,11 @@ uninstall)
     finish_removal
     ;;
 dismiss)
+    test "$role:$argument:$expected:$desired" = settings:-:-:- || fail invalid_request
     if test "$exists" = true; then R_NOTICE=-; record_write; fi
     : > "$P/closed"
+    printf '{"ok":true}\n'
+    exit
     ;;
 restart)
     if test "$exists" = true; then
@@ -416,10 +453,11 @@ restart)
         absent "$D" || fail operation_pending
     fi
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
-    # A restart explicitly requested for this newly committed configuration is
-    # already covered by its finite budget. This endpoint never replenishes it.
+    # Restart never replenishes the existing finite boot budget.
     status
-    ( exec 9>&-; sleep 2; /sbin/reboot ) </dev/null >/dev/null 2>&1 &
+    # The child inherits the writer lock through the delayed handoff. A failed
+    # or returning reboot releases it within the command's bounded lifetime.
+    ( sleep 2; /bin/busybox timeout -t 10 /sbin/reboot ) </dev/null >/dev/null 2>&1 &
     exit
     ;;
 *) fail invalid_request;;

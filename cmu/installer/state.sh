@@ -129,8 +129,35 @@ snapshot_verify() {
 }
 snapshot_read() { snapshot_verify "$1" && snapshot_decode "$1"; }
 
-# Read only the target package's preferences interpreter and catalog. Their
-# expected bytes belong to the content-addressed manifest, not the USB client.
+# Package identity is authenticated data. Inspect it before choosing executable
+# preference helpers (in particular when the running Settings package is older).
+snapshot_package() {
+    local dir=$D/snapshots/$1 digest
+    hex "$1" 64 && private_dir "$dir" && file "$dir/files.sha256" &&
+        test "$(sha "$dir/files.sha256")" = "$1" && file "$dir/config" || return 1
+    digest=$(awk '$2=="config"{n++;v=$1;if(NF!=2)bad=1}END{if(bad||n!=1)exit 1;print v}' "$dir/files.sha256") &&
+        hex "$digest" 64 && test "$(sha "$dir/config")" = "$digest" || return 1
+    awk '
+        NR==1 {if($0=="OC2")modern=1;else {
+            n=split($0,a,"|");if(n!=5&&n!=8)exit 1;p=a[1];count++
+        }}
+        modern&&/^package=/ {p=substr($0,9);count++}
+        END {if(count!=1||(p!="-"&&(length(p)!=64||p~/[^a-f0-9]/)))exit 1;print p}
+    ' "$dir/config"
+}
+
+package_version() {
+    local folder=$D/packages/$1 digest value
+    hex "$1" 64 && private_dir "$folder" && file "$folder/files.sha256" &&
+        test "$(sha "$folder/files.sha256")" = "$1" && file "$folder/VERSION" || return 1
+    digest=$(awk '$2=="VERSION"{n++;v=$1;if(NF!=2)bad=1}END{if(bad||n!=1)exit 1;print v}' "$folder/files.sha256") &&
+        hex "$digest" 64 && test "$(sha "$folder/VERSION")" = "$digest" || return 1
+    value=$(cat "$folder/VERSION") || return 1
+    case "$value" in ''|*[!a-zA-Z0-9.-]*) return 1;; esac
+    printf '%s\n' "$value"
+}
+
+# Authenticate the target's interpreter and catalog from its package manifest.
 preferences_package() {
     local folder=$D/packages/$1 expected actual name
     hex "$1" 64 && private_dir "$folder" && file "$folder/files.sha256" &&
@@ -182,7 +209,7 @@ config_decode() {
     file "$source" && read -r header < "$source" || return 1
     if test "$header" = OC2; then
         package=$(awk -F = '$1=="package"{n++;p=$2}END{if(n!=1)exit 1;print p}' "$source") || return 1
-        folder=$(preferences_package "$package") || return 1
+        folder=$(preferences_package "${settings_package:-$package}") || return 1
         S_CATALOG=$folder
         decoded=$(awk -v operation=decode -v catalog="$folder/services.tsv" -v catalog_bytes="$(wc -c < "$folder/services.tsv")" -v input="$source" \
             -v input_bytes="$(wc -c < "$source")" -f "$folder/preferences.awk") || return 1
@@ -221,8 +248,7 @@ carplay-autoshow='}; S_AUTOSHOW=${S_AUTOSHOW%%'
         bit "$S_WIRELESS" && touch_value "$S_NVRAM" && metadata "$S_META"
 }
 
-# Internal parser for snapshots already verified in the caller's held critical
-# section. Ordinary callers use snapshot_read; no on-disk verification cache.
+# Decode only after verification under the caller's held lock.
 snapshot_decode() {
     local extra
     config_decode "$D/snapshots/$1/config" || return 1
@@ -256,8 +282,7 @@ snapshot_decode() {
     fi
 }
 snapshot_finish() (
-    # Publish either a plain transaction snapshot or its verified boot plan.
-    # The caller owns this private work directory and names every payload.
+    # Publish the caller's private snapshot and its named payloads.
     set -eu
     local work=$1 id name digest seen='|'
     shift
@@ -316,8 +341,7 @@ VALUES
 )
 
 _snapshot_create() (
-    # Target-owned current-format writer. All rendered policy is validated
-    # before the caller can prepare a transaction or publish physical changes.
+    # The target's writer validates rendered policy before any effects.
     set -eu
     test "$#" = 7 && file "$1" && { test "$2" = - || hex "$2" 64; } &&
         touch_value "$3" && metadata "$4" || fail invalid_snapshot

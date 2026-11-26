@@ -1,32 +1,32 @@
 const assert=require('node:assert/strict'),fixture=require('./runtime-fixture.js');
 const folder=process.argv[2];
 function fresh(options={}){const f=fixture(folder,{installed:false,...options});f.usb();return f;}
-function full(f,extra={}){f.reply(f.requests.at(-1),f.state({installed:false,installedVersion:'-',revision:'-',...extra}));f.advance(0);}
+function metadata(f,extra={}){f.reply(f.requests.at(-1),f.state({installed:false,installedVersion:'-',revision:'-',...extra}));f.advance(0);}
 function commit(f,extra={}){return f.state({installed:true,installedVersion:f.version,revision:'d'.repeat(64),notice:'installed',restart:true,...extra});}
 let f=fresh();assert.equal(f.ctx.OpenConnect,undefined);assert.equal(f.ctx.OpenConnectSettings,undefined);assert.equal(f.ctx.OpenConnectInstaller,undefined);
 assert.deepEqual(f.scripts.map(n=>n.src.split('/').at(-1)),['loader.js','maintenance.js']);
-full(f);assert.deepEqual(Object.values(f.dialog.props.buttonConfig).map(b=>b.appData),['cancel','install']);
+metadata(f);assert.deepEqual(Object.values(f.dialog.props.buttonConfig).map(b=>b.appData),['cancel','install']);
 f.pick('cancel');assert.equal(f.requests.at(-1).body.split('|')[3],'usb');f.reply(f.requests.at(-1),{ok:true});
 assert.equal(f.ctx.OpenConnectMaintenance,null);assert.equal(f.fw.common.handleControllerEvent,f.oldInput);assert.equal(f.fw.common.getCommonTransitionData,f.oldTransition);
-f=fresh();full(f);f.closeUSB();f.advance(1000);assert.equal(f.dialog,undefined);assert.equal(f.operation('dismiss').length,0);
+f=fresh();metadata(f);f.closeUSB();f.advance(1000);assert.equal(f.dialog,undefined);assert.equal(f.operation('dismiss').length,0);
 assert.equal(f.fw.common.handleControllerEvent,f.oldInput);
-f=fresh();full(f);f.pick('install');
+f=fresh();metadata(f);f.pick('install');
 assert.equal(f.dialog.props.contentStyle,'style27');assert.equal(f.operation('install').length,1);
 f.reply(f.operation('install')[0],commit(f));assert.equal(f.operation('restart').length,1);
 assert.equal(f.dialog.props.contentStyle,'style27');f.closeUSB();f.advance(1000);
 assert.equal(f.ctx.OpenConnectMaintenance.protected(),true,'removal retains an admitted operation');
 assert.equal(f.operation('restart').length,1);
 // Removal winning before backend admission is an explicit, safe refusal.
-f=fresh();full(f);f.pick('install');f.reply(f.operation('install')[0],{ok:false,error:'session_closed'});
+f=fresh();metadata(f);f.pick('install');f.reply(f.operation('install')[0],{ok:false,error:'session_closed'});
 assert.equal(f.ctx.OpenConnectMaintenance,null);assert.equal(f.operation('restart').length,0);
 // Unknown write results reconcile once and never resend the mutation.
-f=fresh();full(f);f.pick('install');f.reply(f.operation('install')[0],null);
+f=fresh();metadata(f);f.pick('install');f.reply(f.operation('install')[0],null);
 assert.equal(f.operation('install').length,1);assert.equal(f.requests.at(-1).body.split('|')[2],'status');
 f.reply(f.requests.at(-1),commit(f));assert.equal(f.operation('restart').length,1);
-f=fresh();full(f);f.pick('install');f.reply(f.operation('install')[0],{ok:false,error:'stale_state'});
+f=fresh();metadata(f);f.pick('install');f.reply(f.operation('install')[0],{ok:false,error:'stale_state'});
 f.reply(f.requests.at(-1),commit(f));assert.equal(f.operation('restart').length,0,'definite refusal cannot become inferred success');
 // Recovery waits for visible progress and restart reacquires it after VUI.
-f=fresh();f.fw.common._vuiHelpDialog={};full(f,{pending:true});
+f=fresh();f.fw.common._vuiHelpDialog={};metadata(f,{pending:true});
 assert.equal(f.operation('recover').length,0);assert.equal(f.controls.length,0);
 f.advance(2000);assert.equal(f.operation('recover').length,0);
 delete f.fw.common._vuiHelpDialog;f.advance(1000);assert.equal(f.operation('recover').length,1);assert.equal(f.dialog.props.contentStyle,'style27');
@@ -49,8 +49,153 @@ assert.equal(f.dialog,undefined);assert.equal(f.operation('dismiss').length,0);
 // Separate helpers cannot nest their native input wrappers.
 f=fixture(folder);f.install();const old=f.ctx.OpenConnectInstaller;
 const close=old.message(f.fw,'Installed message','Text',{button1:{label:'OK',appData:'done'}},()=>{});
-f.usb();full(f);assert.equal(f.controls.filter(d=>!d.destroyed).length,1);
+f.usb();metadata(f);assert.equal(f.controls.filter(d=>!d.destroyed).length,1);
 close();f.advance(1000);assert.equal(f.controls.filter(d=>!d.destroyed).length,1);
 f.closeUSB();f.advance(1000);assert.equal(f.controls.filter(d=>!d.destroyed).length,0);
 assert.equal(f.fw.common.handleControllerEvent,f.oldInput);assert.equal(f.fw.common.getCommonTransitionData,f.oldTransition);
 console.log('Independent maintenance: native dialogs, cancellation, admitted work, recovery and cold completion passed');
+
+// Actual module delivery can interleave independently requested scripts. Neither
+// script may infer its endpoint from the other loader's document-wide ID.
+f=fixture(folder,{notice:'installed'});f.install(0);f.usb(0);
+const passive=f.scripts.filter(n=>n.src.endsWith('maintenance.js'));
+for(const node of passive)f.deliver(node,false);
+f.advance(0);assert.equal(f.requests.length,0,'executing either asset without its captured onload is passive');
+for(const node of passive)node.onload();f.advance(0);
+assert.deepEqual(f.requests.map(r=>r.body.split('|')[3]),['completion','settings']);
+const untouched=f.ctx.OpenConnectCompletion;
+assert.equal(f.ctx.OpenConnectMaintenanceStart({token:'invalid',port:15555,role:'completion',current:()=>true}),null);
+assert.equal(f.ctx.OpenConnectMaintenanceStart({token:f.token,port:15557,role:'completion',current:()=>true}),null);
+assert.equal(f.ctx.OpenConnectCompletion,untouched,'invalid request cannot close an existing owner');
+for(const first of ['completion','usb']){
+ f=fixture(folder,{notice:'installed'});f.install(0);f.usb(0);
+ const completion=f.scripts.find(n=>n.src.includes('/feature/maintenance.js'));
+ const popup=f.scripts.find(n=>n.src.includes('/sessions/')&&n.src.endsWith('maintenance.js'));
+ f.deliver(first==='completion'?completion:popup);f.advance(0);
+ assert.match(f.requests[0].url,first==='completion'? /:15555/ : /:15557/);
+ assert.equal(f.requests[0].body.split('|')[3],first==='completion'?'completion':'settings');
+ f.deliver(first==='completion'?popup:completion);f.advance(0);
+ const proof=f.requests.find(r=>r.url.includes(':15555'));
+ const metadata=f.requests.find(r=>r.url.includes(':15557'));
+ f.reply(metadata,f.state());f.advance(0);assert.equal(f.dialog,undefined,'USB waits for completion proof');
+ f.reply(proof,f.state({notice:'installed',completionReady:true}));
+ const owner=f.ctx.OpenConnectCompletion,shown=f.dialog;
+ assert.match(shown.props.title,/installed/);f.advance(2000);
+ assert.equal(f.ctx.OpenConnectCompletion,owner);assert.equal(f.dialog,shown,'USB cannot destroy completion');
+ // New USB generation supersedes only the queued USB owner.
+ const stale=f.ctx.OpenConnectMaintenance;f.usb(Infinity,'e'.repeat(32));
+ f.reply(f.requests.at(-1),f.state());f.advance(0);
+ assert.notEqual(f.ctx.OpenConnectMaintenance,stale);assert.equal(f.dialog,shown);
+ f.pick('done');f.reply(f.operation('dismiss').at(-1),{ok:true});f.advance(1000);
+ assert.equal(f.ctx.OpenConnectCompletion,null);assert.equal(f.ctx.OpenConnectMaintenance.token,'e'.repeat(32));
+ assert.match(f.dialog.props.title,/Reinstall/);f.closeUSB();f.advance(1000);
+ assert.equal(f.fw.common.handleControllerEvent,f.oldInput);assert.equal(f.fw.common.getCommonTransitionData,f.oldTransition);
+}
+// A timed-out USB delivery has no autonomous effects on a dismissed notice boot.
+f=fixture(folder,{notice:'installed'});f.install();
+f.reply(f.requests[0],f.state({notice:'installed',completionReady:true}));f.pick('done');
+f.reply(f.operation('dismiss')[0],{ok:true});f.usb(0);const late=f.scripts.find(n=>!n.executed&&n.src.endsWith('maintenance.js'));
+f.advance(65000);const beforeLate=f.allRequests.length;f.deliver(late);f.advance(0);
+assert.equal(f.allRequests.length,beforeLate);assert.equal(f.ctx.OpenConnectCompletion,null);assert.equal(f.ctx.OpenConnectMaintenance,undefined);
+
+// Open settings retains one bounded intent while the actual Settings module is
+// cold. Its own lightweight read and stock selection happen exactly once.
+for(const interrupted of [false,true,'modal','timeout']){
+ f=fixture(folder,{notice:'installed'});f.install(0);
+ f.deliver(f.scripts.find(n=>n.src.endsWith('maintenance.js')));
+ f.reply(f.requests[0],f.state({notice:'installed',completionReady:true}));f.pick('settings');
+ f.reply(f.operation('dismiss')[0],{ok:true});assert.equal(f.requests.length,2);
+ assert.equal(f.ctx.OpenConnect.openSettings(),true,'repeated click shares the existing intent');
+ if(interrupted===true)f.nativeSettings();
+ if(interrupted==='modal')f.fw.common._vuiHelpDialog={};
+ if(interrupted==='timeout')f.advance(12000);
+ f.flush();f.advance(250);
+ const reads=f.operation('status').filter(r=>r.body.split('|')[3]==='settings');
+ if(interrupted){
+  assert.equal(reads.length,0);assert.equal(f.pages.length,0);assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,0);
+ }else{
+  assert.equal(reads.length,1);f.reply(reads[0],f.state());f.advance(200);f.advance(2000);
+  assert.equal(f.pages.length,1);assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,1);
+  assert.equal([...f.timers.values()].filter(t=>t.repeat===200).length,0,'successful OpenSettings cancels its interval');
+ }
+}
+
+// A lost durable dismiss ACK reconciles with settings, preserving the full
+// completion proof. Late ACKs and a shared deadline never replay the mutation.
+for(const outcome of ['cleared','unchanged','deadline']){
+ f=fixture(folder,{notice:'installed'});f.install();
+ f.reply(f.requests[0],f.state({notice:'installed',completionReady:true}));f.pick('settings');
+ const dismiss=f.operation('dismiss')[0];f.advance(6000);assert.equal(dismiss.aborted,true);
+ const readback=f.requests.at(-1);assert.equal(readback.body.split('|')[3],'settings');
+ if(outcome==='deadline')f.advance(6000);
+ else f.reply(readback,f.state({notice:outcome==='cleared'?'-':'installed',completionReady:false}));
+ f.reply(dismiss,{ok:true});f.advance(200);
+ assert.equal(f.operation('dismiss').length,1,'unknown ACK is never resent');
+ const selections=f.calls.filter(c=>c[1]==='SelectSettings');
+ if(outcome==='cleared'){
+  assert.equal(f.requests.at(-1).body.split('|')[3],'settings');f.reply(f.requests.at(-1),f.state());f.advance(200);
+  assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,1);
+ }else{assert.equal(selections.length,0);assert.equal(f.pages.length,0);}
+}
+
+// Unsent recovery may be superseded. Delayed old callbacks cannot revive it or
+// close the new generation, even while both wait for native voice to finish.
+f=fresh();f.fw.common._vuiHelpDialog={};metadata(f,{pending:true});
+const waiting=f.ctx.OpenConnectMaintenance;assert.equal(waiting.protected(),false);assert.equal(f.operation('recover').length,0);
+f.usb(Infinity,'e'.repeat(32));assert.notEqual(f.ctx.OpenConnectMaintenance,waiting);
+metadata(f,{pending:true});delete f.fw.common._vuiHelpDialog;f.advance(1000);
+assert.equal(f.operation('recover').length,1);assert.equal(f.operation('recover')[0].body.split('|')[0],'e'.repeat(32));
+// Repeated delivery of the same token still belongs to the new captured loader.
+f=fresh();metadata(f);const sameToken=f.ctx.OpenConnectMaintenance;f.usb();metadata(f);
+assert.notEqual(f.ctx.OpenConnectMaintenance,sameToken);assert.ok(f.dialog);f.advance(1000);assert.ok(f.dialog);
+// A new published generation can recover OC1 after an older write has finished
+// bounded reconciliation in an unresolved state. Removal alone cannot release
+// that uncertainty; replacement must not replay the old Install either.
+f=fresh();metadata(f);f.pick('install');f.reply(f.operation('install')[0],null);metadata(f,{pending:true});
+assert.equal(f.ctx.OpenConnectMaintenance.protected(),true);f.closeUSB();f.advance(1000);
+assert.equal(f.ctx.OpenConnectMaintenance.protected(),true);
+f.usb(Infinity,'e'.repeat(32));metadata(f,{pending:true});f.advance(1000);
+assert.equal(f.operation('install').length,1);assert.equal(f.operation('recover').length,1);
+assert.equal(f.operation('recover')[0].body.split('|')[0],'e'.repeat(32));
+
+// Native Listening uses an SBN, with neither Help nor Examples present. Check
+// every active stock voice state both before Recover and just before Restart.
+for(const voice of ['Playing Prompt','Listening','Processing','Playing Terminating Prompt']){
+ f=fresh();f.fw.common._cachedVuiState=voice;metadata(f,{pending:true});f.advance(1000);
+ assert.equal(f.operation('recover').length,0);assert.equal(f.dialog,undefined);
+ f.fw.common._cachedVuiState='Idle';f.advance(1000);assert.equal(f.operation('recover').length,1);
+ f.fw.common._cachedVuiState=voice;f.reply(f.operation('recover')[0],commit(f));
+ assert.equal(f.operation('restart').length,0);assert.equal(f.dialog,undefined);
+ assert.equal(f.fw.common.handleControllerEvent,f.oldInput);assert.equal(f.fw.common.getCommonTransitionData,f.oldTransition);
+ f.fw.common._cachedVuiState='Idle';f.advance(1000);assert.equal(f.operation('restart').length,1);
+}
+
+// Real registered capture listeners must suppress touch before it reaches the
+// native target during progress, and disappear on a native interruption.
+f=fresh();metadata(f);f.pick('install');
+for(const type of ['mousedown','mouseup','click']){
+ const event=f.touch(type);assert.equal(event.defaultPrevented,true);assert.equal(event.stopped,true);
+}
+assert.equal(f.calls.filter(c=>c[0]==='touch-target').length,0);
+f.fw.common._cachedVuiState='Listening';f.touch('mousedown');
+assert.equal(f.dialog,undefined);assert.equal(f.touch('click').stopped,undefined);
+assert.equal(f.fw.common.handleControllerEvent,f.oldInput);assert.equal(f.fw.common.getCommonTransitionData,f.oldTransition);
+
+// Full uncertain-write reconciliation is bounded and never replays a write.
+f=fresh();metadata(f);f.pick('install');const uncertain=f.operation('install')[0];f.advance(185000);
+assert.equal(uncertain.aborted,true);assert.equal(f.requests.at(-1).body.split('|')[3],'-');
+f.advance(12000);f.reply(uncertain,commit(f));f.advance(1000);
+assert.equal(f.operation('install').length,1);assert.equal(f.operation('restart').length,0);
+assert.equal(f.ctx.OpenConnectMaintenance.protected(),true);assert.match(f.dialog.props.title,/Unable to confirm/);
+console.log('Maintenance regressions: staged roles, completion priority, cold intent, ACK deadlines, replacement, native VUI and touch capture passed');
+for(const event of ['Global.StartHelp','Global.StartExamples']){
+ f=fresh();metadata(f);const home=f.armHome();f.pick('install');
+ assert.equal(home.button._holdTimeoutId,null);assert.equal(home.button._isEnabled,false);f.advance(600);assert.deepEqual(home.fired,[]);
+ for(const key of ['select','selectStart','goBack','cw','ccw','left','right','up','down'])assert.equal(f.fw.common.handleControllerEvent(key,false),undefined);
+ assert.equal(f.fw.common._messageTable[event](),'native voice');assert.equal(f.dialog,undefined);
+ assert.equal(f.fw.common.handleControllerEvent,f.oldInput);assert.equal(f.fw.common.getCommonTransitionData,f.oldTransition);
+ for(const key of Object.keys(home.original))assert.equal(home.button.properties[key],home.original[key]);
+ for(const key of Object.keys(home.messages))assert.equal(f.fw.common._messageTable[key],home.messages[key]);
+ assert.equal(f.touch('click').stopped,undefined);assert.equal(f.ctx.OpenConnectMaintenance.protected(),true);
+ f.ctx.OpenConnectMaintenance.close();assert.equal(f.fw.common._openConnectOperation,undefined);
+}

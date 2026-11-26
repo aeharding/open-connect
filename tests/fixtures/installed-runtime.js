@@ -6,8 +6,8 @@ const looked=f.lookups;f.advance(60000);assert.equal(f.lookups,looked,'idle Sett
 f.nativeSettings();const owner=f.ctx.OpenConnect,menus=f.ctx.OpenConnectSettings,dialogs=f.ctx.OpenConnectInstaller;
 const callback=f.list.properties.selectCallback;
 f.usb();assert.equal(f.requests.length,1);assert.match(f.requests[0].url,/:15557/);
-assert.equal(f.requests[0].body.split('|')[3],'-');
-f.tap();assert.equal(f.requests.length,2,'Settings read starts while USB audit remains pending');
+assert.equal(f.requests[0].body.split('|')[3],'settings');
+f.tap();assert.equal(f.requests.length,2,'Settings read starts while USB metadata remains pending');
 assert.match(f.requests[1].url,/:15555/);assert.equal(f.requests[1].body.split('|')[3],'settings');
 f.reply(f.requests[1],f.state());assert.equal(f.pages.length,1);f.endAnimations();
 assert.equal(f.ctx.OpenConnect,owner);assert.equal(f.ctx.OpenConnectSettings,menus);assert.equal(f.ctx.OpenConnectInstaller,dialogs);
@@ -20,7 +20,7 @@ for(const stage of [0]){
  f=fixture(folder);f.install();f.nativeSettings();const installed=f.ctx.OpenConnect,select=f.list.properties.selectCallback;
  f.usb(stage);f.closeUSB();f.flush();f.advance(0);
  assert.equal(f.ctx.OpenConnect,installed);assert.equal(f.list.properties.selectCallback,select);
- assert.equal(f.requests.length,0,'removed delayed popup does not begin a full audit');
+ assert.equal(f.requests.length,0,'removed delayed popup does not begin a metadata read');
 }
 f=fixture(folder,{lateApp:true});f.install();f.nativeSettings();f.tap();f.reply(f.requests[0],f.state());assert.equal(f.pages.length,1);
 f=fixture(folder);f.install();f.nativeSettings();f.tap();f.advance(12000);
@@ -29,6 +29,149 @@ f=fixture(folder);f.install();f.nativeSettings();f.tap();f.homeScreen();f.advanc
 f=fixture(folder);f.install();assert.equal(f.ctx.OpenConnect.openSettings(),true);
 assert.equal(f.requests[0].body.split('|')[3],'settings');f.reply(f.requests[0],f.state());f.advance(200);
 assert.equal(f.pages.length,1);assert.ok(f.calls.some(c=>c[1]==='SelectSettings'));f.assertNative();
+assert.equal([...f.timers.values()].filter(t=>t.repeat===200).length,0);
 f=fixture(folder);f.install();f.ctx.OpenConnect.openSettings();f.nativeSettings();f.reply(f.requests[0],f.state());
 assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,0,'late open intent cannot move a user already elsewhere');
 console.log('Installed Settings remains stable and independent through USB loading, slow verification and removal');
+
+// Browser intervals remain registered while invoking their callback, so clearing
+// oneself must win over rescheduling. This is also the real fromHome contract.
+f=fixture(folder);let ticks=0;
+const interval=f.ctx.setInterval(()=>{ticks++;f.ctx.clearInterval(interval);},200);
+f.advance(1000);assert.equal(ticks,1);assert.equal(f.timers.has(interval),false);
+
+function select(f,key,params){const p=f.pages.at(-1);p.list2Ctrl.selectCallback(p.list2Ctrl,key,params);f.endAnimations();}
+function warm(extra={}){
+ const x=fixture(folder);x.install();x.nativeSettings();x.tap();x.reply(x.requests[0],x.state(extra));x.endAnimations();return x;
+}
+function identities(f,send){
+ assert.equal(f.host.handleControllerEvent,f.oldInput);assert.equal(f.fw.common.handleControllerEvent,f.oldInput);
+ assert.equal(f.fw.common.getCommonTransitionData,f.oldTransition);assert.equal(f.fw.sendEventToMmui,send);
+}
+// A foreign admitted operation still owns input while its progress is suspended.
+// A cached Settings tap must not install wrappers beneath resumed progress.
+f=warm();f.homeScreen();const nativeSend=f.fw.sendEventToMmui;
+f.usb();f.reply(f.requests.at(-1),f.state());f.advance(0);f.pick('install');
+const write=f.operation('install')[0];assert.ok(write);f.nativeSettings();const count=f.pages.length;
+f.tap();assert.equal(f.pages.length,count);assert.equal(f.host.handleControllerEvent,f.oldInput);assert.equal(f.fw.sendEventToMmui,nativeSend);
+f.advance(1000);assert.equal(f.dialog.props.contentStyle,'style27');
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.ctx.OpenConnectMaintenance.close();identities(f,nativeSend);
+f.reply(write,f.state({restart:true}));assert.equal(f.operation('restart').length,0,'closed epoch ignores late write reply');
+
+// An unadmitted recovery read remains transparent to an existing custom page.
+f=warm();const page=f.pages.at(-1),pageInput=f.host.handleControllerEvent,pageTransition=f.fw.common.getCommonTransitionData,pageSend=f.fw.sendEventToMmui;
+f.usb();f.reply(f.requests.at(-1),f.state({pending:true}));f.advance(1000);
+assert.equal(f.operation('recover').length,0);assert.equal(f.dialog,undefined);assert.equal(page.cleaned,undefined);
+assert.equal(f.host.handleControllerEvent,pageInput);assert.equal(f.fw.common.getCommonTransitionData,pageTransition);assert.equal(f.fw.sendEventToMmui,pageSend);
+f.homeScreen();f.advance(1000);assert.equal(f.operation('recover').length,1);f.ctx.OpenConnectMaintenance.close();
+assert.equal(f.host.handleControllerEvent,f.oldInput);assert.equal(f.fw.common.getCommonTransitionData,f.oldTransition);
+
+// Retain installed preference coalescing across Back/re-entry and reconcile an
+// uncertain ACK with a full read. A new desired value uses the reconciled fence.
+f=warm();select(f,0);select(f,1);f.advance(250);
+const first=f.operation('set')[0];assert.deepEqual(first.body.split('|').slice(1),[f.revision,'set','touch','0','1']);
+select(f,0);f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+f.homeScreen();f.nativeSettings();f.tap();f.endAnimations();assert.equal(f.operation('set').length,1);
+f.reply(first,null);const readback=f.requests.at(-1);assert.equal(readback.body.split('|')[3],'-');
+f.reply(readback,f.state({touch:1,revision:'d'.repeat(64),restart:true}));
+const second=f.operation('set')[1];assert.ok(second);assert.deepEqual(second.body.split('|').slice(1),['d'.repeat(64),'set','touch','1','0']);
+f.reply(second,f.state({touch:0,revision:'e'.repeat(64),restart:false}));
+f.reply(first,f.state({touch:1,revision:'d'.repeat(64),restart:true}));
+f.reply(readback,f.state({touch:1,revision:'d'.repeat(64),restart:true}));
+f.advance(1000);assert.equal(f.operation('set').length,2);assert.equal(f.operation('restart').length,0);
+select(f,0);assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[0].image1,'radio');
+f.homeScreen();assert.equal(f.ctx.OpenConnect.protected(),false);
+
+// Keep installed import's unknown-ACK contract in the actual runtime, rather than
+// retaining the unreachable duplicate implementation in USB maintenance.
+const developer={developer:true,uart:0,ssh:0,uartCurrent:0,sshCurrent:0,key:'-',fingerprint:'-'};
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+assert.equal(f.operation('import').length,1);f.reply(f.operation('import')[0],null);
+assert.equal(f.requests.at(-1).body.split('|')[3],'-');
+f.reply(f.requests.at(-1),f.state({...developer,key:'d'.repeat(64),fingerprint:Array(16).fill('aa').join(':'),revision:'e'.repeat(64)}));
+assert.match(f.dialog.props.title,/Public key imported/);assert.equal(f.operation('import').length,1);assert.equal(f.operation('restart').length,0);f.pick('done');
+
+// Installed maintenance and its dialog helper must yield to native SBN voice,
+// resume the same operation and actually capture touch during visible progress.
+for(const voice of ['Playing Prompt','Listening','Processing','Playing Terminating Prompt']){
+ f=warm();select(f,'uninstall');f.fw.common._cachedVuiState=voice;f.pick('uninstall');
+ assert.equal(f.operation('uninstall').length,0,'stale confirm cannot start during voice');
+ f.fw.common._cachedVuiState='Idle';select(f,'uninstall');f.pick('uninstall');
+ assert.equal(f.operation('uninstall').length,1);
+ for(const type of ['mousedown','mouseup','click']){const event=f.touch(type);assert.equal(event.defaultPrevented,true);assert.equal(event.stopped,true);}
+ assert.equal(f.calls.filter(c=>c[0]==='touch-target').length,0);
+ f.fw.common._cachedVuiState=voice;f.reply(f.operation('uninstall')[0],f.state({installed:false,revision:'-',restart:true}));
+ assert.equal(f.operation('restart').length,0);assert.equal(f.dialog,undefined);
+ assert.equal(f.fw.common.handleControllerEvent,f.oldInput);assert.equal(f.fw.common.getCommonTransitionData,f.oldTransition);
+ assert.equal(f.touch('click').stopped,undefined);
+ f.fw.common._cachedVuiState='Idle';f.advance(250);assert.equal(f.operation('restart').length,1);
+}
+console.log('Installed regressions: interval cancellation, suspended ownership, exact restoration, saves/import ACKs, epoch and native touch/voice passed');
+
+// Missing, explicitly refused and malformed acknowledgements each use one full
+// read. Only a missing ACK with changed saved values can establish success.
+for(const ack of [null,{ok:false,error:'stale_state'},{ok:true}]){
+ f=warm();const send=f.oldSend;select(f,0);select(f,1);f.advance(250);
+ f.reply(f.operation('set')[0],ack);assert.equal(f.requests.at(-1).body.split('|')[3],'-');
+ f.reply(f.requests.at(-1),f.state({touch:1,revision:'d'.repeat(64)}));f.endAnimations();
+ assert.equal(f.operation('set').length,1);assert.equal(f.operation('restart').length,0);
+ if(ack===null){assert.equal(f.ctx.OpenConnect.protected(),true,'page still owns installed Settings');}
+ else if(ack.ok===true)assert.match(f.pages.at(-1).list2Ctrl.title.text1,/could not be confirmed/);
+ // The Settings failure callback owns its UI. An extra runtime modal would
+ // cover its transition restorer and reinstall a discarded page after Home.
+ assert.equal(f.dialog,undefined);f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();identities(f,send);
+ assert.equal(f.ctx.OpenConnect.protected(),!!(ack&&ack.ok===true),'malformed ACK retains unresolved claim');
+}
+f=warm();const failedSend=f.oldSend;select(f,0);select(f,1);f.advance(250);
+f.reply(f.operation('set')[0],null);f.reply(f.requests.at(-1),f.state());f.endAnimations();
+assert.match(f.pages.at(-1).list2Ctrl.title.text1,/could not be confirmed/);assert.equal(f.dialog,undefined);
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();identities(f,failedSend);assert.equal(f.ctx.OpenConnect.protected(),true);
+
+// Preserve the carplay-autoshow wire alias and its real uncertain-save readback.
+f=warm();select(f,'phone');select(f,2);select(f,1);f.pick('apply');f.advance(250);
+assert.deepEqual(f.operation('set')[0].body.split('|').slice(2),['set','carplay-autoshow','0','1']);
+f.reply(f.operation('set')[0],null);f.reply(f.requests.at(-1),f.state({carplayAutoshow:1,revision:'d'.repeat(64)}));
+assert.equal(f.operation('set').length,1);f.homeScreen();assert.equal(f.ctx.OpenConnect.protected(),false);
+
+// Installed admission precedes teardown, but no write may cross an ineligible
+// progress surface. Here native voice starts as the owner's page is cleaned up.
+f=warm();const ownerPage=f.pages.at(-1),cleanup=ownerPage.cleanUp;
+ownerPage.cleanUp=function(){assert.ok(f.fw.common._openConnectOperation,'claim precedes page cleanup');cleanup.call(this);f.fw.common._cachedVuiState='Listening';};
+select(f,'uninstall');f.pick('uninstall');assert.equal(ownerPage.cleaned,true);assert.equal(f.operation('uninstall').length,0);
+assert.ok(f.fw.common._openConnectOperation);assert.equal(f.dialog,undefined);
+f.advance(1000);assert.equal(f.operation('uninstall').length,0);f.fw.common._cachedVuiState='Idle';f.advance(250);
+assert.equal(f.operation('uninstall').length,1);assert.equal(f.dialog.props.contentStyle,'style27');
+
+// One shared restart/readback deadline bounds uncertainty; a late restart ACK
+// cannot release the unresolved claim or send a second restart.
+f=warm({restart:true});select(f,'restart');f.pick('restart');const reboot=f.operation('restart')[0];
+f.reply(reboot,null);assert.equal(f.requests.at(-1).body.split('|')[3],'-');f.advance(12000);
+assert.match(f.dialog.props.title,/Unable to confirm/);assert.equal(f.ctx.OpenConnect.protected(),true);
+f.reply(reboot,f.state({restart:true}));f.advance(1000);assert.equal(f.operation('restart').length,1);
+console.log('Retained installed contracts: refused/malformed ACKs, failure UI ownership, CarPlay wire alias, admission and shared restart deadline passed');
+
+// Capture the store at the actual attach boundary without replacing its methods.
+// A write invalidates an older in-flight refresh before that refresh can change
+// cache or notify its queued subscribers, even if it replies after the write ACK.
+f=fixture(folder);f.install(1);
+const settingsScript=f.scripts.find(n=>n.src.endsWith('/settings.js'));f.deliver(settingsScript,false);
+let store;const attach=f.ctx.OpenConnectSettings.attach;
+f.ctx.OpenConnectSettings.attach=function(fw,app,actual){store=actual;return attach.apply(this,arguments);};settingsScript.onload();
+store.refresh(()=>{});f.reply(f.requests[0],f.state());let obsolete=0;
+store.refresh(()=>obsolete++);const staleRead=f.requests.at(-1);let written=0;
+store.write('touch',0,1,actual=>{assert.equal(actual.touch,1);written++;});
+f.reply(f.operation('set')[0],f.state({touch:1,revision:'d'.repeat(64)}));
+f.reply(staleRead,f.state({touch:0,revision:f.revision}));
+assert.equal(written,1);assert.equal(obsolete,0);assert.equal(store.read().touch,1);assert.equal(store.read().revision,'d'.repeat(64));
+// A fresh read's first subscriber can itself start a new epoch. Later subscribers
+// to the invalidated read must not install a page or use its admission state.
+store.refresh(()=>store.write('touch',1,0,()=>{}));store.refresh(()=>obsolete++);
+f.reply(f.requests.at(-1),f.state({touch:1,revision:'d'.repeat(64)}));assert.equal(obsolete,0);assert.equal(f.operation('set').length,2);
+
+// The stock SelectSettings event may fail to produce a Tab. Its bounded page
+// waiter must cancel itself on exhaustion as well as on successful entry.
+f=fixture(folder);f.install();f.fw.sendEventToMmui=(id,event)=>f.calls.push([id,event]);
+f.ctx.OpenConnect.openSettings();f.reply(f.requests[0],f.state());f.advance(8000);
+assert.equal(f.pages.length,0);assert.equal([...f.timers.values()].filter(t=>t.repeat===200).length,0);
+console.log('Epoch regressions: stale refresh cache/subscribers are fenced; exhausted Home entry cancels its interval');

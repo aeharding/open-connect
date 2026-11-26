@@ -18,6 +18,8 @@ function fixture(shared = {}, load = true, bootToken = boot) {
   ctx.document = {body: {}, querySelector(selector) {
     return selector.includes('open-connect-token') ? {getAttribute: key => key === 'data-boot' ? bootToken : 'a'.repeat(32)} : null;
   },getElementById() {return null;}, addEventListener(key, fn) {(events[key] ||= []).push(fn);},removeEventListener() {}};
+  ctx.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.abort=()=>{};
+    this.send=()=>{this.readyState=4;this.status=200;this.responseText='{"ok":true,"media":null}';this.onreadystatechange();};};
   const apps = {system: {_currentContext: {uiaId:'system',ctxtId:'HomeScreen',contextSeq:1}, _contextTable: {Disclaimer: {controlProperties: {Dialog3Ctrl: {
     defaultSelectCallback(control, action) {if(action==='Global.Yes')fw.sendEventToMmui('common',action);}
   }}}}}};
@@ -273,16 +275,22 @@ r.state.failNameRead=false;r.session(false);r.connect();assert.equal(r.count(),1
 function bootClient(notice='-') {
   const x=fixture({},false), loads=[], intervals=[], requests=[], nodes={}, token='a'.repeat(32);
   const query=x.ctx.document.querySelector;
-  const head={appendChild(node){node.parentNode=head;if(node.id)nodes[node.id]=node;loads.push(()=>{x.source(node.src.split('/').at(-1));node.onload();});},removeChild(node){delete nodes[node.id];node.parentNode=null;}};
+  const head={appendChild(node){node.parentNode=head;if(node.id)nodes[node.id]=node;
+    const deliver=()=>{x.source(node.src.split('/').at(-1));node.onload();};deliver.src=node.src;loads.push(deliver);
+  },removeChild(node){delete nodes[node.id];node.parentNode=null;}};
   x.ctx.document.getElementById=id=>nodes[id]||null;
   x.ctx.utility={loadScript(src,props,done){head.appendChild({...props,src,onload:done});}};
   x.ctx.document.querySelector=s=>s==='head'?head:s.includes('open-connect-version')?{getAttribute:()=> '0.3.0-dev.18'}:
     s.includes('open-connect-notice')?{getAttribute:()=>notice}:query(s);
   x.ctx.document.createElement=()=>({});
   x.ctx.setInterval=fn=>{intervals.push(fn);return fn;};
-  x.ctx.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.abort=()=>{};this.send=body=>{this.body=body;requests.push(this);};};
+  x.ctx.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.abort=()=>{};this.send=body=>{this.body=body;
+    if(body.split('|')[3]==='media'){this.readyState=4;this.status=200;this.responseText='{"ok":true,"media":null}';this.onreadystatechange();}
+    else requests.push(this);};};
   x.source('runtime.js');
-  return Object.assign(x,{token,requests,complete(){while(loads.length)loads.shift()();},tick(){intervals.forEach(fn=>fn());x.advance();}});
+  return Object.assign(x,{token,requests,complete(){while(loads.length)loads.shift()();},
+    deliver(name){const i=loads.findIndex(fn=>fn.src.endsWith('/'+name));assert.ok(i>=0,name);loads.splice(i,1)[0]();},
+    tick(){intervals.forEach(fn=>fn());x.advance();}});
 }
 f=bootClient();f.session(true);f.menu();f.advance();assert.equal(f.count(),0,'ordinary boot awaits real support callbacks');
 f.complete();assert.equal(f.count(),1,'ready callback pumps first connection without another message');
@@ -290,6 +298,14 @@ f=bootClient('installed');f.complete();f.tick();assert.equal(f.requests.length,1
 f.advance(34000);f.session(true);f.advance();
 f.advance(1001);f.menu();f.advance();assert.equal(f.count(),0,'proof expiry cannot send the same canceled edge');
 f.session(false);f.connect();assert.equal(f.count(),1,'expired superseded proof does not block later sessions');
+// Mazda appends independent script requests. Completion priority must exist
+// before its asset runs, even after all three CarPlay observers become ready.
+f=bootClient('installed');f.session(true);f.menu();f.deliver('dialog.js');f.deliver('settings.js');f.advance();
+assert.equal(f.ctx.ocCarPlay.loaded,7);assert.equal(f.requests.length,0);assert.equal(f.count(),0,'notice priority precedes delayed completion delivery');
+f.deliver('maintenance.js');f.tick();assert.equal(f.requests.length,1);assert.equal(f.requests[0].body.split('|')[3],'completion');
+f=bootClient('installed');f.deliver('dialog.js');f.deliver('settings.js');f.advance(35000);
+assert.equal(f.ctx.__ocCompletionLoading,undefined);f.deliver('maintenance.js');f.tick();
+assert.equal(f.requests.length,0,'timed-out completion asset remains passive');f.connect();assert.equal(f.count(),1,'completion delivery timeout releases later connections');
 console.log('Astra regressions: pending reverse, ownership, proof expiry, startup, input/voice, menu withdrawal and storage ambiguity passed');
 
 // Stock GuiFramework treats Idle as a no-op, including background CarPlay.

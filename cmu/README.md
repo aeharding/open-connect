@@ -11,9 +11,10 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 
 | Files in `installer/` | Responsibility |
 | --- | --- |
-| `run.sh`, `session.sh`, `loader.js` | Validate and stage USB files in RAM, then launch the authored UI in Mazda's existing browser |
-| `api.c`, `service.sh` | A bounded local POST parser under BusyBox `tcpsvd`; session-token validation and service ownership |
-| `runtime.js`, `dialog.js`, `settings.js` | One command contract, Mazda dialogs and native Settings pages |
+| `run.sh`, `session.sh`, `loader.js`, `usb-service.sh` | Stage verified USB bytes and own one transient maintenance session |
+| `api.c`, `service.sh` | A bounded local POST parser under BusyBox `tcpsvd`; separate installed and USB listener ownership |
+| `runtime.js`, `dialog.js`, `settings.js` | Boot-selected installed Settings and its native input/page lifecycle |
+| `maintenance.js` | Independent USB choices, progress and installed completion; no Settings replacement |
 | `backend.sh`, `transaction.sh`, `state.sh` | Install, preferences, complete uninstall and interrupted-operation reconciliation |
 | `firmware.sh`, `mmui.S`, `intro.js`, `system-route.js` | Exact v74 guards and composition from this unit's saved originals |
 | `startup-hook.sh`, `boot.sh`, `ignition.sh` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
@@ -21,13 +22,30 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | `services.tsv`, `preferences.awk`, `sm-profile.awk` | Built-in Services catalog, canonical preferences and one RAM Service Manager composer |
 | `wireless.sh`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step and narrow native wireless service arguments |
 
-The browser sends `POST /control` to `127.0.0.1:15555`, with `Content-Type:
+The browser sends `POST /control` to installed port `15555` or transient USB port
+`15557` on `127.0.0.1`, with `Content-Type:
 text/plain` and body `token|revision|operation|arg0|arg1|arg2`. Missing arguments
 are `-`. Responses are JSON. The 32-character session token is data supplied by
 the loader or a meta element in the privately composed index. The revision binds
 the current snapshot; pending recovery uses its unique transaction revision.
 Allowed operations are `status`, `install`, `set`, `uninstall`, `recover`,
-`restart` and `dismiss`. No shell commands or paths come from browser input.
+`restart`, `dismiss` and `import`. No shell commands or paths come from browser input.
+
+The installed client, menu row, program and catalog belong to the boot-selected
+package. USB insertion never replaces them. Across a package update, the running
+view reports restart pending and refuses generation-specific edits until restart;
+ordinary saved preferences within the same package remain usable. The popup has
+its own token, requests, native dialog and lifetime. The two owners arbitrate the
+one native modal surface, including suspended progress and pending saves.
+
+`status|settings` is a lightweight saved-state read, also used for USB chooser
+metadata. `status|completion` alone requests the full current-boot completion
+proof. Default full status reconciles uncertain mutations. Native `status|session`
+checks the caller's own close marker; installed-only `status|media` discovers a
+runner's final eligible USB offer. These native reads do not execute the shell
+backend or take the transaction lock. Every changing command still validates its
+revision and physical prerequisites under the writer lock. Maintenance shows
+native progress before requesting its change or restart.
 
 The only authoritative durable operation/startup record is
 `/tmp/mnt/data_persist/open-connect/record`. It references immutable originals,
@@ -70,8 +88,8 @@ duplicate selection and ambiguous durable writes select factory behavior.
 
 Both record flushes precede feature publication. The sole durable record retains
 the same attempt budget and ignition rules. A Service Manager one-shot after
-`stage_3` verifies and stages the Settings listener, yielding to an existing USB
-session. Autostart launches a separately verified RAM ignition observer on both
+`stage_3` verifies and stages the Settings listener independently of USB.
+Autostart launches a separately verified RAM ignition observer on both
 selected and valid exhausted-budget boots. The installed UI loads its own RAM
 assets and attaches locally; opening Settings fetches fresh backend status.
 Installed boot-status requests retry within one shared twelve-second deadline

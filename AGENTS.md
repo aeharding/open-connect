@@ -12,8 +12,9 @@ architecture refinement, use multiple fresh adversarial peers in repeated rounds
 to challenge code quality, Mazda patterns, ownership and unnecessary complexity.
 Keep the findings and their dispositions in GitHub issues; refine that list as
 fixes and new evidence arrive. Verify claimed bugs and have revised code reviewed
-again. No standing specialists. Use GPT-6.2-Astra for adversarial, major-plan and
-final PR reviews as described in CONTRIBUTING.md; peers are equals with room to
+again. No standing specialists. Use a mix of models for architecture critiques,
+including GPT-6.2-Astra. Use GPT-6.2-Astra for major-plan and final PR reviews as
+described in CONTRIBUTING.md; peers are equals with room to
 challenge the approach. Keep live bench ownership serialized.
 Create fresh Herdr agents; do not reuse the owner's previously open sessions.
 Use --no-parent --no-notify so inherited context cannot route updates into them.

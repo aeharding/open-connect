@@ -2,6 +2,7 @@
 var OpenConnectInstaller=(function () {
 "use strict";
 var active=null, own=Object.prototype.hasOwnProperty, owner={};
+function foreign(fw){return!!(fw.common._openConnectOperation&&fw.common._openConnectOperation!==owner);}
 function claim(fw){
  var c=fw.common;
  if(!c||c._openConnectOperation&&c._openConnectOperation!==owner||window.__ocUSBLoading)return false;
@@ -13,7 +14,8 @@ function show(fw, title, text, buttons, done, settings, progress) {
   function eligible() {
     return fw._currTmpltInstance===host&&fw._frameworkState===fw._FWK_STATE_IDLE&&
       fw.getCurrentApp()===app&&fw.getCurrCtxtId()===context&&
-      !common._vuiHelpDialog&&!common._vuiExamplesDialog;
+      !common._vuiHelpDialog&&!common._vuiExamplesDialog&&
+      !/^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(common._cachedVuiState);
   }
   if (active||!host||!common||!eligible()||
       common._openConnectOperation&&common._openConnectOperation!==owner||
@@ -116,7 +118,7 @@ function versionText(version) {
 function message(fw, title, text, buttons, done) {
   return show(fw, title, text, buttons, done, /settings$/.test(fw.getCurrentApp()));
 }
-return {claim:claim,release:release,message: message,progress: function (fw, action, warning, suspended) {
+return {claim:claim,release:release,foreign:foreign,message: message,progress: function (fw, action, warning, suspended) {
   return show(fw, action, warning, null, suspended, /settings$/.test(fw.getCurrentApp()), true);
 },about: function (fw, version, done) {
   return message(fw, "About", version===undefined ? "Installed version unavailable." : "Open Connect " + versionText(version),

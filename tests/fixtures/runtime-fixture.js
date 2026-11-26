@@ -4,7 +4,7 @@ const element=require('./ui-element.js');
 module.exports=function fixture(folder,options={}){
  const token='a'.repeat(32),usbToken='c'.repeat(32),revision='b'.repeat(64);
  const version=fs.readFileSync(path.join(folder,'VERSION'),'utf8').trim();
- const timers=new Map(),scripts=[],requests=[],allRequests=[],controls=[],pages=[],calls=[];
+ const timers=new Map(),scripts=[],requests=[],mediaRequests=[],allRequests=[],controls=[],pages=[],calls=[],listeners=new Map();
  const parent=element(),head=element();
  parent.children=[];head.children=[];
  for(const p of [parent,head]){
@@ -22,6 +22,7 @@ module.exports=function fixture(folder,options={}){
   list.setDataList({items:[{appData:'SelectAbout'}],itemCount:1,itemCountKnown:true});
  }}}};
  const apps=options.lateApp?{}:{syssettings:app};
+ if(options.usbApp)apps.usbaudio=options.usbApp;
  const home={divElt:element(parent),contextInfo:{uiaId:'system',ctxtId:'HomeScreen'}};
  const fw={_browserShown:true,_frameworkState:1,_FWK_STATE_IDLE:1,_currTmpltInstance:home,
   _appInstances:apps,_focusStack:[{id:'system'}],transitionsObj:{native:true},
@@ -55,31 +56,42 @@ module.exports=function fixture(folder,options={}){
     const m=q.match(/open-connect-(token|version|notice)/);
     return m&&options.installed!==false?{getAttribute(){return meta[m[1]];}}:null;
    },getElementById(id){return [...head.children,...parent.children].find(n=>n.id===id);},
-   createElement(tag){assert.equal(tag,'script');return {};},addEventListener(){},removeEventListener(){}},
+   createElement(tag){assert.equal(tag,'script');return {};},
+   addEventListener(type,fn,capture){const entries=listeners.get(type)||[];entries.push({fn,capture});listeners.set(type,entries);},
+   removeEventListener(type,fn,capture){listeners.set(type,(listeners.get(type)||[]).filter(e=>e.fn!==fn||e.capture!==capture));}},
   setTimeout(fn,ms){const id=++next;timers.set(id,{fn,at:now+ms});return id;},clearTimeout(id){timers.delete(id);},
   setInterval(fn,ms){const id=++next;timers.set(id,{fn,at:now+ms,repeat:ms});return id;},clearInterval(id){timers.delete(id);},
   XMLHttpRequest:function(){
    this.open=(method,url)=>{this.method=method;this.url=url;};this.setRequestHeader=()=>{};
    this.send=body=>{this.body=body;allRequests.push(this);
     const fields=body.split('|');
-    if(fields[2]==='status'&&fields[3]==='session'){
+    if(fields[2]==='status'&&fields[3]==='media'){
+     mediaRequests.push(this);
+     if(options.autoMedia!==false)ctx.setTimeout(()=>reply(this,{ok:true,media:null}),0);
+    }else if(fields[2]==='status'&&fields[3]==='session'){
      if(options.autoSession!==false)ctx.setTimeout(()=>reply(this,{ok:true,closed:this.url.includes(':15557/')?closedUSB:closedBoot}),0);
     }else requests.push(this);
    };
    this.abort=()=>{this.aborted=true;};
   }};
  ctx.window=ctx;const contextVM=vm.createContext(ctx);
- function evaluate(name){vm.runInContext(fs.readFileSync(path.join(folder,name),'utf8'),contextVM,{filename:name});}
+ function evaluate(name,url=name){
+  let source=fs.readFileSync(path.join(folder,name),'utf8');
+  if(options.sourceFor)source=options.sourceFor(url,source);
+  vm.runInContext(source,contextVM,{filename:url});
+ }
  const append=head.appendChild.bind(head);
  head.appendChild=n=>{append(n);if(n.src)scripts.push(n);};
  ctx.utility={loadScript(url,attrs,done){const n={src:url,...attrs,onload:done};head.appendChild(n);}};
+ function deliver(n,load=true){assert.ok(n&&!n.executed,'undelivered script');n.executed=true;evaluate(n.src.split('/').at(-1),n.src);if(load&&n.onload)n.onload();}
  function flush(count=Infinity){let handled=0;
-  while(handled<count){const n=scripts.find(n=>!n.executed);if(!n)break;n.executed=true;evaluate(n.src.split('/').at(-1));if(n.onload)n.onload();handled++;}
+  while(handled<count){const n=scripts.find(n=>!n.executed);if(!n)break;deliver(n);handled++;}
  }
  function advance(ms){const end=now+ms;let count=0;
   while(true){const next=[...timers].filter(([,t])=>t.at<=end).sort((a,b)=>a[1].at-b[1].at)[0];if(!next)break;
-   assert.ok(++count<10000,'bounded timer progression');const [id,t]=next;timers.delete(id);now=t.at;t.fn();
-   if(t.repeat)timers.set(id,{...t,at:now+t.repeat});
+   assert.ok(++count<10000,'bounded timer progression');const [id,t]=next;now=t.at;
+   if(t.repeat)t.at=now+t.repeat;else timers.delete(id);
+   t.fn();
   }now=end;
  }
  function reply(r,a,status=200){assert.ok(r,'request exists');r.status=a===null?0:status;r.responseText=a===null?'':JSON.stringify(a);r.readyState=4;r.onreadystatechange();}
@@ -87,17 +99,39 @@ module.exports=function fixture(folder,options={}){
   conflict:false,restart:false,pending:false,touch:0,warning:1,notice:'-',version,installedVersion:version,
   base:0,wireless:0,wirelessCurrent:0,carplayAutoshow:0,carplayAutoshowCurrent:0,...extra};}
  function install(flushCount=Infinity){evaluate('runtime.js');flush(flushCount);advance(0);}
- function usb(flushCount=Infinity){
-  const entry={id:'oc-maintenance-loader',src:'file:///tmp/open-connect/sessions/session-usb/loader.js',ocToken:usbToken,ocPort:15557};
-  head.appendChild(entry);entry.executed=true;evaluate('loader.js');flush(flushCount);advance(0);return entry;
+ function usb(flushCount=Infinity,sessionToken=usbToken){
+  closedUSB=false;
+  const entry={id:'oc-maintenance-loader',src:'file:///tmp/open-connect/sessions/session-'+sessionToken+'/loader.js',ocToken:sessionToken,ocPort:15557};
+  head.appendChild(entry);entry.executed=true;evaluate('loader.js',entry.src);ctx.OpenConnectUSBStart(entry);flush(flushCount);advance(0);return entry;
  }
  function pick(action){const d=controls.findLast(d=>!d.destroyed);assert.ok(d,'visible native dialog');d.props.defaultSelectCallback(d,action);advance(0);}
  function tap(){list.properties.selectCallback(list,'open-connect-settings');}
  function endAnimations(){for(const p of [...pages,host])if(!p.cleaned)p.divElt.emit('animationend');}
- return {ctx,fw,host,app,list,requests,allRequests,controls,pages,calls,scripts,timers,meta,token,usbToken,revision,version,
-  evaluate,flush,advance,reply,state,install,usb,pick,tap,nativeSettings,homeScreen,endAnimations,
+ function touch(type,target=parent){
+  const event={type,target,preventDefault(){this.defaultPrevented=true;},stopImmediatePropagation(){this.stopped=true;}};
+  for(const entry of [...listeners.get(type)||[]]){entry.fn(event);if(event.stopped)break;}
+  if(!event.stopped)calls.push(['touch-target',type]);
+  return event;
+ }
+ function armHome(){
+  const fired=[],props={};
+  for(const key of ['selectCallback','holdStartCallback','holdStopCallback'])props[key]=()=>fired.push(key);
+  const original={...props};
+  const button={properties:props,_isEnabled:false,
+   _holdTimeoutId:ctx.setTimeout(()=>props.holdStartCallback(),500),
+   finishPartialActivity(){assert.equal(this._isEnabled,true);props.holdStopCallback();}};
+  fw.common.statusBar={homeBtn:button};
+  const messages={};
+  for(const [key,field] of [['Global.StartHelp','_vuiHelpDialog'],['Global.StartExamples','_vuiExamplesDialog']]){
+   messages[key]=function(){fw.common[field]={};return 'native voice';};
+  }
+  fw.common._messageTable={...messages};
+  return {button,original,messages,fired};
+ }
+ return {ctx,fw,host,app,list,requests,mediaRequests,allRequests,controls,pages,calls,scripts,timers,meta,token,usbToken,revision,version,
+  evaluate,deliver,flush,advance,reply,state,install,usb,pick,tap,nativeSettings,homeScreen,endAnimations,touch,listeners,armHome,
   get dialog(){return controls.findLast(d=>!d.destroyed);},get lookups(){return lookups;},get now(){return now;},
-  closeUSB(){closedUSB=true;},closeBoot(){closedBoot=true;},oldInput,oldTransition,
+  closeUSB(){closedUSB=true;},closeBoot(){closedBoot=true;},oldInput,oldTransition,oldSend:fw.sendEventToMmui,
   operation(op){return requests.filter(r=>r.body.split('|')[2]===op);},
   assertNative(){assert.equal(fw._currTmpltInstance,current==='syssettings'?host:home);assert.equal(fw._frameworkState,1);}};
 };

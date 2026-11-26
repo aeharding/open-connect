@@ -298,8 +298,8 @@ firmware_dependencies() { :; }
 nvram_read() { cat "$D-nvram"; }
 nvram_change() {
     test "$(cat "$D-nvram")" = "$1" || return 1
+    printf 'commit\n' >> "$D-nvram-calls"
     printf '%s\n' "$2" > "$D-nvram"
-    test "$CUT" != nvram || kill -KILL $$
 }
 startup_publish() {
     test "$(sha "$AUTOSTART")" = "$3" || return 1
@@ -357,7 +357,9 @@ transaction_reconcile
         old = self.fingerprint(first)
         initial_snapshot = (self.data / "record").read_text().split("|")[5]
         previous = first
-        for cut in ("before-record", "prepared", "startup", "nvram"):
+        # Identical reinstalls have no NVRAM transition to interrupt. Genuine
+        # interrupted commits are covered by the transaction recovery tests.
+        for cut in ("before-record", "prepared", "startup"):
             with self.subTest(cut=cut):
                 candidate = self.save(previous.name)
                 record = (self.data / "record").read_bytes()
@@ -383,3 +385,4 @@ transaction_reconcile
                     self.assertIn("package=" + candidate.name + "\n", config.read_text())
                     previous = candidate
         self.assertEqual(self.fingerprint(first), old)
+        self.assertEqual(Path(str(self.data) + "-nvram-calls").read_text(), "commit\n")

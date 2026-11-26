@@ -12,6 +12,7 @@ static long token_read(const char *p, char *b, unsigned n) {
     int f=open(p,O_RDONLY|O_NOFOLLOW); if(f<0)return -1;
     long r=read(f,b,n); close(f); return r;
 }
+static long path_link(const char *p,char *b,unsigned n) { return readlink(p,b,n); }
 static void execute(char **args, char **env) { execve("/bin/sh",args,env); }
 #else
 static long call3(long number,long a,long b,long c) {
@@ -28,6 +29,7 @@ static long token_read(const char *p,char *b,unsigned n) {
     long f=call3(5,(long)p,0100000,0); if(f<0)return -1;
     long r=call3(3,f,(long)b,n); (void)call3(6,f,0,0); return r;
 }
+static long path_link(const char *p,char *b,unsigned n) { return call3(85,(long)p,(long)b,n); }
 static void execute(char **args,char **env) { (void)call3(11,(long)"/bin/sh",(long)args,(long)env); }
 #endif
 
@@ -57,6 +59,57 @@ static int send_text(const char *s) {
     unsigned n=length(s);
     while(n){long r=output(s,n); if(r==-4)continue; if(r<=0)return 0; s+=r;n-=(unsigned)r;}
     return 1;
+}
+static unsigned parent(const char *p,unsigned n) {
+    while(n&&p[n-1]!='/')n--;
+    return n?n-1:0;
+}
+static int path_join(char *out,unsigned cap,const char *p,unsigned n,const char *tail) {
+    unsigned m=length(tail);
+    if(n+m>=cap)return 0;
+    for(unsigned i=0;i<n;i++)out[i]=p[i];
+    for(unsigned i=0;i<=m;i++)out[n+i]=tail[i];
+    return 1;
+}
+static int prefix(const char *a,const char *b,unsigned n) {
+    for(unsigned i=0;i<n;i++)if(!a[i]||a[i]!=b[i])return 0;
+    return 1;
+}
+static int linked(const char *p,char *value,unsigned cap) {
+    long n=path_link(p,value,cap-1);
+    if(n<=0||(unsigned)n>=cap-1)return 0;
+    value[n]=0;return 1;
+}
+/* Discovery only: the runner offers one immutable pair after its final entry
+ * checks. The installed listener never executes shell or takes the writer lock.
+ * Capture one canonical session, then fence the pointer before returning it. */
+static void media_offer(const char *token_path) {
+    char path[512],usb[512],check[512],offer[49],token[34];
+    unsigned home=parent(token_path,length(token_path));
+    unsigned root=parent(token_path,parent(token_path,home));
+    if(!root||!path_join(path,sizeof path,token_path,root,"/runtime")||
+       !linked(path,check,sizeof check)||length(check)!=home||!prefix(check,token_path,home))goto miss;
+    if(!path_join(path,sizeof path,token_path,root,"/usb-runtime")||
+       !linked(path,usb,sizeof usb)||length(usb)!=root+24||
+       !path_join(path,sizeof path,token_path,root,"/sessions/session-")||
+       !prefix(usb,path,root+18))goto miss;
+    for(unsigned i=root+18;i<root+24;i++)
+        if(!((usb[i]>='a'&&usb[i]<='z')||(usb[i]>='A'&&usb[i]<='Z')||
+             (usb[i]>='0'&&usb[i]<='9')))goto miss;
+    unsigned n=length(usb);
+    if(!path_join(path,sizeof path,usb,n,"/offer")||token_read(path,offer,sizeof offer)!=48||
+       offer[14]!='|'||offer[47]!='\n')goto miss;
+    offer[14]=0;offer[47]=0;
+    if(!equal(offer,usb+root+10)||!hexn(offer+15,32)||
+       !path_join(path,sizeof path,usb,n,"/token")||token_read(path,token,sizeof token)!=33||
+       token[32]!='\n'||session_closed(path))goto miss;
+    token[32]=0;
+    if(!equal(token,offer+15)||!path_join(path,sizeof path,token_path,root,"/usb-runtime")||
+       !linked(path,check,sizeof check)||!equal(check,usb))goto miss;
+    send_text("{\"ok\":true,\"media\":{\"session\":\"");send_text(offer);
+    send_text("\",\"token\":\"");send_text(token);send_text("\"}}\n");return;
+miss:
+    send_text("{\"ok\":true,\"media\":null}\n");
 }
 static int response(int code,const char *error) {
     if(!send_text(code==200?"HTTP/1.0 200 OK\r\n":
@@ -134,7 +187,7 @@ static int run(int argc,char **argv) {
         if(!equal(op,"status")&&!equal(op,"install")&&!equal(op,"uninstall")&&
            !equal(op,"restart")&&!equal(op,"dismiss")&&!equal(op,"recover")&&!equal(op,"import"))goto bad;
         if((!equal(fields[3],"-")&&
-            !(equal(op,"status")&&(equal(fields[3],"settings")||equal(fields[3],"completion")||equal(fields[3],"session")))&&
+            !(equal(op,"status")&&(equal(fields[3],"settings")||equal(fields[3],"completion")||equal(fields[3],"session")||equal(fields[3],"media")))&&
             !(equal(op,"dismiss")&&equal(fields[3],"usb")))||
            !equal(fields[4],"-")||!equal(fields[5],"-"))goto bad;
     }
@@ -143,6 +196,7 @@ static int run(int argc,char **argv) {
         send_text(session_closed(argv[1])?"{\"ok\":true,\"closed\":true}\n":"{\"ok\":true,\"closed\":false}\n");
         return 0;
     }
+    if(equal(op,"status")&&equal(fields[3],"media")) { media_offer(argv[1]);return 0; }
     char *args[]={"sh",argv[2],"api",fields[1],fields[2],fields[3],fields[4],fields[5],0};
     char *env[]={"PATH=/bin:/sbin:/usr/bin:/usr/sbin","LC_ALL=C",0};
     execute(args,env);

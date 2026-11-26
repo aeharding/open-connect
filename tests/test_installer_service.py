@@ -28,6 +28,178 @@ HAS_TCPSVD = bool(
 )
 
 
+class InstallerPrivateStaging(unittest.TestCase):
+    def test_boot_flush_shares_only_mode700_and_verifies_shared_bytes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            source = root / "source"
+            source.mkdir(mode=0o700)
+            runtime = root / "runtime"
+            runtime.mkdir(mode=0o700)
+            ignition = runtime / "ignition"
+            ignition.mkdir(mode=0o700)
+            shared = ignition / "flush"
+            shared.write_text("verified flush fixture\n")
+            for name in (
+                "backend.sh",
+                "state.sh",
+                "firmware.sh",
+                "access.sh",
+                "transaction.sh",
+                "service.sh",
+                "console.sh",
+                "touch.sh",
+                "preferences.awk",
+                "services.tsv",
+                "VERSION",
+                "api",
+                "flush",
+                "runtime.js",
+                "dialog.js",
+                "settings.js",
+            ):
+                (source / name).write_text("fixture bytes\n")
+            shutil.copyfile(shared, source / "flush")
+            shutil.copyfile(ASSETS / "service.sh", source / "service.sh")
+            shutil.copyfile(ASSETS / "state.sh", source / "state.sh")
+            (source / "files.sha256").write_text(
+                "".join(
+                    hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                    for p in sorted(source.iterdir())
+                )
+            )
+            identity = hashlib.sha256((source / "files.sha256").read_bytes()).hexdigest()
+            source_mode = (source / "flush").stat().st_mode & 0o777
+            tools = root / "tools"
+            tools.mkdir()
+            if shutil.which("gstat"):
+                (tools / "stat").symlink_to(shutil.which("gstat"))
+            for mode, damaged in ((0o700, False), (0o400, False), (0o755, False), (0o700, True)):
+                with self.subTest(mode=oct(mode), damaged=damaged):
+                    shared.chmod(mode)
+                    if damaged:
+                        shared.write_text("foreign shared executable\n")
+                    result = subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            'set -eu; umask 077; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                            "uuid() { openssl rand -hex 16; }; "
+                            'service_files "$3" boot; printf "%s\\n" "$runtime"',
+                            "staging",
+                            source,
+                            runtime,
+                            identity,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                        env={**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]},
+                    )
+                    if damaged:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn("damaged_runtime", result.stderr)
+                    else:
+                        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                        staged = Path(result.stdout.strip()) / "flush"
+                        self.assertEqual(
+                            staged.stat().st_ino == shared.stat().st_ino, mode == 0o700
+                        )
+                        self.assertEqual(staged.stat().st_mode & 0o777, 0o700)
+                        self.assertEqual(staged.read_bytes(), (source / "flush").read_bytes())
+                        token = staged.parent / "token"
+                        self.assertEqual(token.stat().st_ino, (runtime / "token").stat().st_ino)
+                        self.assertEqual(token.read_bytes(), (runtime / "token").read_bytes())
+                    self.assertEqual(shared.stat().st_mode & 0o777, mode)
+                    self.assertEqual((source / "flush").read_text(), "verified flush fixture\n")
+                    self.assertEqual((source / "flush").stat().st_mode & 0o777, source_mode)
+                    self.assertEqual(
+                        shared.read_text(),
+                        "foreign shared executable\n" if damaged else "verified flush fixture\n",
+                    )
+
+    def test_failed_installed_staging_removes_only_its_unpublished_directory(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            source = root / "source"
+            source.mkdir(mode=0o700)
+            runtime = root / "runtime"
+            runtime.mkdir(mode=0o700)
+            sessions = runtime / "sessions"
+            sessions.mkdir(mode=0o700)
+            published = sessions / "session-published"
+            published.mkdir(mode=0o700)
+            (published / "reader").write_text("preserve published bytes\n")
+            (runtime / "runtime").symlink_to(published)
+            feature = runtime / "feature"
+            feature.mkdir(mode=0o700)
+            (feature / "runtime.js").write_text("foreign shared bytes\n")
+            for name in (
+                "backend.sh",
+                "state.sh",
+                "firmware.sh",
+                "access.sh",
+                "transaction.sh",
+                "service.sh",
+                "console.sh",
+                "touch.sh",
+                "preferences.awk",
+                "services.tsv",
+                "VERSION",
+                "api",
+                "flush",
+                "runtime.js",
+                "dialog.js",
+                "settings.js",
+            ):
+                (source / name).write_text("fixture bytes\n")
+            shutil.copyfile(ASSETS / "service.sh", source / "service.sh")
+            shutil.copyfile(ASSETS / "state.sh", source / "state.sh")
+            (source / "files.sha256").write_text(
+                "".join(
+                    hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                    for p in sorted(source.iterdir())
+                )
+            )
+            tools = root / "tools"
+            tools.mkdir()
+            if shutil.which("gstat"):
+                (tools / "stat").symlink_to(shutil.which("gstat"))
+            for kind in ("boot", "full"):
+                with self.subTest(kind=kind):
+                    manifest = hashlib.sha256((source / "files.sha256").read_bytes()).hexdigest()
+                    if kind == "full":
+                        # A missing copied member also exercises failure before
+                        # verification, with a complete private directory owner.
+                        (source / "backend.sh").unlink()
+                    result = subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            'set -eu; umask 077; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                            'service_files "$3" "$4"',
+                            "test",
+                            source,
+                            runtime,
+                            manifest,
+                            kind,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                        env={**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]},
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(
+                        list(sessions.iterdir()), [published], result.stdout + result.stderr
+                    )
+                    self.assertEqual(
+                        (published / "reader").read_text(), "preserve published bytes\n"
+                    )
+                    self.assertEqual((runtime / "runtime").resolve(), published)
+                    self.assertEqual((feature / "runtime.js").read_text(), "foreign shared bytes\n")
+
+
 @unittest.skipUnless(HAS_TCPSVD, "Linux /proc, flock and BusyBox tcpsvd required")
 class InstallerService(unittest.TestCase):
     def setUp(self):
@@ -145,9 +317,10 @@ class InstallerService(unittest.TestCase):
         self.runtime.mkdir(mode=0o700)
         feature = self.runtime / "feature"
         feature.mkdir(mode=0o700)
-        for name in ("runtime.js", "dialog.js", "settings.js", "service.sh"):
+        for name in ("runtime.js", "dialog.js", "settings.js", "service.sh", "flush"):
             shutil.copyfile(self.source / name, feature / name)
-            (feature / name).chmod(0o600)
+            (feature / name).chmod(0o700 if name == "flush" else 0o600)
+        flush_source = (self.source / "flush").read_bytes()
         for name in ("LICENSE", "boot-select", "native.bin"):
             (self.source / name).write_text("not needed by the installed listener\n")
         self.manifest()
@@ -156,8 +329,13 @@ class InstallerService(unittest.TestCase):
         session = (self.runtime / "runtime").resolve()
         for name in ("LICENSE", "boot-select", "native.bin", "sm-profile.awk"):
             self.assertFalse((session / name).exists())
-        for name in ("runtime.js", "dialog.js", "settings.js", "service.sh"):
+        for name in ("runtime.js", "dialog.js", "settings.js", "service.sh", "flush"):
             self.assertEqual((session / name).stat().st_ino, (feature / name).stat().st_ino)
+        self.assertEqual((session / "flush").stat().st_mode & 0o777, 0o700)
+        self.assertEqual((feature / "flush").stat().st_mode & 0o777, 0o700)
+        self.assertEqual((feature / "flush").read_bytes(), flush_source)
+        self.assertEqual((self.source / "flush").read_bytes(), flush_source)
+        self.assertEqual((self.source / "flush").stat().st_mode & 0o777, 0o700)
         self.assertEqual(
             (session / "files.sha256").read_bytes(), (self.source / "files.sha256").read_bytes()
         )
@@ -210,6 +388,7 @@ class InstallerService(unittest.TestCase):
         self.assertFalse((self.runtime / "listener").exists())
         self.assertEqual(shared.read_text(), "foreign bytes\n")
         self.assertEqual(shared.stat().st_mode & 0o777, 0o400)
+        self.assertEqual(list((self.runtime / "sessions").iterdir()), [])
 
     def test_usb_cancel_leaves_installed_endpoint_token_and_bytes_unchanged(self):
         result = self.boot()

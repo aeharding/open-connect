@@ -10,7 +10,7 @@ post_restart() (
     R=/tmp/open-connect; D=/tmp/mnt/data_persist/open-connect; P=$work
     test -f "$R/selected" && test -f "$R/feature/index.html" || exit 1
     . "$work/state.sh"; . "$work/service.sh"
-    service_lock usb
+    if test "${1:-}" != locked; then service_lock usb; fi
     private_dir "$D" && record_read && test "$R_PHASE" = active || exit 1
     test "$(current_boot_id)" = "$R_BOOT" && test "$(cat "$R/selected")" = "$R_CURRENT" || exit 1
     grep -F -q '<meta name="open-connect-notice" content="installed"' "$R/feature/index.html" || exit 1
@@ -29,6 +29,7 @@ navigate() {
 }
 cleanup() {
     # Native liveness polling closes this popup. Teardown never navigates Opera.
+    exec 9>&-
     if test -n "$runtime" && test -d "$runtime"; then
         : > "$runtime/closed"
         sh "$runtime/usb-service.sh" stop || :
@@ -55,7 +56,28 @@ test "${#token}" -eq 32 || exit 1
 case "$token" in *[!a-f0-9]*) exit 1;; esac
 test ! -f "$runtime/closed" || exit 0
 logger -t open-connect "OCUSB|$token|start"
-navigate "javascript:void(setTimeout(function(){if(document.getElementById('oc-maintenance-loader'))return;utility.loadScript('../..$runtime/loader.js',{id:'oc-maintenance-loader',ocToken:'$token',ocPort:$port},function(){});},0))"
+if test -f /tmp/open-connect/feature/runtime.js &&
+    grep -F -q 'OC_USB_OFFER_V1:' /tmp/open-connect/feature/runtime.js; then
+    R=/tmp/open-connect
+    . "$work/state.sh"
+    service_lock usb
+    if post_restart locked; then exit 0; fi
+    test ! -f "$runtime/closed" && test -f "$source/run.sh" || exit 0
+    test "$(readlink -f "$R/usb-runtime")" = "$runtime" || exit 0
+    service_owns_listener "$pid" "$start" "$runtime" 15557 || exit 1
+    name=${runtime##*/}
+    test "${#name}" -eq 14 || exit 1
+    case "$name" in session-??????) ;; *) exit 1;; esac
+    case "$name" in *[!a-zA-Z0-9-]*) exit 1;; esac
+    # Discovery is offered only after final retained-stick/ownership checks,
+    # serialized with Done. An older runner or suppressed session offers nothing.
+    (set -C; printf '%s|%s\n' "$name" "$token" > "$runtime/.offer")
+    mv "$runtime/.offer" "$runtime/offer"
+    exec 9>&-
+else
+    # Stock and older installed releases have no browser-side USB receiver.
+    navigate "javascript:void(setTimeout(function(){if(document.getElementById('oc-maintenance-loader'))return;var entry;utility.loadScript('../..$runtime/loader.js',{id:'oc-maintenance-loader',ocToken:'$token',ocPort:$port},function(){if(entry&&entry===document.getElementById('oc-maintenance-loader')&&typeof OpenConnectUSBStart==='function')OpenConnectUSBStart(entry);});entry=document.getElementById('oc-maintenance-loader');},0))"
+fi
 count=0
 while test "$count" -lt 300; do
     test ! -f "$runtime/closed" || exit 0

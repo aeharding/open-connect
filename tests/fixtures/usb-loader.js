@@ -12,4 +12,13 @@ f.ctx.document.querySelector('head').appendChild(replacement);replacement.execut
 const later={token:replacement.ocToken};f.ctx.__ocMaintenanceLoading=later;
 f.advance(65000);assert.equal(f.ctx.__ocMaintenanceLoading,later);
 assert.equal(f.ctx.document.getElementById('oc-maintenance-loader'),replacement);
+// The script itself is passive. Only a requesting callback with its still-current
+// captured node can start a popup; delayed A cannot infer B from B's DOM ID.
+f=fixture(folder);f.install();const stale=f.usb(0);
+stale.parentNode.removeChild(stale);
+const current={id:'oc-maintenance-loader',src:'file:///tmp/new/loader.js',ocToken:'e'.repeat(32),ocPort:15557};
+f.ctx.document.querySelector('head').appendChild(current);current.executed=true;
+const before=f.scripts.length;f.evaluate('loader.js');assert.equal(f.scripts.length,before);
+f.ctx.OpenConnectUSBStart(stale);assert.equal(f.scripts.length,before,'stale captured loader cannot start from B');
+f.ctx.OpenConnectUSBStart(current);assert.equal(f.scripts.length,before+1);assert.equal(f.ctx.__ocMaintenanceGeneration.token,current.ocToken);
 console.log('USB loader loads only its popup; stale cleanup leaves installed Settings and later entries intact');

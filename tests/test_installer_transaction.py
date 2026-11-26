@@ -1,15 +1,15 @@
 """Interrupt the maintained transaction code around real file publications."""
 
-import hashlib
 import fcntl
+import hashlib
 import json
 import os
 import shlex
 import shutil
 import subprocess
 import sys
-import time
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -261,6 +261,14 @@ class InstallerTransaction(unittest.TestCase):
         )
         state = state.replace("/tmp/open-connect", str(runtime))
         (self.tools / "state.sh").write_text(state)
+        uptime = self.root / "uptime"
+        uptime.write_text("100.00 0.00\n")
+        service = self.tools / "service.sh"
+        service.write_text(
+            service.read_text()
+            .replace("/tmp/open-connect", str(runtime))
+            .replace("/proc/uptime", str(uptime))
+        )
         # Use the real backend and state/transaction code; replace only physical
         # firmware, NVRAM, mount, root-publication and reboot adapters.
         adapters = DRIVER[DRIVER.index("root_mode()") : DRIVER.index('if test "$ACTION" = init;')]
@@ -863,8 +871,12 @@ class InstallerTransaction(unittest.TestCase):
                 selected.write_text(("0" * 64 if variant == "unselected" else record[5]) + "\n")
                 before = (data / "record").read_bytes()
                 result, status = self.api("status", argument="completion")
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(status["completionReady"], variant == "ready")
+                if variant == "unselected":
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(status["error"], "invalid_selected_snapshot")
+                else:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(status["completionReady"], variant == "ready")
                 self.assertEqual((data / "record").read_bytes(), before)
 
     def test_completion_uses_volatile_identity_when_kernel_uuid_repeats(self):
@@ -1020,10 +1032,154 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(answer["error"], "state_changed")
         self.assertNotIn("installed", answer)
 
-    def delayed_status(self, name):
-        data = self.create(name)
+    def test_status_refuses_malformed_authority_digests_on_either_sample(self):
+        data = self.create("authority-shape")
         self.run_ok(data, "install")
         self.backend_fixture(data)
+        module = self.tools / "state.sh"
+        original = module.read_text().replace("sha() {", "raw_sha() {", 1)
+        for value in ("", "a" * 63, "g" * 64, "A" * 64):
+            for sample in (1, 2):
+                with self.subTest(value=value, sample=sample):
+                    counter = self.root / "hash-count"
+                    counter.write_text("0\n")
+                    module.write_text(
+                        original
+                        + '\nsha() { if test "$1" = "$D/record"; then '
+                        + f"n=$(cat {shlex.quote(str(counter))}); n=$((n+1)); "
+                        + f'printf "%s\\n" "$n" > {shlex.quote(str(counter))}; '
+                        + f'if test "$n" = {sample}; then printf "%s\\n" '
+                        + shlex.quote(value)
+                        + '; return 0; fi; fi; raw_sha "$@"; }\n'
+                    )
+                    result, answer = self.api("status")
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(answer, {"ok": False, "error": "state_changed"})
+
+    def test_installed_settings_keep_selected_program_catalog_and_refuse_new_package_writes(self):
+        data = self.create("selected-package")
+        self.run_ok(data, "install")
+        selected = (data / "record").read_text().split("|")[5]
+        old_package = (data / "package-id").read_text().strip()
+        self.backend_fixture(data)
+        runtime = self.root / "runtime"
+        (runtime / "selected").write_text(selected + "\n")
+        result, before = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        result, saved = self.api("set", before["revision"], "warning", "1", "0")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(saved["warning"], 0)
+        _, same_package = self.api("status", argument="settings")
+        self.assertEqual(same_package["warning"], 0)
+
+        successor = data / "packages/.successor"
+        shutil.copytree(data / "packages" / old_package, successor)
+        (successor / "VERSION").write_text("0.3.0-successor\n")
+        catalog = successor / "services.tsv"
+        catalog.write_text(catalog.read_text().replace("Pandora", "Successor Pandora"))
+        marker = self.root / "successor-interpreter-ran"
+        interpreter = successor / "preferences.awk"
+        interpreter.write_text(f'BEGIN {{ system("touch {marker}") }}\n' + interpreter.read_text())
+        manifest = "".join(
+            hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+            for p in sorted(successor.iterdir())
+            if p.name != "files.sha256"
+        )
+        (successor / "files.sha256").write_text(manifest)
+        package = hashlib.sha256(manifest.encode()).hexdigest()
+        successor.rename(successor.with_name(package))
+        (data / "package-id").write_text(package + "\n")
+        self.run_ok(data, "install")
+        fields = (data / "record").read_text().split("|")
+        fields[3] = package
+        (data / "record").write_text("|".join(fields))
+        marker.unlink()
+        for argument in ("settings", "-"):
+            result, view = self.api("status", argument=argument)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(view["revision"], fields[5])
+            self.assertTrue(view["restart"])
+            self.assertEqual(view["installedVersion"], before["installedVersion"])
+            self.assertEqual(view["warning"], 1)
+            self.assertIn("Pandora", [row["label"] for row in view["services"]])
+            self.assertNotIn("Successor Pandora", [row["label"] for row in view["services"]])
+            self.assertFalse(marker.exists())
+        expected = (data / "record").read_bytes()
+        for operation, args in (("set", ("warning", "1", "0")), ("import", ())):
+            result, answer = self.api(operation, fields[5], *args)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(answer["error"], "restart_required")
+            self.assertEqual((data / "record").read_bytes(), expected)
+            self.assertFalse(marker.exists())
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        result, view = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(view["installedVersion"], "0.3.0-successor")
+        self.assertFalse(marker.exists())
+
+    def test_usb_metadata_never_runs_catalog_probe_or_flash_audit(self):
+        data = self.create("usb-metadata")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        runtime = self.root / "runtime"
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        with (self.tools / "firmware.sh").open("a") as target:
+            target.write("\nfactory_wireless() { exit 99; }\n")
+        with (self.tools / "state.sh").open("a") as target:
+            target.write("\nsnapshot_decode() { exit 98; }\n")
+        self.target(data, "relevant").write_text("physical conflict\n")
+        result, metadata = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(metadata["installedVersion"], "0.3.0-dev.10-fixture")
+        self.assertTrue(metadata["installed"])
+        self.assertFalse(metadata["completionReady"])
+        self.assertNotIn("services", metadata)
+        package = data / "packages" / (data / "package-id").read_text().strip()
+        version = (package / "VERSION").read_bytes()
+        (package / "VERSION").write_text("unverified-version\n")
+        result, error = self.api("status", argument="settings")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "invalid_version")
+        (package / "VERSION").write_bytes(version)
+        config = data / "snapshots" / metadata["revision"] / "config"
+        original = config.read_bytes()
+        config.write_bytes(original + b"unknown=1\n")
+        result, error = self.api("status", argument="settings")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "invalid_snapshot")
+        config.write_bytes(original)
+        (data / "record").unlink()
+        result, error = self.api("status", argument="settings")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "invalid_record")
+        shutil.rmtree(data)
+        data.mkdir(mode=0o700)
+        result, empty = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(empty["pending"])
+        self.assertFalse(empty["installed"])
+
+    def test_installed_dismiss_acknowledges_verified_record_without_audit(self):
+        data = self.create("dismiss-no-audit")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        fields = (data / "record").read_text().split("|")
+        fields[12] = "installed\n"
+        (data / "record").write_text("|".join(fields))
+        with (self.tools / "transaction.sh").open("a") as target:
+            target.write("\ntargets_match_loaded() { exit 99; }\n")
+        result, answer = self.api("dismiss", fields[5])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(answer, {"ok": True})
+        self.assertEqual((data / "record").read_text().split("|")[12], "-\n")
+        self.assertTrue((self.tools / "closed").exists())
+        result, status = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(status["notice"], "-")
+
+    def real_flock(self):
         flock = self.tools / "flock"
         flock.write_text(
             f"#!{sys.executable}\nimport fcntl,sys\n"
@@ -1034,6 +1190,12 @@ class InstallerTransaction(unittest.TestCase):
             "except OSError: sys.exit(1)\n"
         )
         flock.chmod(0o700)
+
+    def delayed_status(self, name):
+        data = self.create(name)
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        self.real_flock()
         transaction = self.tools / "transaction.sh"
         transaction.write_text(
             transaction.read_text().replace(
@@ -1072,6 +1234,241 @@ class InstallerTransaction(unittest.TestCase):
             self.assertLess(time.monotonic(), deadline)
             time.sleep(0.01)
         return data, process, gate
+
+    def test_restart_response_keeps_writer_excluded_until_bounded_reboot_handoff(self):
+        data = self.create("restart-writer-lock")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        self.real_flock()
+        backend = self.tools / "backend.sh"
+        reboot = self.root / "reboot.py"
+        # The host adapter enforces the same finite timeout as BusyBox on target.
+        timeout = self.root / "timeout.py"
+        timeout.write_text(
+            "import subprocess,sys\n"
+            "assert sys.argv[1:3] == ['timeout', '-t']\n"
+            "assert sys.argv[3] == '10'\n"
+            "try: sys.exit(subprocess.run(sys.argv[4:], timeout=0.2).returncode)\n"
+            "except subprocess.TimeoutExpired: sys.exit(124)\n"
+        )
+        source = backend.read_text()
+        start = self.root / "delay-started"
+        gate = self.root / "reboot-go"
+        delay = (
+            f"touch {shlex.quote(str(start))}; n=0; "
+            f"while test ! -f {shlex.quote(str(gate))}; do "
+            'n=$((n+1)); test "$n" -lt 500 || exit 1; sleep 0.01; done'
+        )
+        source = source.replace("sleep 2;", delay + ";")
+        source = source.replace(
+            "/bin/busybox", shlex.quote(sys.executable) + " " + shlex.quote(str(timeout))
+        )
+        source = source.replace(
+            "printf restarted > " + shlex.quote(str(self.root / "restarted")),
+            shlex.quote(sys.executable) + " " + shlex.quote(str(reboot)),
+        )
+        backend.write_text(source)
+        fields = (data / "record").read_text().split("|")
+        expected = (data / "record").read_bytes()
+        for behavior in ("return", "fail", "hang"):
+            with self.subTest(behavior=behavior):
+                start.unlink(missing_ok=True)
+                gate.unlink(missing_ok=True)
+                reboot.write_text(
+                    "import sys,time\n"
+                    + ("time.sleep(5)\n" if behavior == "hang" else "")
+                    + ("sys.exit(1)\n" if behavior == "fail" else "")
+                )
+                result, answer = self.api("restart", fields[5])
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertTrue(answer["ok"])
+                try:
+                    deadline = time.monotonic() + 2
+                    while not start.exists():
+                        self.assertLess(time.monotonic(), deadline)
+                        time.sleep(0.01)
+                    # A complete second backend write must fail before prepare.
+                    result, answer = self.api("uninstall", fields[5])
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(answer["error"], "busy")
+                    self.assertEqual((data / "record").read_bytes(), expected)
+                finally:
+                    gate.touch()
+                deadline = time.monotonic() + 3
+                with (self.root / "runtime/lock").open("r+") as lock:
+                    while True:
+                        try:
+                            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                            break
+                        except BlockingIOError:
+                            self.assertLess(time.monotonic(), deadline)
+                            time.sleep(0.01)
+
+    def test_failed_usb_writer_allows_removal_and_replacement_recovery(self):
+        data = self.create("usb-failed-writer")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        runtime = self.root / "runtime"
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        fields = (data / "record").read_text().split("|")
+        failure = self.target(data, "nvram-commit-fails")
+        failure.touch()
+        result, answer = self.api("uninstall", fields[5])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(answer["error"], "nvram_commit_failed")
+        self.assertEqual((data / "record").read_text().split("|")[1], "uninstall")
+        self.assertFalse(os.path.lexists(self.tools / "admitted"))
+        self.api("dismiss", argument="usb")
+        # Exercise the actual stop and replacement branches. Only the native
+        # listener and its Linux /proc retirement adapter are replaced on host.
+        service = self.tools / "service.sh"
+        with service.open("a") as target:
+            target.write(
+                "\nstop_listener() { :; }\n"
+                'service_listen() { service_config "$2"; ln -sfn "$1" "$service_runtime"; }\n'
+            )
+        usb = (ROOT / "cmu/installer/usb-service.sh").read_text()
+        usb = usb.replace("/tmp/open-connect", str(runtime))
+        usb = usb.replace("/tmp/mnt/data_persist/open-connect", str(data))
+        usb = usb.replace("retire) retire;;", "retire) exit 0;;")
+        (self.tools / "usb-service.sh").write_text(usb)
+        sessions = runtime / "sessions"
+        sessions.mkdir(mode=0o700)
+        old = sessions / "session-old"
+        self.tools.rename(old)
+        self.tools = old
+        (runtime / "usb-runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(old)
+        env = {**os.environ, "PATH": str(old) + os.pathsep + os.environ["PATH"]}
+        stopped = subprocess.run(
+            ["sh", old / "usb-service.sh", "stop"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=env,
+        )
+        self.assertEqual(stopped.returncode, 0, stopped.stdout + stopped.stderr)
+        self.assertFalse((runtime / "usb-runtime").exists())
+        replacement = self.root / "replacement"
+        shutil.copytree(old, replacement)
+        (replacement / "closed").unlink()
+        (replacement / "api").write_text("#!/bin/sh\nexit 0\n")
+        (replacement / "files.sha256").write_text(
+            "".join(
+                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                for p in sorted(replacement.iterdir())
+                if p.is_file() and not p.is_symlink() and p.name != "files.sha256"
+            )
+        )
+        started = subprocess.run(
+            ["sh", replacement / "usb-service.sh"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=env,
+        )
+        self.assertEqual(started.returncode, 0, started.stdout + started.stderr)
+        self.tools = Path(started.stdout.strip())
+        _, pending = self.api("status", argument="settings")
+        self.assertTrue(pending["pending"])
+        self.assertFalse(pending["completionReady"])
+        failure.unlink()
+        result, recovered = self.api("recover", pending["revision"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(data.exists())
+        self.assertFalse(recovered["pending"])
+        self.assertTrue(recovered["restart"])
+        self.assertTrue((self.tools / "admitted").is_symlink())
+
+    def test_successful_usb_removal_retains_bounded_readback_and_restart(self):
+        data = self.create("usb-success-retention")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        runtime = self.root / "runtime"
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        revision = (data / "record").read_text().split("|")[5]
+        result, _ = self.api("uninstall", revision)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(data.exists())
+        admitted = self.tools / "admitted"
+        lease = os.readlink(admitted)
+        self.assertEqual(lease, "OCUSB1|22000|-")
+        self.api("dismiss", argument="usb")
+        result, readback = self.api("status")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(readback["installed"])
+        self.assertFalse(readback["pending"])
+        for malformed in (lease + "\n", lease + "|extra", "OCUSB1|999999|-", "", "OCUSB1|22000|a"):
+            admitted.unlink()
+            if malformed:
+                admitted.symlink_to(malformed)
+            else:
+                admitted.touch()  # Legacy empty markers have no authority.
+            result, error = self.api("restart")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(error["error"], "session_closed")
+        admitted.unlink()
+        admitted.symlink_to(lease)
+        (self.root / "uptime").write_text("220.00 0.00\n")
+        result, error = self.api("restart")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(error["error"], "session_closed")
+        (self.root / "uptime").write_text("219.99 0.00\n")
+        result, answer = self.api("restart")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(answer["ok"])
+
+    def test_usb_writer_outlives_expired_lease_and_refreshes_it_at_success(self):
+        data = self.create("usb-writer-expired-lease")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        self.real_flock()
+        runtime = self.root / "runtime"
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        current = (data / "record").read_text().split("|")[5]
+        (self.tools / "admitted").symlink_to(f"OCUSB1|10001|{current}")
+        adapter = self.tools / "firmware.sh"
+        adapter.write_text(
+            adapter.read_text().replace(
+                "nvram_change() {",
+                "nvram_change() {\n"
+                ' printf ready > "$D-writer-started"; local count=0\n'
+                ' while test ! -f "$D-writer-go"; do\n'
+                '  count=$((count+1)); test "$count" -lt 1000 || return 1; sleep 0.01\n'
+                " done\n",
+            )
+        )
+        writer = subprocess.Popen(
+            ["sh", self.tools / "backend.sh", "api", current, "uninstall", "-", "-", "-"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        gate = self.target(data, "writer-go")
+        try:
+            deadline = time.monotonic() + 5
+            while not self.target(data, "writer-started").exists():
+                self.assertIsNone(writer.poll())
+                self.assertLess(time.monotonic(), deadline)
+                time.sleep(0.01)
+            (self.root / "uptime").write_text("1000.00 0.00\n")
+            self.assertFalse(os.path.lexists(self.tools / "admitted"))
+            prepared = (data / "record").read_bytes()
+            self.assertEqual(prepared.decode().split("|")[1], "uninstall")
+            result, error = self.api("recover", prepared.decode().split("|")[2])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(error["error"], "busy")
+            self.assertEqual((data / "record").read_bytes(), prepared)
+        finally:
+            gate.touch()
+            out, err = writer.communicate(timeout=10)
+        self.assertEqual(writer.returncode, 0, out + err)
+        self.assertTrue(json.loads(out)["ok"])
+        self.assertEqual(os.readlink(self.tools / "admitted"), "OCUSB1|112000|-")
 
     def test_slow_audit_allows_an_unchanged_exclusive_settings_reader(self):
         _, process, gate = self.delayed_status("concurrent-read")
@@ -1143,7 +1540,7 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(answer, {"ok": True})
         self.assertTrue((self.tools / "closed").exists())
         self.assertEqual((data / "record").read_bytes(), expected)
-        self.assertFalse((self.tools / "admitted").exists())
+        self.assertFalse(os.path.lexists(self.tools / "admitted"))
         result, answer = self.api("install", (data / "record").read_text().split("|")[5])
         self.assertEqual(answer["error"], "session_closed")
         self.assertEqual((data / "record").read_bytes(), expected)
@@ -1157,7 +1554,7 @@ class InstallerTransaction(unittest.TestCase):
         expected = (data / "record").read_bytes()
         result, answer = self.api("install", "f" * 64)
         self.assertEqual(answer["error"], "stale_state")
-        self.assertFalse((self.tools / "admitted").exists())
+        self.assertFalse(os.path.lexists(self.tools / "admitted"))
         self.assertEqual((data / "record").read_bytes(), expected)
 
     def test_selection_markers_require_the_complete_canonical_file(self):

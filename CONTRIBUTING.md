@@ -20,7 +20,9 @@ Record the reviewed commit, findings and their disposition in the PR. Resolve
 blocking findings before merge. After changes, have the reviewer check the
 affected delta; a review of an earlier revision is not approval of new code.
 Keep this proportional: one focused review, not a standing review team.
-Use GPT-6.2-Astra for agent reviews, including major-plan reviews.
+Use GPT-6.2-Astra for final PR and major-plan reviews. Broader architecture
+critique rounds use a mix of models, including GPT-6.2-Astra, to bring independent
+perspectives to the finding list.
 
 ## Review major plans without adding ceremony
 

@@ -18,10 +18,10 @@ same files as `usb-installer`. A `v<version>` development tag matching
 host checks. Qualify that CI artifact on the bench before publishing.
 
 Dev.21 reproduced the post-install Settings failure in [#157](https://github.com/aeharding/open-connect/issues/157).
-The dev.22 candidate addresses USB teardown, client handoff and native Back
-initialization. Its exact CI bundle still needs the affected bench checks before
-publication. The owner authorized a new prerelease for that retest; retain the
-artifact identity and remaining qualification limits when publishing.
+The published dev.22 bundle passed the affected bench checks for USB teardown,
+retained first taps and native Back initialization. Dev.23 separates installed
+Settings from the transient maintenance popup; its own CI artifact and affected
+native checks remain pending. Earlier evidence does not qualify this new path.
 
 Build scripts copy authored files and compile native assets; OEM files are read
 and composed privately on the CMU. The installer and its backend run on the CMU;

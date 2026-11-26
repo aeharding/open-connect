@@ -33,6 +33,7 @@ check-ui:
 	node tests/fixtures/maintenance-runtime.js cmu/installer
 	node tests/fixtures/system-hook.js cmu/installer/system-hook.js
 	node tests/fixtures/usb-loader.js cmu/installer/loader.js
+	node tests/fixtures/usb-receiver.js cmu/installer
 	node tests/fixtures/carplay.js cmu/installer
 
 $(OUT):

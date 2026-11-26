@@ -554,13 +554,45 @@ class InstallerTransaction(unittest.TestCase):
         # Verify metadata fast path (< 10 digits) and 10-digit uint32 boundary.
         script = (
             f'set -eu; D="{data}"; P="{self.tools}"; . "$P/state.sh"\n'
-            'metadata "755:0:0" && metadata "755:1000:999999999" && metadata "755:4294967295:4294967295"\n'
+            'metadata "755:0:0"\n'
+            'metadata "755:1000:999999999"\n'
+            'metadata "755:4294967295:4294967295"\n'
             'if metadata "755:4294967296:0"; then exit 11; fi\n'
             'if metadata "755:0:4294967296"; then exit 12; fi\n'
             'if metadata "755:10000000000:0"; then exit 13; fi\n'
         )
         res = subprocess.run(["sh", "-c", script], capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        # Embedded NUL in a snapshot manifest selector name must fail snapshot_read.
+        snap_id = good_record.decode().split("|")[5]
+        src_snap = data / "snapshots" / snap_id
+        nul_snap = data / "snapshots" / "nul-selector-work"
+        shutil.copytree(src_snap, nul_snap)
+        nul_snap.chmod(0o700)
+        sel = nul_snap / "selector"
+        if not sel.exists():
+            sel.write_bytes(b"-\n")
+            sel.chmod(0o600)
+        raw_mf = (nul_snap / "files.sha256").read_bytes()
+        lines = [ln for ln in raw_mf.splitlines(keepends=True) if not ln.endswith(b"  selector\n")]
+        sel_hex = hashlib.sha256(sel.read_bytes()).hexdigest().encode()
+        nul_mf = b"".join(lines) + sel_hex + b"  sel\x00ector\n"
+        (nul_snap / "files.sha256").write_bytes(nul_mf)
+        nul_id = hashlib.sha256(nul_mf).hexdigest()
+        nul_target = data / "snapshots" / nul_id
+        nul_snap.rename(nul_target)
+        res = subprocess.run(
+            [
+                "sh",
+                "-c",
+                f'set -eu; D="{data}"; P="{self.tools}"; . "$P/state.sh"; '
+                f'if snapshot_read "{nul_id}"; then exit 21; fi',
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        shutil.rmtree(nul_target)
 
     def test_save_final_verification_failure_requires_fresh_reconciliation(self):
         data = self.create("save-final-conflict")

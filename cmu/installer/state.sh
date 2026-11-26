@@ -29,9 +29,8 @@ boot_id() {
     hex "$value" 32
 }
 
-# Linux 3.0 on i.MX6 can repeat early-entropy boot_id after cold start. The locked
-# selector creates this once as an inline tmpfs symlink (no page) before OC1 recovery.
-# It is data; readers must neither follow it nor synthesize a value.
+# i.MX6 Linux 3.0 can repeat boot_id; selector creates this inline symlink once.
+# Data only (never follow or synthesize).
 current_boot_id() {
     local marker=/tmp/open-connect/boot-id value
     test -L "$marker" && test "$(stat -c '%s:%u:%g' "$marker")" = "36:$request_owner" || return 1
@@ -57,13 +56,15 @@ boot_identity() {
 }
 
 verify_manifest() {
-    local folder=$1 digest name extra expected= actual seen='|'
+    local folder=$1 line digest name expected= actual seen='|' bytes=0
     verified_names=; verified_snapshot=
     directory "$folder" && file "$folder/files.sha256" || return 1
     set --
-    while read -r digest name extra; do
-        hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1
-        case "$name" in .|..|*[!a-zA-Z0-9.-]*) return 1;; esac
+    while IFS= read -r line; do
+        bytes=$((bytes+${#line}+1))
+        digest=${line%% *}; name=${line#"$digest  "}
+        hex "$digest" 64 && test "$line" = "$digest  $name" || return 1
+        case "$name" in ''|.|..|*[!a-zA-Z0-9.-]*) return 1;; esac
         case "$seen" in *"|$name|"*) return 1;; esac
         seen="$seen$name|"
         test -f "$folder/$name" && test ! -L "$folder/$name" || return 1
@@ -71,7 +72,7 @@ verify_manifest() {
         expected="$expected$digest *$folder/$name
 "
     done < "$folder/files.sha256"
-    test -z "$digest$name$extra" && test "$#" -gt 0 || return 1
+    test "$#" -gt 0 && test "$(wc -c < "$folder/files.sha256")" -eq "$bytes" || return 1
     # Publish only names passed to this verified batch.
     actual=$(openssl dgst -sha256 -r "$@") || return 1
     test "$actual" = "${expected%?}" || return 1

@@ -1,8 +1,10 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Shared data operations. Callers set D (persistent state) and P (verified code).
-# Only D/record describes operation/startup state. Snapshots and packages are
-# immutable inputs; temporary files never authorize writes or feature startup.
+# D is persistent state; P is verified code. Only D/record describes
+# operation/startup state; snapshots/packages are immutable inputs. Temporary
+# files never authorize writes/startup. Capture actual owner per include.
+request_owner=$(id -u) && request_owner=$request_owner:$(id -g) || exit 1
+case "$request_owner" in :*|*:|*:*:*|*[!0-9:]*) exit 1;; esac
 
 fail() { printf '%s\n' "$1" >&2; exit 1; }
 sha() { local value; value=$(openssl dgst -sha256 < "$1") || return; printf '%s\n' "${value##* }"; }
@@ -13,7 +15,7 @@ file() { test -f "$1" && test ! -L "$1" && test "$(readlink -f "$1")" = "$1"; }
 directory() { test -d "$1" && test ! -L "$1" && test "$(readlink -f "$1")" = "$1"; }
 flush() { "$P/flush" "$1" "$2" || fail flush_failed; }
 private_dir() {
-    directory "$1" && test "$(stat -c '%a:%u:%g' "$1")" = "700:$(id -u):$(id -g)";
+    directory "$1" && test "$(stat -c '%a:%u:%g' "$1")" = "700:$request_owner";
 }
 touch_value() { case "$1" in absent|enable|disable) true;; *) false;; esac; }
 bit() { case "$1" in 0|1) true;; *) false;; esac; }
@@ -24,13 +26,12 @@ boot_id() {
     hex "$value" 32
 }
 
-# Linux 3.0 on i.MX6 can repeat its early-entropy boot_id after a cold start.
-# The selector creates this once, under the operation lock and before recovery
-# can change OC1. A short tmpfs symlink stores the value inline (no data page).
-# It is data, never a pathname to follow. Readers must not synthesize a value.
+# Linux 3.0 on i.MX6 can repeat early-entropy boot_id after cold start. The locked
+# selector creates this once as an inline tmpfs symlink (no page) before OC1 recovery.
+# It is data; readers must neither follow it nor synthesize a value.
 current_boot_id() {
     local marker=/tmp/open-connect/boot-id value
-    test -L "$marker" && test "$(stat -c '%s:%u:%g' "$marker")" = "36:$(id -u):$(id -g)" || return 1
+    test -L "$marker" && test "$(stat -c '%s:%u:%g' "$marker")" = "36:$request_owner" || return 1
     value=$(readlink "$marker") && boot_id "$value" || return 1
     printf '%s\n' "$value"
 }
@@ -286,7 +287,7 @@ snapshot_decode() {
             IFS='|' read -r S_SELECTOR_HASH S_SELECTOR_META S_SELECTOR_PACKAGE extra < "$D/snapshots/$1/selector" || return 1
             hex "$S_SELECTOR_HASH" 64 && hex "$S_SELECTOR_PACKAGE" 64 &&
                 test "$S_SELECTOR_PACKAGE" = "$S_PACKAGE" &&
-                test "$S_SELECTOR_META" = "700:$(id -u):$(id -g)" || return 1
+                test "$S_SELECTOR_META" = "700:$request_owner" || return 1
         fi
     fi
 }

@@ -1398,7 +1398,13 @@ Set in the existing OC1 record when the mode-2 pins fail and the previous choice
 is not mode 2. Normal reconciliation restores and verifies the previous snapshot;
 the changed pins still prohibit mode 2. Host backend tests cover interruption
 before NVRAM, after NVRAM, and after the durable reversal, followed by successful
-Uninstall with the library pin still changed. This adds no transaction field.
+Uninstall with the library pin still changed. If mode 2 was already saved before
+a Set or Reinstall, recovery instead durably changes only the after snapshot's
+touch policy to Factory behavior (mode 0), retaining its prepared NVRAM, startup,
+access and selector targets. Both prepared target checks still run before this
+change and on retries, including after a target write. Unpublished sealing work
+is removed on failure. Host regressions cover these cases through compatible-USB
+Uninstall and refuse third target values. This adds no transaction field.
 
 The actual tagged dev.23 USB's mutation path decodes through the authenticated
 installed preferences helper, then its own shell bit check refuses saved mode 2

@@ -324,7 +324,7 @@ class NativeBootPlan(unittest.TestCase):
         self.check(plan, success=False)
         self.seal(self.header + self.row + "hold/test|/no-parent/missing|-\n", success=False)
 
-    def native_fixture(self):
+    def native_fixture(self, *, resources=False):
         # Reuse the actual v74-map fixture, adding the real C capability. Import
         # locally so unittest does not discover that TestCase a second time.
         from tests.test_installer_boot import InstallerBoot
@@ -352,6 +352,26 @@ class NativeBootPlan(unittest.TestCase):
         )
         (fixture.source / "flush").chmod(0o700)
         (fixture.source / "INSTANCE").write_text("1" * 32 + "\n")
+        if resources:
+            # Keep real access/selector pair checks and writes on private targets.
+            for name in ("firmware.sh", "access.sh"):
+                path = fixture.source / name
+                text = path.read_text()
+                for original, leaf in (
+                    ("/usr/bin/open-connect-boot-select", "root-selector"),
+                    ("/usr/bin/runlogin", "root-login"),
+                    ("/etc/ssh/sshd_config", "root-sshd"),
+                ):
+                    text = text.replace(original, str(fixture.root / leaf))
+                path.write_text(text)
+            with source.open("a") as stream:
+                stream.write(
+                    "\nroot_publish() {\n"
+                    ' if test "$2" = -; then rm -f "$1"; return; fi\n'
+                    ' cp "$2" "$1.next" && metadata "$3" &&\n'
+                    ' chmod "$S_MODE" "$1.next" && mv "$1.next" "$1"\n'
+                    "}\n"
+                )
         manifest = "".join(
             hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n"
             for path in sorted(fixture.source.iterdir())
@@ -367,6 +387,26 @@ class NativeBootPlan(unittest.TestCase):
         )
         fixture.shell('record_read; R_BACKEND="$3"; record_write')
         fixture.select_wireless(1, base=1)
+        if resources:
+            fixture.shell(
+                '. "$P/access.sh"; record_read; root=${D%/*}; work=$D-resources; mkdir -m 700 "$work"; '
+                'printf "stock login\\n" > "$work/runlogin"; '
+                'printf "stock sshd\\n" > "$work/sshd.conf"; '
+                'printf "0|0|-|755:%s:%s|644:%s:%s|-\\n" '
+                '"$(id -u)" "$(id -g)" "$(id -u)" "$(id -g)" > "$work/access"; '
+                'printf "%s\\n" - > "$work/selector"; '
+                'snapshot_read "$R_BASE"; '
+                'R_BASE=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - "$S_NVRAM" '
+                '"$S_META" "$D/snapshots/$R_BASE/dependencies" "$work" ""); '
+                'root_publish "$root/root-login" "$work/runlogin" "755:$(id -u):$(id -g)"; '
+                'root_publish "$root/root-sshd" "$work/sshd.conf" "644:$(id -u):$(id -g)"; '
+                'selector_compose "$work" "$R_BACKEND"; '
+                'root_publish "$root/root-selector" "$P/boot-select" "700:$(id -u):$(id -g)"; '
+                'snapshot_read "$R_CURRENT"; '
+                'R_CURRENT=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$S_PACKAGE" '
+                '"$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$work" "$S_PREFS"); '
+                "record_write"
+            )
         return fixture
 
     def sealed_fixture(self):
@@ -377,8 +417,8 @@ class NativeBootPlan(unittest.TestCase):
         )
         return fixture
 
-    def touch_fixture(self):
-        fixture = self.native_fixture()
+    def touch_fixture(self, *, resources=False):
+        fixture = self.native_fixture(resources=resources)
         fixture.shell(
             '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
             'record_read; snapshot_read "$R_CURRENT"; '
@@ -435,17 +475,214 @@ class NativeBootPlan(unittest.TestCase):
         self.assertEqual(fixture.record()[1], "removed")
         self.assertEqual((fixture.root / "data-target").read_text(), "stock\n")
 
-    def test_interrupted_touch_disable_changed_pin_recovers_then_uninstalls(self):
-        for cut in ("prepared", "nvram", "rollback"):
-            with self.subTest(cut=cut):
-                self.interrupted_touch_recovery(cut)
+    def retained_touch_pending(self, operation, cut):
+        fixture = self.touch_fixture(resources=True)
+        setup = '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; record_read; '
+        if operation == "set":
+            # Use the actual Settings Set entry, cutting after its durable prepare.
+            client = fixture.runtime / "client"
+            shutil.copytree(fixture.package, client)
+            (fixture.runtime / "runtime").symlink_to(client)
+            (fixture.runtime / "selected").write_text(fixture.record()[5] + "\n")
+            transaction = client / "transaction.sh"
+            original = transaction.read_text()
+            transaction.write_text(
+                original.replace(
+                    "    PREPARED_REV=$R_REV", "    kill -KILL $$\n    PREPARED_REV=$R_REV"
+                )
+            )
+            result = self.touch_api(
+                fixture, "set", fixture.record()[5], "carplay-autoshow", "0", "1"
+            )
+            self.assertEqual(result.returncode, -9, result.stdout + result.stderr)
+            transaction.write_text(original)
+        else:
+            # Reinstall captures current physical state, then creates an unsealed
+            # after snapshot retaining the same preferences and package.
+            fixture.shell(
+                setup + 'snapshot_read "$R_CURRENT"; '
+                'before=$(state_capture "$S_PACKAGE" "$D/snapshots/$R_CURRENT" "$S_PREFS"); '
+                'after=$(snapshot_create "$AUTOSTART" "$S_PACKAGE" "$S_NVRAM" "$S_META" '
+                '"$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" "$S_PREFS"); '
+                'transaction_prepare install "$before" "$after"'
+            )
+            client = fixture.runtime / "client"
+            shutil.copytree(fixture.package, client)
+            (fixture.runtime / "runtime").symlink_to(client)
+            (fixture.runtime / "selected").write_text(fixture.record()[5] + "\n")
+        pending = fixture.record()
+        self.assertEqual(pending[1], operation)
+        snapshots = fixture.data / "snapshots"
+        configs = [
+            dict(
+                line.split("=", 1)
+                for line in (snapshots / value / "config").read_text().splitlines()[1:]
+            )
+            for value in pending[6:8]
+        ]
+        self.assertEqual([config["touch"] for config in configs], ["2", "2"])
+        self.assertEqual(
+            {key for key in configs[0] if configs[0][key] != configs[1][key]},
+            {"carplay-autoshow"} if operation == "set" else set(),
+        )
+        self.assertFalse((snapshots / pending[7] / "boot.plan").exists())
+        if cut == "startup":
+            # Exit immediately after a real physical target publication, before sealing.
+            with self.assertRaises(subprocess.CalledProcessError) as caught:
+                fixture.shell(
+                    setup + 'startup_publish() { root_publish "$AUTOSTART" "$@"; kill -KILL $$; }; '
+                    "transaction_reconcile"
+                )
+            self.assertEqual(caught.exception.returncode, -9)
+            self.assertEqual(fixture.record(), pending)
+        (fixture.root / "touch-lib").write_bytes(b"changed OEM devices library\n")
+        return fixture, client, pending
 
-    def interrupted_touch_recovery(self, cut):
+    def touch_api(self, fixture, operation, revision, *args):
+        return subprocess.run(
+            [
+                "sh",
+                fixture.runtime / "client/backend.sh",
+                "api",
+                revision,
+                operation,
+                *(args or ("-", "-", "-")),
+            ],
+            capture_output=True,
+            text=True,
+            env=fixture.env,
+            timeout=20,
+        )
+
+    def test_retained_touch_changed_pin_recovers_and_usb_uninstalls_across_cuts(self):
+        for operation in ("set", "install"):
+            for cut in ("prepared", "startup", "policy"):
+                with self.subTest(operation=operation, cut=cut):
+                    fixture, client, pending = self.retained_touch_pending(operation, cut)
+                    # Changed pins still prevent selecting or resealing mode 2.
+                    for attempt in range(3):
+                        with self.assertRaises(subprocess.CalledProcessError) as caught:
+                            fixture.shell(
+                                'AUTOSTART=$D-target; record_read; boot_snapshot_seal "$R_AFTER"'
+                            )
+                        self.assertIn("boot_inputs_failed", caught.exception.stderr)
+                        self.assertEqual(
+                            list((fixture.data / "snapshots").glob(".new-*")), [], attempt
+                        )
+                    if cut == "policy":
+                        (fixture.runtime / "runtime").unlink()
+                        (fixture.runtime / "usb-runtime").symlink_to(client)
+                        transaction = client / "transaction.sh"
+                        original = transaction.read_text()
+                        transaction.write_text(
+                            original.replace(
+                                "            record_write\n            transaction_reconcile; return",
+                                "            record_write\n            kill -KILL $$\n            transaction_reconcile; return",
+                            )
+                        )
+                        interrupted = self.touch_api(fixture, "recover", pending[2])
+                        self.assertEqual(interrupted.returncode, -9, interrupted.stderr)
+                        safe = fixture.record()
+                        self.assertEqual(safe[6], pending[6])
+                        self.assertNotEqual(safe[7], pending[7])
+                        transaction.write_text(original)
+                    result = self.touch_api(fixture, "recover", fixture.record()[2])
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    recovered = json.loads(result.stdout)
+                    self.assertEqual((recovered["touch"], recovered["pending"]), (0, False))
+                    snapshot = fixture.data / "snapshots" / fixture.record()[5]
+                    config = (snapshot / "config").read_text()
+                    original_config = (
+                        fixture.data / "snapshots" / pending[7] / "config"
+                    ).read_text()
+                    self.assertEqual(config, original_config.replace("touch=2\n", "touch=0\n"))
+                    self.assertNotIn("touch/devices/", (snapshot / "boot.plan").read_text())
+                    fixture.shell(
+                        '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
+                        'record_read; targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT"'
+                    )
+                    settled_record = (fixture.data / "record").read_bytes()
+                    result = self.touch_api(fixture, "recover", recovered["revision"])
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual((fixture.data / "record").read_bytes(), settled_record)
+                    # A fresh compatible USB consumes the recovered durable state.
+                    if cut != "policy":
+                        result = self.touch_api(
+                            fixture, "set", recovered["revision"], "touch", "0", "2"
+                        )
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertEqual(json.loads(result.stdout)["error"], "touch_inputs_changed")
+                        self.assertEqual((fixture.data / "record").read_bytes(), settled_record)
+                        (fixture.runtime / "runtime").unlink()
+                        (fixture.runtime / "usb-runtime").symlink_to(client)
+                    result = self.touch_api(fixture, "uninstall", recovered["revision"])
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertFalse(fixture.data.exists())
+                    self.assertEqual(
+                        (fixture.root / "touch-lib").read_bytes(), b"changed OEM devices library\n"
+                    )
+                    self.assertEqual((fixture.root / "data-target").read_text(), "stock\n")
+                    self.assertEqual((fixture.root / "data-nvram").read_text(), "absent\n")
+                    self.assertEqual((fixture.root / "root-login").read_text(), "stock login\n")
+                    self.assertEqual((fixture.root / "root-sshd").read_text(), "stock sshd\n")
+                    self.assertFalse((fixture.root / "root-selector").exists())
+
+    def test_retained_touch_changed_pin_recovery_refuses_every_third_target(self):
+        for operation in ("set", "install"):
+            for cut in ("prepared", "startup"):
+                with self.subTest(operation=operation, cut=cut):
+                    fixture, _, pending = self.retained_touch_pending(operation, cut)
+                    record = (fixture.data / "record").read_bytes()
+                    targets = (
+                        "data-nvram",
+                        "data-target",
+                        "root-login",
+                        "root-sshd",
+                        "root-selector",
+                    )
+                    expected = (
+                        "nvram_changed",
+                        "startup_changed",
+                        "access_changed",
+                        "access_changed",
+                        "selector_changed",
+                    )
+                    for leaf, error in zip(targets, expected, strict=True):
+                        with self.subTest(target=leaf):
+                            target = fixture.root / leaf
+                            saved = target.read_bytes()
+                            target.write_bytes(
+                                b"enable\n"
+                                if leaf == "data-nvram"
+                                else b"unexpected third target\n"
+                            )
+                            physical = {
+                                name: (fixture.root / name).read_bytes() for name in targets
+                            }
+                            result = self.touch_api(fixture, "recover", pending[2])
+                            self.assertNotEqual(result.returncode, 0)
+                            self.assertEqual(json.loads(result.stdout)["error"], error)
+                            self.assertEqual((fixture.data / "record").read_bytes(), record)
+                            self.assertEqual(
+                                {name: (fixture.root / name).read_bytes() for name in targets},
+                                physical,
+                            )
+                            self.assertEqual(list((fixture.data / "snapshots").glob(".new-*")), [])
+                            target.write_bytes(saved)
+
+    def test_interrupted_touch_disable_changed_pin_recovers_then_uninstalls(self):
+        for previous in (0, 1):
+            for cut in ("prepared", "nvram", "rollback"):
+                with self.subTest(previous=previous, cut=cut):
+                    self.interrupted_touch_recovery(cut, previous)
+
+    def interrupted_touch_recovery(self, cut, previous):
         fixture = self.touch_fixture()
+        previous_nvram = "disable" if previous == 1 else "absent"
         setup = '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; record_read; '
         fixture.shell(
             setup + 'snapshot_read "$R_CURRENT"; '
-            'after=$(fixture_snapshot "$AUTOSTART" "$R_BACKEND" 1 0 disable "$S_META" '
+            f'after=$(fixture_snapshot "$AUTOSTART" "$R_BACKEND" {previous} 0 {previous_nvram} "$S_META" '
             '"$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 1 0 0); '
             'transaction_prepare set "$R_CURRENT" "$after"; transaction_reconcile; '
             'snapshot_read "$R_CURRENT"; '
@@ -464,7 +701,10 @@ class NativeBootPlan(unittest.TestCase):
             line.split("=", 1)
             for line in (snapshots / pending[7] / "config").read_text().splitlines()[1:]
         )
-        self.assertEqual({key for key in before if before[key] != after[key]}, {"touch", "nvram"})
+        self.assertEqual(
+            {key for key in before if before[key] != after[key]},
+            {"touch", "nvram"} if previous == 1 else {"touch"},
+        )
         # The preparing process has exited before the OEM input changes.
         pin = fixture.root / "touch-lib"
         pin.write_bytes(b"changed OEM devices library\n")
@@ -493,7 +733,7 @@ class NativeBootPlan(unittest.TestCase):
             )
             self.assertEqual(interrupted.returncode, -9)
             self.assertEqual(fixture.record()[6:8], [pending[7], pending[6]])
-            self.assertEqual((fixture.root / "data-nvram").read_text(), "disable\n")
+            self.assertEqual((fixture.root / "data-nvram").read_text(), previous_nvram + "\n")
             transaction.write_text(original)
 
         def api(operation, revision):
@@ -509,16 +749,17 @@ class NativeBootPlan(unittest.TestCase):
 
         recovered = api("recover", fixture.record()[2])
         self.assertFalse(recovered["pending"])
-        self.assertEqual(recovered["touch"], 1)
+        self.assertEqual(recovered["touch"], previous)
         self.assertEqual(fixture.record()[1], "active")
         self.assertEqual(fixture.record()[6:8], ["-", "-"])
         self.assertEqual(
             (snapshots / fixture.record()[5] / "config").read_text(),
             (snapshots / pending[6] / "config").read_text(),
         )
-        self.assertEqual((fixture.root / "data-nvram").read_text(), "disable\n")
+        self.assertEqual((fixture.root / "data-nvram").read_text(), previous_nvram + "\n")
         fixture.shell(
-            setup + 'snapshot_read "$R_CURRENT"; test "$S_TOUCH" = 1; targets_match "$R_CURRENT"'
+            setup
+            + f'snapshot_read "$R_CURRENT"; test "$S_TOUCH" = {previous}; targets_match "$R_CURRENT"'
         )
         with self.assertRaises(subprocess.CalledProcessError) as caught:
             fixture.shell(

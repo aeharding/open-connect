@@ -599,6 +599,8 @@ _boot_snapshot_seal() (
         fi
     fi
     work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail boot_snapshot_create_failed
+    snapshot_work=$work
+    trap 'rm -rf "$snapshot_work"' EXIT
     set -- autostart config dependencies
     if test "$S_ACCESS" = true; then set -- "$@" access runlogin sshd.conf; fi
     if test "${S_SELECTOR_RECORDED:-false}" = true; then set -- "$@" selector; fi

@@ -1304,6 +1304,12 @@ The maintained fixtures exercise the actual authored modules and backend, with
 native surfaces and physical adapters simulated. They do not qualify Opera
 scheduling, physical controls or CMU memory.
 
+The [ordinary-USB performance comparison](usb-discovery-performance.md) records
+added work from the first dev.23 discovery poller and its bounded backoff. The
+Opera RAM gap against historical dev.22 did not reproduce against fresh dev.22;
+whole-process snapshots do not isolate a heap or establish maps causation.
+Source pins, numeric exports, exclusions and release limits accompany the result.
+
 Stock v74 provides a browser-side USB connection notification. In a bounded
 November 25 experiment, software re-enumeration of the identified maintenance
 stick produced `usbaudio/TimedSbn_ConnectionStatus` with `Connected`, port A and

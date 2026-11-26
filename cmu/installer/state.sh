@@ -65,14 +65,14 @@ verify_manifest() {
         case "$name" in .|..|*[!a-zA-Z0-9.-]*) return 1;; esac
         case "$seen" in *"|$name|"*) return 1;; esac
         seen="$seen$name|"
-        # The parent is already canonical, and names cannot contain a slash.
+        # Names stay within the canonical parent.
         test -f "$folder/$name" && test ! -L "$folder/$name" || return 1
         set -- "$@" "$folder/$name"
         expected="$expected$digest *$folder/$name
 "
     done < "$folder/files.sha256"
-    test "$#" -gt 0 || return 1
-    # One process checks all bytes; repeated OpenSSL startup dominated early boot.
+    test -z "$digest$name$extra" && test "$#" -gt 0 || return 1
+    # Batch hashes avoid repeated OpenSSL startup.
     actual=$(openssl dgst -sha256 -r "$@") || return 1
     test "$actual" = "${expected%?}"
 }

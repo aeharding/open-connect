@@ -81,8 +81,9 @@ native_guard() {
 
 factory_wireless() (
     # Follow the verified OEM hardware branch, never our rendered RAM flags.
-    file /jci/scripts/get_board_type.sh || exit 1
-    sha_is /jci/scripts/get_board_type.sh 2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da || exit 1
+    # 1 means non-factory hardware; 2 means the probe is unavailable.
+    file /jci/scripts/get_board_type.sh || exit 2
+    sha_is /jci/scripts/get_board_type.sh 2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da || exit 2
     result=0
     PATH=/usr/bin:/bin:/usr/sbin:/sbin sh /jci/scripts/get_board_type.sh >/dev/null 2>&1 || result=$?
     test "$result" = 2

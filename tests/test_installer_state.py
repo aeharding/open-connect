@@ -174,8 +174,13 @@ class InstallerState(unittest.TestCase):
         packages = self.data / "packages"
         packages.mkdir(mode=0o700)
         sentinel = self.root / "target-executed"
-        for listed, executable in ((False, True), (True, False), (True, True)):
-            with self.subTest(listed=listed, executable=executable):
+        for listed, executable, terminated in (
+            (False, True, True),
+            (True, False, True),
+            (True, True, False),
+            (True, True, True),
+        ):
+            with self.subTest(listed=listed, executable=executable, terminated=terminated):
                 folder = packages / "build"
                 folder.mkdir(mode=0o700)
                 members = [
@@ -199,6 +204,10 @@ class InstallerState(unittest.TestCase):
                     hashlib.sha256((folder / name).read_bytes()).hexdigest() + "  " + name + "\n"
                     for name in members
                 )
+                if not terminated:
+                    # Pin an incomplete flush record after all complete records.
+                    # Its listed digest deliberately differs from the executable.
+                    manifest = manifest.rsplit("\n", 2)[0] + "\n" + "0" * 64 + "  flush"
                 (folder / "files.sha256").write_text(manifest)
                 package = hashlib.sha256(manifest.encode()).hexdigest()
                 target = packages / package
@@ -223,7 +232,7 @@ class InstallerState(unittest.TestCase):
                     timeout=5,
                     env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
                 )
-                if listed and executable:
+                if listed and executable and terminated:
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertTrue(sentinel.exists())
                 else:

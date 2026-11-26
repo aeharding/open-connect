@@ -371,7 +371,7 @@ service_boot() {
 "
         count=$((count+1)); test "$count" -le 64
     done < "$P/files.sha256"
-    test "$mandatory" = 5 && test -x "$P/flush"
+    test "$mandatory" = 5 && test -x "$P/flush" || exit 1
     actual_count=0
     for item in "$P"/* "$P"/.[!.]* "$P"/..?*; do
         if test ! -e "$item" && test ! -L "$item"; then continue; fi

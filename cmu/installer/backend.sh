@@ -231,7 +231,8 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
     if test -n "$base"; then service_status=$service_status',"base":'$base; fi
     if test -n "$wireless"; then service_status=$service_status',"wireless":'$wireless; fi
     if test -n "$wireless"; then
-        if factory_wireless; then wireless_factory=true; fi
+        if factory_wireless; then wireless_factory=true
+        else test "$?" = 1 || fail wireless_unavailable; fi
         # Wireless also requires its separate runtime application evidence.
         if test "$selected_wireless" = 1 && file /tmp/open-connect/feature/wireless-applied &&
             test "$(cat /tmp/open-connect/feature/wireless-applied)" = 1; then wireless_current=1; fi

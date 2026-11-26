@@ -106,7 +106,9 @@ access_login_check_loaded() (
     test "$S_LOGIN_INODE" != - || exit 0
     hold=/usr/bin/.open-connect-runlogin-$S_LOGIN_INODE
     if ! absent "$hold"; then access_hold_verify_loaded || exit 1; fi
-    if sha_same /usr/bin/runlogin "$D/snapshots/$R_BASE/runlogin"; then
+    hash=$(sha /usr/bin/runlogin) && hex "$hash" 64 || exit 1
+    base_hash=$(sha "$D/snapshots/$R_BASE/runlogin") && hex "$base_hash" 64 || exit 1
+    if test "$hash" = "$base_hash"; then
         test "$(stat -c %i /usr/bin/runlogin)" = "$S_LOGIN_INODE"
     else access_hold_verify_loaded; fi
 )
@@ -165,7 +167,7 @@ access_pair_check() {
 }
 
 access_pair_apply() {
-    local before=$D/snapshots/$1 after=$D/snapshots/$2 target name mode hash actual_mode before_hash before_mode after_hash hold hold_mode
+    local before=$D/snapshots/$1 after=$D/snapshots/$2 target name mode hash actual_mode before_hash before_mode after_hash base_hash hold hold_mode
     absent "$after/access" && return 0
     for name in runlogin sshd.conf; do
         access_pair_check "$1" "$2" || return 1
@@ -186,7 +188,8 @@ access_pair_apply() {
             snapshot_read "$R_BASE" || return 1
             if test "$S_LOGIN_INODE" != -; then
                 hold=/usr/bin/.open-connect-runlogin-$S_LOGIN_INODE
-                if sha_same "$after/$name" "$D/snapshots/$R_BASE/runlogin"; then
+                base_hash=$(sha "$D/snapshots/$R_BASE/runlogin") && hex "$base_hash" 64 || return 1
+                if test "$after_hash" = "$base_hash"; then
                     if ! absent "$hold"; then hold_mode=restore; else hold=; fi
                 else hold_mode=keep; fi
             fi

@@ -101,6 +101,55 @@ class InstallerComposition(unittest.TestCase):
             self.assertFalse(detected())
             self.assertFalse(marker.exists())
 
+    def test_factory_wireless_status_refuses_board_digest_errors(self):
+        from tests.test_installer_transaction import InstallerTransaction
+
+        fixture = InstallerTransaction()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        data = fixture.create("factory-hash-error")
+        fixture.run_ok(data, "install")
+        fixture.backend_fixture(data)
+        marker = fixture.root / "board-executed"
+        board = fixture.root / "get_board_type.sh"
+        board.write_text("touch " + shlex.quote(str(marker)) + "\nexit 2\n")
+        digest = hashlib.sha256(board.read_bytes()).hexdigest()
+        firmware = (ASSETS / "firmware.sh").read_text()
+        factory = firmware[
+            firmware.index("factory_wireless() (") : firmware.index("originals_verify()")
+        ]
+        factory = factory.replace("/jci/scripts/get_board_type.sh", str(board)).replace(
+            "2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da", digest
+        )
+        module = fixture.tools / "firmware.sh"
+        module.write_text(module.read_text() + "\n" + factory)
+        record = (data / "record").read_bytes()
+        result, status = fixture.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(status["wirelessFactory"])
+        self.assertTrue(marker.exists())
+        marker.unlink()
+        real = fixture.root / "flush-real"
+        (fixture.tools / "flush").rename(real)
+        for output, code in (("", 19), (digest, 19), ("invalid", 0), ("0" * 64, 0)):
+            with self.subTest(output=output, code=code):
+                helper = fixture.tools / "flush"
+                helper.write_text(
+                    '#!/bin/sh\nif test "$1:$2" = '
+                    + shlex.quote("h:" + str(board))
+                    + "; then printf '%s\\n' "
+                    + shlex.quote(output)
+                    + f"; exit {code}; fi\nexec "
+                    + shlex.quote(str(real))
+                    + ' "$@"\n'
+                )
+                helper.chmod(0o700)
+                result, status = fixture.api("status", argument="settings")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(status, {"ok": False, "error": "wireless_unavailable"})
+                self.assertFalse(marker.exists())
+                self.assertEqual((data / "record").read_bytes(), record)
+
     def test_wcp_dependency_resolves_without_accepting_unknown_paths(self):
         driver = (
             'set -eu; P=$2; . "$1/state.sh"; . "$1/firmware.sh"\n'

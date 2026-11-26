@@ -438,7 +438,7 @@ class UsbBuild(unittest.TestCase):
                         (len(z.read("open-connect/" + name)) + 4095) // 4096
                         for name in (*PAYLOAD, "files.sha256")
                     ),
-                    123,
+                    124,
                 )
                 for name in STATIC:
                     self.assertEqual(z.read("open-connect/" + name), (ASSETS / name).read_bytes())

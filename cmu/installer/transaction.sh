@@ -166,7 +166,7 @@ uninstall_owned() (
 # keeps its existing behavior, and backend resource traps also call this helper.
 prepared_candidate=
 record_clean() {
-    if test -n "$prepared_candidate"; then rm -f "$prepared_candidate"; fi
+    if test -n "$prepared_candidate"; then rm -f "$prepared_candidate" || :; fi
 }
 
 transaction_prepare() {

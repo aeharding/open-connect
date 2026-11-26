@@ -293,10 +293,10 @@ function bootClient(notice='-',autoMedia=true,sources={}) {
     else requests.push(this);};};
   x.source('runtime.js');
   return Object.assign(x,{token,requests,mediaRequests,complete(){while(loads.length)loads.shift()();},
-    legacyUSB(){
+    legacyUSB(sessionToken='c'.repeat(32),advance=true){
       const launch=fs.readFileSync(path.join(folder,'session.sh'),'utf8').match(/navigate "(javascript:void\(setTimeout[^\n]+)"/)[1]
-        .replaceAll('$runtime','/tmp/open-connect/sessions/session-ABC123').replaceAll('$token','c'.repeat(32)).replaceAll('$port','15557');
-      const source=launch.slice('javascript:'.length);require('acorn').parse(source,{ecmaVersion:5});x.run(source);x.advance();
+        .replaceAll('$runtime','/tmp/open-connect/sessions/session-ABC123').replaceAll('$token',sessionToken).replaceAll('$port','15557');
+      const source=launch.slice('javascript:'.length);require('acorn').parse(source,{ecmaVersion:5});x.run(source);if(advance)x.advance();
     },
     reply(r,value){r.readyState=4;r.status=200;r.responseText=JSON.stringify(value);r.onreadystatechange();},
     offer(token,session){const r=mediaRequests.at(-1);r.readyState=4;r.status=200;r.responseText=JSON.stringify({ok:true,media:{token,session}});r.onreadystatechange();},
@@ -357,6 +357,18 @@ for(const stage of ['loader','helper','metadata']){
   f.session(false);f.connect();assert.equal(f.count(),1,'ordinary connection proceeds after '+stage+' abandonment/close');
 }
 console.log('Actual dev.22 CarPlay: loader/helper/metadata priority, first display, timeout, late delivery and ordinary drive passed');
+
+for(const stage of ['probe','metadata']){
+  f=bootClient('-',true,legacy);f.complete();f.legacyUSB();
+  f.deliver('loader.js');f.deliver('maintenance.js');
+  if(stage==='metadata')f.reply(f.requests.at(-1),{ok:true,closed:false});
+  // B's entry and the native readiness messages are separate queued callbacks.
+  f.legacyUSB('d'.repeat(32),false);f.session(true);f.menu();f.advance();
+  assert.equal(f.count(),0,'replacement preserves CarPlay priority during '+stage);
+  assert.equal(f.ctx.__ocUSBLoading.token,'d'.repeat(32));
+  f.advance(65000);
+}
+console.log('Legacy discovery replacement keeps CarPlay priority through synchronous old-client cleanup');
 
 f=bootClient();f.session(true);f.menu();f.advance();assert.equal(f.count(),0,'ordinary boot awaits real support callbacks');
 f.complete();assert.equal(f.count(),1,'ready callback pumps first connection without another message');

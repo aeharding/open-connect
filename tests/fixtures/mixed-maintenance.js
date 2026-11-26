@@ -99,3 +99,20 @@ for(const stage of ['loader','helper','metadata']){
  assert.equal(f.ctx.OpenConnectInstaller,dialogs);assert.equal(f.list.properties.selectCallback,row);
 }
 console.log('Actual dev.22 cold first tap and deliberate Settings write cancel only transient loader/helper/metadata discovery');
+
+{
+ const f=fixture(folder,{sourceFor(url,source){return url.includes('/sessions/')?source:legacy[url.split('/').at(-1)]||source;}});
+ const oldVersion=legacy.VERSION.trim();f.meta.version=oldVersion;
+ f.legacyUSB(0);const discovery=f.ctx.__ocUSBLoading;
+ f.install(0);f.deliver(f.scripts.find(n=>n.src.endsWith('/dialog.js')));f.deliver(f.scripts.find(n=>n.src.endsWith('/settings.js')));f.advance(500);
+ const client=f.ctx.OpenConnect;
+ assert.equal(discovery.owner,client,'discovery recognizes the installed client that evaluated later');
+ f.flush();f.advance(0);const metadata=f.requests.at(-1);
+ f.nativeSettings();f.tap();const read=f.requests.at(-1);
+ assert.ok(read.url.includes(':15555/'));assert.notEqual(read,metadata);
+ f.reply(read,f.state({version:oldVersion,installedVersion:oldVersion}));f.endAnimations();
+ assert.equal(f.pages.length,1);
+ select(f,0);select(f,1);f.advance(1000);
+ assert.equal(f.operation('set').length,1,'late installed owner can cancel discovery for its first preference change');
+ assert.equal(discovery.owner,null);assert.equal(f.ctx.OpenConnect,client);
+}

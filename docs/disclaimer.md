@@ -28,13 +28,11 @@ Skip Mazda’s startup warning and continue to your usual screen.
 
 ## Notes
 
-<p>With disclaimer <strong>Skip</strong>, published dev.20 Base=0 Home appeared at <strong>35.6 s</strong>, versus <strong>39.9 s Stock Show</strong> (n=3 cold ACC-off boots per condition). The <strong>4.3 s Home difference</strong> includes skipping the disclaimer, but also compares Stock with the installed Base=0 configuration. It is <strong>not an isolated disclaimer-toggle trial</strong> or a measurement of the disclaimer wait alone. No separate RAM/CPU saving is established.</p>
+<p>The startup warning is skipped; the screen may briefly go black during startup. Mazda’s normal resume behavior stays intact, including audio, display-off and Fuel Economy Monitor.</p>
 
-<p>The startup warning is skipped; the screen may briefly go black. Mazda’s normal resume behavior remains, including audio, display-off and Fuel Economy Monitor.</p>
+<p>In cold-boot bench tests (dev.20), the main screen appeared at <strong>35.6 s</strong> with Open Connect defaults (Skip) versus <strong>39.9 s</strong> on Stock (Show), a 4.3 s difference that reflects both skipping the disclaimer and the rest of the default install rather than an isolated disclaimer-only trial. See <a href="performance.md#published-dev20-cold-acc-off-comparison-2026-11-25">Performance evidence</a> for details.</p>
 
-<p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
-
-<p>Startup and restoration have bench checks. <a href="performance.md#published-dev20-cold-acc-off-comparison-2026-11-25">Performance evidence</a> keeps the Show/Skip distinction explicit; #9 remains open. The screenshot above remains dev.19. <strong>0.3.0-dev.23</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
+<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. <strong>0.3.0-dev.24</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 <span id="change-the-setting"></span>
 

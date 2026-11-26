@@ -1,5 +1,18 @@
 # Guide media provenance
 
+## Touchscreen PR #205 captures 2026-11-26
+
+`setting-touchscreen.png` and `touchscreen-choices.png` are direct, **unedited native 800×480 `/dev/fb0` BGRA readbacks** captured during live v74 bench qualification of GREEN CI PR #205 (`ba4e6ee6`, [CI 45881169287](https://github.com/aeharding/open-connect/actions/runs/45881169287), merged `8094911b`, artifact `15147692204`). `setting-touchscreen.png` supersedes `setting-touchscreen-while-driving.png` on the welcome and Settings pages; `touchscreen-choices.png` shows the three-choice `Touchscreen` radio submenu (`Factory behavior`, `Always enabled`, `Always disabled`).
+
+Navigation used Commander Dial events (`Virtual Keyboard` → `filtered-keyboard0`) only, with touch disabled (`touch=2`) on `74.00.324A NA/cmu150_NA`. Both full PNGs were visually reviewed for zero PII, VIN/serials, phone names, credentials or diagnostic overlays. Physical Commander hardware and real-car use remain unqualified.
+
+| Asset | SHA-256 |
+| --- | --- |
+| `setting-touchscreen.png` | `747f9c6123c3071d445a936f20f368d90ff4d0f32e72508c94d9f9684faf8f29` |
+| `touchscreen-choices.png` | `31212b0fa8024a21d3b374cfe214825da5c2a47964dc0587fdba25c9ad0f65e2` |
+
+Private originals: `runs/separate-installer-settings-20261125/touch87-ci-bench-20261126/boot2-oc-back-enabled.png` and `boot2-touchscreen-submenu.png`.
+
 ## Audio sources PR #149 captures 2026-11-25
 
 `setting-pandora.png` and `setting-siriusxm.png` replace the earlier dev.19

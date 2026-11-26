@@ -1,17 +1,15 @@
 # Touchscreen
 
-Choose how Mazda Connect handles touch. The Commander knob and normal Mazda
-controls remain available. Choices save automatically and apply at the next
-full startup; use [Apply changes](settings.md#apply-changes) to restart.
+Choose how Mazda Connect handles touch input. The Commander knob and normal Mazda controls remain available in every mode.
 
 <dl class="oc-spec">
   <div>
     <dt>Menu</dt>
-    <dd><span class="oc-nav-path" data-walkthrough="touchscreen">Mazda Settings → System → Open Connect</span></dd>
+    <dd><span class="oc-nav-path" data-walkthrough="touchscreen">Open Connect</span></dd>
   </div>
   <div>
     <dt>Default</dt>
-    <dd>Allow (published dev.23); Always enabled (upcoming build)</dd>
+    <dd><span class="oc-default oc-default--on">Always enabled</span></dd>
   </div>
   <div>
     <dt>Impact</dt>
@@ -23,55 +21,33 @@ full startup; use [Apply changes](settings.md#apply-changes) to restart.
   </div>
 </dl>
 
-## Published v0.3.0-dev.23 USB
-
-The published development prerelease calls this setting **Touchscreen While
-Driving** and offers two choices:
-
-| Choice | Behavior |
-| --- | --- |
-| **Allow** (default) | Removes the speed-based touch lockout. |
-| **Factory Default** | Uses the touchscreen setting saved before installation. |
-
 <figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen-while-driving.png" alt="Touchscreen While Driving highlighted in Open Connect, with Allow displayed." width="800" height="480"></div>
-  <figcaption>Dev.19 screenshot; the Menu walkthrough was recorded on dev.20. Both show the two-choice setting used by published dev.23. The upcoming build changes the row and choice labels.</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/touchscreen-choices.png" alt="Touchscreen submenu showing Factory behavior, Always enabled, and Always disabled with Always disabled selected." width="800" height="480"></div>
+  <figcaption>Touchscreen choices in 0.3.0-dev.24.</figcaption>
 </figure>
 
-Select the Menu walkthrough above to follow the Commander route. In published
-dev.23, select **Touchscreen While Driving**, then **Allow** or **Factory Default**.
+## Notes
 
-## Upcoming build: three choices
+<p>Choices save automatically and take effect on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away.</p>
 
-The current development branch calls the setting **Touchscreen** and adds
-**Always disabled**. These choices are not in the published dev.23 USB:
+<p><strong>Always disabled</strong> stops Mazda Connect from reading the touchscreen while keeping the Commander knob working, which is intended for panels with phantom (“ghost”) touches. On bench tests of <strong>0.3.0-dev.24</strong>, it uses +4 KiB of temporary runtime storage and +8 KiB of <code>devices</code> memory only when selected (0 B runtime overhead when set to Factory behavior or Always enabled). See <a href="reverse-engineering.md#boot-scoped-touchscreen-disable-on-v74">implementation notes</a> for details.</p>
+
+<p><strong>Always disabled</strong> requires the exact supported <strong>74.00.324A NA</strong> input libraries. If you ever need to switch off <strong>Always disabled</strong>, use the Commander knob to return to <strong>Touchscreen</strong> and pick another option, then run <a href="apply-changes.md">Apply changes</a>.</p>
+
+<p><strong>Qualification limits:</strong> bench tests verified all three choices, software touch suppression, and Commander-only recovery back to working touch on <strong>74.00.324A NA</strong>. Real-car driving, physical ghost-touch panels, physical Commander hardware, and active CarPlay, Android Auto and Navigation touch remain unverified.</p>
+
+## Options
 
 | Choice | Behavior |
 | --- | --- |
 | **Factory behavior** | Uses the touchscreen setting saved before installation. |
-| **Always enabled** (default) | Removes the speed-based touch lockout. |
-| **Always disabled** | Blocks touchscreen input while retaining Commander navigation. |
+| **Always enabled** (default) | Keeps touch enabled while moving. |
+| **Always disabled** | Blocks touchscreen input while keeping Commander navigation working. |
 
-Use the Commander knob to return to **Touchscreen** and select another choice.
-Always disabled requires the exact supported **74.00.324A NA** input libraries.
-If those inputs change during an interrupted switch to Always disabled, recovery
-returns to the previous choice so maintenance can continue.
+## Upgrading from or using older USB drives
 
-To remove this build, use its installed **Uninstall** or compatible maintenance
-USB that supports all three choices. The published dev.23 USB refuses maintenance
-when Always disabled is saved, including Uninstall. Before using that older USB,
-save **Factory behavior** or **Always enabled** in the newer Settings; those map
-to **Factory Default** and **Allow**, respectively. Use **Apply changes** to
-activate the choice. Uninstall restores the pre-install behavior after restart.
+Earlier prereleases (such as **0.3.0-dev.23**) called this setting **Touchscreen While Driving** with only **Allow** and **Factory Default**. Your saved choice migrates automatically when you update to **0.3.0-dev.24**.
 
-## Qualification
-
-The published two-choice setting has bench checks; touch while moving in a real
-car remains unvalidated. Always disabled has partial software-injection evidence;
-final packaged startup, earliest input, physical touch and Commander, and active
-CarPlay, Android Auto and Navigation checks remain pending. Neither has an
-isolated release performance result. See [performance evidence](performance.md)
-and the [implementation findings](reverse-engineering.md#boot-scoped-touchscreen-disable-on-v74)
-for ABI, memory measurements and remaining qualification.
+To remove **0.3.0-dev.24** while **Always disabled** is saved, use the installed **Uninstall** menu or a **0.3.0-dev.24** (or newer) USB drive. Older USB drives refuse maintenance while **Always disabled** is saved — switch to **Factory behavior** or **Always enabled** first if you need to use an older USB drive.
 
 [Back to Settings](settings.md)

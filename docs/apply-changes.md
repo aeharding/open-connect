@@ -23,20 +23,14 @@ Restart Mazda Connect to activate your saved choices. You don’t need a USB dri
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/setting-apply-changes-enabled.png" alt="Apply changes highlighted in Open Connect, above Uninstall, with saved changes waiting for a restart." width="800" height="480"></div>
-  <figcaption>Apply changes is available when saved choices need a restart (dev.20).</figcaption>
+  <figcaption>Apply changes is available when saved choices are waiting for a restart (dev.20).</figcaption>
 </figure>
 
 ## Notes
 
-<p>No preference; this action asks for confirmation before restarting.</p>
+<p>Choices save automatically as you toggle them, so you can adjust several settings and apply them all in one restart. <strong>restart needed</strong> means a choice is saved but not active yet.</p>
 
-<p><strong>Restarts to apply your saved choices.</strong> No isolated RAM/CPU/startup improvement is measured for this action. Individual settings have their own effects.</p>
-
-<p>Choices save automatically. You can change several settings before applying them together. <strong>restart needed</strong> means a choice is saved but not active yet.</p>
-
-<p><strong>Apply changes</strong> is disabled when there are no pending changes. The Commander Dial skips the disabled row.</p>
-
-<p>Dev.20 Apply changes has software bench verification on <strong>74.00.324A NA</strong>. Real-car qualification remains pending; <a href="performance.md">Performance evidence</a> records the dev.20 cold ACC-off cohorts separately from this action. <strong>0.3.0-dev.23</strong> is a development prerelease.</p>
+<p><strong>Apply changes</strong> is disabled when there are no pending changes; the Commander knob skips disabled rows. <strong>0.3.0-dev.24</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 ## Restart now
 
@@ -49,7 +43,7 @@ Restart Mazda Connect to activate your saved choices. You don’t need a USB dri
   <figcaption>Choose Restart to apply saved changes, or Cancel to keep browsing.</figcaption>
 </figure>
 
-**Cancel** leaves your saved choices waiting for the next full Mazda Connect startup. A quick ignition off/on may resume the same session. If a save cannot be confirmed, reopen Open Connect and check the choice before trying again.
+**Cancel** leaves your saved choices waiting for the next full Mazda Connect startup (a quick ignition off/on may resume the same session). If a save cannot be confirmed, reopen Open Connect and check the setting before trying again.
 
 <figure class="oc-screen">
   <div class="oc-screen-frame"><img src="assets/guide/setting-apply-changes-disabled.png" alt="Apply changes greyed out because there are no pending changes; the Commander Dial highlights Uninstall below it." width="800" height="480" loading="lazy"></div>

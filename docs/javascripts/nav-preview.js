@@ -49,9 +49,9 @@
     "developer-options": ["developer-options.mp4", `${root[1]} → Developer options`],
     "version-info": ["version-info.mp4", "Home → Settings → System → About → Version Information"],
   };
-  const audioNote = "This dev.20 video shows the published dev.19/dev.20 layout, with DVD under Audio sources. In dev.21 on North American units, Audio sources contains only Pandora and SiriusXM; DVD is managed by Startup optimizations.";
+  const audioNote = "This dev.20 video shows the older Audio sources layout with a separate DVD row. In 0.3.0-dev.24 on North American units, Audio sources contains Pandora and SiriusXM only, and DVD is managed by Startup optimizations.";
   const notes = {
-    touchscreen: "This dev.20 walkthrough also matches published dev.23: select Touchscreen While Driving, then Allow or Factory Default. The upcoming build calls the row Touchscreen and offers Factory behavior, Always enabled and Always disabled.",
+    touchscreen: "Select Touchscreen, then choose Factory behavior, Always enabled or Always disabled. (This walkthrough video was recorded on dev.20, which called the row Touchscreen While Driving.)",
     disclaimer: "Select Startup disclaimer, then choose Skip or Show.",
     "wireless-carplay": "Turn on Wireless CarPlay and confirm Enable. The inline screenshot shows it on; fresh installations leave it off unless factory enabled.",
     "carplay-on-connection": "Select Show CarPlay on connection, then choose Factory behavior or Automatically show. The inline screenshot shows the Factory default.",
@@ -59,7 +59,7 @@
     "startup-optimizations": "Turn Startup optimizations on or off and confirm the change. The inline screenshot shows it on; the fresh-install default is Off.",
     "audio-sources": audioNote,
     services: audioNote,
-    dvd: "Published dev.19/dev.20 have DVD under Audio sources. In dev.21 on North American units, use Startup optimizations in Open Connect to manage the unused DVD service. Audio CDs still work. This video shows dev.20.",
+    dvd: "Earlier dev.19/dev.20 builds listed DVD under Audio sources. In 0.3.0-dev.24 on North American units, Startup optimizations manages the unused DVD service; audio CDs still work. (This video was recorded on dev.20.)",
     pandora: "Turn Pandora on or off and confirm the change. This controls Mazda’s integration, not Pandora through CarPlay or Bluetooth.",
     siriusxm: "Turn SiriusXM on or off and confirm the change. This controls satellite radio and SiriusXM data.",
     "apply-changes": "Select Apply changes, then confirm Restart to apply saved choices. It is disabled when there are no pending changes. Keep the car on until Mazda Connect restarts.",

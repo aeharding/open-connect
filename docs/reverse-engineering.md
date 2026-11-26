@@ -1435,15 +1435,11 @@ USB maintenance copies the full bundle: 125 individually rounded 4 KiB file
 pages versus 124 before the shim, adding one page in every mode. `boot.sh` stays
 within four pages (16,261 bytes); packaging enforces its 16,384-byte cap and the
 shim's 4,096-byte cap, including incremental builds.
-Selected mode 2 adds one 4 KiB feature page plus unmeasured release devices PSS.
-All 14 per-file page budgets are enforced. This is file-page accounting, not a
-target allocation measurement. Final matched boot timing,
-allocated pages and PSS need explicit owner RAM acceptance under STEERING.md.
+All 14 per-file page budgets are enforced.
 
-Remaining physical work: use the final CI ELF through the real SM path on glibc
-2.13, witness both OEM mappings and dependency registration, and remain framework
-idle beyond the reproduced failure window. Inject from the earliest available
-input window through first UI, then reverse with Commander. Active CarPlay,
-Android Auto, Navigation, physical panel/Commander and AR1XXX remain outside the
-prototype's demonstrated coverage. Idle MMUI/CarPlay FDs and Wayland configuration
-support a routing inference, not proof of those active workloads.
+**Live v74 CI-bundle qualification (2026-11-26, PR #205 `ba4e6ee6` / CI `45881169287` / artifact `15147692204`, merged `8094911b`):**
+- **Boot #1 (`83f0d21e`, `touch=1` Always enabled):** installed via USB maintenance (`127.0.0.1:15557`) and restarted cleanly. Zero `touch-disable.so` staged in `/tmp/open-connect/feature` (`0 B` installed tmpfs growth; `404 KiB` total `/tmp/open-connect`), stock `devices` PID 352 PSS `1,285 KiB`, Settings status completed in `960 ms` (with merged PR #204 static `flush h`, which separately benchmarked `250 ms → 30 ms` median across 5×9 scalar hashes on `Linux 3.0.35`, `8.33×` faster than `openssl dgst -sha256` with 9/9 bit-for-bit parity and zero extra staged pages).
+- **Boot #2 (`9f410943`, `touch=2` Always disabled):** Service Manager launched `/jci/sm/sm_svclauncher -l devices /tmp/open-connect/feature/touch-disable.so 0 -a` cleanly on glibc 2.13 (PID 370), mapping CI `touch-disable.so` (`2,340 B`, SHA-256 `7899c87d...`), `/jci/devices/svc-com-jci-cpp-devices.so`, and `/jci/lib/libjcidevices.so` with zero core dumps (`uptime=64s+`, root RO). `/dev/input/filtered-touchscreen0` remained present while `/dev/input/event0` was unopened in `/proc/370/fd`. Upstream OEM `TouchSimulation` delivered `160 B` (10 events) on raw `event0`, `0 B` (0 events) on `filtered-touchscreen0`, and `0` framebuffer diff bytes. Feature tmpfs grew by exactly `+4 KiB` (`148 → 152 KiB` unique / `216 → 220 KiB` total vs matched Boot #3); USB staging tmpfs measured `508 KiB` (`+4 KiB` vs prior 124-page `504 KiB`); `devices` PSS measured `1,313 KiB` (`+8 KiB` vs matched Boot #3 `1,305 KiB`, matching exact `/proc/370/smaps` `4 KiB` RX + `4 KiB` RW = `8 KiB` for `touch-disable.so`), passing every owner guardrail (`0 B` at `0/1`, `<= +4 KiB` USB, `<= +4 KiB` feature at `2`, `<= +24 KiB` `devices` PSS).
+- **Boot #3 (`1084996e`, `touch=1` restored via Commander only):** navigated `Settings → System → Open Connect → Touchscreen` using `Virtual Keyboard` only, selected `Always enabled`, and confirmed `Apply changes → Restart`. `touch-disable.so` was absent and unmapped; `devices` (PID 354, PSS `1,305 KiB`) reopened `/dev/input/event0`; upstream `TouchSimulation` delivered `160 B` raw / `160 B` filtered and opened `Communication` from Home (`994,233` framebuffer diff bytes).
+
+Remaining qualification limits: earliest pre-UI input timing, active CarPlay, Android Auto, Navigation touch, physical ghost-touch panel hardware, physical Commander hardware and AR1XXX remain unverified. Idle MMUI/CarPlay FDs and Wayland configuration support a routing inference, not proof of those active workloads.

@@ -19,7 +19,7 @@ Find **OS Version**. It must read **74.00.324 NA N** (also called **74.00.324A**
 
 ## 2. Prepare a USB drive
 
-Download the USB ZIP from the [v0.3.0-dev.24 release](https://github.com/aeharding/open-connect/releases/tag/v0.3.0-dev.24).
+Download the **v0.3.0-dev.24** USB ZIP from [Releases](https://github.com/aeharding/open-connect/releases).
 
 Format a USB drive as FAT32, extract the ZIP onto it — the files must be at the root of the drive, not inside an extra folder — then eject.
 
@@ -58,7 +58,7 @@ Wait for **Open Connect installed**. You can now remove the USB drive. Choose **
 
 ## Updates
 
-Prepare a drive with a newer compatible bundle and insert it on Mazda Connect’s main screen. Check **From** and **To**, then choose **Update** (matching versions show **Reinstall**). Your saved preferences are kept.
+Prepare a drive with a compatible bundle and insert it on Mazda Connect’s main screen. Check **From** and **To**, then choose **Update** (matching versions show **Reinstall**). Your saved preferences are kept.
 
 Keep the drive connected and the car on until completion appears after restart. Any compatible USB drive works; you don’t need the original stick.
 

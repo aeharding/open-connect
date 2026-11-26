@@ -28,7 +28,7 @@ Control satellite radio and SiriusXM data services.
 
 ## Notes
 
-<p><strong>Bench results (dev.20, n=1 cold boot with SiriusXM off):</strong> <strong>+7.4 MiB available RAM proxy</strong> versus Stock (+6.8 MiB vs Open Connect defaults), main screen at 34.4 s (~1.2 s earlier than defaults) and −0.6 pp boot CPU vs Stock. See <a href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> for memory definitions and single-trial limits.</p>
+<p><strong>Bench results (dev.20, n=1 cold boot with SiriusXM off):</strong> <strong>+7.4 MiB available RAM proxy</strong> versus Stock (+6.8 MiB vs Open Connect defaults), main screen at 34.4 s (~1.2 s earlier than defaults) and −0.6 pp boot CPU vs Stock (small timing/CPU differences may be run variation). See <a href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> for memory definitions and single-trial limits.</p>
 
 <p>Turning it off hides SiriusXM from <strong>Sources</strong> and stops both satellite radio and SiriusXM data. CarPlay and audio CDs still work.</p>
 

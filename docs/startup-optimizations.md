@@ -28,7 +28,7 @@ Reduce background logging and stop unused services at startup. Previously called
 
 ## Notes
 
-<p><strong>Bench results (dev.20, n=3 cold boots):</strong> the main screen appeared at <strong>32.2 s</strong> — about <strong>7.7 s earlier than Stock</strong> (39.9 s, Stock Show vs installed Skip) and <strong>3.4 s earlier than Open Connect defaults</strong> (35.6 s) — with <strong>+21.2 MiB available RAM proxy</strong> (−17.8 MiB AnonPages) and <strong>−4.8 percentage points boot CPU</strong> versus Stock. See <a href="performance.md#published-dev20-cold-acc-off-comparison-2026-11-25">Performance evidence</a> for memory definitions, full cohorts and trial limits.</p>
+<p><strong>Bench results (dev.20, n=3 cold boots):</strong> the main screen appeared at <strong>32.2 s</strong> — about <strong>7.7 s earlier than Stock</strong> (39.9 s, Stock Show vs installed Skip) and <strong>3.4 s earlier than Open Connect defaults</strong> (35.6 s) — with <strong>+21.2 MiB available RAM proxy</strong> (−17.8 MiB AnonPages; 500 KiB own allocated tmpfs) and <strong>−4.8 percentage points boot CPU</strong> versus Stock. See <a href="performance.md#published-dev20-cold-acc-off-comparison-2026-11-25">Performance evidence</a> for memory definitions, full cohorts and trial limits.</p>
 
 <p>Stops unused services including Aha, Stitcher, DAB, TV, and Mazda’s unused North American <a href="dvd.md">DVD</a> service (audio CDs use a separate service and continue to work). Android Auto, Pandora and SiriusXM remain independent toggles.</p>
 

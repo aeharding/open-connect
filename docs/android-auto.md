@@ -28,7 +28,7 @@ Control Mazda’s built-in Android Auto support.
 
 ## Notes
 
-<p><strong>Bench results (dev.20, n=1 cold boot with Android Auto off):</strong> <strong>+4.6 MiB available RAM proxy</strong> versus Stock (+4.0 MiB vs Open Connect defaults) and main screen at 35.2 s (0.4 s earlier than defaults; +0.9 pp boot CPU vs Stock). See <a href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> for memory definitions and single-trial limits.</p>
+<p><strong>Bench results (dev.20, n=1 cold boot with Android Auto off):</strong> <strong>+4.6 MiB available RAM proxy</strong> versus Stock (+4.0 MiB vs Open Connect defaults) and main screen at 35.2 s (0.4 s earlier than defaults; +0.9 pp boot CPU vs Stock; small timing/CPU differences may be run variation). See <a href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> for memory definitions and single-trial limits.</p>
 
 <p>Turning Android Auto off makes built-in Android Auto unavailable. CarPlay, Bluetooth audio, USB music and audio CDs still work.</p>
 

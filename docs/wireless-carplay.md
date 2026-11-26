@@ -30,7 +30,7 @@ Connect your iPhone to CarPlay without plugging in a USB cable. Open Connect ena
 
 <p>Default is <span class="oc-default oc-default--off">Off</span>, unless your unit already has <strong>factory enabled</strong> wireless CarPlay (those units need no change here).</p>
 
-<p><strong>Bench results (dev.20, n=1 cold boot with an iPhone connected):</strong> about <strong>+2.2 percentage points boot CPU</strong> (+3.4 points settled) and negligible available-RAM proxy change (~0 MiB) versus Stock, with the main screen at 34.8 s. See <a id="testing" href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> for memory definitions, single-trial limits and connection tests.</p>
+<p><strong>Bench results (dev.20, n=1 cold boot with an iPhone connected):</strong> about <strong>+2.2 percentage points boot CPU</strong> (+3.4 points settled) and negligible available-RAM proxy change (~0 MiB) versus Stock, with the main screen at 34.8 s (small timing/CPU differences may be run variation). See <a id="testing" href="performance.md#stage-2b-isolated-toggle-sweep-n1">Performance evidence</a> for memory definitions, single-trial limits and connection tests.</p>
 
 <p>Uses Wi-Fi for CarPlay and requires compatible hardware and phone pairing. Wired CarPlay remains available when off. Turning on both <a href="startup-optimizations.md">Startup optimizations</a> and this override delays Mazda Navigation startup by about <strong>20 s</strong> (factory-enabled units are not affected).</p>
 

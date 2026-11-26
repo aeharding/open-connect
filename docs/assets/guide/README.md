@@ -2,7 +2,7 @@
 
 ## Touchscreen PR #205 captures 2026-11-26
 
-`setting-touchscreen.png` and `touchscreen-choices.png` are direct, **unedited native 800×480 `/dev/fb0` BGRA readbacks** captured during live v74 bench qualification of GREEN CI PR #205 (`ba4e6ee6`, [CI 45881169287](https://github.com/aeharding/open-connect/actions/runs/45881169287), merged `8094911b`, artifact `15147692204`). `setting-touchscreen.png` supersedes `setting-touchscreen-while-driving.png` on the welcome and Settings pages; `touchscreen-choices.png` shows the three-choice `Touchscreen` radio submenu (`Factory behavior`, `Always enabled`, `Always disabled`).
+`setting-touchscreen.png` and `touchscreen-choices.png` are direct, **unedited native 800×480 `/dev/fb0` BGRA readbacks** captured during live v74 bench qualification of GREEN CI PR #205 (`ba4e6ee6`, [CI 45881169287](https://github.com/aeharding/open-connect/actions/runs/45881169287), merged `8094911b`, artifact `15147692204`; package reported `VERSION=0.3.0-dev.23`). `setting-touchscreen.png` supersedes `setting-touchscreen-while-driving.png` on the welcome and Settings pages (`setting-touchscreen-while-driving.png` is intentionally retained here as historical dev.19 provenance); `touchscreen-choices.png` shows the three-choice `Touchscreen` radio submenu (`Factory behavior`, `Always enabled`, `Always disabled`).
 
 Navigation used Commander Dial events (`Virtual Keyboard` → `filtered-keyboard0`) only, with touch disabled (`touch=2`) on `74.00.324A NA/cmu150_NA`. Both full PNGs were visually reviewed for zero PII, VIN/serials, phone names, credentials or diagnostic overlays. Physical Commander hardware and real-car use remain unqualified.
 

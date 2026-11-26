@@ -5,6 +5,7 @@ import hashlib
 import http.client
 import json
 import os
+import shlex
 import shutil
 import signal
 import socket
@@ -26,6 +27,200 @@ HAS_TCPSVD = bool(
     and shutil.which("flock")
     and "tcpsvd" in subprocess.check_output([BUSYBOX, "--list"], text=True, timeout=3).splitlines()
 )
+
+
+class InstallerUSBStaging(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+        self.source = self.root / "oc-usb-ABC123"
+        self.source.mkdir(mode=0o700)
+        self.runtime = self.root / "runtime"
+        self.runtime.mkdir(mode=0o700)
+        self.tools = self.root / "tools"
+        self.tools.mkdir()
+        if shutil.which("gstat"):
+            (self.tools / "stat").symlink_to(shutil.which("gstat"))
+        self.env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
+        service = (ASSETS / "service.sh").read_text()
+        service = service.replace("usb:/tmp:oc-usb-", f"usb:{self.root}:oc-usb-")
+        (self.source / "service.sh").write_text(service)
+        shutil.copyfile(ASSETS / "state.sh", self.source / "state.sh")
+        for name in ("api", "flush", "backend.sh", "runtime.js"):
+            (self.source / name).write_text("verified " + name + "\n")
+        self.manifest(self.source)
+
+    def manifest(self, source):
+        (source / "files.sha256").unlink(missing_ok=True)
+        (source / "files.sha256").write_text(
+            "".join(
+                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                for p in sorted(source.iterdir())
+            )
+        )
+        for path in source.iterdir():
+            path.chmod(0o700 if path.name in ("api", "flush") else 0o600)
+
+    def stage(self, source=None, kind="usb"):
+        source = source or self.source
+        identity = hashlib.sha256((source / "files.sha256").read_bytes()).hexdigest()
+        return subprocess.run(
+            [
+                "sh",
+                "-c",
+                'set -eu; umask 077; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                "uuid() { openssl rand -hex 16; }; "
+                'service_files "$3" "$4"; printf "%s\\n" "$runtime"',
+                "staging",
+                source,
+                self.runtime,
+                identity,
+                kind,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=self.env,
+        )
+
+    def witness(self, source):
+        return {
+            p.name: (p.stat().st_ino, p.stat().st_nlink, p.stat().st_mode, p.stat().st_ctime_ns)
+            for p in source.iterdir()
+        }
+
+    def test_private_packet_survives_scanner_cleanup_with_independent_replacement(self):
+        first = self.stage()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        old = Path(first.stdout.strip())
+        originals = {p.name: p.read_bytes() for p in self.source.iterdir()}
+        for name in originals:
+            self.assertEqual((old / name).stat().st_ino, (self.source / name).stat().st_ino)
+        other = self.root / "oc-usb-DEF456"
+        shutil.copytree(self.source, other)
+        (other / "backend.sh").write_text("different verified payload\n")
+        self.manifest(other)
+        second = self.stage(other)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        new = Path(second.stdout.strip())
+        self.assertNotEqual((old / "token").read_bytes(), (new / "token").read_bytes())
+        self.assertEqual((new / "backend.sh").read_text(), "different verified payload\n")
+        for name in originals:
+            self.assertNotEqual((old / name).stat().st_ino, (new / name).stat().st_ino)
+        shutil.rmtree(self.source)
+        for name, data in originals.items():
+            self.assertEqual((old / name).read_bytes(), data)
+
+    def test_sealed_usb_and_held_sources_keep_inodes_modes_and_ctime(self):
+        for relative in (
+            "data/packages/" + "a" * 64,
+            "data/snapshots/" + "b" * 64,
+            "mnt/sda1/open-connect",
+            "runtime/sessions/session-held",
+        ):
+            for damaged in (False, True):
+                with self.subTest(source=relative, damaged=damaged):
+                    source = self.root / relative
+                    self.addCleanup(shutil.rmtree, source, ignore_errors=True)
+                    shutil.rmtree(source, ignore_errors=True)
+                    shutil.copytree(self.source, source)
+                    if damaged:
+                        (source / "api").write_text("corrupt payload\n")
+                    before = self.witness(source)
+                    result = self.stage(source)
+                    self.assertEqual(self.witness(source), before)
+                    if damaged:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn("damaged_runtime", result.stderr)
+                    else:
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        staged = Path(result.stdout.strip())
+                        for name in before:
+                            self.assertNotEqual(
+                                (staged / name).stat().st_ino, (source / name).stat().st_ino
+                            )
+                            self.assertEqual(
+                                (staged / name).read_bytes(), (source / name).read_bytes()
+                            )
+                        shutil.rmtree(staged)
+                    shutil.rmtree(source)
+
+    def test_packet_with_a_held_member_gets_fresh_copies_without_touching_donor(self):
+        sealed = self.root / "sealed"
+        sealed.mkdir(mode=0o700)
+        os.link(self.source / "api", sealed / "api")
+        before = self.witness(self.source)
+        result = self.stage()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.witness(self.source), before)
+        staged = Path(result.stdout.strip())
+        self.assertNotEqual((staged / "api").stat().st_ino, (sealed / "api").stat().st_ino)
+        self.assertEqual((sealed / "api").read_bytes(), (staged / "api").read_bytes())
+
+    def test_nonprivate_packet_does_not_donate_inodes(self):
+        self.source.chmod(0o755)
+        before = self.witness(self.source)
+        result = self.stage()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.witness(self.source), before)
+        for name in before:
+            self.assertNotEqual(
+                (Path(result.stdout.strip()) / name).stat().st_ino,
+                (self.source / name).stat().st_ino,
+            )
+
+    def test_full_staging_copies_even_a_private_usb_packet(self):
+        before = self.witness(self.source)
+        result = self.stage(kind="full")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.witness(self.source), before)
+        for name in before:
+            self.assertNotEqual(
+                (Path(result.stdout.strip()) / name).stat().st_ino,
+                (self.source / name).stat().st_ino,
+            )
+
+    def test_corrupt_packet_removes_only_unpublished_links(self):
+        published = self.runtime / "sessions/session-published"
+        published.mkdir(parents=True, mode=0o700)
+        published.parent.chmod(0o700)
+        (published / "reader").write_text("reader still owns this\n")
+        (self.runtime / "runtime").symlink_to(published)
+        (self.source / "api").write_text("corrupt payload\n")
+        result = self.stage()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("damaged_runtime", result.stderr)
+        self.assertEqual(list(published.parent.iterdir()), [published])
+        self.assertEqual((published / "reader").read_text(), "reader still owns this\n")
+        self.assertEqual((self.runtime / "runtime").resolve(), published)
+        self.assertTrue(all(p.stat().st_nlink == 1 for p in self.source.iterdir()))
+
+    def test_interrupted_linking_removes_partial_unpublished_directory(self):
+        real_ln = shlex.quote(shutil.which("ln"))
+        wrapper = self.tools / "ln"
+        wrapper.write_text(
+            "#!/bin/sh\nfor target; do :; done\n"
+            + real_ln
+            + ' "$1" "$target/" || exit\nkill -TERM "$PPID"\nexit 1\n'
+        )
+        wrapper.chmod(0o700)
+        result = self.stage()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(list((self.runtime / "sessions").iterdir()), [])
+        self.assertTrue(all(p.stat().st_nlink == 1 for p in self.source.iterdir()))
+
+    def test_manifest_symlink_refused_without_changing_the_target(self):
+        manifest = self.source / "files.sha256"
+        sealed = self.root / "sealed-manifest"
+        manifest.rename(sealed)
+        manifest.symlink_to(sealed)
+        before = sealed.stat()
+        result = self.stage()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(sealed.stat().st_ctime_ns, before.st_ctime_ns)
+        self.assertEqual(sealed.stat().st_nlink, 1)
+        self.assertEqual(list((self.runtime / "sessions").iterdir()), [])
 
 
 class InstallerPrivateStaging(unittest.TestCase):
@@ -296,12 +491,13 @@ class InstallerService(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
-        self.source = self.root / "source"
+        self.source = self.root / "oc-usb-ABC123"
         self.source.mkdir(mode=0o700)
         self.runtime = self.root / "runtime"
         self.busybox = str(Path(BUSYBOX).resolve())
         source = (ASSETS / "service.sh").read_text()
         source = source.replace("/tmp/open-connect", str(self.runtime))
+        source = source.replace("usb:/tmp:oc-usb-", f"usb:{self.root}:oc-usb-")
         source = source.replace("/bin/busybox", self.busybox)
         source = source.replace('test "$(id -u)" = 0', f'test "$(id -u)" = {os.getuid()}')
         source = source.replace("700:0:0", f"700:{os.getuid()}:{os.getgid()}")
@@ -510,7 +706,7 @@ class InstallerService(unittest.TestCase):
             self.assertEqual(hashlib.sha256((old / name).read_bytes()).hexdigest(), digest)
             self.assertEqual((old / name).stat().st_ino, (self.source / name).stat().st_ino)
         # Another scan starts with another verified private staging directory.
-        other = self.root / "source-two"
+        other = self.root / "oc-usb-DEF456"
         shutil.copytree(self.source, other)
         self.source = other
         (other / "backend.sh").write_text("backend-two\n")
@@ -529,6 +725,54 @@ class InstallerService(unittest.TestCase):
         self.assertEqual((self.runtime / "usb-listener").read_bytes(), before)
         self.assertEqual(self.client()["backend"], "backend-one\n")
         self.assertEqual(self.client(15555)["backend"], "backend-one\n")
+
+    def test_closed_generation_keeps_bytes_until_request_child_drains(self):
+        first = self.invoke()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        old = Path(first.stdout.strip())
+        token = (old / "token").read_text().strip()
+        with socket.create_connection(("127.0.0.1", 15557), timeout=3) as reader:
+            reader.sendall(b"GET / HTTP/1.0\r\n")
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                pending = False
+                for cmd in Path("/proc").glob("[0-9]*/cmdline"):
+                    try:
+                        args = cmd.read_bytes().split(b"\0")
+                    except OSError:
+                        continue
+                    if args[:2] == [b"/usr/bin/python3", str(old / "api").encode()]:
+                        pending = True
+                        break
+                if pending:
+                    break
+                time.sleep(0.01)
+            else:
+                self.fail("request child did not start")
+            other = self.root / "oc-usb-DEF456"
+            shutil.copytree(self.source, other)
+            self.source = other
+            (other / "backend.sh").write_text("backend-two\n")
+            self.manifest()
+            second = self.invoke()
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertTrue((old / "closed").is_file())
+            self.assertEqual((old / "backend.sh").read_text(), "backend-one\n")
+            self.assertEqual(self.client()["backend"], "backend-two\n")
+            # Retirement must still see this old child after its listener stops.
+            time.sleep(1.1)
+            self.assertTrue(old.is_dir())
+            reader.sendall(b"\r\n")
+            with reader.makefile("rb") as response_file:
+                response = response_file.read()
+            self.assertEqual(
+                json.loads(response.split(b"\r\n\r\n", 1)[1]),
+                {"token": token, "backend": "backend-one\n"},
+            )
+        deadline = time.monotonic() + 3
+        while old.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertFalse(old.exists())
 
     def installed_worker(self):
         data = self.root / "data"
@@ -691,7 +935,8 @@ class InstallerService(unittest.TestCase):
         link = tools / "ln"
         link.write_text(
             "#!/bin/sh\n" + shutil.which("ln") + ' "$@" || exit\n'
-            'case "$2" in */api) printf "corrupt" >> "$2";; esac\n'
+            "for target; do :; done\n"
+            'if test -d "$target"; then printf "corrupt" >> "$target/api"; fi\n'
         )
         link.chmod(0o700)
         result = self.invoke({**os.environ, "PATH": str(tools) + ":" + os.environ["PATH"]})

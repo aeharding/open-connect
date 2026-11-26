@@ -299,7 +299,7 @@ base_read_ahead() (
         test "$(readlink -f "$block")" = "$block" &&
         file "$block/dev" && test "$(cat "$block/dev")" = 253:16 &&
         file "$block/queue/read_ahead_kb" &&
-        test "$(stat -c '%a:%u:%g' "$block/queue/read_ahead_kb")" = "644:$(id -u):$(id -g)" || exit 1
+        test "$(stat -c '%a:%u:%g' "$block/queue/read_ahead_kb")" = "644:$request_owner" || exit 1
     value=$(cat "$block/queue/read_ahead_kb")
     case "$value" in 4) ;; 128) printf '4\n' > "$block/queue/read_ahead_kb";; *) exit 1;; esac
     test "$(cat "$block/queue/read_ahead_kb")" = 4
@@ -629,7 +629,7 @@ selector_compose() {
         test "$(sha "$folder/files.sha256")" = "$2" && file "$folder/boot-select" || return 1
     expected=$(awk '$2=="boot-select"{n++;print $1}END{exit n!=1}' "$folder/files.sha256") || return 1
     hex "$expected" 64 && test "$(sha "$folder/boot-select")" = "$expected" || return 1
-    printf '%s|700:%s:%s|%s\n' "$expected" "$(id -u)" "$(id -g)" "$2" > "$1/selector"
+    printf '%s|700:%s|%s\n' "$expected" "$request_owner" "$2" > "$1/selector"
 }
 
 selector_keep() {

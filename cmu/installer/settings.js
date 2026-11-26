@@ -179,7 +179,10 @@ function preferences(store){
   if(answered){return;}
   answered=true;busy=false;
   if(valid(actual)){saved=actual;}
-  done(valid(actual)&&!failed?actual:null,failed);
+  if(failed==="unresolved"){
+   wanted={};prefs.failure=failed;
+   if(prefs.changed){prefs.changed(true);}
+  }else{done(valid(actual)&&!failed?actual:null,failed);}
   flush();
  }
  try{store.importKey(finish);}catch(error){finish(null);}
@@ -389,9 +392,8 @@ function open(fw,store){
    dismiss=ask("Import public key?","Put open-connect.pub on the USB drive. RSA and ECDSA public keys are supported. The imported key will be replaced.","Import","import",function(action){
      dismiss=null;
      if(action!=="import"||!current()){return;}
-     prefs.importKey(function(actual,outcome){
+     prefs.importKey(function(actual){
       if(!current()||choice!=="developer"){return;}
-      if(outcome==="unresolved"){prefs.failure=outcome;render("unknown",0);return;}
       render("developer","import");
       dismiss=dialogs.message(fw,actual?"Public key imported":"Key could not be imported",
        actual?"Fingerprint (MD5):\n"+actual.fingerprint.slice(0,23)+"\n"+

@@ -293,6 +293,29 @@ for(const op of ['set','import'])for(const leave of [false,true]){
  f.tap();assert.match(f.dialog.props.text1,/Restart Mazda Connect before making more changes/);
  f.pick('done');assert.equal(f.ctx.OpenConnect.protected(),true);assert.equal(f.operation(op).length,1);
 }
+// Import failure belongs to the live preference session, including a different
+// page opened before the reply was lost. Queued values must not replace it.
+for(const navigation of ['back','reenter','queued']){
+ f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+ const mutation=f.operation('import')[0];
+ if(navigation==='back'){
+  f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+ }else if(navigation==='reenter'){
+  f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+  f.nativeSettings();f.tap();f.endAnimations();
+ }else{
+  select(f,'uart',{additionalData:1});f.pick('enable');f.advance(250);
+ }
+ f.reply(mutation,null);const read=f.requests.at(-1);
+ f.advance(12000);f.endAnimations();
+ assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Restart Mazda Connect',navigation);
+ assert.equal(f.operation('import').length,1);assert.equal(f.operation('set').length,0);
+ assert.equal(f.ctx.OpenConnect.protected(),true);assert.equal(f.dialog,undefined);
+ f.reply(mutation,f.state({...developer,key:'d'.repeat(64),revision:'e'.repeat(64)}));
+ f.reply(read,f.state({...developer,key:'d'.repeat(64),revision:'e'.repeat(64)}));
+ f.advance(1000);assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Restart Mazda Connect');
+ assert.equal(f.operation('set').length,0);assert.equal(f.operation('restart').length,0);
+}
 // Definite input refusal retains key-specific help and permits another action.
 f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
 f.reply(f.operation('import')[0],{ok:false,error:'invalid_public_key'});f.reply(f.requests.at(-1),f.state(developer));

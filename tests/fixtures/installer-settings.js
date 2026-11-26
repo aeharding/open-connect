@@ -46,21 +46,21 @@ const pick = i => {
 const back = () => {fw.sendEventToMmui("common", "Global.GoBack");settle();};
 assert.equal(typeof settings.open(fw, store), "function");
 assert.equal(settings.open(fw, store), false);
-assert.equal(pages.at(-1).ctrl.dataList.items[0].label1, "Allow");
+assert.equal(pages.at(-1).ctrl.dataList.items[0].label1, "Always enabled");
 assert.equal(pages.at(-1).ctrl.dataList.items[0].labelWidth, "wide");
 assert.equal(pages.at(-1).ctrl.checkMinChangeInterval,undefined);
 pick(0);
 let page = pages.at(-1);
-assert.deepEqual(Array.from(page.ctrl.dataList.items, row => row.text1), ["Factory Default", "Allow"]);
+assert.deepEqual(Array.from(page.ctrl.dataList.items, row => row.text1), ["Factory behavior", "Always enabled", "Always disabled"]);
 assert.equal(page.ctrl.checkMinChangeInterval,0);
-assert.deepEqual(Array.from(page.ctrl.dataList.items, r => [r.image1,r.checked]), [["radio",false],["radio",true]]);
+assert.deepEqual(Array.from(page.ctrl.dataList.items, r => [r.image1,r.checked]), [["radio",false],["radio",true],["radio",false]]);
 assert.equal(host.handleControllerEvent("ccw"), "consumed");
 assert.deepEqual(writes, []);
 pick(0); pick(1); pick(0);
 assert.equal(pages.at(-1),page);
-assert.deepEqual(Array.from(page.ctrl.dataList.items,r=>r.checked),[true,false]);
+assert.deepEqual(Array.from(page.ctrl.dataList.items,r=>r.checked),[true,false,false]);
 assert.deepEqual(writes,[]);
-back(); assert.equal(pages.at(-1).ctrl.dataList.items[0].label1,"Factory Default");
+back(); assert.equal(pages.at(-1).ctrl.dataList.items[0].label1,"Factory behavior");
 back(); assert.equal(host.divElt.style.display,"");
 idle(); assert.deepEqual(writes,[["touch",1,0]]);
 settings.open(fw,store); pick(0); pick(1); idle();
@@ -68,8 +68,8 @@ assert.deepEqual(writes,[["touch",1,0]]);
 values={touch:0,warning:0}; reply(values);
 assert.deepEqual(writes,[["touch",1,0],["touch",0,1]]);
 values={touch:1,warning:0}; reply(values);
-assert.equal(pages.at(-1).ctrl.title.text1,"Touchscreen While Driving");
-assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items,r=>r.checked),[false,true]);
+assert.equal(pages.at(-1).ctrl.title.text1,"Touchscreen");
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items,r=>r.checked),[false,true,false]);
 back(); pick(1); pick(1); back(); back(); idle();
 assert.equal(host.handleControllerEvent,input); assert.equal(fw.sendEventToMmui,send);
 values={touch:1,warning:1}; reply(null); // acknowledgement lost after the write
@@ -77,7 +77,7 @@ assert.equal(fw.common.getCommonTransitionData,transition); assert.deepEqual(cal
 settings.open(fw,store); pick(0); pick(0); idle(); reply(values);
 assert.match(pages.at(-1).ctrl.title.text1,/could not be confirmed/); back();
 assert.equal(host.divElt.style.display,"");
-assert.equal(settings.open(fw,{read:()=>({touch:2,warning:1})}),false);
+assert.equal(settings.open(fw,{read:()=>({touch:3,warning:1})}),false);
 console.log("Native radio selection is immediate; saves coalesce across Back and re-entry");
 
 const baseSelect = (c, value) => "stock:" + value;
@@ -151,7 +151,7 @@ fw.destroyControl = control => { assert.equal(control, modal); modal = null; };
 fw.common.handleControllerEvent = input;
 settings.open(fw, store);
 assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items, r => r.text1),
-    ["Touchscreen While Driving", "Startup disclaimer", "Apply changes", "Uninstall", "About"]);
+    ["Touchscreen", "Startup disclaimer", "Apply changes", "Uninstall", "About"]);
 assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, true);
 pick("uninstall"); assert.equal(modal, undefined);
 pick("about"); assert.equal(modal.props.text1, "Installed version unavailable.");
@@ -329,7 +329,7 @@ values = {...values, wireless: 0, wirelessCurrent: 0, wirelessFactory: false,
     carplayAutoshow: 0, carplayAutoshowCurrent: 0, services: catalog};
 settings.open(fw, store);
 assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items, row => row.text1), [
-    "Touchscreen While Driving", "Startup disclaimer", "Startup optimizations",
+    "Touchscreen", "Startup disclaimer", "Startup optimizations",
     "CarPlay & Android Auto", "Audio sources", "Developer options", "Apply changes", "Uninstall", "About"
 ]);
 assert.deepEqual(keys(), [0, 1, "base", "phone", "sources", "developer", "restart", "uninstall", "about"]);

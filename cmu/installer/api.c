@@ -181,8 +181,9 @@ static int run(int argc,char **argv) {
         for(const char *p=fields[3];*p;++p) {
             if(++n>32||((*p<'a'||*p>'z')&&!(n>1&&((*p>='0'&&*p<='9')||*p=='-'))))goto bad;
         }
-        if(!n||(!equal(fields[4],"0")&&!equal(fields[4],"1"))||
-           (!equal(fields[5],"0")&&!equal(fields[5],"1")))goto bad;
+        int touch=equal(fields[3],"touch");
+        if(!n||(!equal(fields[4],"0")&&!equal(fields[4],"1")&&!(touch&&equal(fields[4],"2")))||
+           (!equal(fields[5],"0")&&!equal(fields[5],"1")&&!(touch&&equal(fields[5],"2"))))goto bad;
     }else{
         if(!equal(op,"status")&&!equal(op,"install")&&!equal(op,"uninstall")&&
            !equal(op,"restart")&&!equal(op,"dismiss")&&!equal(op,"recover")&&!equal(op,"import"))goto bad;

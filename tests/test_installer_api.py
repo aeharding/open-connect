@@ -61,6 +61,8 @@ class InstallerApi(unittest.TestCase):
             (TOKEN + "|" + "b" * 64 + "|dismiss|-|-|-", "dismiss", "-"),
             (TOKEN + "|" + "b" * 32 + "|set|touch|0|1", "set", "touch"),
             (TOKEN + "|" + "b" * 64 + "|set|warning|1|0", "set", "warning"),
+            (TOKEN + "|" + "b" * 64 + "|set|touch|2|0", "set", "touch"),
+            (TOKEN + "|" + "b" * 64 + "|set|touch|1|2", "set", "touch"),
             (TOKEN + "|" + "b" * 64 + "|set|ssh|0|1", "set", "ssh"),
             (TOKEN + "|" + "b" * 64 + "|set|uart|1|0", "set", "uart"),
             (TOKEN + "|" + "b" * 64 + "|set|pandora|1|0", "set", "pandora"),
@@ -191,6 +193,20 @@ class InstallerApi(unittest.TestCase):
     def test_bad_framing_and_commands_never_dispatch(self):
         valid = self.request()
         cases = [
+            *(
+                self.request((TOKEN + "|-|set|" + key + "|" + pair).encode())
+                for key in (
+                    "warning",
+                    "base",
+                    "wireless",
+                    "pandora",
+                    "uart",
+                    "ssh",
+                    "carplay-autoshow",
+                )
+                for pair in ("0|2", "2|1")
+            ),
+            self.request((TOKEN + "|-|set|touch|2|3").encode()),
             self.request((TOKEN + "|-|restart|settings|-|-").encode()),
             self.request((TOKEN + "|-|status|settings|0|-").encode()),
             self.request((TOKEN + "|-|status|unknown|-|-").encode()),

@@ -117,12 +117,18 @@ qualified DAB/TV/Stitcher leaves behind a single Base optimizations on/off setti
 Qualify the complete installed bundle with individual service selections held fixed; further contents and
 default changes need their own timing and RAM evidence.
 
-For a future touchscreen follow-up, extend the preference to Factory behavior,
-Always enabled and Disabled (ghost touch). Complete disable must cover startup
-and normal use, including projection, while retaining commander navigation and
-independent recovery. The exact firmware mechanism and delivery slot remain
-unqualified; this does not expand the initial two-feature release. See
-[#87](https://github.com/aeharding/open-connect/issues/87).
+The Touchscreen preference has Factory behavior, Always enabled (default), and
+Always disabled choices. Issue [#87](https://github.com/aeharding/open-connect/issues/87)
+uses a boot-scoped devices shim on exact v74 OEM inputs, retaining Commander and
+stock recovery without editing the OEM service. Complete disable needs earliest
+startup, physical controls and active projection qualification on the final
+bundle. The prototype injection trial is partial evidence, not that qualification.
+Installed modes 0/1 add no shim to the Settings working set or feature tmpfs, but
+add one package-plan stat and one package member hashed by its worker. USB
+maintenance adds one 4 KiB tmpfs page in every mode. Selected mode 2 adds one
+4 KiB feature copy plus unmeasured release devices PSS. Measure matched final
+bundle timing, allocation and PSS for explicit owner RAM acceptance; the trial's
++13 KiB PSS does not establish that cost or approve it.
 
 **Hard owner rule: Open Connect must not add overhead that slows boot or general
 use. It must not increase RAM usage without the owner's explicit approval.**

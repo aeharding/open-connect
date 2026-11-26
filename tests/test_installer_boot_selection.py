@@ -52,17 +52,36 @@ class NativeBootSelection(unittest.TestCase):
         ),
     )
 
+    TOUCH_INPUTS = (
+        (
+            "svc",
+            "/jci/devices/svc-com-jci-cpp-devices.so",
+            "stock devices service\n",
+            "e438bef5acb59c65c810df905488c7b1230cce88b20a295dc2da182f78da2695",
+        ),
+        (
+            "lib",
+            "/jci/lib/libjcidevices.so",
+            "stock devices library\n",
+            "4d05f4242ffab8ed2e21c4785b077b7225ea54c3e62c8e02a26eb400eb6a1171",
+        ),
+    )
+
     @classmethod
     def setUpClass(cls):
         cls.build = tempfile.TemporaryDirectory()
         folder = Path(cls.build.name).resolve()
         cls.program = folder / "boot-select"
-        # Only the three physical Base input digests are adapted to authored
+        # Only physical Base/touch input digests are adapted to authored
         # fixtures. The selector, metadata, commit and publication logic is real.
         for source in (*ASSETS.glob("boot-*.h"), ASSETS / "boot-select.c"):
             text = source.read_text()
-            for _, _, data, original in cls.BASE_INPUTS:
+            for _, _, data, original in (*cls.BASE_INPUTS, *cls.TOUCH_INPUTS):
                 text = text.replace(original, sha(data.encode()))
+            text = text.replace(
+                "static int oc_stock_meta(int root,OcMeta *stock) { return oc_stat(root,stock)>=0; }",
+                'static int oc_stock_meta(int root,OcMeta *stock) { int ok=oc_stat(root,stock)>=0; if(getenv("OC_TOUCH_WRONG_FS")) ++stock->device; return ok; }',
+            )
             # Inject syscall failures in the private host adapter, not in the
             # shipped selector. All policy/publication/unwind code stays real.
             if source.name == "boot-io.h":
@@ -219,6 +238,7 @@ class NativeBootSelection(unittest.TestCase):
             (package / name).write_bytes((ASSETS / name).read_bytes())
         for name in (
             "flush",
+            "touch-disable.so",
             "api",
             "wireless.sh",
             "wireless-device.awk",
@@ -404,6 +424,97 @@ class NativeBootSelection(unittest.TestCase):
         self.seal()
         self.record[5] = self.snapshot.name
         self.save_record()
+
+    def touch_fixture(self):
+        for name, path, data, _ in self.TOUCH_INPUTS:
+            self.put(path, data)
+            self.inputs.append(("touch/devices/" + name, path, sha(data.encode())))
+        self.change_current(
+            "config",
+            (self.snapshot / "config")
+            .read_text()
+            .replace("touch=1", "touch=2")
+            .replace("warning=1", "warning=0")
+            .replace("nvram=disable", "nvram=absent"),
+        )
+        for name in ("sm-normal.conf", "sm-wcp.conf"):
+            self.change_current(name, "/tmp/open-connect/feature/touch-disable.so\n")
+        (self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction").unlink()
+
+    def test_touch_disabled_stages_verified_executable_without_warning_or_base(self):
+        self.touch_fixture()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        shim = self.ram / "feature/touch-disable.so"
+        self.assertEqual(shim.read_bytes(), (self.package / "touch-disable.so").read_bytes())
+        self.assertEqual(shim.stat().st_mode & 0o777, 0o755)
+        self.assertIn("touch-disable.so", (self.ram / "feature/sm.conf").read_text())
+        self.assertFalse((self.ram / "feature/mmui.so").exists())
+
+    def test_touch_modes_zero_and_one_do_not_stage_shim(self):
+        # Default fixture is mode 1; the package still contains the DSO.
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.ram / "feature/touch-disable.so").exists())
+        self.cold_boot()
+        self.change_current(
+            "config",
+            (self.snapshot / "config")
+            .read_text()
+            .replace("touch=1", "touch=0")
+            .replace("nvram=disable", "nvram=absent"),
+        )
+        (self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction").unlink()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.ram / "feature/touch-disable.so").exists())
+
+    def test_touch_selector_requires_each_exact_pin_once_without_warning_or_base(self):
+        self.touch_fixture()
+        original = (self.snapshot / "boot.plan").read_text()
+        for key, _, _, _ in self.TOUCH_INPUTS:
+            row = next(
+                line
+                for line in original.splitlines(True)
+                if line.startswith("touch/devices/" + key + "|")
+            )
+            for damage in (
+                original.replace(row, ""),
+                original + row,
+                original.replace(row, row.replace("/jci/", "/bad/")),
+                original.replace(row, row.replace(row.split("|")[2], "0" * 64)),
+            ):
+                with self.subTest(key=key, damage=damage[-180:]):
+                    (self.snapshot / "boot.plan").write_text(damage)
+                    self.snapshot = self.publish(self.snapshot)
+                    self.record[5] = self.snapshot.name
+                    self.save_record()
+                    before = (self.data / "record").read_bytes()
+                    result = self.invoke()
+                    self.assertEqual(result.returncode, 95, result.stderr)
+                    self.assertEqual((self.data / "record").read_bytes(), before)
+                    self.assertFalse((self.ram / "feature").exists())
+
+    def test_touch_physical_root_mismatch_refuses_before_debit(self):
+        self.touch_fixture()
+        before = (self.data / "record").read_bytes()
+        result = self.invoke(extra_env={"OC_TOUCH_WRONG_FS": "1"})
+        self.assertEqual(result.returncode, 95, result.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before)
+        self.assertFalse((self.ram / "selected").exists())
+
+    def test_touch_budget_fallback_uses_stock_service_and_baseline_nvram(self):
+        self.touch_fixture()
+        self.record[9] = "0"
+        self.save_record()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertFalse((self.ram / "feature").exists())
+        self.assertFalse((self.ram / "selected").exists())
+        self.assertTrue((self.root / "jci/devices/svc-com-jci-cpp-devices.so").exists())
+        self.assertFalse(
+            (self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction").exists()
+        )
 
     def test_completion_links_exact_selected_plan_member_and_survives_update(self):
         result = self.invoke()
@@ -838,6 +949,15 @@ package_save
             plugin.write(b"byte-identical plugin\n")
             plugin.flush()
             text = f"OCBP1|{'b' * 64}|{'c' * 64}\nbase/vui/plugin.so|{plugin.name}|{sha(b'byte-identical plugin' + bytes([10]))}\n"
+            for key in ("touch/devices/svc", "touch/devices/lib"):
+                touch = text.replace("base/vui/plugin.so", key)
+                result = subprocess.run(
+                    [self.program, "seal", "/", str(self.snapshot).lstrip("/")],
+                    input=touch.encode(),
+                    capture_output=True,
+                    timeout=5,
+                )
+                self.assertNotEqual(result.returncode, 0)
             with (self.root / "foreign-device-plan").open("wb") as output:
                 result = subprocess.run(
                     [self.program, "seal", "/", str(self.snapshot).lstrip("/")],

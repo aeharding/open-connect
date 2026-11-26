@@ -19,7 +19,7 @@ nav = [
   ] },
   { "Settings" = [
     { "Overview" = "settings.md" },
-    { "Touchscreen While Driving" = "touchscreen.md" },
+    { "Touchscreen" = "touchscreen.md" },
     { "Startup disclaimer" = "disclaimer.md" },
     { "Startup optimizations" = "startup-optimizations.md" },
     { "CarPlay & Android Auto" = [

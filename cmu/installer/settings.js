@@ -3,7 +3,7 @@ var OpenConnectSettings=(function(){
 "use strict";
 var active=false,waiting=null,session=null,dialogs=OpenConnectInstaller;
 var entries=[
- {key:"touch",title:"Touchscreen While Driving",choices:["Factory Default","Allow"]},
+ {key:"touch",title:"Touchscreen",choices:["Factory behavior","Always enabled","Always disabled"]},
  {key:"warning",title:"Startup disclaimer",choices:["Show","Skip"]},
  {key:"carplayAutoshow",title:"Show CarPlay on connection",choices:["Factory behavior","Automatically show"]}
 ];
@@ -47,7 +47,7 @@ function preference(values,key){
  return row?row.saved:values[key];
 }
 function valid(values){
- return values&&validServices(values.services)&&bit(values.touch)&&
+ return values&&validServices(values.services)&&(bit(values.touch)||values.touch===2)&&
  bit(values.warning)&&
  optional(values.pandora)&&
  optional(values.base)&&autoshow(values)&&
@@ -236,8 +236,7 @@ function open(fw,store){
  function entry(i){
   var e=entries[i];
   if(values[e.key]!==undefined){rows.push({text1:e.title,
-   label1:e.key==="touch"?["Factory Default","Allow"][values.touch]:
-    i===2?["Factory","Auto"][values.carplayAutoshow]:e.choices[values[e.key]],
+   label1:i===2?["Factory","Auto"][values.carplayAutoshow]:e.choices[values[e.key]],
    itemStyle:"style06",labelWidth:i?"normal":"wide",hasCaret:true,appData:i});}
  }
  function integrations(phone){
@@ -418,8 +417,8 @@ function open(fw,store){
   dismiss=dialogs.confirmUninstall(fw,prefs.pending(),maintain);
   return;
  }
- if(typeof item!=="number"||item<0||item>=(choice===null?entries.length:2)){return;}
- if(choice==="unknown"){prefs.failure=null;close();return;}
+ if(choice==="unknown"){if(item===0){prefs.failure=null;close();}return;}
+ if(typeof item!=="number"||item<0||item>=(choice===null?entries.length:entries[choice].choices.length)){return;}
  if(choice===null){
   var values=prefs.values();
   if(values&&values[entries[item].key]!==undefined){render(item,values[entries[item].key]);}

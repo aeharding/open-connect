@@ -19,7 +19,7 @@ NATIVE_FLAGS = --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard \
     -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector
 
 .PHONY: release native check-ui
-release: native $(OUT)/api $(OUT)/flush $(OUT)/boot-select $(OUT)/vui-path.bin $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin count-pointer.bin)
+release: native $(OUT)/touch-disable.so $(OUT)/api $(OUT)/flush $(OUT)/boot-select $(OUT)/vui-path.bin $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin count-pointer.bin)
 	sh tooling/package-usb.sh "$(OUT)"
 
 native: $(OUT)/native.bin $(OUT)/branch.bin $(OUT)/sizes.bin $(OUT)/layout.bin
@@ -84,3 +84,21 @@ $(OUT)/sizes.bin: $(OUT)/patch.elf
 
 $(OUT)/layout.bin: $(OUT)/patch.elf
 	$(OBJCOPY) -O binary --only-section=.layout "$<" "$@"
+
+# Empty link-time dependencies supply SONAMEs only. Never package these stubs.
+$(OUT)/touch-stubs/empty.o:
+	mkdir -p "$(OUT)/touch-stubs"
+	$(CLANG) --target=armv7-linux-gnueabihf -x c -c /dev/null -o "$@"
+
+$(OUT)/touch-stubs/svc-com-jci-cpp-devices.so $(OUT)/touch-stubs/libdl.so.2: $(OUT)/touch-stubs/empty.o
+	$(LLD) -shared --soname=$(@F) -o "$@" "$<"
+
+# Unwind tables are required: OEM getDevice can throw through this C frame.
+$(OUT)/touch-disable.o: cmu/features/touch/disable.c | $(OUT)
+	$(CLANG) $(filter-out -fno-unwind-tables -fno-asynchronous-unwind-tables,$(NATIVE_FLAGS)) -funwind-tables -Wall -Wextra -Werror -c "$<" -o "$@"
+
+$(OUT)/touch-disable.so: $(OUT)/touch-disable.o $(OUT)/touch-stubs/svc-com-jci-cpp-devices.so $(OUT)/touch-stubs/libdl.so.2
+	$(LLD) -shared --build-id=none --strip-all -z max-page-size=4096 -z now -z norelro --no-rosegment \
+	    --disable-new-dtags -rpath /jci/devices:/jci/lib -o "$@" "$<" \
+	    --no-as-needed "$(OUT)/touch-stubs/svc-com-jci-cpp-devices.so" "$(OUT)/touch-stubs/libdl.so.2"
+	test "$$(wc -c < "$@")" -le 4096

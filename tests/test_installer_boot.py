@@ -55,6 +55,7 @@ class InstallerBoot(unittest.TestCase):
             "VERSION",
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
+        (self.source / "touch-disable.so").write_bytes(b"authored touch DSO fixture\n")
         (self.root / "acc").write_text("1\n")
         (self.root / "uptime").write_text("1.00 0.00\n")
         (self.root / "mounts").write_text(
@@ -100,6 +101,25 @@ class InstallerBoot(unittest.TestCase):
         (self.root / "physical-log-settings").write_bytes(self.log_original)
         (self.root / "common-library").write_bytes(self.log_library)
         firmware = (ASSETS / "firmware.sh").read_text()
+        for name, path, payload, digest in (
+            (
+                "svc",
+                "/jci/devices/svc-com-jci-cpp-devices.so",
+                b"authored devices service\n",
+                "e438bef5acb59c65c810df905488c7b1230cce88b20a295dc2da182f78da2695",
+            ),
+            (
+                "lib",
+                "/jci/lib/libjcidevices.so",
+                b"authored devices library\n",
+                "4d05f4242ffab8ed2e21c4785b077b7225ea54c3e62c8e02a26eb400eb6a1171",
+            ),
+        ):
+            fake = self.root / ("touch-" + name)
+            fake.write_bytes(payload)
+            firmware = firmware.replace(path, str(fake)).replace(
+                digest, hashlib.sha256(payload).hexdigest()
+            )
         # Use every real v74 dependency name/path mapping with synthetic bytes.
         # Keeping only manager.so here concealed sm_WCP.conf's valid underscore.
         oem_map = subprocess.check_output(
@@ -1217,6 +1237,7 @@ boot_ui_unwind
                 args["bds"] += " -wcp"
             lines = ["<services>"]
             for name in (
+                "devices",
                 "stage_1",
                 "stage_3",
                 "stage_wifi",
@@ -1265,6 +1286,8 @@ boot_ui_unwind
                     attr += ' args="wcp"'
                 elif name == "jciLDS":
                     attr += ' args="actual-gps-provider"'
+                if name == "devices":
+                    attr += ' path="/jci/devices/svc-com-jci-cpp-devices.so"'
                 if name == "jciVUI":
                     attr += ' path="/jci/vui/svcjcivui.so"'
                 if name == "jciMMUI":

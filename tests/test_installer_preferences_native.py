@@ -92,6 +92,8 @@ class NativePreferences(unittest.TestCase):
 
     def test_canonical_and_catalog_growth_past_old_buffer_boundary(self):
         self.assertEqual(self.decode(self.fresh()), 0)
+        self.assertEqual(self.decode(self.fresh().replace(b"touch=1", b"touch=2")), 0)
+        self.assertNotEqual(self.decode(self.fresh().replace(b"touch=1", b"touch=3")), 0)
         for index in range(12):
             self.catalog += (
                 f"z{index:02d}-long-service-name|Service|1|leaf{index}|Load.|Stop.\n".encode()
@@ -161,6 +163,7 @@ class NativePreferences(unittest.TestCase):
         self.assertEqual(self.decode(b"-|0|0|absent|755:0:0\n", False), 0)
         legacy = b"a" * 64 + b"|1|1|disable|755:0:0|0|1|1\n"
         self.assertEqual(self.decode(legacy), 0)
+        self.assertNotEqual(self.decode(legacy.replace(b"|1|1|", b"|2|1|", 1)), 0)
         for changed in (b"-|0|0|absent|755:0:0|1|0|0\n", b"-|2|0|absent|755:0:0\n"):
             self.assertNotEqual(self.decode(changed, False), 0)
         for fields in (5, 6, 7):

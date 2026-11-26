@@ -310,6 +310,21 @@ base_read_ahead() (
     test "$(cat "$block/queue/read_ahead_kb")" = 4
 )
 
+# Conditional ABI pins: never transaction dependencies, so mode 2 can be undone.
+touch_input_files() {
+    printf '%s\n' \
+        'e438bef5acb59c65c810df905488c7b1230cce88b20a295dc2da182f78da2695 svc /jci/devices/svc-com-jci-cpp-devices.so' \
+        '4d05f4242ffab8ed2e21c4785b077b7225ea54c3e62c8e02a26eb400eb6a1171 lib /jci/lib/libjcidevices.so'
+}
+touch_inputs_verify() {
+    local device
+    device=$(vui_stock_device) || return 1
+    touch_input_files | while read -r digest name target; do
+        file "$target" && test "$(stat -c %d "$target")" = "$device" &&
+            test "$(sha "$target")" = "$digest" || exit 1
+    done
+}
+
 vui_source_files() {
     printf '%s\n' \
         'ba72171a04dcc264ff5f690ac25ac2b009624158499159cdb6aebb08a9ab34f4 vui.so /jci/vui/svcjcivui.so' \
@@ -378,6 +393,7 @@ boot_render_profiles() {
     local destination=$1 config=$2 source setting=off profile digest asset xml
     config_decode "$config" && test "$S_SCHEMA" = OC2 &&
         test "$P" = "$D/packages/$S_PACKAGE" || return 1
+    if test "$S_TOUCH" = 2; then touch_inputs_verify || return 1; fi
     source=$D/composed/$S_PACKAGE
     composed_members_verify "$source" && verify_manifest "$source" || return 1
     test "$S_WARNING" != 1 || setting=on
@@ -487,6 +503,12 @@ boot_plan_inputs() {
         digest=$(sha "$target") && hex "$digest" 64 || return 1
         printf 'guard/%s|%s|%s\n' "${target##*/}" "$target" "$digest"
     done
+    if test "$S_TOUCH" = 2; then
+        touch_inputs_verify || return 1
+        touch_input_files | while read -r digest name target; do
+            printf 'touch/devices/%s|%s|%s\n' "$name" "$target" "$digest"
+        done || return 1
+    fi
     if test "$S_BASE" = 1; then
         native_log_inputs_verify || return 1
         for name in settings.txt libjcicommon.so; do

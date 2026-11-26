@@ -238,8 +238,7 @@ carplay-autoshow='*)
 carplay-autoshow='}; S_AUTOSHOW=${S_AUTOSHOW%%'
 '*};; esac
     else
-        # Only the actual predecessor is supported: five-field stock, or the
-        # eight-field active dev.9 policy. No older active-schema migration.
+        # Legacy stock/dev.9 remains bit-only.
         test "$(wc -l < "$source")" -eq 1 || return 1
         test "$(wc -c < "$source")" -eq "$((${#header}+1))" || return 1
         fields=$(awk -F '|' '{print NF}' "$source") || return 1
@@ -257,7 +256,7 @@ carplay-autoshow='}; S_AUTOSHOW=${S_AUTOSHOW%%'
                 "$S_BASE" "$S_META" "$S_NVRAM" "$S_PACKAGE" "$S_PANDORA" "$S_TOUCH" "$S_WARNING" "$S_WIRELESS")
         fi
     fi
-    bit "$S_TOUCH" && bit "$S_WARNING" && bit "$S_PANDORA" && bit "$S_BASE" &&
+    { bit "$S_TOUCH" || test "$S_SCHEMA:$S_TOUCH" = OC2:2; } && bit "$S_WARNING" && bit "$S_PANDORA" && bit "$S_BASE" &&
         bit "$S_WIRELESS" && touch_value "$S_NVRAM" && metadata "$S_META"
 }
 

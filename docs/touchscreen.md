@@ -1,51 +1,43 @@
-# Touchscreen While Driving
+# Touchscreen
 
-Keep touch available while the car is moving, including for a passenger using Mazda’s menus.
-
-<dl class="oc-spec">
-  <div>
-    <dt>Menu</dt>
-    <dd><span class="oc-nav-path" data-walkthrough="touchscreen">Open Connect</span></dd>
-  </div>
-  <div>
-    <dt>Default</dt>
-    <dd><span class="oc-default oc-default--on">Allow</span></dd>
-  </div>
-  <div>
-    <dt>Impact</dt>
-    <dd>Not measured separately</dd>
-  </div>
-  <div>
-    <dt>Applies</dt>
-    <dd>Next full startup</dd>
-  </div>
-</dl>
-
-<figure class="oc-screen">
-  <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen-while-driving.png" alt="Touchscreen While Driving highlighted in Open Connect, with Allow displayed." width="800" height="480"></div>
-  <figcaption>Touchscreen While Driving highlighted (dev.19).</figcaption>
-</figure>
-
-## Notes
-
-<p><strong>Not measured separately</strong> for RAM, CPU or startup. The dev.20 installed cohorts held Touchscreen While Driving at Allow; their results do not isolate this preference.</p>
-
-<p>Touch remains available while moving. The commander knob and normal Mazda controls remain available. Keep your attention on driving.</p>
-
-<p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
-
-<p>The setting and restoration have bench checks; touch while moving in a real car remains unvalidated. <a href="performance.md">Performance evidence</a> has no isolated comparison. The screenshot above remains dev.19 on <strong>74.00.324A NA</strong>. <strong>0.3.0-dev.23</strong> is a development prerelease; real-car qualification remains pending.</p>
-
-
-<span id="change-the-setting"></span>
-
-## Options
+Choose how Mazda Connect handles touchscreen input. Commander navigation remains
+available to change the preference. Choices save automatically and take effect
+on the next full startup; use [Apply changes](settings.md#apply-changes).
 
 | Choice | Behavior |
 | --- | --- |
-| **Allow** | Removes the speed-based touch lockout. |
-| **Factory Default** | Restores the touchscreen setting saved before installation. |
+| **Factory behavior** | Uses the touchscreen setting saved before installation. |
+| **Always enabled** (default) | Removes the speed-based touch lockout. |
+| **Always disabled** | Selects a boot-scoped input service shim that releases touchscreen devices and suppresses their sends. |
 
-Select your choice. Return here after the next full startup to check it.
+Always disabled requires the exact supported **74.00.324A NA** devices libraries.
+Changing back to another mode or uninstalling does not require those libraries
+to remain unchanged. Uninstall preserves the running input service's RAM copy
+until restart, when Mazda's original service resumes. Recovery selects the stock
+service and restores the pre-install speed setting; Mazda samples that setting
+earlier, so its restoration takes effect on the following boot.
+
+<figure class="oc-screen">
+  <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen-while-driving.png" alt="Historical dev.19 Open Connect touchscreen row showing Allow." width="800" height="480"></div>
+  <figcaption>Historical dev.19 view; the current row is Touchscreen with three choices.</figcaption>
+</figure>
+
+The prototype's software-injected touchscreen events reached the raw input but
+not the filtered device, while injected Commander events navigated Mazda's UI.
+This is partial bench evidence. The final packaged shim still needs SM startup,
+dependency registration and idle checks, earliest-input coverage, physical touch
+and Commander validation, and active CarPlay, Android Auto and Navigation tests.
+AR1XXX hardware and touch while moving in a real car remain unvalidated.
+
+There is no isolated release performance result. Installed Factory behavior and
+Always enabled do not stage the shim in feature tmpfs or the 16-file Settings
+working set. They add one boot-plan package row (native open/stat) and one package
+member hashed by the Settings worker. USB maintenance stages one extra **4 KiB**
+page in every mode. Always disabled adds one **4 KiB** feature copy plus release
+input-service PSS that has not yet been measured. The prototype's 1,305 → 1,318 KiB
+PSS comparison used a different service copy and cannot qualify release overhead.
+Matched timing, allocated-page and PSS measurements and explicit owner RAM
+acceptance remain pending. See the [implementation findings](reverse-engineering.md#boot-scoped-touchscreen-disable-on-v74)
+and [performance evidence](performance.md).
 
 [Back to Settings](settings.md)

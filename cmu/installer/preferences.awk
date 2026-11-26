@@ -7,6 +7,7 @@ function refuse() {
   exit 1
 }
 function bit(value) { return value=="0" || value=="1" }
+function touch_mode(value) { return bit(value) || value=="2" }
 # Only the upgrade writer admits retired NA DVD data. Stored snapshots keep
 # their package's reader; new snapshots and commands use the current catalog.
 function input_service(id) { return id in service_default || (operation=="write" && id=="dvd") }
@@ -97,7 +98,7 @@ function validate_preferences(key, value) {
   if(length(value)!=64 || value~/[^a-f0-9]/ || !metadata(prefs["metadata"]) ||
     prefs["nvram"]!~/^(absent|enable|disable)$/) refuse()
   for(key in prefs)
-    if(key!~/^(package|metadata|nvram|service-ids)$/ && !bit(prefs[key])) refuse()
+    if(key!~/^(package|metadata|nvram|service-ids)$/ && !(key=="touch" ? touch_mode(prefs[key]) : bit(prefs[key]))) refuse()
 }
 function write_preferences(key, keys, count, i, j, swap, bytes, line) {
   for(key in prefs) keys[++count]=key
@@ -122,7 +123,7 @@ function json_string(value, result, i, character) {
   return result "\""
 }
 function legacy_policy(id) {
-  if(prefs["carplay-autoshow"]!="0") refuse()
+  if(!bit(prefs["touch"]) || prefs["carplay-autoshow"]!="0") refuse()
   if(!seen["service.pandora"]) refuse()
   for(id in service_default) if(id!="pandora" && prefs["service." id]!="1") refuse()
 }
@@ -146,7 +147,7 @@ BEGIN {
     prefs["package"]=package_id;prefs["nvram"]=nvram_value;prefs["metadata"]=metadata_value
   }
   if(operation=="set") {
-    if(!bit(value) || (key!~/^(touch|warning|base|wireless|carplay-autoshow)$/ && index(key,"service.")!=1) ||
+    if(!(key=="touch" && legacy!="1" ? touch_mode(value) : bit(value)) || (key!~/^(touch|warning|base|wireless|carplay-autoshow)$/ && index(key,"service.")!=1) ||
       !known_key(key)) refuse()
     if(legacy=="1") {
       legacy_policy()

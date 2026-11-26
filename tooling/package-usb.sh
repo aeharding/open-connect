@@ -26,7 +26,7 @@ for file in run.sh session.sh service.sh usb-service.sh loader.js runtime.js mai
 done
 cp cmu/features/touch/setting.sh "$package/touch.sh"
 cp cmu/features/disclaimer/layout.txt "$package/layout.txt"
-for file in api flush boot-select native.bin branch.bin sizes.bin layout.bin vui-path.bin mmui-path.bin mmui-sizes.bin mmui-length.bin mmui-pointer.bin mmui-count-pointer.bin; do
+for file in api flush boot-select touch-disable.so native.bin branch.bin sizes.bin layout.bin vui-path.bin mmui-path.bin mmui-sizes.bin mmui-length.bin mmui-pointer.bin mmui-count-pointer.bin; do
     cp "$out/$file" "$package/$file"
 done
 cp LICENSE "$package/LICENSE"

@@ -57,6 +57,16 @@ boot_plan_verify() {
         awk '$2=="boot.plan"{n++}END{exit n!=1}' "$dir/files.sha256" || return 1
     IFS='|' read -r magic base backend < "$dir/boot.plan" || return 1
     test "$magic:$base:$backend" = "OCBP1:$R_BASE:$R_BACKEND" || return 1
+    if test "$S_TOUCH" = 2; then
+        touch_inputs_verify || return 1
+        touch_input_files | awk -F '|' '
+            NR==FNR {split($0,a," "); expected["touch/devices/" a[2]]=a[3] "|" a[1];next}
+            $1~/^touch\/devices\// {
+                if(!($1 in expected) || $2 "|" $3!=expected[$1] || ++seen[$1]!=1) exit 1
+            }
+            END {for(key in expected) if(seen[key]!=1) exit 1}
+        ' - "$dir/boot.plan" || return 1
+    fi
     "$P/boot-select" "$mode" / "${dir#/}" < "$dir/boot.plan"
 }
 
@@ -212,10 +222,15 @@ if test "$selected" != true; then
 fi
 absent /tmp/open-connect/feature || fail feature_already_present
 work=$(mktemp -d /tmp/open-connect/.feature-XXXXXX)
-if test "$warning" = 1 || test "$base" = 1; then
+if test "$touch" = 2; then
+    boot_plan_verify "$R_CURRENT" verify || fail feature_inputs_changed
+elif test "$warning" = 1 || test "$base" = 1; then
     if ! absent "$D/snapshots/$R_CURRENT/boot.plan"; then
         boot_plan_verify "$R_CURRENT" verify || fail feature_inputs_changed
     fi
+fi
+if test "$touch" = 2; then
+    boot_copy_package "$work" touch-disable.so && chmod 755 "$work/touch-disable.so" || fail touch_copy_failed
 fi
 if test "$warning" = 1 || test "$base" = 1; then
     boot_ui_stage || fail feature_copy_failed

@@ -376,6 +376,168 @@ class NativeBootPlan(unittest.TestCase):
         )
         return fixture
 
+    def touch_fixture(self):
+        fixture = self.native_fixture()
+        fixture.shell(
+            '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
+            'record_read; snapshot_read "$R_CURRENT"; '
+            'R_CURRENT=$(fixture_snapshot "$D-target" "$R_BACKEND" 2 0 absent "$S_META" '
+            '"$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 1 0 0); '
+            'printf "absent\\n" > "$D-nvram"; record_write; '
+            'transaction_prepare set "$R_CURRENT" "$R_CURRENT"; transaction_reconcile'
+        )
+        return fixture
+
+    def test_touch_pins_guard_prepare_but_not_exit_or_uninstall_dependencies(self):
+        fixture = self.touch_fixture()
+        before = (fixture.data / "record").read_bytes()
+        snapshot = fixture.data / "snapshots" / fixture.record()[5]
+        dependencies = (snapshot / "dependencies").read_text()
+        self.assertNotIn("touch/devices/", dependencies)
+        self.assertNotIn(str(fixture.root / "touch-svc"), dependencies)
+        (fixture.root / "touch-svc").write_bytes(b"changed OEM service\n")
+        with self.assertRaises(subprocess.CalledProcessError) as caught:
+            fixture.shell(
+                'record_read; snapshot_read "$R_CURRENT"; '
+                'fixture_snapshot "$D-target" "$R_BACKEND" 2 0 absent "$S_META" '
+                '"$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 1 0 0'
+            )
+        self.assertIn("boot_profiles_failed", caught.exception.stderr)
+        self.assertEqual((fixture.data / "record").read_bytes(), before)
+        # The same changed input does not block a 2->0 snapshot or the actual
+        # uninstall transaction, because conditional pins are boot inputs only.
+        fixture.shell(
+            '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
+            'record_read; snapshot_read "$R_CURRENT"; '
+            'after=$(fixture_snapshot "$AUTOSTART" "$R_BACKEND" 0 0 absent "$S_META" '
+            '"$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 1 0 0); '
+            'transaction_prepare set "$R_CURRENT" "$after"; transaction_reconcile; '
+            'targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" && uninstall_owned "$R_CURRENT"; '
+            'before=$R_CURRENT; snapshot_read "$R_BASE"; '
+            'after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - "$S_NVRAM" "$S_META" '
+            '"$D/snapshots/$before/dependencies" "$D/snapshots/$R_BASE" ""); '
+            'transaction_prepare uninstall "$before" "$after"; transaction_reconcile'
+        )
+        self.assertEqual(fixture.record()[1], "removed")
+
+    def test_touch_changed_pin_does_not_block_direct_disabled_uninstall(self):
+        fixture = self.touch_fixture()
+        (fixture.root / "touch-lib").write_bytes(b"changed OEM devices library\n")
+        fixture.shell(
+            '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
+            'record_read; targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" && uninstall_owned "$R_CURRENT"; '
+            'before=$R_CURRENT; snapshot_read "$R_BASE"; '
+            'after=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - "$S_NVRAM" "$S_META" '
+            '"$D/snapshots/$before/dependencies" "$D/snapshots/$R_BASE" ""); '
+            'transaction_prepare uninstall "$before" "$after"; transaction_reconcile'
+        )
+        self.assertEqual(fixture.record()[1], "removed")
+        self.assertEqual((fixture.root / "data-target").read_text(), "stock\n")
+
+    def test_touch_shell_unselected_modes_have_no_feature_copy(self):
+        fixture = self.sealed_fixture()
+        result = fixture.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((fixture.runtime / "feature/touch-disable.so").exists())
+        fixture.shell(
+            '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
+            'record_read; snapshot_read "$R_CURRENT"; '
+            'after=$(fixture_snapshot "$AUTOSTART" "$R_BACKEND" 0 1 absent "$S_META" '
+            '"$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 1 1 1); '
+            'transaction_prepare set "$R_CURRENT" "$after"; transaction_reconcile'
+        )
+        result = fixture.boot(2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((fixture.runtime / "feature/touch-disable.so").exists())
+
+    def test_touch_shell_stages_only_disabled_and_fallback_keeps_stock(self):
+        fixture = self.touch_fixture()
+        result = fixture.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        shim = fixture.runtime / "feature/touch-disable.so"
+        self.assertEqual(shim.read_bytes(), (fixture.package / "touch-disable.so").read_bytes())
+        self.assertEqual(shim.stat().st_mode & 0o777, 0o755)
+        self.assertFalse((fixture.runtime / "feature/mmui.so").exists())
+        self.assertIn("touch-disable.so", (fixture.runtime / "feature/sm.conf").read_text())
+        record = fixture.record()
+        record[9] = "0"
+        (fixture.data / "record").write_text("|".join(record) + "\n")
+        result = fixture.boot(2)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertFalse((fixture.runtime / "feature").exists())
+        self.assertEqual((fixture.data.with_name("data-nvram")).read_text(), "absent\n")
+
+    def test_touch_shell_requires_both_pins_once_and_root_fs_without_other_features(self):
+        fixture = self.touch_fixture()
+        snapshot = fixture.data / "snapshots" / fixture.record()[5]
+        plan = (snapshot / "boot.plan").read_text()
+        # Call the real shell verifier directly: boot normally reseals under its
+        # lock, which is a separate defense against a damaged plan.
+        script = (fixture.package / "boot.sh").read_text().split("boot_select() {")[0]
+        verifier = fixture.root / "verify-touch.sh"
+        verifier.write_text(script)
+
+        def verify():
+            return subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    'set -eu; D=$1; P=$2; . "$P/state.sh"; . "$P/firmware.sh"; '
+                    '. "$3"; record_read; snapshot_read "$R_CURRENT"; boot_plan_verify "$R_CURRENT" verify',
+                    "test",
+                    fixture.data,
+                    fixture.package,
+                    verifier,
+                ],
+                env=fixture.env,
+                capture_output=True,
+                timeout=5,
+            )
+
+        self.assertEqual(verify().returncode, 0)
+        for key in ("svc", "lib"):
+            row = next(
+                line
+                for line in plan.splitlines(True)
+                if line.startswith("touch/devices/" + key + "|")
+            )
+            for bad in (
+                plan.replace(row, ""),
+                plan + row,
+                plan.replace(row, row.replace(row.split("|")[2], "0" * 64)),
+                plan.replace(row, row.replace("touch-" + key, "touch-wrong")),
+            ):
+                with self.subTest(key=key, bad=bad[-80:]):
+                    (snapshot / "boot.plan").write_text(bad)
+                    # Authenticate the changed plan; rejection must be policy,
+                    # not merely a stale snapshot checksum.
+                    identity = fixture.root / "snapshot-edit"
+                    shutil.copytree(snapshot, identity)
+                    manifest = "".join(
+                        hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                        for p in sorted(identity.iterdir())
+                        if p.name != "files.sha256"
+                    )
+                    (identity / "files.sha256").write_text(manifest)
+                    digest = hashlib.sha256(manifest.encode()).hexdigest()
+                    target = fixture.data / "snapshots" / digest
+                    identity.rename(target)
+                    fields = fixture.record()
+                    fields[5] = digest
+                    (fixture.data / "record").write_text("|".join(fields) + "\n")
+                    before = (fixture.data / "record").read_bytes()
+                    self.assertNotEqual(verify().returncode, 0)
+                    self.assertEqual((fixture.data / "record").read_bytes(), before)
+        (snapshot / "boot.plan").write_text(plan)
+        # Exact byte-identical sources are rejected when the physical root
+        # adapter reports a different device. No OEM content is required.
+        fields = fixture.record()
+        fields[5] = snapshot.name
+        (fixture.data / "record").write_text("|".join(fields) + "\n")
+        text = verifier.read_text() + "\nvui_stock_device() { printf '999999\\n'; }\n"
+        verifier.write_text(text)
+        self.assertNotEqual(verify().returncode, 0)
+
     def test_sealed_shell_renders_base_index_with_disclaimer_off(self):
         fixture = self.native_fixture()
         fixture.shell(

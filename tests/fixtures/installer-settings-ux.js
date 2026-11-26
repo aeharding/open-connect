@@ -158,3 +158,18 @@ f.pick("uninstall");assert.equal(f.dialog.props.buttonConfig.button2.appData,"un
 f.values({...f.value,restart:true});f.confirm("cancel");assert.equal(f.row("restart").disabled,false);
 assert.equal(removals,0);f.fw.sendEventToMmui("common","Global.IntentHome");
 console.log("Settings UX: cached/cold entry, native slides, interruptions and Apply confirmation passed");
+
+// Commander selects the third touch mode, then reverses it without touch input.
+f=fixture();f.open();assert.equal(f.row(0).text1,"Touchscreen");f.pick(0);f.end();
+assert.deepEqual(Array.from(f.page().list2Ctrl.dataList.items,r=>r.text1),
+    ["Factory behavior","Always enabled","Always disabled"]);
+f.pick(2);f.advance(250);assert.deepEqual(f.writes,[["touch",0,2]]);
+f.ack({...f.value,touch:2,restart:true});f.back();f.end();
+assert.equal(f.row(0).label1,"Always disabled");f.pick(0);f.end();f.pick(0);f.advance(250);
+assert.deepEqual(f.writes,[["touch",0,2],["touch",2,0]]);
+f.ack({...f.value,touch:0,restart:true});f.fw.sendEventToMmui("common","Global.IntentHome");
+// The error page has a numeric Commander appData, not an entries[] index.
+f=fixture();f.open();f.pick(0);f.pick(2);f.advance(250);f.ack(null);
+assert.match(f.page().list2Ctrl.title.text1,/could not be confirmed/);f.end();
+f.pick(0);f.advance(900);assert.equal(f.host.divElt.style.display,"");
+f.unchanged();assert.equal(f.timers.size,0);

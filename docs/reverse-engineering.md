@@ -1406,6 +1406,16 @@ change and on retries, including after a target write. Unpublished sealing work
 is removed on failure. Host regressions cover these cases through compatible-USB
 Uninstall and refuse third target values. This adds no transaction field.
 
+Before either policy change retires a pending OC1 revision, recovery removes
+only that revision's verified physical staging files through the production
+publisher's cleanup path and flushes their parent directories, including on
+retries after removal. Foreign stages still stop Uninstall with
+`startup_stage_changed`. Host tests interrupt the real UART login publisher
+after its stage flush and before rename, then cover cuts before/after cleanup
+and after the policy commit through compatible-USB Uninstall. Snapshot reuse
+also flushes `snapshots/` before returning its ID: repeated parent-flush failures
+during Factory recovery preserve OC1 until that flush succeeds.
+
 The actual tagged dev.23 USB's mutation path decodes through the authenticated
 installed preferences helper, then its own shell bit check refuses saved mode 2
 with `state_changed`, preserving OC1 and targets. Metadata discovery can still

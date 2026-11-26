@@ -255,6 +255,7 @@ transaction_reconcile() {
     if test "$phase" = set || test "$phase" = install; then
         snapshot_read "$R_AFTER" || fail invalid_after
         if test "$S_TOUCH" = 2 && ! touch_inputs_verify; then
+            startup_staging_retire "$R_AFTER" || fail startup_stage_changed
             snapshot_read "$R_BEFORE" || fail invalid_before
             if test "$phase" = set && test "$S_TOUCH" != 2; then
                 local rollback=$R_BEFORE

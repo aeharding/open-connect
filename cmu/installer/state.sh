@@ -315,12 +315,13 @@ snapshot_finish() (
     id=$(sha "$work/files.sha256") && hex "$id" 64 || fail snapshot_hash_failed
     if absent "$D/snapshots/$id"; then
         mv "$work" "$D/snapshots/$id" || fail snapshot_publish_failed
-        flush d "$D/snapshots"
     else
         snapshot_verify "$id" || fail snapshot_conflict
         for name in "$@" files.sha256; do rm "$work/$name" || fail snapshot_cleanup_failed; done
         rmdir "$work" || fail snapshot_cleanup_failed
     fi
+    # Reuse may follow a failed parent flush after rename.
+    flush d "$D/snapshots"
     snapshot_read "$id" || fail snapshot_invalid
     printf '%s\n' "$id"
 )

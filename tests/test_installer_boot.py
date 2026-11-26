@@ -191,6 +191,7 @@ native_guard() { :; }
 root_mode() { printf 'ro,noatime\n'; }
 cleanup_mount_guard() { :; }
 startup_staging_guard() { :; }
+startup_staging_retire() { :; }
 nvram_read() { cat "$D-nvram"; }
 nvram_change() {
     test "$(cat "$D-nvram")" = "$1" || return 1

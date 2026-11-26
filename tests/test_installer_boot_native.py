@@ -324,7 +324,7 @@ class NativeBootPlan(unittest.TestCase):
         self.check(plan, success=False)
         self.seal(self.header + self.row + "hold/test|/no-parent/missing|-\n", success=False)
 
-    def native_fixture(self, *, resources=False):
+    def native_fixture(self, *, resources=False, publisher=False):
         # Reuse the actual v74-map fixture, adding the real C capability. Import
         # locally so unittest does not discover that TestCase a second time.
         from tests.test_installer_boot import InstallerBoot
@@ -345,10 +345,27 @@ class NativeBootPlan(unittest.TestCase):
         shutil.copyfile(fixture.source / "flush", real_flush)
         real_flush.chmod(0o700)
         (fixture.source / "flush").write_text(
-            "#!/bin/sh\nset -eu\n" + shlex.quote(str(real_flush)) + ' "$@"\n'
+            "#!/bin/sh\nset -eu\n"
+            'if test "$1:$2" = '
+            + shlex.quote("d:" + str(fixture.data / "snapshots"))
+            + " && test -f "
+            + shlex.quote(str(fixture.root / "fail-snapshots"))
+            + "; then printf x >> "
+            + shlex.quote(str(fixture.root / "snapshot-flushes"))
+            + "; exit 1; fi\n"
+            'if test "$1" = d && test -f '
+            + shlex.quote(str(fixture.root / "fail-retire-dir"))
+            + ' && test "$2" = '
+            + shlex.quote(str(fixture.root))
+            + "; then exit 1; fi\n"
+            + shlex.quote(str(real_flush))
+            + ' "$@"\n'
             'if test "$1" = f && test "${2##*/}" = boot.plan && test -f '
             + shlex.quote(str(fixture.root / "cut-seal"))
             + '; then kill -KILL "$PPID"; fi\n'
+            'case "$1:$2" in f:*/.open-connect-*-root-login) if test -f '
+            + shlex.quote(str(fixture.root / "cut-publisher"))
+            + '; then kill -KILL "$PPID"; fi;; esac\n'
         )
         (fixture.source / "flush").chmod(0o700)
         (fixture.source / "INSTANCE").write_text("1" * 32 + "\n")
@@ -358,20 +375,46 @@ class NativeBootPlan(unittest.TestCase):
                 path = fixture.source / name
                 text = path.read_text()
                 for original, leaf in (
+                    ("/usr/bin/autostart", "data-target"),
                     ("/usr/bin/open-connect-boot-select", "root-selector"),
                     ("/usr/bin/runlogin", "root-login"),
                     ("/etc/ssh/sshd_config", "root-sshd"),
                 ):
                     text = text.replace(original, str(fixture.root / leaf))
                 path.write_text(text)
-            with source.open("a") as stream:
-                stream.write(
-                    "\nroot_publish() {\n"
-                    ' if test "$2" = -; then rm -f "$1"; return; fi\n'
-                    ' cp "$2" "$1.next" && metadata "$3" &&\n'
-                    ' chmod "$S_MODE" "$1.next" && mv "$1.next" "$1"\n'
-                    "}\n"
+            if publisher:
+                validator = fixture.tools / "sshd-validator"
+                validator.write_text("#!/bin/sh\nexit 0\n")
+                validator.chmod(0o700)
+                text = source.read_text().replace("startup_staging_guard() { :; }\n", "")
+                text = text.replace("startup_staging_retire() { :; }\n", "")
+                start = text.index("startup_publish() {\n")
+                end = text.index("\n}\n", start) + 3
+                text = text[:start] + text[end:]
+                source.write_text(
+                    text.replace(
+                        "/usr/bin/.open-connect-", str(fixture.root / ".open-connect-")
+                    ).replace("/etc/ssh/.open-connect-", str(fixture.root / ".open-connect-"))
+                    + '\nstartup_publish() { root_publish "$AUTOSTART" "$@"; }\n'
+                    "remount() { :; }\n"
                 )
+                access = fixture.source / "access.sh"
+                access.write_text(
+                    access.read_text()
+                    .replace("/usr/bin/.open-connect-", str(fixture.root / ".open-connect-"))
+                    .replace("/usr/sbin/sshd", str(validator))
+                )
+            else:
+                with source.open("a") as stream:
+                    stream.write(
+                        "\nroot_publish() {\n"
+                        ' if test "$2" = -; then rm -f "$1"; return; fi\n'
+                        ' cp "$2" "$1.next" && metadata "$3" &&\n'
+                        ' chmod "$S_MODE" "$1.next" && mv "$1.next" "$1"\n'
+                        "}\n"
+                    )
+        if resources:
+            shutil.copyfile(ASSETS / "console.sh", fixture.source / "console.sh")
         manifest = "".join(
             hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n"
             for path in sorted(fixture.source.iterdir())
@@ -392,16 +435,17 @@ class NativeBootPlan(unittest.TestCase):
                 '. "$P/access.sh"; record_read; root=${D%/*}; work=$D-resources; mkdir -m 700 "$work"; '
                 'printf "stock login\\n" > "$work/runlogin"; '
                 'printf "stock sshd\\n" > "$work/sshd.conf"; '
-                'printf "0|0|-|755:%s:%s|644:%s:%s|-\\n" '
-                '"$(id -u)" "$(id -g)" "$(id -u)" "$(id -g)" > "$work/access"; '
+                'cp "$work/runlogin" "$root/root-login"; chmod 755 "$root/root-login"; '
+                + ('inode=$(stat -c %i "$root/root-login"); ' if publisher else "inode=-; ")
+                + 'printf "0|0|-|755:%s:%s|644:%s:%s|%s\\n" '
+                '"$(id -u)" "$(id -g)" "$(id -u)" "$(id -g)" "$inode" > "$work/access"; '
                 'printf "%s\\n" - > "$work/selector"; '
                 'snapshot_read "$R_BASE"; '
                 'R_BASE=$(snapshot_create "$D/snapshots/$R_BASE/autostart" - "$S_NVRAM" '
                 '"$S_META" "$D/snapshots/$R_BASE/dependencies" "$work" ""); '
-                'root_publish "$root/root-login" "$work/runlogin" "755:$(id -u):$(id -g)"; '
-                'root_publish "$root/root-sshd" "$work/sshd.conf" "644:$(id -u):$(id -g)"; '
+                'cp "$work/sshd.conf" "$root/root-sshd"; chmod 644 "$root/root-sshd"; '
                 'selector_compose "$work" "$R_BACKEND"; '
-                'root_publish "$root/root-selector" "$P/boot-select" "700:$(id -u):$(id -g)"; '
+                'cp "$P/boot-select" "$root/root-selector"; chmod 700 "$root/root-selector"; '
                 'snapshot_read "$R_CURRENT"; '
                 'R_CURRENT=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$S_PACKAGE" '
                 '"$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$work" "$S_PREFS"); '
@@ -417,8 +461,8 @@ class NativeBootPlan(unittest.TestCase):
         )
         return fixture
 
-    def touch_fixture(self, *, resources=False):
-        fixture = self.native_fixture(resources=resources)
+    def touch_fixture(self, *, resources=False, publisher=False):
+        fixture = self.native_fixture(resources=resources, publisher=publisher)
         fixture.shell(
             '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
             'record_read; snapshot_read "$R_CURRENT"; '
@@ -553,6 +597,185 @@ class NativeBootPlan(unittest.TestCase):
             env=fixture.env,
             timeout=20,
         )
+
+    def staged_touch_pending(self, *, reversal=False):
+        fixture = self.touch_fixture(resources=True, publisher=True)
+        setup = '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; record_read; '
+        if reversal:
+            fixture.shell(
+                setup + 'snapshot_read "$R_CURRENT"; '
+                'prefs=$(preferences_change "$S_PREFS" "$S_PACKAGE" touch 1 "$S_SCHEMA"); '
+                'after=$(snapshot_create "$AUTOSTART" "$S_PACKAGE" disable "$S_META" '
+                '"$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" "$prefs"); '
+                'transaction_prepare set "$R_CURRENT" "$after"; transaction_reconcile'
+            )
+        client = fixture.runtime / "client"
+        shutil.copytree(fixture.package, client)
+        (fixture.runtime / "runtime").symlink_to(client)
+        (fixture.runtime / "selected").write_text(fixture.record()[5] + "\n")
+        # The flush adapter kills the publisher subshell immediately after
+        # fsync, bypassing its EXIT trap and preventing the target rename.
+        cut = fixture.root / "cut-publisher"
+        cut.touch()
+        if reversal:
+            # Also change UART in the real prepared 1->2 transaction so the
+            # reversal has a physical pre-rename stage to retire.
+            fixture.shell(
+                setup + 'snapshot_read "$R_CURRENT"; '
+                "package=$S_PACKAGE; prefs=$S_PREFS; mode=$S_META; schema=$S_SCHEMA; "
+                'work=$(mktemp -d "$D/access.XXXXXX"); access_compose "$work" 1 0 -; '
+                'selector_keep "$D/snapshots/$R_CURRENT" "$work"; '
+                'prefs=$(preferences_change "$prefs" "$package" touch 2 "$schema"); '
+                'after=$(snapshot_create "$AUTOSTART" "$package" absent "$mode" '
+                '"$D/snapshots/$R_CURRENT/dependencies" "$work" "$prefs"); '
+                'rm -rf "$work"; transaction_prepare set "$R_CURRENT" "$after"'
+            )
+            result = self.touch_api(fixture, "recover", fixture.record()[2])
+        else:
+            result = self.touch_api(fixture, "set", fixture.record()[5], "uart", "0", "1")
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout)["error"], "access_apply_failed")
+        cut.unlink()
+        pending = fixture.record()
+        self.assertEqual(pending[1], "set")
+        stage = fixture.root / (".open-connect-" + pending[2] + "-root-login")
+        self.assertEqual(
+            stage.read_bytes(),
+            (fixture.data / "snapshots" / pending[7] / "runlogin").read_bytes(),
+        )
+        self.assertEqual((fixture.root / "root-login").read_bytes(), b"stock login\n")
+        # Other owned physical-stage names share the same retirement boundary.
+        for source, suffix in (
+            (fixture.data / "snapshots" / pending[7] / "autostart", ""),
+            (fixture.data / "snapshots" / pending[7] / "sshd.conf", "-root-sshd"),
+            (fixture.package / "boot-select", "-root-selector"),
+        ):
+            (fixture.root / (".open-connect-" + pending[2] + suffix)).write_bytes(
+                source.read_bytes()
+            )
+        (fixture.root / "touch-lib").write_bytes(b"changed OEM devices library\n")
+        (fixture.runtime / "runtime").unlink()
+        (fixture.runtime / "usb-runtime").symlink_to(client)
+        return fixture, client, pending, stage
+
+    def test_touch_recovery_retires_real_publisher_stages_across_policy_cuts(self):
+        for reversal in (False, True):
+            for cut in ("before", "after", "policy"):
+                with self.subTest(reversal=reversal, cut=cut):
+                    fixture, client, pending, stage = self.staged_touch_pending(reversal=reversal)
+                    transaction = client / "transaction.sh"
+                    original = transaction.read_text()
+                    retire = '            startup_staging_retire "$R_AFTER" || fail startup_stage_changed\n'
+                    if cut == "before":
+                        changed = original.replace(retire, "            kill -KILL $$\n" + retire)
+                    elif cut == "after":
+                        changed = original.replace(retire, retire + "            kill -KILL $$\n")
+                    else:
+                        changed = original.replace(
+                            "            record_write\n            transaction_reconcile; return",
+                            "            record_write\n            kill -KILL $$\n            transaction_reconcile; return",
+                        )
+                    self.assertNotEqual(changed, original)
+                    transaction.write_text(changed)
+                    result = self.touch_api(fixture, "recover", pending[2])
+                    self.assertEqual(result.returncode, -9, result.stdout + result.stderr)
+                    self.assertEqual(stage.exists(), cut == "before")
+                    if cut != "policy":
+                        self.assertEqual(fixture.record(), pending)
+                    else:
+                        self.assertNotEqual(fixture.record()[2], pending[2])
+                    transaction.write_text(original)
+                    result = self.touch_api(fixture, "recover", fixture.record()[2])
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    recovered = json.loads(result.stdout)
+                    self.assertEqual(recovered["touch"], 1 if reversal else 0)
+                    self.assertEqual(recovered["uart"], 0 if reversal else 1)
+                    self.assertEqual(list(fixture.root.glob(".open-connect-" + "?" * 32 + "*")), [])
+                    result = self.touch_api(fixture, "uninstall", recovered["revision"])
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertFalse(fixture.data.exists())
+                    self.assertEqual(list(fixture.root.glob(".open-connect-*")), [])
+                    self.assertEqual((fixture.root / "root-login").read_bytes(), b"stock login\n")
+
+    def test_touch_recovery_keeps_foreign_stage_and_cleanup_refuses_it(self):
+        fixture, _, pending, stage = self.staged_touch_pending()
+        foreign = fixture.root / (".open-connect-" + "f" * 32 + "-root-login")
+        foreign.write_bytes(stage.read_bytes())
+        result = self.touch_api(fixture, "recover", pending[2])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(stage.exists())
+        saved = foreign.read_bytes()
+        result = self.touch_api(fixture, "uninstall", fixture.record()[5])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout)["error"], "startup_stage_changed")
+        self.assertEqual(foreign.read_bytes(), saved)
+        foreign.unlink()
+        result = self.touch_api(fixture, "uninstall", fixture.record()[5])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(fixture.data.exists())
+
+    def test_touch_recovery_refuses_changed_owned_stage_before_retiring_revision(self):
+        fixture, _, pending, stage = self.staged_touch_pending()
+        stage.write_bytes(b"foreign stage bytes\n")
+        result = self.touch_api(fixture, "recover", pending[2])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout)["error"], "startup_stage_changed")
+        self.assertEqual(fixture.record(), pending)
+        self.assertEqual(stage.read_bytes(), b"foreign stage bytes\n")
+
+    def test_factory_snapshot_reuse_retries_failed_parent_flush_before_oc1(self):
+        fixture, _, pending, _ = self.staged_touch_pending()
+        record = (fixture.data / "record").read_bytes()
+        failure = fixture.root / "fail-snapshots"
+        failure.touch()
+        before = set((fixture.data / "snapshots").iterdir())
+        for attempt in (1, 2):
+            result = self.touch_api(fixture, "recover", pending[2])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(json.loads(result.stdout)["error"], "plan_failed")
+            self.assertEqual((fixture.data / "record").read_bytes(), record)
+            self.assertEqual((fixture.root / "snapshot-flushes").read_bytes(), b"x" * attempt)
+            created = set((fixture.data / "snapshots").iterdir()) - before
+            self.assertEqual(len(created), 1)
+            self.assertFalse(next(iter(created)).name.startswith(".new-"))
+        failure.unlink()
+        result = self.touch_api(fixture, "recover", pending[2])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout)["touch"], 0)
+        result = self.touch_api(fixture, "uninstall", fixture.record()[5])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(fixture.data.exists())
+
+    def test_touch_stage_retirement_flush_failure_keeps_old_oc1_across_retries(self):
+        for reversal in (False, True):
+            with self.subTest(reversal=reversal):
+                fixture, _, pending, _ = self.staged_touch_pending(reversal=reversal)
+                failure = fixture.root / "fail-retire-dir"
+                failure.touch()
+                for _ in range(2):
+                    result = self.touch_api(fixture, "recover", pending[2])
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(json.loads(result.stdout)["error"], "startup_stage_changed")
+                    self.assertEqual(fixture.record(), pending)
+                failure.unlink()
+                result = self.touch_api(fixture, "recover", pending[2])
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                result = self.touch_api(fixture, "uninstall", fixture.record()[5])
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertFalse(fixture.data.exists())
+                self.assertEqual(list(fixture.root.glob(".open-connect-*")), [])
+
+    def test_touch_oem_pin_hash_refuses_valid_output_from_failed_process(self):
+        fixture = self.native_fixture()
+        fixture.shell("touch_inputs_verify")
+        for pin in ("touch-svc", "touch-lib"):
+            with self.subTest(pin=pin):
+                target = shlex.quote(str(fixture.root / pin))
+                with self.assertRaises(subprocess.CalledProcessError):
+                    fixture.shell(
+                        'sha() { "$P/flush" h "$1" || return 1; '
+                        'test "$1" != ' + target + "; }; touch_inputs_verify"
+                    )
 
     def test_retained_touch_changed_pin_recovers_and_usb_uninstalls_across_cuts(self):
         for operation in ("set", "install"):

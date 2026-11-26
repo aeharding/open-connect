@@ -1,7 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Compose private launch files from this unit's verified originals. All code
-# fragments and native replacement bytes are authored/compiled in the package.
+# Compose launch files from verified originals and authored package bytes.
 
 original_files() {
     cat <<'ORIGINALS'
@@ -130,10 +129,7 @@ base_ui_inputs_verify() {
 
 compose_native() {
     local package=$1 original=$2 target=$3 destination source extra
-    # Retain all original virtual addresses. The exact v74 ELF has no file
-    # padding after RX: move its complete file tail by one 0x8000 alignment.
-    # LLD emits code/relocations and replacement metadata words; this only
-    # composes those bytes with the unit's already hash-verified original.
+    # Preserve virtual addresses; move the pinned ELF tail by 0x8000.
     head -c 456604 "$original" > "$target" || return 1
     dd if=/dev/zero bs=32768 count=1 2>/dev/null >> "$target" || return 1
     tail -c 217443 "$original" >> "$target" || return 1
@@ -287,8 +283,7 @@ native_log_discard() {
     fi
 }
 
-# Standalone callers retain the original one-shot operation. Boot uses the
-# prepare/commit functions in its own signal-protected final publication.
+# Boot wraps prepare/commit in its signal-protected publication.
 native_log_config() (
     set -eu
     LOG_STAGE=
@@ -321,7 +316,7 @@ touch_inputs_verify() {
     device=$(vui_stock_device) || return 1
     touch_input_files | while read -r digest name target; do
         file "$target" && test "$(stat -c %d "$target")" = "$device" &&
-            test "$(sha "$target")" = "$digest" || exit 1
+            sha_is "$target" "$digest" || exit 1
     done
 }
 
@@ -389,7 +384,6 @@ composed_members_verify() {
 }
 
 boot_render_profiles() {
-    # This function runs from the verified target package, before prepare.
     local destination=$1 config=$2 source setting=off profile digest asset xml
     config_decode "$config" && test "$S_SCHEMA" = OC2 &&
         test "$P" = "$D/packages/$S_PACKAGE" || return 1
@@ -404,8 +398,7 @@ boot_render_profiles() {
         digest=$(awk -v name="$asset" '$2==name{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
         sha_is "$P/$asset" "$digest" || return 1
     done
-    # Saved originals are writable data. Render only a private copy whose bytes
-    # still match the supported stock pin, not a hash-then-reopened pathname.
+    # Render a private copy that still matches the stock pin.
     xml=$destination/.mmui-source
     digest=$(original_files | awk '$2=="mmui.xml"{n++;print $1}END{exit n!=1}') || return 1
     file "$D/originals/mmui.xml" && cp "$D/originals/mmui.xml" "$xml" &&
@@ -424,8 +417,7 @@ boot_render_profiles() {
             -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" \
             "$source/sm-$profile-$setting.conf" > "$destination/sm-$profile.conf" || return 1
     done
-    # Keep the OEM script available through compatible-media purge and browser
-    # reload. The authored override lives inside the already RAM-owned index.
+    # Retain the OEM script through purge/reload; override only the RAM index.
     awk -v base="$S_BASE" -v warning="$S_WARNING" -v services="$S_SERVICES" -v autoshow="$S_AUTOSHOW" \
         -v hook="$P/system-hook.js" -v logger="$P/base-logging.js" '
         BEGIN {
@@ -549,8 +541,6 @@ boot_plan_inputs() {
 }
 
 boot_snapshot_seal() (
-    # Serialization and rendering must belong to the snapshot's package,
-    # including an old Set recovered by a newer maintenance USB session.
     set -eu
     local snapshot=$1 package target
     snapshot_read "$snapshot" || fail invalid_boot_snapshot
@@ -573,9 +563,6 @@ boot_snapshot_seal() (
 
 _boot_snapshot_seal() (
 
-    # Reconciliation has already applied and fully verified the after-state.
-    # Seal a new immutable snapshot before record can call it current. A cut
-    # leaves the existing prepared transaction recoverable, never a side flag.
     set -eu
     local snapshot=$1 package helper work name digest magic base backend manifest expected
     snapshot_read "$snapshot" || fail invalid_boot_snapshot
@@ -633,10 +620,32 @@ cleanup_mount_guard() {
 }
 startup_staging_guard() {
     local path
-    # Random staging names from an older release are not evidence of ownership.
-    # Refuse cleanup rather than erase unknown files or report complete removal.
     for path in /usr/bin/.open-connect-* /etc/ssh/.open-connect-*; do absent "$path" || return 1; done
 }
+# Retire only this pending revision's stages before changing its direction.
+startup_staging_retire() (
+    local source target actual mode name snapshot=$D/snapshots/$1
+    snapshot_read "$1" || return 1
+    for name in autostart runlogin sshd.conf selector; do
+        source=$snapshot/$name
+        case "$name" in
+            autostart) target=$AUTOSTART;;
+            runlogin) target=/usr/bin/runlogin;;
+            sshd.conf) target=/etc/ssh/sshd_config;;
+            selector)
+                test "${S_SELECTOR_HASH:--}" != - || continue
+                target=/usr/bin/open-connect-boot-select
+                source=$D/packages/$S_SELECTOR_PACKAGE/boot-select;;
+        esac
+        absent "$source" && continue
+        actual=-; mode=-
+        if ! absent "$target"; then
+            actual=$(sha "$target") && hex "$actual" 64 &&
+                mode=$(stat -c '%a:%u:%g' "$target") || return 1
+        fi
+        root_publish "$target" "$source" - "$actual" "$mode" '' '' retire >&2 || return 1
+    done
+)
 remount() {
     timeout -t 8 -s TERM /bin/busybox mount -i -n -t relfs -o "remount,$1,noatime" /dev/ffx01p1 / &&
         test "$(root_mode)" = "$1,noatime"
@@ -775,6 +784,8 @@ root_publish() (
         fi
         identity=$(stat -c '%d:%i' "$work") || fail startup_stage_changed
     fi
+    # EXIT removes only a verified stage; flush absences too for crash retries.
+    if test "${8:-}" = retire; then flush d "$parent"; exit 0; fi
     source_hash=$(sha "$source") && hex "$source_hash" 64 || fail startup_copy_changed
     if test "$expected" != "$source_hash" || test "$expected_mode" != "$mode"; then
         remount rw || fail remount_failed
@@ -813,8 +824,6 @@ nvram_read() { sh "$P/touch.sh" read; }
 nvram_change() { sh "$P/touch.sh" change "$1" "$2" >/dev/null; }
 
 dependency_path() {
-    # Resolve names only. The dependency verifier checks the canonical file and
-    # private package parent before reading any bytes.
     local scope=${1%%/*} name=${1#*/} id folder
     test "$scope/$name" = "$1" && test -n "$name" || return 1
     case "$name" in .|..|*[!a-zA-Z0-9_.-]*) return 1;; esac
@@ -864,7 +873,6 @@ package_save() (
     local work digest name extra id mode
     verify_manifest "$P" || fail damaged_source_package
     # Hardlink creation/unlink changes a sealed member's ctime even on failure.
-    # Keep committed generations untouched until their actual removal.
     work=$(mktemp -d "$D/packages/.new-XXXXXX") || fail package_create_failed
     package_work=$work; trap 'test -n "${initial_work:-}" || rm -rf "$package_work"' EXIT
     while read -r digest name extra; do

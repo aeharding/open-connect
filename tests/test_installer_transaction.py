@@ -40,6 +40,7 @@ uuid() { openssl rand -hex 16; }
 root_mode() { printf 'ro,noatime\n'; }
 cleanup_mount_guard() { test "$CUT" != mount; }
 startup_staging_guard() { test "$CUT" != staging; }
+startup_staging_retire() { :; }
 dependency_path() { test "$1" = relevant && printf '%s\n' "$D-relevant"; }
 dependencies_capture() { printf '%s  relevant\n' "$(sha "$D-relevant")"; }
 nvram_read() { cat "$D-nvram"; }

@@ -9,7 +9,7 @@ Open Connect adds preferences to Mazda’s own Settings. Your normal menus and c
 
 ## Installation
 
-The USB installer checks the supported version and saves the original configuration before making changes. It stops if another modification has changed files it needs.
+The USB installer checks your firmware version and saves your original configuration before making changes. It stops if another modification has changed files it needs.
 
 Your choices stay saved after removing the USB drive and across normal restarts.
 
@@ -18,16 +18,16 @@ Your choices stay saved after removing the USB drive and across normal restarts.
 
 ## Startup
 
-Open Connect checks your saved choices, then applies them as Mazda Connect starts. Most changed app and service files are temporary copies in memory; the originals stay on storage.
+Open Connect verifies your saved choices and applies them as Mazda Connect starts. Most changed app and service files run from temporary copies in memory; your original files stay intact on storage.
 
-If repeated unexpected restarts exhaust its three-attempt allowance, Open Connect falls back to Mazda’s normal startup. Your choices are kept. A normal start after a sustained ignition-off shutdown renews that allowance.
+If repeated unexpected restarts exhaust its three-attempt allowance, Open Connect falls back to Mazda’s normal startup while keeping your saved choices. A normal start after a sustained ignition-off shutdown renews that allowance.
 
-Startup and memory overhead remain under development. Bench improvements do not establish a faster start than stock. Measurements are in [Performance evidence](performance.md).
+Startup and memory measurements live in [Performance evidence](performance.md); gains vary by configuration and faster startup than stock is not guaranteed across all settings.
 
 ## Removal
 
-[Uninstall](uninstall.md) restores the configuration saved before installation and removes Open Connect’s files and backups. It leaves normal Mazda preferences and phone pairings alone.
+[Uninstall](uninstall.md) restores the configuration saved before installation and removes Open Connect’s files and backups. It leaves normal Mazda preferences, radio presets and phone pairings alone.
 
 This restores the state found before installation. It is not a factory reset.
 
-The **0.3.0-dev.23 development prerelease** is for North American version **74.00.324**. Real-car qualification remains pending.
+**0.3.0-dev.24** is a development prerelease for North American version **74.00.324**. Real-car qualification remains pending.

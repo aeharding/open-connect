@@ -8,24 +8,24 @@ Plug-and-play USB install.
 [Browse settings →](settings.md)
 { .oc-actions }
 
-<p class="oc-availability"><strong>0.3.0-dev.23</strong> is a development prerelease; real-car qualification remains pending. Currently for North American version <strong>74.00.324</strong> only. Startup gains vary by configuration; faster startup than stock is not established.</p>
+<p class="oc-availability"><strong>0.3.0-dev.24</strong> is a development prerelease for North American Mazda Connect <strong>74.00.324</strong> only. Real-car qualification remains pending, and startup speed varies by setting.</p>
 
 <figure class="oc-screen oc-screen--lead">
-  <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen-while-driving.png" alt="Open Connect settings showing Touchscreen While Driving, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>
-  <figcaption><span class="oc-nav-path" data-walkthrough="open-connect">Settings → System → Open Connect</span> (retained 0.3.0-dev.19 capture).</figcaption>
+  <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen.png" alt="Open Connect settings showing Touchscreen set to Always enabled, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>
+  <figcaption><span class="oc-nav-path" data-walkthrough="open-connect">Settings → System → Open Connect</span></figcaption>
 </figure>
 
 ## Features
 
-- **[Touchscreen While Driving](touchscreen.md)**: keep touch available for a passenger.
-- **[Startup disclaimer](disclaimer.md)**: continue to your usual screen.
-- **[Startup optimizations](startup-optimizations.md)**: reduce background logging and unused services, including DVD on North American units.
-- **CarPlay & Android Auto**: [wireless connections](wireless-carplay.md), [Show CarPlay on connection](carplay-on-connection.md) and [Android Auto](android-auto.md).
-- **Audio sources**: choose [Pandora](pandora.md) and [SiriusXM](siriusxm.md).
-- **[Developer options](developer-options.md)**: UART, SSH and Import public key for your own access.
+- **[Touchscreen](touchscreen.md)**: keep touch enabled while moving, use Mazda’s default lockout, or choose **Always disabled** (see [Touchscreen](touchscreen.md) for current bench coverage and limits).
+- **[Startup disclaimer](disclaimer.md)**: skip Mazda’s startup warning and go straight to your usual screen.
+- **[Startup optimizations](startup-optimizations.md)**: reduce background logging and stop unused services, including DVD on North American units.
+- **CarPlay & Android Auto**: [Wireless CarPlay](wireless-carplay.md), [Show CarPlay on connection](carplay-on-connection.md) and [Android Auto](android-auto.md).
+- **Audio sources**: toggle built-in [Pandora](pandora.md) and [SiriusXM](siriusxm.md).
+- **[Developer options](developer-options.md)**: UART, SSH and public-key import for direct access.
 - **[Apply changes](apply-changes.md)**: restart Mazda Connect to activate saved choices.
-- **[Uninstall](uninstall.md)**: restore the configuration saved before installation.
-- **[About](about.md)**: check the installed version.
+- **[Uninstall](uninstall.md)**: restore your saved pre-install configuration.
+- **[About](about.md)**: check the installed Open Connect version.
 
 ## Supported cars
 
@@ -40,7 +40,7 @@ Open Connect is for first-generation **Mazda Connect / MZD Connect** (commander 
 | CX-5 | 2016–2020 (2021+ US uses 10.25-inch second-generation Mazda Connect) |
 | CX-9 | 2016–2020 (2021+ US uses 10.25-inch second-generation Mazda Connect) |
 
-Some Canadian/Mexican trims and sister models (Mazda2, Toyota Yaris iA / Scion iA) were also offered with first-generation Mazda Connect.
+Some Canadian/Mexican trims and sister models (Mazda2, Toyota Yaris iA / Scion iA) also shipped with first-generation Mazda Connect.
 
 Model year and trim alone aren’t enough. Check **<span class="oc-nav-path" data-walkthrough="version-info">Settings → System → About → Version Information</span>** (see [Quick start](usb-installer.md#1-check-your-firmware-version)). **OS Version** must read **74.00.324 NA N**; other versions and regions are unsupported.
 

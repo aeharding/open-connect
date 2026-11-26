@@ -170,13 +170,17 @@ HTML containers will not be parsed. For example:
 </dl>
 ~~~
 
-In Notes, retain all factual limits: the dev.20 development prerelease status,
-pending real-car qualification, links to [Performance evidence](performance.md)
-and [restart guidance](settings.md#apply-changes), and the exact conditions for
-any Navigation delay. Unknown cost is not zero cost, including SSH when enabled.
-Linux 3.0.35 has no kernel MemAvailable: distinguish the available proxy
-(MemFree + Buffers + Cached + SReclaimable − Shmem), raw MemFree and resident
-anonymous AnonPages (Committed_AS is the separate commitment counter). Identify earlier-build measurements and retain their caveats. Preserve existing anchors when moving content.
+In Notes, keep owner copy concise and scannable while retaining factual limits:
+development prerelease status, pending real-car qualification, links to
+[Performance evidence](performance.md) and [Apply changes](apply-changes.md),
+and exact conditions for any Navigation delay. Unknown cost is not zero cost,
+including SSH when enabled. Define the Linux 3.0.35 available-RAM proxy formula
+(`MemFree + Buffers + Cached + SReclaimable − Shmem`, distinct from raw
+`MemFree`, `AnonPages` and `Committed_AS`) in [Settings](settings.md) and
+[Performance evidence](performance.md) rather than repeating it verbatim on
+every setting page, and keep commit SHAs, CI run IDs and PR numbers in
+[media provenance](assets/guide/README.md) or developer/research pages instead
+of owner-facing captions. Preserve existing anchors when moving content.
 
 Use `<strong>`, `<code>` and `<a>` inside HTML paragraphs. Use documentation
 source filenames in links, such as `performance.md` and `settings.md#apply-changes`.

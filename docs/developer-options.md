@@ -28,18 +28,11 @@ Use direct SSH or UART access to the head unit for your own purposes. Neither is
 
 ## Notes
 
-<p><span class="oc-default oc-default--off">UART Off; SSH Off</span>; no Open Connect public key imported.</p>
+<p>Both UART and SSH are <span class="oc-default oc-default--off">Off</span> by default, with no Open Connect public key imported. Turning SSH on can start an SSH daemon; neither toggle has an isolated startup or memory benchmark (see <a href="performance.md">Performance evidence</a>).</p>
 
-<p><strong>Enabled: unmeasured.</strong> UART and SSH have no isolated toggle RAM/CPU/boot comparison. SSH can start a daemon; no zero-cost claim is established. The dev.20 cohorts held developer access unchanged.</p>
+<p>UART enables a passwordless root serial shell; SSH authorizes your imported public key. Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong> (use <a href="apply-changes.md">Apply changes</a> to restart right away). <strong>0.3.0-dev.24</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
-<p>UART enables a passwordless root serial shell; SSH authorizes your imported key. Changes you leave on head-unit storage can prevent maintenance. Diagnostic logging is separate from interactive login.</p>
-
-<p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
-
-<p><a href="reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74">Access and restoration bench checks</a> cover earlier builds. <a href="performance.md">Performance evidence</a> has no isolated access comparison. The screenshot above remains dev.19 on <strong>74.00.324A NA</strong>; real-car qualification and isolated access measurements remain pending. <strong>0.3.0-dev.23</strong> is a development prerelease.</p>
-
-
-Restore any changes you make to head-unit storage before installing, upgrading or uninstalling Open Connect. Leaving storage modified can make these operations fail. If you cannot return it cleanly to stock, reinstall Mazda firmware **74.00.324 NA N** first.
+Restore any changes you make to head-unit storage before installing, upgrading or uninstalling Open Connect. Leaving storage modified can cause maintenance to stop rather than overwrite unexpected files. If you cannot return it cleanly to stock, reinstall Mazda firmware **74.00.324 NA N** first.
 
 ## UART
 

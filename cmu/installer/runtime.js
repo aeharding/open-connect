@@ -80,7 +80,7 @@ function refuse(lost){
  endView();
  if(lost){job.phase="unresolved";job.reply=null;}
  else{job=null;busy=saving=false;release();}
- if(reply){reply(null,true);return;}
+ if(reply){reply(null,lost?"unresolved":true);return;}
  message(lost?"Unable to confirm the change":"Unable to finish",(lost?
  "Restart Mazda Connect before making more changes.":
  "Check your settings before trying again."));
@@ -150,8 +150,9 @@ refresh:function(reply){
  },Date.now()+12000,intent,true);
 },
 unavailable:function(){
- if(dialog||queued)return;
- dialog=ui.message(framework,"Settings unavailable","Open Connect could not be reached. Try again.",
+ if(dialog||queued||menus.blocked())return;
+ dialog=ui.message(framework,"Settings unavailable",job&&job.phase==="unresolved"?
+  "Restart Mazda Connect before making more changes.":"Open Connect could not be reached. Try again.",
   {button1:{label:"OK",appData:"done"}},function(){dialog=null;});
 },
 write:function(key,from,to,reply){run("set",[key,String(from),String(to)],reply);},importKey:function(reply){run("import",null,reply);},uninstall:function(leave){return run("uninstall",null,null,leave);},busy:function(){return busy||pending;},restart:function(leave){return values()&&s.restart&&!pending&&run("restart",null,null,leave);}};

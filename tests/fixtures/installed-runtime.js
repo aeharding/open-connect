@@ -118,7 +118,7 @@ for(const ack of [null,{ok:false,error:'stale_state'},{ok:true}]){
  f.reply(f.requests.at(-1),f.state({touch:1,revision:'d'.repeat(64)}));f.endAnimations();
  assert.equal(f.operation('set').length,1);assert.equal(f.operation('restart').length,0);
  if(ack===null){assert.equal(f.ctx.OpenConnect.protected(),true,'page still owns installed Settings');}
- else if(ack.ok===true)assert.match(f.pages.at(-1).list2Ctrl.title.text1,/could not be confirmed/);
+ else if(ack.ok===true)assert.match(f.pages.at(-1).list2Ctrl.title.text1,/Restart Mazda Connect/);
  // The Settings failure callback owns its UI. An extra runtime modal would
  // cover its transition restorer and reinstall a discarded page after Home.
  assert.equal(f.dialog,undefined);f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();identities(f,send);
@@ -126,7 +126,7 @@ for(const ack of [null,{ok:false,error:'stale_state'},{ok:true}]){
 }
 f=warm();const failedSend=f.oldSend;select(f,0);select(f,1);f.advance(250);
 f.reply(f.operation('set')[0],null);f.reply(f.requests.at(-1),f.state());f.endAnimations();
-assert.match(f.pages.at(-1).list2Ctrl.title.text1,/could not be confirmed/);assert.equal(f.dialog,undefined);
+assert.match(f.pages.at(-1).list2Ctrl.title.text1,/Restart Mazda Connect/);assert.equal(f.dialog,undefined);
 f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();identities(f,failedSend);assert.equal(f.ctx.OpenConnect.protected(),true);
 
 // Preserve the carplay-autoshow wire alias and its real uncertain-save readback.
@@ -176,3 +176,46 @@ f=fixture(folder);f.install();f.fw.sendEventToMmui=(id,event)=>f.calls.push([id,
 f.ctx.OpenConnect.openSettings();f.reply(f.requests[0],f.state());f.advance(8000);
 assert.equal(f.pages.length,0);assert.equal([...f.timers.values()].filter(t=>t.repeat===200).length,0);
 console.log('Epoch regressions: stale refresh cache/subscribers are fenced; exhausted Home entry cancels its interval');
+
+// Uncertain saves belong to the Settings page, with the same restart guidance
+// on re-entry. Drive the real mutation, readback deadline and native callbacks.
+for(const op of ['set','import'])for(const leave of [false,true]){
+ f=warm(developer);const send=f.oldSend;
+ if(op==='set'){select(f,0);select(f,1);f.advance(250);}
+ else{select(f,'developer');select(f,'import');f.pick('import');}
+ const mutation=f.operation(op)[0],lostAt=f.now;
+ f.reply(mutation,null);const read=f.requests.at(-1);
+ if(leave){f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();}
+ f.advance(11999);assert.equal(f.dialog,undefined);
+ if(!leave)assert.doesNotMatch(f.pages.at(-1).list2Ctrl.title.text1,/Restart Mazda Connect/);
+ f.advance(1);f.endAnimations();assert.equal(f.now-lostAt,12000);
+ assert.equal(f.dialog,undefined,'page feedback never gets an extra runtime modal');
+ assert.equal(f.operation(op).length,1);assert.equal(read.aborted,true);
+ if(!leave){
+  assert.match(f.pages.at(-1).list2Ctrl.title.text1,/Restart Mazda Connect/);
+  f.tap();assert.equal(f.dialog,undefined,'an active failure page owns its feedback');
+  select(f,0);assert.equal(f.fw.common._openConnectPage,undefined);
+ }
+ f.homeScreen();identities(f,send);f.nativeSettings();const count=f.requests.length,start=f.now;
+ f.tap();assert.equal(f.now-start,0);assert.equal(f.requests.length,count);
+ assert.match(f.dialog.props.text1,/Restart Mazda Connect before making more changes/);
+ const guidance=f.dialog;f.tap();assert.equal(f.dialog,guidance,'repeat taps share one modal');
+ f.reply(mutation,f.state({touch:1,key:'d'.repeat(64),revision:'e'.repeat(64)}));
+ f.reply(read,f.state({touch:1,key:'d'.repeat(64),revision:'e'.repeat(64)}));
+ f.advance(60000);assert.equal(f.dialog,guidance);assert.equal(f.requests.length,count);
+ f.fw.common.getCommonTransitionData();assert.equal(guidance.destroyed,true);identities(f,send);
+ guidance.props.defaultSelectCallback(guidance,'done');assert.equal(f.dialog,undefined);
+ f.tap();assert.match(f.dialog.props.text1,/Restart Mazda Connect before making more changes/);
+ f.pick('done');assert.equal(f.ctx.OpenConnect.protected(),true);assert.equal(f.operation(op).length,1);
+}
+// Definite input refusal retains key-specific help and permits another action.
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+f.reply(f.operation('import')[0],{ok:false,error:'invalid_public_key'});f.reply(f.requests.at(-1),f.state(developer));
+assert.equal(f.dialog.props.title,'Key could not be imported');assert.match(f.dialog.props.text1,/open-connect.pub/);
+f.pick('done');select(f,'import');f.pick('import');assert.equal(f.operation('import').length,2);
+// An unavailable first read remains a normal retry, with no mutation fence.
+f=fixture(folder);f.install();f.nativeSettings();f.tap();f.advance(12000);
+assert.match(f.dialog.props.text1,/could not be reached. Try again/);f.pick('done');
+const retry=f.requests.length;f.tap();assert.equal(f.requests.length,retry+1);f.reply(f.requests.at(-1),f.state());
+assert.ok(f.fw.common._openConnectPage);assert.equal(f.dialog,undefined);assert.equal(f.operation('set').length,0);
+console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

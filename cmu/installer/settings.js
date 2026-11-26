@@ -144,17 +144,17 @@ function preferences(store){
  }
  busy=true;
  var answered=false;
- function finish(actual){
+ function finish(actual,outcome){
   if(answered){return;}
   answered=true;
   busy=false;
   // Never resend after a lost ack.
-  if(!valid(actual)){actual=read();}
+  if(outcome==="unresolved"){wanted={};}else if(!valid(actual)){actual=read();}
   if(valid(actual)){saved=actual;}
   var failed=!valid(actual)||(preference(actual,key)!==requested&&wanted[key]===requested);
   if(failed){
    delete wanted[key];
-   prefs.failure=key;
+   prefs.failure=outcome||key;
    if(prefs.changed){prefs.changed(true);}
   }else if(wanted[key]===requested){delete wanted[key];}
   flush();
@@ -179,7 +179,7 @@ function preferences(store){
   if(answered){return;}
   answered=true;busy=false;
   if(valid(actual)){saved=actual;}
-  done(valid(actual)&&!failed?actual:null);
+  done(valid(actual)&&!failed?actual:null,failed);
   flush();
  }
  try{store.importKey(finish);}catch(error){finish(null);}
@@ -227,6 +227,9 @@ function open(fw,store){
  var values=prefs.failure?null:prefs.values();
  if(!values){index="unknown";focus=0;}
  var rows=[],title="Open Connect",i,row;
+ function action(text,key,caret,disabled){
+  rows.push({text1:text,itemStyle:"style01",hasCaret:!!caret,appData:key,disabled:!!disabled});
+ }
  function entry(i){
   var e=entries[i];
   if(values[e.key]!==undefined){rows.push({text1:e.title,
@@ -248,18 +251,17 @@ function open(fw,store){
   entry(0);entry(1);
   if(values.base!==undefined){rows.push(toggle("Startup optimizations",values.base,"base"));}
   if(values.wireless!==undefined||values.carplayAutoshow!==undefined||service(values,"android-auto")){
-   rows.push({text1:"CarPlay & Android Auto",itemStyle:"style01",hasCaret:true,appData:"phone"});
+   action("CarPlay & Android Auto","phone",true);
   }
   if(values.services||values.pandora!==undefined){
-   rows.push({text1:"Audio sources",itemStyle:"style01",hasCaret:true,appData:"sources"});
+   action("Audio sources","sources",true);
   }
   if(values.developer){
-   rows.push({text1:"Developer options",itemStyle:"style01",hasCaret:true,appData:"developer"});
+   action("Developer options","developer",true);
   }
-  rows.push({text1:"Apply changes",itemStyle:"style01",hasCaret:false,appData:"restart",disabled:!canRestart()});
-  rows.push({text1:"Uninstall",itemStyle:"style01",hasCaret:false,appData:"uninstall",
-   disabled:typeof store.uninstall!=="function"});
-  rows.push({text1:"About",itemStyle:"style01",hasCaret:false,appData:"about"});
+  action("Apply changes","restart",false,!canRestart());
+  action("Uninstall","uninstall",false,typeof store.uninstall!=="function");
+  action("About","about");
  }else if(index==="phone"){
   title="CarPlay & Android Auto";
   if(values.wireless!==undefined){
@@ -269,16 +271,15 @@ function open(fw,store){
   }
   entry(2);integrations(true);
  }else if(index==="unknown"){
-  title="Change could not be confirmed";
-  rows.push({text1:"Return to Mazda Settings",itemStyle:"style01",hasCaret:false,appData:0});
+  title=prefs.failure==="unresolved"?"Restart Mazda Connect":"Change could not be confirmed";
+  action("Return to Mazda Settings",0);
  }else if(index==="sources"){
   title="Audio sources";integrations(false);
  }else if(index==="developer"){
   title="Developer options";
   rows.push(toggle("UART",values.uart,"uart"));
   row=toggle("SSH",values.ssh,"ssh");row.disabled=values.key==="-";rows.push(row);
-  rows.push({text1:"Import public key",itemStyle:"style01",hasCaret:true,appData:"import",
-   disabled:prefs.pending()||typeof store.importKey!=="function"});
+  action("Import public key","import",true,prefs.pending()||typeof store.importKey!=="function");
  }else{
   row=entries[index];
   title=row.title;
@@ -388,8 +389,9 @@ function open(fw,store){
    dismiss=ask("Import public key?","Put open-connect.pub on the USB drive. RSA and ECDSA public keys are supported. The imported key will be replaced.","Import","import",function(action){
      dismiss=null;
      if(action!=="import"||!current()){return;}
-     prefs.importKey(function(actual){
+     prefs.importKey(function(actual,outcome){
       if(!current()||choice!=="developer"){return;}
+      if(outcome==="unresolved"){prefs.failure=outcome;render("unknown",0);return;}
       render("developer","import");
       dismiss=dialogs.message(fw,actual?"Public key imported":"Key could not be imported",
        actual?"Fingerprint (MD5):\n"+actual.fingerprint.slice(0,23)+"\n"+

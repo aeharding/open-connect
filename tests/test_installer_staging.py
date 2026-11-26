@@ -91,10 +91,7 @@ class InstallerUSBEntry(unittest.TestCase):
         return result
 
     def test_complete_verified_packet_survives_media_removal(self):
-        for name in (".hidden", "..hidden"):
-            self.members[name] = b"authored hidden member\n"
-            (self.source / name).write_bytes(self.members[name])
-            (self.source / name).chmod(0o777)
+        (self.source / "install-only.bin").chmod(0o777)
         self.manifest()
         result = self.entry()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -114,12 +111,15 @@ class InstallerUSBEntry(unittest.TestCase):
         (self.source / "install-only.bin").write_bytes(b"changed after manifest\n")
         self.refused()
 
-    def test_admitted_dot_member_is_cleaned_after_later_failure(self):
-        self.members[".hidden"] = b"admitted hidden member\n"
-        (self.source / ".hidden").write_bytes(self.members[".hidden"])
-        self.manifest()
-        (self.source / "install-only.bin").write_bytes(b"changed after manifest\n")
-        self.refused()
+    def test_dot_members_never_reach_consumers_that_cannot_retire_them(self):
+        for name in (".hidden", "..hidden"):
+            with self.subTest(name=name):
+                self.members[name] = b"unsupported hidden member\n"
+                (self.source / name).write_bytes(self.members[name])
+                self.manifest()
+                self.refused()
+                del self.members[name]
+                (self.source / name).unlink()
 
     def test_unreadable_or_missing_member_never_launches(self):
         (self.source / "install-only.bin").unlink()
@@ -198,17 +198,14 @@ class InstallerUSBEntry(unittest.TestCase):
                 openssl.chmod(0o700)
                 self.refused()
 
-    def test_unterminated_last_member_is_verified_and_staged(self):
+    def test_unterminated_manifest_never_reaches_newline_only_consumers(self):
         name = "z-last.bin"
         self.members[name] = b"last row without newline\n"
         (self.source / name).write_bytes(self.members[name])
         self.manifest()
         manifest = self.source / "files.sha256"
         manifest.write_bytes(manifest.read_bytes().rstrip(b"\n"))
-        result = self.entry()
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        staged = Path(self.stage.read_text().strip())
-        self.assertEqual((staged / name).read_bytes(), self.members[name])
+        self.refused()
 
     def test_bad_unterminated_last_row_never_launches(self):
         manifest = self.source / "files.sha256"

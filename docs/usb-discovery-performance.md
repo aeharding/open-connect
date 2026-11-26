@@ -538,7 +538,7 @@ The following sanitized exports are original **AGPL-3.0-or-later** numeric data:
 - [Final samples](assets/performance/dev23-final-resources/samples.csv): 577 numeric samples over 20–170 s and its immediate neighbors; CPU, named RAM and traffic/task counters.
 - [Final I/O](assets/performance/dev23-final-resources/io.csv): 48 role/window rows for 20–170 and 60–170 s, including operation and busy/weighted-tick counters.
 - [Supplemental control inputs](assets/performance/dev23-final-resources/control-inputs.csv): only per-boot scalars missing from the unchanged public fresh22/b386 exports, including diagnostic phase counters and named native snapshots.
-- [Positive arithmetic audit](assets/performance/dev23-final-resources/positive-deltas.csv): both final groups against both controls, with every positive resource delta and both ranges; includes increases in free/cache counters and extra I/O operations/weighted ticks. These are not regression labels.
+- [Positive arithmetic audit](assets/performance/dev23-final-resources/positive-deltas.csv): both final groups against both controls, with positive median deltas for the recorded analysis metrics and both ranges; 10-second traffic/task curves use rates. Includes increases in free/cache counters and extra I/O operations/weighted ticks. These are not regression labels.
 
 The [public command above](#public-data-and-arithmetic) reuses unchanged controls,
 supplements only missing scalars, recomputes resource summaries and checks every

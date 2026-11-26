@@ -262,7 +262,7 @@ set --
 while read -r digest name extra; do
     if test -f "$work/$name" && test ! -L "$work/$name"; then set -- "$@" "$work/$name"; fi
 done < "$P/files.sha256"
-test "$(sha "$work/files.sha256")" = "$package_id" || fail damaged_runtime
+sha_is "$work/files.sha256" "$package_id" || fail damaged_runtime
 actual=$(openssl dgst -sha256 -r "$@") || fail damaged_runtime
 test "$actual" = "${expected%?}" || fail damaged_runtime
 if test "$kind" = usb; then
@@ -324,7 +324,7 @@ service_stage() {
 }
 
 service_boot() {
-    # SM's bounded RAM worker verifies the package before sourcing it.
+    # Verify before sourcing the package.
     set -eu
     umask 077
     D=/tmp/mnt/data_persist/open-connect
@@ -371,7 +371,7 @@ service_boot() {
 "
         count=$((count+1)); test "$count" -le 64
     done < "$P/files.sha256"
-    test "$mandatory" = 5
+    test "$mandatory" = 5 && test -x "$P/flush" || exit 1
     actual_count=0
     for item in "$P"/* "$P"/.[!.]* "$P"/..?*; do
         if test ! -e "$item" && test ! -L "$item"; then continue; fi

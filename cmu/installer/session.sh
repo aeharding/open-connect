@@ -15,7 +15,7 @@ post_restart() (
     test "$(current_boot_id)" = "$R_BOOT" && test "$(cat "$R/selected")" = "$R_CURRENT" || exit 1
     grep -F -q '<meta name="open-connect-notice" content="installed"' "$R/feature/index.html" || exit 1
     file "$D/packages/$R_BACKEND/files.sha256" &&
-        test "$(sha "$D/packages/$R_BACKEND/files.sha256")" = "$R_BACKEND" || exit 1
+        sha_is "$D/packages/$R_BACKEND/files.sha256" "$R_BACKEND" || exit 1
     test "$(awk '$2!="INSTANCE"{print $1" "$2}' "$work/files.sha256")" = \
         "$(awk '$2!="INSTANCE"{print $1" "$2}' "$D/packages/$R_BACKEND/files.sha256")" || exit 1
     ids=$(service_usb_observe "$R_NOTICE") && id=$(service_usb_source "$source") || exit 1

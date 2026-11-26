@@ -25,10 +25,10 @@ usb_fence() {
     selected=$(selection_id /tmp/open-connect/selected) || fail invalid_selected_snapshot
     package=$(snapshot_package "$selected") || fail invalid_selected_snapshot
     source=$(package_programs "$package" backend.sh) || fail invalid_legacy_source
-    file "$target/files.sha256" && test "$(sha "$target/files.sha256")" = "$package" &&
+    file "$target/files.sha256" && sha_is "$target/files.sha256" "$package" &&
         file "$target/backend.sh" || fail invalid_legacy_source
-    digest=$(sha "$source/backend.sh") || fail invalid_legacy_source
-    test "$(sha "$target/backend.sh")" = "$digest" || fail invalid_legacy_source
+    digest=$(sha "$source/backend.sh") && hex "$digest" 64 || fail invalid_legacy_source
+    sha_is "$target/backend.sh" "$digest" || fail invalid_legacy_source
     # A verified pinned endpoint keeps its public pointer until normal restart.
     if awk '$0=="# Open Connect pinned Settings 1"{n++}END{exit n!=1}' "$source/backend.sh"; then return 0; fi
     # Only the actually supported dev.22 contract is eligible for withdrawal.
@@ -127,7 +127,8 @@ start)
         staged=
         trap 'if test -n "$staged"; then rm -f "$staged"/*; rmdir "$staged"; fi' EXIT
         trap 'exit 1' HUP INT TERM
-        service_files "$(sha "$P/files.sha256")" usb
+        package=$(sha "$P/files.sha256") && hex "$package" 64 || fail damaged_runtime
+        service_files "$package" usb
         staged=$runtime
         trap - EXIT HUP INT TERM
         printf '%s\n' "$runtime"

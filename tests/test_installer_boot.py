@@ -118,7 +118,14 @@ class InstallerBoot(unittest.TestCase):
                 fake = self.wcp_original
             else:
                 fake = self.root / "oem" / name
-                fake.write_bytes(("synthetic OEM dependency " + name + "\n").encode())
+                if name == "board.sh":
+                    # Exercise the real authenticated non-factory hardware probe.
+                    fake.write_text("#!/bin/sh\nexit 1\n")
+                    firmware = firmware.replace(
+                        digest, hashlib.sha256(fake.read_bytes()).hexdigest()
+                    )
+                else:
+                    fake.write_bytes(("synthetic OEM dependency " + name + "\n").encode())
             self.oem_adapters[target] = str(fake)
             firmware = firmware.replace(target, str(fake))
         ui_map = subprocess.check_output(
@@ -584,6 +591,65 @@ record_write
         self.assertIn("damaged_package", result.stderr)
         self.assertFalse(marker.exists())
         self.assertEqual(self.record()[9], "3")
+
+    def test_bootstrap_entries_require_all_members_before_package_callbacks(self):
+        for entry in ("hook", "standalone", "sm"):
+            for missing in (False, True):
+                with self.subTest(entry=entry, missing=missing):
+                    self.setUp()
+                    marker = self.root / "package-callback"
+                    (self.package / "state.sh").write_text(
+                        "touch " + shlex.quote(str(marker)) + "\nexit 0\n"
+                    )
+                    if entry == "sm":
+                        (self.package / "api").write_text("authored API fixture\n")
+                    if missing:
+                        (self.package / ("api" if entry == "sm" else "access.sh")).unlink()
+                    manifest = "".join(
+                        hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                        for p in sorted(self.package.iterdir())
+                        if p.name != "files.sha256"
+                    )
+                    (self.package / "files.sha256").write_text(manifest)
+                    identity = hashlib.sha256(manifest.encode()).hexdigest()
+                    target = self.package.with_name(identity)
+                    self.package.rename(target)
+                    self.package = target
+                    fields = self.record()
+                    fields[3] = identity
+                    fields[11] = "00000000-0000-0000-0000-000000000001"
+                    (self.data / "record").write_text("|".join(fields) + "\n")
+                    (self.root / "boot-id").write_text(fields[11] + "\n")
+                    if entry == "hook":
+                        result = self.hook()
+                    elif entry == "standalone":
+                        result = self.boot(1)
+                    else:
+                        (self.runtime / "boot-id").symlink_to(fields[11])
+                        (self.runtime / "selected").write_text(fields[5] + "\n")
+                        # Exercise admission without a listener or its boot delay.
+                        worker = (ASSETS / "service.sh").read_text()
+                        for old, new in {
+                            "/tmp/mnt/data_persist/open-connect": str(self.data),
+                            "/tmp/open-connect": str(self.runtime),
+                            'test "$(id -u)" = 0': f'test "$(id -u)" = {os.getuid()}',
+                            "700:0:0": f"700:{os.getuid()}:{os.getgid()}",
+                            "36:0:0": f"36:{os.getuid()}:{os.getgid()}",
+                            "sleep 4": "sleep 0",
+                        }.items():
+                            worker = worker.replace(old, new)
+                        path = self.root / "service.sh"
+                        path.write_text(worker)
+                        result = subprocess.run(
+                            ["sh", path, "boot"],
+                            env=self.env,
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        )
+                    self.assertEqual(marker.exists(), not missing, result.stdout + result.stderr)
+                    if missing and entry != "hook":
+                        self.assertNotEqual(result.returncode, 0)
 
     def test_populated_fast_path_keeps_budget_and_original_dependency_guards(self):
         self.populated_dependencies()

@@ -70,6 +70,7 @@ PAYLOAD = (*STATIC, *COMPILED, "layout.txt", "touch.sh", "LICENSE")
 
 
 class UsbBuild(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("clang"), "Clang required")
     def test_post_restart_scan_only_suppresses_the_observed_selected_package(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -95,12 +96,17 @@ class UsbBuild(unittest.TestCase):
             # Record validation and lock acquisition are tested by their own
             # maintained suites; substitute only those upstream platform facts.
             (work / "state.sh").write_text(
-                'file() { test -f "$1" && test ! -L "$1"; }; '
+                (ASSETS / "state.sh").read_text() + '\nfile() { test -f "$1" && test ! -L "$1"; }; '
                 'stat() { printf "%s 8\\n" "$(wc -c < "$3")"; }; '
                 'private_dir() { test -d "$1"; }; '
-                "sha() { openssl dgst -sha256 < \"$1\" | awk '{print $NF}'; }; "
                 'current_boot_id() { cat "$R/boot"; }; '
                 'record_read() { . "$D/facts"; };\n'
+            )
+            subprocess.run(
+                ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", work / "flush"],
+                check=True,
+                capture_output=True,
+                timeout=20,
             )
             facts = durable / "facts"
 

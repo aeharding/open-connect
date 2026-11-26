@@ -73,12 +73,17 @@ boot_mount_guard() {
 }
 
 native_dependency_guard() { test "$1" = 1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29; }
-native_guard() { native_dependency_guard "$(sha /jci/lib/libjciuiamgr.so)" || fail unsupported_manager; }
+native_guard() {
+    local digest
+    digest=$(sha /jci/lib/libjciuiamgr.so) && hex "$digest" 64 &&
+        native_dependency_guard "$digest" || fail unsupported_manager
+}
 
 factory_wireless() (
     # Follow the verified OEM hardware branch, never our rendered RAM flags.
-    file /jci/scripts/get_board_type.sh || exit 1
-    test "$(sha /jci/scripts/get_board_type.sh)" = 2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da || exit 1
+    # 1 means non-factory hardware; 2 means the probe is unavailable.
+    file /jci/scripts/get_board_type.sh || exit 2
+    sha_is /jci/scripts/get_board_type.sh 2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da || exit 2
     result=0
     PATH=/usr/bin:/bin:/usr/sbin:/sbin sh /jci/scripts/get_board_type.sh >/dev/null 2>&1 || result=$?
     test "$result" = 2
@@ -88,7 +93,7 @@ originals_verify() {
     local digest name target
     private_dir "$D/originals" || return 1
     original_files | while read -r digest name target; do
-        file "$D/originals/$name" && test "$(sha "$D/originals/$name")" = "$digest" || exit 1
+        file "$D/originals/$name" && sha_is "$D/originals/$name" "$digest" || exit 1
     done
 }
 
@@ -98,9 +103,9 @@ originals_save() {
     work=$(mktemp -d "$D/.originals-XXXXXX") || fail backup_create_failed
     # Pipeline children return status; this caller owns the fixed error reply.
     original_files | while read -r digest name target; do
-        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+        file "$target" && sha_is "$target" "$digest" || exit 1
         cp "$target" "$work/$name" && chmod 600 "$work/$name" || exit 1
-        test "$(sha "$work/$name")" = "$digest" || exit 1
+        sha_is "$work/$name" "$digest" || exit 1
         "$P/flush" f "$work/$name" || exit 1
     done || fail backup_failed
     flush d "$work"
@@ -119,7 +124,7 @@ BASE_UI
 base_ui_inputs_verify() {
     local digest name target
     base_ui_files | while read -r digest name target; do
-        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+        file "$target" && sha_is "$target" "$digest" || exit 1
     done
 }
 
@@ -162,9 +167,9 @@ compose() (
     cp /jci/vui/svcjcivui.so "$work/vui.so" || fail compose_copy_failed
     test "$(wc -c < "$package/vui-path.bin")" -eq 24 || fail compose_patch_failed
     dd if="$package/vui-path.bin" of="$work/vui.so" bs=1 seek=68196 conv=notrunc 2>/dev/null || fail compose_patch_failed
-    test "$(sha "$work/vui.so")" = 6cc31cd92167624093f95924a15a27536aec2e40cecc170b47cce72d703ba18f || fail compose_patch_failed
+    sha_is "$work/vui.so" 6cc31cd92167624093f95924a15a27536aec2e40cecc170b47cce72d703ba18f || fail compose_patch_failed
     cp /jci/vui/vui_config.xml "$work/vui-source.xml" &&
-        test "$(sha "$work/vui-source.xml")" = d2511533b59bc9773f92d8fff9cbcf591d9ff461c33839ff4eaaae6f5d0aaef0 || fail compose_copy_failed
+        sha_is "$work/vui-source.xml" d2511533b59bc9773f92d8fff9cbcf591d9ff461c33839ff4eaaae6f5d0aaef0 || fail compose_copy_failed
     sed 's@value="/jci/vui/plugins"@value="/tmp/open-connect/vui-plugins/"@' "$work/vui-source.xml" > "$work/vui.xml" || fail compose_xml_failed
     rm "$work/vui-source.xml" || fail compose_xml_failed
     sed 's@name="system" libpath="/jci/mmui/uia/" lib="libjciuiasystem.so"@name="system" libpath="/tmp/open-connect/feature/" lib="uia.so"@' \
@@ -243,9 +248,9 @@ compose() (
 
 native_log_inputs_verify() {
     file /config/common/log/settings.txt &&
-        test "$(sha /config/common/log/settings.txt)" = 8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0 &&
+        sha_is /config/common/log/settings.txt 8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0 &&
         file /jci/lib/libjcicommon.so &&
-        test "$(sha /jci/lib/libjcicommon.so)" = 637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d
+        sha_is /jci/lib/libjcicommon.so 637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d
 }
 
 native_log_prepare() {
@@ -312,7 +317,7 @@ vui_source_files() {
 }
 vui_sources_verify() {
     vui_source_files | while read -r digest name target; do
-        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+        file "$target" && sha_is "$target" "$digest" || exit 1
     done
 }
 vui_stock_device() { stat -c %d /; }
@@ -339,7 +344,7 @@ vui_inputs_verify() {
     device=$(vui_stock_device) || return 1
     printf '%s\n' "$inputs" | while read -r digest name target; do
         file "$target" && test "$(stat -c %d "$target")" = "$device" &&
-            test "$(sha "$target")" = "$digest" || exit 1
+            sha_is "$target" "$digest" || exit 1
     done
 }
 
@@ -381,14 +386,14 @@ boot_render_profiles() {
     for asset in "$@"; do
         file "$P/$asset" || return 1
         digest=$(awk -v name="$asset" '$2==name{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
-        test "$(sha "$P/$asset")" = "$digest" || return 1
+        sha_is "$P/$asset" "$digest" || return 1
     done
     # Saved originals are writable data. Render only a private copy whose bytes
     # still match the supported stock pin, not a hash-then-reopened pathname.
     xml=$destination/.mmui-source
     digest=$(original_files | awk '$2=="mmui.xml"{n++;print $1}END{exit n!=1}') || return 1
     file "$D/originals/mmui.xml" && cp "$D/originals/mmui.xml" "$xml" &&
-        test "$(sha "$xml")" = "$digest" || return 1
+        sha_is "$xml" "$digest" || return 1
     for asset in mmui plugins; do
         if test "$asset" = mmui; then profile=mmui.xml; else profile=vui-plugins.list; fi
         awk -v operation=compose -v ui_mode="$asset" -v modules="$P/ui-modules.tsv" \
@@ -473,12 +478,14 @@ boot_plan_inputs() {
         printf 'baseline/%s|%s/snapshots/%s/%s|%s\n' "$name" "$D" "$R_BASE" "$name" "$digest"
     done < "$D/snapshots/$R_BASE/files.sha256"
     printf 'baseline/files.sha256|%s/snapshots/%s/files.sha256|%s\n' "$D" "$R_BASE" "$R_BASE"
-    printf 'target/autostart|%s|%s\n' "$AUTOSTART" "$(sha "$work/autostart")"
+    digest=$(sha "$work/autostart") && hex "$digest" 64 || return 1
+    printf 'target/autostart|%s|%s\n' "$AUTOSTART" "$digest"
     if test "${S_SELECTOR_HASH:--}" != -; then
         printf 'target/boot-select|/usr/bin/open-connect-boot-select|%s\n' "$S_SELECTOR_HASH"
     fi
     for target in /jci/version.ini; do
-        printf 'guard/%s|%s|%s\n' "${target##*/}" "$target" "$(sha "$target")"
+        digest=$(sha "$target") && hex "$digest" 64 || return 1
+        printf 'guard/%s|%s|%s\n' "${target##*/}" "$target" "$digest"
     done
     if test "$S_BASE" = 1; then
         native_log_inputs_verify || return 1
@@ -487,10 +494,11 @@ boot_plan_inputs() {
                 settings.txt) target=/config/common/log/settings.txt;;
                 libjcicommon.so) target=/jci/lib/libjcicommon.so;;
             esac
-            printf 'base/%s|%s|%s\n' "$name" "$target" "$(sha "$target")"
+            digest=$(sha "$target") && hex "$digest" 64 || return 1
+            printf 'base/%s|%s|%s\n' "$name" "$target" "$digest"
         done
         base_ui_files | while read -r digest name target; do
-            file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+            file "$target" && sha_is "$target" "$digest" || exit 1
             printf 'base/%s|%s|%s\n' "$name" "$target" "$digest"
         done || return 1
         vui_inputs_verify "$work/vui-plugins.list" || return 1
@@ -499,12 +507,16 @@ boot_plan_inputs() {
         done || return 1
     fi
     if test "$S_ACCESS" = true; then
-        printf 'target/runlogin|/usr/bin/runlogin|%s\n' "$(sha "$work/runlogin")"
-        printf 'target/sshd.conf|/etc/ssh/sshd_config|%s\n' "$(sha "$work/sshd.conf")"
+        digest=$(sha "$work/runlogin") && hex "$digest" 64 || return 1
+        printf 'target/runlogin|/usr/bin/runlogin|%s\n' "$digest"
+        digest=$(sha "$work/sshd.conf") && hex "$digest" 64 || return 1
+        printf 'target/sshd.conf|/etc/ssh/sshd_config|%s\n' "$digest"
         if test "$S_LOGIN_INODE" != -; then
             target=/usr/bin/.open-connect-runlogin-$S_LOGIN_INODE
             digest=-
-            if ! absent "$target"; then digest=$(sha "$D/snapshots/$R_BASE/runlogin") || return 1; fi
+            if ! absent "$target"; then
+                digest=$(sha "$D/snapshots/$R_BASE/runlogin") && hex "$digest" 64 || return 1
+            fi
             printf 'hold/runlogin|%s|%s\n' "$target" "$digest"
         fi
         if test "$S_KEY" != -; then
@@ -523,7 +535,7 @@ boot_snapshot_seal() (
     package=$S_PACKAGE
     if test "$package" = -; then printf '%s\n' "$snapshot"; exit 0; fi
     test "$package" = "$R_BACKEND" || fail invalid_boot_package
-    target=$(package_programs "$package" state.sh firmware.sh access.sh transaction.sh boot-select VERSION) || fail invalid_boot_package
+    target=$(package_programs "$package" state.sh firmware.sh access.sh transaction.sh flush boot-select VERSION) || fail invalid_boot_package
     if test "$S_SCHEMA" = dev9; then
         test "$(cat "$target/VERSION")" = 0.3.0-dev.9 && absent "$target/preferences.awk" || fail unsupported_boot_package
         sh -c 'set -eu; D=$1; P=$2; R_BACKEND=$3; R_BASE=$4; AUTOSTART=$5;
@@ -550,9 +562,8 @@ _boot_snapshot_seal() (
         printf '%s\n' "$snapshot"; exit 0
     fi
     test "$package" = "$R_BACKEND" && test "$S_SCHEMA" = OC2 || fail invalid_boot_package
-    P=$D/packages/$package
-    private_dir "$P" && test "$(sha "$P/files.sha256")" = "$R_BACKEND" &&
-        verify_manifest "$P" && boot_dependencies_match "$snapshot" || fail boot_dependencies_changed
+    P=$(package_programs "$package" flush) || fail invalid_boot_package
+    boot_dependencies_match "$snapshot" || fail boot_dependencies_changed
     helper=$P/boot-select
     file "$helper" && test -x "$helper" || fail invalid_boot_selector
     snapshot_verify "$R_BASE" && firmware_guard && test "$(root_mode)" = ro,noatime || fail invalid_boot_baseline
@@ -579,7 +590,7 @@ _boot_snapshot_seal() (
         expected=$(printf '%s\n' "$manifest" | awk -v name="$name" '$2==name{n++;print $1}END{exit n!=1}') || fail boot_profiles_missing
         hex "$expected" 64 && file "$D/snapshots/$snapshot/$name" &&
             cp "$D/snapshots/$snapshot/$name" "$work/$name" &&
-            test "$(sha "$work/$name")" = "$expected" || fail boot_profiles_changed
+            sha_is "$work/$name" "$expected" || fail boot_profiles_changed
         chmod 600 "$work/$name" || fail boot_snapshot_mode_failed
     done
     boot_plan_inputs "$work" "$snapshot" "$manifest" "$@" > "$work/inputs" || fail boot_inputs_failed
@@ -612,7 +623,7 @@ selector_matches_loaded() {
     local target=/usr/bin/open-connect-boot-select
     if test "${S_SELECTOR_HASH:--}" = -; then absent "$target"
     else
-        file "$target" && test "$(sha "$target")" = "$S_SELECTOR_HASH" &&
+        file "$target" && sha_is "$target" "$S_SELECTOR_HASH" &&
             test "$(stat -c '%a:%u:%g' "$target")" = "$S_SELECTOR_META"
     fi
 }
@@ -626,9 +637,9 @@ selector_capture() {
 selector_compose() {
     local folder=$D/packages/$2 expected
     hex "$2" 64 && private_dir "$folder" &&
-        test "$(sha "$folder/files.sha256")" = "$2" && file "$folder/boot-select" || return 1
+        sha_is "$folder/files.sha256" "$2" && file "$folder/boot-select" || return 1
     expected=$(awk '$2=="boot-select"{n++;print $1}END{exit n!=1}' "$folder/files.sha256") || return 1
-    hex "$expected" 64 && test "$(sha "$folder/boot-select")" = "$expected" || return 1
+    hex "$expected" 64 && sha_is "$folder/boot-select" "$expected" || return 1
     printf '%s|700:%s|%s\n' "$expected" "$request_owner" "$2" > "$1/selector"
 }
 
@@ -646,7 +657,7 @@ selector_pair_check() (
     after_hash=$S_SELECTOR_HASH; after_mode=$S_SELECTOR_META
     if ! absent /usr/bin/open-connect-boot-select; then
         file /usr/bin/open-connect-boot-select || return 1
-        actual=$(sha /usr/bin/open-connect-boot-select) &&
+        actual=$(sha /usr/bin/open-connect-boot-select) && hex "$actual" 64 &&
             actual_mode=$(stat -c '%a:%u:%g' /usr/bin/open-connect-boot-select) || return 1
     fi
     case "$actual:$actual_mode" in "$before_hash:$before_mode"|"$after_hash:$after_mode") ;; *) return 1;; esac
@@ -657,10 +668,10 @@ selector_apply() (
     selector_pair_check "$1" "$2" && snapshot_read "$2" || return 1
     if test "$S_SELECTOR_HASH" != -; then
         source=$D/packages/$S_SELECTOR_PACKAGE/boot-select
-        file "$source" && test "$(sha "$source")" = "$S_SELECTOR_HASH" || return 1
+        file "$source" && sha_is "$source" "$S_SELECTOR_HASH" || return 1
     fi
     if ! absent /usr/bin/open-connect-boot-select; then
-        actual=$(sha /usr/bin/open-connect-boot-select) &&
+        actual=$(sha /usr/bin/open-connect-boot-select) && hex "$actual" 64 &&
             actual_mode=$(stat -c '%a:%u:%g' /usr/bin/open-connect-boot-select) || return 1
     fi
     root_publish /usr/bin/open-connect-boot-select "$source" "$S_SELECTOR_META" "$actual" "$actual_mode"
@@ -700,12 +711,12 @@ root_publish() (
         size=$(stat -c %s "$work") || return 1
         test "$size" -le "$(stat -c %s "$source")" || return 1
         prefix=$(head -c "$size" "$source" | openssl dgst -sha256) || return 1
-        test "$(sha "$work")" = "${prefix##* }"
+        sha_is "$work" "${prefix##* }"
     }
     target_matches() {
         if test "$expected" = -; then absent "$target"
         else
-            file "$target" && test "$(sha "$target")" = "$expected" &&
+            file "$target" && sha_is "$target" "$expected" &&
                 test "$(stat -c '%a:%u:%g' "$target")" = "$expected_mode"
         fi
     }
@@ -740,7 +751,8 @@ root_publish() (
         fi
         identity=$(stat -c '%d:%i' "$work") || fail startup_stage_changed
     fi
-    if test "$expected" != "$(sha "$source")" || test "$expected_mode" != "$mode"; then
+    source_hash=$(sha "$source") && hex "$source_hash" 64 || fail startup_copy_changed
+    if test "$expected" != "$source_hash" || test "$expected_mode" != "$mode"; then
         remount rw || fail remount_failed
         if test "$hold_mode" = keep; then
             if absent "$held"; then
@@ -764,7 +776,7 @@ root_publish() (
         if test "$hold_mode" != restore; then
             cat "$source" > "$work" && chown "$S_UID:$S_GID" "$work" && chmod "$S_MODE" "$work" || fail startup_copy_failed
         fi
-        test "$(sha "$work")" = "$(sha "$source")" || fail startup_copy_changed
+        sha_same "$work" "$source" || fail startup_copy_changed
         flush f "$work"
         target_matches || fail startup_changed
         mv -f "$work" "$target" || fail startup_rename_failed
@@ -819,7 +831,7 @@ dependencies_capture() {
 stock_dependencies() {
     firmware_dependencies | while read -r digest name target; do
         test "$name" != autostart || continue
-        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+        file "$target" && sha_is "$target" "$digest" || exit 1
     done
 }
 
@@ -837,7 +849,7 @@ package_save() (
         mode=600; case "$name" in api|flush|boot-select) mode=700;; esac
         cp "$P/$name" "$work/$name" || fail package_copy_failed
         chmod "$mode" "$work/$name" || fail package_mode_failed
-        test "$(sha "$work/$name")" = "$digest" || fail package_copy_changed
+        sha_is "$work/$name" "$digest" || fail package_copy_changed
         printf '%s  %s\n' "$digest" "$name" || fail package_manifest_failed
         flush f "$work/$name"
     done < "$P/files.sha256" > "$work/files.sha256" || fail package_manifest_failed

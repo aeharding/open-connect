@@ -133,14 +133,14 @@ while read -r digest name extra; do
     case "$name" in .|..|*[!a-zA-Z0-9.-]*) exit 1;; esac
     case "$seen" in *"|$name|"*) exit 1;; esac
     seen="$seen$name|"
-    case "$name" in boot.sh|state.sh|firmware.sh|access.sh|transaction.sh|service.sh) mandatory=$((mandatory+1));; esac
+    case "$name" in boot.sh|state.sh|firmware.sh|access.sh|transaction.sh|service.sh|flush) mandatory=$((mandatory+1));; esac
     test -f "$P/$name" && test ! -L "$P/$name" || exit 1
     set -- "$@" "$P/$name"
     expected="$expected$digest *$P/$name
 "
     count=$((count+1)); test "$count" -le 64
 done < "$P/files.sha256"
-test "$mandatory" = 6
+test "$mandatory" = 7 && test -x "$P/flush" || exit 1
 actual_count=0
 for item in "$P"/* "$P"/.[!.]* "$P"/..?*; do
     if test ! -e "$item" && test ! -L "$item"; then continue; fi

@@ -226,6 +226,8 @@ class NativeBootSelection(unittest.TestCase):
             "defer-nav.sh",
         ):
             (package / name).write_text("fixture " + name + "\n")
+        shutil.copyfile(Path(self.build.name) / "flush", package / "flush")
+        (package / "flush").chmod(0o700)
         (package / "INSTANCE").write_text("1" * 32 + "\n")
         (package / "boot-select").write_bytes(self.program.read_bytes())
         (package / "boot-select").chmod(0o700)

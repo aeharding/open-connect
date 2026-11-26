@@ -16,7 +16,7 @@ access_capture() {
 access_key_verify() {
     hex "$1" 64 && private_dir "$D/keys" && file "$D/keys/$1.cmu" &&
         test "$(stat -c '%a:%u:%g' "$D/keys/$1.cmu")" = "600:$(id -u):$(id -g)" &&
-        test "$(sha "$D/keys/$1.cmu")" = "$1"
+        sha_is "$D/keys/$1.cmu" "$1"
 }
 
 access_key_import() (
@@ -50,7 +50,7 @@ access_key_import() (
     case "$bits" in ''|*[!0-9]*) fail invalid_public_key;; esac
     if test "$kind" = ssh-rsa; then test "$bits" -ge 2048 || fail weak_public_key; fi
     chmod 600 "$work" || fail key_mode_failed
-    id=$(sha "$work"); hex "$id" 64 || fail key_hash_failed
+    id=$(sha "$work") && hex "$id" 64 || fail key_hash_failed
     flush f "$work"
     if absent "$D/keys/$id.cmu"; then
         mv "$work" "$D/keys/$id.cmu" || fail key_publish_failed
@@ -96,7 +96,7 @@ access_hold_verify_loaded() (
     hold=/usr/bin/.open-connect-runlogin-$S_LOGIN_INODE
     file "$hold" && test "$(stat -c %i "$hold")" = "$S_LOGIN_INODE" &&
         test "$(stat -c %d "$hold")" = "$(stat -c %d /usr/bin/runlogin)" &&
-        test "$(sha "$hold")" = "$(sha "$D/snapshots/$R_BASE/runlogin")" &&
+        sha_same "$hold" "$D/snapshots/$R_BASE/runlogin" &&
         test "$(stat -c '%a:%u:%g' "$hold")" = "$S_LOGIN_META"
 )
 
@@ -106,7 +106,9 @@ access_login_check_loaded() (
     test "$S_LOGIN_INODE" != - || exit 0
     hold=/usr/bin/.open-connect-runlogin-$S_LOGIN_INODE
     if ! absent "$hold"; then access_hold_verify_loaded || exit 1; fi
-    if test "$(sha /usr/bin/runlogin)" = "$(sha "$D/snapshots/$R_BASE/runlogin")"; then
+    hash=$(sha /usr/bin/runlogin) && hex "$hash" 64 || exit 1
+    base_hash=$(sha "$D/snapshots/$R_BASE/runlogin") && hex "$base_hash" 64 || exit 1
+    if test "$hash" = "$base_hash"; then
         test "$(stat -c %i /usr/bin/runlogin)" = "$S_LOGIN_INODE"
     else access_hold_verify_loaded; fi
 )
@@ -137,9 +139,9 @@ access_files_match_loaded() {
     local dir=$D/snapshots/$1
     test "$S_ACCESS" = true || return 0
     file /usr/bin/runlogin && file /etc/ssh/sshd_config &&
-        test "$(sha /usr/bin/runlogin)" = "$(sha "$dir/runlogin")" &&
+        sha_same /usr/bin/runlogin "$dir/runlogin" &&
         test "$(stat -c '%a:%u:%g' /usr/bin/runlogin)" = "$S_LOGIN_META" &&
-        test "$(sha /etc/ssh/sshd_config)" = "$(sha "$dir/sshd.conf")" &&
+        sha_same /etc/ssh/sshd_config "$dir/sshd.conf" &&
         test "$(stat -c '%a:%u:%g' /etc/ssh/sshd_config)" = "$S_SSH_META" || return 1
     test "$S_KEY" = - || access_key_verify "$S_KEY"
 }
@@ -153,18 +155,19 @@ access_pair_check() {
     access_login_check || return 1
     for name in runlogin sshd.conf; do
         case "$name" in runlogin) target=/usr/bin/runlogin;; sshd.conf) target=/etc/ssh/sshd_config;; esac
-        snapshot_read "$1"; bh=$(sha "$before/$name")
+        snapshot_read "$1" && bh=$(sha "$before/$name") && hex "$bh" 64 || return 1
         if test "$name" = runlogin; then bm=$S_LOGIN_META; else bm=$S_SSH_META; fi
-        snapshot_read "$2"; ah=$(sha "$after/$name")
+        snapshot_read "$2" && ah=$(sha "$after/$name") && hex "$ah" 64 || return 1
         if test "$name" = runlogin; then am=$S_LOGIN_META; else am=$S_SSH_META; fi
         file "$target" || return 1
-        actual=$(sha "$target"):$(stat -c '%a:%u:%g' "$target")
+        actual=$(sha "$target") && hex "$actual" 64 || return 1
+        actual=$actual:$(stat -c '%a:%u:%g' "$target")
         case "$actual" in "$bh:$bm"|"$ah:$am") ;; *) return 1;; esac
     done
 }
 
 access_pair_apply() {
-    local before=$D/snapshots/$1 after=$D/snapshots/$2 target name mode hash actual_mode before_hash before_mode hold hold_mode
+    local before=$D/snapshots/$1 after=$D/snapshots/$2 target name mode hash actual_mode before_hash before_mode after_hash base_hash hold hold_mode
     absent "$after/access" && return 0
     for name in runlogin sshd.conf; do
         access_pair_check "$1" "$2" || return 1
@@ -174,16 +177,19 @@ access_pair_apply() {
             sshd.conf) target=/etc/ssh/sshd_config; mode=$S_SSH_META;;
         esac
         snapshot_read "$1" || return 1
-        before_hash=$(sha "$before/$name")
+        before_hash=$(sha "$before/$name") && hex "$before_hash" 64 || return 1
         if test "$name" = runlogin; then before_mode=$S_LOGIN_META; else before_mode=$S_SSH_META; fi
-        hash=$(sha "$target"); actual_mode=$(stat -c '%a:%u:%g' "$target")
-        case "$hash:$actual_mode" in "$before_hash:$before_mode"|"$(sha "$after/$name"):$mode") ;; *) return 1;; esac
+        hash=$(sha "$target") && hex "$hash" 64 || return 1
+        after_hash=$(sha "$after/$name") && hex "$after_hash" 64 || return 1
+        actual_mode=$(stat -c '%a:%u:%g' "$target") || return 1
+        case "$hash:$actual_mode" in "$before_hash:$before_mode"|"$after_hash:$mode") ;; *) return 1;; esac
         hold=; hold_mode=
         if test "$name" = runlogin; then
             snapshot_read "$R_BASE" || return 1
             if test "$S_LOGIN_INODE" != -; then
                 hold=/usr/bin/.open-connect-runlogin-$S_LOGIN_INODE
-                if test "$(sha "$after/$name")" = "$(sha "$D/snapshots/$R_BASE/runlogin")"; then
+                base_hash=$(sha "$D/snapshots/$R_BASE/runlogin") && hex "$base_hash" 64 || return 1
+                if test "$after_hash" = "$base_hash"; then
                     if ! absent "$hold"; then hold_mode=restore; else hold=; fi
                 else hold_mode=keep; fi
             fi

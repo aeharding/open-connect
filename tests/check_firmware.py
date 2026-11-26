@@ -100,7 +100,7 @@ def run(command, output, name, **kwargs):
     return result
 
 
-def build(output, paths):
+def build(output, paths, host_cc):
     run(["make", "release", "OUT=" + str(output / "build")], output, "make", cwd=ROOT)
     source = output / "build/usb/open-connect"
     package = sha(source / "files.sha256")
@@ -131,9 +131,15 @@ def build(output, paths):
         )
     )
     # Host-only physical-path adapter. Public package bytes remain unchanged.
+    run(
+        [host_cc, "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", output / "flush-host"],
+        output,
+        "host-flush",
+    )
     adapter = output / "firmware-adapter.sh"
     adapter.write_text(
-        (ASSETS / "firmware.sh")
+        'sha() { "$base_fixture/flush-host" h "$1"; }\n'
+        + (ASSETS / "firmware.sh")
         .read_text()
         .replace("/jci/vui/svcjcivui.so", str(paths["vui.so"]))
         .replace("/jci/vui/vui_config.xml", str(paths["vui.xml"]))
@@ -344,7 +350,7 @@ def main(argv=None):
         "passed": False,
     }
     try:
-        composed = build(output, paths)
+        composed = build(output, paths, host_cc)
         base_logging_contract(output, paths, node, composed)
         host_contract(output, paths, host_cc, node, composed)
         env = {

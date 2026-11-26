@@ -153,6 +153,58 @@ class InstallerAccess(unittest.TestCase):
         self.mounts.write_text("")
         self.assertNotEqual(self.run_shell("access_key_import").returncode, 0)
 
+    def test_login_restoration_refuses_one_read_hash_fault_before_publication(self):
+        # Keep real access decisions and hashes; isolate the publication boundary
+        # from unrelated snapshot validation and physical root operations.
+        for fault in ("none", "baseline", "live", "malformed", "failed-valid"):
+            with self.subTest(fault=fault):
+                result = self.run_shell(
+                    r"""
+mkdir -p "$D/snapshots/base" "$D/snapshots/before" "$D/snapshots/after"
+cp @LOGIN@ "$D/snapshots/base/runlogin"
+cp @LOGIN@ "$D/snapshots/before/runlogin"
+cp @LOGIN@ "$D/snapshots/after/runlogin"
+: > "$D/snapshots/after/access"
+R_BASE=base
+inode=$(stat -c %i @LOGIN@)
+hold=@BIN@/.open-connect-runlogin-$inode
+test -e "$hold" || ln @LOGIN@ "$hold"
+snapshot_read() { S_LOGIN_INODE=$inode; S_LOGIN_META=$(stat -c '%a:%u:%g' @LOGIN@); }
+access_pair_check() { :; }
+root_publish() { printf 'published|%s\n' "$7"; return 1; }
+snapshot_read base
+fault=@FAULT@
+sha() {
+    if test "$fault" != none && test ! -e "$D/fault-read"; then
+        case "$fault:$1" in
+            baseline:"$D/snapshots/base/runlogin"|live:@LOGIN@|malformed:"$D/snapshots/base/runlogin"|failed-valid:"$D/snapshots/base/runlogin")
+                : > "$D/fault-read"
+                case "$fault" in
+                    malformed) printf 'invalid\n'; return 0;;
+                    failed-valid) "$P/flush" h "$1";;
+                esac
+                return 19;;
+        esac
+    fi
+    "$P/flush" h "$1"
+}
+if test "$fault" = live; then
+    access_login_check_loaded
+else
+    access_pair_apply before after
+fi
+""".replace("@LOGIN@", shlex.quote(str(self.bin / "runlogin")))
+                    .replace("@BIN@", shlex.quote(str(self.bin)))
+                    .replace("@FAULT@", shlex.quote(fault))
+                )
+                self.assertNotEqual(result.returncode, 0)
+                if fault == "none":
+                    self.assertEqual(result.stdout, "published|restore\n")
+                else:
+                    self.assertEqual(result.stdout, "")
+                    self.assertTrue((self.data / "fault-read").exists())
+                (self.data / "fault-read").unlink(missing_ok=True)
+
     def test_snapshot_preserves_existing_authorization_and_rejects_later_edits(self):
         self.target.write_bytes(self.public)
         script = r"""

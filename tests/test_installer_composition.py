@@ -14,7 +14,20 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "cmu/installer"
 
 
+@unittest.skipUnless(shutil.which("clang"), "Clang required")
 class InstallerComposition(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.temp.cleanup)
+        cls.tools = Path(cls.temp.name).resolve()
+        subprocess.run(
+            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", cls.tools / "flush"],
+            check=True,
+            capture_output=True,
+            timeout=20,
+        )
+
     def test_boot_mounts_allow_rootfs_but_refuse_protected_overlays(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
@@ -68,10 +81,11 @@ class InstallerComposition(unittest.TestCase):
                         [
                             "sh",
                             "-c",
-                            '. "$1/state.sh"; . "$2"; factory_wireless',
+                            'P=$3; . "$1/state.sh"; . "$2"; factory_wireless',
                             "test",
                             ASSETS,
                             firmware,
+                            self.tools,
                         ],
                         capture_output=True,
                         timeout=5,
@@ -87,16 +101,85 @@ class InstallerComposition(unittest.TestCase):
             self.assertFalse(detected())
             self.assertFalse(marker.exists())
 
+    def test_factory_wireless_status_refuses_board_digest_errors(self):
+        from tests.test_installer_transaction import InstallerTransaction
+
+        fixture = InstallerTransaction()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        data = fixture.create("factory-hash-error")
+        fixture.run_ok(data, "install")
+        fixture.backend_fixture(data)
+        marker = fixture.root / "board-executed"
+        board = fixture.root / "get_board_type.sh"
+        board_result = fixture.root / "board-result"
+        board.write_text(
+            "touch "
+            + shlex.quote(str(marker))
+            + '\nexit "$(cat '
+            + shlex.quote(str(board_result))
+            + ')"\n'
+        )
+        digest = hashlib.sha256(board.read_bytes()).hexdigest()
+        firmware = (ASSETS / "firmware.sh").read_text()
+        factory = firmware[
+            firmware.index("factory_wireless() (") : firmware.index("originals_verify()")
+        ]
+        factory = factory.replace("/jci/scripts/get_board_type.sh", str(board)).replace(
+            "2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da", digest
+        )
+        module = fixture.tools / "firmware.sh"
+        module.write_text(module.read_text() + "\n" + factory)
+        record = (data / "record").read_bytes()
+        for code, factory in ((1, False), (2, True), (0, False), (3, False)):
+            with self.subTest(board_result=code):
+                board_result.write_text(str(code) + "\n")
+                result, status = fixture.api("status", argument="settings")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(status["wirelessFactory"], factory)
+                self.assertTrue(marker.exists())
+                self.assertEqual((data / "record").read_bytes(), record)
+                marker.unlink()
+        real = fixture.root / "flush-real"
+        (fixture.tools / "flush").rename(real)
+        for output, code in (("", 19), (digest, 19), ("invalid", 0), ("0" * 64, 0)):
+            with self.subTest(output=output, code=code):
+                helper = fixture.tools / "flush"
+                helper.write_text(
+                    '#!/bin/sh\nif test "$1:$2" = '
+                    + shlex.quote("h:" + str(board))
+                    + "; then printf '%s\\n' "
+                    + shlex.quote(output)
+                    + f"; exit {code}; fi\nexec "
+                    + shlex.quote(str(real))
+                    + ' "$@"\n'
+                )
+                helper.chmod(0o700)
+                result, status = fixture.api("status", argument="settings")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(status, {"ok": False, "error": "wireless_unavailable"})
+                self.assertFalse(marker.exists())
+                self.assertEqual((data / "record").read_bytes(), record)
+        board.unlink()
+        result, status = fixture.api("status", argument="settings")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(status, {"ok": False, "error": "wireless_unavailable"})
+        self.assertFalse(marker.exists())
+        self.assertEqual((data / "record").read_bytes(), record)
+
     def test_wcp_dependency_resolves_without_accepting_unknown_paths(self):
         driver = (
-            'set -eu; . "$1/state.sh"; . "$1/firmware.sh"\n'
+            'set -eu; P=$2; . "$1/state.sh"; . "$1/firmware.sh"\n'
             "dependency_path root/sm_WCP.conf\n"
             "for name in root/not_known.conf root/../sm_WCP.conf root//sm_WCP.conf; do\n"
             '    if dependency_path "$name"; then exit 1; fi\n'
             "done\n"
         )
         result = subprocess.run(
-            ["sh", "-c", driver, "test", ASSETS], capture_output=True, text=True, check=True
+            ["sh", "-c", driver, "test", ASSETS, self.tools],
+            capture_output=True,
+            text=True,
+            check=True,
         )
         self.assertEqual(result.stdout, "/jci/sm/sm_WCP.conf\n")
 
@@ -146,7 +229,7 @@ class InstallerComposition(unittest.TestCase):
                 line for line in backend if line.lstrip().startswith('compose "$package"')
             )
             driver = (
-                'set -eu\numask 077\nD=$1; . "$2/state.sh"; . "$2/firmware.sh"\n'
+                'set -eu\numask 077\nD=$1; P=$4; . "$2/state.sh"; . "$2/firmware.sh"\n'
                 # Synthetic fixtures enter immediately after input verification;
                 # every composition write and its real caller context are intact.
                 "verify_manifest() { :; }; originals_verify() { :; }\n"
@@ -161,7 +244,7 @@ class InstallerComposition(unittest.TestCase):
                 with self.subTest(write=fail_at):
                     (root / "count").write_text("0\n")
                     result = subprocess.run(
-                        ["sh", "-c", driver, "test", root, ASSETS, package],
+                        ["sh", "-c", driver, "test", root, ASSETS, package, self.tools],
                         env={
                             **os.environ,
                             "PATH": str(root / "tools") + os.pathsep + os.environ["PATH"],
@@ -203,11 +286,11 @@ class InstallerComposition(unittest.TestCase):
             firmware = root / "firmware.sh"
             firmware.write_text(contents)
             driver = (
-                'set -eu\n. "$1/state.sh"; . "$2"\n'
+                'set -eu\nP=$3; . "$1/state.sh"; . "$2"\n'
                 "original_files() { :; }\ndependencies_capture -\ndependency_path root/manager.so\n"
             )
             result = subprocess.run(
-                ["sh", "-c", driver, "test", ASSETS, firmware],
+                ["sh", "-c", driver, "test", ASSETS, firmware, self.tools],
                 capture_output=True,
                 text=True,
                 check=True,

@@ -19,6 +19,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "cmu/installer"
 
+# These staging fixtures deliberately use inert bytes for the helper whose
+# inode/mode they inspect. Hash on the host without executing that fake payload.
+STAGING_SHA = '\nsha() { local value; value=$(openssl dgst -sha256 < "$1") || return; printf "%s\\n" "${value##* }"; }\n'
 
 BUSYBOX = os.environ.get("OC_TEST_BUSYBOX") or shutil.which("busybox")
 HAS_TCPSVD = bool(
@@ -46,7 +49,7 @@ class InstallerUSBStaging(unittest.TestCase):
         service = (ASSETS / "service.sh").read_text()
         service = service.replace("usb:/tmp:oc-usb-", f"usb:{self.root}:oc-usb-")
         (self.source / "service.sh").write_text(service)
-        shutil.copyfile(ASSETS / "state.sh", self.source / "state.sh")
+        (self.source / "state.sh").write_text((ASSETS / "state.sh").read_text() + STAGING_SHA)
         for name in ("api", "flush", "backend.sh", "runtime.js"):
             (self.source / name).write_text("verified " + name + "\n")
         self.manifest(self.source)
@@ -224,6 +227,7 @@ class InstallerUSBStaging(unittest.TestCase):
 
 
 class InstallerPrivateStaging(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("clang"), "Clang required")
     def test_expired_admission_is_reclaimed_by_stop_and_replacement(self):
         for action in ("stop", "start"):
             with self.subTest(action=action), tempfile.TemporaryDirectory() as folder:
@@ -239,7 +243,15 @@ class InstallerPrivateStaging(unittest.TestCase):
                 tools.mkdir()
                 if shutil.which("gstat"):
                     (tools / "stat").symlink_to(shutil.which("gstat"))
+                subprocess.run(
+                    ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", tools / "flush"],
+                    check=True,
+                    capture_output=True,
+                    timeout=20,
+                )
                 for path in (old, source):
+                    shutil.copyfile(tools / "flush", path / "flush")
+                    (path / "flush").chmod(0o700)
                     shutil.copyfile(ASSETS / "state.sh", path / "state.sh")
                     service = (
                         (ASSETS / "service.sh")
@@ -346,7 +358,7 @@ class InstallerPrivateStaging(unittest.TestCase):
                 (source / name).write_text("fixture bytes\n")
             shutil.copyfile(shared, source / "flush")
             shutil.copyfile(ASSETS / "service.sh", source / "service.sh")
-            shutil.copyfile(ASSETS / "state.sh", source / "state.sh")
+            (source / "state.sh").write_text((ASSETS / "state.sh").read_text() + STAGING_SHA)
             (source / "files.sha256").write_text(
                 "".join(
                     hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
@@ -439,7 +451,7 @@ class InstallerPrivateStaging(unittest.TestCase):
             ):
                 (source / name).write_text("fixture bytes\n")
             shutil.copyfile(ASSETS / "service.sh", source / "service.sh")
-            shutil.copyfile(ASSETS / "state.sh", source / "state.sh")
+            (source / "state.sh").write_text((ASSETS / "state.sh").read_text() + STAGING_SHA)
             (source / "files.sha256").write_text(
                 "".join(
                     hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
@@ -485,7 +497,9 @@ class InstallerPrivateStaging(unittest.TestCase):
                     self.assertEqual((feature / "runtime.js").read_text(), "foreign shared bytes\n")
 
 
-@unittest.skipUnless(HAS_TCPSVD, "Linux /proc, flock and BusyBox tcpsvd required")
+@unittest.skipUnless(
+    HAS_TCPSVD and shutil.which("clang"), "Linux /proc, flock, BusyBox tcpsvd and Clang required"
+)
 class InstallerService(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -515,7 +529,12 @@ class InstallerService(unittest.TestCase):
             "sys.stdout.buffer.write(b'HTTP/1.0 200 OK\\r\\nContent-Length: '+"
             "str(len(body)).encode()+b'\\r\\n\\r\\n'+body)\n"
         )
-        (self.source / "flush").write_text("#!/bin/sh\nexit 0\n")
+        subprocess.run(
+            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.source / "flush"],
+            check=True,
+            capture_output=True,
+            timeout=20,
+        )
         (self.source / "backend.sh").write_text("backend-one\n")
         for name in (
             "firmware.sh",

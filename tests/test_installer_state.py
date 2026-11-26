@@ -53,6 +53,7 @@ class InstallerState(unittest.TestCase):
             'read-prefs) snapshot_read "$5" && printf "%s|%s|%s\\n" "$S_PANDORA" "$S_BASE" "$S_WIRELESS";;\n'
             'read-pair) snapshot_read "$5" && snapshot_read "$6" && printf "%s|%s|%s\\n" "$S_PANDORA" "$S_BASE" "$S_WIRELESS";;\n'
             'dependencies) . "${3%/*}/firmware.sh"; . "${3%/*}/transaction.sh"; dependencies_match "$5";;\n'
+            'sha) sha "$5";;\n'
             "esac\n"
         )
         self.assertEqual(self.run_command("create").returncode, 0)
@@ -92,6 +93,52 @@ class InstallerState(unittest.TestCase):
             folder.joinpath(name).write_bytes(data)
         return identity
 
+    def test_scalar_hash_uses_verified_helper_and_propagates_refusals(self):
+        path = self.root / "scalar"
+        path.write_bytes(bytes(range(256)) * 5)
+        # Neither an unverified PATH helper nor scalar OpenSSL may be used.
+        for name in ("openssl", "untrusted-flush"):
+            command = self.root / name
+            command.write_text("#!/bin/sh\nexit 99\n")
+            command.chmod(0o700)
+        (self.tools / "openssl").symlink_to(self.root / "openssl")
+        # Put a PATH flush before P without changing the verified directory.
+        trap = self.root / "path"
+        trap.mkdir()
+        (trap / "flush").symlink_to(self.root / "untrusted-flush")
+        self.tools.joinpath("flush").chmod(0o700)
+        result = subprocess.run(
+            [
+                "sh",
+                "-c",
+                'P=$1; . "$2"; sha "$3"',
+                "scalar",
+                self.tools,
+                ROOT / "cmu/installer/state.sh",
+                path,
+            ],
+            env={
+                **os.environ,
+                "PATH": os.pathsep.join((str(trap), str(self.tools), os.environ["PATH"])),
+            },
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, hashlib.sha256(path.read_bytes()).hexdigest() + "\n")
+        link = self.root / "scalar-link"
+        link.symlink_to(path)
+        for refused in (link, self.root, self.root / "absent"):
+            with self.subTest(path=refused):
+                result = self.run_command("sha", refused)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+        (self.tools / "flush").unlink()
+        result = self.run_command("sha", path)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+
     def test_stock5_and_active_dev9_fields_remain_distinct(self):
         metadata = f"755:{os.getuid()}:{os.getgid()}"
         stock = f"-|0|0|absent|{metadata}\n".encode()
@@ -122,6 +169,163 @@ class InstallerState(unittest.TestCase):
                 self.assertNotEqual(
                     self.run_command("read-prefs", self.config_snapshot(config)).returncode, 0
                 )
+
+    def test_boot_sealing_requires_manifest_listed_executable_flush_before_switch(self):
+        packages = self.data / "packages"
+        packages.mkdir(mode=0o700)
+        sentinel = self.root / "target-executed"
+        busybox = os.environ.get("OC_TEST_BUSYBOX") or shutil.which("busybox")
+        shell = [busybox, "ash"] if busybox else ["sh"]
+        for listed, executable, terminated, nul_alias in (
+            (False, True, True, False),
+            (True, False, True, False),
+            (True, True, False, False),
+            (True, True, True, True),
+            (True, True, True, False),
+        ):
+            with self.subTest(
+                listed=listed, executable=executable, terminated=terminated, nul_alias=nul_alias
+            ):
+                folder = packages / "build"
+                folder.mkdir(mode=0o700)
+                members = [
+                    "state.sh",
+                    "firmware.sh",
+                    "access.sh",
+                    "transaction.sh",
+                    "boot-select",
+                    "VERSION",
+                ]
+                for name in members:
+                    (folder / name).write_text("# target fixture\n")
+                (folder / "state.sh").write_text(
+                    "touch " + shlex.quote(str(sentinel)) + "\nexit 0\n"
+                )
+                shutil.copyfile(self.tools / "flush", folder / "flush")
+                (folder / "flush").chmod(0o700 if executable else 0o600)
+                if listed:
+                    members.append("flush")
+                manifest = "".join(
+                    hashlib.sha256((folder / name).read_bytes()).hexdigest() + "  " + name + "\n"
+                    for name in members
+                )
+                if not terminated:
+                    # Pin an incomplete flush record after all complete records.
+                    # Its listed digest deliberately differs from the executable.
+                    manifest = manifest.rsplit("\n", 2)[0] + "\n" + "0" * 64 + "  flush"
+                if nul_alias:
+                    # v74 ash hashes flush-other; its awk sees a flush record.
+                    # The real executable flush is present but never hashed.
+                    alias = folder / "flush-other"
+                    alias.write_text("inert hashed alias\n")
+                    digest = hashlib.sha256(alias.read_bytes()).hexdigest()
+                    manifest = manifest.rsplit("\n", 2)[0] + f"\n{digest}  flush\0-other\n"
+                (folder / "files.sha256").write_bytes(manifest.encode())
+                package = hashlib.sha256(manifest.encode()).hexdigest()
+                target = packages / package
+                folder.rename(target)
+                result = subprocess.run(
+                    [
+                        *shell,
+                        "-c",
+                        "set -eu; D=$1; P=$2; R_BACKEND=$3; R_BASE=-; AUTOSTART=$4; "
+                        '. "$5/state.sh"; . "$5/firmware.sh"; '
+                        "snapshot_read() { S_PACKAGE=$R_BACKEND; S_SCHEMA=OC2; }; "
+                        "boot_snapshot_seal fixture",
+                        "seal",
+                        self.data,
+                        self.tools,
+                        package,
+                        self.root / "autostart",
+                        ROOT / "cmu/installer",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+                )
+                if listed and executable and terminated and not nul_alias:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertTrue(sentinel.exists())
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("invalid_boot_package", result.stderr)
+                    self.assertFalse(sentinel.exists())
+                shutil.rmtree(target)
+
+    def test_package_programs_refreshes_names_and_failed_verification_clears_them(self):
+        packages = self.data / "packages"
+        packages.mkdir(mode=0o700)
+        identities = []
+        for helper in ("flush", "flush-other"):
+            folder = packages / "build"
+            folder.mkdir(mode=0o700)
+            for name in ("flush", "flush-other", "target.sh"):
+                (folder / name).write_text("# inert program\n")
+            (folder / "flush").chmod(0o700)
+            manifest = "".join(
+                hashlib.sha256((folder / name).read_bytes()).hexdigest() + "  " + name + "\n"
+                for name in ("target.sh", helper)
+            ).encode()
+            (folder / "files.sha256").write_bytes(manifest)
+            identity = hashlib.sha256(manifest).hexdigest()
+            folder.rename(packages / identity)
+            identities.append(identity)
+        result = subprocess.run(
+            [
+                "sh",
+                "-c",
+                'set -eu; D=$1; P=$2; . "$3"; '
+                'package_programs "$4" target.sh >/dev/null; '
+                'if package_programs "$5" target.sh; then exit 1; fi; '
+                'test "$verified_names" = "|target.sh|flush-other|"; '
+                'if verify_manifest "$D/absent"; then exit 1; fi; '
+                'test -z "$verified_names"; '
+                'verify_manifest "$D/packages/$4"; '
+                'printf changed >> "$D/packages/$4/target.sh"; '
+                'if verify_manifest "$D/packages/$4"; then exit 1; fi; '
+                'test -z "$verified_names"',
+                "fresh-names",
+                self.data,
+                self.tools,
+                ROOT / "cmu/installer/state.sh",
+                *identities,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "")
+
+    def test_hash_comparisons_require_success_and_a_full_digest(self):
+        source = self.root / "hash-input"
+        source.write_bytes(b"verified\n")
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        for output, status in (("", 0), ("a", 0), ("g" * 64, 0), (digest, 19)):
+            with self.subTest(output=output, status=status):
+                (self.tools / "flush").write_text(
+                    "#!/bin/sh\nprintf '%s\\n' " + shlex.quote(output) + f"\nexit {status}\n"
+                )
+                (self.tools / "flush").chmod(0o700)
+                for comparison in ('sha_is "$3" "$4"', 'sha_same "$3" "$3"'):
+                    result = subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            'P=$1; . "$2"; ' + comparison,
+                            "compare",
+                            self.tools,
+                            ROOT / "cmu/installer/state.sh",
+                            source,
+                            digest,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
 
     def test_canonical_config_uses_only_manifest_pinned_target_interpreter(self):
         packages = self.data / "packages"
@@ -303,8 +507,9 @@ class InstallerState(unittest.TestCase):
             "uuid() { openssl rand -hex 16; }",
         )
         (source / "state.sh").write_text(state)
-        for name in ("api", "flush"):
-            (source / name).write_bytes(b"staging fixture\n")
+        (source / "api").write_bytes(b"staging fixture\n")
+        shutil.copyfile(self.tools / "flush", source / "flush")
+        (source / "flush").chmod(0o700)
         (source / "files.sha256").write_text(
             "".join(
                 hashlib.sha256((source / name).read_bytes()).hexdigest() + "  " + name + "\n"
@@ -349,6 +554,16 @@ class InstallerState(unittest.TestCase):
         self.assertEqual(len(list((runtime / "sessions").iterdir())), 2)
         for session in (runtime / "sessions").iterdir():
             self.assertEqual((session / "token").read_bytes(), token)
+        # A failed caller hash used to pass an empty ID, then a second failed
+        # hash compared equal and authorized publication. Preserve that caller
+        # here to prove the staging boundary itself refuses the empty result.
+        (source / "flush").chmod(0o600)
+        failed = run()
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn("damaged_runtime", failed.stderr)
+        self.assertEqual((runtime / "token").read_bytes(), token)
+        self.assertEqual(len(list((runtime / "sessions").iterdir())), 2)
+        (source / "flush").chmod(0o700)
         (runtime / "token").write_bytes(b"corrupt\n")
         failed = run()
         self.assertNotEqual(failed.returncode, 0)

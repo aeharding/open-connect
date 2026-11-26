@@ -29,11 +29,11 @@ count=0
 seen='|files.sha256|'
 expected=
 set --
-# Admit every row, including a final row without a newline, before batch I/O.
-while read -r digest name extra || test -n "$digest$name$extra"; do
+# Require complete records and visible names, matching the session consumers.
+while read -r digest name extra; do
     test "${#digest}" -eq 64 && test -n "$name" && test -z "$extra" || refuse manifest
     case "$digest" in *[!a-f0-9]*) refuse manifest;; esac
-    case "$name" in .|..|*[!a-zA-Z0-9.-]*) refuse manifest;; esac
+    case "$name" in .*|*[!a-zA-Z0-9.-]*) refuse manifest;; esac
     case "$seen" in *"|$name|"*) refuse duplicate;; esac
     seen="$seen$name|"
     test -f "$source/$name" && test ! -L "$source/$name" || refuse payload
@@ -42,6 +42,7 @@ while read -r digest name extra || test -n "$digest$name$extra"; do
     expected="$expected$digest *$work/$name
 "
 done < "$work/files.sha256"
+test -z "$digest$name$extra" || refuse manifest
 test "$count" -gt 0 || refuse payload
 sizes=$(stat -c %s "$@") || refuse payload_size
 printf '%s\n' "$sizes" | awk -v count="$count" '
@@ -49,7 +50,7 @@ printf '%s\n' "$sizes" | awk -v count="$count" '
     END{exit bad || NR!=count}' || refuse payload_size
 cp "$@" "$work/"
 set --
-while read -r digest name extra || test -n "$digest$name$extra"; do
+while read -r digest name extra; do
     set -- "$@" "$work/$name"
 done < "$work/files.sha256"
 actual=$(openssl dgst -sha256 -r "$@") || refuse checksum

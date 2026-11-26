@@ -408,7 +408,9 @@ function wake(){
  if(!dead)timer=setTimeout(wake,1000);
 }
 function completionWaiting(){
- return originUSB&&(window.__ocCompletionLoading||window.OpenConnectCompletion);
+ var settings=window.OpenConnect;
+ return originUSB&&(window.__ocCompletionLoading||window.OpenConnectCompletion||
+  settings&&settings.openSettings&&settings.autoshowState()===2);
 }
 var client={token:token,close:close,cancel:cancel,protected:function(){
  return!!(job&&job.sent||feedback||acking);

@@ -149,7 +149,7 @@ function preferences(store){
   answered=true;
   busy=false;
   // Never resend after a lost ack.
-  if(outcome==="unresolved"){wanted={};}else if(!valid(actual)){actual=read();}
+  if(outcome==="restart"){wanted={};}else if(!valid(actual)){actual=read();}
   if(valid(actual)){saved=actual;}
   var failed=!valid(actual)||(preference(actual,key)!==requested&&wanted[key]===requested);
   if(failed){
@@ -179,7 +179,7 @@ function preferences(store){
   if(answered){return;}
   answered=true;busy=false;
   if(valid(actual)){saved=actual;}
-  if(failed==="unresolved"){
+  if(failed==="restart"){
    wanted={};prefs.failure=failed;
    if(prefs.changed){prefs.changed(true);}
   }else{done(valid(actual)&&!failed?actual:null,failed);}
@@ -274,7 +274,7 @@ function open(fw,store){
   }
   entry(2);integrations(true);
  }else if(index==="unknown"){
-  title=prefs.failure==="unresolved"?"Restart Mazda Connect":"Change could not be confirmed";
+  title=prefs.failure==="restart"?"Restart Mazda Connect":"Change could not be confirmed";
   action("Return to Mazda Settings",0);
  }else if(index==="sources"){
   title="Audio sources";integrations(false);

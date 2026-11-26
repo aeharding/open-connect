@@ -321,6 +321,17 @@ f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
 f.reply(f.operation('import')[0],{ok:false,error:'invalid_public_key'});f.reply(f.requests.at(-1),f.state(developer));
 assert.equal(f.dialog.props.title,'Key could not be imported');assert.match(f.dialog.props.text1,/open-connect.pub/);
 f.pick('done');select(f,'import');f.pick('import');assert.equal(f.operation('import').length,2);
+// A selected old client can receive a definite restart-required refusal after
+// Update. Give restart guidance while retaining a usable Apply action.
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+f.reply(f.operation('import')[0],{ok:false,error:'restart_required'});
+f.reply(f.requests.at(-1),f.state({...developer,restart:true}));f.endAnimations();
+assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Restart Mazda Connect');
+assert.equal(f.dialog,undefined);
+assert.equal(f.operation('import').length,1);assert.equal(f.operation('set').length,0);
+select(f,0);assert.equal(f.ctx.OpenConnect.protected(),false);f.tap();f.endAnimations();select(f,'restart');
+assert.equal(f.dialog.props.title,'Apply changes?');f.pick('restart');
+assert.equal(f.operation('restart').length,1);assert.equal(f.operation('import').length,1);
 // An unavailable first read remains a normal retry, with no mutation fence.
 f=fixture(folder);f.install();f.nativeSettings();f.tap();f.advance(12000);
 assert.match(f.dialog.props.text1,/could not be reached. Try again/);f.pick('done');

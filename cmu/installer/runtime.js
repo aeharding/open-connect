@@ -18,7 +18,7 @@ function values(){return known&&s.installed&&!s.pending&&!s.conflict?s:null;}
 function held(){return!!job||pending||!!refresh||!!(menus&&menus.blocked());}
 function claim(){return !(job&&(!saving||job.phase==="unresolved"))&&ui.claim(framework);}
 function release(){if(!job&&!pending&&ui)ui.release(framework);}
-function autoshow(){return job||pending||dialog||view?2:!menus||s&&!known?1:0;}
+function autoshow(){return openIntent||held()||dialog||view?2:!menus||s&&!known?1:0;}
 function post(op,args,done,ms,intent){
  intent=intent===undefined?epoch:intent;
  var xhr=new XMLHttpRequest(),answered=false;
@@ -74,13 +74,13 @@ function end(actual){
  job=null;busy=saving=false;endView();release();
  if(reply){reply(actual);}
 }
-function refuse(lost){
+function refuse(lost,restartRequired){
  if(lost){known=false;}
  var reply=job.reply;
  endView();
  if(lost){job.phase="unresolved";job.reply=null;}
  else{job=null;busy=saving=false;release();}
- if(reply){reply(null,lost?"unresolved":true);return;}
+ if(reply){reply(null,lost||restartRequired?"restart":true);return;}
  message(lost?"Unable to confirm the change":"Unable to finish",(lost?
  "Restart Mazda Connect before making more changes.":
  "Check your settings before trying again."));
@@ -113,7 +113,7 @@ function changed(a){
 function reconcile(a){
  job.phase="checking";if(!saving){paint();}
  read(function(fresh){
- if(a&&a.ok===false){refuse(!valid(fresh)||fresh.pending);}
+ if(a&&a.ok===false){refuse(!valid(fresh)||fresh.pending,a.error==="restart_required");}
  else if(a===null&&!job.restartSent&&changed(fresh)){
   if(saving){end(values());}else{restart();}
  }else{refuse(true);}

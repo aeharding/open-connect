@@ -70,6 +70,48 @@ f.pick('settings');assert.equal(f.requests.at(-1).body.split('|')[2],'dismiss');
 f.reply(f.requests.at(-1),{ok:true});assert.equal(f.ctx.OpenConnect,settings);
 assert.equal(f.requests.at(-1).body.split('|')[3],'settings','Open settings obtains its own cold status');
 f.reply(f.requests.at(-1),f.state());f.advance(200);assert.equal(f.pages.length,1);f.assertNative();
+// A genuine offer must wait for the completion's explicit Open settings action.
+function queuedCompletion(){
+ const app={_connectedDevs:{A:{}},_messageTable:{TimedSbn_ConnectionStatus(){return 'Mazda banner';}}};
+ const f=fixture(folder,{notice:'installed',usbApp:app,autoMedia:false});f.install();
+ f.reply(f.mediaRequests[0],{ok:true,media:null});f.reply(f.requests[0],f.proof());
+ assert.equal(app._messageTable.TimedSbn_ConnectionStatus.call(app,
+  {params:{payload:{status:'Connected',type:'UMASS',usb:'A'}}}),'Mazda banner');
+ f.reply(f.mediaRequests.at(-1),{ok:true,media:{token:f.usbToken,session:'session-ABC123'}});
+ f.flush();f.advance(0);f.reply(f.requests.at(-1),f.metadata());f.advance(0);
+ assert.match(f.dialog.props.title,/installed/);return f;
+}
+for(const action of ['settings','done'])for(const delay of [50,1200,11900]){
+ f=queuedCompletion();f.pick(action);
+ f.reply(f.operation('dismiss').at(-1),{ok:true});
+ if(action==='done'){
+  f.advance(1000);assert.match(f.dialog.props.title,/Reinstall/);
+  assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,0);
+ }else{
+  const read=f.requests.at(-1);f.advance(delay);
+  assert.equal(f.dialog,undefined,'queued USB waits for installed Settings');
+  if(delay===1200)f.fw.sendEventToMmui=(id,event)=>f.calls.push([id,event]);
+  f.reply(read,f.state());
+  if(delay===1200){
+   f.advance(1500);assert.equal(f.dialog,undefined,'native handoff keeps priority');
+   assert.equal(f.pages.length,0);f.nativeSettings();
+  }
+  f.advance(200);f.advance(2000);
+  assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,1);
+  assert.equal(f.pages.length,1);assert.equal(f.dialog,undefined);f.assertNative();
+ }
+}
+for(const interruption of ['navigation','voice','deadline']){
+ f=queuedCompletion();f.pick('settings');f.reply(f.operation('dismiss').at(-1),{ok:true});
+ const read=f.requests.at(-1);f.advance(500);
+ if(interruption==='navigation')f.nativeSettings();
+ if(interruption==='voice')f.fw.common._cachedVuiState='Listening';
+ f.advance(interruption==='deadline'?11500:1000);f.reply(read,f.state());
+ delete f.fw.common._cachedVuiState;f.homeScreen();f.advance(13000);
+ assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,0);
+ assert.equal(f.pages.length,0,'interrupted intent cannot open a later Settings visit');
+ assert.match(f.dialog.props.title,/Reinstall/,'bounded intent eventually releases the chooser');
+}
 // A manual visit suppresses a pending completion locally, without acknowledging it.
 f=fixture(folder,{notice:'installed'});f.install();f.nativeSettings();
 f.reply(f.requests[0],f.proof());f.advance(0);

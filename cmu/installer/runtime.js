@@ -358,7 +358,8 @@ if(notice&&notice.getAttribute("content")==="installed"){
  },35000);
  utility.loadScript("file:///tmp/open-connect/feature/maintenance.js",{id:"oc-completion"},function(){
   if(!stopped&&window.__ocCompletionLoading===state&&typeof window.OpenConnectMaintenanceStart==="function"){
-   OpenConnectMaintenanceStart({token:token,port:15555,role:"completion",boot:{notice:"installed",version:version},
+   OpenConnectMaintenanceStart({token:token,port:15555,role:"completion",boot:{notice:"installed",version:version,
+    id:document.querySelector('meta[name="open-connect-token"]').getAttribute("data-boot")},
     current:function(){return window.__ocCompletionGeneration===state;}});
   }
   finish();

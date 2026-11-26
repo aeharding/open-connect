@@ -41,8 +41,11 @@ firmware_guard() {
          $0=="JCI_SW_VER_PATCH=\"A\""{p++}
          $0=="JCI_SW_FLAVOR=\"cmu150_NA\""{f++}
          END{exit !(v==1&&p==1&&f==1)}' /jci/version.ini || fail unsupported_firmware
+    # Selected-boot confirmation reuses the selector's input verification.
+    if test "${1:-}" != settings:status:completion; then
     test "$(md5sum < /jci/gui/framework/js/GuiFramework.js)" = '0228bd6330c544eb500dacd7b00a9e79  -' || fail unsupported_framework
     test "$(md5sum < /jci/lvds/lvds_service)" = '1d3e74362d4a97814a9f0fb316ff583f  -' || fail unsupported_display
+    fi
     awk '$1=="/dev/mmcblk0p2"&&$2=="/tmp/mnt/data_persist"&&$3=="relfs"{
         n++;split($4,a,",");for(i in a)if(a[i]=="rw")rw++} END{exit !(n==1&&rw==1)}' /proc/mounts || fail persistence_unavailable
     for path in /tmp /tmp/mnt /tmp/mnt/data_persist; do directory "$path" || fail invalid_persistence_path; done

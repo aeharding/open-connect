@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const element=require('./ui-element.js');
 module.exports=function fixture(folder,options={}){
- const token='a'.repeat(32),usbToken='c'.repeat(32),revision='b'.repeat(64);
+ const token='a'.repeat(32),usbToken='c'.repeat(32),revision='b'.repeat(64),boot='12345678-1234-1234-1234-123456789abc';
  const version=fs.readFileSync(path.join(folder,'VERSION'),'utf8').trim();
  const timers=new Map(),scripts=[],requests=[],mediaRequests=[],allRequests=[],controls=[],pages=[],calls=[],listeners=new Map();
  const parent=element(),head=element();
@@ -54,7 +54,7 @@ module.exports=function fixture(folder,options={}){
     if(q==='head')return head;
     if(q==='.Dialog3Ctrl_Style19_NoTemplateInstance')return controls.find(d=>!d.destroyed&&d.divElt.classes.has('Dialog3Ctrl_Style19_NoTemplateInstance'))?.divElt||null;
     const m=q.match(/open-connect-(token|version|notice)/);
-    return m&&options.installed!==false?{getAttribute(){return meta[m[1]];}}:null;
+    return m&&options.installed!==false?{getAttribute(key){return key==='data-boot'?boot:meta[m[1]];}}:null;
    },getElementById(id){return [...head.children,...parent.children].find(n=>n.id===id);},
    createElement(tag){assert.equal(tag,'script');return {};},
    addEventListener(type,fn,capture){const entries=listeners.get(type)||[];entries.push({fn,capture});listeners.set(type,entries);},
@@ -98,6 +98,9 @@ module.exports=function fixture(folder,options={}){
  function state(extra={}){return {ok:true,revision,installed:options.installed!==false,retained:false,
   conflict:false,restart:false,pending:false,touch:0,warning:1,notice:'-',version,installedVersion:version,
   base:0,wireless:0,wirelessCurrent:0,carplayAutoshow:0,carplayAutoshowCurrent:0,...extra};}
+ // Completion deliberately has no Settings or physical-audit fields.
+ function proof(extra={}){return {ok:true,revision,package:'d'.repeat(64),boot,
+  installedVersion:version,notice:'installed',completionReady:true,...extra};}
  // USB chooser metadata deliberately has no physical-audit or preference fields.
  function metadata(extra={}){return {ok:true,revision,installed:options.installed!==false,retained:false,
   restart:false,pending:false,notice:'-',version,installedVersion:version,completionReady:false,...extra};}
@@ -142,7 +145,7 @@ module.exports=function fixture(folder,options={}){
   return {button,original,messages,fired};
  }
  return {ctx,fw,host,app,list,requests,mediaRequests,allRequests,controls,pages,calls,scripts,timers,meta,token,usbToken,revision,version,
-  evaluate,deliver,flush,advance,reply,state,metadata,install,usb,legacyUSB,pick,tap,nativeSettings,homeScreen,endAnimations,touch,listeners,armHome,
+  evaluate,deliver,flush,advance,reply,state,proof,metadata,install,usb,legacyUSB,pick,tap,nativeSettings,homeScreen,endAnimations,touch,listeners,armHome,
   get dialog(){return controls.findLast(d=>!d.destroyed);},get lookups(){return lookups;},get now(){return now;},
   closeUSB(){closedUSB=true;},closeBoot(){closedBoot=true;},oldInput,oldTransition,oldSend:fw.sendEventToMmui,
   operation(op){return requests.filter(r=>r.body.split('|')[2]===op);},

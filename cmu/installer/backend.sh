@@ -17,9 +17,6 @@ trap record_clean EXIT
 fail() {
     printf '{"ok":false,"error":"%s"}\n' "$1"; exit 1
 }
-firmware_guard
-private_dir /tmp/open-connect || fail runtime_unavailable
-file /tmp/open-connect/lock || fail invalid_lock
 test "${1:-}" = api && test "$#" -eq 6 || fail invalid_request
 revision=$2; operation=$3; argument=$4; expected=$5; desired=$6
 runtime_pointer=/tmp/open-connect/runtime
@@ -29,6 +26,9 @@ if test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" != "$P"; then
     test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
     role=usb
 fi
+firmware_guard "$role:$operation:$argument"
+private_dir /tmp/open-connect || fail runtime_unavailable
+file /tmp/open-connect/lock || fail invalid_lock
 if test "$operation:$argument" = dismiss:usb; then
     test "$role" = usb || fail invalid_request
     : > "$P/closed"
@@ -88,9 +88,44 @@ status_identity() {
     done
 }
 
+# Fresh selected-boot confirmation under the operation lock; the selector
+# authenticated the committed inputs. This is not a physical-state audit.
+completion_identity() {
+    test "$role" = settings && test "$exists" = true || fail completion_unavailable
+    settled || fail operation_pending
+    test "$R_PHASE" = active && test "$selected_snapshot" = "$R_CURRENT" || fail completion_unavailable
+    completion_boot=$(current_boot_id) && test "$completion_boot" = "$R_BOOT" || fail completion_unavailable
+    test "$(snapshot_package "$R_CURRENT")" = "$R_BACKEND" || fail invalid_snapshot
+    file "$P/files.sha256" && test "$(sha "$P/files.sha256")" = "$R_BACKEND" || fail session_replaced
+    completion_version=$(package_version "$R_BACKEND") || fail invalid_version
+    test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
+}
+
+selected_snapshot=$(selection_id /tmp/open-connect/selected) || selected_snapshot=
+if test "$operation:$argument" = status:completion; then
+    completion_identity
+    completion_ready=false
+    if test "$R_NOTICE" = installed; then
+        completion_ready=true
+        # Freeze first attachment facts, including empty, before Done.
+        service_usb_observe >/dev/null 2>&1 || :
+    fi
+    printf '{"ok":true,"revision":"%s","package":"%s","boot":"%s","installedVersion":"%s","notice":"%s","completionReady":%s}\n' \
+        "$R_CURRENT" "$R_BACKEND" "$completion_boot" "$completion_version" "$R_NOTICE" "$completion_ready"
+    exit
+fi
+if test "$operation" = dismiss; then
+    test "$role:$argument:$expected:$desired" = settings:-:-:- || fail invalid_request
+    completion_identity
+    test "$revision" = "$R_CURRENT" && test "$R_NOTICE" = installed || fail stale_state
+    R_NOTICE=-; record_write
+    : > "$P/closed"
+    printf '{"ok":true}\n'
+    exit
+fi
+
 # Open Connect pinned Settings 1
 settings_package=
-selected_snapshot=$(selection_id /tmp/open-connect/selected) || selected_snapshot=
 if test "$role" = settings && test "$exists" = true && test "$R_PHASE" != purge && test "$R_PHASE" != removed; then
     test -n "$selected_snapshot" || fail invalid_selected_snapshot
     settings_package=$(snapshot_package "$selected_snapshot") || fail invalid_selected_snapshot
@@ -135,8 +170,8 @@ status() {
     local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 wireless_current=0
     local installed_version=- installed_package=- pandora= base= wireless= autoshow= autoshow_current=0
     local saved_schema= saved_config= saved_catalog= selected_services= selected_wireless=0 rows=
-    local selected= access_selected= completion_check=false audited=false kernel_boot= audit_identity= audit_after= view_id=
-    selected=$(selection_id /tmp/open-connect/selected) || selected=
+    local selected= access_selected= audit_identity= audit_after= view_id=
+    selected=$selected_snapshot
     access_selected=$(selection_id /tmp/open-connect/access-selected) || access_selected=
     if test "$exists" = false && test -e /tmp/open-connect/selected; then restart=true; fi
     if test "$empty_state" = true; then pending=true; fi
@@ -171,24 +206,17 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
             fi
             if test "$R_PHASE" = active; then installed=true; fi
             if test "$R_PHASE" = removed; then retained=true; fi
-            # Settings authenticates saved data; completion and mutations also
-            # audit physical state. Only explicit completion can prove a boot.
-            if test "$operation:$argument" = status:completion &&
-                test "$installed" = true && test "$notice" = installed && test "$selected" = "$R_CURRENT" &&
-                kernel_boot=$(completion_boot_id) &&
-                test "$R_BOOT" = "$kernel_boot"; then completion_check=true; fi
-            if test "$operation:$argument" != status:settings || test "$completion_check" = true; then
-                # Unlock slow reads for Settings, then fence their sampled state.
-                # Mutations retain the writer lock.
+            if test "$operation:$argument" != status:settings; then
+                # Fence unlocked read audits; mutations retain the writer lock.
                 if test "$operation" = status; then
                     audit_identity=$(status_identity) || fail state_changed
                     flock -u 9 || fail invalid_lock
                 fi
-                if ( if test "$view_id" != "$R_CURRENT"; then snapshot_read "$R_CURRENT" || exit 1; fi
+                if ! ( if test "$view_id" != "$R_CURRENT"; then snapshot_read "$R_CURRENT" || exit 1; fi
                     targets_match_loaded "$R_CURRENT" &&
                     { test "$S_ACCESS" != true || access_login_check; } &&
                     dependencies_match "$R_CURRENT"
-                ); then audited=true; else conflict=true; fi
+                ); then conflict=true; fi
                 if test "$operation" = status; then
                     flock -n -x 9 || fail busy
                     test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
@@ -217,7 +245,7 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
             fi
         fi
     fi
-    local version service_status= wireless_factory=false completion_ready=false
+    local version service_status= wireless_factory=false
     if test -n "$pandora"; then service_status=',"pandora":'$pandora; fi
     if test -n "$base"; then service_status=$service_status',"base":'$base; fi
     if test -n "$wireless"; then service_status=$service_status',"wireless":'$wireless; fi
@@ -241,29 +269,11 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
     fi
     version=$(cat "$P/VERSION")
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
-    if test "$installed" = true && test "$installed_version" != - && test "$pending" = false && test "$conflict" = false &&
-        test "$restart" = false && test "$notice" = installed &&
-        test "$audited:$completion_check" = true:true &&
-        test "$R_BOOT" = "$kernel_boot"; then completion_ready=true; fi
-    if test "$completion_ready" = true; then
-        service_usb_observe >/dev/null 2>&1 || :
-    fi
     # Retain undo=false for a running dev.1 client.
-    # Refresh at completion; the writer flock covers slow work.
     if test "$operation" != status; then usb_retain; fi
     printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s%s}\n' \
         "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version" \
-        "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current" "$service_status,\"completionReady\":$completion_ready"
-}
-
-completion_boot_id() {
-    # New maintenance media may serve a still-running pre-marker installation.
-    # Only absence permits the legacy proof; malformed markers fail closed.
-    if absent /tmp/open-connect/boot-id; then
-        local value
-        value=$(cat /proc/sys/kernel/random/boot_id) && boot_id "$value" || return 1
-        printf '%s\n' "$value"
-    else current_boot_id; fi
+        "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current" "$service_status,\"completionReady\":false"
 }
 
 transaction_admit() {
@@ -445,13 +455,6 @@ uninstall)
     transaction_prepare uninstall "$before" "$after"
     transaction_reconcile
     finish_removal
-    ;;
-dismiss)
-    test "$role:$argument:$expected:$desired" = settings:-:-:- || fail invalid_request
-    if test "$exists" = true; then R_NOTICE=-; record_write; fi
-    : > "$P/closed"
-    printf '{"ok":true}\n'
-    exit
     ;;
 restart)
     if test "$exists" = true; then

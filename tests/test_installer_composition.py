@@ -140,7 +140,8 @@ class InstallerComposition(unittest.TestCase):
             backend = backend_source.splitlines()
             # Keep the actual complete handler, including multiline definitions.
             start = backend_source.index("fail() {")
-            error_handler = backend_source[start : backend_source.index("firmware_guard", start)]
+            end = backend_source.index("\n}\n", start) + len("\n}\n")
+            error_handler = backend_source[start:end]
             invocation = next(
                 line for line in backend if line.lstrip().startswith('compose "$package"')
             )

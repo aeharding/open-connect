@@ -168,7 +168,7 @@ usb_retain() {
 status_view() {
     local conflict=$1 installed=false retained=false touch=0 warning=0 notice=- rev=- restart=$removed_now pending=false
     local developer=false uart=0 owner_ssh=0 key=- fingerprint=- uart_current=0 ssh_current=0 wireless_current=0
-    local installed_version=- installed_package=- pandora= base= wireless= autoshow= autoshow_current=0
+    local installed_version=- current_package=- pandora= base= wireless= autoshow= autoshow_current=0
     local saved_schema= saved_config= saved_catalog= selected_services= selected_wireless=0 rows=
     local selected= access_selected= view_id=
     selected=$selected_snapshot
@@ -181,12 +181,11 @@ status_view() {
             rev=$R_REV; restart=true; pending=true
         else
             view_id=$R_CURRENT
-            if test -n "$settings_package"; then
-                installed_package=$(snapshot_package "$R_CURRENT") || fail invalid_snapshot
-                if test "$installed_package" != "$settings_package"; then view_id=$selected; restart=true; fi
+            if test -n "$settings_package" && test "$operation:$argument:$selected" != "status:settings:$R_CURRENT"; then
+                current_package=$(snapshot_package "$R_CURRENT") || fail invalid_snapshot
+                if test "$current_package" != "$settings_package"; then view_id=$selected; restart=true; fi
             fi
             snapshot_read "$view_id" || fail invalid_snapshot
-            installed_package=$S_PACKAGE
             touch=$S_TOUCH; warning=$S_WARNING
             saved_schema=$S_SCHEMA
             if test "$S_SCHEMA" != stock; then
@@ -207,7 +206,7 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
             if test "$R_PHASE" = removed; then retained=true; fi
             # The authenticated view package owns this version, not USB P.
             if test "$installed" = true && test "$conflict" = false; then
-                installed_version=$(package_version "$installed_package") || installed_version=-
+                installed_version=$(package_version "$S_PACKAGE") || installed_version=-
             fi
             if test "$R_PHASE" = active; then
                 if test "$selected" != "$R_CURRENT"; then restart=true; fi

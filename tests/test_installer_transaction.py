@@ -189,6 +189,13 @@ class InstallerTransaction(unittest.TestCase):
     def target(self, data, name):
         return data.with_name(data.name + "-" + name)
 
+    def saved_files(self, data):
+        return {
+            str(p.relative_to(data)): (p.read_bytes(), p.stat().st_mode, p.stat().st_ctime_ns)
+            for p in data.rglob("*")
+            if p.is_file()
+        }
+
     def test_snapshot_writer_requires_every_named_program_in_verified_manifest(self):
         data = self.create("writer-members")
         original = data / "packages" / (data / "package-id").read_text().strip()
@@ -803,29 +810,61 @@ class InstallerTransaction(unittest.TestCase):
         current = (data / "record").read_text().split("|")[5]
         self.backend_fixture(data)
         runtime = self.root / "runtime"
-        state_file = self.tools / "state.sh"
-        state_file.write_text(
-            state_file.read_text().replace(
-                'snapshot_read() { snapshot_verify "$1" && snapshot_decode "$1"; }',
-                'snapshot_read() { printf "%s\\n" "$1" >> "$D/reads"; '
-                'snapshot_verify "$1" && snapshot_decode "$1"; }',
-            )
-        )
+        backend = self.tools / "backend.sh"
+        backend.write_text(backend.read_text().replace("set -eu\n", "set -eux\n", 1))
+        unchanged = self.saved_files(data)
         for selected in (current, applied):
             with self.subTest(selected=selected):
                 (runtime / "selected").write_text(selected + "\n")
                 (runtime / "access-selected").write_text(selected + "\n")
-                (data / "reads").write_text("")
                 result, status = self.api("status", argument="settings")
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(
-                    (data / "reads").read_text().splitlines(),
+                    re.findall(r"^\++ snapshot_read (.+)$", result.stderr, re.M),
                     [current] if selected == current else [current, applied],
+                )
+                self.assertEqual(
+                    len(re.findall(r"^\++ snapshot_package ", result.stderr, re.M)),
+                    1 if selected == current else 2,
                 )
                 pandora = next(row for row in status["services"] if row["id"] == "pandora")
                 self.assertEqual(pandora["saved"], 0)
                 self.assertEqual(pandora["current"], int(selected == applied))
                 self.assertEqual(status["restart"], selected != current)
+                result, strict = self.api("status")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(strict, status)
+                self.assertEqual(len(re.findall(r"^\++ snapshot_package ", result.stderr, re.M)), 2)
+                for audit in ("targets_match_loaded", "dependencies_match"):
+                    self.assertEqual(
+                        len(re.findall(r"^\++ " + audit + r" ", result.stderr, re.M)), 1
+                    )
+                self.assertEqual(self.saved_files(data), unchanged)
+
+    def test_settings_read_reverifies_same_id_authority_without_side_effects(self):
+        data = self.create("same-id-authority")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        current = (data / "record").read_text().split("|")[5]
+        snapshot = data / "snapshots" / current
+        package = data / "packages" / (data / "package-id").read_text().strip()
+        result, status = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(status["installed"])
+        for path, error in (
+            (snapshot / "config", "invalid_selected_snapshot"),
+            (snapshot / "autostart", "invalid_snapshot"),
+            (package / "preferences.awk", "invalid_snapshot"),
+        ):
+            with self.subTest(member=path.name):
+                original = path.read_bytes()
+                path.write_bytes(original + b"unverified bytes\n")
+                unchanged = self.saved_files(data)
+                result, answer = self.api("status", argument="settings")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(answer, {"ok": False, "error": error})
+                self.assertEqual(self.saved_files(data), unchanged)
+                path.write_bytes(original)
 
     def test_settings_read_skips_flash_audit_but_usb_and_mutations_refuse_edits(self):
         data = self.create("status-guards")
@@ -1287,6 +1326,8 @@ class InstallerTransaction(unittest.TestCase):
         selected = (data / "record").read_text().split("|")[5]
         old_package = (data / "package-id").read_text().strip()
         self.backend_fixture(data)
+        backend = self.tools / "backend.sh"
+        backend.write_text(backend.read_text().replace("set -eu\n", "set -eux\n", 1))
         runtime = self.root / "runtime"
         (runtime / "selected").write_text(selected + "\n")
         result, before = self.api("status", argument="settings")
@@ -1319,6 +1360,7 @@ class InstallerTransaction(unittest.TestCase):
         fields[3] = package
         (data / "record").write_text("|".join(fields))
         marker.unlink()
+        unchanged = self.saved_files(data)
         for argument in ("settings", "-"):
             result, view = self.api("status", argument=argument)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -1329,6 +1371,8 @@ class InstallerTransaction(unittest.TestCase):
             self.assertIn("Pandora", [row["label"] for row in view["services"]])
             self.assertNotIn("Successor Pandora", [row["label"] for row in view["services"]])
             self.assertFalse(marker.exists())
+            self.assertEqual(len(re.findall(r"^\++ snapshot_package ", result.stderr, re.M)), 2)
+            self.assertEqual(self.saved_files(data), unchanged)
         expected = (data / "record").read_bytes()
         for operation, args in (("set", ("warning", "1", "0")), ("import", ())):
             result, answer = self.api(operation, fields[5], *args)
@@ -1338,14 +1382,7 @@ class InstallerTransaction(unittest.TestCase):
             self.assertFalse(marker.exists())
 
         # Missing or malformed volatile evidence must never select B's program.
-        def saved_files():
-            return {
-                str(p.relative_to(data)): (p.read_bytes(), p.stat().st_mode, p.stat().st_ctime_ns)
-                for p in data.rglob("*")
-                if p.is_file()
-            }
-
-        unchanged = saved_files()
+        unchanged = self.saved_files(data)
         selected_file = runtime / "selected"
         for content in (None, selected + "\n\n", selected + "\nextra\n"):
             selected_file.unlink(missing_ok=True)
@@ -1356,7 +1393,7 @@ class InstallerTransaction(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(answer["error"], "invalid_selected_snapshot")
                 self.assertEqual((data / "record").read_bytes(), expected)
-                self.assertEqual(saved_files(), unchanged)
+                self.assertEqual(self.saved_files(data), unchanged)
                 self.assertFalse(marker.exists())
         (runtime / "runtime").unlink()
         (runtime / "usb-runtime").symlink_to(self.tools)

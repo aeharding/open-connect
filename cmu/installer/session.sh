@@ -27,6 +27,10 @@ navigate() {
         --print-reply --reply-timeout=3000 --dest=com.jci.OPERA_IHU_PRIMARY \
         /com/jci/OPERA_IHU_PRIMARY com.jci.opera_IHU_PRIMARY.Navigate "string:$1" >/dev/null
 }
+entry_live() {
+    test ! -f "$runtime/closed" && test -f "$source/run.sh" &&
+        test "$(readlink -f /tmp/open-connect/usb-runtime)" = "$runtime"
+}
 cleanup() {
     # Native liveness polling closes this popup. Teardown never navigates Opera.
     exec 9>&-
@@ -54,7 +58,7 @@ else exit 1; fi
 token=$(cat "$runtime/token")
 test "${#token}" -eq 32 || exit 1
 case "$token" in *[!a-f0-9]*) exit 1;; esac
-test ! -f "$runtime/closed" || exit 0
+entry_live || exit 0
 logger -t open-connect "OCUSB|$token|start"
 if test -f /tmp/open-connect/feature/runtime.js &&
     grep -F -q 'OC_USB_OFFER_V1:' /tmp/open-connect/feature/runtime.js; then
@@ -62,8 +66,7 @@ if test -f /tmp/open-connect/feature/runtime.js &&
     . "$work/state.sh"
     service_lock usb
     if post_restart locked; then exit 0; fi
-    test ! -f "$runtime/closed" && test -f "$source/run.sh" || exit 0
-    test "$(readlink -f "$R/usb-runtime")" = "$runtime" || exit 0
+    entry_live || exit 0
     service_owns_listener "$pid" "$start" "$runtime" 15557 || exit 1
     name=${runtime##*/}
     test "${#name}" -eq 14 || exit 1
@@ -76,6 +79,7 @@ if test -f /tmp/open-connect/feature/runtime.js &&
     exec 9>&-
 else
     # Stock and older installed releases have no browser-side USB receiver.
+    entry_live || exit 0
     navigate "javascript:void(setTimeout(function(){if(document.getElementById('oc-maintenance-loader'))return;var entry;utility.loadScript('../..$runtime/loader.js',{id:'oc-maintenance-loader',ocToken:'$token',ocPort:$port},function(){if(entry&&entry===document.getElementById('oc-maintenance-loader')&&typeof OpenConnectUSBStart==='function')OpenConnectUSBStart(entry);});entry=document.getElementById('oc-maintenance-loader');},0))"
 fi
 count=0

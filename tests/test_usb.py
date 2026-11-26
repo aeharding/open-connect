@@ -250,11 +250,25 @@ class UsbBuild(unittest.TestCase):
                 self.assertEqual(index.read_text(), body)
 
     def test_session_teardown_preserves_the_frontend_owner(self):
-        cases = ("done", "done-and-removed", "removed", "superseded", "preclosed")
+        cases = (
+            "done",
+            "done-and-removed",
+            "removed",
+            "superseded",
+            "preclosed",
+            "removed-at-publication",
+            "superseded-at-publication",
+        )
         for receiver, reason in [(v, r) for v in (False, True) for r in cases] + [
             (True, "final-suppressed")
         ]:
-            expected_calls = int(not receiver and reason != "preclosed")
+            no_entry = reason in (
+                "preclosed",
+                "removed-at-publication",
+                "superseded-at-publication",
+                "final-suppressed",
+            )
+            expected_calls = int(not receiver and not no_entry)
             with (
                 self.subTest(receiver=receiver, reason=reason),
                 tempfile.TemporaryDirectory() as tmp,
@@ -281,7 +295,11 @@ class UsbBuild(unittest.TestCase):
                     path.write_text(service)
                 usb_service = (
                     'if test "${1:-}" = stop; then echo stop >> "$OC_TEST_EVENTS";\n'
-                    'else if test "$OC_TEST_REASON" = preclosed; then : > "$OC_TEST_RUNTIME/closed"; fi; echo "$OC_TEST_RUNTIME"; fi\n'
+                    'else case "$OC_TEST_REASON" in\n'
+                    ' preclosed) : > "$OC_TEST_RUNTIME/closed";;\n'
+                    ' removed-at-publication) rm "$OC_TEST_MEDIA/run.sh";;\n'
+                    ' superseded-at-publication) ln -sfn "$OC_TEST_OTHER" "$OC_TEST_REGISTRY/usb-runtime";;\n'
+                    'esac; echo "$OC_TEST_RUNTIME"; fi\n'
                 )
                 for path in (work / "usb-service.sh", runtime / "usb-service.sh"):
                     path.write_text(usb_service)
@@ -343,7 +361,7 @@ class UsbBuild(unittest.TestCase):
                     self.assertIn("oc-maintenance-loader", sent[0])
                     self.assertNotIn("cancelUSB", sent[0])
                     self.assertIn("OpenConnectUSBStart(entry)", sent[0])
-                if receiver and reason not in ("preclosed", "final-suppressed"):
+                if receiver and not no_entry:
                     self.assertEqual(
                         (runtime / "offer").read_text(), runtime.name + "|" + "a" * 32 + "\n"
                     )

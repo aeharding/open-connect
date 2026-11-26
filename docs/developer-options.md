@@ -36,7 +36,7 @@ Use direct SSH or UART access to the head unit for your own purposes. Neither is
 
 <p>Saved automatically; takes effect on the <strong>next full Mazda Connect startup</strong>. See <a href="settings.md#apply-changes">restart guidance</a>.</p>
 
-<p><a href="reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74">Access and restoration bench checks</a> cover earlier builds. <a href="performance.md">Performance evidence</a> has no isolated access comparison. The screenshot above remains dev.19 on <strong>74.00.324A NA</strong>; real-car qualification and isolated access measurements remain pending. <strong>0.3.0-dev.22</strong> is a development prerelease.</p>
+<p><a href="reverse-engineering.md#developer-access-and-login-script-lifetime-on-v74">Access and restoration bench checks</a> cover earlier builds. <a href="performance.md">Performance evidence</a> has no isolated access comparison. The screenshot above remains dev.19 on <strong>74.00.324A NA</strong>; real-car qualification and isolated access measurements remain pending. <strong>0.3.0-dev.23</strong> is a development prerelease.</p>
 
 
 Restore any changes you make to head-unit storage before installing, upgrading or uninstalling Open Connect. Leaving storage modified can make these operations fail. If you cannot return it cleanly to stock, reinstall Mazda firmware **74.00.324 NA N** first.

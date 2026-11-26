@@ -4,7 +4,7 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
-## Ordinary-USB discovery: dev.22 and unreleased dev.23
+## Ordinary-USB discovery: dev.22 and dev.23 candidates
 
 The [dev.22/candidate comparison](usb-discovery-performance.md) retains four
 separate three-boot blocks plus the excluded attempts and a separate diagnostic.

@@ -230,8 +230,8 @@ function stop(){clearTimeout(timer);if(xhr){var old=xhr;xhr=null;old.abort();}}
 function start(wait){
  stop();generation++;until=wait?Date.now()+65000:0;read(generation);
 }
-function launch(media,intent){
- if(intent!==generation||media.token===last)return;
+function launch(media){
+ if(media.token===last)return !!(loading&&loading.parentNode&&loading===document.getElementById("oc-maintenance-loader"));
  last=media.token;
  if(loading&&loading.parentNode)loading.parentNode.removeChild(loading);
  var old=document.getElementById("oc-maintenance-loader");
@@ -241,11 +241,11 @@ function launch(media,intent){
  utility.loadScript("file:///tmp/open-connect/sessions/"+media.session+"/loader.js",
   {id:"oc-maintenance-loader",ocToken:media.token,ocPort:15557},function(){
    clearTimeout(deadline);
-   if(!done&&intent===generation&&node===document.getElementById("oc-maintenance-loader")&&
+   if(!done&&loading===node&&node===document.getElementById("oc-maintenance-loader")&&
     typeof window.OpenConnectUSBStart==="function")OpenConnectUSBStart(node);
    else if(node&&node.parentNode)node.parentNode.removeChild(node);
   });
- node=document.getElementById("oc-maintenance-loader");loading=node;
+ node=document.getElementById("oc-maintenance-loader");loading=node;return true;
 }
 function read(intent){
  var left=until?until-Date.now():3000;if(left<=0)return;
@@ -259,7 +259,7 @@ function read(intent){
   var media=answer&&answer.ok===true&&answer.media;
   if(media&&typeof media.session==="string"&&typeof media.token==="string"&&
    /^session-[a-zA-Z0-9]{6}$/.test(media.session)&&/^[a-f0-9]{32}$/.test(media.token)){
-   until=0;launch(media,intent);return;
+   if(launch(media)){until=0;return;}
   }
   if(Date.now()<until)timer=setTimeout(function(){read(intent);},Math.min(500,until-Date.now()));
  }

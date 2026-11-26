@@ -31,6 +31,7 @@ check-ui:
 	node tests/fixtures/installer-settings-ux.js cmu/installer/dialog.js cmu/installer/settings.js
 	node tests/fixtures/installed-runtime.js cmu/installer
 	node tests/fixtures/maintenance-runtime.js cmu/installer
+	node tests/fixtures/mixed-maintenance.js cmu/installer
 	node tests/fixtures/system-hook.js cmu/installer/system-hook.js
 	node tests/fixtures/usb-loader.js cmu/installer/loader.js
 	node tests/fixtures/usb-receiver.js cmu/installer

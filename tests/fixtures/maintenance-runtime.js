@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fixture=require('./runtime-fixture.js');
 const folder=process.argv[2];
 function fresh(options={}){const f=fixture(folder,{installed:false,...options});f.usb();return f;}
-function metadata(f,extra={}){f.reply(f.requests.at(-1),f.state({installed:false,installedVersion:'-',revision:'-',...extra}));f.advance(0);}
+function metadata(f,extra={}){f.reply(f.requests.at(-1),f.metadata({installed:false,installedVersion:'-',revision:'-',...extra}));f.advance(0);}
 function commit(f,extra={}){return f.state({installed:true,installedVersion:f.version,revision:'d'.repeat(64),notice:'installed',restart:true,...extra});}
 let f=fresh();assert.equal(f.ctx.OpenConnect,undefined);assert.equal(f.ctx.OpenConnectSettings,undefined);assert.equal(f.ctx.OpenConnectInstaller,undefined);
 assert.deepEqual(f.scripts.map(n=>n.src.split('/').at(-1)),['loader.js','maintenance.js']);
@@ -25,6 +25,18 @@ assert.equal(f.operation('install').length,1);assert.equal(f.requests.at(-1).bod
 f.reply(f.requests.at(-1),commit(f));assert.equal(f.operation('restart').length,1);
 f=fresh();metadata(f);f.pick('install');f.reply(f.operation('install')[0],{ok:false,error:'stale_state'});
 f.reply(f.requests.at(-1),commit(f));assert.equal(f.operation('restart').length,0,'definite refusal cannot become inferred success');
+// The chooser exception cannot authorize full write reconciliation or completion.
+f=fresh();metadata(f);f.pick('install');f.reply(f.operation('install')[0],f.metadata({restart:true}));
+assert.equal(f.requests.at(-1).body.split('|')[3],'-','small write reply requires a full status');
+f.reply(f.requests.at(-1),f.metadata({installed:true,notice:'installed',revision:'d'.repeat(64),restart:true}));
+assert.equal(f.operation('restart').length,0,'small readback cannot prove the mutation');
+assert.match(f.dialog.props.title,/Unable to confirm/);
+for(const missing of ['conflict','completionReady']){
+ f=fixture(folder,{notice:'installed'});f.install();
+ const proof=f.state({notice:'installed',completionReady:true});delete proof[missing];
+ f.reply(f.requests[0],proof);f.advance(0);
+ assert.equal(f.dialog,undefined,'completion still requires '+missing);assert.equal(f.ctx.OpenConnectCompletion,null);
+}
 // Recovery waits for visible progress and restart reacquires it after VUI.
 f=fresh();f.fw.common._vuiHelpDialog={};metadata(f,{pending:true});
 assert.equal(f.operation('recover').length,0);assert.equal(f.controls.length,0);
@@ -77,14 +89,14 @@ for(const first of ['completion','usb']){
  f.deliver(first==='completion'?popup:completion);f.advance(0);
  const proof=f.requests.find(r=>r.url.includes(':15555'));
  const metadata=f.requests.find(r=>r.url.includes(':15557'));
- f.reply(metadata,f.state());f.advance(0);assert.equal(f.dialog,undefined,'USB waits for completion proof');
+ f.reply(metadata,f.metadata());f.advance(0);assert.equal(f.dialog,undefined,'USB waits for completion proof');
  f.reply(proof,f.state({notice:'installed',completionReady:true}));
  const owner=f.ctx.OpenConnectCompletion,shown=f.dialog;
  assert.match(shown.props.title,/installed/);f.advance(2000);
  assert.equal(f.ctx.OpenConnectCompletion,owner);assert.equal(f.dialog,shown,'USB cannot destroy completion');
  // New USB generation supersedes only the queued USB owner.
  const stale=f.ctx.OpenConnectMaintenance;f.usb(Infinity,'e'.repeat(32));
- f.reply(f.requests.at(-1),f.state());f.advance(0);
+ f.reply(f.requests.at(-1),f.metadata());f.advance(0);
  assert.notEqual(f.ctx.OpenConnectMaintenance,stale);assert.equal(f.dialog,shown);
  f.pick('done');f.reply(f.operation('dismiss').at(-1),{ok:true});f.advance(1000);
  assert.equal(f.ctx.OpenConnectCompletion,null);assert.equal(f.ctx.OpenConnectMaintenance.token,'e'.repeat(32));

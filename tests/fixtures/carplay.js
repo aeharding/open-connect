@@ -272,8 +272,8 @@ r.session(false);r.connect();assert.equal(r.count(),1,'actual disconnect reconci
 f=fixture();f.connect();f.state.failNameRead=true;r=fixture(f.state);r.connect();assert.equal(r.count(),0,'throwing primary read is also ambiguous');
 r.state.failNameRead=false;r.session(false);r.connect();assert.equal(r.count(),1);
 
-function bootClient(notice='-') {
-  const x=fixture({},false), loads=[], intervals=[], requests=[], nodes={}, token='a'.repeat(32);
+function bootClient(notice='-',autoMedia=true) {
+  const x=fixture({},false), loads=[], intervals=[], requests=[], mediaRequests=[], nodes={}, token='a'.repeat(32);
   const query=x.ctx.document.querySelector;
   const head={appendChild(node){node.parentNode=head;if(node.id)nodes[node.id]=node;
     const deliver=()=>{x.source(node.src.split('/').at(-1));node.onload();};deliver.src=node.src;loads.push(deliver);
@@ -285,13 +285,33 @@ function bootClient(notice='-') {
   x.ctx.document.createElement=()=>({});
   x.ctx.setInterval=fn=>{intervals.push(fn);return fn;};
   x.ctx.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.abort=()=>{};this.send=body=>{this.body=body;
-    if(body.split('|')[3]==='media'){this.readyState=4;this.status=200;this.responseText='{"ok":true,"media":null}';this.onreadystatechange();}
+    if(body.split('|')[3]==='media'){
+      mediaRequests.push(this);
+      if(autoMedia){this.readyState=4;this.status=200;this.responseText='{"ok":true,"media":null}';this.onreadystatechange();}
+    }
     else requests.push(this);};};
   x.source('runtime.js');
-  return Object.assign(x,{token,requests,complete(){while(loads.length)loads.shift()();},
+  return Object.assign(x,{token,requests,mediaRequests,complete(){while(loads.length)loads.shift()();},
+    offer(token,session){const r=mediaRequests.at(-1);r.readyState=4;r.status=200;r.responseText=JSON.stringify({ok:true,media:{token,session}});r.onreadystatechange();},
     deliver(name){const i=loads.findIndex(fn=>fn.src.endsWith('/'+name));assert.ok(i>=0,name);loads.splice(i,1)[0]();},
     tick(){intervals.forEach(fn=>fn());x.advance();}});
 }
+// Use the real installed receiver and Settings owner check before the accepted
+// loader has executed. An ordinary drive never publishes an owned loader node.
+f=bootClient();f.complete();f.connect();assert.equal(f.count(),1,'ordinary drive does not hold CarPlay');
+f=bootClient('-',false);f.deliver('dialog.js');f.deliver('settings.js');
+f.offer('c'.repeat(32),'session-ABC123');
+assert.equal(f.ctx.ocCarPlay.owner(),2,'eligible loader holds Home before asset execution');
+f.connect();assert.equal(f.count(),0,'ready CarPlay yields to delayed loader');
+const pendingNode=f.ctx.document.getElementById('oc-maintenance-loader');
+f.apps.usbaudio={_messageTable:{TimedSbn_ConnectionStatus(){return 'native';}}};
+f.fw._initApp('usbaudio');
+f.apps.usbaudio._messageTable.TimedSbn_ConnectionStatus({params:{payload:{status:'Connected',type:'UMASS',usb:'A'}}});
+f.offer('e'.repeat(32),'session-DEF456');
+assert.equal(pendingNode.parentNode,null);assert.equal(f.ctx.ocCarPlay.owner(),2,'replacement keeps the loader hold');
+f.advance(65000);assert.equal(f.ctx.ocCarPlay.owner(),0,'delivery timeout releases the existing node hold');
+f.deliver('loader.js');assert.equal(f.ctx.__ocMaintenanceLoading,undefined,'late superseded loader is passive');
+f.session(false);f.connect();assert.equal(f.count(),1,'later connection proceeds after timeout');
 f=bootClient();f.session(true);f.menu();f.advance();assert.equal(f.count(),0,'ordinary boot awaits real support callbacks');
 f.complete();assert.equal(f.count(),1,'ready callback pumps first connection without another message');
 f=bootClient('installed');f.complete();f.tick();assert.equal(f.requests.length,1);

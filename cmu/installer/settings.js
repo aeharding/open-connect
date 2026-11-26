@@ -18,8 +18,7 @@ function validServices(rows){
  return rows.every(function(row){
  if(!row||!/^[a-z][a-z0-9-]{0,31}$/.test(row.id)||row.id<=previous||
    /^(touch|warning|base|wireless|uart|ssh|carplay-autoshow)$/.test(row.id)||
-   (row.saved!==0&&row.saved!==1)||
-   (row.current!==null&&row.current!==0&&row.current!==1)){return false;}
+   !bit(row.saved)||(row.current!==null&&!bit(row.current))){return false;}
  previous=row.id;
  return["label","enable","disable"].every(function(key){
   return typeof row[key]==="string"&&row[key].length>0&&
@@ -94,7 +93,7 @@ function replace(obj,key,fn){
 }
 
 function settingsApp(id){
- return id==="syssettings"||id==="vehsettings"||id==="audiosettings";
+ return /^(sys|veh|audio)settings$/.test(id);
 }
 
 function voice(fw){
@@ -603,7 +602,8 @@ if(!a||a.loaded&4){return;}
 var camera,cameraSeen,displayOff;
 function owner(client){return client&&client.autoshowState();}
 a.owner=function(){
- if(f.common._openConnectOperation||window.__ocCompletionLoading||window.__ocMaintenanceLoading)return 2;
+ if(f.common._openConnectOperation||window.__ocCompletionLoading||window.__ocMaintenanceLoading||
+  document.getElementById("oc-maintenance-loader"))return 2;
  return owner(window.OpenConnectCompletion)||owner(window.OpenConnectMaintenance)||
   (window.OpenConnect?owner(window.OpenConnect):1);
 };

@@ -14,26 +14,33 @@ if(previous)previous.cancel(previous.token);
 var ui=(function () {
 "use strict";
 var active=null, own=Object.prototype.hasOwnProperty, owner={};
+function available(fw){
+ var c=fw.common;
+ return c&&fw._browserShown&&fw._frameworkState===fw._FWK_STATE_IDLE&&
+  fw.getCurrentApp()==="system"&&fw.getCurrCtxtId()==="HomeScreen"&&
+  !c._vuiHelpDialog&&!c._vuiExamplesDialog&&
+  !/^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(c._cachedVuiState);
+}
+function foreign(fw){
+ return fw.common._openConnectOperation&&fw.common._openConnectOperation!==owner||
+  window.__ocUSBLoading&&window.__ocUSBLoading!==owner;
+}
 function claim(fw){
  var c=fw.common;
- if(!c||c._openConnectOperation&&c._openConnectOperation!==owner||window.__ocUSBLoading)return false;
+ if(!available(fw)||foreign(fw))return false;
  c._openConnectOperation=owner;return true;
 }
-function release(fw){if(fw.common._openConnectOperation===owner)delete fw.common._openConnectOperation;}
-function show(fw, title, text, buttons, done, settings, progress) {
-  var host=fw._currTmpltInstance, app=fw.getCurrentApp(), context=fw.getCurrCtxtId(), common=fw.common;
+function release(fw){
+ if(fw.common._openConnectOperation===owner)delete fw.common._openConnectOperation;
+ if(window.__ocUSBLoading===owner)delete window.__ocUSBLoading;
+}
+function show(fw, title, text, buttons, done, progress) {
+  var host=fw._currTmpltInstance, common=fw.common;
   function eligible() {
-    return fw._currTmpltInstance===host&&fw._frameworkState===fw._FWK_STATE_IDLE&&
-      fw.getCurrentApp()===app&&fw.getCurrCtxtId()===context&&
-      !common._vuiHelpDialog&&!common._vuiExamplesDialog&&
-      !/^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(common._cachedVuiState);
+    return fw._currTmpltInstance===host&&available(fw);
   }
-  if (active||!host||!common||!eligible()||
-      common._openConnectOperation&&common._openConnectOperation!==owner||
-      common._openConnectDialog||common._openConnectPage||window.__ocUSBLoading||
-      document.querySelector&&document.querySelector(".Dialog3Ctrl_Style19_NoTemplateInstance")||(settings ?
-      !/^(syssettings|audiosettings|vehsettings)$/.test(app)||!/Tab$/.test(context) :
-      app!=="system"||context!=="HomeScreen")) { return false; }
+  if (active||!host||!eligible()||foreign(fw)||common._openConnectDialog||common._openConnectPage||
+      document.querySelector&&document.querySelector(".Dialog3Ctrl_Style19_NoTemplateInstance")) { return false; }
   if (typeof ocCarPlay!=="undefined"&&ocCarPlay) { ocCarPlay.cancel(); }
   var restores=[], home=common.statusBar&&common.statusBar.homeBtn;
   function replace(object, key, fn) {
@@ -135,10 +142,10 @@ function choose(fw, installed, done, version, retained, from) {
     "\nMazda Connect will restart.", buttons, done);
 }
 function message(fw, title, text, buttons, done) {
-  return show(fw, title, text, buttons, done, /settings$/.test(fw.getCurrentApp()));
+  return show(fw, title, text, buttons, done);
 }
-return {claim:claim,release:release,choose: choose,message: message,progress: function (fw, action, warning, suspended) {
-  return show(fw, action, warning, null, suspended, /settings$/.test(fw.getCurrentApp()), true);
+return {claim:claim,release:release,admit:function(){window.__ocUSBLoading=owner;},choose: choose,message: message,progress: function (fw, action, warning, suspended) {
+  return show(fw, action, warning, null, suspended, true);
 },complete: function (fw, version, done) {
   return show(fw, "Open Connect installed", "Version " + versionText(version) + ".\nYou can now remove the USB drive.", {
     button1: {label: "Done", appData: "done"}, button2: {label: "Open settings", appData: "settings"}}, done);
@@ -147,13 +154,14 @@ return {claim:claim,release:release,choose: choose,message: message,progress: fu
 var dead=false,s=null,known=false,busy=false,feedback=false,acking=false;
 var epoch=0,job,dialog,view,timer,queued=null,shown=false,probing=false,ready=false;
 var originUSB=usb,requests=[];
-function valid(a){
+function valid(a,metadata){
  return a&&a.ok===true&&/^(?:-|[a-f0-9]{32}|[a-f0-9]{64})$/.test(a.revision)&&
- ["installed","retained","conflict","restart","pending"].every(function(k){return typeof a[k]==="boolean";})&&
+ ["installed","retained","restart","pending"].every(function(k){return typeof a[k]==="boolean";})&&
+ (metadata||typeof a.conflict==="boolean")&&
  /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(a.version)&&
  (a.installedVersion===undefined||a.installedVersion==="-"||/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(a.installedVersion));
 }
-function receive(a){known=!!valid(a);if(known)s=a;}
+function receive(a,metadata){known=!!valid(a,metadata);if(known)s=a;}
 function advance(){epoch++;}
 function held(){return!!job||feedback||acking;}
 function claim(){return !dead&&!feedback&&!acking&&!framework.common._openConnectPage&&ui.claim(framework);}
@@ -191,7 +199,7 @@ function post(op,args,done,ms,intent){
  answered=true;clearTimeout(deadline);
  var index=requests.indexOf(cancelRequest);if(index!==-1)requests.splice(index,1);
  if(dead||intent!==epoch)return;
- if(op!=="dismiss"&&!(op==="status"&&args&&args[0]==="session"))receive(a);
+ if(op!=="dismiss"&&!(op==="status"&&args&&args[0]==="session"))receive(a,originUSB&&op==="status"&&args&&args[0]==="settings");
  done(a,xhr.status);
 }
  xhr.onreadystatechange=function(){
@@ -313,6 +321,8 @@ function drive(){
  if(job.op!=="recover"&&(s.revision!==job.before.revision||s.version!==job.target)){end();return;}
  if(!paint())return;
  job.sent=true;job.phase="writing";
+ // Dev.22 already honors this foreign claim before sending a Settings write.
+ ui.admit();
  post(job.op,null,function(a){
  if(a&&a.error==="session_closed"){close();return;}
  if(!valid(a)){reconcile(a);return;}
@@ -382,7 +392,7 @@ var client={token:token,close:close,cancel:cancel,protected:function(){
  return held()||dialog||queued?2:!ready?1:0;
 }};
 function prepared(a){
- if(!valid(a)){
+ if(!valid(a,originUSB)){
   if(boot){if(window.ocCarPlay)ocCarPlay.cancel();close();}
   else message("Unable to finish","Open Connect could not be reached. Check the connection before trying again.");
   return;

@@ -13,7 +13,7 @@ f.reply(f.requests[1],f.state());assert.equal(f.pages.length,1);f.endAnimations(
 assert.equal(f.ctx.OpenConnect,owner);assert.equal(f.ctx.OpenConnectSettings,menus);assert.equal(f.ctx.OpenConnectInstaller,dialogs);
 assert.equal(f.list.properties.selectCallback,callback);
 f.advance(14000);assert.equal(f.ctx.OpenConnect,owner);assert.equal(f.pages.length,1);
-f.reply(f.requests[0],f.state());f.advance(0);assert.equal(f.dialog,undefined,'USB does not show a Home popup over Settings');
+f.reply(f.requests[0],f.metadata());f.advance(0);assert.equal(f.dialog,undefined,'USB does not show a Home popup over Settings');
 f.closeUSB();f.advance(1100);assert.equal(f.ctx.OpenConnect,owner);assert.equal(f.list.properties.selectCallback,callback);
 assert.equal(f.ctx.OpenConnectMaintenance,null);assert.equal(f.operation('dismiss').length,0,'physical removal is programmatic close');
 for(const stage of [0]){
@@ -51,17 +51,18 @@ function identities(f,send){
 // A foreign admitted operation still owns input while its progress is suspended.
 // A cached Settings tap must not install wrappers beneath resumed progress.
 f=warm();f.homeScreen();const nativeSend=f.fw.sendEventToMmui;
-f.usb();f.reply(f.requests.at(-1),f.state());f.advance(0);f.pick('install');
+f.usb();f.reply(f.requests.at(-1),f.metadata());f.advance(0);f.pick('install');
 const write=f.operation('install')[0];assert.ok(write);f.nativeSettings();const count=f.pages.length;
 f.tap();assert.equal(f.pages.length,count);assert.equal(f.host.handleControllerEvent,f.oldInput);assert.equal(f.fw.sendEventToMmui,nativeSend);
-f.advance(1000);assert.equal(f.dialog.props.contentStyle,'style27');
+f.advance(1000);assert.equal(f.dialog,undefined,'USB progress resumes only at idle Home');
 f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.advance(1000);assert.equal(f.dialog.props.contentStyle,'style27');
 f.ctx.OpenConnectMaintenance.close();identities(f,nativeSend);
 f.reply(write,f.state({restart:true}));assert.equal(f.operation('restart').length,0,'closed epoch ignores late write reply');
 
 // An unadmitted recovery read remains transparent to an existing custom page.
 f=warm();const page=f.pages.at(-1),pageInput=f.host.handleControllerEvent,pageTransition=f.fw.common.getCommonTransitionData,pageSend=f.fw.sendEventToMmui;
-f.usb();f.reply(f.requests.at(-1),f.state({pending:true}));f.advance(1000);
+f.usb();f.reply(f.requests.at(-1),f.metadata({pending:true}));f.advance(1000);
 assert.equal(f.operation('recover').length,0);assert.equal(f.dialog,undefined);assert.equal(page.cleaned,undefined);
 assert.equal(f.host.handleControllerEvent,pageInput);assert.equal(f.fw.common.getCommonTransitionData,pageTransition);assert.equal(f.fw.sendEventToMmui,pageSend);
 f.homeScreen();f.advance(1000);assert.equal(f.operation('recover').length,1);f.ctx.OpenConnectMaintenance.close();

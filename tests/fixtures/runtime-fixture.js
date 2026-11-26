@@ -98,6 +98,9 @@ module.exports=function fixture(folder,options={}){
  function state(extra={}){return {ok:true,revision,installed:options.installed!==false,retained:false,
   conflict:false,restart:false,pending:false,touch:0,warning:1,notice:'-',version,installedVersion:version,
   base:0,wireless:0,wirelessCurrent:0,carplayAutoshow:0,carplayAutoshowCurrent:0,...extra};}
+ // USB chooser metadata deliberately has no physical-audit or preference fields.
+ function metadata(extra={}){return {ok:true,revision,installed:options.installed!==false,retained:false,
+  restart:false,pending:false,notice:'-',version,installedVersion:version,completionReady:false,...extra};}
  function install(flushCount=Infinity){evaluate('runtime.js');flush(flushCount);advance(0);}
  function usb(flushCount=Infinity,sessionToken=usbToken){
   closedUSB=false;
@@ -129,7 +132,7 @@ module.exports=function fixture(folder,options={}){
   return {button,original,messages,fired};
  }
  return {ctx,fw,host,app,list,requests,mediaRequests,allRequests,controls,pages,calls,scripts,timers,meta,token,usbToken,revision,version,
-  evaluate,deliver,flush,advance,reply,state,install,usb,pick,tap,nativeSettings,homeScreen,endAnimations,touch,listeners,armHome,
+  evaluate,deliver,flush,advance,reply,state,metadata,install,usb,pick,tap,nativeSettings,homeScreen,endAnimations,touch,listeners,armHome,
   get dialog(){return controls.findLast(d=>!d.destroyed);},get lookups(){return lookups;},get now(){return now;},
   closeUSB(){closedUSB=true;},closeBoot(){closedBoot=true;},oldInput,oldTransition,oldSend:fw.sendEventToMmui,
   operation(op){return requests.filter(r=>r.body.split('|')[2]===op);},

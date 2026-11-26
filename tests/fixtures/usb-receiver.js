@@ -21,7 +21,7 @@ f.reply(f.requests[0],f.state());f.endAnimations();assert.equal(f.pages.length,1
 f.homeScreen();f.reply(waiting,null);f.advance(500);assert.equal(f.mediaRequests.length,3,'event retries missing publication');
 f.reply(f.mediaRequests.at(-1),media());f.flush();f.advance(0);
 const metadata=f.requests.at(-1);assert.equal(metadata.body.split('|')[3],'settings');
-f.reply(metadata,f.state());f.advance(0);assert.ok(f.dialog,'one eligible popup');
+f.reply(metadata,f.metadata());f.advance(0);assert.ok(f.dialog,'one eligible popup');
 assert.equal(f.ctx.OpenConnect,owner);assert.equal(f.list.properties.selectCallback,select);
 
 // A cold app binds after native initialization, before its triggering dispatch.
@@ -40,6 +40,38 @@ first.onload();assert.equal(f.ctx.__ocMaintenanceLoading,undefined,'late capture
 f.deliver(second);f.flush();f.advance(0);
 assert.equal(f.ctx.__ocMaintenanceGeneration.token,'f'.repeat(32));
 first.onload();assert.equal(f.ctx.__ocMaintenanceGeneration.token,'f'.repeat(32),'late A cannot remove B');
+
+// The startup read and a native Connected event may observe the same publication
+// before its first loader executes. A lookup generation is not a delivery owner.
+app=device();f=fixture(folder,{usbApp:app,autoMedia:false});f.install();
+f.reply(f.mediaRequests[0],media());
+const pending=f.scripts.find(n=>n.src.endsWith('/loader.js'));
+connected(f,app);f.reply(f.mediaRequests.at(-1),media());
+assert.equal(f.ctx.document.getElementById('oc-maintenance-loader'),pending);
+assert.equal(f.scripts.filter(n=>n.src.endsWith('/loader.js')).length,1);
+f.deliver(pending);f.flush();f.advance(0);f.reply(f.requests.at(-1),f.metadata());f.advance(0);
+assert.match(f.dialog.props.title,/Reinstall/,'same accepted offer retains its captured delivery');
+f.pick('cancel');f.reply(f.operation('dismiss').at(-1),{ok:true});
+
+// A new drive event can first see the consumed old offer while replacement is
+// staging. Keep its original event deadline; only a distinct token ends polling.
+connected(f,app);f.reply(f.mediaRequests.at(-1),media());
+const consumed=f.mediaRequests.length;f.advance(500);assert.equal(f.mediaRequests.length,consumed+1);
+f.reply(f.mediaRequests.at(-1),media('e'.repeat(32),'session-DEF456'));
+const newer=f.ctx.document.getElementById('oc-maintenance-loader');assert.notEqual(newer,pending);
+f.advance(64000);assert.equal(f.mediaRequests.length,consumed+1,'accepted new offer ends discovery');
+// Re-observing a pending offer cannot renew its delivery timeout.
+connected(f,app);f.reply(f.mediaRequests.at(-1),media('e'.repeat(32),'session-DEF456'));
+f.advance(1000);assert.equal(newer.parentNode,null,'timeout is measured from original acceptance');
+f.deliver(newer);assert.equal(f.ctx.__ocMaintenanceLoading,undefined,'timed-out late execution remains passive');
+connected(f,app);const eventStart=f.now;
+while(f.now<eventStart+65000){
+ f.reply(f.mediaRequests.at(-1),media('e'.repeat(32),'session-DEF456'));
+ f.advance(Math.min(500,eventStart+65000-f.now));
+}
+const ended=f.mediaRequests.length;f.advance(90000);
+assert.equal(f.mediaRequests.length,ended,'consumed offers cannot renew the event deadline');
+assert.equal(f.timers.size,0,'no permanent polling after consumed-offer window');
 
 // An already-connected app starts one bounded window. Retry and transport
 // deadlines share that budget; unsupported/failed listeners do not poll forever.

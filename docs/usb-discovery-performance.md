@@ -48,7 +48,7 @@ whole-system or peak-RAM claim.
 The receiver originally retried empty offers every 500 ms for up to 65 s from a
 connection trigger, including an ordinary drive with no installer offer.
 Backoff keeps the immediate first read, then 500/1,000/2,000 ms capped retries,
-reset for a new connection within the original deadline. The **130/34 counts
+reset by each new connection with its own 65 s deadline. The **130/34 counts
 are host replay counts**, not measured native HTTP-request counts. Immediate
 replies move the last read from 64.5 to 63.5 s; an offer first available in that
 last second can miss the window.

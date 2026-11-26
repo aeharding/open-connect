@@ -273,3 +273,59 @@ for(const event of ['Global.StartHelp','Global.StartExamples']){
  assert.equal(f.touch('click').stopped,undefined);assert.equal(f.ctx.OpenConnectMaintenance.protected(),true);
  f.ctx.OpenConnectMaintenance.close();assert.equal(f.fw.common._openConnectOperation,undefined);
 }
+
+// The USB popup consumes an operation ACK without inventing Settings state.
+for(const delay of [0,11000]){
+ f=fresh();metadata(f);f.pick('install');f.reply(f.operation('install')[0],commit(f));
+ const request=f.operation('restart')[0];f.advance(delay);
+ f.reply(request,{ok:true,restarting:true});
+ f.advance(1000);assert.match(f.dialog.props.text1,/Restarting Mazda Connect/);
+ f.advance(10999);assert.match(f.dialog.props.text1,/Restarting Mazda Connect/);
+ f.advance(1);assert.match(f.dialog.props.title,/Unable to confirm/);
+ assert.equal(f.ctx.OpenConnectMaintenance.protected(),true);assert.equal(f.operation('restart').length,1);
+ f.reply(request,{ok:true,restarting:true});f.advance(1000);
+ assert.equal(f.operation('restart').length,1);assert.match(f.dialog.props.title,/Unable to confirm/);
+}
+for(const answer of [null,{ok:false,error:'state_changed'},{ok:true,restarting:false},{ok:true},'legacy']){
+ f=fresh();metadata(f);f.pick('install');f.reply(f.operation('install')[0],commit(f));
+ const request=f.operation('restart')[0];f.advance(11000);f.reply(request,answer==='legacy'?f.state({restart:true}):answer);
+ assert.equal(f.requests.at(-1).body.split('|')[3],'-','restart uncertainty reads full physical state');
+ f.advance(1000);assert.match(f.dialog.props.title,/Unable to confirm/);
+ assert.equal(f.operation('restart').length,1);assert.equal(f.ctx.OpenConnectMaintenance.protected(),true);
+ f.reply(request,{ok:true,restarting:true});f.advance(15000);assert.equal(f.operation('restart').length,1);
+}
+console.log('USB restart: late narrow ACK gets full handoff; negative/lost/malformed stays bounded without replay');
+f=fresh();metadata(f);f.pick('install');f.reply(f.operation('install')[0],commit(f));
+const silentRestart=f.operation('restart')[0];f.advance(12000);
+assert.equal(silentRestart.aborted,true);assert.match(f.dialog.props.title,/Unable to confirm/);
+f.reply(silentRestart,{ok:true,restarting:true});f.advance(15000);
+assert.equal(f.operation('restart').length,1);assert.equal(f.ctx.OpenConnectMaintenance.protected(),true);
+
+// A late Install proof and native voice cannot consume restart admission time.
+for(const pause of [0,15000]){
+ f=fresh();metadata(f);f.pick('install');
+ f.reply(f.operation('install')[0],null);const proof=f.requests.at(-1);
+ assert.equal(proof.body.split('|')[3],'-');f.advance(11000);
+ if(pause)f.fw.common._cachedVuiState='Listening';
+ f.reply(proof,commit(f));
+ if(pause){
+  assert.equal(f.operation('restart').length,0);f.advance(pause);
+  f.fw.common._cachedVuiState='Idle';f.advance(1000);
+ }
+ const request=f.operation('restart')[0];assert.ok(request);
+ f.advance(11000);assert.equal(request.aborted,undefined);
+ f.reply(request,{ok:true,restarting:true});f.advance(1000);
+ assert.match(f.dialog.props.text1,/Restarting Mazda Connect/);
+ assert.equal(f.operation('install').length,1);assert.equal(f.operation('restart').length,1);
+}
+// A settled Install readback cannot acknowledge its lost/negative restart.
+for(const answer of [null,{ok:false,error:'state_changed'},{ok:true}]){
+ f=fresh();metadata(f);f.pick('install');f.reply(f.operation('install')[0],commit(f));
+ const restart=f.operation('restart')[0];f.advance(1000);f.reply(restart,answer);
+ const readback=f.requests.at(-1);assert.equal(readback.body.split('|')[3],'-');f.reply(readback,commit(f));
+ assert.match(f.dialog.props.title,answer&&answer.ok===false?/Unable to finish/:/Unable to confirm/);
+ const feedback=f.dialog;f.reply(restart,{ok:true,restarting:true});f.reply(readback,commit(f));f.advance(15000);
+ assert.equal(f.dialog,feedback);assert.equal(f.operation('restart').length,1);
+ assert.equal(f.ctx.OpenConnectMaintenance.protected(),!(answer&&answer.ok===false));
+}
+console.log('USB restart owns a fresh send deadline after late write proof/VUI; completed readback cannot prove reboot');

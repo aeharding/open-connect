@@ -176,3 +176,88 @@ f=fixture(folder);f.install();f.fw.sendEventToMmui=(id,event)=>f.calls.push([id,
 f.ctx.OpenConnect.openSettings();f.reply(f.requests[0],f.state());f.advance(8000);
 assert.equal(f.pages.length,0);assert.equal([...f.timers.values()].filter(t=>t.repeat===200).length,0);
 console.log('Epoch regressions: stale refresh cache/subscribers are fenced; exhausted Home entry cancels its interval');
+
+// A normal saved service reply unlocks Apply. A queued choice back to the
+// applied value uses the first revision, then no longer needs a restart.
+for(const queued of [false,true]){
+ const row={id:'pandora',label:'Pandora',saved:1,current:1,enable:'Enable Pandora',disable:'Disable Pandora'};
+ f=warm({services:[row]});select(f,'sources');
+ select(f,'pandora',{additionalData:2});f.pick('apply');f.advance(250);
+ const first=f.operation('set')[0];
+ assert.deepEqual(first.body.split('|').slice(1),[f.revision,'set','pandora','1','0']);
+ if(queued){select(f,'pandora',{additionalData:1});f.pick('apply');f.advance(250);}
+ assert.equal(f.operation('set').length,1);
+ f.reply(first,f.state({services:[{...row,saved:0}],revision:'d'.repeat(64),restart:true}));
+ if(queued){
+  const next=f.operation('set')[1];assert.ok(next);
+  assert.deepEqual(next.body.split('|').slice(1),['d'.repeat(64),'set','pandora','0','1']);
+  f.reply(next,f.state({services:[row]}));
+ }
+ const service=f.pages.at(-1).list2Ctrl.dataList.items.find(r=>r.appData==='pandora');
+ assert.equal(/restart needed/.test(service.text1),!queued);
+ f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+ const apply=f.pages.at(-1).list2Ctrl.dataList.items.find(r=>r.appData==='restart');
+ assert.equal(apply.disabled,queued);
+ assert.equal(f.operation('status').length,1,'confirmed saves do not fetch another view');
+ assert.equal(f.operation('restart').length,0);
+}
+
+// Admission time and the backend's bounded reboot handoff have separate budgets.
+// Exercise the real Settings owner with the current cohort's narrow ACK.
+for(const delay of [0,11000]){
+ f=warm({restart:true});select(f,'restart');f.pick('restart');
+ const request=f.operation('restart')[0];f.advance(delay);
+ f.reply(request,{ok:true,restarting:true});
+ f.advance(1000);assert.match(f.dialog.props.text1,/Restarting Mazda Connect/);
+ f.advance(10999);assert.match(f.dialog.props.text1,/Restarting Mazda Connect/);
+ f.advance(1);assert.match(f.dialog.props.title,/Unable to confirm/);
+ assert.equal(f.ctx.OpenConnect.protected(),true);assert.equal(f.operation('restart').length,1);
+ f.reply(request,{ok:true,restarting:true});f.advance(1000);
+ assert.equal(f.operation('restart').length,1);assert.match(f.dialog.props.title,/Unable to confirm/);
+}
+for(const answer of [null,{ok:false,error:'state_changed'},{ok:true,restarting:false},{ok:true},'legacy']){
+ f=warm({restart:true});select(f,'restart');f.pick('restart');
+ const request=f.operation('restart')[0];f.advance(11000);f.reply(request,answer==='legacy'?f.state({restart:true}):answer);
+ assert.equal(f.requests.at(-1).body.split('|')[3],'-','restart uncertainty reads full physical state');
+ f.advance(1000);assert.match(f.dialog.props.title,/Unable to confirm/);
+ assert.equal(f.operation('restart').length,1);assert.equal(f.ctx.OpenConnect.protected(),true);
+ f.reply(request,{ok:true,restarting:true});f.advance(15000);assert.equal(f.operation('restart').length,1);
+}
+console.log('Settings restart: late narrow ACK gets full handoff; negative/lost/malformed stays bounded without replay');
+f=warm({restart:true});select(f,'restart');f.pick('restart');
+const silentRestart=f.operation('restart')[0];f.advance(12000);
+assert.equal(silentRestart.aborted,true);assert.match(f.dialog.props.title,/Unable to confirm/);
+f.reply(silentRestart,{ok:true,restarting:true});f.advance(15000);
+assert.equal(f.operation('restart').length,1);assert.equal(f.ctx.OpenConnect.protected(),true);
+
+// Uninstall proof can arrive at the end of its readback window. Restart gets
+// its own admission window when progress can actually send, even after VUI.
+for(const pause of [0,15000]){
+ f=warm();select(f,'uninstall');f.pick('uninstall');
+ f.reply(f.operation('uninstall')[0],null);const proof=f.requests.at(-1);
+ assert.equal(proof.body.split('|')[3],'-');f.advance(11000);
+ if(pause)f.fw.common._cachedVuiState='Listening';
+ f.reply(proof,f.state({installed:false,retained:false,revision:'-',restart:true}));
+ if(pause){
+  assert.equal(f.operation('restart').length,0);f.advance(pause);
+  f.fw.common._cachedVuiState='Idle';f.advance(1000);
+ }
+ const request=f.operation('restart')[0];assert.ok(request);
+ f.advance(11000);assert.equal(request.aborted,undefined);
+ f.reply(request,{ok:true,restarting:true});f.advance(1000);
+ assert.match(f.dialog.props.text1,/Restarting Mazda Connect/);
+ assert.equal(f.operation('uninstall').length,1);assert.equal(f.operation('restart').length,1);
+}
+// Full readback can prove Uninstall, never the restart that follows it.
+for(const answer of [null,{ok:false,error:'state_changed'},{ok:true}]){
+ f=warm();select(f,'uninstall');f.pick('uninstall');
+ const removed=f.state({installed:false,retained:false,revision:'-',restart:true});
+ f.reply(f.operation('uninstall')[0],removed);const restart=f.operation('restart')[0];
+ f.advance(1000);f.reply(restart,answer);const readback=f.requests.at(-1);
+ assert.equal(readback.body.split('|')[3],'-');f.reply(readback,removed);
+ assert.match(f.dialog.props.title,answer&&answer.ok===false?/Unable to finish/:/Unable to confirm/);
+ const feedback=f.dialog;f.reply(restart,{ok:true,restarting:true});f.reply(readback,removed);f.advance(15000);
+ assert.equal(f.dialog,feedback);assert.equal(f.operation('restart').length,1);
+ assert.equal(f.ctx.OpenConnect.protected(),!(answer&&answer.ok===false));
+}
+console.log('Settings restart owns a fresh send deadline after late write proof/VUI; completed readback cannot prove reboot');

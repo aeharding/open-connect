@@ -9,6 +9,8 @@ case "$request_owner" in :*|*:|*:*:*|*[!0-9:]*) exit 1;; esac
 fail() { printf '%s\n' "$1" >&2; exit 1; }
 sha() { "$P/flush" h "$1"; }
 hex() { test "${#1}" -eq "$2" && case "$1" in *[!a-f0-9]*) false;; *) true;; esac; }
+sha_is() { local digest; digest=$(sha "$1") && hex "$digest" 64 && test "$digest" = "$2"; }
+sha_same() { local digest; digest=$(sha "$1") && hex "$digest" 64 && sha_is "$2" "$digest"; }
 uuid() { tr -d '-' < /proc/sys/kernel/random/uuid; }
 absent() { test ! -e "$1" && test ! -L "$1"; }
 file() { test -f "$1" && test ! -L "$1" && test "$(readlink -f "$1")" = "$1"; }
@@ -135,18 +137,17 @@ metadata() {
 snapshot_verify() {
     local dir=$D/snapshots/$1
     hex "$1" 64 && private_dir "$dir" && verify_manifest "$dir" &&
-        test "$(sha "$dir/files.sha256")" = "$1"
+        sha_is "$dir/files.sha256" "$1"
 }
 snapshot_read() { snapshot_verify "$1" && snapshot_decode "$1"; }
 
-# Package identity is authenticated data. Inspect it before choosing executable
-# preference helpers (in particular when the running Settings package is older).
+# Authenticate package identity before choosing preference helpers.
 snapshot_package() {
     local dir=$D/snapshots/$1 digest
     hex "$1" 64 && private_dir "$dir" && file "$dir/files.sha256" &&
-        test "$(sha "$dir/files.sha256")" = "$1" && file "$dir/config" || return 1
+        sha_is "$dir/files.sha256" "$1" && file "$dir/config" || return 1
     digest=$(awk '$2=="config"{n++;v=$1;if(NF!=2)bad=1}END{if(bad||n!=1)exit 1;print v}' "$dir/files.sha256") &&
-        hex "$digest" 64 && test "$(sha "$dir/config")" = "$digest" || return 1
+        hex "$digest" 64 && sha_is "$dir/config" "$digest" || return 1
     awk '
         NR==1 {if($0=="OC2")modern=1;else {
             n=split($0,a,"|");if(n!=5&&n!=8)exit 1;p=a[1];count++
@@ -159,9 +160,9 @@ snapshot_package() {
 package_version() {
     local folder=$D/packages/$1 digest value
     hex "$1" 64 && private_dir "$folder" && file "$folder/files.sha256" &&
-        test "$(sha "$folder/files.sha256")" = "$1" && file "$folder/VERSION" || return 1
+        sha_is "$folder/files.sha256" "$1" && file "$folder/VERSION" || return 1
     digest=$(awk '$2=="VERSION"{n++;v=$1;if(NF!=2)bad=1}END{if(bad||n!=1)exit 1;print v}' "$folder/files.sha256") &&
-        hex "$digest" 64 && test "$(sha "$folder/VERSION")" = "$digest" || return 1
+        hex "$digest" 64 && sha_is "$folder/VERSION" "$digest" || return 1
     value=$(cat "$folder/VERSION") || return 1
     case "$value" in ''|*[!a-zA-Z0-9.-]*) return 1;; esac
     printf '%s\n' "$value"
@@ -171,7 +172,7 @@ package_version() {
 preferences_package() {
     local folder=$D/packages/$1 expected actual name
     hex "$1" 64 && private_dir "$folder" && file "$folder/files.sha256" &&
-        test "$(sha "$folder/files.sha256")" = "$1" || return 1
+        sha_is "$folder/files.sha256" "$1" || return 1
     for name in preferences.awk services.tsv; do file "$folder/$name" || return 1; done
     expected=$(awk -v folder="$folder" '
         $2=="preferences.awk" {a++;p=$1;if(NF!=2)bad=1}
@@ -190,9 +191,10 @@ preferences_package() {
 package_programs() {
     local folder=$D/packages/$1 name
     hex "$1" 64 && private_dir "$folder" && file "$folder/files.sha256" &&
-        test "$(sha "$folder/files.sha256")" = "$1" && verify_manifest "$folder" || return 1
+        sha_is "$folder/files.sha256" "$1" && verify_manifest "$folder" || return 1
     shift
-    for name in "$@"; do
+    test -x "$folder/flush" || return 1
+    for name in flush "$@"; do
         file "$folder/$name" &&
             awk -v name="$name" '$2==name{n++}END{exit n!=1}' "$folder/files.sha256" || return 1
     done

@@ -14,7 +14,20 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "cmu/installer"
 
 
+@unittest.skipUnless(shutil.which("clang"), "Clang required")
 class InstallerComposition(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.temp.cleanup)
+        cls.tools = Path(cls.temp.name).resolve()
+        subprocess.run(
+            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", cls.tools / "flush"],
+            check=True,
+            capture_output=True,
+            timeout=20,
+        )
+
     def test_boot_mounts_allow_rootfs_but_refuse_protected_overlays(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
@@ -68,10 +81,11 @@ class InstallerComposition(unittest.TestCase):
                         [
                             "sh",
                             "-c",
-                            '. "$1/state.sh"; . "$2"; factory_wireless',
+                            'P=$3; . "$1/state.sh"; . "$2"; factory_wireless',
                             "test",
                             ASSETS,
                             firmware,
+                            self.tools,
                         ],
                         capture_output=True,
                         timeout=5,
@@ -89,14 +103,17 @@ class InstallerComposition(unittest.TestCase):
 
     def test_wcp_dependency_resolves_without_accepting_unknown_paths(self):
         driver = (
-            'set -eu; . "$1/state.sh"; . "$1/firmware.sh"\n'
+            'set -eu; P=$2; . "$1/state.sh"; . "$1/firmware.sh"\n'
             "dependency_path root/sm_WCP.conf\n"
             "for name in root/not_known.conf root/../sm_WCP.conf root//sm_WCP.conf; do\n"
             '    if dependency_path "$name"; then exit 1; fi\n'
             "done\n"
         )
         result = subprocess.run(
-            ["sh", "-c", driver, "test", ASSETS], capture_output=True, text=True, check=True
+            ["sh", "-c", driver, "test", ASSETS, self.tools],
+            capture_output=True,
+            text=True,
+            check=True,
         )
         self.assertEqual(result.stdout, "/jci/sm/sm_WCP.conf\n")
 
@@ -146,7 +163,7 @@ class InstallerComposition(unittest.TestCase):
                 line for line in backend if line.lstrip().startswith('compose "$package"')
             )
             driver = (
-                'set -eu\numask 077\nD=$1; . "$2/state.sh"; . "$2/firmware.sh"\n'
+                'set -eu\numask 077\nD=$1; P=$4; . "$2/state.sh"; . "$2/firmware.sh"\n'
                 # Synthetic fixtures enter immediately after input verification;
                 # every composition write and its real caller context are intact.
                 "verify_manifest() { :; }; originals_verify() { :; }\n"
@@ -161,7 +178,7 @@ class InstallerComposition(unittest.TestCase):
                 with self.subTest(write=fail_at):
                     (root / "count").write_text("0\n")
                     result = subprocess.run(
-                        ["sh", "-c", driver, "test", root, ASSETS, package],
+                        ["sh", "-c", driver, "test", root, ASSETS, package, self.tools],
                         env={
                             **os.environ,
                             "PATH": str(root / "tools") + os.pathsep + os.environ["PATH"],
@@ -203,11 +220,11 @@ class InstallerComposition(unittest.TestCase):
             firmware = root / "firmware.sh"
             firmware.write_text(contents)
             driver = (
-                'set -eu\n. "$1/state.sh"; . "$2"\n'
+                'set -eu\nP=$3; . "$1/state.sh"; . "$2"\n'
                 "original_files() { :; }\ndependencies_capture -\ndependency_path root/manager.so\n"
             )
             result = subprocess.run(
-                ["sh", "-c", driver, "test", ASSETS, firmware],
+                ["sh", "-c", driver, "test", ASSETS, firmware, self.tools],
                 capture_output=True,
                 text=True,
                 check=True,

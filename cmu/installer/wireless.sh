@@ -7,6 +7,8 @@ export LC_ALL=C PATH=/usr/bin:/bin:/usr/sbin:/sbin
 R=/tmp/open-connect/feature
 T=/tmp/devmgr_config_edit.xml
 sha() { value=$(openssl dgst -sha256 < "$1") || return; printf '%s\n' "${value##* }"; }
+hex() { test "${#1}" -eq "$2" && case "$1" in *[!a-f0-9]*) false;; *) true;; esac; }
+sha_is() { local digest; digest=$(sha "$1") && hex "$digest" 64 && test "$digest" = "$2"; }
 absent() { test ! -e "$1" && test ! -L "$1"; }
 uuid() {
     local value=$1 digit
@@ -41,22 +43,22 @@ uuid "$live_boot" && uuid "$saved_boot" && test -n "$live_boot" && test "$live_b
 absent "$R/wireless-ready"
 prepare() (
     # Keep every failure explicit; no partial output authorizes publication.
-    test "$(sha /etc/devmgr_config_master.xml)" = 9f1811e2d9a905ba9060a9c20b8d91c18aaa5c079512e3261b51cf0114fc857b || exit 1
-    test "$(sha /jci/vbs/modules/libjcimod_eem.so)" = 0160354861d0dddf09f05dc69df95f14be074de706a4d7656166666d587439d9 || exit 1
-    test "$(sha /jci/devicemanager/libdevicemanager.so)" = 88d6291d74fe993536ec724064b8ccfbc133b2341282b93cfc7fb2927fbbc563 || exit 1
+    sha_is /etc/devmgr_config_master.xml 9f1811e2d9a905ba9060a9c20b8d91c18aaa5c079512e3261b51cf0114fc857b || exit 1
+    sha_is /jci/vbs/modules/libjcimod_eem.so 0160354861d0dddf09f05dc69df95f14be074de706a4d7656166666d587439d9 || exit 1
+    sha_is /jci/devicemanager/libdevicemanager.so 88d6291d74fe993536ec724064b8ccfbc133b2341282b93cfc7fb2927fbbc563 || exit 1
     test -f "$T" && test ! -L "$T" && test "$(readlink -f "$T")" = "$T" || exit 1
     absent "$R/wireless-original.xml" && absent "$R/wireless-new.xml" || exit 1
-    before=$(sha "$T") || exit 1
+    before=$(sha "$T") && hex "$before" 64 || exit 1
     identity=$(stat -c '%d:%i:%a:%u:%g' "$T") || exit 1
     mode=$(stat -c '%a' "$T") || exit 1
     owner=$(stat -c '%u:%g' "$T") || exit 1
     (set -C; cat "$T" > "$R/wireless-original.xml") || exit 1
-    test "$(sha "$R/wireless-original.xml")" = "$before" || exit 1
+    sha_is "$R/wireless-original.xml" "$before" || exit 1
     awk -f "$R/wireless-device.awk" "$R/wireless-original.xml" > "$R/wireless-new.xml" || exit 1
     chmod "$mode" "$R/wireless-new.xml" || exit 1
     chown "$owner" "$R/wireless-new.xml" || exit 1
     test -f "$T" && test ! -L "$T" && test "$(readlink -f "$T")" = "$T" || exit 1
-    test "$(stat -c '%d:%i:%a:%u:%g' "$T")" = "$identity" && test "$(sha "$T")" = "$before" || exit 1
+    test "$(stat -c '%d:%i:%a:%u:%g' "$T")" = "$identity" && sha_is "$T" "$before" || exit 1
     mv "$R/wireless-new.xml" "$T" || exit 1
 )
 if test "${1:-}" = --prepare; then prepare; exit; fi

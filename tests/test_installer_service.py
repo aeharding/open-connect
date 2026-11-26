@@ -227,6 +227,7 @@ class InstallerUSBStaging(unittest.TestCase):
 
 
 class InstallerPrivateStaging(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("clang"), "Clang required")
     def test_expired_admission_is_reclaimed_by_stop_and_replacement(self):
         for action in ("stop", "start"):
             with self.subTest(action=action), tempfile.TemporaryDirectory() as folder:
@@ -242,7 +243,15 @@ class InstallerPrivateStaging(unittest.TestCase):
                 tools.mkdir()
                 if shutil.which("gstat"):
                     (tools / "stat").symlink_to(shutil.which("gstat"))
+                subprocess.run(
+                    ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", tools / "flush"],
+                    check=True,
+                    capture_output=True,
+                    timeout=20,
+                )
                 for path in (old, source):
+                    shutil.copyfile(tools / "flush", path / "flush")
+                    (path / "flush").chmod(0o700)
                     shutil.copyfile(ASSETS / "state.sh", path / "state.sh")
                     service = (
                         (ASSETS / "service.sh")

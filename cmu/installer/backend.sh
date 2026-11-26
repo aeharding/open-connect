@@ -97,7 +97,7 @@ completion_identity() {
     test "$R_PHASE" = active && test "$selected_snapshot" = "$R_CURRENT" || fail completion_unavailable
     completion_boot=$(current_boot_id) && test "$completion_boot" = "$R_BOOT" || fail completion_unavailable
     test "$(snapshot_package "$R_CURRENT")" = "$R_BACKEND" || fail invalid_snapshot
-    file "$P/files.sha256" && test "$(sha "$P/files.sha256")" = "$R_BACKEND" || fail session_replaced
+    file "$P/files.sha256" && sha_is "$P/files.sha256" "$R_BACKEND" || fail session_replaced
     completion_version=$(package_version "$R_BACKEND") || fail invalid_version
     test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
 }
@@ -345,7 +345,7 @@ install)
         uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
         if test "$S_ACCESS" = true && test "$S_LOGIN_INODE" = -; then fail developer_reinstall_required; fi
         if test "$S_ACCESS" = false; then
-            test "$(sha /usr/bin/runlogin)" = b77e4dadaa1173578e58d319dd3d37bb24117cb9b3baf73731c401f5a47360b8 || fail unsupported_console
+            sha_is /usr/bin/runlogin b77e4dadaa1173578e58d319dd3d37bb24117cb9b3baf73731c401f5a47360b8 || fail unsupported_console
             absent "/usr/bin/.open-connect-runlogin-$(stat -c %i /usr/bin/runlogin)" || fail console_hold_conflict
         fi
         if test "$S_LOGIN_INODE" = -; then login_inode=$(stat -c %i /usr/bin/runlogin); else login_inode=$S_LOGIN_INODE; fi
@@ -353,8 +353,8 @@ install)
         selector_capture "$access_work" || fail selector_backup_failed
         before=$(state_capture "$old_package" "$access_work" "$prefs") || fail checkpoint_failed
     else
-        test "$(sha "$AUTOSTART")" = "$(sha "$D/originals/autostart")" || fail unsupported_startup
-        test "$(sha /usr/bin/runlogin)" = b77e4dadaa1173578e58d319dd3d37bb24117cb9b3baf73731c401f5a47360b8 || fail unsupported_console
+        sha_same "$AUTOSTART" "$D/originals/autostart" || fail unsupported_startup
+        sha_is /usr/bin/runlogin b77e4dadaa1173578e58d319dd3d37bb24117cb9b3baf73731c401f5a47360b8 || fail unsupported_console
         absent "/usr/bin/.open-connect-runlogin-$(stat -c %i /usr/bin/runlogin)" || fail console_hold_conflict
         access_capture "$access_work" 0 0 - || fail access_backup_failed
         selector_capture "$access_work" || fail selector_backup_failed

@@ -128,7 +128,7 @@ targets_match() {
 # checks baseline login lifetime separately while those baseline fields are live.
 targets_match_loaded() {
     file "$AUTOSTART" &&
-        test "$(sha "$AUTOSTART")" = "$(sha "$D/snapshots/$1/autostart")" &&
+        sha_same "$AUTOSTART" "$D/snapshots/$1/autostart" &&
         test "$(stat -c '%a:%u:%g' "$AUTOSTART")" = "$S_META" &&
         test "$(nvram_read)" = "$S_NVRAM" || return 1
     if test "$S_ACCESS" = true; then access_files_match_loaded "$1" || return 1; fi
@@ -153,7 +153,7 @@ uninstall_owned() (
     local current_mode current_touch current_nvram snapshot=$1
     snapshot_read "$snapshot" || return 1
     hex "$S_PACKAGE" 64 && file "$D/composed/$S_PACKAGE/autostart" &&
-        test "$(sha "$D/snapshots/$snapshot/autostart")" = "$(sha "$D/composed/$S_PACKAGE/autostart")" || return 1
+        sha_same "$D/snapshots/$snapshot/autostart" "$D/composed/$S_PACKAGE/autostart" || return 1
     current_mode=$S_META; current_touch=$S_TOUCH; current_nvram=$S_NVRAM
     snapshot_read "$R_BASE" || return 1
     test "$current_mode" = "$S_META" || return 1
@@ -240,9 +240,11 @@ transaction_reconcile() {
         uninstall_owned "$R_BEFORE" || fail state_changed
     fi
     snapshot_read "$R_BEFORE" || fail invalid_before
-    before_hash=$(sha "$D/snapshots/$R_BEFORE/autostart"); before_mode=$S_META; before_nv=$S_NVRAM
+    before_hash=$(sha "$D/snapshots/$R_BEFORE/autostart") && hex "$before_hash" 64 || fail invalid_before
+    before_mode=$S_META; before_nv=$S_NVRAM
     snapshot_read "$R_AFTER" || fail invalid_after
-    after_hash=$(sha "$D/snapshots/$R_AFTER/autostart"); after_mode=$S_META; after_nv=$S_NVRAM
+    after_hash=$(sha "$D/snapshots/$R_AFTER/autostart") && hex "$after_hash" 64 || fail invalid_after
+    after_mode=$S_META; after_nv=$S_NVRAM
     # A fresh process recovering a pending record must verify both sets again.
     # The immediate caller just did this before committing the same record.
     if test "${PREPARED_REV:-}" != "$R_REV"; then
@@ -250,7 +252,8 @@ transaction_reconcile() {
         flush d "$D"
     fi
     file "$AUTOSTART" || fail startup_changed
-    actual_hash=$(sha "$AUTOSTART"); actual_mode=$(stat -c '%a:%u:%g' "$AUTOSTART"); actual_nv=$(nvram_read) || fail nvram_unreadable
+    actual_hash=$(sha "$AUTOSTART") && hex "$actual_hash" 64 || fail startup_changed
+    actual_mode=$(stat -c '%a:%u:%g' "$AUTOSTART"); actual_nv=$(nvram_read) || fail nvram_unreadable
     case "$actual_hash:$actual_mode" in "$before_hash:$before_mode"|"$after_hash:$after_mode") ;; *) fail startup_changed;; esac
     case "$actual_nv" in "$before_nv"|"$after_nv") ;; *) fail nvram_changed;; esac
     if test ! -e "$D/snapshots/$R_BEFORE/access" && test ! -e "$D/snapshots/$R_AFTER/access"; then :

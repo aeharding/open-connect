@@ -170,6 +170,96 @@ class InstallerState(unittest.TestCase):
                     self.run_command("read-prefs", self.config_snapshot(config)).returncode, 0
                 )
 
+    def test_boot_sealing_requires_manifest_listed_executable_flush_before_switch(self):
+        packages = self.data / "packages"
+        packages.mkdir(mode=0o700)
+        sentinel = self.root / "target-executed"
+        for listed, executable in ((False, True), (True, False), (True, True)):
+            with self.subTest(listed=listed, executable=executable):
+                folder = packages / "build"
+                folder.mkdir(mode=0o700)
+                members = [
+                    "state.sh",
+                    "firmware.sh",
+                    "access.sh",
+                    "transaction.sh",
+                    "boot-select",
+                    "VERSION",
+                ]
+                for name in members:
+                    (folder / name).write_text("# target fixture\n")
+                (folder / "state.sh").write_text(
+                    "touch " + shlex.quote(str(sentinel)) + "\nexit 0\n"
+                )
+                shutil.copyfile(self.tools / "flush", folder / "flush")
+                (folder / "flush").chmod(0o700 if executable else 0o600)
+                if listed:
+                    members.append("flush")
+                manifest = "".join(
+                    hashlib.sha256((folder / name).read_bytes()).hexdigest() + "  " + name + "\n"
+                    for name in members
+                )
+                (folder / "files.sha256").write_text(manifest)
+                package = hashlib.sha256(manifest.encode()).hexdigest()
+                target = packages / package
+                folder.rename(target)
+                result = subprocess.run(
+                    [
+                        "sh",
+                        "-c",
+                        "set -eu; D=$1; P=$2; R_BACKEND=$3; R_BASE=-; AUTOSTART=$4; "
+                        '. "$5/state.sh"; . "$5/firmware.sh"; '
+                        "snapshot_read() { S_PACKAGE=$R_BACKEND; S_SCHEMA=OC2; }; "
+                        "boot_snapshot_seal fixture",
+                        "seal",
+                        self.data,
+                        self.tools,
+                        package,
+                        self.root / "autostart",
+                        ROOT / "cmu/installer",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+                )
+                if listed and executable:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertTrue(sentinel.exists())
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("invalid_boot_package", result.stderr)
+                    self.assertFalse(sentinel.exists())
+                shutil.rmtree(target)
+
+    def test_hash_comparisons_require_success_and_a_full_digest(self):
+        source = self.root / "hash-input"
+        source.write_bytes(b"verified\n")
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        for output, status in (("", 0), ("a", 0), ("g" * 64, 0), (digest, 19)):
+            with self.subTest(output=output, status=status):
+                (self.tools / "flush").write_text(
+                    "#!/bin/sh\nprintf '%s\\n' " + shlex.quote(output) + f"\nexit {status}\n"
+                )
+                (self.tools / "flush").chmod(0o700)
+                for comparison in ('sha_is "$3" "$4"', 'sha_same "$3" "$3"'):
+                    result = subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            'P=$1; . "$2"; ' + comparison,
+                            "compare",
+                            self.tools,
+                            ROOT / "cmu/installer/state.sh",
+                            source,
+                            digest,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+
     def test_canonical_config_uses_only_manifest_pinned_target_interpreter(self):
         packages = self.data / "packages"
         packages.mkdir(mode=0o700)
@@ -350,8 +440,9 @@ class InstallerState(unittest.TestCase):
             "uuid() { openssl rand -hex 16; }",
         )
         (source / "state.sh").write_text(state)
-        for name in ("api", "flush"):
-            (source / name).write_bytes(b"staging fixture\n")
+        (source / "api").write_bytes(b"staging fixture\n")
+        shutil.copyfile(self.tools / "flush", source / "flush")
+        (source / "flush").chmod(0o700)
         (source / "files.sha256").write_text(
             "".join(
                 hashlib.sha256((source / name).read_bytes()).hexdigest() + "  " + name + "\n"
@@ -396,6 +487,16 @@ class InstallerState(unittest.TestCase):
         self.assertEqual(len(list((runtime / "sessions").iterdir())), 2)
         for session in (runtime / "sessions").iterdir():
             self.assertEqual((session / "token").read_bytes(), token)
+        # A failed caller hash used to pass an empty ID, then a second failed
+        # hash compared equal and authorized publication. Preserve that caller
+        # here to prove the staging boundary itself refuses the empty result.
+        (source / "flush").chmod(0o600)
+        failed = run()
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn("damaged_runtime", failed.stderr)
+        self.assertEqual((runtime / "token").read_bytes(), token)
+        self.assertEqual(len(list((runtime / "sessions").iterdir())), 2)
+        (source / "flush").chmod(0o700)
         (runtime / "token").write_bytes(b"corrupt\n")
         failed = run()
         self.assertNotEqual(failed.returncode, 0)

@@ -49,7 +49,7 @@ static long syscall3(long number, long a, long b, long c) {
     return r0;
 }
 static long open_readonly(const char *path, int directory) {
-    return syscall3(5, (long)path, 0100000 | 04000 | (directory ? 040000 : 0), 0);
+    return syscall3(5, (long)path, 0100000 | 04000 | (directory ? 040000 : 0400000), 0);
 }
 static long flush_fd(int fd) { return syscall3(118, fd, 0, 0); }
 static long close_fd(int fd) { return syscall3(6, fd, 0, 0); }

@@ -39,7 +39,7 @@ boot_copy_package() {
     for name in "$@"; do
         expected=$(awk -v name="$name" '$2==name{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
         hex "$expected" 64 && cp "$P/$name" "$destination/$name" &&
-            test "$(sha "$destination/$name")" = "$expected" || return 1
+            sha_is "$destination/$name" "$expected" || return 1
     done
 }
 
@@ -150,7 +150,7 @@ boot_select() {
         base_nvram=$S_NVRAM
         snapshot_read "$R_CURRENT" || fail invalid_snapshot
         hex "$S_PACKAGE" 64 && private_dir "$D/packages/$S_PACKAGE" && private_dir "$D/composed/$S_PACKAGE" || fail damaged_feature
-        test "$(sha "$D/packages/$S_PACKAGE/files.sha256")" = "$S_PACKAGE" || fail damaged_feature
+        sha_is "$D/packages/$S_PACKAGE/files.sha256" "$S_PACKAGE" || fail damaged_feature
         startup_stamp targets_dependencies
     fi
     if test "$modern" = true && test -z "${observer:-}"; then boot_observer_stage; fi
@@ -248,7 +248,7 @@ if test "$R_NOTICE" = installed; then
     private_dir "$D/packages/$package" && file "$source" &&
         test "$P" = "$D/packages/$package" || fail completion_ui_failed
     expected=$(awk '$2=="maintenance.js"{n++;print $1}END{exit n!=1}' "$P/files.sha256") || fail completion_ui_failed
-    hex "$expected" 64 && test "$(sha "$source")" = "$expected" &&
+    hex "$expected" 64 && sha_is "$source" "$expected" &&
         ln -s "../../mnt/data_persist/open-connect/packages/$package/maintenance.js" "$work/maintenance.js" || fail completion_ui_failed
 fi
 if test "$S_AUTOSHOW" = 1; then boot_copy_package "$work" carplay.js || fail feature_ui_failed; fi
@@ -342,14 +342,14 @@ while read -r digest name extra; do
     case "$name" in .|..|*[!a-zA-Z0-9.-]*) exit 1;; esac
     case "$seen" in *"|$name|"*) exit 1;; esac
     seen="$seen$name|"
-    case "$name" in boot.sh|state.sh|firmware.sh|access.sh|transaction.sh|service.sh) mandatory=$((mandatory+1));; esac
+    case "$name" in boot.sh|state.sh|firmware.sh|access.sh|transaction.sh|service.sh|flush) mandatory=$((mandatory+1));; esac
     test -f "$P/$name" && test ! -L "$P/$name" || exit 1
     set -- "$@" "$P/$name"
     expected="$expected$digest *$P/$name
 "
     count=$((count+1)); test "$count" -le 64
 done < "$P/files.sha256"
-test "$mandatory" = 6
+test "$mandatory" = 7 && test -x "$P/flush"
 actual_count=0
 for item in "$P"/* "$P"/.[!.]* "$P"/..?*; do
     if test ! -e "$item" && test ! -L "$item"; then continue; fi

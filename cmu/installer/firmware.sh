@@ -96,11 +96,12 @@ originals_save() {
     local work
     if ! absent "$D/originals"; then originals_verify || fail originals_changed; return; fi
     work=$(mktemp -d "$D/.originals-XXXXXX") || fail backup_create_failed
+    # Pipeline children return status; this caller owns the fixed error reply.
     original_files | while read -r digest name target; do
-        file "$target" && test "$(sha "$target")" = "$digest" || fail unsupported_original
-        cp "$target" "$work/$name" && chmod 600 "$work/$name" || fail backup_copy_failed
-        test "$(sha "$work/$name")" = "$digest" || fail backup_verification_failed
-        flush f "$work/$name"
+        file "$target" && test "$(sha "$target")" = "$digest" || exit 1
+        cp "$target" "$work/$name" && chmod 600 "$work/$name" || exit 1
+        test "$(sha "$work/$name")" = "$digest" || exit 1
+        "$P/flush" f "$work/$name" || exit 1
     done || fail backup_failed
     flush d "$work"
     mv "$work" "$D/originals" || fail backup_publish_failed

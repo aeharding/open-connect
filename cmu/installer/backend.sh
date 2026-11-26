@@ -10,7 +10,6 @@ AUTOSTART=/usr/bin/autostart
 . "$P/firmware.sh"
 . "$P/access.sh"
 . "$P/transaction.sh"
-. "$P/service.sh"
 trap record_clean EXIT
 
 # Errors are fixed identifiers, never device output or interpolated user text.
@@ -26,6 +25,7 @@ if test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" != "$P"; then
     test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
     role=usb
 fi
+if test "$role:$operation:$argument" != settings:status:settings; then . "$P/service.sh"; fi
 firmware_guard "$role:$operation:$argument"
 private_dir /tmp/open-connect || fail runtime_unavailable
 file /tmp/open-connect/lock || fail invalid_lock
@@ -182,7 +182,8 @@ status_view() {
         else
             view_id=$R_CURRENT
             if test -n "$settings_package"; then
-                installed_package=$(snapshot_package "$R_CURRENT") || fail invalid_snapshot
+                installed_package=$settings_package
+                test "$R_CURRENT" = "$selected" || installed_package=$(snapshot_package "$R_CURRENT") || fail invalid_snapshot
                 if test "$installed_package" != "$settings_package"; then view_id=$selected; restart=true; fi
             fi
             snapshot_read "$view_id" || fail invalid_snapshot
@@ -260,8 +261,7 @@ access_snapshot() {
     snapshot_create "$D/snapshots/$1/autostart" - "$S_NVRAM" "$S_META" "$D/snapshots/$1/dependencies" "$access_work" ""
 }
 
-# Full physical read audit, fenced across the unlocked work. Rendering is also
-# usable after a verified write while the same writer lock still protects OC1.
+# Full physical read audit, fenced across unlocked work (or post-write under lock).
 status() {
     local conflict=false audit_identity= audit_after=
     if test "$exists" = true && test "$R_PHASE" != purge; then
@@ -477,8 +477,7 @@ restart)
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
     # Restart never replenishes the existing finite boot budget.
     usb_retain
-    # The child inherits the writer lock through the delayed handoff. A failed
-    # or returning reboot releases it within the command's bounded lifetime.
+    # Child inherits the writer lock through the delayed reboot handoff.
     ( sleep 2; /bin/busybox timeout -t 10 /sbin/reboot ) </dev/null >/dev/null 2>&1 &
     printf '{"ok":true,"restarting":true}\n'
     exit

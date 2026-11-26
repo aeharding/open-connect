@@ -15,6 +15,7 @@ uuid() { tr -d '-' < /proc/sys/kernel/random/uuid; }
 absent() { test ! -e "$1" && test ! -L "$1"; }
 file() { test -f "$1" && test ! -L "$1" && test "$(readlink -f "$1")" = "$1"; }
 directory() { test -d "$1" && test ! -L "$1" && test "$(readlink -f "$1")" = "$1"; }
+one_line() { file "$1" && IFS= read -r line < "$1" && test "$(wc -c < "$1")" -eq "$((${#line}+1))"; }
 flush() { "$P/flush" "$1" "$2" || fail flush_failed; }
 private_dir() {
     directory "$1" && test "$(stat -c '%a:%u:%g' "$1")" = "700:$request_owner";
@@ -28,9 +29,8 @@ boot_id() {
     hex "$value" 32
 }
 
-# Linux 3.0 on i.MX6 can repeat early-entropy boot_id after cold start. The locked
-# selector creates this once as an inline tmpfs symlink (no page) before OC1 recovery.
-# It is data; readers must neither follow it nor synthesize a value.
+# i.MX6 Linux 3.0 can repeat boot_id; selector creates this inline symlink once.
+# Data only (never follow or synthesize).
 current_boot_id() {
     local marker=/tmp/open-connect/boot-id value
     test -L "$marker" && test "$(stat -c '%s:%u:%g' "$marker")" = "36:$request_owner" || return 1
@@ -45,8 +45,7 @@ boot_identity() {
         digest=$(printf 'OCBOOT1|%s|%s|%s|%s\n' "$kernel" "$R_REV" "$R_BOOT" "$R_OFF" | openssl dgst -sha256) || return 1
         digest=${digest##* }; hex "$digest" 64 || return 1
         value=$(printf '%s\n' "$digest" | sed 's/^\(........\)\(....\)\(....\)\(....\)\(............\).*/\1-\2-\3-\4-\5/') || return 1
-        # Explicitly exclude both historical identities, including legacy raw
-        # UUIDs, even in the event of a digest collision. This is not a secret.
+        # Exclude both historical boot IDs (non-secret collision avoidance).
         for digit in 0 1 2 3 4 5 6 7 8 9 a b c d e f; do
             if test "$value" != "$R_BOOT" && test "$value" != "$R_OFF"; then break; fi
             value=$digit${value#?}
@@ -57,13 +56,15 @@ boot_identity() {
 }
 
 verify_manifest() {
-    local folder=$1 digest name extra expected= actual seen='|'
-    verified_names=
+    local folder=$1 line digest name expected= actual seen='|' bytes=0
+    verified_names=; verified_snapshot=
     directory "$folder" && file "$folder/files.sha256" || return 1
     set --
-    while read -r digest name extra; do
-        hex "$digest" 64 && test -n "$name" && test -z "$extra" || return 1
-        case "$name" in .|..|*[!a-zA-Z0-9.-]*) return 1;; esac
+    while IFS= read -r line; do
+        bytes=$((bytes+${#line}+1))
+        digest=${line%% *}; name=${line#"$digest  "}
+        hex "$digest" 64 && test "$line" = "$digest  $name" || return 1
+        case "$name" in ''|.|..|*[!a-zA-Z0-9.-]*) return 1;; esac
         case "$seen" in *"|$name|"*) return 1;; esac
         seen="$seen$name|"
         test -f "$folder/$name" && test ! -L "$folder/$name" || return 1
@@ -71,7 +72,7 @@ verify_manifest() {
         expected="$expected$digest *$folder/$name
 "
     done < "$folder/files.sha256"
-    test -z "$digest$name$extra" && test "$#" -gt 0 || return 1
+    test "$#" -gt 0 && test "$(wc -c < "$folder/files.sha256")" -eq "$bytes" || return 1
     # Publish only names passed to this verified batch.
     actual=$(openssl dgst -sha256 -r "$@") || return 1
     test "$actual" = "${expected%?}" || return 1
@@ -79,14 +80,13 @@ verify_manifest() {
 }
 
 record_read() {
-    local format extra legacy_undo
-    file "$D/record" && test "$(wc -l < "$D/record")" -eq 1 || return 1
-    test "$(awk -F '|' '{print NF}' "$D/record")" = 13 || return 1
+    local line format extra legacy_undo
+    one_line "$D/record" || return 1
     IFS='|' read -r format R_PHASE R_REV R_BACKEND R_BASE R_CURRENT R_BEFORE R_AFTER legacy_undo R_BUDGET R_OFF R_BOOT R_NOTICE extra < "$D/record" || return 1
+    test "$line" = "OC1|$R_PHASE|$R_REV|$R_BACKEND|$R_BASE|$R_CURRENT|$R_BEFORE|$R_AFTER|$legacy_undo|$R_BUDGET|$R_OFF|$R_BOOT|$R_NOTICE" || return 1
     test "$format" = OC1 && hex "$R_REV" 32 && hex "$R_BACKEND" 64 || return 1
     hex "$R_BASE" 64 && hex "$R_CURRENT" 64 || return 1
-    # Read the retired checkpoint field for v0.2.0-dev.1 compatibility. New
-    # records clear it; it never authorizes restoring an old installation.
+    # Retired dev.1 checkpoint field; new records clear it.
     for extra in "$R_BEFORE" "$R_AFTER" "$legacy_undo"; do test "$extra" = - || hex "$extra" 64 || return 1; done
     case "$R_PHASE" in
         active|removed|purge) test "$R_BEFORE:$R_AFTER" = -:- || return 1;;
@@ -122,8 +122,7 @@ record_write() {
     record_publish || fail record_rename_failed
 }
 
-# A snapshot contains an autostart file and data, not executable operation state.
-# Active config is bounded OC2 named data. Dev.9 active8 and stock5 are read-only predecessor forms.
+# Snapshots hold autostart + OC2 (or predecessor dev.9/stock) data only.
 metadata() {
     S_META=$1
     S_MODE=${S_META%%:*}; local rest=${S_META#*:}
@@ -132,13 +131,16 @@ metadata() {
     case "$S_MODE" in [0-7]|[0-7][0-7]|[0-7][0-7][0-7]|[0-7][0-7][0-7][0-7]) ;; *) return 1;; esac
     case "$S_UID" in ''|*[!0-9]*) return 1;; esac
     case "$S_GID" in ''|*[!0-9]*) return 1;; esac
-    test "${#S_UID}" -le 10 && test "${#S_GID}" -le 10 &&
+    test "${#S_UID}" -le 10 && test "${#S_GID}" -le 10 || return 1
+    if test "${#S_UID}" -eq 10 || test "${#S_GID}" -eq 10; then
         awk -v uid="$S_UID" -v gid="$S_GID" 'BEGIN{exit uid+0>4294967295 || gid+0>4294967295}'
+    fi
 }
 snapshot_verify() {
     local dir=$D/snapshots/$1
     hex "$1" 64 && private_dir "$dir" && verify_manifest "$dir" &&
-        sha_is "$dir/files.sha256" "$1"
+        sha_is "$dir/files.sha256" "$1" || return 1
+    verified_snapshot=$1
 }
 snapshot_read() { snapshot_verify "$1" && snapshot_decode "$1"; }
 
@@ -171,21 +173,19 @@ package_version() {
 
 # Authenticate the target's interpreter and catalog from its package manifest.
 preferences_package() {
-    local folder=$D/packages/$1 expected actual name
+    local folder=$D/packages/$1 digests p s name
     hex "$1" 64 && private_dir "$folder" && file "$folder/files.sha256" &&
         sha_is "$folder/files.sha256" "$1" || return 1
     for name in preferences.awk services.tsv; do file "$folder/$name" || return 1; done
-    expected=$(awk -v folder="$folder" '
-        $2=="preferences.awk" {a++;p=$1;if(NF!=2)bad=1}
-        $2=="services.tsv" {b++;s=$1;if(NF!=2)bad=1}
-        END {
-            if(bad||a!=1||b!=1||length(p)!=64||length(s)!=64||p~/[^a-f0-9]/||s~/[^a-f0-9]/)exit 1
-            print p " *" folder "/preferences.awk"
-            print s " *" folder "/services.tsv"
-        }
+    digests=$(awk '
+        $2=="preferences.awk"{a++;p=$1;if(NF!=2)bad=1}
+        $2=="services.tsv"{b++;s=$1;if(NF!=2)bad=1}
+        END{if(bad||a!=1||b!=1)exit 1;print p,s}
     ' "$folder/files.sha256") || return 1
-    actual=$(openssl dgst -sha256 -r "$folder/preferences.awk" "$folder/services.tsv") || return 1
-    test "$actual" = "$expected" || return 1
+    read -r p s <<DIGESTS
+$digests
+DIGESTS
+    sha_is "$folder/preferences.awk" "$p" && sha_is "$folder/services.tsv" "$s" || return 1
     printf '%s\n' "$folder"
 }
 
@@ -221,15 +221,20 @@ config_decode() {
     S_AUTOSHOW=0; S_CATALOG=
     file "$source" && read -r header < "$source" || return 1
     if test "$header" = OC2; then
-        package=$(awk -F = '$1=="package"{n++;p=$2}END{if(n!=1)exit 1;print p}' "$source") || return 1
-        folder=$(preferences_package "${settings_package:-$package}") || return 1
+        if test -n "${settings_package:-}"; then
+            folder=$(preferences_package "$settings_package") || return 1
+            package=
+        else
+            package=$(awk -F = '$1=="package"{n++;p=$2}END{if(n!=1)exit 1;print p}' "$source") || return 1
+            folder=$(preferences_package "$package") || return 1
+        fi
         S_CATALOG=$folder
         decoded=$(awk -v operation=decode -v catalog="$folder/services.tsv" -v catalog_bytes="$(wc -c < "$folder/services.tsv")" -v input="$source" \
             -v input_bytes="$(wc -c < "$source")" -f "$folder/preferences.awk") || return 1
         IFS='|' read -r S_PACKAGE S_TOUCH S_WARNING S_NVRAM S_META S_PANDORA S_BASE S_WIRELESS S_SERVICES extra <<VALUES
 $decoded
 VALUES
-        test -z "$extra" && test "$S_PACKAGE" = "$package" || return 1
+        test -z "$extra" && { test -z "$package" || test "$S_PACKAGE" = "$package"; } || return 1
         S_SCHEMA=OC2; S_CONFIG_FIELDS=0
         S_PREFS=$(cat "$source") || return 1
         case "$S_PREFS" in *'
@@ -262,15 +267,14 @@ carplay-autoshow='}; S_AUTOSHOW=${S_AUTOSHOW%%'
 
 # Decode only after verification under the caller's held lock.
 snapshot_decode() {
-    local extra
-    config_decode "$D/snapshots/$1/config" || return 1
+    local extra line dir=$D/snapshots/$1
+    config_decode "$dir/config" || return 1
     S_ACCESS=false; S_UART=0; S_SSH=0; S_KEY=-; S_LOGIN_META=-; S_SSH_META=-; S_LOGIN_INODE=-
-    if ! absent "$D/snapshots/$1/access"; then
-        local dir=$D/snapshots/$1
-        file "$dir/runlogin" && file "$dir/sshd.conf" && file "$dir/access" || return 1
-        test "$(wc -l < "$dir/access")" -eq 1 || return 1
-        case "$(awk -F '|' '{print NF}' "$dir/access")" in 5|6) ;; *) return 1;; esac
+    if ! absent "$dir/access"; then
+        file "$dir/runlogin" && file "$dir/sshd.conf" && one_line "$dir/access" || return 1
         IFS='|' read -r S_UART S_SSH S_KEY S_LOGIN_META S_SSH_META S_LOGIN_INODE extra < "$dir/access" || return 1
+        test "$line" = "$S_UART|$S_SSH|$S_KEY|$S_LOGIN_META|$S_SSH_META" ||
+            test "$line" = "$S_UART|$S_SSH|$S_KEY|$S_LOGIN_META|$S_SSH_META|$S_LOGIN_INODE" || return 1
         S_LOGIN_INODE=${S_LOGIN_INODE:--}
         case "$S_LOGIN_INODE" in -) ;; ''|*[!0-9]*) return 1;; esac
         bit "$S_UART" && bit "$S_SSH" && { test "$S_KEY" = - || hex "$S_KEY" 64; } || return 1
@@ -279,15 +283,18 @@ snapshot_decode() {
         S_ACCESS=true
     fi
     S_SELECTOR_RECORDED=false; S_SELECTOR_HASH=-; S_SELECTOR_META=-; S_SELECTOR_PACKAGE=-
-    if ! absent "$D/snapshots/$1/selector"; then
-        file "$D/snapshots/$1/selector" &&
-            test "$(wc -l < "$D/snapshots/$1/selector")" -eq 1 &&
-            awk '$2=="selector"{n++}END{exit n!=1}' "$D/snapshots/$1/files.sha256" || return 1
+    if ! absent "$dir/selector"; then
+        one_line "$dir/selector" || return 1
+        if test "${verified_snapshot:-}" = "$1"; then
+            case "${verified_names:-}" in *"|selector|"*) ;; *) return 1;; esac
+        else
+            awk '$2=="selector"{n++}END{exit n!=1}' "$dir/files.sha256" || return 1
+        fi
         S_SELECTOR_RECORDED=true
-        if test "$(cat "$D/snapshots/$1/selector")" != -; then
-            test "$(awk -F '|' '{print NF}' "$D/snapshots/$1/selector")" = 3 || return 1
-            IFS='|' read -r S_SELECTOR_HASH S_SELECTOR_META S_SELECTOR_PACKAGE extra < "$D/snapshots/$1/selector" || return 1
-            hex "$S_SELECTOR_HASH" 64 && hex "$S_SELECTOR_PACKAGE" 64 &&
+        if test "$line" != -; then
+            IFS='|' read -r S_SELECTOR_HASH S_SELECTOR_META S_SELECTOR_PACKAGE extra < "$dir/selector" || return 1
+            test "$line" = "$S_SELECTOR_HASH|$S_SELECTOR_META|$S_SELECTOR_PACKAGE" &&
+                hex "$S_SELECTOR_HASH" 64 && hex "$S_SELECTOR_PACKAGE" 64 &&
                 test "$S_SELECTOR_PACKAGE" = "$S_PACKAGE" &&
                 test "$S_SELECTOR_META" = "700:$request_owner" || return 1
         fi
@@ -340,8 +347,7 @@ snapshot_create() (
             snapshot "$D" "$target" "$@"
     else
         target=$(package_programs "$2" state.sh firmware.sh flush VERSION) || fail invalid_snapshot_package
-        # The one supported predecessor owns its eight-field active encoding.
-        # Its stock before/after snapshots remain five fields, as recorded.
+        # Predecessor dev.9 owns 8-field active encoding; stock stays 5 fields.
         file "$target/VERSION" && test "$(cat "$target/VERSION")" = 0.3.0-dev.9 || fail unsupported_snapshot_package
         fields=$(printf '%s\n' "$7" | awk -v operation=legacy -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" \
             -v input=/dev/stdin -v input_bytes="$((${#7}+1))" -f "$P/preferences.awk") || fail invalid_preferences

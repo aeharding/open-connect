@@ -15,9 +15,7 @@ dependencies_match() {
         target=$(dependency_path "$name") || return 1
         case "$name" in package-*/*|composed-*/*)
             parent=${target%/*}
-            # Immutable package entries share a parent. Validate its ownership
-            # once per consecutive group in this check, rather than for every
-            # member. Each file still gets its full canonical/symlink check.
+            # Share parent checks; retain each member's canonical/symlink check.
             if test "$parent" != "$checked_parent"; then
                 private_dir "$parent" || return 1
                 checked_parent=$parent
@@ -33,9 +31,7 @@ dependencies_match() {
     test "$actual" = "${expected%?}"
 }
 
-# Ordinary boot only: both the snapshot and this exact package were verified
-# under the operation lock. Match its complete package expectations to that
-# proof, and independently hash every OEM/composed destination before effects.
+# Locked boot already verified this snapshot/package; hash OEM/composed inputs.
 boot_dependencies_match() {
     local snapshot=$1 digest name extra scope leaf target parent checked= seen='|' mapping pin key path
     local members='|' member_count=1 package_count=0 manager=0 found expected= actual
@@ -162,13 +158,11 @@ uninstall_owned() (
     test "$current_nvram" = "$S_NVRAM" || test "$current_touch:$current_nvram" = 1:disable
 )
 
-# Only transaction staging opts into backend EXIT cleanup. Ordinary record_write
-# keeps its existing behavior, and backend resource traps also call this helper.
+# Backend EXIT cleanup owns only this process's transaction staging.
 prepared_candidate=
 record_clean() {
     if test -n "$prepared_candidate"; then rm -f "$prepared_candidate" || :; fi
-    # Only this process's mktemp tree is owned. Never infer ownership of an
-    # orphan (or canonical state) from a missing record or a familiar name.
+    # Never infer orphan ownership from a missing record or familiar name.
     if test -n "${initial_work:-}" && private_dir "$initial_work" &&
         test "$(stat -c '%d:%i' "$initial_work")" = "$initial_identity" &&
         ( D=$initial_work; cleanup_mount_guard ); then rm -rf "$initial_work" || :; fi
@@ -245,8 +239,7 @@ transaction_reconcile() {
     snapshot_read "$R_AFTER" || fail invalid_after
     after_hash=$(sha "$D/snapshots/$R_AFTER/autostart") && hex "$after_hash" 64 || fail invalid_after
     after_mode=$S_META; after_nv=$S_NVRAM
-    # A fresh process recovering a pending record must verify both sets again.
-    # The immediate caller just did this before committing the same record.
+    # Fresh recovery rechecks both sets; prepare already checked them inline.
     if test "${PREPARED_REV:-}" != "$R_REV"; then
         dependencies_pair_match "$R_BEFORE" "$R_AFTER" || fail dependencies_changed
         flush d "$D"
@@ -264,6 +257,18 @@ transaction_reconcile() {
         selector_pair=true
     fi
     if command -v transaction_admit >/dev/null 2>&1; then transaction_admit; fi
+    if test "$phase" = set; then
+        snapshot_read "$R_AFTER" || fail invalid_after
+        if test "$S_TOUCH" = 2 && ! touch_inputs_verify; then
+            snapshot_read "$R_BEFORE" && test "$S_TOUCH" != 2 || fail touch_inputs_changed
+            # Reverse durably before effects, including a cut after NVRAM changed.
+            # Both directions retain the same verified before/after target fence.
+            local rollback=$R_BEFORE
+            R_BEFORE=$R_AFTER; R_AFTER=$rollback
+            record_write
+            transaction_reconcile; return
+        fi
+    fi
     # Install the recovery entry before changing NVRAM. Remove it last on uninstall.
     if test "$phase" != uninstall; then
         if test "$selector_pair" = true; then selector_apply "$R_BEFORE" "$R_AFTER" || fail selector_apply_failed; fi

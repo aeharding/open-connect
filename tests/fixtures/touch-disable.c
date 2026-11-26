@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 struct Device { int refs, type; } device;
-static int sends, releases;
+static int sends, releases, get_lookups, deref_lookups, send_lookups;
 static void *expected_self, *expected_fd, *expected_event;
 static void *get(void *out, const void *self, const void *fd) {
     assert(self==expected_self && fd==expected_fd);
@@ -26,9 +26,9 @@ static void send_event(void *self, const void *event) {
 void *touch_lookup(void *handle, const char *symbol) {
     assert(handle==(void *)-1);
     const char *missing=getenv("TOUCH_MISSING");
-    if(strstr(symbol,"getDevice")) return missing&&!strcmp(missing,"get")?NULL:(void *)get;
-    if(strstr(symbol,"dereference")) return missing&&!strcmp(missing,"deref")?NULL:(void *)deref;
-    if(strstr(symbol,"4send")) return missing&&!strcmp(missing,"send")?NULL:(void *)send_event;
+    if(strstr(symbol,"getDevice")) { ++get_lookups; return missing&&!strcmp(missing,"get")?NULL:(void *)get; }
+    if(strstr(symbol,"dereference")) { ++deref_lookups; return missing&&!strcmp(missing,"deref")?NULL:(void *)deref; }
+    if(strstr(symbol,"4send")) { ++send_lookups; return missing&&!strcmp(missing,"send")?NULL:(void *)send_event; }
     abort();
 }
 int main(int argc, char **argv) {
@@ -41,7 +41,14 @@ int main(int argc, char **argv) {
     assert(wrapper && send_wrapper);
     expected_fd=&sends; expected_event=&releases; expected_self=&device;
     const char *missing=getenv("TOUCH_MISSING");
-    if(missing && !strcmp(missing,"send")) { device.type=1;send_wrapper(&device,expected_event);abort(); }
+    if(missing) {
+        void *out=NULL;
+        device.type=3;device.refs=1;
+        if(!strcmp(missing,"get")) { wrapper(&out,expected_self,expected_fd); return 41; }
+        if(!strcmp(missing,"deref")) { wrapper(&out,expected_self,expected_fd); return 42; }
+        if(!strcmp(missing,"send")) { device.type=1;send_wrapper(&device,expected_event); return 43; }
+        return 44;
+    }
     for(int repeat=0;repeat<2;++repeat) for(int type=0;type<=3;++type) {
         device.type=type;device.refs=1;
         void *out=(void *)1;
@@ -54,5 +61,6 @@ int main(int argc, char **argv) {
     }
     assert(releases==2);assert(sends==6);
     expected_self=NULL;send_wrapper(NULL,expected_event);assert(sends==7);
+    assert(get_lookups==1 && deref_lookups==1 && send_lookups==1);
     assert(dlclose(lib)==0);
 }

@@ -98,7 +98,9 @@ $(OUT)/touch-disable.o: cmu/features/touch/disable.c | $(OUT)
 	$(CLANG) $(filter-out -fno-unwind-tables -fno-asynchronous-unwind-tables,$(NATIVE_FLAGS)) -funwind-tables -Wall -Wextra -Werror -c "$<" -o "$@"
 
 $(OUT)/touch-disable.so: $(OUT)/touch-disable.o $(OUT)/touch-stubs/svc-com-jci-cpp-devices.so $(OUT)/touch-stubs/libdl.so.2
+	set -eu; trap 'rm -f "$@.tmp"' EXIT; \
 	$(LLD) -shared --build-id=none --strip-all -z max-page-size=4096 -z now -z norelro --no-rosegment \
-	    --disable-new-dtags -rpath /jci/devices:/jci/lib -o "$@" "$<" \
-	    --no-as-needed "$(OUT)/touch-stubs/svc-com-jci-cpp-devices.so" "$(OUT)/touch-stubs/libdl.so.2"
-	test "$$(wc -c < "$@")" -le 4096
+	    --disable-new-dtags -rpath /jci/devices:/jci/lib -o "$@.tmp" "$<" \
+	    --no-as-needed "$(OUT)/touch-stubs/svc-com-jci-cpp-devices.so" "$(OUT)/touch-stubs/libdl.so.2"; \
+	test "$$(wc -c < "$@.tmp")" -le 4096; \
+	mv "$@.tmp" "$@"

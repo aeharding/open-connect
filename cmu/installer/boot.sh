@@ -1,7 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# The embedded hook verifies the whole package before sourcing this selector.
-# Standalone execution retains full verification for older installed hooks.
+# Embedded hooks verify the package; standalone entry verifies for older hooks.
 
 # Open Connect locked selector interface 1
 startup_stamp() {
@@ -78,8 +77,7 @@ boot_ui_unwind() {
             vui-hold.so) identity=${ui_elf:-}; linked=${ui_elf_linked:-false};;
             *) identity=${ui_folder:-}; linked=${ui_folder_linked:-false};;
         esac
-        # The held lock and successful atomic link establish ownership without
-        # another metadata read. Uncertain links still require an inode match.
+        # Locked successful links are owned; uncertain links need an inode match.
         if test "$linked" = true || { test -n "$identity" && test "$(stat -c '%d:%i' "$R/$name" 2>/dev/null || :)" = "$identity"; }; then
             rm "$R/$name" || :
         fi
@@ -142,7 +140,7 @@ boot_select() {
     if test "$fast" = false; then native_guard; fi
     modern=${oc_outer_observer:-false}
     if test "$modern:$fast" = true:true; then
-        # Ordinary verified fallback stages only the observer; SM owns Settings.
+        # SM owns Settings; verified fallback stages only the observer.
         boot_observer_stage
     else
         . "$P/service.sh"
@@ -171,8 +169,7 @@ boot_select() {
         hinted=true
     fi
     if test "${S_SELECTOR_RECORDED:-false}" = true || test "$hinted" = true; then
-        # Re-attest unchanged bytes after ordinary inode drift. Fold the new
-        # snapshot into the imminent budget commit, never a second authority.
+        # Re-attest inode drift within the imminent OC1 budget commit.
         R_CURRENT=$(boot_snapshot_seal "$R_CURRENT") || fail boot_snapshot_failed
         snapshot_read "$R_CURRENT" || fail invalid_snapshot
     fi
@@ -192,8 +189,7 @@ if test "$R_BUDGET" -gt 0; then R_BUDGET=$((R_BUDGET-1)); selected=true; else se
 record_write
 if file "$D/reseal" && test "$(stat -c '%a:%u:%g' "$D/reseal")" = "600:$(id -u):$(id -g)" &&
     test "$(wc -c < "$D/reseal")" -eq 65 && test "$(cat "$D/reseal")" = "$reseal_before"; then
-    # Only after verified resealing and the durable record commit. This request
-    # never replaces OC1 or grants permission to activate a changed input.
+    # Remove the hint only after verified resealing and durable OC1 commit.
     rm "$D/reseal" && flush d "$D" || fail reseal_hint_cleanup_failed
 fi
 startup_stamp budget_committed
@@ -205,12 +201,10 @@ if test "$S_NVRAM" != "$nvram"; then
     transaction_prepare apply "$R_CURRENT" "$after"
     transaction_reconcile
 fi
-# Reconciliation may have selected a newly sealed snapshot. Bind every staged
-# UI byte and choice to that final identity rather than cached pre-apply fields.
+# Bind staged UI/choices to the final reconciled snapshot.
 snapshot_read "$R_CURRENT" || fail invalid_snapshot
 package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; base=$S_BASE; wireless=$S_WIRELESS
-# Modern autostart launches the verified observer outside its timeout, on both
-# valid outcomes. Legacy installed hooks retain their standalone behavior.
+# Modern hooks launch the observer outside the timeout on either valid outcome.
 if test "$modern" = true; then
     absent "$R/ignition" && mv "$observer" "$R/ignition" || fail observer_publish_failed
     runtime=$R/ignition
@@ -294,9 +288,8 @@ if test "$boot_cancelled" = true; then
 fi
 marker=$(mktemp /tmp/open-connect/.selected-XXXXXX) || fail selection_marker_failed
 printf '%s\n' "$R_CURRENT" > "$marker" || fail selection_marker_failed
-# Only RAM link/publication syscalls remain. Finish this short commit despite
-# TERM, or return stock after removing our exact logging inode. Never hash or
-# launch an unbounded worker in this signal-protected section.
+# Only RAM publication remains: finish despite TERM or remove our logging inode.
+# No hashing or unbounded workers inside this signal-protected commit.
 trap '' HUP INT TERM PIPE
 if test "$boot_cancelled" = true; then
     rm -f "$marker" || :
@@ -320,8 +313,7 @@ return 0
 }
 
 boot_main() {
-    # This bootstrap cannot call package libraries: older installed hooks exec
-    # this entry. Keep verification independent until the lock and hashes pass.
+    # Older hooks exec here: verify independently before sourcing any libraries.
     entry=$(dirname "$(readlink -f "$0")")
 set -eu
 umask 077

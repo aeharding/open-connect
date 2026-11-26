@@ -1,6 +1,7 @@
 """Native selector primitives: real file boundaries and independent SHA vectors."""
 
 import hashlib
+import json
 import os
 import shlex
 import shutil
@@ -434,6 +435,104 @@ class NativeBootPlan(unittest.TestCase):
         self.assertEqual(fixture.record()[1], "removed")
         self.assertEqual((fixture.root / "data-target").read_text(), "stock\n")
 
+    def test_interrupted_touch_disable_changed_pin_recovers_then_uninstalls(self):
+        for cut in ("prepared", "nvram", "rollback"):
+            with self.subTest(cut=cut):
+                self.interrupted_touch_recovery(cut)
+
+    def interrupted_touch_recovery(self, cut):
+        fixture = self.touch_fixture()
+        setup = '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; record_read; '
+        fixture.shell(
+            setup + 'snapshot_read "$R_CURRENT"; '
+            'after=$(fixture_snapshot "$AUTOSTART" "$R_BACKEND" 1 0 disable "$S_META" '
+            '"$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 1 0 0); '
+            'transaction_prepare set "$R_CURRENT" "$after"; transaction_reconcile; '
+            'snapshot_read "$R_CURRENT"; '
+            'after=$(fixture_snapshot "$AUTOSTART" "$R_BACKEND" 2 0 absent "$S_META" '
+            '"$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 1 0 0); '
+            'transaction_prepare set "$R_CURRENT" "$after"'
+        )
+        pending = fixture.record()
+        self.assertEqual(pending[1], "set")
+        snapshots = fixture.data / "snapshots"
+        before = dict(
+            line.split("=", 1)
+            for line in (snapshots / pending[6] / "config").read_text().splitlines()[1:]
+        )
+        after = dict(
+            line.split("=", 1)
+            for line in (snapshots / pending[7] / "config").read_text().splitlines()[1:]
+        )
+        self.assertEqual({key for key in before if before[key] != after[key]}, {"touch", "nvram"})
+        # The preparing process has exited before the OEM input changes.
+        pin = fixture.root / "touch-lib"
+        pin.write_bytes(b"changed OEM devices library\n")
+        client = fixture.runtime / "client"
+        shutil.copytree(fixture.package, client)
+        (fixture.runtime / "runtime").symlink_to(client)
+        (fixture.runtime / "selected").write_text(pending[5] + "\n")
+        if cut == "nvram":
+            # A previous recovery could reach NVRAM before failing to seal.
+            (fixture.root / "data-nvram").write_text("absent\n")
+        if cut == "rollback":
+            transaction = client / "transaction.sh"
+            original = transaction.read_text()
+            transaction.write_text(
+                original.replace(
+                    "            record_write\n            transaction_reconcile; return",
+                    "            record_write\n            kill -KILL $$\n            transaction_reconcile; return",
+                )
+            )
+            interrupted = subprocess.run(
+                ["sh", client / "backend.sh", "api", pending[2], "recover", "-", "-", "-"],
+                capture_output=True,
+                text=True,
+                env=fixture.env,
+                timeout=15,
+            )
+            self.assertEqual(interrupted.returncode, -9)
+            self.assertEqual(fixture.record()[6:8], [pending[7], pending[6]])
+            self.assertEqual((fixture.root / "data-nvram").read_text(), "disable\n")
+            transaction.write_text(original)
+
+        def api(operation, revision):
+            result = subprocess.run(
+                ["sh", client / "backend.sh", "api", revision, operation, "-", "-", "-"],
+                capture_output=True,
+                text=True,
+                env=fixture.env,
+                timeout=15,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            return json.loads(result.stdout)
+
+        recovered = api("recover", fixture.record()[2])
+        self.assertFalse(recovered["pending"])
+        self.assertEqual(recovered["touch"], 1)
+        self.assertEqual(fixture.record()[1], "active")
+        self.assertEqual(fixture.record()[6:8], ["-", "-"])
+        self.assertEqual(
+            (snapshots / fixture.record()[5] / "config").read_text(),
+            (snapshots / pending[6] / "config").read_text(),
+        )
+        self.assertEqual((fixture.root / "data-nvram").read_text(), "disable\n")
+        fixture.shell(
+            setup + 'snapshot_read "$R_CURRENT"; test "$S_TOUCH" = 1; targets_match "$R_CURRENT"'
+        )
+        with self.assertRaises(subprocess.CalledProcessError) as caught:
+            fixture.shell(
+                setup
+                + 'snapshot_read "$R_CURRENT"; fixture_snapshot "$AUTOSTART" "$R_BACKEND" 2 0 absent "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" 1 0 0'
+            )
+        self.assertIn("boot_profiles_failed", caught.exception.stderr)
+        removed = api("uninstall", recovered["revision"])
+        self.assertFalse(removed["installed"])
+        self.assertFalse(fixture.data.exists())
+        self.assertEqual(pin.read_bytes(), b"changed OEM devices library\n")
+        self.assertEqual((fixture.root / "data-target").read_text(), "stock\n")
+        self.assertEqual((fixture.root / "data-nvram").read_text(), "absent\n")
+
     def test_touch_shell_unselected_modes_have_no_feature_copy(self):
         fixture = self.sealed_fixture()
         result = fixture.boot(1)
@@ -494,7 +593,27 @@ class NativeBootPlan(unittest.TestCase):
                 timeout=5,
             )
 
-        self.assertEqual(verify().returncode, 0)
+        def publish(text):
+            nonlocal snapshot
+            # Rename preserves every sealed @/ member's inode and metadata.
+            (snapshot / "boot.plan").write_text(text)
+            manifest = "".join(
+                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                for p in sorted(snapshot.iterdir())
+                if p.name != "files.sha256"
+            )
+            (snapshot / "files.sha256").write_text(manifest)
+            digest = hashlib.sha256(manifest.encode()).hexdigest()
+            target = fixture.data / "snapshots" / digest
+            snapshot.rename(target)
+            snapshot = target
+            fields = fixture.record()
+            fields[5] = digest
+            (fixture.data / "record").write_text("|".join(fields) + "\n")
+
+        publish(plan)
+        positive = verify()
+        self.assertEqual(positive.returncode, 0, positive.stderr)
         for key in ("svc", "lib"):
             row = next(
                 line
@@ -508,32 +627,27 @@ class NativeBootPlan(unittest.TestCase):
                 plan.replace(row, row.replace("touch-" + key, "touch-wrong")),
             ):
                 with self.subTest(key=key, bad=bad[-80:]):
-                    (snapshot / "boot.plan").write_text(bad)
-                    # Authenticate the changed plan; rejection must be policy,
-                    # not merely a stale snapshot checksum.
-                    identity = fixture.root / "snapshot-edit"
-                    shutil.copytree(snapshot, identity)
-                    manifest = "".join(
-                        hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
-                        for p in sorted(identity.iterdir())
-                        if p.name != "files.sha256"
-                    )
-                    (identity / "files.sha256").write_text(manifest)
-                    digest = hashlib.sha256(manifest.encode()).hexdigest()
-                    target = fixture.data / "snapshots" / digest
-                    identity.rename(target)
-                    fields = fixture.record()
-                    fields[5] = digest
-                    (fixture.data / "record").write_text("|".join(fields) + "\n")
+                    # Authenticate through the same path as the intact control.
+                    publish(bad)
                     before = (fixture.data / "record").read_bytes()
                     self.assertNotEqual(verify().returncode, 0)
                     self.assertEqual((fixture.data / "record").read_bytes(), before)
-        (snapshot / "boot.plan").write_text(plan)
+        publish(plan)
+        positive = verify()
+        self.assertEqual(positive.returncode, 0, positive.stderr)
+        selected = fixture.boot(1)
+        self.assertEqual(selected.returncode, 0, selected.stderr)
+        self.assertEqual((fixture.runtime / "selected").read_text().strip(), fixture.record()[5])
+        self.assertIn(
+            "package=" + fixture.package_id + "\n",
+            (fixture.data / "snapshots" / fixture.record()[5] / "config").read_text(),
+        )
+        self.assertEqual(
+            (fixture.runtime / "feature/touch-disable.so").read_bytes(),
+            (fixture.package / "touch-disable.so").read_bytes(),
+        )
         # Exact byte-identical sources are rejected when the physical root
         # adapter reports a different device. No OEM content is required.
-        fields = fixture.record()
-        fields[5] = snapshot.name
-        (fixture.data / "record").write_text("|".join(fields) + "\n")
         text = verifier.read_text() + "\nvui_stock_device() { printf '999999\\n'; }\n"
         verifier.write_text(text)
         self.assertNotEqual(verify().returncode, 0)

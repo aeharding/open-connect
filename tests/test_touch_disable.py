@@ -70,8 +70,21 @@ class TouchDisable(unittest.TestCase):
             self.assertNotIn("CantUnwind", entry)
         packaged = folder / "usb/open-connect"
         self.assertEqual((packaged / "touch-disable.so").read_bytes(), shim.read_bytes())
+        self.assertLessEqual((packaged / "boot.sh").stat().st_size, 16384)
+        self.assertEqual(sum((p.stat().st_size + 4095) // 4096 for p in packaged.iterdir()), 125)
         self.assertFalse((packaged / "svc-com-jci-cpp-devices.so").exists())
         self.assertFalse((packaged / "libdl.so.2").exists())
+        # Packaging must reject an oversized artifact even when make skips linking.
+        shim.write_bytes(b"x" * 4097)
+        result = subprocess.run(
+            ["sh", "tooling/package-usb.sh", folder],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("touch-disable.so exceeds its RAM page budget", result.stderr)
 
     def test_host_dl_passthrough_refcount_and_missing_lookup_traps(self):
         shim = self.folder / "touch.so"
@@ -106,11 +119,14 @@ class TouchDisable(unittest.TestCase):
         )
         result = subprocess.run([program, shim], capture_output=True, timeout=5)
         self.assertEqual(result.returncode, 0, result.stderr)
+        # Clang emits brk on AArch64 and an illegal instruction on x86/ARM32.
+        trap = signal.SIGTRAP if os.uname().machine in ("arm64", "aarch64") else signal.SIGILL
         for missing in ("get", "deref", "send"):
-            result = subprocess.run(
-                [program, shim],
-                capture_output=True,
-                timeout=5,
-                env={**os.environ, "TOUCH_MISSING": missing},
-            )
-            self.assertIn(result.returncode, (-signal.SIGILL, -signal.SIGABRT, -signal.SIGTRAP))
+            with self.subTest(missing=missing):
+                result = subprocess.run(
+                    [program, shim],
+                    capture_output=True,
+                    timeout=5,
+                    env={**os.environ, "TOUCH_MISSING": missing},
+                )
+                self.assertEqual(result.returncode, -trap)

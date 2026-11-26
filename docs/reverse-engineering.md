@@ -1391,6 +1391,15 @@ directed mode transitions for absent/enable/disable baselines and no commit on
 new hold or transaction field. OC1 and the six request fields remain unchanged;
 legacy stock/dev.9 and other preferences remain bit-only.
 
+An interrupted 1→2 Set followed by an OEM pin change previously restored NVRAM
+but failed sealing, leaving OC1 pending and blocking Uninstall. Recovery now
+checks both prepared target states and dependencies, then durably reverses that
+Set in the existing OC1 record when the mode-2 pins fail and the previous choice
+is not mode 2. Normal reconciliation restores and verifies the previous snapshot;
+the changed pins still prohibit mode 2. Host backend tests cover interruption
+before NVRAM, after NVRAM, and after the durable reversal, followed by successful
+Uninstall with the library pin still changed. This adds no transaction field.
+
 The actual tagged dev.23 USB's mutation path decodes through the authenticated
 installed preferences helper, then its own shell bit check refuses saved mode 2
 with `state_changed`, preserving OC1 and targets. Metadata discovery can still
@@ -1406,9 +1415,13 @@ popup. Stock devices PSS was 1,305 KiB versus 1,318 KiB in that trial. This **do
 not** establish release PSS or the final tmpfs allocation. Installed modes 0/1 add
 one plan row (native open/stat) and one package member hashed by the Settings
 worker, but no shim page in feature tmpfs or the 16-file installed Settings set.
-USB maintenance copies the full bundle, adding one 4 KiB page in every mode.
+USB maintenance copies the full bundle: 125 individually rounded 4 KiB file
+pages versus 124 before the shim, adding one page in every mode. `boot.sh` stays
+within four pages (16,250 bytes); packaging enforces its 16,384-byte cap and the
+shim's 4,096-byte cap, including incremental builds.
 Selected mode 2 adds one 4 KiB feature page plus unmeasured release devices PSS.
-All 12 existing per-file page budgets remain enforced. Final matched boot timing,
+All 14 per-file page budgets are enforced. This is file-page accounting, not a
+target allocation measurement. Final matched boot timing,
 allocated pages and PSS need explicit owner RAM acceptance under STEERING.md.
 
 Remaining physical work: use the final CI ELF through the real SM path on glibc

@@ -167,6 +167,7 @@ transaction_prepare() {
     settled || fail operation_pending
     snapshot_read "$2" && snapshot_read "$3" || fail invalid_plan
     targets_match "$2" && dependencies_pair_match "$2" "$3" || fail state_changed
+    if command -v transaction_admit >/dev/null 2>&1; then transaction_admit; fi
     R_PHASE=$1; R_BEFORE=$2; R_AFTER=$3
     record_write
     PREPARED_REV=$R_REV
@@ -202,6 +203,7 @@ transaction_reconcile() {
         selector_pair_check "$R_BEFORE" "$R_AFTER" || fail selector_changed
         selector_pair=true
     fi
+    if command -v transaction_admit >/dev/null 2>&1; then transaction_admit; fi
     # Install the recovery entry before changing NVRAM. Remove it last on uninstall.
     if test "$phase" != uninstall; then
         if test "$selector_pair" = true; then selector_apply "$R_BEFORE" "$R_AFTER" || fail selector_apply_failed; fi
@@ -261,9 +263,10 @@ uninstall_cleanup() {
         removed)
             targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
             startup_staging_guard || fail startup_stage_changed
+            if command -v transaction_admit >/dev/null 2>&1; then transaction_admit; fi
             R_PHASE=purge
             record_write;;
-        purge) ;; # Restoration was durably verified before this phase began.
+        purge) ;; # Durable restoration proof survives deletion of its snapshots.
         *) fail not_removed;;
     esac
     # Keep the authoritative record until every other entry is gone. USB

@@ -98,7 +98,7 @@ class DVDUpgrade(unittest.TestCase):
     def client(self, f):
         client = f.runtime / "client"
         shutil.copytree(f.package, client)
-        (f.runtime / "runtime").symlink_to(client)
+        (f.runtime / "usb-runtime").symlink_to(client)
         # Only physical installation preparation is adapted: the real backend,
         # target-owned writers/renderers, manifests and transactions run intact.
         login = f.root / "runlogin"

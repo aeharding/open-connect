@@ -241,10 +241,15 @@ class InstallerTransaction(unittest.TestCase):
         runtime.mkdir(mode=0o700)
         (runtime / "lock").touch()
         (runtime / "runtime").symlink_to(self.tools)
+        if (data / "record").exists():
+            fields = (data / "record").read_text().split("|")
+            if fields[1] not in ("removed", "purge"):
+                (runtime / "selected").write_text(fields[5] + "\n")
         for name in (
             "state.sh",
             "transaction.sh",
             "service.sh",
+            "usb-service.sh",
             "access.sh",
             "VERSION",
             "preferences.awk",
@@ -269,6 +274,8 @@ class InstallerTransaction(unittest.TestCase):
             .replace("/tmp/open-connect", str(runtime))
             .replace("/proc/uptime", str(uptime))
         )
+        usb = self.tools / "usb-service.sh"
+        usb.write_text(usb.read_text().replace("/tmp/open-connect", str(runtime)))
         # Use the real backend and state/transaction code; replace only physical
         # firmware, NVRAM, mount, root-publication and reboot adapters.
         adapters = DRIVER[DRIVER.index("root_mode()") : DRIVER.index('if test "$ACTION" = init;')]
@@ -1111,12 +1118,228 @@ class InstallerTransaction(unittest.TestCase):
             self.assertEqual(answer["error"], "restart_required")
             self.assertEqual((data / "record").read_bytes(), expected)
             self.assertFalse(marker.exists())
+
+        # Missing or malformed volatile evidence must never select B's program.
+        def saved_files():
+            return {
+                str(p.relative_to(data)): (p.read_bytes(), p.stat().st_mode, p.stat().st_ctime_ns)
+                for p in data.rglob("*")
+                if p.is_file()
+            }
+
+        unchanged = saved_files()
+        selected_file = runtime / "selected"
+        for content in (None, selected + "\n\n", selected + "\nextra\n"):
+            selected_file.unlink(missing_ok=True)
+            if content is not None:
+                selected_file.write_text(content)
+            for operation, args in (("status", ("settings",)), ("set", ("warning", "1", "0"))):
+                result, answer = self.api(operation, fields[5], *args)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(answer["error"], "invalid_selected_snapshot")
+                self.assertEqual((data / "record").read_bytes(), expected)
+                self.assertEqual(saved_files(), unchanged)
+                self.assertFalse(marker.exists())
         (runtime / "runtime").unlink()
         (runtime / "usb-runtime").symlink_to(self.tools)
         result, view = self.api("status", argument="settings")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(view["installedVersion"], "0.3.0-successor")
         self.assertFalse(marker.exists())
+
+    def legacy_endpoint(self, data, pinned=False, version="0.3.0-dev.22"):
+        """Actual main/dev.22 backend, with only host physical paths adapted."""
+        runtime = self.root / "runtime"
+        target = runtime / "sessions/session-legacy"
+        target.parent.mkdir(mode=0o700)
+        shutil.copytree(self.tools, target)
+        target.chmod(0o700)
+        old = (ROOT / "tests/fixtures/dev22/backend.sh").read_text()
+        self.assertEqual(
+            hashlib.sha256(old.encode()).hexdigest(),
+            "518809f76ea2bfe6cbe33387ee1646c607c00dde7e798c22702510285bf89485",
+        )
+        if pinned:
+            old = (ROOT / "cmu/installer/backend.sh").read_text()
+        old = (
+            old.replace("/tmp/open-connect", str(runtime))
+            .replace("/tmp/mnt/data_persist/open-connect", str(data))
+            .replace("/usr/bin/autostart", str(self.target(data, "target")))
+        )
+        (target / "backend.sh").write_text(old)
+        package = data / "packages" / (data / "package-id").read_text().strip()
+        source = package.with_name(".legacy")
+        shutil.copytree(package, source)
+        (source / "backend.sh").write_text(old)
+        (source / "VERSION").write_text(version + "\n")
+        manifest = "".join(
+            hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+            for p in sorted(source.iterdir())
+            if p.name != "files.sha256"
+        )
+        (source / "files.sha256").write_text(manifest)
+        package_id = hashlib.sha256(manifest.encode()).hexdigest()
+        source.rename(source.with_name(package_id))
+        (data / "package-id").write_text(package_id + "\n")
+        self.run_ok(data, "install")
+        fields = (data / "record").read_text().split("|")
+        fields[3] = package_id
+        (data / "record").write_text("|".join(fields))
+        (runtime / "selected").write_text(fields[5] + "\n")
+        shutil.copyfile(data / "packages" / package_id / "files.sha256", target / "files.sha256")
+        pointer = runtime / "runtime"
+        pointer.unlink()
+        pointer.symlink_to(target)
+        (runtime / "usb-runtime").symlink_to(self.tools)
+        (runtime / "listener").write_text("123 456 " + str(target) + "\n")
+        # Source/socket ownership is tested on Linux separately. This fixture
+        # keeps the real pre-OC1 gate and real inherited writer flock.
+        with (self.tools / "service.sh").open("a") as stream:
+            stream.write('\nservice_owns_listener() { test "$1:$2:$3:$4" = ')
+            stream.write(shlex.quote("123:456:" + str(target) + ":15555") + "; }\n")
+        helper = self.tools / "usb-service.sh"
+        helper.write_text(
+            helper.read_text().replace(
+                "518809f76ea2bfe6cbe33387ee1646c607c00dde7e798c22702510285bf89485",
+                hashlib.sha256(old.encode()).hexdigest(),
+            )
+        )
+        self.real_flock()
+        return target, fields[5]
+
+    def test_legacy22_endpoint_is_fenced_before_prepare_and_refuses_successor(self):
+        data = self.create("legacy-fence")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, revision = self.legacy_endpoint(data)
+        runtime = self.root / "runtime"
+        pointer = runtime / "runtime"
+        record = (data / "record").read_bytes()
+        # Normal preflight failure leaves the exact old publication in place.
+        self.target(data, "relevant").write_text("external edit\n")
+        _, error = self.api("uninstall", revision)
+        self.assertEqual(error["error"], "state_changed")
+        self.assertEqual(pointer.readlink(), target)
+        self.assertEqual((data / "record").read_bytes(), record)
+        self.target(data, "relevant").write_text("dependency\n")
+        # Stop immediately at prepare, after the real admission hook. No reboot,
+        # browser replacement or legacy packet removal participates in fencing.
+        transaction = self.tools / "transaction.sh"
+        transaction.write_text(
+            transaction.read_text().replace(
+                "    R_PHASE=$1; R_BEFORE=$2; R_AFTER=$3",
+                '    absent "' + str(pointer) + '" || fail fence_missing; '
+                "R_PHASE=$1; R_BEFORE=$2; R_AFTER=$3",
+            )
+        )
+        self.target(data, "nvram-commit-fails").touch()
+        result, _ = self.api("uninstall", revision)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(os.path.lexists(pointer))
+        self.assertTrue((runtime / "listener").is_file())
+        self.assertTrue((target / "backend.sh").is_file())
+        expected = (data / "record").read_bytes()
+        # Both actual old22 entry points fail before interpreting pending OC1.
+        for operation, args in (("status", ("settings", "-", "-")), ("set", ("warning", "1", "0"))):
+            reply = subprocess.run(
+                ["sh", target / "backend.sh", "api", revision, operation, *args],
+                env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertNotEqual(reply.returncode, 0)
+            self.assertEqual(json.loads(reply.stdout)["error"], "session_replaced")
+            self.assertEqual((data / "record").read_bytes(), expected)
+
+    def test_verified_pinned_endpoint_stays_public_during_usb_change(self):
+        data = self.create("pinned-public")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, revision = self.legacy_endpoint(data, pinned=True, version="0.3.0-dev.23")
+        result, reply = self.api("uninstall", revision)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(reply["restart"])
+        self.assertEqual((self.root / "runtime/runtime").readlink(), target)
+
+    def test_unknown_legacy_contract_refuses_before_prepare(self):
+        data = self.create("unknown-legacy")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, revision = self.legacy_endpoint(data, version="0.3.0-dev.21")
+        record = (data / "record").read_bytes()
+        result, reply = self.api("uninstall", revision)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(reply["error"], "unsupported_legacy_runtime")
+        self.assertEqual((data / "record").read_bytes(), record)
+        self.assertEqual((self.root / "runtime/runtime").readlink(), target)
+
+    def test_legacy_recovery_checks_physical_state_before_withdrawal(self):
+        data = self.create("legacy-recovery")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, _ = self.legacy_endpoint(data)
+        self.assertNotEqual(self.run_command(data, "uninstall", "prepared").returncode, 0)
+        revision = (data / "record").read_text().split("|")[2]
+        pointer = self.root / "runtime/runtime"
+        record = (data / "record").read_bytes()
+        self.target(data, "nvram").write_text("enable\n")
+        result, reply = self.api("recover", revision)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(reply["error"], "nvram_changed")
+        self.assertEqual((data / "record").read_bytes(), record)
+        self.assertEqual(pointer.readlink(), target)
+        self.target(data, "nvram").write_text("disable\n")
+        result, reply = self.api("recover", revision)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(reply["restart"])
+        self.assertFalse(os.path.lexists(pointer))
+        self.assertFalse(data.exists())
+        self.assertTrue((target / "backend.sh").is_file())
+
+    def test_changed_legacy_endpoint_refuses_before_prepare(self):
+        data = self.create("changed-legacy")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, revision = self.legacy_endpoint(data)
+        with (target / "backend.sh").open("a") as stream:
+            stream.write("# unknown endpoint revision\n")
+        record = (data / "record").read_bytes()
+        result, reply = self.api("uninstall", revision)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(reply["error"], "invalid_legacy_source")
+        self.assertEqual((data / "record").read_bytes(), record)
+        self.assertEqual((self.root / "runtime/runtime").readlink(), target)
+
+    def test_failed_withdrawal_restores_only_unchanged_authority(self):
+        for changed in (False, True):
+            with self.subTest(changed=changed):
+                data = self.create("withdraw-" + str(changed))
+                self.run_ok(data, "install")
+                self.backend_fixture(data)
+                target, revision = self.legacy_endpoint(data)
+                runtime = self.root / "runtime"
+                pointer = runtime / "runtime"
+                record = (data / "record").read_bytes()
+                with (self.tools / "firmware.sh").open("a") as stream:
+                    stream.write(
+                        '\nrm() { if test "$1" = '
+                        + shlex.quote(str(pointer))
+                        + '; then command rm "$@" || return; '
+                    )
+                    if changed:
+                        stream.write(
+                            "printf changed > " + shlex.quote(str(runtime / "boot-id")) + "; "
+                        )
+                    stream.write('return 1; fi; command rm "$@"; }\n')
+                result, reply = self.api("uninstall", revision)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(reply["error"], "legacy_fence_failed")
+                self.assertEqual((data / "record").read_bytes(), record)
+                self.assertEqual(os.path.lexists(pointer), not changed)
+                if not changed:
+                    self.assertEqual(pointer.readlink(), target)
+                shutil.rmtree(runtime)
 
     def test_usb_metadata_never_runs_catalog_probe_or_flash_audit(self):
         data = self.create("usb-metadata")
@@ -1610,11 +1833,11 @@ class InstallerTransaction(unittest.TestCase):
                 with self.subTest(marker=name, content=content):
                     marker.write_text(content)
                     result, status = self.api("status", argument="settings")
-                    self.assertEqual(result.returncode, 0, result.stderr)
                     if name == "selected":
-                        self.assertTrue(status["restart"])
-                        self.assertTrue(all(r["current"] is None for r in status["services"]))
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertEqual(status["error"], "invalid_selected_snapshot")
                     else:
+                        self.assertEqual(result.returncode, 0, result.stderr)
                         self.assertEqual(status["uart"], 1)
                         self.assertEqual(status["uartCurrent"], 0)
             marker.write_text(current + "\n")
@@ -1647,6 +1870,50 @@ class InstallerTransaction(unittest.TestCase):
                     before,
                 )
                 path.write_bytes(original)
+
+    def test_usb_recovers_partial_purge_with_live_pinned_endpoint(self):
+        data = self.create("pinned-partial-purge")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        target, _ = self.legacy_endpoint(data, pinned=True, version="0.3.0-dev.23")
+        pointer = self.root / "runtime/runtime"
+        self.run_ok(data, "uninstall")
+        self.assertNotEqual(self.run_command(data, "cleanup", "snapshots").returncode, 0)
+        self.assertFalse((data / "snapshots").exists())
+        self.assertEqual((data / "record").read_text().split("|")[1], "purge")
+        result, pending = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(pending["pending"])
+        record = (data / "record").read_bytes()
+        env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
+        refused = subprocess.run(
+            ["sh", target / "backend.sh", "api", pending["revision"], "set", "warning", "1", "0"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertEqual(json.loads(refused.stdout)["error"], "operation_pending")
+        self.assertEqual((data / "record").read_bytes(), record)
+        result, recovered = self.api("recover", pending["revision"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(data.exists())
+        self.assertFalse(recovered["pending"])
+        self.assertTrue(recovered["restart"])
+        self.assertEqual(pointer.readlink(), target)
+        self.assertTrue((target / "backend.sh").is_file())
+        # The surviving installed endpoint cannot create settings after purge.
+        refused = subprocess.run(
+            ["sh", target / "backend.sh", "api", "-", "set", "warning", "1", "0"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertEqual(json.loads(refused.stdout)["error"], "not_installed")
+        self.assertFalse(data.exists())
 
     def test_backend_recovers_after_snapshots_or_record_have_been_deleted(self):
         for cut in ("snapshots", "record"):

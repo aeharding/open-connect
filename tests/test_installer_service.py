@@ -29,6 +29,96 @@ HAS_TCPSVD = bool(
 
 
 class InstallerPrivateStaging(unittest.TestCase):
+    def test_expired_admission_is_reclaimed_by_stop_and_replacement(self):
+        for action in ("stop", "start"):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder).resolve()
+                runtime = root / "runtime"
+                old = runtime / "sessions/session-old"
+                old.mkdir(parents=True, mode=0o700)
+                old.parent.chmod(0o700)
+                runtime.chmod(0o700)
+                source = root / "source"
+                source.mkdir(mode=0o700)
+                tools = root / "tools"
+                tools.mkdir()
+                if shutil.which("gstat"):
+                    (tools / "stat").symlink_to(shutil.which("gstat"))
+                for path in (old, source):
+                    shutil.copyfile(ASSETS / "state.sh", path / "state.sh")
+                    service = (
+                        (ASSETS / "service.sh")
+                        .read_text()
+                        .replace("/tmp/open-connect", str(runtime))
+                    )
+                    service += (
+                        "\nservice_lock() { :; }\nstop_listener() { :; }\n"
+                        'service_files() { runtime="$R/sessions/session-new"; '
+                        'mkdir -m 700 "$runtime"; cp "$P/"* "$runtime/"; }\n'
+                        'service_listen() { ln -sfn "$1" "$service_runtime"; }\n'
+                    )
+                    (path / "service.sh").write_text(service)
+                    usb = (
+                        (ASSETS / "usb-service.sh")
+                        .read_text()
+                        .replace("/tmp/open-connect", str(runtime))
+                        .replace("/tmp/mnt/data_persist/open-connect", str(root / "absent-data"))
+                    )
+                    # No native requests/listeners in this host lifetime replay.
+                    usb = usb.replace(
+                        "for cmd in /proc/[0-9]*/cmdline; do", 'for cmd in "$R"/no-processes/*; do'
+                    )
+                    (path / "usb-service.sh").write_text(usb)
+                    (path / "files.sha256").write_text("fixture manifest\n")
+                (old / "closed").touch()
+                (old / "admitted").symlink_to("OCUSB1|0|-")
+                (runtime / "usb-runtime").symlink_to(old)
+                env = {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
+                script = old if action == "stop" else source
+                result = subprocess.run(
+                    ["sh", script / "usb-service.sh", action],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                deadline = time.monotonic() + 3
+                while old.exists() and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                self.assertFalse(old.exists())
+
+    def test_retirement_rejects_unknown_symlink_without_following_admitted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            session = root / "sessions/session-owned"
+            session.mkdir(parents=True, mode=0o700)
+            tools = root / "tools"
+            tools.mkdir()
+            if shutil.which("gstat"):
+                (tools / "stat").symlink_to(shutil.which("gstat"))
+            for name in ("state.sh", "service.sh", "usb-service.sh"):
+                text = (ASSETS / name).read_text().replace("/tmp/open-connect", str(root))
+                text = text.replace(
+                    "for cmd in /proc/[0-9]*/cmdline; do", 'for cmd in "$R"/no-processes/*; do'
+                )
+                (session / name).write_text(text)
+            (session / "closed").touch()
+            outside = root / "outside"
+            outside.write_text("untouched\n")
+            (session / "admitted").symlink_to(outside)
+            env = {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
+            for name in ("unknown", ".unknown"):
+                unknown = session / name
+                unknown.symlink_to(outside)
+                result = subprocess.run(["sh", session / "usb-service.sh", "retire"], env=env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertTrue((session / "closed").exists())
+                unknown.unlink()
+            subprocess.run(["sh", session / "usb-service.sh", "retire"], env=env, check=True)
+            self.assertFalse(session.exists())
+            self.assertEqual(outside.read_text(), "untouched\n")
+
     def test_boot_flush_shares_only_mode700_and_verifies_shared_bytes(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder).resolve()
@@ -681,13 +771,13 @@ class InstallerService(unittest.TestCase):
 
     def test_term_at_ready_handoff_is_not_forgotten(self):
         script = self.source / "service.sh"
-        script.write_text(
-            script.read_text().replace(
-                "trap - EXIT HUP INT TERM",
-                self.busybox + " usleep 500000\ntrap - EXIT HUP INT TERM",
-                1,
-            )
+        needle = (
+            "trap - EXIT HUP INT TERM\n"
+            "unset pending_pid pending_start pending_work pending_cancel pending_published"
         )
+        source = script.read_text()
+        self.assertEqual(source.count(needle), 1)
+        script.write_text(source.replace(needle, self.busybox + " usleep 500000\n" + needle, 1))
         self.manifest()
         process = subprocess.Popen(
             ["sh", self.source / "usb-service.sh"], stdout=subprocess.PIPE, stderr=subprocess.PIPE

@@ -46,7 +46,14 @@ class InstallerBoot(unittest.TestCase):
         (self.runtime / "token").write_text("a" * 32 + "\n")
         (self.runtime / "ignition.sh").write_text("exit 0\n")
         (self.source / "ignition.sh").write_text("exit 0\n")
-        for name in ("runtime.js", "dialog.js", "settings.js", "carplay.js", "VERSION"):
+        for name in (
+            "runtime.js",
+            "dialog.js",
+            "settings.js",
+            "maintenance.js",
+            "carplay.js",
+            "VERSION",
+        ):
             shutil.copyfile(ASSETS / name, self.source / name)
         (self.root / "acc").write_text("1\n")
         (self.root / "uptime").write_text("1.00 0.00\n")
@@ -81,6 +88,7 @@ class InstallerBoot(unittest.TestCase):
             "ui-profile.awk",
             "ui-modules.tsv",
             "defer-nav.sh",
+            "usb-service.sh",
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
         self.manager = self.root / "manager.so"
@@ -209,7 +217,14 @@ boot_ui_stage() {
 }
 """)
         (self.source / "service.sh").write_text(
-            "service_files() { runtime=" + shlex.quote(str(self.runtime)) + "; }\n"
+            (ASSETS / "service.sh")
+            .read_text()
+            .replace("/tmp/open-connect", str(self.runtime))
+            .replace("/tmp/mnt/data_persist/open-connect", str(self.data))
+            .replace("/proc/uptime", str(self.root / "uptime"))
+            + "\nservice_files() { runtime="
+            + shlex.quote(str(self.runtime))
+            + "; }\n"
             'service_listen() { : > "$R/listen-attempted"; test ! -e "$R/port-blocked"; }\n'
         )
         script = (ASSETS / "boot.sh").read_text()
@@ -221,6 +236,10 @@ boot_ui_stage() {
             "/proc/uptime": str(self.root / "uptime"),
             "/usr/bin/open-connect-boot-select": str(self.root / "root-selector"),
             "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
+            "../../mnt/data_persist/open-connect/packages/": os.path.relpath(
+                self.data / "packages", self.runtime / "feature"
+            )
+            + "/",
             "../../mnt/data_persist/open-connect/composed/": str(self.data / "composed") + "/",
             'test "$(id -u)" = 0': 'test "$(id -u)" = ' + str(os.getuid()),
             "700:0:0": f"700:{os.getuid()}:{os.getgid()}",
@@ -235,6 +254,11 @@ boot_ui_stage() {
         }.items():
             backend = backend.replace(old, new)
         (self.source / "backend.sh").write_text(backend)
+        usb = (self.source / "usb-service.sh").read_text()
+        usb = usb.replace("/tmp/open-connect", str(self.runtime)).replace(
+            "/tmp/mnt/data_persist/open-connect", str(self.data)
+        )
+        (self.source / "usb-service.sh").write_text(usb)
         manifest = "".join(
             hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
             for p in sorted(self.source.iterdir())
@@ -384,6 +408,47 @@ record_write
             text=True,
             timeout=30,
         )
+
+    def test_completion_links_verified_selected_package_and_retains_generation(self):
+        result = self.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        link = self.runtime / "feature/maintenance.js"
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(link.resolve(), self.package / "maintenance.js")
+        expected = (ASSETS / "maintenance.js").read_bytes()
+        self.assertEqual(link.read_bytes(), expected)
+        successor = self.data / "packages" / ("f" * 64)
+        successor.mkdir(mode=0o700)
+        (successor / "maintenance.js").write_text("successor\n")
+        self.assertEqual(link.read_bytes(), expected)
+        with link.open("rb") as reader:
+            shutil.rmtree(self.data / "packages")
+            self.assertFalse(link.exists())
+            self.assertEqual(reader.read(), expected)
+
+    def test_completion_shell_omits_optional_link_without_notice(self):
+        record = self.record()
+        record[12] = "-"
+        (self.data / "record").write_text("|".join(record) + "\n")
+        result = self.boot(1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(os.path.lexists(self.runtime / "feature/maintenance.js"))
+
+    def test_completion_shell_rejects_missing_symlink_and_changed_source(self):
+        source = self.package / "maintenance.js"
+        original = source.read_bytes()
+        for damage in ("missing", "symlink", "changed"):
+            with self.subTest(damage=damage):
+                source.unlink(missing_ok=True)
+                if damage == "symlink":
+                    source.symlink_to(ASSETS / "maintenance.js")
+                elif damage == "changed":
+                    source.write_bytes(original + b"changed")
+                result = self.boot(1)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse((self.runtime / "feature/maintenance.js").exists())
+                source.unlink(missing_ok=True)
+                source.write_bytes(original)
 
     def test_embedded_hook_selects_only_after_complete_source_verification(self):
         self.populated_dependencies()
@@ -574,6 +639,7 @@ record_write
         client = self.runtime / "client"
         shutil.copytree(self.package, client)
         (self.runtime / "runtime").symlink_to(client)
+        (self.runtime / "selected").write_text(self.record()[5] + "\n")
         current = self.record()[5]
         record = (self.data / "record").read_bytes()
         nvram = (self.root / "data-nvram").read_bytes()
@@ -604,6 +670,7 @@ record_write
         client = self.runtime / "client"
         shutil.copytree(self.package, client)
         (self.runtime / "runtime").symlink_to(client)
+        (self.runtime / "selected").write_text(self.record()[5] + "\n")
         current = self.record()[5]
         record = (self.data / "record").read_bytes()
         nvram = (self.root / "data-nvram").read_bytes()
@@ -899,6 +966,7 @@ boot_ui_unwind
         client = self.runtime / "client"
         shutil.copytree(self.package, client)
         (self.runtime / "runtime").symlink_to(client)
+        (self.runtime / "selected").write_text(self.record()[5] + "\n")
         current = self.record()[5]
         record = (self.data / "record").read_bytes()
         nvram = (self.root / "data-nvram").read_bytes()

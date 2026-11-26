@@ -87,9 +87,11 @@ status_identity() {
     done
 }
 
+# Open Connect pinned Settings 1
 settings_package=
 selected_snapshot=$(selection_id /tmp/open-connect/selected) || selected_snapshot=
-if test "$role" = settings && test -n "$selected_snapshot" && test "$exists" = true && test "$R_PHASE" != purge; then
+if test "$role" = settings && test "$exists" = true && test "$R_PHASE" != purge && test "$R_PHASE" != removed; then
+    test -n "$selected_snapshot" || fail invalid_selected_snapshot
     settings_package=$(snapshot_package "$selected_snapshot") || fail invalid_selected_snapshot
     test "$settings_package" != - || fail invalid_selected_snapshot
 fi
@@ -246,8 +248,7 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
         service_usb_observe >/dev/null 2>&1 || :
     fi
     # Retain undo=false for a running dev.1 client.
-    # Refresh after successful checks, so a slow writer never consumes the
-    # popup's readback window. Its flock remains authoritative until it exits.
+    # Refresh at completion; the writer flock covers slow work.
     if test "$operation" != status; then usb_retain; fi
     printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s%s}\n' \
         "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version" \
@@ -262,6 +263,13 @@ completion_boot_id() {
         value=$(cat /proc/sys/kernel/random/boot_id) && boot_id "$value" || return 1
         printf '%s\n' "$value"
     else current_boot_id; fi
+}
+
+transaction_admit() {
+    if test "$role:${transaction_admitted:-0}" = usb:0; then
+        usb_helpers=true; . "$P/usb-service.sh"
+        usb_fence; transaction_admitted=1
+    fi
 }
 
 finish_removal() {

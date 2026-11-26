@@ -821,31 +821,18 @@ stock_dependencies() {
 
 package_save() (
     set -eu
-    local work digest name extra id mode owner reuse= candidate=$D/packages/${R_BACKEND:--}
+    local work digest name extra id mode
     verify_manifest "$P" || fail damaged_source_package
-    # Only the recorded generation is a reuse candidate. Authenticate all its
-    # bytes and exact public membership; INSTANCE still belongs to each install.
-    if hex "${R_BACKEND:--}" 64 && private_dir "$candidate" &&
-        file "$candidate/files.sha256" && test "$(sha "$candidate/files.sha256")" = "$R_BACKEND" &&
-        verify_manifest "$candidate" &&
-        test "$(awk '$2!="INSTANCE"' "$candidate/files.sha256")" = "$(awk '$2!="INSTANCE"' "$P/files.sha256")"; then
-        reuse=$candidate; owner=$(id -u):$(id -g)
-    fi
+    # Hardlink creation/unlink changes a sealed member's ctime even on failure.
+    # Keep committed generations untouched until their actual removal.
     work=$(mktemp -d "$D/packages/.new-XXXXXX") || fail package_create_failed
     package_work=$work; trap 'rm -rf "$package_work"' EXIT
     while read -r digest name extra; do
         # INSTANCE is private data added below, never supplied by a USB package.
         test "$name" != INSTANCE || continue
         mode=600; case "$name" in api|flush|boot-select) mode=700;; esac
-        if test -n "$reuse" &&
-            test "$(stat -c '%a:%u:%g' "$reuse/$name")" = "$mode:$owner" &&
-            ln "$reuse/$name" "$work/$name" 2>/dev/null; then
-            : # Never write or change metadata through a shared inode.
-        else
-            absent "$work/$name" || fail package_link_failed
-            cp "$P/$name" "$work/$name" || fail package_copy_failed
-            chmod "$mode" "$work/$name" || fail package_mode_failed
-        fi
+        cp "$P/$name" "$work/$name" || fail package_copy_failed
+        chmod "$mode" "$work/$name" || fail package_mode_failed
         test "$(sha "$work/$name")" = "$digest" || fail package_copy_changed
         printf '%s  %s\n' "$digest" "$name" || fail package_manifest_failed
         flush f "$work/$name"

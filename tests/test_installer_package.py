@@ -1,12 +1,10 @@
-"""Real package writer: independent installs with shared immutable member inodes."""
+"""Real package writer: independent installs preserving committed sealed metadata."""
 
 import hashlib
-import json
 import os
 import shutil
 import subprocess
 import tempfile
-import time
 import unittest
 from pathlib import Path
 
@@ -20,12 +18,6 @@ D=$1; P=$2; R_BACKEND=$3; FAULT=$4
 . "$5/state.sh"; . "$5/firmware.sh"
 uuid() { openssl rand -hex 16; }
 cp() { printf 'copy\n' >> "$D-operations"; command cp "$@"; }
-ln() {
-    printf 'link\n' >> "$D-operations"
-    test "$FAULT" != no-links || return 1
-    command ln "$@" || return
-    test "$FAULT" != uncertain-link
-}
 flush() {
     "$P/flush" "$1" "$2" || fail flush_failed
     case "$FAULT:$1:$2" in
@@ -96,7 +88,6 @@ class InstallerPackage(unittest.TestCase):
     def save(self, previous="-", fault="none", ok=True):
         log = self.data.with_name("data-operations")
         log.write_text("")
-        start = time.monotonic()
         result = subprocess.run(
             ["sh", "-c", DRIVER, "package-test", self.data, self.source, previous, fault, ASSETS],
             capture_output=True,
@@ -104,7 +95,6 @@ class InstallerPackage(unittest.TestCase):
             env=self.env,
             timeout=15,
         )
-        self.elapsed = time.monotonic() - start
         self.operations = log.read_text().splitlines()
         if ok:
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -125,46 +115,25 @@ class InstallerPackage(unittest.TestCase):
                 p.stat().st_mode,
                 p.stat().st_uid,
                 p.stat().st_gid,
+                p.stat().st_ctime_ns,
             )
             for p in folder.iterdir()
         }
 
-    def test_identical_repeats_share_members_with_independent_install_identities(self):
+    def test_identical_repeats_copy_members_with_independent_install_identities(self):
         first = self.save()
-        copied = self.operations.count("copy")
-        first_seconds = self.elapsed
         original = self.fingerprint(first)
         hold = (first / "payload.bin").open("rb")
         self.addCleanup(hold.close)
         second = self.save(first.name)
-        second_seconds = self.elapsed
-        self.assertEqual(self.operations.count("copy"), 0)
-        self.assertEqual(self.operations.count("link"), copied)
+        self.assertEqual(self.operations.count("copy"), len(self.members))
         third = self.save(second.name)
-        self.assertEqual(self.operations.count("copy"), 0)
         self.assertEqual(len({first.name, second.name, third.name}), 3)
         self.assertEqual(self.fingerprint(first), original)
-        for name in self.members:
-            self.assertEqual((first / name).stat().st_ino, (second / name).stat().st_ino)
-            self.assertEqual((first / name).stat().st_ino, (third / name).stat().st_ino)
-        for name in ("INSTANCE", "files.sha256"):
+        for name in self.members + ["INSTANCE", "files.sha256"]:
             self.assertEqual(len({(p / name).stat().st_ino for p in (first, second, third)}), 3)
+        for name in ("INSTANCE", "files.sha256"):
             self.assertEqual(len({(p / name).read_bytes() for p in (first, second, third)}), 3)
-        files = [p for generation in (first, second, third) for p in generation.iterdir()]
-        unique = {(p.stat().st_dev, p.stat().st_ino): p for p in files}
-        report = {
-            "generations": 3,
-            "member_copies_first": copied,
-            "member_copies_repeat": self.operations.count("copy"),
-            "member_links_repeat": self.operations.count("link"),
-            "logical_bytes_all_paths": sum(p.stat().st_size for p in files),
-            "logical_bytes_unique_inodes": sum(p.stat().st_size for p in unique.values()),
-            "allocated_bytes_unique_inodes": sum(p.stat().st_blocks * 512 for p in unique.values()),
-            "first_seconds": round(first_seconds, 4),
-            "repeat_seconds": [round(second_seconds, 4), round(self.elapsed, 4)],
-        }
-        print("IDENTICAL_REINSTALL_HOST_COST " + json.dumps(report, sort_keys=True))
-        # Removal of either new generation releases names, never old data/metadata.
         shutil.rmtree(second)
         shutil.rmtree(third)
         self.assertEqual(self.fingerprint(first), original)
@@ -177,7 +146,6 @@ class InstallerPackage(unittest.TestCase):
         self.manifest(self.source)
         second = self.save(first.name)
         self.assertEqual(self.operations.count("copy"), len(self.members))
-        self.assertNotIn("link", self.operations)
         self.assertEqual((second / "payload.bin").read_bytes(), b"different authored payload\n")
         self.assertEqual(self.fingerprint(first), original)
 
@@ -199,7 +167,6 @@ class InstallerPackage(unittest.TestCase):
                     candidate_id = "f" * 64
                 second = self.save(candidate_id)
                 self.assertEqual(self.operations.count("copy"), len(self.members))
-                self.assertNotIn("link", self.operations)
                 self.assertEqual(
                     (second / "payload.bin").read_bytes(),
                     (self.source / "payload.bin").read_bytes(),
@@ -212,7 +179,7 @@ class InstallerPackage(unittest.TestCase):
         (first / "payload.bin").chmod(0o400)
         old = self.fingerprint(first)
         second = self.save(first.name)
-        self.assertEqual(self.operations.count("copy"), 1)
+        self.assertEqual(self.operations.count("copy"), len(self.members) + 1)
         self.assertNotEqual(
             (first / "payload.bin").stat().st_ino, (second / "payload.bin").stat().st_ino
         )
@@ -221,7 +188,7 @@ class InstallerPackage(unittest.TestCase):
         for name in ("api", "flush", "boot-select"):
             self.assertEqual((second / name).stat().st_mode & 0o777, 0o700)
 
-    def test_damaged_source_refuses_before_linking_even_with_good_old_package(self):
+    def test_damaged_source_refuses_before_copying_even_with_good_old_package(self):
         first = self.save()
         old = self.fingerprint(first)
         (self.source / "payload.bin").write_bytes(b"unmanifested change\n")
@@ -230,16 +197,7 @@ class InstallerPackage(unittest.TestCase):
         self.assertEqual(self.fingerprint(first), old)
         self.assertEqual(list((self.data / "packages").iterdir()), [first])
 
-    def test_unavailable_hardlinks_fall_back_without_touching_old_members(self):
-        first = self.save()
-        old = self.fingerprint(first)
-        second = self.save(first.name, "no-links")
-        self.assertEqual(self.operations.count("copy"), len(self.members))
-        self.assertEqual(self.fingerprint(first), old)
-        for name in self.members:
-            self.assertNotEqual((first / name).stat().st_ino, (second / name).stat().st_ino)
-
-    def test_reused_package_does_not_bypass_originals_verification(self):
+    def test_new_package_does_not_bypass_originals_verification(self):
         first = self.save()
         second = self.save(first.name)
         old = self.fingerprint(first)
@@ -272,16 +230,14 @@ class InstallerPackage(unittest.TestCase):
         self.assertFalse((self.data / "composed" / second.name).exists())
         self.assertEqual(self.fingerprint(first), old)
 
-    def test_interrupted_staging_and_uncertain_link_never_overwrite_shared_bytes(self):
+    def test_interrupted_staging_never_changes_committed_metadata(self):
         first = self.save()
         old = self.fingerprint(first)
-        for fault in ("uncertain-link", "member", "directory", "published"):
+        for fault in ("member", "directory", "published"):
             with self.subTest(fault=fault):
                 self.save(first.name, fault, ok=False)
                 self.assertEqual(self.fingerprint(first), old)
                 self.assertFalse(list((self.data / "packages").glob(".new-*")))
-                if fault == "uncertain-link":
-                    self.assertNotIn("copy", self.operations)
                 for path in (self.data / "packages").iterdir():
                     if path != first:
                         shutil.rmtree(path)

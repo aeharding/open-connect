@@ -18,7 +18,7 @@ Your choices stay saved after removing the USB drive and across normal restarts.
 
 ## Startup
 
-Open Connect verifies your saved choices and applies them as Mazda Connect starts. Changed app and service files run from temporary copies in memory; your original files stay intact on storage.
+Open Connect verifies your saved choices and applies them as Mazda Connect starts. Most changed app and service files run from temporary copies in memory; your original files stay intact on storage.
 
 If repeated unexpected restarts exhaust its three-attempt allowance, Open Connect falls back to Mazda’s normal startup while keeping your saved choices. A normal start after a sustained ignition-off shutdown renews that allowance.
 

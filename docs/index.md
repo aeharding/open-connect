@@ -17,7 +17,7 @@ Plug-and-play USB install.
 
 ## Features
 
-- **[Touchscreen](touchscreen.md)**: keep touch enabled while moving, use Mazda’s default lockout, or disable a failing touchscreen completely.
+- **[Touchscreen](touchscreen.md)**: keep touch enabled while moving, use Mazda’s default lockout, or choose **Always disabled** (see [Touchscreen](touchscreen.md) for current bench coverage and limits).
 - **[Startup disclaimer](disclaimer.md)**: skip Mazda’s startup warning and go straight to your usual screen.
 - **[Startup optimizations](startup-optimizations.md)**: reduce background logging and stop unused services, including DVD on North American units.
 - **CarPlay & Android Auto**: [Wireless CarPlay](wireless-carplay.md), [Show CarPlay on connection](carplay-on-connection.md) and [Android Auto](android-auto.md).

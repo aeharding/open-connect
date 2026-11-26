@@ -57,12 +57,12 @@ Open Connect sits just above **About** in Mazda’s System menu:
 
 ## Impact at a glance
 
-Cold-boot bench measurements below compare **v0.3.0-dev.20** against Stock (**Stock Show** vs installed **Skip**; primary **Startup optimizations** cohorts are `n=3`, isolated individual toggles are a separate `n=1` sweep). Do not add differences across rows; combined presets need their own measurements.
+Cold-boot bench measurements below compare **v0.3.0-dev.20** against Stock (**Stock Show** vs installed **Skip**; primary **Startup optimizations** cohorts are `n=3`, isolated individual toggles are a separate `n=1` sweep), except the **Touchscreen** note, which cites a separate PR #205 pre-dev.24 CI bundle comparison (`touch=2` vs installed `touch=1`). Do not add differences across rows; combined presets need their own measurements.
 
 | Setting / configuration | Main screen vs Stock | Available RAM proxy vs Stock | Boot CPU vs Stock | Trade-off / notes |
 | --- | --- | --- | --- | --- |
 | Open Connect defaults (`Base=0`, Skip, `n=3`) | ~4.3 s earlier (vs Stock Show) | +0.6 MiB | +0.7 pp | Uses 396 KiB own allocated tmpfs vs none on Stock; does not establish zero overhead. |
-| [Touchscreen](touchscreen.md) | Not measured separately | Not measured separately | Not measured separately | **Always disabled** adds +4 KiB tmpfs and +8 KiB `devices` PSS vs matched boot (+28 KiB vs post-install boot); physical panels remain unqualified. |
+| [Touchscreen](touchscreen.md) | Not measured separately | Not measured separately | Not measured separately | Separate PR #205 CI build (`touch=2` vs installed `touch=1`): +4 KiB feature tmpfs and +8 KiB `devices` PSS vs matched boot (+28 KiB vs post-install boot); physical panels remain unqualified. |
 | [Startup disclaimer Skip](disclaimer.md) | Included in defaults above | Not isolated | Not isolated | Restoring **Show** returns Mazda’s warning. |
 | [Startup optimizations on](startup-optimizations.md) (`n=3`) | ~7.7 s earlier (~3.4 s beyond defaults) | +21.2 MiB (−17.8 MiB AnonPages) | −4.8 pp | Stops unused services (500 KiB own allocated tmpfs); ~20 s Navigation delay only with Open Connect Wireless override on. |
 | [Wireless CarPlay on](wireless-carplay.md) (`n=1`) | ~5.1 s earlier (~0.8 s vs defaults) | ~0 MiB (+0.1 observed) | +2.2 pp (+3.4 pp settled) | Connected iPhone; compatible hardware and pairing required. |

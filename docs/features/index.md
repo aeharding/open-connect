@@ -8,7 +8,7 @@ These settings are in the **0.3.0-dev.24 development prerelease** for North Amer
 
 | Setting | What changes | Fresh-install default |
 | --- | --- | --- |
-| [Touchscreen](../touchscreen.md) | Controls whether touch stays enabled while moving, follows factory behavior, or stays completely disabled. | Always enabled |
+| [Touchscreen](../touchscreen.md) | Choose **Always enabled**, **Factory behavior**, or **Always disabled** (see [Touchscreen](../touchscreen.md) for current bench coverage and limits). | Always enabled |
 | [Startup disclaimer](../disclaimer.md) | Skips Mazda’s startup warning. | Skip |
 | [Startup optimizations](../startup-optimizations.md) | Reduces background logging and stops unused services, including DVD on North American units. | Off |
 | CarPlay & Android Auto → [Wireless CarPlay](../wireless-carplay.md) | Enables wireless iPhone connections on compatible hardware. | Off, unless factory enabled |

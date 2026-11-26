@@ -13,7 +13,7 @@ Choose how Mazda Connect handles touch input. The Commander knob and normal Mazd
   </div>
   <div>
     <dt>Impact</dt>
-    <dd>Not measured separately</dd>
+    <dd>+4 KiB tmpfs, +8 KiB PSS (mode 2); timing unmeasured</dd>
   </div>
   <div>
     <dt>Applies</dt>

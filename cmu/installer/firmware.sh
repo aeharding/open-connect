@@ -48,8 +48,7 @@ firmware_guard() {
     awk '$1=="/dev/mmcblk0p2"&&$2=="/tmp/mnt/data_persist"&&$3=="relfs"{
         n++;split($4,a,",");for(i in a)if(a[i]=="rw")rw++} END{exit !(n==1&&rw==1)}' /proc/mounts || fail persistence_unavailable
     for path in /tmp /tmp/mnt /tmp/mnt/data_persist; do directory "$path" || fail invalid_persistence_path; done
-    # Maintenance must be able to finish a known publication interrupted while
-    # root was writable. Boot selection separately requires the strict RO mode.
+    # Maintenance may finish an interrupted rw write; boot requires strict RO.
     boot_mount_guard maintenance || fail invalid_boot_mounts
 }
 
@@ -592,8 +591,7 @@ _boot_snapshot_seal() (
     if test "$S_ACCESS" = true; then set -- "$@" access runlogin sshd.conf; fi
     if test "${S_SELECTOR_RECORDED:-false}" = true; then set -- "$@" selector; fi
     set -- "$@" sm-normal.conf sm-wcp.conf index.html mmui.xml vui-plugins.list
-    # Capture the authenticated manifest, then keep each copied member bound to
-    # its original named digest. A copied replacement must never be re-blessed.
+    # Bind each copied member to its authenticated manifest digest.
     manifest=$(cat "$D/snapshots/$snapshot/files.sha256") || fail boot_profiles_missing
     digest=$(printf '%s\n' "$manifest" | openssl dgst -sha256) || fail boot_profiles_missing
     test "${digest##* }" = "$snapshot" || fail boot_profiles_changed
@@ -624,26 +622,31 @@ startup_staging_guard() {
 }
 # Retire only this pending revision's stages before changing its direction.
 startup_staging_retire() (
-    local source target actual mode name snapshot=$D/snapshots/$1
+    local source target actual mode name shash sel_hash sel_pkg hold hold_mode snapshot=$D/snapshots/$1
     snapshot_read "$1" || return 1
+    sel_hash=${S_SELECTOR_HASH:--}; sel_pkg=$S_SELECTOR_PACKAGE
     for name in autostart runlogin sshd.conf selector; do
-        source=$snapshot/$name
+        source=$snapshot/$name; hold=; hold_mode=
         case "$name" in
             autostart) target=$AUTOSTART;;
             runlogin) target=/usr/bin/runlogin;;
             sshd.conf) target=/etc/ssh/sshd_config;;
             selector)
-                test "${S_SELECTOR_HASH:--}" != - || continue
+                test "$sel_hash" != - || continue
                 target=/usr/bin/open-connect-boot-select
-                source=$D/packages/$S_SELECTOR_PACKAGE/boot-select;;
+                source=$D/packages/$sel_pkg/boot-select;;
         esac
         absent "$source" && continue
+        if test "$name" = runlogin; then
+            shash=$(sha "$source") && hex "$shash" 64 && access_login_hold "$shash" || return 1
+            hold=$S_HOLD; hold_mode=$S_HOLD_MODE
+        fi
         actual=-; mode=-
         if ! absent "$target"; then
             actual=$(sha "$target") && hex "$actual" 64 &&
                 mode=$(stat -c '%a:%u:%g' "$target") || return 1
         fi
-        root_publish "$target" "$source" - "$actual" "$mode" '' '' retire >&2 || return 1
+        root_publish "$target" "$source" - "$actual" "$mode" "$hold" "$hold_mode" retire >&2 || return 1
     done
 )
 remount() {
@@ -712,8 +715,7 @@ selector_apply() (
 
 root_publish() (
     set -eu
-    # BusyBox ash unwinds function locals before this subshell's EXIT trap.
-    # Keep trap inputs in the subshell scope so cleanup can still read them.
+    # Keep trap inputs outside locals for BusyBox ash EXIT unwinding.
     target=$1; source=$2; mode=$3; expected=$4; expected_mode=$5; identity=
     held=${6:-}; hold_mode=${7:-}
     case "$target" in /usr/bin/autostart|/usr/bin/runlogin|/etc/ssh/sshd_config|/usr/bin/open-connect-boot-select) ;; *) fail invalid_target;; esac
@@ -753,8 +755,7 @@ root_publish() (
                 test "$(stat -c '%a:%u:%g' "$target")" = "$expected_mode"
         fi
     }
-    # An already-written target still needs the directory flush and read-only
-    # restoration if a preceding process was killed between those steps.
+    # Still flush the parent directory and restore RO after an interrupted write.
     finish() {
         local result=$?
         trap - EXIT HUP INT TERM
@@ -806,8 +807,7 @@ root_publish() (
             identity=$(stat -c '%d:%i' "$work") || fail startup_stage_failed
         fi
         metadata "$mode" || fail invalid_startup_metadata
-        # BusyBox cp replaces an existing inode. Preserve the exclusively
-        # created stage's identity so the failure handler can remove it.
+        # Preserve the stage inode identity (BusyBox cp replaces inodes).
         if test "$hold_mode" != restore; then
             cat "$source" > "$work" && chown "$S_UID:$S_GID" "$work" && chmod "$S_MODE" "$work" || fail startup_copy_failed
         fi

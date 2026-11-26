@@ -1433,7 +1433,7 @@ one plan row (native open/stat) and one package member hashed by the Settings
 worker, but no shim page in feature tmpfs or the 16-file installed Settings set.
 USB maintenance copies the full bundle: 125 individually rounded 4 KiB file
 pages versus 124 before the shim, adding one page in every mode. `boot.sh` stays
-within four pages (16,250 bytes); packaging enforces its 16,384-byte cap and the
+within four pages (16,261 bytes); packaging enforces its 16,384-byte cap and the
 shim's 4,096-byte cap, including incremental builds.
 Selected mode 2 adds one 4 KiB feature page plus unmeasured release devices PSS.
 All 14 per-file page budgets are enforced. This is file-page accounting, not a

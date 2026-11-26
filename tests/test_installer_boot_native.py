@@ -723,6 +723,64 @@ class NativeBootPlan(unittest.TestCase):
         self.assertEqual(fixture.record(), pending)
         self.assertEqual(stage.read_bytes(), b"foreign stage bytes\n")
 
+    def test_touch_recovery_checks_restore_stage_inode_identity(self):
+        for replace_inode in (True, False):
+            with self.subTest(replace_inode=replace_inode):
+                fixture = self.touch_fixture(resources=True, publisher=True)
+                client = fixture.runtime / "client"
+                shutil.copytree(fixture.package, client)
+                (fixture.runtime / "runtime").symlink_to(client)
+                (fixture.runtime / "selected").write_text(fixture.record()[5] + "\n")
+                original_inode = (fixture.root / "root-login").stat().st_ino
+                enabled = self.touch_api(fixture, "set", fixture.record()[5], "uart", "0", "1")
+                self.assertEqual(enabled.returncode, 0, enabled.stdout + enabled.stderr)
+                hold = fixture.root / (".open-connect-runlogin-" + str(original_inode))
+                self.assertEqual(hold.stat().st_ino, original_inode)
+                # Interrupt disabling UART immediately after the restore stage is flushed.
+                cut = fixture.root / "cut-publisher"
+                cut.touch()
+                interrupted = self.touch_api(fixture, "set", fixture.record()[5], "uart", "1", "0")
+                self.assertNotEqual(
+                    interrupted.returncode, 0, interrupted.stdout + interrupted.stderr
+                )
+                cut.unlink()
+                pending = fixture.record()
+                self.assertEqual(pending[1], "set")
+                stage = fixture.root / (".open-connect-" + pending[2] + "-root-login")
+                self.assertEqual(stage.stat().st_ino, original_inode)
+                if replace_inode:
+                    stat_before = stage.stat()
+                    replacement = fixture.root / "replacement-stage"
+                    replacement.write_bytes(stage.read_bytes())
+                    replacement.chmod(stat_before.st_mode & 0o7777)
+                    os.utime(replacement, ns=(stat_before.st_atime_ns, stat_before.st_mtime_ns))
+                    stage.unlink()
+                    replacement.rename(stage)
+                    self.assertNotEqual(stage.stat().st_ino, original_inode)
+                    replacement_inode = stage.stat().st_ino
+                (fixture.root / "touch-lib").write_bytes(b"changed OEM devices library\n")
+                (fixture.runtime / "runtime").unlink()
+                (fixture.runtime / "usb-runtime").symlink_to(client)
+                result = self.touch_api(fixture, "recover", pending[2])
+                if replace_inode:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(json.loads(result.stdout)["error"], "startup_stage_changed")
+                    self.assertEqual(fixture.record(), pending)
+                    self.assertTrue(stage.exists())
+                    self.assertEqual(stage.stat().st_ino, replacement_inode)
+                    self.assertEqual(hold.stat().st_ino, original_inode)
+                else:
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    recovered = json.loads(result.stdout)
+                    self.assertEqual((recovered["touch"], recovered["uart"]), (0, 0))
+                    self.assertFalse(stage.exists())
+                    self.assertEqual((fixture.root / "root-login").stat().st_ino, original_inode)
+                    uninstall = self.touch_api(fixture, "uninstall", recovered["revision"])
+                    self.assertEqual(uninstall.returncode, 0, uninstall.stdout + uninstall.stderr)
+                    self.assertFalse(fixture.data.exists())
+                    self.assertEqual(list(fixture.root.glob(".open-connect-*")), [])
+                    self.assertEqual((fixture.root / "root-login").stat().st_ino, original_inode)
+
     def test_factory_snapshot_reuse_retries_failed_parent_flush_before_oc1(self):
         fixture, _, pending, _ = self.staged_touch_pending()
         record = (fixture.data / "record").read_bytes()

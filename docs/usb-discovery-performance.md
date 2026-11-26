@@ -9,10 +9,11 @@ higher in the two primary windows, with overlapping run ranges.
 
 These are bounded bench findings for [#184](https://github.com/aeharding/open-connect/issues/184)
 and [#9](https://github.com/aeharding/open-connect/issues/9).
-**Dev.23 is unreleased. Draft [PR #179](https://github.com/aeharding/open-connect/pull/179)
-remains held for performance disposition and [#185](https://github.com/aeharding/open-connect/issues/185)
-completion work.** These measurements do not qualify final source, establish
-blanket non-regression or imply owner acceptance of RAM overhead.
+These historical measurements do not qualify final source, establish blanket
+non-regression or imply owner acceptance of RAM overhead. See
+[PR #179](https://github.com/aeharding/open-connect/pull/179) for separate native
+functional evidence; the original missing-popup report remains tracked in
+[#185](https://github.com/aeharding/open-connect/issues/185).
 
 The [final baff018 resource append](#final-baff018-resource-measurements-november-26-2026)
 adds predeclared primary and all-attempts groups without changing these historical blocks.
@@ -418,9 +419,10 @@ from the sanitized exports, without requiring those scripts or raw captures.
 
 Primary Opera PSS/private and CPU medians are lower than both current-setup
 controls; Opera ranges overlap controls, while several global RAM, I/O and
-traffic counters rose. **No blanket performance acceptance or RAM waiver follows. Dev.23 tag
-assets are unpublished; final native C/D qualification remains pending in
-[PR #179](https://github.com/aeharding/open-connect/pull/179).**
+traffic counters rose. **No blanket performance acceptance or RAM waiver follows.**
+Native functional evidence is recorded separately in
+[PR #179](https://github.com/aeharding/open-connect/pull/179); these resource trials
+do not test installation, phone projection or physical controls.
 
 **Primary: Home-prepared trials 12/13/14 (n=3)**, predeclared at 08:10:58 UTC
 before trial 14 acquisition to resolve a visually verified preparation mismatch.

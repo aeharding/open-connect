@@ -20,6 +20,10 @@ heap leak, stock parity and blanket non-regression are unproved. **Dev.23 is
 unreleased; draft PR #179 remains held for #185 completion work and performance
 disposition.** No RAM acceptance is inferred.
 
+The [final baff018 resource measurements](usb-discovery-performance.md#final-baff018-resource-measurements-november-26-2026)
+add Home-prepared trials 12–14 and all attempts 11–14, with current-setup controls,
+positive counter deltas and reproducible CSVs. Final native qualification remains pending.
+
 ## Published dev.20 cold ACC-off comparison 2026-11-25
 
 **Primary COHORT-9: Stock versus published v0.3.0-dev.20, Base=0 and Base=1.**

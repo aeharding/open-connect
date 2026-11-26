@@ -8,6 +8,7 @@ var token=entry.token,port=entry.port,usb=entry.role==="usb";
 if(!/^[a-f0-9]{32}$/.test(token)||(usb?port!==15557:entry.role!=="completion"||port!==15555))return null;
 var boot=usb?null:entry.boot,discovery=usb&&entry.discovery;
 if(!usb&&(!boot||boot.notice!=="installed"||
+ !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(boot.id)||
  !/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(boot.version)))return null;
 var slot=usb?"OpenConnectMaintenance":"OpenConnectCompletion",previous=window[slot];
 if(previous)previous.cancel(previous.token);
@@ -169,7 +170,16 @@ function valid(a,metadata){
  /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(a.version)&&
  (a.installedVersion===undefined||a.installedVersion==="-"||/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(a.installedVersion));
 }
-function receive(a,metadata){known=!!valid(a,metadata);if(known)s=a;}
+function proof(a){
+ return a&&a.ok===true&&/^[a-f0-9]{64}$/.test(a.revision)&&/^[a-f0-9]{64}$/.test(a.package)&&
+ /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(a.boot)&&
+ /^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(a.installedVersion)&&
+ /^(?:-|installed)$/.test(a.notice)&&typeof a.completionReady==="boolean";
+}
+function sameProof(a,b){
+ return proof(a)&&a.revision===b.revision&&a.package===b.package&&a.boot===b.boot&&a.installedVersion===b.installedVersion;
+}
+function receive(a,metadata,completion){known=!!(completion?proof(a):valid(a,metadata));if(known)s=a;}
 function advance(){epoch++;}
 function held(){return!!job||feedback||acking;}
 function claim(){return !dead&&!feedback&&!acking&&!framework.common._openConnectPage&&ui.claim(framework);}
@@ -208,7 +218,7 @@ function post(op,args,done,ms,intent){
  answered=true;clearTimeout(deadline);
  var index=requests.indexOf(cancelRequest);if(index!==-1)requests.splice(index,1);
  if(dead||intent!==epoch)return;
- if(op!=="dismiss"&&!(op==="status"&&args&&args[0]==="session"))receive(a,originUSB&&op==="status"&&args&&args[0]==="settings");
+ if(op!=="dismiss"&&!(op==="status"&&args&&args[0]==="session"))receive(a,originUSB&&op==="status"&&args&&args[0]==="settings",op==="status"&&args&&args[0]==="completion");
  done(a,xhr.status);
 }
  xhr.onreadystatechange=function(){
@@ -253,7 +263,7 @@ function dismiss(done){
  if(acking)return;
  if(!claim()){shown=false;return;}
  acking=true;
- var intent=epoch,until=Date.now()+12000,revision=s.revision;
+ var intent=epoch,until=Date.now()+12000,confirmation=s;
  function finish(ok){
  acking=false;
  if(ok)s.notice="-";
@@ -268,8 +278,11 @@ function dismiss(done){
  post("dismiss",null,function(a){
   if(a&&a.ok===true){finish(true);}
   else if(a&&a.error==="busy"){setTimeout(send,Math.min(500,until-Date.now()));}
-  else{read(function(fresh){finish(!!(valid(fresh)&&fresh.installed&&!fresh.pending&&!fresh.conflict&&
-    fresh.notice==="-"&&fresh.revision===revision));},until,0,intent,"settings");}
+  else if(a&&a.ok===false){known=false;finish(false);}
+  else{read(function(fresh){
+   var matched=sameProof(fresh,confirmation);if(!matched)known=false;
+   finish(!!(matched&&fresh.notice==="-"));
+  },until,0,intent,"completion");}
  },left,intent);
 }
  send();
@@ -361,9 +374,8 @@ function choose(){
 };
 }
 function complete(){
- return known&&boot&&boot.notice==="installed"&&valid(s)&&s.installed&&
- !s.pending&&!s.conflict&&!s.restart&&s.notice==="installed"&&
- s.completionReady===true&&s.installedVersion===boot.version;
+ return known&&boot&&proof(s)&&s.boot===boot.id&&s.installedVersion===boot.version&&
+ s.notice==="installed"&&s.completionReady===true;
 }
 function wake(){
  clearTimeout(timer);if(dead)return;
@@ -401,13 +413,19 @@ var client={token:token,close:close,cancel:cancel,protected:function(){
  return held()||dialog||queued?2:!ready?1:0;
 }};
 function prepared(a){
- if(!valid(a,originUSB)){
+ if(boot&&a&&a.error==="operation_pending"){
+  // Recovery still consumes the full maintenance contract, with visible progress.
+  read(function(fresh){
+   if(valid(fresh)&&fresh.pending){ready=true;wake();}else close();
+  },Date.now()+12000,0,epoch,"settings");return;
+ }
+ if(!(boot?proof(a):valid(a,originUSB))){
   if(boot){if(window.ocCarPlay)ocCarPlay.cancel();close();}
   else message("Unable to finish","Open Connect could not be reached. Check the connection before trying again.");
   return;
  }
  ready=true;
- if(boot&&!a.pending&&!complete()){
+ if(boot&&!complete()){
   if(window.ocCarPlay)ocCarPlay.cancel();close();return;
  }
  wake();

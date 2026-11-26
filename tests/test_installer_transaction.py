@@ -793,237 +793,279 @@ class InstallerTransaction(unittest.TestCase):
                     self.assertEqual(path.read_bytes(), b"external edit\n")
                 path.write_bytes(original)
 
-    def test_fast_status_cannot_authorize_conflicted_completion(self):
-        data = self.create("completion-conflict")
+    def completion_fixture(self, name):
+        data = self.create(name)
         self.run_ok(data, "install")
         self.backend_fixture(data)
-        record = (data / "record").read_text().split("|")
-        record[11] = "12345678-1234-1234-1234-123456789abc"
-        record[12] = "installed\n"
-        (data / "record").write_text("|".join(record))
-        kernel = self.root / "kernel"
-        kernel.write_text(record[11] + "\n")
-        backend = self.tools / "backend.sh"
-        backend.write_text(
-            backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
-        )
-        (self.root / "runtime/selected").write_text(record[5] + "\n")
-        for argument in ("completion",):
-            result, ready = self.api("status", argument=argument)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue(ready["completionReady"])
-            for target in ("target", "relevant"):
-                path = self.target(data, target)
-                original = path.read_bytes()
-                path.write_bytes(b"changed after boot\n")
-                result, answer = self.api("status", argument=argument)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertTrue(answer["conflict"])
-                self.assertFalse(answer["completionReady"])
-                path.write_bytes(original)
-        package = data / "packages" / (data / "package-id").read_text().strip()
-        for name in ("VERSION", "services.tsv", "preferences.awk"):
-            path = package / name
-            original = path.read_bytes()
-            path.write_bytes(original + b"edited\n")
-            result, answer = self.api("status", argument="completion")
-            self.assertFalse(answer.get("completionReady", False))
-            if name == "VERSION":
-                self.assertTrue(answer["conflict"] or answer["installedVersion"] == "-")
-            else:
-                self.assertNotEqual(result.returncode, 0)
-            path.write_bytes(original)
-
-    def test_completion_requires_selection_and_recorded_current_boot(self):
-        data = self.create("completion")
-        self.run_ok(data, "install")
-        self.backend_fixture(data)
-        runtime = self.root / "runtime"
-        kernel = self.root / "kernel-boot"
+        fields = (data / "record").read_text().strip().split("|")
         boot = "12345678-1234-1234-1234-123456789abc"
-        kernel.write_text(boot + "\n")
-        backend = self.tools / "backend.sh"
-        backend.write_text(
-            backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
+        fields[3] = (data / "package-id").read_text().strip()
+        fields[11:13] = [boot, "installed"]
+        (data / "record").write_text("|".join(fields) + "\n")
+        runtime = self.root / "runtime"
+        (runtime / "boot-id").symlink_to(boot)
+        # service_stage already authenticates this installed endpoint. Its
+        # manifest identifies the selected package, not the maintenance media.
+        shutil.copyfile(data / "packages" / fields[3] / "files.sha256", self.tools / "files.sha256")
+        return data, runtime, fields
+
+    def test_completion_is_a_narrow_fresh_selected_boot_proof(self):
+        data, runtime, fields = self.completion_fixture("narrow-completion")
+        for module, functions in (
+            ("state.sh", ("snapshot_decode",)),
+            ("transaction.sh", ("targets_match_loaded", "dependencies_match")),
+            ("access.sh", ("access_login_check",)),
+            ("firmware.sh", ("factory_wireless",)),
+        ):
+            with (self.tools / module).open("a") as stream:
+                for function in functions:
+                    stream.write("\n" + function + "() { exit 99; }\n")
+        before = (data / "record").read_bytes()
+        result, proof = self.api("status", argument="completion")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            proof,
+            dict(
+                ok=True,
+                revision=fields[5],
+                package=fields[3],
+                boot=fields[11],
+                installedVersion="0.3.0-dev.10-fixture",
+                notice="installed",
+                completionReady=True,
+            ),
         )
-        record = (data / "record").read_text().split("|")
-        record[11] = boot
-        record[12] = "installed\n"
-        selected = runtime / "selected"
-        selected.write_text(record[5] + "\n")
-        (data / "record").write_text("|".join(record))
-        for variant in (
-            "ready",
-            "previous-boot",
+        self.assertEqual((data / "record").read_bytes(), before)
+        # A read-only proof is of selection, not a second physical-state audit.
+        self.target(data, "target").write_text("external edit after selected boot\n")
+        self.target(data, "relevant").write_text("external dependency edit\n")
+        _, fresh = self.api("status", argument="completion")
+        self.assertEqual(fresh, proof)
+        # ACC may rotate OC1's write nonce without changing the selected boot.
+        fields[2] = "f" * 32
+        (data / "record").write_text("|".join(fields) + "\n")
+        result, answer = self.api("dismiss", proof["revision"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(answer, {"ok": True})
+        self.assertTrue((self.tools / "closed").exists())
+        _, cleared = self.api("status", argument="completion")
+        self.assertEqual(cleared, {**proof, "notice": "-", "completionReady": False})
+        before = (data / "record").read_bytes()
+        _, refused = self.api("dismiss", proof["revision"])
+        self.assertEqual(refused["error"], "stale_state")
+        self.assertEqual((data / "record").read_bytes(), before)
+        self.assertEqual((runtime / "selected").read_text(), fields[5] + "\n")
+
+    def test_completion_and_ack_refuse_incomplete_or_mismatched_authority(self):
+        cases = (
+            "no-selected",
+            "malformed-selected",
             "unselected",
-            "no-notice",
-            "invalid-kernel",
+            "no-boot",
+            "bad-boot",
+            "regular-boot",
+            "previous-boot",
             "same-boot-commit",
-        ):
-            with self.subTest(variant=variant):
-                current = record.copy()
-                current[11] = "-" if variant == "same-boot-commit" else boot
-                current[12] = "-\n" if variant == "no-notice" else "installed\n"
-                (data / "record").write_text("|".join(current))
-                kernel.write_text(
-                    (
-                        "87654321-1234-1234-1234-123456789abc"
-                        if variant == "previous-boot"
-                        else "invalid"
-                        if variant == "invalid-kernel"
-                        else boot
+            "pending",
+            "removed",
+            "config",
+            "version",
+            "manifest",
+            "package",
+            "old-endpoint",
+            "replaced",
+            "usb",
+        )
+        for case in cases:
+            with self.subTest(case=case):
+                shutil.rmtree(self.root / "runtime", ignore_errors=True)
+                data, runtime, fields = self.completion_fixture("completion-" + case)
+                selected, marker = runtime / "selected", runtime / "boot-id"
+                if case == "no-selected":
+                    selected.unlink()
+                elif case == "malformed-selected":
+                    selected.write_text(fields[5] + "\nextra\n")
+                elif case == "unselected":
+                    selected.write_text("0" * 64 + "\n")
+                elif case == "no-boot":
+                    marker.unlink()
+                elif case in ("bad-boot", "regular-boot", "previous-boot"):
+                    marker.unlink()
+                    if case == "regular-boot":
+                        marker.write_text(fields[11] + "\n")
+                    else:
+                        marker.symlink_to(
+                            "invalid"
+                            if case == "bad-boot"
+                            else "87654321-1234-1234-1234-123456789abc"
+                        )
+                elif case == "same-boot-commit":
+                    fields[11] = "-"
+                elif case == "pending":
+                    fields[1], fields[6], fields[7] = "set", fields[5], fields[5]
+                elif case == "removed":
+                    fields[1] = "removed"
+                elif case == "config":
+                    (data / "snapshots" / fields[5] / "config").write_text("invalid config\n")
+                elif case == "version":
+                    (data / "packages" / fields[3] / "VERSION").write_text("0.3.0-forged\n")
+                elif case == "package":
+                    fields[3] = "f" * 64
+                elif case == "manifest":
+                    (self.tools / "files.sha256").write_text("invalid identity\n")
+                elif case == "old-endpoint":
+                    (self.tools / "files.sha256").write_text("0" * 64 + "  VERSION\n")
+                elif case in ("replaced", "usb"):
+                    (runtime / "runtime").unlink()
+                    (runtime / ("usb-runtime" if case == "usb" else "runtime")).symlink_to(
+                        self.tools if case == "usb" else self.root / "successor"
                     )
-                    + "\n"
-                )
-                selected.write_text(("0" * 64 if variant == "unselected" else record[5]) + "\n")
+                (data / "record").write_text("|".join(fields) + "\n")
                 before = (data / "record").read_bytes()
-                result, status = self.api("status", argument="completion")
-                if variant == "unselected":
-                    self.assertNotEqual(result.returncode, 0)
-                    self.assertEqual(status["error"], "invalid_selected_snapshot")
-                else:
-                    self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertEqual(status["completionReady"], variant == "ready")
-                self.assertEqual((data / "record").read_bytes(), before)
+                for operation, args in (("status", ("-", "completion")), ("dismiss", (fields[5],))):
+                    result, error = self.api(operation, *args)
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertFalse(error.get("completionReady", False))
+                    if case == "pending":
+                        self.assertEqual(error["error"], "operation_pending")
+                    self.assertEqual((data / "record").read_bytes(), before)
+                self.assertFalse((self.tools / "closed").exists())
 
-    def test_completion_uses_volatile_identity_when_kernel_uuid_repeats(self):
-        data = self.create("repeated-completion")
-        self.run_ok(data, "install")
-        self.backend_fixture(data)
-        runtime = self.root / "runtime"
+    def test_completion_uses_only_the_volatile_boot_identity(self):
+        data, runtime, fields = self.completion_fixture("repeated-completion")
         kernel = self.root / "kernel-boot"
-        raw = "f7a1f4aa-1234-1234-1234-123456789abc"
-        kernel.write_text(raw + "\n")
+        kernel.write_text(fields[11] + "\n")
         backend = self.tools / "backend.sh"
         backend.write_text(
             backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
         )
-        fields = (data / "record").read_text().split("|")
-        fields[12] = "installed\n"
-        (runtime / "selected").write_text(fields[5] + "\n")
         marker = runtime / "boot-id"
-        first = "12345678-1234-1234-1234-123456789abc"
-        second = "87654321-1234-1234-1234-123456789abc"
-        for token, recorded, ready in (
-            (first, first, True),
-            (second, first, False),  # New kernel; installation was not selected.
-            (second, second, True),
-            (second, raw, False),  # Repeated raw UUID must never rescue a mismatch.
-            (None, raw, True),  # New USB serving a live dev.19 installation.
-            (None, second, False),
-            ("invalid", raw, False),
-            (raw + "\n", raw, False),
+        for current, recorded, ready in (
+            (fields[11], fields[11], True),
+            ("87654321-1234-1234-1234-123456789abc", fields[11], False),
+            ("87654321-1234-1234-1234-123456789abc", "87654321-1234-1234-1234-123456789abc", True),
+            (None, fields[11], False),  # Repeated raw UUID cannot replace selection evidence.
         ):
-            with self.subTest(token=token, recorded=recorded):
+            with self.subTest(current=current, recorded=recorded):
                 marker.unlink(missing_ok=True)
-                if token is not None:
-                    marker.symlink_to(token)
+                if current:
+                    marker.symlink_to(current)
                 fields[11] = recorded
-                (data / "record").write_text("|".join(fields))
-                before = (data / "record").read_bytes()
-                result, status = self.api("status", argument="completion")
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(status["completionReady"], ready)
-                self.assertEqual((data / "record").read_bytes(), before)
-        marker.unlink()
-        marker.write_text(raw + "\n")  # A regular file is not a legacy absence.
-        fields[11] = raw
-        (data / "record").write_text("|".join(fields))
-        result, status = self.api("status", argument="completion")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse(status["completionReady"])
-        self.assertEqual(kernel.read_text(), raw + "\n")
+                (data / "record").write_text("|".join(fields) + "\n")
+                result, proof = self.api("status", argument="completion")
+                self.assertEqual(result.returncode == 0, ready, result.stdout + result.stderr)
+                self.assertEqual(proof.get("completionReady", False), ready)
 
-    def test_fast_completion_audit_uses_volatile_identity_with_repeated_kernel_uuid(self):
-        data = self.create("fast-repeated-completion")
-        self.run_ok(data, "install")
-        self.backend_fixture(data)
-        runtime = self.root / "runtime"
-        raw = "f7a1f4aa-1234-1234-1234-123456789abc"
-        kernel = self.root / "kernel-boot"
-        kernel.write_text(raw + "\n")
-        backend = self.tools / "backend.sh"
-        backend.write_text(
-            backend.read_text().replace("/proc/sys/kernel/random/boot_id", str(kernel))
+    def test_real_package_writer_gives_reinstalls_distinct_capabilities(self):
+        data = self.create("install-generations")
+        source = data / "packages" / (data / "package-id").read_text().strip()
+        script = (
+            'set -eu; D=$1; P=$2; . "$3/state.sh"; . "$3/firmware.sh"; '
+            "uuid() { openssl rand -hex 16; }; package_save; package_save"
         )
-        fields = (data / "record").read_text().split("|")
-        fields[12] = "installed\n"
-        (runtime / "selected").write_text(fields[5] + "\n")
-        marker = runtime / "boot-id"
-        for token in (
-            "12345678-1234-1234-1234-123456789abc",
-            "87654321-1234-1234-1234-123456789abc",
-        ):
-            with self.subTest(volatile_boot=token):
-                marker.unlink(missing_ok=True)
-                marker.symlink_to(token)
-                fields[11] = token
-                (data / "record").write_text("|".join(fields))
-                before = (data / "record").read_bytes()
-                result, ready = self.api("status", argument="completion")
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertTrue(ready["completionReady"])
-                self.assertFalse(ready["conflict"])
-                for target in ("target", "relevant"):
-                    with self.subTest(changed=target):
-                        path = self.target(data, target)
-                        original = path.read_bytes()
-                        path.write_bytes(b"external edit after selected boot\n")
-                        try:
-                            result, refused = self.api("status", argument="completion")
-                            self.assertEqual(result.returncode, 0, result.stderr)
-                            self.assertTrue(refused["conflict"])
-                            self.assertFalse(refused["completionReady"])
-                            self.assertEqual(
-                                path.read_bytes(), b"external edit after selected boot\n"
-                            )
-                            self.assertEqual((data / "record").read_bytes(), before)
-                        finally:
-                            path.write_bytes(original)
-                self.assertEqual(os.readlink(marker), token)
-                self.assertEqual(kernel.read_text(), raw + "\n")
-
-    def test_completion_identity_failure_cannot_bypass_audit_on_a_second_read(self):
-        data = self.create("single-completion-proof")
-        self.run_ok(data, "install")
-        self.backend_fixture(data)
-        fields = (data / "record").read_text().split("|")
-        fields[11] = "12345678-1234-1234-1234-123456789abc"
-        fields[12] = "installed\n"
-        (data / "record").write_text("|".join(fields))
-        (self.root / "runtime/selected").write_text(fields[5] + "\n")
-        backend = self.tools / "backend.sh"
-        backend.write_text(
-            backend.read_text().replace(
-                "completion_boot_id() {",
-                "completion_boot_id() {\n"
-                ' local reads; IFS= read -r reads < "$D/identity-reads"\n'
-                ' reads=$((reads+1)); printf "%s\\n" "$reads" > "$D/identity-reads"\n'
-                ' printf "%s\\n" "$R_BOOT"\n'
-                ' test "$reads" -gt 1; return $?\n',
+        result = subprocess.run(
+            ["sh", "-c", script, "packages", data, source, ROOT / "cmu/installer"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        first, second = result.stdout.splitlines()
+        self.assertNotEqual(first, second)
+        self.assertNotIn(source.name, (first, second))
+        for identity in (first, second):
+            folder = data / "packages" / identity
+            self.assertEqual(
+                hashlib.sha256((folder / "files.sha256").read_bytes()).hexdigest(), identity
             )
+            self.assertTrue((folder / "INSTANCE").is_file())
+        # Even repeated randomness cannot publish the same generation twice.
+        collision = (
+            script[: script.index("uuid()")]
+            + 'repeat_instance=$D/packages/$4/INSTANCE; uuid() { cat "$repeat_instance"; }; package_save'
         )
-        for argument in ("completion",):
-            with self.subTest(argument=argument):
-                (data / "identity-reads").write_text("0\n")
-                before = (data / "record").read_bytes()
-                result, denied = self.api("status", argument=argument)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertFalse(denied["completionReady"])
-                self.assertEqual((data / "identity-reads").read_text(), "1\n")
-                _, ready = self.api("status", argument=argument)
-                self.assertTrue(ready["completionReady"])
-                self.assertEqual((data / "identity-reads").read_text(), "2\n")
-                dependency = self.target(data, "relevant")
-                original = dependency.read_bytes()
-                dependency.write_bytes(b"external edit\n")
-                try:
-                    _, refused = self.api("status", argument=argument)
-                    self.assertTrue(refused["conflict"])
-                    self.assertFalse(refused["completionReady"])
-                finally:
-                    dependency.write_bytes(original)
-                self.assertEqual((data / "record").read_bytes(), before)
+        result = subprocess.run(
+            ["sh", "-c", collision, "packages", data, source, ROOT / "cmu/installer", first],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("package_collision", result.stderr)
+
+    def test_pending_recovery_still_audits_physical_targets_and_dependencies(self):
+        for target, error in (("target", "startup_changed"), ("relevant", "dependencies_changed")):
+            with self.subTest(target=target):
+                shutil.rmtree(self.root / "runtime", ignore_errors=True)
+                data = self.create("recover-audit-" + target)
+                self.run_ok(data, "install")
+                self.assertNotEqual(self.run_command(data, "service-off", "prepared").returncode, 0)
+                self.backend_fixture(data)
+                record = (data / "record").read_bytes()
+                revision = record.decode().split("|")[2]
+                path = self.target(data, target)
+                path.write_text("external edit while recovery was pending\n")
+                result, answer = self.api("recover", revision)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(answer["error"], error)
+                self.assertEqual((data / "record").read_bytes(), record)
+                self.assertEqual(path.read_text(), "external edit while recovery was pending\n")
+
+    def test_completion_ack_cannot_clear_a_new_install_before_its_boot(self):
+        data, runtime, fields = self.completion_fixture("stale-completion-ack")
+        _, proof = self.api("status", argument="completion")
+        # Even a synthetic reinstall reusing identical fixture bytes cannot be
+        # acknowledged on this boot: all non-apply commits clear R_BOOT.
+        self.run_ok(data, "install")
+        before = (data / "record").read_bytes()
+        _, refused = self.api("dismiss", proof["revision"])
+        self.assertEqual(refused["error"], "completion_unavailable")
+        self.assertEqual((data / "record").read_bytes(), before)
+        self.assertEqual((data / "record").read_text().split("|")[12], "installed\n")
+        self.assertFalse((self.tools / "closed").exists())
+
+    def test_old_ack_refuses_a_valid_successor_selected_boot(self):
+        data, runtime, fields = self.completion_fixture("successor-completion-ack")
+        _, old = self.api("status", argument="completion")
+        source = data / "packages" / fields[3]
+        result = subprocess.run(
+            [
+                "sh",
+                "-c",
+                'set -eu; D=$1; P=$2; . "$3/state.sh"; . "$3/firmware.sh"; '
+                "uuid() { openssl rand -hex 16; }; package_save",
+                "reinstall",
+                data,
+                source,
+                ROOT / "cmu/installer",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        successor = result.stdout.strip()
+        (data / "package-id").write_text(successor + "\n")
+        self.run_ok(data, "install")
+        fields = (data / "record").read_text().strip().split("|")
+        fields[3] = successor
+        fields[11] = "87654321-1234-1234-1234-123456789abc"
+        (data / "record").write_text("|".join(fields) + "\n")
+        (runtime / "boot-id").unlink()
+        (runtime / "boot-id").symlink_to(fields[11])
+        (runtime / "selected").write_text(fields[5] + "\n")
+        shutil.copyfile(data / "packages" / successor / "files.sha256", self.tools / "files.sha256")
+        _, fresh = self.api("status", argument="completion")
+        self.assertTrue(fresh["completionReady"])
+        self.assertNotEqual(fresh["revision"], old["revision"])
+        before = (data / "record").read_bytes()
+        _, refused = self.api("dismiss", old["revision"])
+        self.assertEqual(refused["error"], "stale_state")
+        self.assertEqual((data / "record").read_bytes(), before)
+        self.assertFalse((self.tools / "closed").exists())
 
     def test_status_refuses_an_unreadable_authority_fingerprint(self):
         data = self.create("authority-read-failure")
@@ -1593,24 +1635,6 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue(empty["pending"])
         self.assertFalse(empty["installed"])
-
-    def test_installed_dismiss_acknowledges_verified_record_without_audit(self):
-        data = self.create("dismiss-no-audit")
-        self.run_ok(data, "install")
-        self.backend_fixture(data)
-        fields = (data / "record").read_text().split("|")
-        fields[12] = "installed\n"
-        (data / "record").write_text("|".join(fields))
-        with (self.tools / "transaction.sh").open("a") as target:
-            target.write("\ntargets_match_loaded() { exit 99; }\n")
-        result, answer = self.api("dismiss", fields[5])
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(answer, {"ok": True})
-        self.assertEqual((data / "record").read_text().split("|")[12], "-\n")
-        self.assertTrue((self.tools / "closed").exists())
-        result, status = self.api("status", argument="settings")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(status["notice"], "-")
 
     def real_flock(self):
         flock = self.tools / "flock"

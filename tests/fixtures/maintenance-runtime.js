@@ -31,12 +31,28 @@ assert.equal(f.requests.at(-1).body.split('|')[3],'-','small write reply require
 f.reply(f.requests.at(-1),f.metadata({installed:true,notice:'installed',revision:'d'.repeat(64),restart:true}));
 assert.equal(f.operation('restart').length,0,'small readback cannot prove the mutation');
 assert.match(f.dialog.props.title,/Unable to confirm/);
-for(const missing of ['conflict','completionReady']){
+for(const missing of ['revision','package','boot','installedVersion','notice','completionReady']){
  f=fixture(folder,{notice:'installed'});f.install();
- const proof=f.state({notice:'installed',completionReady:true});delete proof[missing];
+ const proof=f.proof();delete proof[missing];
  f.reply(f.requests[0],proof);f.advance(0);
  assert.equal(f.dialog,undefined,'completion still requires '+missing);assert.equal(f.ctx.OpenConnectCompletion,null);
 }
+// Full status and a matching version cannot stand in for a selected-boot proof.
+for(const extra of [{boot:'87654321-1234-1234-1234-123456789abc'},
+ {installedVersion:'0.3.0-other'},{completionReady:false},{notice:'-'},{revision:'-'},{package:'invalid'}]){
+ f=fixture(folder,{notice:'installed'});f.install();f.reply(f.requests[0],f.proof(extra));
+ assert.equal(f.dialog,undefined);assert.equal(f.operation('dismiss').length,0);
+}
+f=fixture(folder,{notice:'installed'});f.install();f.reply(f.requests[0],f.state({notice:'installed',completionReady:true}));
+assert.equal(f.dialog,undefined,'generic status cannot prove completion');
+// Pending completion explicitly obtains full state before progress/recovery.
+f=fixture(folder,{notice:'installed'});f.install();f.fw.common._vuiHelpDialog={};
+f.reply(f.requests[0],{ok:false,error:'operation_pending'});
+assert.equal(f.requests.at(-1).body.split('|')[3],'settings');
+f.reply(f.requests.at(-1),f.state({pending:true,revision:'e'.repeat(32)}));
+assert.equal(f.operation('recover').length,0);
+delete f.fw.common._vuiHelpDialog;f.advance(1000);
+assert.equal(f.operation('recover').length,1);assert.equal(f.dialog.props.contentStyle,'style27');
 // Recovery waits for visible progress and restart reacquires it after VUI.
 f=fresh();f.fw.common._vuiHelpDialog={};metadata(f,{pending:true});
 assert.equal(f.operation('recover').length,0);assert.equal(f.controls.length,0);
@@ -48,7 +64,7 @@ delete f.fw.common._vuiHelpDialog;f.advance(1000);assert.equal(f.operation('rest
 // Completion is installed-package maintenance, not a warm Settings store.
 f=fixture(folder,{notice:'installed'});f.install();f.advance(0);
 assert.equal(f.requests.length,1);assert.equal(f.requests[0].body.split('|')[3],'completion');
-f.reply(f.requests[0],f.state({notice:'installed',completionReady:true}));f.advance(0);
+f.reply(f.requests[0],f.proof());f.advance(0);
 assert.match(f.dialog.props.title,/installed/);const settings=f.ctx.OpenConnect;
 f.pick('settings');assert.equal(f.requests.at(-1).body.split('|')[2],'dismiss');
 f.reply(f.requests.at(-1),{ok:true});assert.equal(f.ctx.OpenConnect,settings);
@@ -56,7 +72,7 @@ assert.equal(f.requests.at(-1).body.split('|')[3],'settings','Open settings obta
 f.reply(f.requests.at(-1),f.state());f.advance(200);assert.equal(f.pages.length,1);f.assertNative();
 // A manual visit suppresses a pending completion locally, without acknowledging it.
 f=fixture(folder,{notice:'installed'});f.install();f.nativeSettings();
-f.reply(f.requests[0],f.state({notice:'installed',completionReady:true}));f.advance(0);
+f.reply(f.requests[0],f.proof());f.advance(0);
 assert.equal(f.dialog,undefined);assert.equal(f.operation('dismiss').length,0);
 // Separate helpers cannot nest their native input wrappers.
 f=fixture(folder);f.install();const old=f.ctx.OpenConnectInstaller;
@@ -90,7 +106,7 @@ for(const first of ['completion','usb']){
  const proof=f.requests.find(r=>r.url.includes(':15555'));
  const metadata=f.requests.find(r=>r.url.includes(':15557'));
  f.reply(metadata,f.metadata());f.advance(0);assert.equal(f.dialog,undefined,'USB waits for completion proof');
- f.reply(proof,f.state({notice:'installed',completionReady:true}));
+ f.reply(proof,f.proof());
  const owner=f.ctx.OpenConnectCompletion,shown=f.dialog;
  assert.match(shown.props.title,/installed/);f.advance(2000);
  assert.equal(f.ctx.OpenConnectCompletion,owner);assert.equal(f.dialog,shown,'USB cannot destroy completion');
@@ -105,7 +121,7 @@ for(const first of ['completion','usb']){
 }
 // A timed-out USB delivery has no autonomous effects on a dismissed notice boot.
 f=fixture(folder,{notice:'installed'});f.install();
-f.reply(f.requests[0],f.state({notice:'installed',completionReady:true}));f.pick('done');
+f.reply(f.requests[0],f.proof());f.pick('done');
 f.reply(f.operation('dismiss')[0],{ok:true});f.usb(0);const late=f.scripts.find(n=>!n.executed&&n.src.endsWith('maintenance.js'));
 f.advance(65000);const beforeLate=f.allRequests.length;f.deliver(late);f.advance(0);
 assert.equal(f.allRequests.length,beforeLate);assert.equal(f.ctx.OpenConnectCompletion,null);assert.equal(f.ctx.OpenConnectMaintenance,undefined);
@@ -115,7 +131,7 @@ assert.equal(f.allRequests.length,beforeLate);assert.equal(f.ctx.OpenConnectComp
 for(const interrupted of [false,true,'modal','timeout']){
  f=fixture(folder,{notice:'installed'});f.install(0);
  f.deliver(f.scripts.find(n=>n.src.endsWith('maintenance.js')));
- f.reply(f.requests[0],f.state({notice:'installed',completionReady:true}));f.pick('settings');
+ f.reply(f.requests[0],f.proof());f.pick('settings');
  f.reply(f.operation('dismiss')[0],{ok:true});assert.equal(f.requests.length,2);
  assert.equal(f.ctx.OpenConnect.openSettings(),true,'repeated click shares the existing intent');
  if(interrupted===true)f.nativeSettings();
@@ -132,15 +148,14 @@ for(const interrupted of [false,true,'modal','timeout']){
  }
 }
 
-// A lost durable dismiss ACK reconciles with settings, preserving the full
-// completion proof. Late ACKs and a shared deadline never replay the mutation.
+// A lost durable dismiss ACK reconciles with the narrow selected-boot proof. Late ACKs and a shared deadline never replay the mutation.
 for(const outcome of ['cleared','unchanged','deadline']){
  f=fixture(folder,{notice:'installed'});f.install();
- f.reply(f.requests[0],f.state({notice:'installed',completionReady:true}));f.pick('settings');
+ f.reply(f.requests[0],f.proof());f.pick('settings');
  const dismiss=f.operation('dismiss')[0];f.advance(6000);assert.equal(dismiss.aborted,true);
- const readback=f.requests.at(-1);assert.equal(readback.body.split('|')[3],'settings');
+ const readback=f.requests.at(-1);assert.equal(readback.body.split('|')[3],'completion');
  if(outcome==='deadline')f.advance(6000);
- else f.reply(readback,f.state({notice:outcome==='cleared'?'-':'installed',completionReady:false}));
+ else f.reply(readback,f.proof({notice:outcome==='cleared'?'-':'installed',completionReady:false}));
  f.reply(dismiss,{ok:true});f.advance(200);
  assert.equal(f.operation('dismiss').length,1,'unknown ACK is never resent');
  const selections=f.calls.filter(c=>c[1]==='SelectSettings');
@@ -149,6 +164,31 @@ for(const outcome of ['cleared','unchanged','deadline']){
   assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,1);
  }else{assert.equal(selections.length,0);assert.equal(f.pages.length,0);}
 }
+
+// Lost ACK readback is bound to the captured selection, package and boot.
+for(const changed of [{revision:'e'.repeat(64)},{package:'e'.repeat(64)},
+ {boot:'87654321-1234-1234-1234-123456789abc'},{installedVersion:'0.3.0-other'}]){
+ f=fixture(folder,{notice:'installed'});f.install();f.reply(f.requests[0],f.proof());f.pick('settings');
+ const ack=f.operation('dismiss')[0];f.advance(6000);
+ f.reply(f.requests.at(-1),f.proof({notice:'-',completionReady:false,...changed}));
+ f.reply(ack,{ok:true});f.advance(200);
+ assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,0);
+ assert.equal(f.operation('dismiss').length,1);
+}
+// A definite stale refusal cannot be upgraded by a later notice readback.
+f=fixture(folder,{notice:'installed'});f.install();f.reply(f.requests[0],f.proof());f.pick('settings');
+const beforeRefusal=f.requests.length;f.reply(f.operation('dismiss')[0],{ok:false,error:'stale_state'});
+assert.equal(f.requests.length,beforeRefusal);assert.equal(f.calls.filter(c=>c[1]==='SelectSettings').length,0);
+assert.match(f.dialog.props.title,/Unable to confirm/);
+// Busy is a definite refusal: retry within the original deadline with the same proof.
+f=fixture(folder,{notice:'installed'});f.install();f.reply(f.requests[0],f.proof());f.pick('done');
+const ackBody=f.operation('dismiss')[0].body;f.reply(f.operation('dismiss')[0],{ok:false,error:'busy'});f.advance(500);
+assert.equal(f.operation('dismiss')[1].body,ackBody);f.reply(f.operation('dismiss')[1],{ok:true});
+assert.equal(f.ctx.OpenConnectCompletion,null);
+// Proof may arrive before Home is idle. Show promptly on eligibility, never early.
+f=fixture(folder,{notice:'installed'});f.fw._frameworkState=2;f.install();f.reply(f.requests[0],f.proof());
+f.advance(4000);assert.equal(f.dialog,undefined);f.fw._frameworkState=f.fw._FWK_STATE_IDLE;
+f.advance(1000);assert.match(f.dialog.props.title,/installed/);
 
 // Unsent recovery may be superseded. Delayed old callbacks cannot revive it or
 // close the new generation, even while both wait for native voice to finish.

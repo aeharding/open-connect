@@ -174,13 +174,18 @@ class InstallerState(unittest.TestCase):
         packages = self.data / "packages"
         packages.mkdir(mode=0o700)
         sentinel = self.root / "target-executed"
-        for listed, executable, terminated in (
-            (False, True, True),
-            (True, False, True),
-            (True, True, False),
-            (True, True, True),
+        busybox = os.environ.get("OC_TEST_BUSYBOX") or shutil.which("busybox")
+        shell = [busybox, "ash"] if busybox else ["sh"]
+        for listed, executable, terminated, nul_alias in (
+            (False, True, True, False),
+            (True, False, True, False),
+            (True, True, False, False),
+            (True, True, True, True),
+            (True, True, True, False),
         ):
-            with self.subTest(listed=listed, executable=executable, terminated=terminated):
+            with self.subTest(
+                listed=listed, executable=executable, terminated=terminated, nul_alias=nul_alias
+            ):
                 folder = packages / "build"
                 folder.mkdir(mode=0o700)
                 members = [
@@ -208,13 +213,20 @@ class InstallerState(unittest.TestCase):
                     # Pin an incomplete flush record after all complete records.
                     # Its listed digest deliberately differs from the executable.
                     manifest = manifest.rsplit("\n", 2)[0] + "\n" + "0" * 64 + "  flush"
-                (folder / "files.sha256").write_text(manifest)
+                if nul_alias:
+                    # v74 ash hashes flush-other; its awk sees a flush record.
+                    # The real executable flush is present but never hashed.
+                    alias = folder / "flush-other"
+                    alias.write_text("inert hashed alias\n")
+                    digest = hashlib.sha256(alias.read_bytes()).hexdigest()
+                    manifest = manifest.rsplit("\n", 2)[0] + f"\n{digest}  flush\0-other\n"
+                (folder / "files.sha256").write_bytes(manifest.encode())
                 package = hashlib.sha256(manifest.encode()).hexdigest()
                 target = packages / package
                 folder.rename(target)
                 result = subprocess.run(
                     [
-                        "sh",
+                        *shell,
                         "-c",
                         "set -eu; D=$1; P=$2; R_BACKEND=$3; R_BASE=-; AUTOSTART=$4; "
                         '. "$5/state.sh"; . "$5/firmware.sh"; '
@@ -232,7 +244,7 @@ class InstallerState(unittest.TestCase):
                     timeout=5,
                     env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
                 )
-                if listed and executable and terminated:
+                if listed and executable and terminated and not nul_alias:
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertTrue(sentinel.exists())
                 else:
@@ -240,6 +252,52 @@ class InstallerState(unittest.TestCase):
                     self.assertIn("invalid_boot_package", result.stderr)
                     self.assertFalse(sentinel.exists())
                 shutil.rmtree(target)
+
+    def test_package_programs_refreshes_names_and_failed_verification_clears_them(self):
+        packages = self.data / "packages"
+        packages.mkdir(mode=0o700)
+        identities = []
+        for helper in ("flush", "flush-other"):
+            folder = packages / "build"
+            folder.mkdir(mode=0o700)
+            for name in ("flush", "flush-other", "target.sh"):
+                (folder / name).write_text("# inert program\n")
+            (folder / "flush").chmod(0o700)
+            manifest = "".join(
+                hashlib.sha256((folder / name).read_bytes()).hexdigest() + "  " + name + "\n"
+                for name in ("target.sh", helper)
+            ).encode()
+            (folder / "files.sha256").write_bytes(manifest)
+            identity = hashlib.sha256(manifest).hexdigest()
+            folder.rename(packages / identity)
+            identities.append(identity)
+        result = subprocess.run(
+            [
+                "sh",
+                "-c",
+                'set -eu; D=$1; P=$2; . "$3"; '
+                'package_programs "$4" target.sh >/dev/null; '
+                'if package_programs "$5" target.sh; then exit 1; fi; '
+                'test "$verified_names" = "|target.sh|flush-other|"; '
+                'if verify_manifest "$D/absent"; then exit 1; fi; '
+                'test -z "$verified_names"; '
+                'verify_manifest "$D/packages/$4"; '
+                'printf changed >> "$D/packages/$4/target.sh"; '
+                'if verify_manifest "$D/packages/$4"; then exit 1; fi; '
+                'test -z "$verified_names"',
+                "fresh-names",
+                self.data,
+                self.tools,
+                ROOT / "cmu/installer/state.sh",
+                *identities,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "")
 
     def test_hash_comparisons_require_success_and_a_full_digest(self):
         source = self.root / "hash-input"

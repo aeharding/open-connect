@@ -118,7 +118,14 @@ class InstallerBoot(unittest.TestCase):
                 fake = self.wcp_original
             else:
                 fake = self.root / "oem" / name
-                fake.write_bytes(("synthetic OEM dependency " + name + "\n").encode())
+                if name == "board.sh":
+                    # Exercise the real authenticated non-factory hardware probe.
+                    fake.write_text("#!/bin/sh\nexit 1\n")
+                    firmware = firmware.replace(
+                        digest, hashlib.sha256(fake.read_bytes()).hexdigest()
+                    )
+                else:
+                    fake.write_bytes(("synthetic OEM dependency " + name + "\n").encode())
             self.oem_adapters[target] = str(fake)
             firmware = firmware.replace(target, str(fake))
         ui_map = subprocess.check_output(

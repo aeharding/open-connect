@@ -58,6 +58,7 @@ boot_identity() {
 
 verify_manifest() {
     local folder=$1 digest name extra expected= actual seen='|'
+    verified_names=
     directory "$folder" && file "$folder/files.sha256" || return 1
     set --
     while read -r digest name extra; do
@@ -65,16 +66,16 @@ verify_manifest() {
         case "$name" in .|..|*[!a-zA-Z0-9.-]*) return 1;; esac
         case "$seen" in *"|$name|"*) return 1;; esac
         seen="$seen$name|"
-        # Names stay within the canonical parent.
         test -f "$folder/$name" && test ! -L "$folder/$name" || return 1
         set -- "$@" "$folder/$name"
         expected="$expected$digest *$folder/$name
 "
     done < "$folder/files.sha256"
     test -z "$digest$name$extra" && test "$#" -gt 0 || return 1
-    # Batch hashes avoid repeated OpenSSL startup.
+    # Publish only names passed to this verified batch.
     actual=$(openssl dgst -sha256 -r "$@") || return 1
-    test "$actual" = "${expected%?}"
+    test "$actual" = "${expected%?}" || return 1
+    verified_names=$seen
 }
 
 record_read() {
@@ -195,8 +196,8 @@ package_programs() {
     shift
     test -x "$folder/flush" || return 1
     for name in flush "$@"; do
-        file "$folder/$name" &&
-            awk -v name="$name" '$2==name{n++}END{exit n!=1}' "$folder/files.sha256" || return 1
+        file "$folder/$name" || return 1
+        case "$verified_names" in *"|$name|"*) ;; *) return 1;; esac
     done
     printf '%s\n' "$folder"
 }

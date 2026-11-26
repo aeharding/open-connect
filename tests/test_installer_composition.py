@@ -112,7 +112,14 @@ class InstallerComposition(unittest.TestCase):
         fixture.backend_fixture(data)
         marker = fixture.root / "board-executed"
         board = fixture.root / "get_board_type.sh"
-        board.write_text("touch " + shlex.quote(str(marker)) + "\nexit 2\n")
+        board_result = fixture.root / "board-result"
+        board.write_text(
+            "touch "
+            + shlex.quote(str(marker))
+            + '\nexit "$(cat '
+            + shlex.quote(str(board_result))
+            + ')"\n'
+        )
         digest = hashlib.sha256(board.read_bytes()).hexdigest()
         firmware = (ASSETS / "firmware.sh").read_text()
         factory = firmware[
@@ -124,11 +131,15 @@ class InstallerComposition(unittest.TestCase):
         module = fixture.tools / "firmware.sh"
         module.write_text(module.read_text() + "\n" + factory)
         record = (data / "record").read_bytes()
-        result, status = fixture.api("status", argument="settings")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertTrue(status["wirelessFactory"])
-        self.assertTrue(marker.exists())
-        marker.unlink()
+        for code, factory in ((1, False), (2, True), (0, False), (3, False)):
+            with self.subTest(board_result=code):
+                board_result.write_text(str(code) + "\n")
+                result, status = fixture.api("status", argument="settings")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(status["wirelessFactory"], factory)
+                self.assertTrue(marker.exists())
+                self.assertEqual((data / "record").read_bytes(), record)
+                marker.unlink()
         real = fixture.root / "flush-real"
         (fixture.tools / "flush").rename(real)
         for output, code in (("", 19), (digest, 19), ("invalid", 0), ("0" * 64, 0)):
@@ -149,6 +160,12 @@ class InstallerComposition(unittest.TestCase):
                 self.assertEqual(status, {"ok": False, "error": "wireless_unavailable"})
                 self.assertFalse(marker.exists())
                 self.assertEqual((data / "record").read_bytes(), record)
+        board.unlink()
+        result, status = fixture.api("status", argument="settings")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(status, {"ok": False, "error": "wireless_unavailable"})
+        self.assertFalse(marker.exists())
+        self.assertEqual((data / "record").read_bytes(), record)
 
     def test_wcp_dependency_resolves_without_accepting_unknown_paths(self):
         driver = (

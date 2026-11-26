@@ -152,7 +152,9 @@ class DVDUpgrade(unittest.TestCase):
                 original = {p.name: p.read_bytes() for p in legacy.iterdir()}
                 client = self.client(f)
                 # New media can read/status/boot/uninstall the untouched old record.
-                self.assertTrue(self.backend(f, client, "status")["installed"])
+                status = self.backend(f, client, "status")
+                self.assertTrue(status["installed"])
+                self.assertFalse(status["wirelessFactory"])
                 self.boot(f, 1)
                 installed = self.backend(f, client, "install")
                 self.assertTrue(installed["installed"])

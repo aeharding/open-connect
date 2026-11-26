@@ -225,10 +225,10 @@ var meta=document.querySelector('meta[name="open-connect-token"]');
 var token=meta&&meta.getAttribute("content"),f=window.framework;
 if(!f||!/^[a-f0-9]{32}$/.test(token)||window.__ocUSBReceiver)return;
 window.__ocUSBReceiver=true;
-var generation=0,until=0,timer,xhr,bound,last,loading;
+var generation=0,until=0,retry=500,timer,xhr,bound,last,loading;
 function stop(){clearTimeout(timer);if(xhr){var old=xhr;xhr=null;old.abort();}}
 function start(wait){
- stop();generation++;until=wait?Date.now()+65000:0;read(generation);
+ stop();generation++;retry=500;until=wait?Date.now()+65000:0;read(generation);
 }
 function launch(media){
  if(media.token===last)return false;
@@ -261,7 +261,12 @@ function read(intent){
    /^session-[a-zA-Z0-9]{6}$/.test(media.session)&&/^[a-f0-9]{32}$/.test(media.token)){
    if(launch(media)){until=0;return;}
   }
-  if(Date.now()<until)timer=setTimeout(function(){read(intent);},Math.min(500,until-Date.now()));
+  // Ordinary USB drives never publish an offer; avoid a burst of native HTTP
+  // handlers while keeping the first retry prompt and the same event deadline.
+  if(Date.now()<until){
+   timer=setTimeout(function(){read(intent);},Math.min(retry,until-Date.now()));
+   retry=Math.min(retry*2,2000);
+  }
  }
  request.onreadystatechange=function(){
   if(request.readyState!==4)return;

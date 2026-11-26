@@ -106,6 +106,32 @@ f.advance(65000);const count=f.mediaRequests.length;
 f.advance(90000);assert.equal(f.mediaRequests.length,count);assert.equal(f.timers.size,0);
 assert.ok(count>1&&count<25,'only bounded requests while discovery is active');
 
+// Responsive listeners without an installer offer are the ordinary USB case.
+// Keep their HTTP/process work bounded too, not just stalled transports.
+app=device();f=fixture(folder,{usbApp:app});f.install();
+const beforeEmpty=f.mediaRequests.length;connected(f,app);f.advance(65000);
+const emptyReads=f.mediaRequests.length-beforeEmpty;
+assert.ok(emptyReads>1&&emptyReads<=35,'ordinary USB must not issue 130 empty status requests');
+f.advance(90000);assert.equal(f.mediaRequests.length,beforeEmpty+emptyReads);
+
+// A new connection gets the prompt first retry even when its predecessor had
+// reached the backoff cap; a stale response cannot change the new schedule.
+app=device();f=fixture(folder,{usbApp:app,autoMedia:false});f.install();
+f.reply(f.mediaRequests[0],{ok:true,media:null});connected(f,app);
+for(const delay of [500,1000,2000,2000]){
+ const n=f.mediaRequests.length;f.reply(f.mediaRequests.at(-1),{ok:true,media:null});
+ f.advance(delay-1);assert.equal(f.mediaRequests.length,n);
+ f.advance(1);assert.equal(f.mediaRequests.length,n+1);
+}
+const stale=f.mediaRequests.at(-1);connected(f,app,{usb:'B'});
+const current=f.mediaRequests.at(-1),freshCount=f.mediaRequests.length;
+assert.ok(stale.aborted);f.reply(stale,media());
+f.reply(current,{ok:true,media:null});f.advance(499);
+assert.equal(f.mediaRequests.length,freshCount);f.advance(1);
+assert.equal(f.mediaRequests.length,freshCount+1,'new USB event resets capped retry');
+f.reply(f.mediaRequests.at(-1),media('e'.repeat(32),'session-DEF456'));
+assert.ok(f.ctx.document.getElementById('oc-maintenance-loader'),'late offer still launches');
+
 for(const invalid of [media('c'.repeat(32),'../session-ABC123'),media('not-a-token'),{ok:true,media:{session:5,token:5}}]){
  f=fixture(folder,{autoMedia:false});f.install();f.reply(f.mediaRequests[0],invalid);f.advance(90000);
  assert.equal(f.mediaRequests.length,1);assert.equal(f.scripts.filter(n=>n.src.endsWith('/loader.js')).length,0);

@@ -324,7 +324,7 @@ class NativeBootPlan(unittest.TestCase):
         self.check(plan, success=False)
         self.seal(self.header + self.row + "hold/test|/no-parent/missing|-\n", success=False)
 
-    def native_fixture(self, *, resources=False, publisher=False):
+    def native_fixture(self, *, resources=False, publisher=False, wireless=True):
         # Reuse the actual v74-map fixture, adding the real C capability. Import
         # locally so unittest does not discover that TestCase a second time.
         from tests.test_installer_boot import InstallerBoot
@@ -429,7 +429,11 @@ class NativeBootPlan(unittest.TestCase):
             fixture.data / "composed" / fixture.package_id,
         )
         fixture.shell('record_read; R_BACKEND="$3"; record_write')
-        fixture.select_wireless(1, base=1)
+        if wireless:
+            fixture.select_wireless(1, base=1)
+        else:
+            fixture.write_profiles()
+            fixture.populated_dependencies()
         if resources:
             fixture.shell(
                 '. "$P/access.sh"; record_read; root=${D%/*}; work=$D-resources; mkdir -m 700 "$work"; '
@@ -462,7 +466,7 @@ class NativeBootPlan(unittest.TestCase):
         return fixture
 
     def touch_fixture(self, *, resources=False, publisher=False):
-        fixture = self.native_fixture(resources=resources, publisher=publisher)
+        fixture = self.native_fixture(resources=resources, publisher=publisher, wireless=False)
         fixture.shell(
             '. "$P/access.sh"; . "$P/transaction.sh"; AUTOSTART=$D-target; '
             'record_read; snapshot_read "$R_CURRENT"; '

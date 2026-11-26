@@ -179,7 +179,7 @@ static int oc_plan_rows(int root, int snapshot, int input, int output, int mode)
         }
         if (oc_close((int)fd)<0) ok=0;
         if (!ok) return 0;
-        if (oc_prefix(fields[0],"base/vui/")) {
+        if (oc_prefix(fields[0],"base/vui/")||oc_prefix(fields[0],"touch/devices/")) {
             OcMeta stock;
             if (!oc_stock_meta(root,&stock) || current.device!=stock.device) return 0;
         }

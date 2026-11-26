@@ -262,13 +262,16 @@ claimed benefit and regressions have been measured.
 
 ## Backlog without a fixed slot
 
-**Ghost-touch control — requested.** Extend the normal touchscreen preference to
-**Factory behavior / Always enabled / Disabled (ghost touch)**. The disabled mode
-needs startup and projection coverage, commander-only navigation, restart
-persistence, independent recovery and exact pre-install restoration. Qualify the
-earliest effective firmware control; suppression after Home is not total disable.
-This is a follow-up after the first release with no fixed slot yet. See
-[#87](https://github.com/aeharding/open-connect/issues/87).
+**Touchscreen Always disabled — implementation, qualification pending.**
+[#87](https://github.com/aeharding/open-connect/issues/87) adds
+**Factory behavior / Always enabled / Always disabled** to the existing page.
+The boot-selected devices shim rejects ABS devices through Mazda's reference
+counting and preserves other input. Both selector paths require two conditional
+exact OEM pins; mode 0/2 uses baseline NVRAM, and uninstall retains the running
+feature inode until reboot. Host tests cover the contract and tagged dev.23 media.
+Final CI-bundle SM startup/dependency registration and idle, early input, physical
+Commander/touch, active projection and matched RAM/timing checks remain. The
+prototype's software injections do not qualify these paths or grant RAM acceptance.
 
 **Plugin architecture — research requested.** The retrospective proposes
 core-owned hooks and typed resources for layering and conflicts, with built-in

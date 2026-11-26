@@ -54,6 +54,44 @@ class InstallerPreferences(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout
 
+    def test_touch_modes_are_oc2_only_and_devices_rewrite_is_exact(self):
+        original = self.fresh()
+        for mode in ("0", "1", "2"):
+            changed = self.run_preferences("set", original, key="touch", value=mode)
+            self.assertEqual(changed.returncode, 0, changed.stderr)
+            self.assertEqual(self.run_preferences("decode", changed.stdout).returncode, 0)
+            if mode == "2":
+                self.assertNotEqual(self.run_preferences("legacy", changed.stdout).returncode, 0)
+                self.assertNotEqual(
+                    self.run_preferences(
+                        "set", original, key="touch", value="2", legacy="1"
+                    ).returncode,
+                    0,
+                )
+            for wcp in (False, True):
+                source = self.profile(wcp)
+                result = self.compose(source, changed.stdout)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                node = ET.fromstring(result.stdout).find("./service[@name='devices']")
+                self.assertEqual(
+                    node.attrib["path"],
+                    "/tmp/open-connect/feature/touch-disable.so"
+                    if mode == "2"
+                    else "/jci/devices/svc-com-jci-cpp-devices.so",
+                )
+                self.assertEqual(node.attrib["reset_board"], "yes")
+                if mode == "2":
+                    for bad in (
+                        source.replace('name="devices"', 'name="foreign"'),
+                        source.replace('name="peer"', 'name="devices"'),
+                        source.replace("/jci/devices/svc-com-jci-cpp-devices.so", "/wrong.so"),
+                    ):
+                        self.assertNotEqual(self.compose(bad, changed.stdout).returncode, 0)
+        for key in ("warning", "base", "wireless", "service.pandora", "carplay-autoshow"):
+            self.assertNotEqual(
+                self.run_preferences("set", original, key=key, value="2").returncode, 0
+            )
+
     def test_round_trip_and_independent_service_selection(self):
         original = self.fresh()
         self.assertEqual(original.splitlines()[0], b"OC2")
@@ -337,6 +375,7 @@ class InstallerPreferences(unittest.TestCase):
     def profile(self, wcp=False):
         root = ET.Element("services")
         names = (
+            "devices",
             "stage_1",
             "stage_3",
             "stage_wifi",
@@ -385,7 +424,9 @@ class InstallerPreferences(unittest.TestCase):
             attributes = {"type": "process", "name": name, "autorun": "yes", "reset_board": "yes"}
             if name in ("jcixm", "jcixmad", "jciXMDATA"):
                 attributes["autorun"] = "no"
-            if name == "jciMMUI":
+            if name == "devices":
+                attributes["path"] = "/jci/devices/svc-com-jci-cpp-devices.so"
+            elif name == "jciMMUI":
                 attributes["path"] = "/tmp/open-connect/feature/mmui.so"
                 attributes["args"] = "mouse=filtered-mouse0, display=filtered-touchscreen0" + (
                     ", wcp" if wcp else ""

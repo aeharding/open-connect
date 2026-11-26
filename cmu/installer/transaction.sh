@@ -15,9 +15,7 @@ dependencies_match() {
         target=$(dependency_path "$name") || return 1
         case "$name" in package-*/*|composed-*/*)
             parent=${target%/*}
-            # Immutable package entries share a parent. Validate its ownership
-            # once per consecutive group in this check, rather than for every
-            # member. Each file still gets its full canonical/symlink check.
+            # Share parent checks; retain each member's canonical/symlink check.
             if test "$parent" != "$checked_parent"; then
                 private_dir "$parent" || return 1
                 checked_parent=$parent
@@ -33,9 +31,7 @@ dependencies_match() {
     test "$actual" = "${expected%?}"
 }
 
-# Ordinary boot only: both the snapshot and this exact package were verified
-# under the operation lock. Match its complete package expectations to that
-# proof, and independently hash every OEM/composed destination before effects.
+# Locked boot already verified this snapshot/package; hash OEM/composed inputs.
 boot_dependencies_match() {
     local snapshot=$1 digest name extra scope leaf target parent checked= seen='|' mapping pin key path
     local members='|' member_count=1 package_count=0 manager=0 found expected= actual
@@ -111,7 +107,7 @@ PATHS
 
 dependencies_pair_match() {
     dependencies_match "$1" || return 1
-    # Settings and uninstall keep the same dependency bytes. Check them once.
+    # Check identical dependencies once.
     if cmp -s "$D/snapshots/$1/dependencies" "$D/snapshots/$2/dependencies"; then
         snapshot_verify "$2"
     else
@@ -124,8 +120,7 @@ targets_match() {
     if test "$S_ACCESS" = true; then access_login_check; fi
 }
 
-# Current snapshot fields and bytes were verified by the caller. The boot path
-# checks baseline login lifetime separately while those baseline fields are live.
+# Caller verified snapshot fields/bytes; boot checks baseline login separately.
 targets_match_loaded() {
     file "$AUTOSTART" &&
         sha_same "$AUTOSTART" "$D/snapshots/$1/autostart" &&
@@ -148,8 +143,7 @@ state_capture() (
 )
 
 uninstall_owned() (
-    # Legacy Undo could adopt external edits into the current snapshot. Check
-    # the saved before-state too: recovery may already have restored a target.
+    # Reject legacy Undo's adopted edits, including after partial restoration.
     local current_mode current_touch current_nvram snapshot=$1
     snapshot_read "$snapshot" || return 1
     hex "$S_PACKAGE" 64 && file "$D/composed/$S_PACKAGE/autostart" &&
@@ -157,18 +151,15 @@ uninstall_owned() (
     current_mode=$S_META; current_touch=$S_TOUCH; current_nvram=$S_NVRAM
     snapshot_read "$R_BASE" || return 1
     test "$current_mode" = "$S_META" || return 1
-    # Exhausted startup recovery may restore the baseline while touch remains
-    # selected. Otherwise, only our enabled-touch value belongs to this package.
+    # Accept baseline NVRAM after exhausted recovery, or our enabled-touch value.
     test "$current_nvram" = "$S_NVRAM" || test "$current_touch:$current_nvram" = 1:disable
 )
 
-# Only transaction staging opts into backend EXIT cleanup. Ordinary record_write
-# keeps its existing behavior, and backend resource traps also call this helper.
+# Backend EXIT cleanup owns only this process's transaction staging.
 prepared_candidate=
 record_clean() {
     if test -n "$prepared_candidate"; then rm -f "$prepared_candidate" || :; fi
-    # Only this process's mktemp tree is owned. Never infer ownership of an
-    # orphan (or canonical state) from a missing record or a familiar name.
+    # Never infer orphan ownership from a missing record or familiar name.
     if test -n "${initial_work:-}" && private_dir "$initial_work" &&
         test "$(stat -c '%d:%i' "$initial_work")" = "$initial_identity" &&
         ( D=$initial_work; cleanup_mount_guard ); then rm -rf "$initial_work" || :; fi
@@ -200,8 +191,7 @@ initial_publish() {
         D=$initial_destination; initial_work=
         access_work=$D/${access_work##*/}; exists=true
     fi
-    # A same-boot retry may see a rename whose parent fsync failed. Establish
-    # the canonical name durably before a prepared record can change targets.
+    # Retry a possibly failed parent fsync before preparing target changes.
     if test "$R_PHASE" = removed; then flush d "${D%/*}"; fi
 }
 
@@ -233,8 +223,7 @@ transaction_reconcile() {
     settled && return
     local before_hash after_hash before_mode after_mode before_nv after_nv actual_hash actual_mode actual_nv phase
     phase=$R_PHASE
-    # An old prerelease could prepare a conflicted uninstall with a promise to
-    # retain Undo. Do not turn that operation into deletion of its saved edits.
+    # Refuse legacy Undo's adopted edits, even after partial restoration.
     if test "$phase" = uninstall; then
         test "$R_BEFORE" = "$R_CURRENT" || fail state_changed
         uninstall_owned "$R_BEFORE" || fail state_changed
@@ -245,8 +234,7 @@ transaction_reconcile() {
     snapshot_read "$R_AFTER" || fail invalid_after
     after_hash=$(sha "$D/snapshots/$R_AFTER/autostart") && hex "$after_hash" 64 || fail invalid_after
     after_mode=$S_META; after_nv=$S_NVRAM
-    # A fresh process recovering a pending record must verify both sets again.
-    # The immediate caller just did this before committing the same record.
+    # Fresh recovery rechecks both sets; prepare already checked them inline.
     if test "${PREPARED_REV:-}" != "$R_REV"; then
         dependencies_pair_match "$R_BEFORE" "$R_AFTER" || fail dependencies_changed
         flush d "$D"
@@ -264,7 +252,28 @@ transaction_reconcile() {
         selector_pair=true
     fi
     if command -v transaction_admit >/dev/null 2>&1; then transaction_admit; fi
-    # Install the recovery entry before changing NVRAM. Remove it last on uninstall.
+    if test "$phase" = set || test "$phase" = install; then
+        snapshot_read "$R_AFTER" || fail invalid_after
+        if test "$S_TOUCH" = 2 && ! touch_inputs_verify; then
+            startup_staging_retire "$R_AFTER" || fail startup_stage_changed
+            snapshot_read "$R_BEFORE" || fail invalid_before
+            if test "$phase" = set && test "$S_TOUCH" != 2; then
+                local rollback=$R_BEFORE
+                R_BEFORE=$R_AFTER; R_AFTER=$rollback
+            else
+                # Retained mode 2 cannot be restored. Change only its policy:
+                # Factory uses the same baseline NVRAM and physical target pair.
+                snapshot_read "$R_AFTER" || fail invalid_after
+                local source=$D/snapshots/$R_AFTER prefs
+                prefs=$(preferences_change "$S_PREFS" "$S_PACKAGE" touch 0 "$S_SCHEMA") || fail invalid_preferences
+                R_AFTER=$(snapshot_create "$source/autostart" "$S_PACKAGE" "$S_NVRAM" "$S_META" "$source/dependencies" "$source" "$prefs") || fail plan_failed
+            fi
+            # Publish the safe direction before effects; fresh retries honor it.
+            record_write
+            transaction_reconcile; return
+        fi
+    fi
+    # Install startup before NVRAM; restore startup last on uninstall.
     if test "$phase" != uninstall; then
         if test "$selector_pair" = true; then selector_apply "$R_BEFORE" "$R_AFTER" || fail selector_apply_failed; fi
         startup_publish "$D/snapshots/$R_AFTER/autostart" "$after_mode" "$actual_hash" "$actual_mode"
@@ -272,8 +281,7 @@ transaction_reconcile() {
     if test -e "$D/snapshots/$R_AFTER/access"; then
         access_pair_apply "$R_BEFORE" "$R_AFTER" || fail access_apply_failed
     fi
-    # Only a planned NVRAM transition needs a commit. Recommit even if sysfs
-    # already matches after: the prior write may have been interrupted before commit.
+    # Recommit planned transitions even if a prior sysfs write already matches.
     if test "$before_nv" != "$after_nv"; then
         nvram_change "$actual_nv" "$after_nv" || fail nvram_commit_failed
     fi
@@ -286,8 +294,7 @@ transaction_reconcile() {
         selector_pair_check "$R_AFTER" "$R_AFTER" || fail selector_verification_failed
     fi
     targets_match "$R_AFTER" && dependencies_match "$R_AFTER" || fail final_verification_failed
-    # Only packages with the native-selector capability produce a sealed plan.
-    # Current installed dev.8 and interrupted older transactions stay valid.
+    # Seal only packages with the native-selector capability.
     if test "$phase" != uninstall && test "$S_PACKAGE" != - &&
         ! absent "$D/packages/$S_PACKAGE/boot-select"; then
         R_AFTER=$(boot_snapshot_seal "$R_AFTER") || fail boot_snapshot_failed

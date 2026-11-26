@@ -40,6 +40,7 @@ uuid() { openssl rand -hex 16; }
 root_mode() { printf 'ro,noatime\n'; }
 cleanup_mount_guard() { test "$CUT" != mount; }
 startup_staging_guard() { test "$CUT" != staging; }
+startup_staging_retire() { :; }
 dependency_path() { test "$1" = relevant && printf '%s\n' "$D-relevant"; }
 dependencies_capture() { printf '%s  relevant\n' "$(sha "$D-relevant")"; }
 nvram_read() { cat "$D-nvram"; }
@@ -59,7 +60,7 @@ startup_publish() {
 }
 if test "$ACTION" = init; then
     printf 'stock\n' > "$AUTOSTART"; chmod 755 "$AUTOSTART"
-    printf 'absent\n' > "$D-nvram"
+    printf '%s\n' "${OC_TEST_NVRAM:-absent}" > "$D-nvram"
     printf 'dependency\n' > "$D-relevant"
     R_BASE=$(state_capture - - "")
     R_BACKEND=$(printf '%064d' 0); R_CURRENT=$R_BASE; R_PHASE=removed
@@ -156,8 +157,11 @@ class InstallerTransaction(unittest.TestCase):
         self.root = Path(self.temp.name).resolve()
         self.tools = self.root / "tools"
         self.tools.mkdir()
+        self.host_tools = self.root / "host-tools"
+        self.host_tools.mkdir()
         if shutil.which("gstat"):
             (self.tools / "stat").symlink_to(shutil.which("gstat"))
+            (self.host_tools / "stat").symlink_to(shutil.which("gstat"))
         subprocess.run(
             ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.tools / "flush"],
             check=True,
@@ -179,7 +183,11 @@ class InstallerTransaction(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=15,
-            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+            env={
+                **os.environ,
+                "PATH": str(self.tools) + os.pathsep + os.environ["PATH"],
+                "OC_TEST_NVRAM": getattr(self, "base_nvram", "absent"),
+            },
         )
 
     def run_ok(self, *args):
@@ -282,10 +290,15 @@ class InstallerTransaction(unittest.TestCase):
         adapters = DRIVER[DRIVER.index("root_mode()") : DRIVER.index('if test "$ACTION" = init;')]
         (self.tools / "firmware.sh").write_text(
             'CUT=none\nfirmware_guard() { :; }\nfactory_wireless() { test -f "$D-factory-wireless"; }\n'
-            'native_log_inputs_verify() { test ! -e "$D-base-changed"; }\n' + adapters
+            'native_log_inputs_verify() { test ! -e "$D-base-changed"; }\n'
+            'touch_inputs_verify() { test ! -e "$D-touch-changed"; }\n' + adapters
         )
         (self.tools / "flock").write_text("#!/bin/sh\nexit 0\n")
         (self.tools / "flock").chmod(0o700)
+        # Runtime staging gives non-product fixtures mode 0600. Retain the
+        # host lock adapter outside that packet, including real_flock rewrites.
+        (self.host_tools / "flock").unlink(missing_ok=True)
+        os.link(self.tools / "flock", self.host_tools / "flock")
         script = (ROOT / "cmu/installer/backend.sh").read_text()
         for old, new in {
             "/tmp/mnt/data_persist/open-connect": str(data),
@@ -320,14 +333,65 @@ class InstallerTransaction(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=15,
+            # Keep host adapters available after staging a replacement runtime.
             env={
                 **os.environ,
                 "PATH": os.pathsep.join(
-                    str(path) for path in (host_tools, self.tools, os.environ["PATH"]) if path
+                    str(path)
+                    for path in (host_tools, self.tools, self.host_tools, os.environ["PATH"])
+                    if path
                 ),
             },
         )
         return result, json.loads(result.stdout)
+
+    def test_all_six_touch_transitions_for_each_baseline_nvram(self):
+        for baseline in ("absent", "enable", "disable"):
+            with self.subTest(baseline=baseline):
+                self.base_nvram = baseline
+                data = self.create("touch-" + baseline)
+                self.run_ok(data, "install")
+                self.backend_fixture(data)
+                _, status = self.api("status")
+                for before, after in zip((1, 0, 2, 1, 2, 0), (0, 2, 1, 2, 0, 1), strict=True):
+                    calls = self.target(data, "nvram-calls")
+                    calls.write_text("")
+                    old_value = "disable" if before == 1 else baseline
+                    wanted = "disable" if after == 1 else baseline
+                    result, status = self.api(
+                        "set", status["revision"], "touch", str(before), str(after)
+                    )
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(status["touch"], after)
+                    self.assertEqual(
+                        calls.read_text(),
+                        "" if old_value == wanted else old_value + "|" + wanted + "\n",
+                    )
+                    self.assertEqual(self.target(data, "nvram").read_text(), wanted + "\n")
+                result, _ = self.api("uninstall", status["revision"])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.target(data, "nvram").read_text(), baseline + "\n")
+                shutil.rmtree(self.root / "runtime")
+
+    def test_touch_pin_refusal_before_prepare_leaves_exit_and_uninstall_usable(self):
+        data = self.create("touch-pin-refusal")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        _, status = self.api("status")
+        before = (data / "record").read_bytes()
+        self.target(data, "touch-changed").touch()
+        result, error = self.api("set", status["revision"], "touch", "1", "2")
+        self.assertEqual(error["error"], "touch_inputs_changed")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((data / "record").read_bytes(), before)
+        self.target(data, "touch-changed").unlink()
+        result, status = self.api("set", status["revision"], "touch", "1", "2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.target(data, "touch-changed").touch()
+        result, status = self.api("set", status["revision"], "touch", "2", "0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result, _ = self.api("uninstall", status["revision"])
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_service_preference_survives_other_settings_and_stale_requests(self):
         data = self.create("service-setting")

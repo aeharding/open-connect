@@ -1340,3 +1340,110 @@ including dependency registration and idle beyond the reproduced eight-second
 failure window. Private supporting records are in
 `runs/separate-installer-settings-20261125/usb-signal.json`,
 `usb-signal-closeout.out` and `usb-entry-plan-review.md`.
+
+
+## Boot-scoped touchscreen disable on v74
+
+Issue [#87](https://github.com/aeharding/open-connect/issues/87) extends the existing
+Touchscreen page with Factory behavior (0), Always enabled (1, default), and
+Always disabled (2). This implementation targets only 74.00.324A NA/cmu150_NA.
+Prior art that changes the speed policy supplies mode 1; it cannot suppress
+stationary input. The intervention for mode 2 is the OEM devices classifier,
+before its normal input polling, rather than UI event masking after Home.
+
+The OEM `Composite::getDevice` ABI uses a hidden result slot in r0, `this` in r1
+and the FD reference in r2. A returned `Udevice` has its event type at offset 4;
+type 3 is ABS/touchscreen. The shim calls the OEM classifier, then invokes Mazda's
+`Object::dereference<Udevice>` on ABS results. That operation releases the
+reference and clears the result slot. The classifier receives an **already-open
+FD**: the supported claim is no retained/polled raw touchscreen FD in devices,
+not that the raw device is never opened. Keyboard (1) and mouse (2) pass through.
+The second wrapper suppresses ABS `Udevice::send` calls and forwards other types.
+Native initialization, cleanup, heartbeat and Service Manager ownership remain
+with the OEM dependency.
+
+The public build uses only authored C and empty build-time SONAME stubs. The
+2,352-byte ARM DSO has exactly two RX/RW LOAD segments, BIND_NOW, no RELRO,
+`.init_array` or `.rel.dyn`, and RPATH `/jci/devices:/jci/lib`. Its two dependencies
+are `svc-com-jci-cpp-devices.so` and `libdl.so.2`; stubs are never packaged.
+`-funwind-tables` gives both wrappers traversable compact ARM unwind entries:
+OEM getDevice can throw through the wrapper. A failed RTLD_NEXT lookup traps
+immediately instead of dropping Commander sends or leaking a reference. Pointer
+caches use acquire/release atomics. Detectable service failure enters the existing
+finite boot-budget policy; target glibc 2.13 execution still requires qualification.
+
+Mode 2 requires these physical-root ABI pins before prepare, during sealing,
+and through both native and shell selectors, including Warning=Base=0:
+
+| OEM path | SHA-256 |
+| --- | --- |
+| `/jci/devices/svc-com-jci-cpp-devices.so` | `e438bef5acb59c65c810df905488c7b1230cce88b20a295dc2da182f78da2695` |
+| `/jci/lib/libjcidevices.so` | `4d05f4242ffab8ed2e21c4785b077b7225ea54c3e62c8e02a26eb400eb6a1171` |
+
+The sealed plan includes each exact conditional row once; each normal/WCP SM
+profile rewrites exactly one stock devices path. Selected mode 2 copies the
+manifest-verified DSO to `/tmp/open-connect/feature/touch-disable.so`, mode 0755.
+These OEM pins are not unconditional transaction dependencies, so a changed OEM
+input cannot prevent leaving mode 2 or uninstalling. Only mode 1 requests NVRAM
+`disable`; modes 0/2 request the pre-install value. Host tests cover all six
+directed mode transitions for absent/enable/disable baselines and no commit on
+0↔2. The running feature pathname/inode survives purge until restart, without a
+new hold or transaction field. OC1 and the six request fields remain unchanged;
+legacy stock/dev.9 and other preferences remain bit-only.
+
+An interrupted 1→2 Set followed by an OEM pin change previously restored NVRAM
+but failed sealing, leaving OC1 pending and blocking Uninstall. Recovery now
+checks both prepared target states and dependencies, then durably reverses that
+Set in the existing OC1 record when the mode-2 pins fail and the previous choice
+is not mode 2. Normal reconciliation restores and verifies the previous snapshot;
+the changed pins still prohibit mode 2. Host backend tests cover interruption
+before NVRAM, after NVRAM, and after the durable reversal, followed by successful
+Uninstall with the library pin still changed. If mode 2 was already saved before
+a Set or Reinstall, recovery instead durably changes only the after snapshot's
+touch policy to Factory behavior (mode 0), retaining its prepared NVRAM, startup,
+access and selector targets. Both prepared target checks still run before this
+change and on retries, including after a target write. Unpublished sealing work
+is removed on failure. Host regressions cover these cases through compatible-USB
+Uninstall and refuse third target values. This adds no transaction field.
+
+Before either policy change retires a pending OC1 revision, recovery removes
+only that revision's verified physical staging files through the production
+publisher's cleanup path and flushes their parent directories, including on
+retries after removal. Foreign stages still stop Uninstall with
+`startup_stage_changed`. Host tests interrupt the real UART login publisher
+after its stage flush and before rename, then cover cuts before/after cleanup
+and after the policy commit through compatible-USB Uninstall. Snapshot reuse
+also flushes `snapshots/` before returning its ID: repeated parent-flush failures
+during Factory recovery preserve OC1 until that flush succeeds.
+
+The actual tagged dev.23 USB's mutation path decodes through the authenticated
+installed preferences helper, then its own shell bit check refuses saved mode 2
+with `state_changed`, preserving OC1 and targets. Metadata discovery can still
+succeed. Use compatible media, or save 2→0/1 before reboot to allow old-media
+uninstall; the running mode-2 feature remains owned by that boot until restart.
+Host fixtures execute the tagged scripts with temporary physical adapters;
+they are not proof of a physical USB upgrade or restored touchscreen input.
+
+The private 2026-11-26 trial3 used a different RPATH and an OEM service copy named
+`real-devices.so`. Software injection delivered 160 bytes to raw input and zero
+to filtered touch; injected Commander Right/Left/Select dismissed the installer
+popup. Stock devices PSS was 1,305 KiB versus 1,318 KiB in that trial. This **does
+not** establish release PSS or the final tmpfs allocation. Installed modes 0/1 add
+one plan row (native open/stat) and one package member hashed by the Settings
+worker, but no shim page in feature tmpfs or the 16-file installed Settings set.
+USB maintenance copies the full bundle: 125 individually rounded 4 KiB file
+pages versus 124 before the shim, adding one page in every mode. `boot.sh` stays
+within four pages (16,261 bytes); packaging enforces its 16,384-byte cap and the
+shim's 4,096-byte cap, including incremental builds.
+Selected mode 2 adds one 4 KiB feature page plus unmeasured release devices PSS.
+All 14 per-file page budgets are enforced. This is file-page accounting, not a
+target allocation measurement. Final matched boot timing,
+allocated pages and PSS need explicit owner RAM acceptance under STEERING.md.
+
+Remaining physical work: use the final CI ELF through the real SM path on glibc
+2.13, witness both OEM mappings and dependency registration, and remain framework
+idle beyond the reproduced failure window. Inject from the earliest available
+input window through first UI, then reverse with Commander. Active CarPlay,
+Android Auto, Navigation, physical panel/Commander and AR1XXX remain outside the
+prototype's demonstrated coverage. Idle MMUI/CarPlay FDs and Wayland configuration
+support a routing inference, not proof of those active workloads.

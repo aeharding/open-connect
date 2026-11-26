@@ -227,7 +227,7 @@ static int oc_config(OcBoot *b,char *text,char **f,int active) {
         if (!found) return 0;
     }
     return seen==255 && service_seen==((1u<<count)-1) && oc_hex(f[0],64)&&
-        oc_bit(f[1])&&oc_bit(f[2])&&oc_nvram_value(f[3])&&
+        (oc_bit(f[1])||oc_equal(f[1],"2"))&&oc_bit(f[2])&&oc_nvram_value(f[3])&&
         oc_metadata_mode(f[4],&mode,&uid,&gid)&&oc_bit(f[6])&&oc_bit(f[7]);
 }
 static int oc_input_mode(OcInput *input,const char *text) {
@@ -480,6 +480,15 @@ static int oc_identity_coverage(OcBoot *b) {
         for (unsigned i=0;i<3;++i) if (oc_equal(line,values[i])) ++found[i];
     }
     if (found[0]!=1||found[1]!=1||found[2]!=1) return 0;
+    if (oc_equal(b->flags[1],"2")) {
+        OcMeta stock;
+        if (!oc_stock_meta(b->root,&stock)) return 0;
+        OcInput *svc=oc_expect(b,"touch/devices/svc","/jci/devices/svc-com-jci-cpp-devices.so",
+            "e438bef5acb59c65c810df905488c7b1230cce88b20a295dc2da182f78da2695");
+        OcInput *lib=oc_expect(b,"touch/devices/lib","/jci/lib/libjcidevices.so",
+            "4d05f4242ffab8ed2e21c4785b077b7225ea54c3e62c8e02a26eb400eb6a1171");
+        if (!svc||!lib||svc->absent||lib->absent||svc->meta.device!=stock.device||lib->meta.device!=stock.device) return 0;
+    }
     if (oc_equal(b->flags[6],"1")) {
         OcMeta stock;
         if (!oc_stock_meta(b->root,&stock)) return 0;
@@ -778,6 +787,7 @@ static int oc_stage(OcBoot *b) {
     b->stage=oc_open_private(b->ram,b->stage_name);
     if (b->stage<0||!oc_copy_input(b,"current/sm-normal.conf",b->stage,"sm.conf",0600)||
         !oc_copy_input(b,"current/sm-wcp.conf",b->stage,"sm_WCP.conf",0600)) return 0;
+    if (oc_equal(b->flags[1],"2") && !oc_package_copy(b,"touch-disable.so",b->stage,"touch-disable.so",0755)) return 0;
     if (!oc_ui_stage(b)) return 0;
     if (oc_equal(b->flags[6],"1") && oc_equal(b->flags[7],"1") &&
         (!oc_package_copy(b,"defer-gap2.sh",b->stage,"defer-gap2.sh",0600)||

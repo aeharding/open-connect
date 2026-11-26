@@ -152,6 +152,8 @@ class InstallerState(unittest.TestCase):
         self.assertEqual(read.returncode, 0, read.stderr)
         self.assertEqual(read.stdout, "1|0|0\n")
         for config in (
+            stock.replace(b"-|0|", b"-|2|"),
+            active.replace(b"|1|1|", b"|2|1|", 1),
             stock.replace(metadata.encode(), b"755:4294967296:0"),
             stock.replace(metadata.encode(), b"755:0:4294967296"),
             active.replace(metadata.encode(), b"755:4294967296:0"),

@@ -51,7 +51,7 @@
   };
   const audioNote = "This dev.20 video shows the published dev.19/dev.20 layout, with DVD under Audio sources. In dev.21 on North American units, Audio sources contains only Pandora and SiriusXM; DVD is managed by Startup optimizations.";
   const notes = {
-    touchscreen: "Select Touchscreen While Driving, then choose Allow or Factory Default.",
+    touchscreen: "This dev.20 walkthrough also matches published dev.23: select Touchscreen While Driving, then Allow or Factory Default. The upcoming build calls the row Touchscreen and offers Factory behavior, Always enabled and Always disabled.",
     disclaimer: "Select Startup disclaimer, then choose Skip or Show.",
     "wireless-carplay": "Turn on Wireless CarPlay and confirm Enable. The inline screenshot shows it on; fresh installations leave it off unless factory enabled.",
     "carplay-on-connection": "Select Show CarPlay on connection, then choose Factory behavior or Automatically show. The inline screenshot shows the Factory default.",

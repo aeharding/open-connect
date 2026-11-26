@@ -6,6 +6,9 @@ Choose your preferences in **<span class="oc-nav-path" data-walkthrough="open-co
 
 These features are in the **0.3.0-dev.23 development prerelease** for North American Mazda Connect **74.00.324**. Real-car qualification remains pending.
 
+The upcoming build adds a third touchscreen choice, **Always disabled**. See the
+[touchscreen guide](../touchscreen.md) for both versions and older USB compatibility.
+
 | Setting | What changes | Fresh-install default |
 | --- | --- | --- |
 | [Touchscreen While Driving](../touchscreen.md) | Keeps touch available while moving. | Allow |

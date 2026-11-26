@@ -63,6 +63,11 @@ omit_service {
         if(attribute("autorun")!="yes") refuse()
         put_attribute("autorun","no")
     }
+    if(sm_name=="devices" && prefs["touch"]=="2") {
+        devices++
+        if(attribute("path")!="/jci/devices/svc-com-jci-cpp-devices.so") refuse()
+        put_attribute("path","/tmp/open-connect/feature/touch-disable.so")
+    }
     if(sm_name=="stage_1") stage++
     if(sm_name=="stage_3") stage3++
     if(sm_name=="stage_wifi") wifi_stage++
@@ -186,6 +191,7 @@ early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="stage_wifi" {
 }
 {print}
 END {
+    if(prefs["touch"]=="2" && devices!=1) exit 1
     if(invalid || omit_service || stage!=1 || stage3!=1 || end!=1) exit 1
     if(early_wireless && (bds_stage!=1 || bds_settings!=1 || bds_registry!=1 ||
        wifi_stage!=1 || wifi_parent!=1 || wifi_aha!=1 ||

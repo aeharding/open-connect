@@ -251,7 +251,6 @@ carplay-autoshow='*) autoshow=$S_AUTOSHOW;; esac
     fi
     version=$(cat "$P/VERSION")
     case "$version" in ''|*[!a-zA-Z0-9.-]*) fail invalid_version;; esac
-    # Retain undo=false for a running dev.1 client.
     printf '{"ok":true,"revision":"%s","installed":%s,"retained":%s,"undo":false,"conflict":%s,"restart":%s,"pending":%s,"touch":%s,"warning":%s,"notice":"%s","version":"%s","installedVersion":"%s","developer":%s,"uart":%s,"ssh":%s,"key":"%s","fingerprint":"%s","uartCurrent":%s,"sshCurrent":%s%s}\n' \
         "$rev" "$installed" "$retained" "$conflict" "$restart" "$pending" "$touch" "$warning" "$notice" "$version" \
         "$installed_version" "$developer" "$uart" "$owner_ssh" "$key" "$fingerprint" "$uart_current" "$ssh_current" "$service_status,\"completionReady\":false"
@@ -324,7 +323,6 @@ recover)
     if test "$empty_state" = true; then finish_removal; fi
     ;;
 install)
-    # Installation requires the full maintenance bundle, not the boot closure.
     verify_manifest "$P" || fail incomplete_maintenance_bundle
     test "$(root_mode)" = ro,noatime || fail root_mount_changed
     if test "$exists" = true; then
@@ -421,7 +419,7 @@ set|import)
         selector_keep "$D/snapshots/$R_CURRENT" "$access_work" || fail selector_plan_failed
         access_source=$access_work
     else
-        case "$expected:$desired" in [01]:[01]) ;; *) fail invalid_setting;; esac
+        case "$argument:$expected:$desired" in touch:[012]:[012]|*:[01]:[01]) ;; *) fail invalid_setting;; esac
         case "$argument" in
             touch|warning|base|wireless|carplay-autoshow) preference_key=$argument;;
             *) preference_key=service.$argument;;
@@ -433,12 +431,12 @@ set|import)
     if test "$operation" = set && test "$expected" = "$desired"; then status_view false; exit; fi
     if test "$(preference_value "$prefs" base)" = 1; then native_log_inputs_verify || fail base_inputs_changed; fi
     touch=$(preference_value "$prefs" touch) || fail invalid_preferences
+    if test "$touch" = 2; then touch_inputs_verify || fail touch_inputs_changed; fi
     snapshot_read "$R_BASE" || fail originals_changed
-    nvram=$S_NVRAM; test "$touch" = 0 || nvram=disable
+    nvram=$S_NVRAM; test "$touch" != 1 || nvram=disable
     after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$access_source" "$prefs") || fail plan_failed
     transaction_prepare set "$R_CURRENT" "$after"
     transaction_reconcile
-    # Final verification and publication are protected by this same lock.
     status_view false; exit
     ;;
 uninstall)

@@ -501,7 +501,7 @@ class InstallerTransaction(unittest.TestCase):
         result, baseline = self.api("status", argument="settings")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         before = calls.read_text().splitlines()
-        self.assertEqual(len(before), 11)
+        self.assertEqual(len(before), 10)
         self.assertTrue(all(line.startswith("openssl|") for line in before))
         calls.write_text("")
         module.write_text(candidate)
@@ -511,7 +511,7 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual((data / "record").read_bytes(), before_record)
         after = calls.read_text().splitlines()
         self.assertEqual(sum(line.startswith("flush|h ") for line in after), 9)
-        self.assertEqual(sum(line.startswith("openssl|dgst -sha256 -r ") for line in after), 2)
+        self.assertEqual(sum(line.startswith("openssl|dgst -sha256 -r ") for line in after), 1)
         self.assertEqual(
             ["openssl|dgst -sha256" if line.startswith("flush|h ") else line for line in after],
             before,
@@ -524,14 +524,43 @@ class InstallerTransaction(unittest.TestCase):
                 str(snapshot / "files.sha256"),
                 str(snapshot / "config"),
                 str(snapshot / "files.sha256"),
-                str(snapshot / "config"),
-                str(snapshot / "files.sha256"),
                 str(package / "files.sha256"),
+                str(package / "preferences.awk"),
+                str(package / "services.tsv"),
                 str(package / "files.sha256"),
                 str(package / "VERSION"),
                 str(board),
             ],
         )
+
+    def test_one_line_and_metadata_boundary_regressions(self):
+        data = self.create("one-line-bounds")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        record_path = data / "record"
+        good_record = record_path.read_bytes()
+        for label, bad in (
+            ("missing-nl", good_record[:-1]),
+            ("second-line", good_record + b"\n"),
+            ("trailing-pipe", good_record[:-1] + b"|\n"),
+            ("embedded-nul", good_record[:-1] + b"\x00\n"),
+        ):
+            with self.subTest(record=label):
+                record_path.write_bytes(bad)
+                res, ans = self.api("status", argument="settings")
+                self.assertNotEqual(res.returncode, 0)
+                self.assertEqual(ans["error"], "invalid_record")
+        record_path.write_bytes(good_record)
+        # Verify metadata fast path (< 10 digits) and 10-digit uint32 boundary.
+        script = (
+            f'set -eu; D="{data}"; P="{self.tools}"; . "$P/state.sh"\n'
+            'metadata "755:0:0" && metadata "755:1000:999999999" && metadata "755:4294967295:4294967295"\n'
+            'if metadata "755:4294967296:0"; then exit 11; fi\n'
+            'if metadata "755:0:4294967296"; then exit 12; fi\n'
+            'if metadata "755:10000000000:0"; then exit 13; fi\n'
+        )
+        res = subprocess.run(["sh", "-c", script], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
 
     def test_save_final_verification_failure_requires_fresh_reconciliation(self):
         data = self.create("save-final-conflict")

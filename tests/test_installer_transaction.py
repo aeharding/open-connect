@@ -1,11 +1,14 @@
 """Interrupt the maintained transaction code around real file publications."""
 
 import hashlib
+import fcntl
 import json
 import os
 import shlex
 import shutil
 import subprocess
+import sys
+import time
 import tempfile
 import unittest
 from pathlib import Path
@@ -1002,6 +1005,160 @@ class InstallerTransaction(unittest.TestCase):
                 finally:
                     dependency.write_bytes(original)
                 self.assertEqual((data / "record").read_bytes(), before)
+
+    def test_status_refuses_an_unreadable_authority_fingerprint(self):
+        data = self.create("authority-read-failure")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        module = self.tools / "state.sh"
+        module.write_text(
+            module.read_text().replace("sha() {", "raw_sha() {", 1)
+            + '\nsha() { test "$1" != "$D/record" || return 1; raw_sha "$@"; }\n'
+        )
+        result, answer = self.api("status")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(answer["error"], "state_changed")
+        self.assertNotIn("installed", answer)
+
+    def delayed_status(self, name):
+        data = self.create(name)
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        flock = self.tools / "flock"
+        flock.write_text(
+            f"#!{sys.executable}\nimport fcntl,sys\n"
+            "flags=fcntl.LOCK_UN if '-u' in sys.argv else "
+            "(fcntl.LOCK_SH if '-s' in sys.argv else fcntl.LOCK_EX)\n"
+            "if '-n' in sys.argv: flags|=fcntl.LOCK_NB\n"
+            "try: fcntl.flock(int(sys.argv[-1]),flags)\n"
+            "except OSError: sys.exit(1)\n"
+        )
+        flock.chmod(0o700)
+        transaction = self.tools / "transaction.sh"
+        transaction.write_text(
+            transaction.read_text().replace(
+                "targets_match_loaded() {",
+                "targets_match_loaded() {\n"
+                ' if test "${operation:-}" = status && test "${argument:-}" != settings; then\n'
+                '  printf ready > "$D-audit-started"; local count=0\n'
+                '  while test ! -f "$D-audit-go"; do\n'
+                '   count=$((count+1)); test "$count" -lt 2000 || return 1; sleep 0.01\n'
+                "  done\n"
+                " fi",
+                1,
+            )
+        )
+        process = subprocess.Popen(
+            ["sh", self.tools / "backend.sh", "api", "-", "status", "-", "-", "-"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        gate = self.target(data, "audit-go")
+
+        def cleanup():
+            gate.touch()
+            try:
+                process.communicate(timeout=15)
+            except subprocess.TimeoutExpired:
+                process.terminate()
+                process.communicate(timeout=3)
+
+        self.addCleanup(cleanup)
+        deadline = time.monotonic() + 5
+        while not self.target(data, "audit-started").exists():
+            self.assertIsNone(process.poll(), "audit exited before the barrier")
+            self.assertLess(time.monotonic(), deadline)
+            time.sleep(0.01)
+        return data, process, gate
+
+    def test_slow_audit_allows_an_unchanged_exclusive_settings_reader(self):
+        _, process, gate = self.delayed_status("concurrent-read")
+        backend = self.tools / "backend.sh"
+        source = backend.read_text()
+        lock = (
+            'if test "$operation:$argument" = status:settings; then flock -n -s 9 || fail busy\n'
+            "else flock -n -x 9 || fail busy; fi"
+        )
+        self.assertIn(lock, source)
+        # The old installed reader takes an exclusive lock. Merely changing the
+        # new audit to a shared lock would still block this exact behavior.
+        legacy = source.replace(lock, "flock -n -x 9 || fail busy")
+        result = subprocess.run(
+            ["sh", "-c", legacy, str(backend), "api", "-", "status", "settings", "-", "-"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(json.loads(result.stdout)["installed"])
+        self.assertIsNone(process.poll())
+        self.assertFalse(gate.exists())
+        gate.touch()
+        out, err = process.communicate(timeout=15)
+        self.assertEqual(process.returncode, 0, out + err)
+
+    def test_audit_discards_a_changed_authoritative_record(self):
+        data, process, gate = self.delayed_status("changed-audit-record")
+        with (self.root / "runtime/lock").open("r+") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            record = data / "record"
+            fields = record.read_text().split("|")
+            fields[2] = "f" * 32
+            pending = data / "record-test-new"
+            pending.write_text("|".join(fields))
+            pending.chmod(0o600)
+            pending.replace(record)
+        expected = record.read_bytes()
+        gate.touch()
+        out, _ = process.communicate(timeout=15)
+        self.assertNotEqual(process.returncode, 0)
+        self.assertEqual(json.loads(out)["error"], "busy")
+        self.assertEqual(record.read_bytes(), expected)
+
+    def test_audit_discards_a_retired_runtime(self):
+        _, process, gate = self.delayed_status("retired-audit-runtime")
+        pointer = self.root / "runtime/runtime"
+        with (self.root / "runtime/lock").open("r+") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            pointer.unlink()
+            pointer.symlink_to(self.root / "successor")
+        gate.touch()
+        out, _ = process.communicate(timeout=15)
+        self.assertNotEqual(process.returncode, 0)
+        self.assertEqual(json.loads(out)["error"], "session_replaced")
+
+    def test_usb_cancel_closes_only_its_own_session(self):
+        data = self.create("usb-cancel-notice")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        pointer = self.root / "runtime/runtime"
+        pointer.unlink()
+        (self.root / "runtime/usb-runtime").symlink_to(self.tools)
+        expected = (data / "record").read_bytes()
+        result, answer = self.api("dismiss", argument="usb")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(answer, {"ok": True})
+        self.assertTrue((self.tools / "closed").exists())
+        self.assertEqual((data / "record").read_bytes(), expected)
+        self.assertFalse((self.tools / "admitted").exists())
+        result, answer = self.api("install", (data / "record").read_text().split("|")[5])
+        self.assertEqual(answer["error"], "session_closed")
+        self.assertEqual((data / "record").read_bytes(), expected)
+
+    def test_definite_prewrite_refusal_releases_its_volatile_admission(self):
+        data = self.create("usb-refused-admission")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        (self.root / "runtime/runtime").unlink()
+        (self.root / "runtime/usb-runtime").symlink_to(self.tools)
+        expected = (data / "record").read_bytes()
+        result, answer = self.api("install", "f" * 64)
+        self.assertEqual(answer["error"], "stale_state")
+        self.assertFalse((self.tools / "admitted").exists())
+        self.assertEqual((data / "record").read_bytes(), expected)
 
     def test_selection_markers_require_the_complete_canonical_file(self):
         data = self.create("selection-markers")

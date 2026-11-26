@@ -69,14 +69,21 @@ selection_id() {
 }
 
 status_identity() {
-    local marker path
+    local marker path value
     if absent "$D/record"; then printf 'record=absent\n'
-    else file "$D/record" && printf 'record=%s\n' "$(sha "$D/record")" || return 1; fi
+    else
+        file "$D/record" && value=$(sha "$D/record") || return 1
+        printf 'record=%s\n' "$value"
+    fi
     for marker in selected access-selected boot-id; do
         path=/tmp/open-connect/$marker
         if absent "$path"; then printf '%s=absent\n' "$marker"
-        elif test -L "$path"; then printf '%s=link:%s\n' "$marker" "$(readlink "$path")"
-        elif file "$path"; then printf '%s=file:%s\n' "$marker" "$(sha "$path")"
+        elif test -L "$path"; then
+            value=$(readlink "$path") || return 1
+            printf '%s=link:%s\n' "$marker" "$value"
+        elif file "$path"; then
+            value=$(sha "$path") || return 1
+            printf '%s=file:%s\n' "$marker" "$value"
         else return 1; fi
     done
 }

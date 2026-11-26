@@ -92,6 +92,7 @@ if ! absent "$service_listener"; then
         kill -TERM "$pid" || fail listener_stop_failed
         count=0
         while test -d "/proc/$pid" && test "$(awk '{print $22}' "/proc/$pid/stat" 2>/dev/null)" = "$start"; do
+            test "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null || :)" != Z || break
             count=$((count+1)); test "$count" -lt 4 || fail listener_stop_failed
             sleep 1
         done

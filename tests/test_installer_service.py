@@ -74,7 +74,9 @@ class InstallerService(unittest.TestCase):
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
         shutil.copyfile(ROOT / "cmu/features/touch/setting.sh", self.source / "touch.sh")
-        usb = (ASSETS / "usb-service.sh").read_text().replace("/tmp/open-connect", str(self.runtime))
+        usb = (
+            (ASSETS / "usb-service.sh").read_text().replace("/tmp/open-connect", str(self.runtime))
+        )
         usb = usb.replace("/tmp/mnt/data_persist/open-connect", str(self.root / "data"))
         (self.source / "usb-service.sh").write_text(usb)
         self.manifest()
@@ -167,7 +169,9 @@ class InstallerService(unittest.TestCase):
 
     def test_usb_before_delayed_worker_keeps_endpoints_independent(self):
         worker, _, _ = self.installed_worker()
-        process = subprocess.Popen(["sh", worker, "boot"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process = subprocess.Popen(
+            ["sh", worker, "boot"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         try:
             result = self.invoke()
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -177,7 +181,10 @@ class InstallerService(unittest.TestCase):
             self.assertEqual((self.runtime / "usb-listener").read_bytes(), before)
             self.assertEqual(self.client()["backend"], "backend-one\n")
             self.assertEqual(self.client(15555)["backend"], "backend-one\n")
-            self.assertNotEqual((self.runtime / "token").read_text(), (Path(result.stdout.strip()) / "token").read_text())
+            self.assertNotEqual(
+                (self.runtime / "token").read_text(),
+                (Path(result.stdout.strip()) / "token").read_text(),
+            )
         finally:
             if process.poll() is None:
                 process.terminate()
@@ -213,7 +220,9 @@ class InstallerService(unittest.TestCase):
         started = self.invoke()
         self.assertEqual(started.returncode, 0, started.stderr)
         usb = Path(started.stdout.strip())
-        stopped = subprocess.run(["sh", usb / "usb-service.sh", "stop"], capture_output=True, text=True, timeout=5)
+        stopped = subprocess.run(
+            ["sh", usb / "usb-service.sh", "stop"], capture_output=True, text=True, timeout=5
+        )
         self.assertEqual(stopped.returncode, 0, stopped.stderr)
         self.assertFalse((self.runtime / "usb-listener").exists())
         self.assertEqual((self.runtime / "runtime").resolve(), installed)
@@ -394,7 +403,7 @@ class InstallerService(unittest.TestCase):
         self.runtime.mkdir(mode=0o700)
         old = self.root / "old"
         old.mkdir()
-        (self.runtime / "usb-runtime").symlink_to(old)
+        (self.runtime / "runtime").symlink_to(old)
         with socket.socket() as listener:
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             listener.bind(("127.0.0.1", 15557))
@@ -404,15 +413,17 @@ class InstallerService(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("listener_start_failed", result.stderr)
             self.assertLess(time.monotonic() - started, 3)
-            self.assertEqual((self.runtime / "usb-runtime").resolve(), old)
+            self.assertEqual((self.runtime / "runtime").resolve(), old)
             self.assertFalse((self.runtime / "usb-listener").exists())
 
     def test_corrupt_shared_packet_refuses_and_removes_unpublished_links(self):
         tools = self.root / "tools"
         tools.mkdir()
         link = tools / "ln"
-        link.write_text("#!/bin/sh\n" + shutil.which("ln") + ' "$@" || exit\n'
-            'case "$2" in */api) printf "corrupt" >> "$2";; esac\n')
+        link.write_text(
+            "#!/bin/sh\n" + shutil.which("ln") + ' "$@" || exit\n'
+            'case "$2" in */api) printf "corrupt" >> "$2";; esac\n'
+        )
         link.chmod(0o700)
         result = self.invoke({**os.environ, "PATH": str(tools) + ":" + os.environ["PATH"]})
         self.assertNotEqual(result.returncode, 0)

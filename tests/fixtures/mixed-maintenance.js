@@ -23,12 +23,14 @@ for(const outcome of ['restart','refused','superseded']){
  assert.equal(f.pages.length,1);f.homeScreen();identities(f);
  const client=f.ctx.OpenConnect,menus=f.ctx.OpenConnectSettings,dialogs=f.ctx.OpenConnectInstaller;
  const row=f.list.properties.selectCallback;
- f.usb();const metadata=f.requests.at(-1);
- assert.equal(f.ctx.__ocUSBLoading,undefined,'metadata discovery takes no legacy admission claim');
+ f.legacyUSB();const metadata=f.requests.at(-1),discovery=f.ctx.__ocUSBLoading;
+ assert.equal(discovery.owner,client,'temporary discovery lets the old owner cancel for Settings writes');
+ assert.equal(discovery.wait,undefined,'discovery carries no shared Settings read');
  f.nativeSettings();f.tap();f.endAnimations();
  assert.equal(f.pages.length,2,'cached old Settings first tap remains independent of USB metadata');
  assert.equal(f.requests.at(-1),metadata);f.homeScreen();identities(f);
  f.reply(metadata,f.metadata({installedVersion:oldVersion}));f.advance(0);
+ assert.equal(f.ctx.__ocUSBLoading,undefined);assert.equal(discovery.owner,null,'first display releases discovery');
  assert.match(f.dialog.props.title,/Update/);f.pick('install');
  const write=f.operation('install')[0],claim=f.ctx.__ocUSBLoading;
  assert.ok(claim,'admitted mutation uses legacy foreign claim');
@@ -73,3 +75,27 @@ for(const outcome of ['restart','refused','superseded']){
  assert.equal(f.operation('install').length,1);assert.equal(f.operation('set').length,0);
 }
 console.log('Actual dev.22 Settings with dev.23 popup: transparent discovery, legacy admission, Home-only restart and exact callbacks passed');
+
+for(const stage of ['loader','helper','metadata']){
+ const f=fixture(folder,{sourceFor(url,source){return url.includes('/sessions/')?source:legacy[url.split('/').at(-1)]||source;}});
+ const oldVersion=legacy.VERSION.trim();f.meta.version=oldVersion;f.install();f.advance(500);
+ const client=f.ctx.OpenConnect,menus=f.ctx.OpenConnectSettings,dialogs=f.ctx.OpenConnectInstaller;
+ f.legacyUSB(stage==='loader'?0:stage==='helper'?1:Infinity);
+ const discovery=f.ctx.__ocUSBLoading,metadata=stage==='metadata'?f.requests.at(-1):null;
+ f.nativeSettings();const row=f.list.properties.selectCallback;f.tap();
+ const read=f.requests.at(-1);
+ assert.ok(read.url.includes(':15555/'),'cold first tap reads the installed endpoint immediately during '+stage);
+ assert.notEqual(read,metadata);f.reply(read,f.state({version:oldVersion,installedVersion:oldVersion}));f.endAnimations();
+ assert.equal(f.pages.length,1);assert.equal(f.ctx.__ocUSBLoading,discovery,'a read does not cancel discovery');
+ select(f,0);select(f,1);f.advance(1000);
+ assert.equal(f.operation('set').length,1,'deliberate old-owner preference write cancels '+stage+' discovery');
+ assert.equal(discovery.owner,null);assert.equal(f.ctx.OpenConnectMaintenance,stage==='metadata'?null:undefined);
+ f.reply(f.operation('set')[0],f.state({version:oldVersion,installedVersion:oldVersion,touch:1,revision:'d'.repeat(64)}));
+ if(metadata)f.reply(metadata,f.metadata({installedVersion:oldVersion}));
+ f.flush();f.advance(66000);
+ assert.equal(f.dialog,undefined,'late delivery/reply cannot reopen canceled discovery');
+ assert.equal(f.ctx.__ocUSBLoading,undefined);f.homeScreen();identities(f);
+ assert.equal(f.ctx.OpenConnect,client);assert.equal(f.ctx.OpenConnectSettings,menus);
+ assert.equal(f.ctx.OpenConnectInstaller,dialogs);assert.equal(f.list.properties.selectCallback,row);
+}
+console.log('Actual dev.22 cold first tap and deliberate Settings write cancel only transient loader/helper/metadata discovery');

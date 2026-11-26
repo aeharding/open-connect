@@ -231,7 +231,7 @@ function start(wait){
  stop();generation++;until=wait?Date.now()+65000:0;read(generation);
 }
 function launch(media){
- if(media.token===last)return !!(loading&&loading.parentNode&&loading===document.getElementById("oc-maintenance-loader"));
+ if(media.token===last)return false;
  last=media.token;
  if(loading&&loading.parentNode)loading.parentNode.removeChild(loading);
  var old=document.getElementById("oc-maintenance-loader");

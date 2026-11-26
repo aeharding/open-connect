@@ -107,6 +107,16 @@ module.exports=function fixture(folder,options={}){
   const entry={id:'oc-maintenance-loader',src:'file:///tmp/open-connect/sessions/session-'+sessionToken+'/loader.js',ocToken:sessionToken,ocPort:15557};
   head.appendChild(entry);entry.executed=true;evaluate('loader.js',entry.src);ctx.OpenConnectUSBStart(entry);flush(flushCount);advance(0);return entry;
  }
+ // Replay the actual stock/dev.22 Navigate argument with shell data substituted.
+ function legacyUSB(flushCount=Infinity,sessionToken=usbToken,session='session-ABC123'){
+  const runner=fs.readFileSync(path.join(folder,'session.sh'),'utf8');
+  const launch=runner.match(/navigate "(javascript:void\(setTimeout[^\n]+)"/)[1]
+   .replaceAll('$runtime','/tmp/open-connect/sessions/'+session).replaceAll('$token',sessionToken).replaceAll('$port','15557');
+  const source=launch.slice('javascript:'.length);
+  require('acorn').parse(source,{ecmaVersion:5});
+  vm.runInContext(source,contextVM,{filename:'session.sh:Navigate'});advance(0);
+  const entry=ctx.document.getElementById('oc-maintenance-loader');flush(flushCount);advance(0);return entry;
+ }
  function pick(action){const d=controls.findLast(d=>!d.destroyed);assert.ok(d,'visible native dialog');d.props.defaultSelectCallback(d,action);advance(0);}
  function tap(){list.properties.selectCallback(list,'open-connect-settings');}
  function endAnimations(){for(const p of [...pages,host])if(!p.cleaned)p.divElt.emit('animationend');}
@@ -132,7 +142,7 @@ module.exports=function fixture(folder,options={}){
   return {button,original,messages,fired};
  }
  return {ctx,fw,host,app,list,requests,mediaRequests,allRequests,controls,pages,calls,scripts,timers,meta,token,usbToken,revision,version,
-  evaluate,deliver,flush,advance,reply,state,metadata,install,usb,pick,tap,nativeSettings,homeScreen,endAnimations,touch,listeners,armHome,
+  evaluate,deliver,flush,advance,reply,state,metadata,install,usb,legacyUSB,pick,tap,nativeSettings,homeScreen,endAnimations,touch,listeners,armHome,
   get dialog(){return controls.findLast(d=>!d.destroyed);},get lookups(){return lookups;},get now(){return now;},
   closeUSB(){closedUSB=true;},closeBoot(){closedBoot=true;},oldInput,oldTransition,oldSend:fw.sendEventToMmui,
   operation(op){return requests.filter(r=>r.body.split('|')[2]===op);},

@@ -22,3 +22,41 @@ const before=f.scripts.length;f.evaluate('loader.js');assert.equal(f.scripts.len
 f.ctx.OpenConnectUSBStart(stale);assert.equal(f.scripts.length,before,'stale captured loader cannot start from B');
 f.ctx.OpenConnectUSBStart(current);assert.equal(f.scripts.length,before+1);assert.equal(f.ctx.__ocMaintenanceGeneration.token,current.ocToken);
 console.log('USB loader loads only its popup; stale cleanup leaves installed Settings and later entries intact');
+
+// Actual stock Navigate data/callback envelope: ownership starts before delivery.
+for(const delay of [100,66000]){
+ f=fixture(folder,{installed:false});
+ const a=f.legacyUSB(0),holdA=f.ctx.__ocUSBLoading;
+ assert.ok(holdA,'legacy entry owns discovery before loader delivery');
+ assert.equal(holdA.role,'usb-discovery');f.advance(delay);
+ if(delay>65000){assert.equal(a.parentNode,null);assert.equal(f.ctx.__ocUSBLoading,undefined);}
+ const b=f.legacyUSB(0,'e'.repeat(32),'session-DEF456'),holdB=f.ctx.__ocUSBLoading;
+ assert.notEqual(b,a);assert.equal(a.parentNode,null);assert.equal(holdA.owner,null);
+ f.deliver(a); // Native pairs each script's evaluation with its own onload.
+ assert.equal(f.ctx.document.getElementById('oc-maintenance-loader'),b);
+ assert.equal(f.ctx.__ocUSBLoading,holdB);assert.equal(f.ctx.__ocMaintenanceLoading,undefined);
+ assert.equal(f.scripts.filter(n=>n.src.endsWith('/maintenance.js')).length,0,'late A cannot run B');
+ f.deliver(b);f.flush();f.advance(0);const client=f.ctx.OpenConnectMaintenance;
+ f.reply(f.requests.at(-1),f.metadata({installed:false,installedVersion:'-'}));f.advance(0);
+ assert.match(f.dialog.props.title,/Install/);assert.equal(f.ctx.__ocUSBLoading,undefined);
+ assert.equal(holdB.owner,null,'first display drops the temporary installed-owner reference');
+ a.onload();assert.equal(f.ctx.OpenConnectMaintenance,client,'late A callback cannot close B');
+ f.pick('cancel');f.reply(f.operation('dismiss')[0],{ok:true});f.advance(65000);
+ assert.equal(f.timers.size,0,'entry and popup deadlines are released after dismissal');
+}
+f=fixture(folder,{installed:false});
+const late=f.legacyUSB(1),helper=f.ctx.document.getElementById('oc-maintenance-popup');
+assert.ok(helper);f.advance(65000);
+assert.equal(late.parentNode,null);assert.equal(helper.parentNode,null);assert.equal(f.ctx.__ocUSBLoading,undefined);
+f.deliver(helper);assert.equal(f.ctx.OpenConnectMaintenance,undefined,'late helper delivery after timeout stays passive');
+f.legacyUSB(Infinity,'e'.repeat(32),'session-DEF456');
+f.reply(f.requests.at(-1),f.metadata({installed:false,installedVersion:'-'}));f.advance(0);
+assert.match(f.dialog.props.title,/Install/,'a timed-out helper does not block the next entry');
+// The same entry budget covers metadata and its late session/read callbacks.
+f=fixture(folder,{installed:false});f.legacyUSB();
+const metadata=f.requests.at(-1),discovery=f.ctx.__ocUSBLoading;
+f.advance(65000);assert.equal(f.ctx.__ocUSBLoading,undefined);assert.equal(discovery.owner,null);
+assert.equal(f.ctx.OpenConnectMaintenance,null);assert.ok(metadata.aborted);
+f.reply(metadata,f.metadata({installed:false,installedVersion:'-'}));f.advance(1000);
+assert.equal(f.dialog,undefined);assert.equal(f.timers.size,0,'late metadata cannot renew abandoned discovery');
+console.log('Legacy Navigate: bounded pre-delivery ownership, replacement, paired late callbacks and helper timeout passed');

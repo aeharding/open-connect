@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
 const folder = process.argv[2], boot = '12345678-1234-1234-1234-123456789abc';
-function fixture(shared = {}, load = true, bootToken = boot) {
+function fixture(shared = {}, load = true, bootToken = boot, sources = {}) {
   const calls = [], events = {}, timers = [], pendingContexts = [];
   let deferContext=false, background=false, contextHandler, contextCompare, nativeContext, nativeFocus, loading, callEnd;
   let now = 0, clock = 0;
@@ -66,7 +66,7 @@ function fixture(shared = {}, load = true, bootToken = boot) {
     fw._currTmpltInstance.contextInfo=apps[m.uiaId]._currentContext;
   }
   const context = vm.createContext(ctx);
-  function source(name, root=folder) {vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),context,{filename:name});}
+  function source(name, root=folder) {vm.runInContext(sources[name]||fs.readFileSync(path.join(root,name),'utf8'),context,{filename:name});}
   if(process.argv[3])vm.runInContext(fs.readFileSync(process.argv[3],'utf8'),context);
   source('carplay.js');
   fw.websockets=Object.assign(Object.create(ctx.Websockets.prototype),{_preInitGuiMsgQueue:[],_waitMsgArray:[],_hasInitGui:true});
@@ -96,6 +96,7 @@ function fixture(shared = {}, load = true, bootToken = boot) {
   function event(type, values={}) {(events[type]||[]).forEach(fn=>fn({type,...values}));}
   focus();
   return {ctx, fw, state, source, supports, session, menu, ready, msg, send, native, focus, advance, count, connect, event, apps,
+    run(source){vm.runInContext(source,context);},
     background(id,ctxt,seq=90){background=true;try{send({msgType:'ctxtChg',uiaId:id,ctxtId:ctxt,contextSeq:seq});}finally{background=false;}},
     show(id){apply({uiaId:id});fw._processNewFwkState();},
     contexts(handler,compare){contextHandler=handler;contextCompare=compare;},
@@ -272,12 +273,12 @@ r.session(false);r.connect();assert.equal(r.count(),1,'actual disconnect reconci
 f=fixture();f.connect();f.state.failNameRead=true;r=fixture(f.state);r.connect();assert.equal(r.count(),0,'throwing primary read is also ambiguous');
 r.state.failNameRead=false;r.session(false);r.connect();assert.equal(r.count(),1);
 
-function bootClient(notice='-',autoMedia=true) {
-  const x=fixture({},false), loads=[], intervals=[], requests=[], mediaRequests=[], nodes={}, token='a'.repeat(32);
+function bootClient(notice='-',autoMedia=true,sources={}) {
+  const x=fixture({},false,boot,sources), loads=[], intervals=[], requests=[], mediaRequests=[], nodes={}, token='a'.repeat(32);
   const query=x.ctx.document.querySelector;
   const head={appendChild(node){node.parentNode=head;if(node.id)nodes[node.id]=node;
     const deliver=()=>{x.source(node.src.split('/').at(-1));node.onload();};deliver.src=node.src;loads.push(deliver);
-  },removeChild(node){delete nodes[node.id];node.parentNode=null;}};
+  },removeChild(node){if(nodes[node.id]===node)delete nodes[node.id];node.parentNode=null;}};
   x.ctx.document.getElementById=id=>nodes[id]||null;
   x.ctx.utility={loadScript(src,props,done){head.appendChild({...props,src,onload:done});}};
   x.ctx.document.querySelector=s=>s==='head'?head:s.includes('open-connect-version')?{getAttribute:()=> '0.3.0-dev.18'}:
@@ -292,6 +293,12 @@ function bootClient(notice='-',autoMedia=true) {
     else requests.push(this);};};
   x.source('runtime.js');
   return Object.assign(x,{token,requests,mediaRequests,complete(){while(loads.length)loads.shift()();},
+    legacyUSB(){
+      const launch=fs.readFileSync(path.join(folder,'session.sh'),'utf8').match(/navigate "(javascript:void\(setTimeout[^\n]+)"/)[1]
+        .replaceAll('$runtime','/tmp/open-connect/sessions/session-ABC123').replaceAll('$token','c'.repeat(32)).replaceAll('$port','15557');
+      const source=launch.slice('javascript:'.length);require('acorn').parse(source,{ecmaVersion:5});x.run(source);x.advance();
+    },
+    reply(r,value){r.readyState=4;r.status=200;r.responseText=JSON.stringify(value);r.onreadystatechange();},
     offer(token,session){const r=mediaRequests.at(-1);r.readyState=4;r.status=200;r.responseText=JSON.stringify({ok:true,media:{token,session}});r.onreadystatechange();},
     deliver(name){const i=loads.findIndex(fn=>fn.src.endsWith('/'+name));assert.ok(i>=0,name);loads.splice(i,1)[0]();},
     tick(){intervals.forEach(fn=>fn());x.advance();}});
@@ -312,6 +319,45 @@ assert.equal(pendingNode.parentNode,null);assert.equal(f.ctx.ocCarPlay.owner(),2
 f.advance(65000);assert.equal(f.ctx.ocCarPlay.owner(),0,'delivery timeout releases the existing node hold');
 f.deliver('loader.js');assert.equal(f.ctx.__ocMaintenanceLoading,undefined,'late superseded loader is passive');
 f.session(false);f.connect();assert.equal(f.count(),1,'later connection proceeds after timeout');
+
+// The actual dev.22 owner sees only __ocUSBLoading, not dev.23's node guard.
+const legacy={};
+for(const name of ['carplay.js','runtime.js','dialog.js','settings.js']){
+  legacy[name]=require('node:child_process').execFileSync('git',[
+    'show','71472aa42892a48e1f1b4a9562d8e8e6aa9def3a:cmu/installer/'+name
+  ],{cwd:path.resolve(folder),encoding:'utf8'});
+}
+f=bootClient('-',true,legacy);f.complete();f.connect();
+assert.equal(f.count(),1,'actual dev.22 ordinary drive allows CarPlay');
+for(const stage of ['loader','helper','metadata']){
+  f=bootClient('-',true,legacy);f.complete();
+  const client=f.ctx.OpenConnect,menus=f.ctx.OpenConnectSettings,dialogs=f.ctx.OpenConnectInstaller,owner=f.ctx.ocCarPlay.owner;
+  f.legacyUSB();const discovery=f.ctx.__ocUSBLoading;
+  if(stage!=='loader')f.deliver('loader.js');
+  if(stage==='metadata'){
+    f.deliver('maintenance.js');f.reply(f.requests.at(-1),{ok:true,closed:false});
+    assert.equal(f.requests.at(-1).body.split('|')[3],'settings');
+  }
+  assert.equal(f.ctx.ocCarPlay.owner(),2,'actual dev.22 holds priority during '+stage);
+  f.connect();assert.equal(f.count(),0,'no SelectCarPlay during '+stage);
+  if(stage==='metadata'){
+    f.reply(f.requests.at(-1),{ok:true,revision:'b'.repeat(64),installed:true,retained:false,
+      restart:false,pending:false,version:'0.3.0-dev.23',installedVersion:'0.3.0-dev.22'});
+    f.reply(f.requests.at(-1),{ok:true,closed:false});
+    assert.equal(f.ctx.ocCarPlay.dialogs,1,'native chooser owns the first display');
+    assert.equal(f.ctx.__ocUSBLoading,undefined);assert.equal(discovery.owner,null);
+    f.ctx.OpenConnectMaintenance.close();
+  }else{
+    f.advance(65000);assert.equal(f.ctx.__ocUSBLoading,undefined,'undelivered '+stage+' abandons within the entry budget');
+    f.deliver(stage==='loader'?'loader.js':'maintenance.js');
+    assert.equal(f.ctx.OpenConnectMaintenance,undefined,'late paired delivery stays passive');
+  }
+  assert.equal(f.ctx.ocCarPlay.owner,owner);assert.equal(f.ctx.ocCarPlay.owner(),0);
+  assert.equal(f.ctx.OpenConnect,client);assert.equal(f.ctx.OpenConnectSettings,menus);assert.equal(f.ctx.OpenConnectInstaller,dialogs);
+  f.session(false);f.connect();assert.equal(f.count(),1,'ordinary connection proceeds after '+stage+' abandonment/close');
+}
+console.log('Actual dev.22 CarPlay: loader/helper/metadata priority, first display, timeout, late delivery and ordinary drive passed');
+
 f=bootClient();f.session(true);f.menu();f.advance();assert.equal(f.count(),0,'ordinary boot awaits real support callbacks');
 f.complete();assert.equal(f.count(),1,'ready callback pumps first connection without another message');
 f=bootClient('installed');f.complete();f.tick();assert.equal(f.requests.length,1);

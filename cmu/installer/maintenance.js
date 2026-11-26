@@ -6,11 +6,18 @@ var OpenConnectMaintenanceStart=function(entry){
 if(!entry||typeof entry.current!=="function"||!entry.current())return null;
 var token=entry.token,port=entry.port,usb=entry.role==="usb";
 if(!/^[a-f0-9]{32}$/.test(token)||(usb?port!==15557:entry.role!=="completion"||port!==15555))return null;
-var boot=usb?null:entry.boot;
+var boot=usb?null:entry.boot,discovery=usb&&entry.discovery;
 if(!usb&&(!boot||boot.notice!=="installed"||
  !/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(boot.version)))return null;
 var slot=usb?"OpenConnectMaintenance":"OpenConnectCompletion",previous=window[slot];
 if(previous)previous.cancel(previous.token);
+// Dev.22 can cancel this temporary claim for a deliberate Settings write.
+// It carries no shared read/client handoff and ends at first display or close.
+function releaseDiscovery(){
+ var hold=discovery;discovery=null;
+ if(hold){hold.stop=null;hold.cancel();}
+}
+if(discovery)discovery.stop=close;
 var ui=(function () {
 "use strict";
 var active=null, own=Object.prototype.hasOwnProperty, owner={};
@@ -23,7 +30,7 @@ function available(fw){
 }
 function foreign(fw){
  return fw.common._openConnectOperation&&fw.common._openConnectOperation!==owner||
-  window.__ocUSBLoading&&window.__ocUSBLoading!==owner;
+  window.__ocUSBLoading&&window.__ocUSBLoading!==owner&&window.__ocUSBLoading!==discovery;
 }
 function claim(fw){
  var c=fw.common;
@@ -84,6 +91,7 @@ function show(fw, title, text, buttons, done, progress) {
   var dialog=fw.instantiateControl("system", document.body, "Dialog3Ctrl", props);
   if (!dialog) { return false; }
   active=dialog;common._openConnectDialog=dialog;
+  releaseDiscovery();
   dialog.divElt.classList.add("Dialog3Ctrl_Style19_NoTemplateInstance");
   dialog.divElt.classList.add("Transitions_fadeIn_0_200");
   var previousInput=replace(common, "handleControllerEvent", input);
@@ -168,6 +176,7 @@ function claim(){return !dead&&!feedback&&!acking&&!framework.common._openConnec
 function release(){if(!held())ui.release(framework);}
 function close(){
  if(dead)return;dead=true;advance();clearTimeout(timer);queued=null;
+ releaseDiscovery();
  requests.slice().forEach(function(cancelRequest){cancelRequest();});
  closeUI();endView();job=null;feedback=acking=false;ui.release(framework);
  if(window[slot]===client)window[slot]=null;

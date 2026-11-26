@@ -53,6 +53,31 @@ f.deliver(pending);f.flush();f.advance(0);f.reply(f.requests.at(-1),f.metadata()
 assert.match(f.dialog.props.title,/Reinstall/,'same accepted offer retains its captured delivery');
 f.pick('cancel');f.reply(f.operation('dismiss').at(-1),{ok:true});
 
+// B's connection can observe still-pending A before B publishes. A keeps its
+// node/deadline, while B's independent event window survives A's closed probe.
+app=device();f=fixture(folder,{usbApp:app,autoMedia:false,autoSession:false});f.install();
+f.reply(f.mediaRequests[0],media());
+const a=f.ctx.document.getElementById('oc-maintenance-loader');
+const aDeadline=[...f.timers.values()].find(t=>t.at===65000);
+connected(f,app,{usb:'B'});f.reply(f.mediaRequests.at(-1),media());
+assert.equal(f.ctx.document.getElementById('oc-maintenance-loader'),a);
+assert.ok([...f.timers.values()].includes(aDeadline),'A retains its original delivery deadline');
+f.deliver(a);f.flush();f.reply(f.allRequests.at(-1),{ok:true,closed:true});f.advance(0);
+assert.equal(f.ctx.OpenConnectMaintenance,null,'A observes its closed session');
+f.advance(500);assert.equal(f.mediaRequests.length,3,'B keeps looking after seeing pending A');
+f.reply(f.mediaRequests.at(-1),media('e'.repeat(32),'session-DEF456'));
+const b=f.ctx.document.getElementById('oc-maintenance-loader');assert.notEqual(b,a);
+f.deliver(b);f.flush();f.advance(0);
+f.reply(f.allRequests.at(-1),{ok:true,closed:false});
+f.reply(f.requests.at(-1),f.metadata());f.reply(f.allRequests.at(-1),{ok:true,closed:false});f.advance(0);
+assert.equal(f.ctx.__ocMaintenanceGeneration.token,'e'.repeat(32));
+assert.match(f.dialog.props.title,/Reinstall/,'B reaches its chooser after A closes');
+
+// Restart the consumed-offer case with a dismissed A and no outstanding B.
+app=device();f=fixture(folder,{usbApp:app,autoMedia:false});f.install();
+f.reply(f.mediaRequests[0],media());f.flush();f.advance(0);
+f.reply(f.requests.at(-1),f.metadata());f.advance(0);f.pick('cancel');f.reply(f.operation('dismiss').at(-1),{ok:true});
+
 // A new drive event can first see the consumed old offer while replacement is
 // staging. Keep its original event deadline; only a distinct token ends polling.
 connected(f,app);f.reply(f.mediaRequests.at(-1),media());

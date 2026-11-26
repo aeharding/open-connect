@@ -4,7 +4,7 @@ var OpenConnectUSBStart=function(entry){
 "use strict";
 if(!entry||document.getElementById("oc-maintenance-loader")!==entry||
  window.__ocMaintenanceLoading&&window.__ocMaintenanceLoading.entry===entry)return;
-var token=entry.ocToken,base=entry.src.slice(0,entry.src.lastIndexOf("/")+1);
+var token=entry.ocToken,base=entry.src.slice(0,entry.src.lastIndexOf("/")+1),discovery=entry.ocDiscovery;
 if(!/^[a-f0-9]{32}$/.test(token)||entry.ocPort!==15557)return;
 if(window.__ocMaintenanceLoading)window.__ocMaintenanceLoading.finish();
 var state={token:token,entry:entry,finish:finish},node,stopped=false;
@@ -16,12 +16,15 @@ function finish(){
  [entry,node].forEach(function(n){if(n&&n.parentNode)n.parentNode.removeChild(n);});
  if(window.__ocMaintenanceLoading===state)delete window.__ocMaintenanceLoading;
 }
-var timer=setTimeout(finish,65000);
+// Legacy entry already owns the deadline, including time before this delivery.
+if(discovery)discovery.stop=finish;
+var timer=discovery?null:setTimeout(finish,65000);
 utility.loadScript(base+"maintenance.js",{id:"oc-maintenance-popup"},function(){
  if(!stopped&&current()&&document.getElementById("oc-maintenance-loader")===entry&&
    typeof window.OpenConnectMaintenanceStart==="function"){
-  OpenConnectMaintenanceStart({token:token,port:15557,role:"usb",current:current});
- }
+  var client=OpenConnectMaintenanceStart({token:token,port:15557,role:"usb",current:current,discovery:discovery});
+  if(discovery&&!client)discovery.cancel();
+ }else if(discovery)discovery.cancel();
  finish();
 });
 node=document.getElementById("oc-maintenance-popup");

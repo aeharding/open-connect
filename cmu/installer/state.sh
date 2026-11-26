@@ -7,7 +7,7 @@ request_owner=$(id -u) && request_owner=$request_owner:$(id -g) || exit 1
 case "$request_owner" in :*|*:|*:*:*|*[!0-9:]*) exit 1;; esac
 
 fail() { printf '%s\n' "$1" >&2; exit 1; }
-sha() { local value; value=$(openssl dgst -sha256 < "$1") || return; printf '%s\n' "${value##* }"; }
+sha() { "$P/flush" h "$1"; }
 hex() { test "${#1}" -eq "$2" && case "$1" in *[!a-f0-9]*) false;; *) true;; esac; }
 uuid() { tr -d '-' < /proc/sys/kernel/random/uuid; }
 absent() { test ! -e "$1" && test ! -L "$1"; }

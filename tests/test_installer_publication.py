@@ -1,6 +1,7 @@
 """Interrupt the actual startup publisher using ordinary files and mount adapters."""
 
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -92,14 +93,23 @@ startup_publish "$PLAN" "755:$(id -u):$(id -g)" "$(sha "$AUTOSTART")" "$(stat -c
             env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
         )
 
+    def fail_durability(self):
+        real = self.tools / "flush-real"
+        (self.tools / "flush").rename(real)
+        (self.tools / "flush").write_text(
+            '#!/bin/sh\nif test "$1" = h; then exec '
+            + shlex.quote(str(real))
+            + ' "$@"; fi\nexit 1\n'
+        )
+        (self.tools / "flush").chmod(0o700)
+
     @unittest.skipUnless(shutil.which("busybox"), "BusyBox required for ash trap regression")
     def test_ash_exit_trap_keeps_inputs_after_function_locals_unwind(self):
         for cut in ("none", "flush", "cleanup-flush"):
             with self.subTest(cut=cut):
                 self.reset()
                 if cut == "cleanup-flush":
-                    (self.tools / "flush").write_text("#!/bin/sh\nexit 1\n")
-                    (self.tools / "flush").chmod(0o700)
+                    self.fail_durability()
                 result = self.run_publish(cut, [shutil.which("busybox"), "ash"])
                 if cut == "none":
                     self.assertEqual(result.returncode, 0, result.stderr)
@@ -140,9 +150,10 @@ startup_publish "$PLAN" "755:$(id -u):$(id -g)" "$(sha "$AUTOSTART")" "$(stat -c
         self.assertEqual(self.mount.read_text(), "ro,noatime\n")
 
     def test_cleanup_flush_failure_still_restores_read_only(self):
-        (self.tools / "flush").write_text("#!/bin/sh\nexit 1\n")
-        (self.tools / "flush").chmod(0o700)
-        self.assertNotEqual(self.run_publish().returncode, 0)
+        self.fail_durability()
+        result = self.run_publish()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("flush_failed", result.stderr)
         self.assertFalse(self.stage.exists())
         self.assertEqual(self.mount.read_text(), "ro,noatime\n")
 

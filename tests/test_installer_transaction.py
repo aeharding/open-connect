@@ -303,7 +303,9 @@ class InstallerTransaction(unittest.TestCase):
             )
         )
 
-    def api(self, operation, revision="-", argument="-", expected="-", desired="-"):
+    def api(
+        self, operation, revision="-", argument="-", expected="-", desired="-", *, host_tools=None
+    ):
         result = subprocess.run(
             [
                 "sh",
@@ -318,7 +320,12 @@ class InstallerTransaction(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=15,
-            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+            env={
+                **os.environ,
+                "PATH": os.pathsep.join(
+                    str(path) for path in (host_tools, self.tools, os.environ["PATH"]) if path
+                ),
+            },
         )
         return result, json.loads(result.stdout)
 
@@ -383,6 +390,84 @@ class InstallerTransaction(unittest.TestCase):
         ack = counted("restart", second["revision"], passes=1)
         self.assertEqual(ack, {"ok": True, "restarting": True})
         self.assertEqual((data / "record").read_bytes(), record)
+
+    def test_settings_status_replaces_only_scalar_openssl_calls_with_verified_flush(self):
+        data = self.create("scalar-settings")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        # Exercise the maintained factory-board guard too, with a host script
+        # standing in for the pinned OEM script and its successful return code.
+        board = self.root / "get_board_type.sh"
+        board.write_text("#!/bin/sh\nexit 2\n")
+        factory = (ROOT / "cmu/installer/firmware.sh").read_text()
+        factory = factory[
+            factory.index("factory_wireless() (") : factory.index("originals_verify()")
+        ]
+        factory = factory.replace("/jci/scripts/get_board_type.sh", str(board)).replace(
+            "2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da",
+            hashlib.sha256(board.read_bytes()).hexdigest(),
+        )
+        firmware = self.tools / "firmware.sh"
+        firmware.write_text(firmware.read_text() + "\n" + factory)
+        calls = self.root / "digest-calls"
+        openssl = shlex.quote(shutil.which("openssl"))
+        real_flush = self.root / "flush-real"
+        (self.tools / "flush").rename(real_flush)
+        for name, program in (("openssl", openssl), ("flush", shlex.quote(str(real_flush)))):
+            path = self.tools / name
+            path.write_text(
+                "#!/bin/sh\n"
+                + f"printf '%s|%s\\n' {name} \"$*\" >> {shlex.quote(str(calls))}\n"
+                + f'exec {program} "$@"\n'
+            )
+            path.chmod(0o700)
+        module = self.tools / "state.sh"
+        candidate = module.read_text()
+        scalar = 'sha() { "$P/flush" h "$1"; }'
+        self.assertIn(scalar, candidate)
+        module.write_text(
+            candidate.replace(
+                scalar,
+                'sha() { local value; value=$(openssl dgst -sha256 < "$1") || return; '
+                'printf "%s\\n" "${value##* }"; }',
+                1,
+            )
+        )
+        before_record = (data / "record").read_bytes()
+        result, baseline = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        before = calls.read_text().splitlines()
+        self.assertEqual(len(before), 11)
+        self.assertTrue(all(line.startswith("openssl|") for line in before))
+        calls.write_text("")
+        module.write_text(candidate)
+        result, answer = self.api("status", argument="settings")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(answer, baseline)
+        self.assertEqual((data / "record").read_bytes(), before_record)
+        after = calls.read_text().splitlines()
+        self.assertEqual(sum(line.startswith("flush|h ") for line in after), 9)
+        self.assertEqual(sum(line.startswith("openssl|dgst -sha256 -r ") for line in after), 2)
+        self.assertEqual(
+            ["openssl|dgst -sha256" if line.startswith("flush|h ") else line for line in after],
+            before,
+        )
+        snapshot = data / "snapshots" / before_record.decode().split("|")[5]
+        package = data / "packages" / (data / "package-id").read_text().strip()
+        self.assertEqual(
+            [line.removeprefix("flush|h ") for line in after if line.startswith("flush|")],
+            [
+                str(snapshot / "files.sha256"),
+                str(snapshot / "config"),
+                str(snapshot / "files.sha256"),
+                str(snapshot / "config"),
+                str(snapshot / "files.sha256"),
+                str(package / "files.sha256"),
+                str(package / "files.sha256"),
+                str(package / "VERSION"),
+                str(board),
+            ],
+        )
 
     def test_save_final_verification_failure_requires_fresh_reconciliation(self):
         data = self.create("save-final-conflict")
@@ -2003,11 +2088,14 @@ class InstallerTransaction(unittest.TestCase):
         )
         self.assertEqual(started.returncode, 0, started.stdout + started.stderr)
         self.tools = Path(started.stdout.strip())
-        _, pending = self.api("status", argument="settings")
+        # Staging gives only api/flush executable modes, and omits the host stat
+        # symlink. Keep the host stat/flock adapters outside that CMU packet.
+        result, pending = self.api("status", argument="settings", host_tools=old)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue(pending["pending"])
         self.assertFalse(pending["completionReady"])
         failure.unlink()
-        result, recovered = self.api("recover", pending["revision"])
+        result, recovered = self.api("recover", pending["revision"], host_tools=old)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertFalse(data.exists())
         self.assertFalse(recovered["pending"])

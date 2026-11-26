@@ -53,6 +53,7 @@ class InstallerState(unittest.TestCase):
             'read-prefs) snapshot_read "$5" && printf "%s|%s|%s\\n" "$S_PANDORA" "$S_BASE" "$S_WIRELESS";;\n'
             'read-pair) snapshot_read "$5" && snapshot_read "$6" && printf "%s|%s|%s\\n" "$S_PANDORA" "$S_BASE" "$S_WIRELESS";;\n'
             'dependencies) . "${3%/*}/firmware.sh"; . "${3%/*}/transaction.sh"; dependencies_match "$5";;\n'
+            'sha) sha "$5";;\n'
             "esac\n"
         )
         self.assertEqual(self.run_command("create").returncode, 0)
@@ -91,6 +92,52 @@ class InstallerState(unittest.TestCase):
         for name, data in {**content, "files.sha256": manifest}.items():
             folder.joinpath(name).write_bytes(data)
         return identity
+
+    def test_scalar_hash_uses_verified_helper_and_propagates_refusals(self):
+        path = self.root / "scalar"
+        path.write_bytes(bytes(range(256)) * 5)
+        # Neither an unverified PATH helper nor scalar OpenSSL may be used.
+        for name in ("openssl", "untrusted-flush"):
+            command = self.root / name
+            command.write_text("#!/bin/sh\nexit 99\n")
+            command.chmod(0o700)
+        (self.tools / "openssl").symlink_to(self.root / "openssl")
+        # Put a PATH flush before P without changing the verified directory.
+        trap = self.root / "path"
+        trap.mkdir()
+        (trap / "flush").symlink_to(self.root / "untrusted-flush")
+        self.tools.joinpath("flush").chmod(0o700)
+        result = subprocess.run(
+            [
+                "sh",
+                "-c",
+                'P=$1; . "$2"; sha "$3"',
+                "scalar",
+                self.tools,
+                ROOT / "cmu/installer/state.sh",
+                path,
+            ],
+            env={
+                **os.environ,
+                "PATH": os.pathsep.join((str(trap), str(self.tools), os.environ["PATH"])),
+            },
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, hashlib.sha256(path.read_bytes()).hexdigest() + "\n")
+        link = self.root / "scalar-link"
+        link.symlink_to(path)
+        for refused in (link, self.root, self.root / "absent"):
+            with self.subTest(path=refused):
+                result = self.run_command("sha", refused)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+        (self.tools / "flush").unlink()
+        result = self.run_command("sha", path)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
 
     def test_stock5_and_active_dev9_fields_remain_distinct(self):
         metadata = f"755:{os.getuid()}:{os.getgid()}"

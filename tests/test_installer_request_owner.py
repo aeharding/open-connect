@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "cmu/installer"
 
 
+@unittest.skipUnless(shutil.which("clang"), "Clang required")
 class RequestOwner(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -22,6 +23,12 @@ class RequestOwner(unittest.TestCase):
         self.data.mkdir(mode=0o700)
         self.tools = self.root / "tools"
         self.tools.mkdir()
+        subprocess.run(
+            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.root / "flush"],
+            check=True,
+            capture_output=True,
+            timeout=20,
+        )
         self.stat = shlex.quote(shutil.which("gstat") or shutil.which("stat"))
         self.id = shlex.quote(shutil.which("id"))
         self.owner = f"{os.geteuid()}:{os.getegid()}"

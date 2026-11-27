@@ -402,15 +402,16 @@ class InstallerState(unittest.TestCase):
         self.assertNotEqual(self.run_command("manifest", folder).returncode, 0)
 
     def test_matching_hash_output_cannot_hide_failed_hash_process(self):
-        openssl = shlex.quote(shutil.which("openssl"))
-        (self.tools / "openssl").write_text(
-            '#!/bin/sh\ncase " $* " in *" -r "*)\n'
-            + openssl
+        real_flush = self.root / "flush-real"
+        (self.tools / "flush").rename(real_flush)
+        (self.tools / "flush").write_text(
+            '#!/bin/sh\ncase "$1" in H)\n'
+            + shlex.quote(str(real_flush))
             + ' "$@"\nexit 19;;\n*) exec '
-            + openssl
+            + shlex.quote(str(real_flush))
             + ' "$@";; esac\n'
         )
-        (self.tools / "openssl").chmod(0o700)
+        (self.tools / "flush").chmod(0o700)
         self.assertNotEqual(self.run_command("read").returncode, 0)
 
     def test_dependency_groups_preserve_parent_and_individual_file_guards(self):

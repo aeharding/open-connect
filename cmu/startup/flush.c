@@ -74,8 +74,51 @@ static int failure(long error) {
     return error < 0 && error >= -125 ? (int)-error : 125;
 }
 
+static int write_all(const void *p, unsigned n) {
+    const char *s = (const char *)p;
+    for (unsigned used = 0; used < n;) {
+        long r = output(s + used, n - used);
+        if (r == -4) continue;
+        if (r <= 0) {
+            report("write failed\n", 13);
+            return failure(r < 0 ? r : -5);
+        }
+        used += (unsigned)r;
+    }
+    return 0;
+}
+
+static int flush_one(const char *path, int directory, int regular) {
+    long fd, flushed, closed;
+    if (path[0] != '/') return 64;
+    do { fd = open_readonly(path, directory); } while (fd == -4);
+    if (fd < 0) {
+        report("open failed\n", 12);
+        return failure(fd);
+    }
+    if (regular) {
+        do { flushed = regular_fd((int)fd); } while (flushed == -4);
+        if (flushed < 0) {
+            (void)close_fd((int)fd);
+            report("open failed\n", 12);
+            return failure(flushed);
+        }
+    }
+    do { flushed = flush_fd((int)fd); } while (flushed == -4);
+    do { closed = close_fd((int)fd); } while (closed == -4);
+    if (flushed < 0) {
+        report("fsync failed\n", 13);
+        return failure(flushed);
+    }
+    if (closed < 0) {
+        report("close failed\n", 13);
+        return failure(closed);
+    }
+    return 0;
+}
+
 /* Keep hash scratch out of the existing f/d/l modes' stack frames. */
-static __attribute__((noinline)) int hash_path(const char *path) {
+static __attribute__((noinline)) int hash_path(const char *path, int named) {
     long fd, result, closed;
     do { fd = open_readonly(path, 0); } while (fd == -4);
     if (fd < 0) {
@@ -84,8 +127,8 @@ static __attribute__((noinline)) int hash_path(const char *path) {
     }
     do { result = regular_fd((int)fd); } while (result == -4);
     OcHash hash;
-    oc_u8 buffer[512];
-    char digest[65];
+    oc_u8 buffer[2048];
+    char digest[66];
     oc_hash_init(&hash);
     while (result >= 0) {
         result = read_fd((int)fd, buffer, sizeof buffer);
@@ -93,28 +136,37 @@ static __attribute__((noinline)) int hash_path(const char *path) {
         if (result <= 0) break;
         oc_hash_add(&hash, buffer, (unsigned)result);
     }
-    closed = close_fd((int)fd);
+    do { closed = close_fd((int)fd); } while (closed == -4);
     if (result < 0 || closed < 0) {
         report("hash failed\n", 12);
         return failure(result < 0 ? result : closed);
     }
     oc_hash_finish(&hash, digest);
-    digest[64] = '\n';
-    for (unsigned used = 0; used < sizeof digest;) {
-        result = output(digest + used, sizeof digest - used);
-        if (result == -4) continue;
-        if (result <= 0) {
-            report("write failed\n", 13);
-            return failure(result < 0 ? result : -5);
-        }
-        used += (unsigned)result;
+    if (!named) {
+        digest[64] = '\n';
+        return write_all(digest, 65);
     }
-    return 0;
+    digest[64] = ' ';
+    digest[65] = '*';
+    int err = write_all(digest, 66);
+    if (err) return err;
+    unsigned len = 0;
+    while (path[len]) len++;
+    if (len && (err = write_all(path, len))) return err;
+    return write_all("\n", 1);
 }
 
 static int run(int argc, char **argv) {
     /* Hash accepts relative paths too, matching the shell's former < "$1". */
-    if (argc == 3 && argv[1][0] == 'h' && !argv[1][1]) return hash_path(argv[2]);
+    if (argc == 3 && argv[1][0] == 'h' && !argv[1][1]) return hash_path(argv[2], 0);
+    if (argc >= 3 && (argv[1][0] == 'H' || argv[1][0] == 'F') && !argv[1][1]) {
+        int hash = argv[1][0] == 'H';
+        for (int i = 2; i < argc; i++) {
+            int err = hash ? hash_path(argv[i], 1) : flush_one(argv[i], 0, 1);
+            if (err) return err;
+        }
+        return 0;
+    }
     if (argc == 4 && argv[1][0] == 'l' && !argv[1][1] &&
         argv[2][0] == '/' && argv[3][0] == '/') {
         long linked = link_path(argv[2], argv[3]);
@@ -128,26 +180,11 @@ static int run(int argc, char **argv) {
         (argv[1][0] != 'f' && argv[1][0] != 'd') || argv[2][0] != '/') {
         static const char usage[] = "usage: flush f|d /absolute/path\n"
                                     "       flush l /absolute/source /absolute/target\n"
-                                    "       flush h path\n";
+                                    "       flush h|H|F path [...]\n";
         report(usage, sizeof usage - 1);
         return 64;
     }
-    long fd = open_readonly(argv[2], argv[1][0] == 'd');
-    if (fd < 0) {
-        report("open failed\n", 12);
-        return failure(fd);
-    }
-    long flushed = flush_fd((int)fd);
-    long closed = close_fd((int)fd);
-    if (flushed < 0) {
-        report("fsync failed\n", 13);
-        return failure(flushed);
-    }
-    if (closed < 0) {
-        report("close failed\n", 13);
-        return failure(closed);
-    }
-    return 0;
+    return flush_one(argv[2], argv[1][0] == 'd', 0);
 }
 
 #ifdef OC_HOST

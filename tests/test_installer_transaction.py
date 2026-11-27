@@ -426,25 +426,30 @@ class InstallerTransaction(unittest.TestCase):
         backend = self.tools / "backend.sh"
         backend.write_text(backend.read_text().replace("set -eu\n", "set -eux\n", 1))
 
-        def counted(operation, *args, passes):
+        def counted(operation, *args, passes, dep_passes=None):
+            if dep_passes is None:
+                dep_passes = passes
             result, answer = self.api(operation, *args)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            for function in ("targets_match_loaded", "dependencies_match"):
+            for function, expected in (
+                ("targets_match_loaded", passes),
+                ("dependencies_match", dep_passes),
+            ):
                 self.assertEqual(
                     len(re.findall(r"^\++ " + function + r" ", result.stderr, re.M)),
-                    passes,
+                    expected,
                     (operation, function),
                 )
             return answer
 
         before = counted("status", passes=1)
         counted("status", "-", "settings", passes=0)
-        saved = counted("set", before["revision"], "pandora", "1", "0", passes=3)
+        saved = counted("set", before["revision"], "pandora", "1", "0", passes=2, dep_passes=2)
         row = next(row for row in saved["services"] if row["id"] == "pandora")
         self.assertEqual((row["saved"], row["current"]), (0, 1))
         self.assertTrue(saved["restart"])
         self.assertEqual(saved, counted("status", passes=1))
-        second = counted("set", saved["revision"], "warning", "1", "0", passes=3)
+        second = counted("set", saved["revision"], "warning", "1", "0", passes=2, dep_passes=2)
         self.assertEqual((second["pandora"], second["warning"]), (0, 0))
         self.assertNotEqual(second["revision"], saved["revision"])
         # A no-op is already validated by admission, with no new transaction.
@@ -487,13 +492,14 @@ class InstallerTransaction(unittest.TestCase):
             path.chmod(0o700)
         module = self.tools / "state.sh"
         candidate = module.read_text()
-        scalar = 'sha() { "$P/flush" h "$1"; }'
+        scalar = 'sha() { "$P/flush" h "$1"; }\nsha_many() { "$P/flush" H "$@"; }'
         self.assertIn(scalar, candidate)
         module.write_text(
             candidate.replace(
                 scalar,
                 'sha() { local value; value=$(openssl dgst -sha256 < "$1") || return; '
-                'printf "%s\\n" "${value##* }"; }',
+                'printf "%s\\n" "${value##* }"; }\n'
+                'sha_many() { openssl dgst -sha256 -r "$@"; }',
                 1,
             )
         )
@@ -511,15 +517,12 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual((data / "record").read_bytes(), before_record)
         after = calls.read_text().splitlines()
         self.assertEqual(sum(line.startswith("flush|h ") for line in after), 9)
-        self.assertEqual(sum(line.startswith("openssl|dgst -sha256 -r ") for line in after), 1)
-        self.assertEqual(
-            ["openssl|dgst -sha256" if line.startswith("flush|h ") else line for line in after],
-            before,
-        )
+        self.assertEqual(sum(line.startswith("flush|H ") for line in after), 1)
+        self.assertEqual(sum(line.startswith("openssl|") for line in after), 0)
         snapshot = data / "snapshots" / before_record.decode().split("|")[5]
         package = data / "packages" / (data / "package-id").read_text().strip()
         self.assertEqual(
-            [line.removeprefix("flush|h ") for line in after if line.startswith("flush|")],
+            [line.removeprefix("flush|h ") for line in after if line.startswith("flush|h ")],
             [
                 str(snapshot / "files.sha256"),
                 str(snapshot / "config"),
@@ -1016,9 +1019,9 @@ class InstallerTransaction(unittest.TestCase):
         state_file = self.tools / "state.sh"
         state_file.write_text(
             state_file.read_text().replace(
-                'snapshot_read() { snapshot_verify "$1" && snapshot_decode "$1"; }',
-                'snapshot_read() { printf "%s\\n" "$1" >> "$D/reads"; '
-                'snapshot_verify "$1" && snapshot_decode "$1"; }',
+                '  snapshot_verify "$1" && snapshot_decode "$1" || return 1',
+                '  printf "%s\\n" "$1" >> "$D/reads"\n'
+                '  snapshot_verify "$1" && snapshot_decode "$1" || return 1',
             )
         )
         for selected in (current, applied):

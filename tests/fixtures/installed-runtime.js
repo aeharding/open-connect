@@ -271,7 +271,9 @@ for(const op of ['set','import'])for(const leave of [false,true]){
  const mutation=f.operation(op)[0],lostAt=f.now;
  f.reply(mutation,null);const read=f.requests.at(-1);
  if(leave){f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();}
- f.advance(11999);assert.equal(f.dialog,undefined);
+ f.advance(11999);
+ if(op==='import'&&!leave)assert.equal(f.dialog.props.text1,'Importing public key');
+ else assert.equal(f.dialog,undefined);
  if(!leave)assert.doesNotMatch(f.pages.at(-1).list2Ctrl.title.text1,/Restart Mazda Connect/);
  f.advance(1);f.endAnimations();assert.equal(f.now-lostAt,12000);
  assert.equal(f.dialog,undefined,'page feedback never gets an extra runtime modal');
@@ -296,15 +298,31 @@ for(const op of ['set','import'])for(const leave of [false,true]){
 // Import failure belongs to the live preference session, including a different
 // page opened before the reply was lost. Queued values must not replace it.
 for(const navigation of ['back','reenter','queued']){
- f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+ f=warm(developer);select(f,'developer');
+ if(navigation==='queued'){
+  select(f,'uart',{additionalData:1});f.pick('enable');
+  select(f,'import');f.pick('import');
+  const setOp=f.operation('set')[0];
+  f.reply(setOp,f.state({...developer,uart:1,restart:true}));
+  const mutation=f.operation('import')[0];
+  f.reply(mutation,null);const read=f.requests.at(-1);
+  f.advance(12000);f.endAnimations();
+  assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Restart Mazda Connect',navigation);
+  assert.equal(f.operation('import').length,1);assert.equal(f.operation('set').length,1);
+  assert.equal(f.ctx.OpenConnect.protected(),true);assert.equal(f.dialog,undefined);
+  f.reply(mutation,f.state({...developer,uart:1,key:'d'.repeat(64),revision:'e'.repeat(64)}));
+  f.reply(read,f.state({...developer,uart:1,key:'d'.repeat(64),revision:'e'.repeat(64)}));
+  f.advance(1000);assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Restart Mazda Connect');
+  assert.equal(f.operation('set').length,1);assert.equal(f.operation('restart').length,0);
+  continue;
+ }
+ select(f,'import');f.pick('import');
  const mutation=f.operation('import')[0];
  if(navigation==='back'){
   f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
- }else if(navigation==='reenter'){
+ }else{
   f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
   f.nativeSettings();f.tap();f.endAnimations();
- }else{
-  select(f,'uart',{additionalData:1});f.pick('enable');f.advance(250);
  }
  f.reply(mutation,null);const read=f.requests.at(-1);
  f.advance(12000);f.endAnimations();
@@ -337,4 +355,373 @@ f=fixture(folder);f.install();f.nativeSettings();f.tap();f.advance(12000);
 assert.match(f.dialog.props.text1,/could not be reached. Try again/);f.pick('done');
 const retry=f.requests.length;f.tap();assert.equal(f.requests.length,retry+1);f.reply(f.requests.at(-1),f.state());
 assert.ok(f.fw.common._openConnectPage);assert.equal(f.dialog,undefined);assert.equal(f.operation('set').length,0);
+// Stale save refusal while Uninstall is queued must cancel Uninstall rather than remove a newer revision.
+f=warm({touch:1,touchCurrent:1,warning:1,warningCurrent:1,restart:false});
+select(f,0);select(f,0);assert.equal(f.operation('set').length,1);
+f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+select(f,'uninstall');f.pick('uninstall');
+assert.equal(f.dialog.props.text1,'Removing Open Connect');assert.equal(f.operation('uninstall').length,0);
+f.reply(f.operation('set')[0],{ok:false,error:'stale_state'});
+f.reply(f.requests.at(-1),f.state({touch:1,touchCurrent:1,warning:1,warningCurrent:1,revision:'b'.repeat(64)}));
+f.endAnimations();
+assert.equal(f.operation('uninstall').length,0,'stale refusal must never authorize uninstall of a newer revision');
+assert.equal(f.dialog,undefined);
+assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Change could not be confirmed');
+// Declined native progress control must prevent key import and queued Apply changes from sending.
+f=warm(developer);select(f,'developer');
+const origCreate=f.fw.instantiateControl;
+f.fw.instantiateControl=function(a,c,k,p){
+ if(k==='Dialog3Ctrl'&&p&&p.text1==='Importing public key')return null;
+ return origCreate.apply(this,arguments);
+};
+select(f,'import');f.pick('import');
+assert.equal(f.operation('import').length,0,'declined progress dialog must block import');
+assert.equal(f.dialog,undefined);
+// Refused key import after leaving and re-entering Settings must cancel queued Uninstall.
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+assert.equal(f.operation('import').length,1);
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();
+select(f,'uninstall');f.pick('uninstall');
+assert.equal(f.dialog.props.text1,'Removing Open Connect');assert.equal(f.operation('uninstall').length,0);
+f.reply(f.operation('import')[0],{ok:false,error:'stale_state'});
+f.reply(f.requests.at(-1),f.state({...developer,revision:'c'.repeat(64)}));
+f.endAnimations();
+assert.equal(f.operation('uninstall').length,0,'refused import must never release queued uninstall against a newer revision');
+assert.equal(f.dialog,undefined);
+// Lost Set ACK reconciled via readback with unrelated changes preserves preference reconciliation
+// while cancelling queued Uninstall so the user must freshly confirm against the new revision.
+f=warm({touch:1,touchCurrent:1,warning:1,warningCurrent:1,restart:false});
+select(f,0);select(f,0);assert.equal(f.operation('set').length,1);
+f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+select(f,'uninstall');f.pick('uninstall');
+assert.equal(f.dialog.props.text1,'Removing Open Connect');assert.equal(f.operation('uninstall').length,0);
+f.reply(f.operation('set')[0],null);
+f.reply(f.requests.at(-1),f.state({touch:0,touchCurrent:1,warning:0,warningCurrent:1,restart:true,revision:'d'.repeat(64)}));
+f.endAnimations();
+assert.equal(f.operation('uninstall').length,0,'unacknowledged readback must never transfer uninstall confirmation to an unrelated revision');
+assert.equal(f.dialog,undefined);
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[1].label1,'Show','preference reconciliation stays intact');
+// An open Uninstall prompt opened BEFORE lost-ACK Set readback must be invalidated and page refreshed.
+f=warm({touch:1,touchCurrent:1,warning:1,warningCurrent:1,restart:false});
+select(f,0);select(f,0);assert.equal(f.operation('set').length,1);
+f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+select(f,'uninstall');const openPrompt=f.dialog;assert.equal(openPrompt.props.buttonConfig.button2.appData,'uninstall');
+f.reply(f.operation('set')[0],null);
+f.reply(f.requests.at(-1),f.state({touch:0,touchCurrent:1,warning:0,warningCurrent:1,restart:true,revision:'e'.repeat(64)}));
+f.endAnimations();
+assert.equal(openPrompt.destroyed,true,'reconciliation must invalidate an open Uninstall prompt');
+assert.equal(f.dialog,undefined);
+assert.equal(f.operation('uninstall').length,0);
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[1].label1,'Show','root page refreshes to reconciled values');
+// An open Uninstall prompt opened BEFORE lost-ACK Import readback (after Home+re-entry) must also be invalidated.
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+assert.equal(f.operation('import').length,1);
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();
+select(f,'uninstall');const importPrompt=f.dialog;assert.equal(importPrompt.props.buttonConfig.button2.appData,'uninstall');
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,key:'f'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),warning:0,revision:'f'.repeat(64)}));
+f.endAnimations();
+assert.equal(importPrompt.destroyed,true,'reconciled import must invalidate an open Uninstall prompt');
+assert.equal(f.dialog,undefined);
+assert.equal(f.operation('uninstall').length,0);
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[1].label1,'Show');
+// A refused Import while an unsent touch draft is displayed on Root must immediately revert the visible label.
+f=warm({...developer,touch:1,touchCurrent:1});select(f,'developer');select(f,'import');f.pick('import');
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();
+select(f,0);select(f,0);f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[0].label1,'Factory behavior');
+f.reply(f.operation('import')[0],{ok:false,error:'invalid_public_key'});
+f.reply(f.requests.at(-1),f.state({...developer,touch:1,touchCurrent:1}));
+f.endAnimations();
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[0].label1,'Always enabled','discarded draft must revert visibly immediately');
+// Already-confirmed Uninstall followed by lost Import ACK readback must cancel Uninstall and refresh Root.
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+assert.equal(f.operation('import').length,1);
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();
+select(f,'uninstall');f.pick('uninstall');
+assert.equal(f.dialog.props.text1,'Removing Open Connect');assert.equal(f.operation('uninstall').length,0);
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,key:'f'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),warning:0,revision:'f'.repeat(64)}));
+f.endAnimations();
+assert.equal(f.operation('uninstall').length,0,'reconciled import must cancel already-confirmed uninstall');
+assert.equal(f.dialog,undefined);
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[1].label1,'Show');
+// Queued Apply behind lost Import ACK whose readback clears restart must refresh Root to the reconciled values.
+f=warm({...developer,warning:1,warningCurrent:0,restart:true});select(f,'developer');select(f,'import');f.pick('import');
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[1].label1,'Skip');
+select(f,'restart');f.pick('restart');assert.equal(f.dialog.props.text1,'Applying changes');
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),warning:0,warningCurrent:0,restart:false,revision:'e'.repeat(64)}));
+f.endAnimations();
+assert.equal(f.operation('restart').length,0);assert.equal(f.dialog,undefined);
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[1].label1,'Show','root must refresh after queued Apply closes');
+// Reconciled Set/Import or refused Import arriving during native voice retires stale page rather than leaving stale labels.
+for(const mode of ['set-rec','import-rec','import-refuse']){
+ f=warm({...developer,touch:1,touchCurrent:1,warning:1,warningCurrent:1});
+ if(mode==='set-rec'){
+  select(f,0);select(f,0);f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+ }else{
+  select(f,'developer');select(f,'import');f.pick('import');
+  f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+  f.nativeSettings();f.tap();f.endAnimations();
+  if(mode==='import-refuse'){select(f,0);select(f,0);f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();}
+ }
+ f.fw.common._cachedVuiState='Listening';
+ const op=mode==='set-rec'?f.operation('set')[0]:f.operation('import')[0];
+ f.reply(op,mode==='import-refuse'?{ok:false,error:'invalid_public_key'}:null);
+ f.reply(f.requests.at(-1),f.state(mode==='import-refuse'?{...developer,touch:1,touchCurrent:1,warning:1,warningCurrent:1}:
+  {...developer,touch:0,touchCurrent:1,warning:0,warningCurrent:1,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ f.fw.common._cachedVuiState='Idle';
+ assert.equal(f.fw.common._openConnectPage,undefined,mode+' must retire stale page when voice owns screen');
+}
+// Deferred sync behind Apply when native voice starts AFTER readback and BEFORE the queued Set ACK must still retire stale page.
+f=warm({...developer,touch:1,touchCurrent:1,warning:1,warningCurrent:1,restart:false});
+select(f,'developer');select(f,'import');f.pick('import');
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();
+select(f,0);select(f,0);f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+select(f,'restart');f.pick('restart');assert.equal(f.dialog.props.text1,'Applying changes');
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,touch:1,touchCurrent:1,warning:0,warningCurrent:1,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+const queuedSet=f.operation('set')[0];assert.ok(queuedSet);
+f.fw.common._cachedVuiState='Listening';
+f.reply(queuedSet,f.state({...developer,touch:0,touchCurrent:1,warning:0,warningCurrent:1,restart:true,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'f'.repeat(64)}));
+f.fw.common._cachedVuiState='Idle';
+assert.equal(f.fw.common._openConnectPage,undefined,'deferred sync must retire stale page when voice starts before queued Set ACK');
+// Reconciled Import while staying on Developer options must rebuild Developer options only once, focused on Import.
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+const pagesBefore=f.pages.length;
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+assert.equal(f.pages.length,pagesBefore+1,'reconciled Import on Developer page must render once, not twice');
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[f.pages.at(-1).list2Ctrl.focussedItem].appData,'import');
+// Touch-cancelling Import progress during voice, then Back -> Apply or Uninstall in the SAME session:
+// successful Import ACK must not close the newer progress dialog or cancel the queued action.
+for(const action of ['restart','uninstall']){
+ f=warm({...developer,warning:1,warningCurrent:0,restart:true});select(f,'developer');select(f,'import');f.pick('import');
+ f.fw.common._cachedVuiState='Listening';
+ f.touch('mousedown');
+ f.fw.common._cachedVuiState='Idle';
+ assert.equal(f.dialog,undefined);
+ f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+ select(f,action);f.pick(action);
+ assert.equal(f.operation(action).length,0);
+ f.reply(f.operation('import')[0],f.state({...developer,warning:1,warningCurrent:0,restart:true,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ assert.equal(f.operation(action).length,1,'same-session '+action+' must proceed after touch-cancelled Import ACK');
+}
+// Reconciled Import after touch-cancelling progress during Listening -> Idle must still render Developer page only once, focused on Import.
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+f.fw.common._cachedVuiState='Listening';
+f.touch('mousedown');
+f.fw.common._cachedVuiState='Idle';
+const pagesAfterCancel=f.pages.length;
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+assert.equal(f.pages.length,pagesAfterCancel+1,'reconciled Import after progress dismissal must render Developer page once');
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[f.pages.at(-1).list2Ctrl.focussedItem].appData,'import');
+// An open second Developer confirmation must be retired before presenting Import result,
+// keeping late selection inert and restoring Home transition callbacks cleanly.
+for(const kind of ['ack','reconcile','refuse']){
+ f=warm(developer);
+ select(f,'developer');select(f,'import');f.pick('import');
+ f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
+ select(f,'import');const staleConfirm=f.dialog;assert.equal(staleConfirm.props.title,'Import public key?');
+ const op=f.operation('import')[0];
+ const okState=f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)});
+ if(kind==='ack'){f.reply(op,okState);}
+ else if(kind==='reconcile'){f.reply(op,null);f.reply(f.requests.at(-1),okState);}
+ else{f.reply(op,{ok:false,error:'invalid_public_key'});f.reply(f.requests.at(-1),f.state(developer));}
+ assert.equal(staleConfirm.destroyed,true,kind+' must retire stale confirmation before presenting result');
+ assert.equal(f.dialog.props.title,kind==='refuse'?'Key could not be imported':'Public key imported');
+ staleConfirm.props.defaultSelectCallback(staleConfirm,'import');
+ assert.equal(f.operation('import').length,1,'late selection on retired confirmation must stay inert');
+ f.fw.sendEventToMmui('common','Global.IntentHome');
+ assert.equal(f.dialog,undefined);
+ assert.equal(f.fw.common.getCommonTransitionData.name,'oldTransition','Home must restore original transition callback');
+}
+// Direct Import ACK after Home/re-entry OR while voice resumes must invalidate a stale second Import prompt.
+for(const path of ['reenter','voice']){
+ f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+ if(path==='reenter'){
+  f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+  f.nativeSettings();f.tap();f.endAnimations();select(f,'developer');
+ }else{
+  f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
+ }
+ select(f,'import');const secondPrompt=f.dialog;assert.equal(secondPrompt.props.title,'Import public key?');
+ if(path==='voice')f.fw.common._cachedVuiState='Listening';
+ f.reply(f.operation('import')[0],f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ if(path==='voice')f.fw.common._cachedVuiState='Idle';
+ assert.equal(secondPrompt.destroyed,true,path+' direct Import ACK must retire stale confirmation');
+ secondPrompt.props.defaultSelectCallback(secondPrompt,'import');
+ assert.equal(f.operation('import').length,1,path+' retired prompt must not send a second Import');
+}
+// Retiring an open Enable UART? or Enable SSH? prompt on Import completion builds Developer options only once.
+for(const toggleItem of ['uart','ssh']){
+ const baseState=toggleItem==='ssh'?{...developer,key:'a'.repeat(64),fingerprint:Array(16).fill('cd').join(':')}:developer;
+ for(const kind of ['ack','reconcile','refuse']){
+  f=warm(baseState);select(f,'developer');select(f,'import');f.pick('import');
+  f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
+  select(f,toggleItem,{additionalData:1});assert.match(f.dialog.props.title,new RegExp('Enable '+toggleItem.toUpperCase()+'\\?'));
+  const beforePages=f.pages.length;
+  const op=f.operation('import')[0];
+  const okState=f.state({...baseState,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)});
+  if(kind==='ack'){f.reply(op,okState);}
+  else if(kind==='reconcile'){f.reply(op,null);f.reply(f.requests.at(-1),okState);}
+  else{f.reply(op,{ok:false,error:'invalid_public_key'});f.reply(f.requests.at(-1),f.state(baseState));}
+  assert.equal(f.pages.length,beforePages+1,toggleItem+'/'+kind+' must build Developer options once');
+  assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[f.pages.at(-1).list2Ctrl.focussedItem].appData,'import');
+ }
+}
+// Late direct Import ACK while viewing Touchscreen (Always disabled) preserves focus on Always disabled;
+// selecting the focused row sends zero writes.
+f=warm({...developer,touch:2,touchCurrent:2});select(f,'developer');select(f,'import');f.pick('import');
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();select(f,0);
+assert.equal(f.pages.at(-1).list2Ctrl.focussedItem,2);
+f.reply(f.operation('import')[0],f.state({...developer,touch:2,touchCurrent:2,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+const touchPage=f.pages.at(-1).list2Ctrl;
+assert.equal(touchPage.focussedItem,2,'sync refresh must preserve focused Touchscreen choice');
+select(f,touchPage.dataList.items[touchPage.focussedItem].appData);
+assert.equal(f.operation('set').length,0,'selecting already-active focused choice must send zero writes');
+// Retiring an open Wireless CarPlay or CarPlay Autoshow prompt on late Import ACK builds the page only once.
+for(const cp of ['wireless','autoshow']){
+ f=warm({...developer,wireless:0,wirelessCurrent:0,wirelessFactory:false,carplayAutoshow:0,carplayAutoshowCurrent:0});
+ select(f,'developer');select(f,'import');f.pick('import');
+ f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+ f.nativeSettings();f.tap();f.endAnimations();select(f,'phone');
+ if(cp==='wireless'){select(f,'wireless',{additionalData:1});assert.equal(f.dialog.props.title,'Enable Wireless CarPlay?');}
+ else{select(f,2);select(f,1);assert.equal(f.dialog.props.title,'Automatically show CarPlay?');}
+ const beforeCp=f.pages.length;
+ f.reply(f.operation('import')[0],f.state({...developer,wireless:0,wirelessCurrent:0,wirelessFactory:false,carplayAutoshow:0,carplayAutoshowCurrent:0,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ assert.equal(f.pages.length,beforeCp+1,cp+' prompt retirement on sync must render once');
+ assert.equal(f.dialog,undefined);
+}
+// Touch-cancelling Import #1 and queuing Import #2 on Developer options keeps Import #2's progress active
+// by identity with zero page builds when Import #1 finishes, sends Import #2, and presents Import #2's result cleanly.
+f=warm({...developer});select(f,'developer');select(f,'import');f.pick('import');
+assert.equal(f.operation('import').length,1);
+f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
+assert.equal(f.dialog,undefined);
+select(f,'import');f.pick('import');
+const secondWait=f.dialog,beforeFirstReply=f.pages.length;
+assert.equal(secondWait.props.text1,'Importing public key');
+assert.equal(f.operation('import').length,1);
+f.reply(f.operation('import')[0],f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+assert.equal(f.dialog,secondWait,'queued Import #2 progress must keep exact dialog identity when Import #1 finishes');
+assert.equal(f.pages.length,beforeFirstReply,'Import #1 handoff must build zero templates behind Import #2 progress');
+assert.equal(f.operation('import').length,2,'queued Import #2 must start after Import #1 finishes');
+f.reply(f.operation('import')[1],f.state({...developer,key:'f'.repeat(64),fingerprint:Array(16).fill('cd').join(':'),revision:'f'.repeat(64)}));
+assert.equal(f.dialog.props.title,'Public key imported');
+assert.ok(f.dialog.props.text1.includes('cd:cd:cd'));
+// If queued Import #2 fails via restart_required or 12 s readback timeout, Settings must build
+// exactly one Restart Mazda Connect guidance template and retain its incoming slide animation.
+for(const mode of ['restart_required','timeout']){
+ f=warm({...developer});
+ f.fw._offscreenTemplateParent={appendChild(n){n.parentNode=this;},removeChild(n){n.parentNode=null;}};
+ select(f,'developer');select(f,'import');f.pick('import');
+ f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
+ select(f,'import');f.pick('import');
+ const w2=f.dialog,pagesAtHandoff=f.pages.length;
+ f.reply(f.operation('import')[0],f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ assert.equal(f.dialog,w2);assert.equal(f.pages.length,pagesAtHandoff);
+ assert.equal(f.operation('import').length,2);
+ if(mode==='restart_required'){
+  f.reply(f.operation('import')[1],{ok:false,error:'restart_required'});
+  f.reply(f.requests.at(-1),f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ }else{
+  f.reply(f.operation('import')[1],null);
+  f.advance(12000);
+ }
+ assert.equal(f.pages.length,pagesAtHandoff+1,mode+': failure must build Restart Mazda Connect exactly once');
+ const guidance=f.pages.at(-1);
+ assert.equal(guidance.cleaned,undefined);
+ assert.equal(guidance.list2Ctrl.title.text1,'Restart Mazda Connect');
+ assert.ok(guidance.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),mode+': incoming slide class must remain active');
+ f.endAnimations();
+ assert.equal(guidance.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),false);
+}
+// A second preference save failing behind queued Apply changes or Import public key after the first
+// save reconciles must build Restart Mazda Connect once, retain and complete its slide, and send zero queued actions.
+for(const action of ['restart','import']){
+ for(const mode of ['restart_required','timeout']){
+  f=warm({...developer,touch:0,touchCurrent:0,uart:0,uartCurrent:0});
+  f.fw._offscreenTemplateParent={appendChild(n){n.parentNode=this;},removeChild(n){n.parentNode=null;}};
+  if(action==='restart'){
+   select(f,0);select(f,1);select(f,2);
+   f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+   select(f,'restart');f.pick('restart');
+  }else{
+   select(f,'developer');select(f,'uart',{additionalData:1});f.pick('enable');
+   select(f,'uart',{additionalData:2});
+   select(f,'import');f.pick('import');
+  }
+  const waitDlg=f.dialog,pagesBefore=f.pages.length;
+  assert.equal(f.operation('set').length,1);
+  f.reply(f.operation('set')[0],null);
+  const mid=action==='restart'
+   ?f.state({...developer,touch:1,touchCurrent:0,restart:true,revision:'d'.repeat(64)})
+   :f.state({...developer,uart:1,uartCurrent:0,restart:true,revision:'d'.repeat(64)});
+  f.reply(f.requests.at(-1),mid);
+  assert.equal(f.dialog,waitDlg,action+'/'+mode+': progress dialog stays open across reconciled save #1');
+  assert.equal(f.pages.length,pagesBefore,action+'/'+mode+': reconciled save #1 builds zero pages behind progress');
+  assert.equal(f.operation('set').length,2);
+  if(mode==='restart_required'){
+   f.reply(f.operation('set')[1],{ok:false,error:'restart_required'});
+   f.reply(f.requests.at(-1),mid);
+  }else{
+   f.reply(f.operation('set')[1],null);
+   f.advance(12000);
+  }
+  assert.equal(f.pages.length,pagesBefore+1,action+'/'+mode+': failed save #2 must build guidance once');
+  const g=f.pages.at(-1);
+  assert.equal(g.cleaned,undefined);
+  assert.equal(g.list2Ctrl.title.text1,'Restart Mazda Connect');
+  assert.ok(g.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),action+'/'+mode+': incoming slide must remain active');
+  f.endAnimations();
+  assert.equal(g.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),false);
+  assert.equal(f.operation(action).length,0,action+'/'+mode+': failed save #2 must send zero queued actions');
+ }
+}
+// A refused Import whose full status read confirms conflict:true while Apply changes or Uninstall is queued
+// must build Change could not be confirmed once, retain and complete its slide, and send zero maintenance requests.
+for(const action of ['restart','uninstall']){
+ f=warm({...developer,touch:1,touchCurrent:0,restart:true});
+ f.fw._offscreenTemplateParent={appendChild(n){n.parentNode=this;},removeChild(n){n.parentNode=null;}};
+ select(f,'developer');select(f,'import');f.pick('import');
+ assert.equal(f.operation('import').length,1);
+ f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
+ f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+ select(f,action);f.pick(action);
+ const pagesBefore=f.pages.length;
+ f.reply(f.operation('import')[0],{ok:false,error:'state_changed'});
+ f.reply(f.requests.at(-1),f.state({...developer,conflict:true,installedVersion:'-',restart:true}));
+ assert.equal(f.dialog,undefined);
+ assert.equal(f.pages.length,pagesBefore+1,action+': conflict readback must build guidance once');
+ const g=f.pages.at(-1);
+ assert.equal(g.cleaned,undefined);
+ assert.equal(g.list2Ctrl.title.text1,'Change could not be confirmed');
+ assert.ok(g.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),action+': incoming slide must remain active');
+ f.endAnimations();
+ assert.equal(g.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),false);
+ assert.equal(f.operation(action).length,0,action+': conflict readback must send zero maintenance requests');
+}
+// Same conflict readback while staying on Developer options must show Change could not be confirmed without
+// layering the unrelated invalid-key help dialog on top.
+f=warm({...developer,touch:1,touchCurrent:0,restart:true});
+f.fw._offscreenTemplateParent={appendChild(n){n.parentNode=this;},removeChild(n){n.parentNode=null;}};
+select(f,'developer');select(f,'import');f.pick('import');
+const devPages=f.pages.length;
+f.reply(f.operation('import')[0],{ok:false,error:'state_changed'});
+f.reply(f.requests.at(-1),f.state({...developer,conflict:true,installedVersion:'-',restart:true}));
+assert.equal(f.pages.length,devPages+1);
+assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Change could not be confirmed');
+assert.equal(f.dialog,undefined,'conflict guidance on Developer options must not show invalid-key dialog');
+f.endAnimations();
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

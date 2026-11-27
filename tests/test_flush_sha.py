@@ -100,6 +100,36 @@ class FlushSha(unittest.TestCase):
         self.assertEqual(path.read_bytes(), b"unchanged")
         self.assertFalse((self.root / "missing").exists())
 
+    def test_batch_hash_and_flush_modes_preserve_order_and_refuse_invalid_entries(self):
+        first = self.root / "batch-one"
+        second = self.root / "batch-two"
+        first.write_bytes(b"alpha\n")
+        second.write_bytes(bytes(range(256)) * 5)
+        link = self.root / "batch-link"
+        link.symlink_to(first)
+        hashed = subprocess.run([self.binary, "H", first, second], capture_output=True, timeout=3)
+        self.assertEqual(hashed.returncode, 0, hashed.stderr)
+        expected = (
+            f"{hashlib.sha256(first.read_bytes()).hexdigest()} *{first}\n"
+            f"{hashlib.sha256(second.read_bytes()).hexdigest()} *{second}\n"
+        ).encode()
+        self.assertEqual(hashed.stdout, expected)
+        flushed = subprocess.run([self.binary, "F", first, second], capture_output=True, timeout=3)
+        self.assertEqual(flushed.returncode, 0, flushed.stderr)
+        self.assertEqual(flushed.stdout, b"")
+        for mode, bad in (
+            ("H", [first, link]),
+            ("H", [first, self.root / "missing"]),
+            ("F", [first, link]),
+            ("F", [first, self.root]),
+            ("F", [first.name]),
+        ):
+            with self.subTest(mode=mode, bad=bad):
+                res = subprocess.run(
+                    [self.binary, mode, *bad], capture_output=True, timeout=3, cwd=self.root
+                )
+                self.assertNotEqual(res.returncode, 0)
+
     def test_arm_helper_fits_one_file_page_and_two_readonly_load_pages(self):
         output = self.root / "arm"
         subprocess.run(

@@ -148,22 +148,27 @@ access_files_match_loaded() {
 
 access_pair_check() {
     local before=$D/snapshots/$1 after=$D/snapshots/$2 target name bh ah bm am actual
+    A_PAIR_CHECKED=
     if absent "$before/access" && absent "$after/access"; then return; fi
     snapshot_read "$1" && test "$S_ACCESS" = true || return 1
+    A_BEFORE_LOGIN=${S_LOGIN_META:-}; A_BEFORE_SSH=${S_SSH_META:-}
     snapshot_read "$2" && test "$S_ACCESS" = true || return 1
+    A_AFTER_LOGIN=${S_LOGIN_META:-}; A_AFTER_SSH=${S_SSH_META:-}
     test "$S_KEY" = - || access_key_verify "$S_KEY" || return 1
     access_login_check || return 1
     for name in runlogin sshd.conf; do
-        case "$name" in runlogin) target=/usr/bin/runlogin;; sshd.conf) target=/etc/ssh/sshd_config;; esac
-        snapshot_read "$1" && bh=$(sha "$before/$name") && hex "$bh" 64 || return 1
-        if test "$name" = runlogin; then bm=$S_LOGIN_META; else bm=$S_SSH_META; fi
-        snapshot_read "$2" && ah=$(sha "$after/$name") && hex "$ah" 64 || return 1
-        if test "$name" = runlogin; then am=$S_LOGIN_META; else am=$S_SSH_META; fi
+        case "$name" in
+            runlogin) target=/usr/bin/runlogin; bm=$A_BEFORE_LOGIN; am=$A_AFTER_LOGIN;;
+            sshd.conf) target=/etc/ssh/sshd_config; bm=$A_BEFORE_SSH; am=$A_AFTER_SSH;;
+        esac
+        bh=$(sha "$before/$name") && hex "$bh" 64 || return 1
+        ah=$(sha "$after/$name") && hex "$ah" 64 || return 1
         file "$target" || return 1
         actual=$(sha "$target") && hex "$actual" 64 || return 1
         actual=$actual:$(stat -c '%a:%u:%g' "$target")
         case "$actual" in "$bh:$bm"|"$ah:$am") ;; *) return 1;; esac
     done
+    A_PAIR_CHECKED=$1:$2
 }
 
 access_login_hold() {
@@ -180,21 +185,35 @@ access_login_hold() {
 
 access_pair_apply() {
     local before=$D/snapshots/$1 after=$D/snapshots/$2 target name mode hash actual_mode before_hash before_mode after_hash hold hold_mode
+    local b_login b_ssh a_login a_ssh
     absent "$after/access" && return 0
-    for name in runlogin sshd.conf; do
+    if test "${A_PAIR_CHECKED:-}" = "$1:$2"; then
+        b_login=$A_BEFORE_LOGIN; b_ssh=$A_BEFORE_SSH; a_login=$A_AFTER_LOGIN; a_ssh=$A_AFTER_SSH
+        A_PAIR_CHECKED=
+    else
         access_pair_check "$1" "$2" || return 1
-        snapshot_read "$2" || return 1
-        case "$name" in
-            runlogin) target=/usr/bin/runlogin; mode=$S_LOGIN_META;;
-            sshd.conf) target=/etc/ssh/sshd_config; mode=$S_SSH_META;;
-        esac
         snapshot_read "$1" || return 1
+        b_login=${S_LOGIN_META:-}; b_ssh=${S_SSH_META:-}
+        snapshot_read "$2" || return 1
+        a_login=${S_LOGIN_META:-}; a_ssh=${S_SSH_META:-}
+        A_PAIR_CHECKED=
+    fi
+    for name in runlogin sshd.conf; do
+        case "$name" in
+            runlogin) target=/usr/bin/runlogin; before_mode=$b_login; mode=$a_login;;
+            sshd.conf) target=/etc/ssh/sshd_config; before_mode=$b_ssh; mode=$a_ssh;;
+        esac
         before_hash=$(sha "$before/$name") && hex "$before_hash" 64 || return 1
-        if test "$name" = runlogin; then before_mode=$S_LOGIN_META; else before_mode=$S_SSH_META; fi
-        hash=$(sha "$target") && hex "$hash" 64 || return 1
         after_hash=$(sha "$after/$name") && hex "$after_hash" 64 || return 1
+        hash=$(sha "$target") && hex "$hash" 64 || return 1
         actual_mode=$(stat -c '%a:%u:%g' "$target") || return 1
         case "$hash:$actual_mode" in "$before_hash:$before_mode"|"$after_hash:$mode") ;; *) return 1;; esac
+        if test -n "${PREPARED_REV:-}" && test "$PREPARED_REV" = "${R_REV:-}" && test "$before_hash:$before_mode" = "$after_hash:$mode" &&
+            test "$hash:$actual_mode" = "$after_hash:$mode" &&
+            absent "${target%/*}/.open-connect-$R_REV-${target##*/}" &&
+            test "$(root_mode)" = ro,noatime; then
+            continue
+        fi
         hold=; hold_mode=
         if test "$name" = runlogin; then
             access_login_hold "$after_hash" || return 1

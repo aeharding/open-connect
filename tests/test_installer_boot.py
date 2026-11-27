@@ -768,9 +768,13 @@ record_write
         tool.unlink(missing_ok=True)
         plugin = str(self.root / "vui/plugins/vui_plugin_common.so")
         tool.write_text(
-            '#!/bin/sh\nif test "$1:$2:$3" = '
-            + shlex.quote("-c:%d:" + plugin)
-            + '; then printf "999999\\n"; else exec '
+            '#!/bin/sh\nif test "$1:$2" = "-c:%d"; then\n'
+            + '  shift 2\n  for p in "$@"; do\n'
+            + '    if test "$p" = '
+            + shlex.quote(plugin)
+            + '; then printf "999999\\n"; else '
+            + shlex.quote(real)
+            + ' -c %d "$p"; fi\n  done\nelse exec '
             + shlex.quote(real)
             + ' "$@"; fi\n'
         )
@@ -1696,3 +1700,178 @@ transaction_prepare uninstall "$R_CURRENT" "$R_BASE"
         self.assertEqual((self.root / "data-target").read_text(), "stock\n")
         self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
         self.assertFalse((self.runtime / "selected").exists())
+
+    def test_dependency_and_boot_plan_readers_refuse_failed_or_partial_inputs(self):
+        current = self.record()[5]
+        real_deps = self.data / "snapshots" / current / "dependencies"
+        real_base = self.data / "snapshots" / self.record()[4] / "files.sha256"
+        empty_file = self.root / "empty-trunc"
+        empty_file.write_text("")
+        one_dep = self.root / "one-dep"
+        dep_lines = real_deps.read_text().splitlines()
+        self.assertGreater(len(dep_lines), 1)
+        one_dep.write_text(dep_lines[0] + "\n")
+        one_base = self.root / "one-base"
+        base_lines = real_base.read_text().splitlines()
+        self.assertGreater(len(base_lines), 1)
+        one_base.write_text(base_lines[0] + "\n")
+
+        # Executable awk wrapper using POSIX positional-parameter rebuild (zero eval/sed)
+        # so multiline awk programs and quoting are preserved verbatim.
+        real_awk = shutil.which("awk")
+        self.assertIsNotNone(real_awk)
+        wrap_bin = self.root / "awk-wrap"
+        wrap_bin.mkdir(mode=0o700, exist_ok=True)
+        (wrap_bin / "awk").write_text(
+            "#!/bin/sh\n"
+            "n=$#; i=0; prev=\n"
+            'while test "$i" -lt "$n"; do\n'
+            "  a=$1; shift; i=$((i+1))\n"
+            '  if test "$prev" = -v && test -n "${OC_SWAP_VAR:-}"; then\n'
+            '    case "$a" in "$OC_SWAP_VAR"=*) a="$OC_SWAP_VAR=$OC_SWAP_VAL";; esac\n'
+            "  fi\n"
+            '  prev=$a; set -- "$@" "$a"\n'
+            "done\n"
+            f'exec {shlex.quote(real_awk)} "$@"\n'
+        )
+        (wrap_bin / "awk").chmod(0o700)
+        wrap_env = {
+            **self.env,
+            "PATH": str(wrap_bin) + os.pathsep + self.env["PATH"],
+            "D": str(self.data),
+            "P": str(self.package),
+        }
+
+        # Healthy control THROUGH the exact same wrapper (proves wrapper preserves multiline awk args).
+        ok_deps = subprocess.run(
+            [
+                "sh",
+                "-c",
+                '. "$P/state.sh"; . "$P/firmware.sh"; . "$P/transaction.sh"; '
+                'record_read; dependencies_match "$R_CURRENT"',
+            ],
+            env={**wrap_env, "OC_SWAP_VAR": "deps", "OC_SWAP_VAL": str(real_deps)},
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertEqual(ok_deps.returncode, 0, ok_deps.stderr)
+
+        # dependencies_match must refuse producer failure plus post-wc 0-row and 1-row truncation.
+        for case, extra_env, snippet in (
+            (
+                "deps-producer-fail",
+                {},
+                'firmware_dependencies() { return 1; }; dependencies_match "$R_CURRENT"',
+            ),
+            (
+                "deps-zero-rows-after-wc",
+                {"OC_SWAP_VAR": "deps", "OC_SWAP_VAL": str(empty_file)},
+                'dependencies_match "$R_CURRENT"',
+            ),
+            (
+                "deps-one-row-after-wc",
+                {"OC_SWAP_VAR": "deps", "OC_SWAP_VAL": str(one_dep)},
+                'dependencies_match "$R_CURRENT"',
+            ),
+        ):
+            with self.subTest(case=case):
+                result = subprocess.run(
+                    [
+                        "sh",
+                        "-c",
+                        '. "$P/state.sh"; . "$P/firmware.sh"; . "$P/transaction.sh"; '
+                        f"record_read; {snippet}",
+                    ],
+                    env={**wrap_env, **extra_env},
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                self.assertNotEqual(result.returncode, 0, f"{case} unexpectedly passed")
+
+        # boot_plan_inputs healthy controls THROUGH the wrapper + real vui_input_files enumerator.
+        cur_manifest = (self.data / "snapshots" / current / "files.sha256").read_text()
+        members = " ".join(
+            line.split()[1] for line in cur_manifest.splitlines() if line.split()[1] != "boot.plan"
+        )
+        vui_names = [
+            line.split()[1]
+            for line in (self.package / "ui-modules.tsv").read_text().splitlines()
+            if line.startswith("vui\t") or line.startswith("vui ")
+        ][:36]
+        self.assertEqual(len(vui_names), 36)
+        vui_list = self.data / "snapshots" / current / "vui-plugins.list"
+        orig_vui_list = vui_list.read_bytes()
+        try:
+            vui_list.write_text("\n".join(vui_names) + "\n")
+            base_ok_preamble = (
+                '. "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; '
+                'AUTOSTART=$D-target; record_read; snapshot_decode "$R_CURRENT"; '
+                "S_BASE=1; native_log_inputs_verify() { :; }; "
+                'sha() { case "$1" in /config/*|/jci/*) printf "%064d\\n" 0;; *) "$P/flush" h "$1";; esac; }; '
+                "base_ui_files() { printf '%064d %s %s\\n' 0 ui /tmp/ui; }; "
+                'manifest=$(awk \'$2!="boot.plan"\' "$D/snapshots/$R_CURRENT/files.sha256"); '
+            )
+            for ctrl_var, ctrl_val in (("deps", str(real_deps)), ("bf", str(real_base))):
+                with self.subTest(control=ctrl_var):
+                    ok_plan = subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            base_ok_preamble
+                            + f'boot_plan_inputs "$D/snapshots/$R_CURRENT" "$R_CURRENT" "$manifest" {members} >/dev/null',
+                        ],
+                        env={**wrap_env, "OC_SWAP_VAR": ctrl_var, "OC_SWAP_VAL": ctrl_val},
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
+                    )
+                    self.assertEqual(ok_plan.returncode, 0, ok_plan.stderr)
+
+            for case, extra_env, override in (
+                ("vui-source-fail-before-row1", {}, "vui_source_files() { return 1; }"),
+                (
+                    "vui-source-fail-after-row1",
+                    {},
+                    "vui_source_files() { printf '%064d %s %s\\n' 0 vui.so /jci/vui/svcjcivui.so; return 1; }",
+                ),
+                (
+                    "deps-zero-rows-after-wc",
+                    {"OC_SWAP_VAR": "deps", "OC_SWAP_VAL": str(empty_file)},
+                    ":",
+                ),
+                (
+                    "deps-one-row-after-wc",
+                    {"OC_SWAP_VAR": "deps", "OC_SWAP_VAL": str(one_dep)},
+                    ":",
+                ),
+                (
+                    "base-zero-rows-after-wc",
+                    {"OC_SWAP_VAR": "bf", "OC_SWAP_VAL": str(empty_file)},
+                    ":",
+                ),
+                (
+                    "base-one-row-after-wc",
+                    {"OC_SWAP_VAR": "bf", "OC_SWAP_VAL": str(one_base)},
+                    ":",
+                ),
+                ("fw-deps-fail", {}, "firmware_dependencies() { return 1; }"),
+            ):
+                with self.subTest(case=case):
+                    result = subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            base_ok_preamble
+                            + f"{override}; "
+                            + f'boot_plan_inputs "$D/snapshots/$R_CURRENT" "$R_CURRENT" "$manifest" {members} >/dev/null',
+                        ],
+                        env={**wrap_env, **extra_env},
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
+                    )
+                    self.assertNotEqual(result.returncode, 0, f"{case} unexpectedly passed")
+        finally:
+            vui_list.write_bytes(orig_vui_list)

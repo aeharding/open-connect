@@ -6,22 +6,32 @@ function fixture() {
         carplayAutoshow:0,carplayAutoshowCurrent:0,developer:true,uart:0,ssh:0,key:"-",services:[
             {id:"android-auto",label:"Android Auto",saved:1,current:1,enable:"Enable",disable:"Disable"},
             {id:"pandora",label:"Pandora",saved:1,current:1,enable:"Enable",disable:"Disable"}]};
-    const parent={removeChild(n){assert.equal(n.parentNode,this);n.parentNode=null;}};
+    const offscreen={removeChild(n){assert.equal(n.parentNode,this);n.parentNode=null;},
+        appendChild(n){if(n.parentNode)n.parentNode.removeChild(n);n.parentNode=this;}};
+    const appends=[];
+    const parent={removeChild(n){assert.equal(n.parentNode,this);n.parentNode=null;},
+        appendChild(n){
+            if(n.parentNode===offscreen)appends.push({node:n,classes:new Set(n.classes)});
+            if(n.parentNode&&n.parentNode!==this)n.parentNode.removeChild(n);
+            n.parentNode=this;
+        }};
     const input=(...args)=>{inputs.push(args);return "stock input";},send=(...args)=>calls.push(args),transition=()=>"stock transition";
     const host={divElt:element(parent),list2Ctrl:{},handleControllerEvent:input};
     const focus=[{id:"syssettings"}],nativeTransitions={owned:"Mazda"};
+    let mode="controllerActive";
     const fw={_currTmpltInstance:host,_frameworkState:1,_FWK_STATE_IDLE:1,_focusStack:focus,transitionsObj:nativeTransitions,
+        _offscreenTemplateParent:offscreen,
         getCurrentApp:()=>"syssettings",getCurrCtxtId:()=>"SystemTab",sendEventToMmui:send,
-        common:{getCommonTransitionData:transition,handleControllerEvent:input},multicontroller:{getMode:()=>"controllerActive"},
+        common:{getCommonTransitionData:transition,handleControllerEvent:input},multicontroller:{getMode:()=>mode},
         instantiateTemplate(app,container,kind,props){
-            assert.equal(kind,"List2Tmplt");assert.equal(container,parent);
-            const p={list2Ctrl:props.List2Ctrl,divElt:element(parent),cleaned:0,events:[],
+            assert.equal(kind,"List2Tmplt");assert.equal(container,offscreen);
+            const p={list2Ctrl:props.List2Ctrl,divElt:element(offscreen),cleaned:0,events:[],
                 cleanUp(){assert.equal(this.cleaned++,0);},handleControllerEvent(e){this.events.push(e);}};
             p.list2Ctrl.updateItems=(a,b)=>assert.equal(a,b);pages.push(p);return p;
         },instantiateControl(app,container,kind,props){
-            assert.equal(kind,"Dialog3Ctrl");const d={props,divElt:element(container),handleControllerEvent(){}};dialogs.push(d);return d;
+            assert.equal(kind,"Dialog3Ctrl");const d={props,divElt:element(container),handleControllerEvent(){},setText1(){},setText2(){}};dialogs.push(d);return d;
         },destroyControl(d){assert.ok(!d.destroyed);d.destroyed=true;}};
-    const ctx={document:{body:element()},log:{error(e){throw Error(e);}},
+    const ctx={document:{body:element(),addEventListener(){},removeEventListener(){}},log:{error(e){throw Error(e);}},
         setTimeout(fn,ms){timers.set(++id,{at:now+ms,fn});return id;},clearTimeout(id){timers.delete(id);},
         ocCarPlay:{loaded:7,cancel(){calls.push("cancel CarPlay");}}};ctx.window=ctx;
     for(const p of process.argv.slice(2))vm.runInNewContext(fs.readFileSync(p,"utf8"),ctx);
@@ -35,7 +45,8 @@ function fixture() {
         timers.delete(n[0]);now=n[1].at;n[1].fn();}now=end;}
     function unchanged(){assert.equal(fw._currTmpltInstance,host);assert.equal(fw._frameworkState,1);
         assert.equal(fw._focusStack,focus);assert.equal(fw.transitionsObj,nativeTransitions);}
-    return {fw,host,store,settings,pages,calls,dialogs,timers,inputs,page,row,pick,advance,unchanged,input,send,transition,
+    return {fw,host,store,settings,pages,calls,dialogs,timers,inputs,appends,page,row,pick,advance,unchanged,input,send,transition,
+        setMode(m){mode=m;},
         open:()=>settings.open(fw,store),end:()=>page().divElt.emit("animationend"),back:()=>fw.sendEventToMmui("common","Global.GoBack"),
         values(v){values=v;},get value(){return values;},busy(v){busy=v;},get writes(){return writes;},ack(v){values=v;reply(v);},
         get restarts(){return restarts;},get refreshes(){return refreshes;},fresh(v){fresh(v);},get dialog(){return dialogs.at(-1);},
@@ -122,54 +133,88 @@ assert.equal(f.refreshes,0);assert.equal(f.pages.length,1);f.host.handleControll
 const cached=f.value;f.values(null);detach=f.settings.attach(f.fw,app,f.store);const count=f.pages.length;
 ctrl.properties.selectCallback(ctrl,"open-connect-settings");assert.equal(f.refreshes,1);assert.equal(f.pages.length,count);
 detach();f.values(cached);f.fresh(true);assert.equal(f.pages.length,count);
-// Apply uses saved state and becomes enabled on an acknowledgement after Back, with no page replacement.
-f=fixture();f.open();assert.equal(f.row("restart").disabled,true);f.pick("restart");assert.equal(f.dialog,undefined);
-f.values({...f.value,restart:true});f.pick(0);f.pick(1);f.back();assert.equal(f.row("restart").disabled,true);assert.equal(f.writes.length,0);
-f.advance(250);assert.deepEqual(f.writes,[["touch",0,1]]);const savedRoot=f.page();f.ack({...f.value,touch:1,restart:true});
-assert.equal(f.page(),savedRoot);assert.equal(f.row("restart").disabled,false);
-f.busy(true);f.pick("restart");assert.equal(f.dialog,undefined);f.busy(false);f.pick("restart");
-assert.match(f.dialog.props.text1,/Restart Mazda Connect.*saved changes/);
+// Apply enables immediately from draft, stays enabled during saves, and drains queued writes behind progress before restart.
+f=fixture();f.values({...f.value,touchCurrent:0,warningCurrent:1,baseCurrent:0,restartFixed:false});
+f.open();f.end();
+assert.ok(f.appends.length>=1);
+assert.ok(f.appends[0].classes.has("Transitions_Init_OffscreenRight"));
+assert.deepEqual(f.page().events,["acceptFocusInit","controllerActive"]);
+// Touch mode receives acceptFocusInit first, then touchActive so no Commander highlight remains.
+f.setMode("touchActive");f.pick("developer");assert.deepEqual(f.page().events,[]);
+assert.ok(f.appends.at(-1).classes.has("Transitions_Init_OffscreenRight"));
+f.end();assert.deepEqual(f.page().events,["acceptFocusInit","touchActive"]);
+f.back();assert.ok(f.appends.at(-1).classes.has("Transitions_Init_OffscreenLeft"));
+f.end();f.setMode("controllerActive");
+assert.equal(f.row("restart").disabled,true);f.pick("restart");assert.equal(f.dialog,undefined);
+f.pick(0);f.end();f.pick(1);assert.deepEqual(f.writes,[["touch",0,1]]);
+f.back();f.end();assert.equal(f.row("restart").disabled,false);
+// Toggling back to booted value disables Apply immediately (before and after ACK).
+f.pick(0);f.end();f.pick(0);f.back();f.end();assert.equal(f.row("restart").disabled,true);
+f.ack({...f.value,touch:1,restart:true});assert.deepEqual(f.writes,[["touch",0,1],["touch",1,0]]);
+f.ack({...f.value,touch:0,restart:false});assert.equal(f.row("restart").disabled,true);
+// Toggling while slow write is in flight keeps Apply enabled; confirming Apply drains save behind progress then restarts.
+f.pick(0);f.end();f.pick(1);f.back();f.end();assert.equal(f.row("restart").disabled,false);
+f.pick("restart");assert.match(f.dialog.props.text1,/Restart Mazda Connect/);
 assert.deepEqual(Object.values(f.dialog.props.buttonConfig).map(b=>b.label),["Cancel","Restart"]);
 assert.ok(f.dialog.divElt.classes.has("Transitions_fadeIn_0_200"));
 const cancelled=f.dialog;f.confirm("cancel");cancelled.props.defaultSelectCallback(cancelled,"restart");assert.equal(f.restarts,0);
-f.pick("restart");f.busy(true);f.confirm("restart");assert.equal(f.restarts,0);f.busy(false);
-f.pick("restart");const interrupted=f.dialog;f.fw.sendEventToMmui("common","Global.IntentHome");
-interrupted.props.defaultSelectCallback(interrupted,"restart");assert.equal(f.restarts,0);
-f.open();f.end();f.pick("restart");f.confirm("restart");assert.equal(f.restarts,1);
+f.pick("restart");f.confirm("restart");assert.equal(f.restarts,0);
+assert.equal(f.dialog.props.text1,"Applying changes");
+f.ack({...f.value,touch:1,restart:true});assert.equal(f.restarts,1);
 assert.equal(f.host.divElt.style.display,"");assert.equal(f.fw.common.getCommonTransitionData,f.transition);assert.equal(f.timers.size,0);
+// Failed save behind queued Apply aborts restart and shows error page.
+f=fixture();f.open();f.end();f.pick(0);f.end();f.pick(1);f.back();f.end();
+f.pick("restart");f.confirm("restart");assert.equal(f.dialog.props.text1,"Applying changes");
+f.ack(null);assert.equal(f.restarts,0);assert.match(f.page().list2Ctrl.title.text1,/could not be confirmed/);
+f.fw.sendEventToMmui("common","Global.IntentHome");assert.equal(f.timers.size,0);
+// Toggling UART keeps Import public key enabled; confirming Import drains UART write then runs importKey and unlocks SSH.
+f=fixture();let importCb=null;f.store.importKey=cb=>{importCb=cb;};
+f.open();f.end();f.pick("developer");f.end();
+assert.equal(f.row("import").disabled,false);
+f.page().list2Ctrl.selectCallback(f.page().list2Ctrl,"uart",{additionalData:1});f.confirm("enable");
+assert.deepEqual(f.writes,[["uart",0,1]]);
+assert.equal(f.row("import").disabled,false);
+f.pick("import");f.confirm("import");assert.equal(f.dialog.props.text1,"Importing public key");assert.equal(importCb,null);
+f.ack({...f.value,uart:1,restart:true});assert.equal(typeof importCb,"function");
+const imported={...f.value,uart:1,key:"c".repeat(64),fingerprint:Array(16).fill("ab").join(":"),restart:true};
+f.values(imported);importCb(imported);
+assert.equal(f.dialog.props.title,"Public key imported");assert.equal(f.row("ssh").disabled,false);
+f.confirm("done");f.fw.sendEventToMmui("common","Global.IntentHome");assert.equal(f.timers.size,0);
 // About cannot leave Apply stale when the pending save finishes behind it.
-f=fixture();f.open();f.end();f.pick(0);f.pick(1);f.back();f.pick("about");
-const aboutRoot=f.page();assert.equal(f.row("restart").disabled,true);f.advance(250);
+f=fixture();f.open();f.end();f.pick(0);f.end();f.pick(1);f.back();f.end();f.pick("about");
+const aboutRoot=f.page();assert.equal(f.row("restart").disabled,false);
 f.ack({...f.value,touch:1,restart:true});assert.equal(f.dialog.destroyed,undefined);
-assert.equal(f.row("restart").disabled,true);f.confirm("done");
-assert.equal(f.page(),aboutRoot);assert.equal(f.row("restart").disabled,false);
+f.confirm("done");assert.equal(f.page(),aboutRoot);assert.equal(f.row("restart").disabled,false);
 f.pick("restart");assert.equal(f.dialog.props.buttonConfig.button2.label,"Restart");f.confirm("cancel");
 f.fw.sendEventToMmui("common","Global.IntentHome");assert.equal(f.timers.size,0);
-// Both Uninstall dialog paths restore the saved Apply state on cancellation.
+// Confirming Uninstall during an in-flight write discards unsent drafts, waits for settlement, then removes.
 f=fixture();let removals=0;f.store.uninstall=leave=>{removals++;leave();return true;};f.open();f.end();
-f.pick(0);f.pick(1);f.back();f.pick("uninstall");const uninstallRoot=f.page();
-assert.match(f.dialog.props.text1,/Finishing your settings change/);
-assert.equal(f.dialog.props.buttonConfig.button2,undefined);f.advance(250);
-f.ack({...f.value,touch:1,restart:true});assert.equal(f.row("restart").disabled,true);
-f.confirm("cancel");assert.equal(f.page(),uninstallRoot);assert.equal(f.row("restart").disabled,false);
-assert.equal(removals,0);
-f.values({...f.value,restart:false});f.pick(0);f.back();assert.equal(f.row("restart").disabled,true);
+f.pick(0);f.end();f.pick(1);f.back();f.end();f.pick(1);f.end();f.pick(0);f.back();f.end();
+assert.equal(f.writes.length,1);
 f.pick("uninstall");assert.equal(f.dialog.props.buttonConfig.button2.appData,"uninstall");
-f.values({...f.value,restart:true});f.confirm("cancel");assert.equal(f.row("restart").disabled,false);
-assert.equal(removals,0);f.fw.sendEventToMmui("common","Global.IntentHome");
-console.log("Settings UX: cached/cold entry, native slides, interruptions and Apply confirmation passed");
+f.confirm("uninstall");assert.equal(removals,0);assert.equal(f.dialog.props.text1,"Removing Open Connect");
+f.ack({...f.value,touch:1,restart:true});assert.equal(removals,1);assert.equal(f.writes.length,1);
+assert.equal(f.host.divElt.style.display,"");assert.equal(f.timers.size,0);
+// Selecting a radio choice during its incoming slide completes Mazda focus initialization on the retained page.
+f=fixture();f.open();f.end();f.pick(0);
+const slidingTouch=f.page();assert.deepEqual(slidingTouch.events,[]);
+f.pick(1);assert.deepEqual(f.writes,[["touch",0,1]]);
+assert.equal(f.page(),slidingTouch);
+assert.deepEqual(slidingTouch.events,["acceptFocusInit","controllerActive"]);
+f.ack({...f.value,touch:1,restart:true});f.fw.sendEventToMmui("common","Global.IntentHome");assert.equal(f.timers.size,0);
+console.log("Settings UX: offscreen slides, Mazda focus order, immediate drafting and queued actions passed");
 
 // Commander selects the third touch mode, then reverses it without touch input.
 f=fixture();f.open();assert.equal(f.row(0).text1,"Touchscreen");f.pick(0);f.end();
 assert.deepEqual(Array.from(f.page().list2Ctrl.dataList.items,r=>r.text1),
     ["Factory behavior","Always enabled","Always disabled"]);
-f.pick(2);f.advance(250);assert.deepEqual(f.writes,[["touch",0,2]]);
+f.pick(2);assert.deepEqual(f.writes,[["touch",0,2]]);
 f.ack({...f.value,touch:2,restart:true});f.back();f.end();
-assert.equal(f.row(0).label1,"Always disabled");f.pick(0);f.end();f.pick(0);f.advance(250);
+assert.equal(f.row(0).label1,"Always disabled");f.pick(0);f.end();f.pick(0);
 assert.deepEqual(f.writes,[["touch",0,2],["touch",2,0]]);
 f.ack({...f.value,touch:0,restart:true});f.fw.sendEventToMmui("common","Global.IntentHome");
 // The error page has a numeric Commander appData, not an entries[] index.
-f=fixture();f.open();f.pick(0);f.pick(2);f.advance(250);f.ack(null);
+f=fixture();f.open();f.pick(0);f.pick(2);f.ack(null);
 assert.match(f.page().list2Ctrl.title.text1,/could not be confirmed/);f.end();
 f.pick(0);f.advance(900);assert.equal(f.host.divElt.style.display,"");
 f.unchanged();assert.equal(f.timers.size,0);

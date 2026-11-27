@@ -124,9 +124,7 @@ return {claim:claim,release:release,foreign:foreign,message: message,progress: f
   return message(fw, "About", version===undefined ? "Installed version unavailable." : "Open Connect " + versionText(version),
     {button1: {label: "OK", appData: "done"}}, done);
 },confirmUninstall: function (fw, pending, done) {
-  return message(fw, "Uninstall Open Connect?", pending ? "Finishing your settings change. Try again in a moment." :
-    "Open Connect will be removed.\nMazda Connect will restart.", pending ?
-    {button1: {label: "OK", appData: "cancel"}} :
+  return message(fw, "Uninstall Open Connect?", "Open Connect will be removed.\nMazda Connect will restart.",
     {button1: {label: "Cancel", appData: "cancel"}, button2: {label: "Uninstall", appData: "uninstall"}}, done);
 }};
 })();

@@ -282,6 +282,7 @@ function maintain(a){
   if(!prefs.pending()){runAction(a);return;}
   var w=showWait(a==="restart"?"Applying changes":"Removing Open Connect");if(!w)return;
   prefs.queue(function(ok){
+    if(!ok&&!prefs.failure&&current())ns=false;
     endWait(w);
     if(ok&&current())runAction(a);
     else if(!prefs.failure){if(current())render(choice,a);else if(ns)close();}
@@ -384,7 +385,7 @@ if(current()&&choice===null&&!dismiss&&!wait){
 page.list2Ctrl.dataList.items.forEach(function(r,i){if(r.appData==="restart"){r.disabled=!canRestart();page.list2Ctrl.updateItems(i,i);}});
 }return;
 }
-endWait();if(dismiss)dismiss();if(current())render("unknown",0);else close();
+ns=false;endWait();if(dismiss)dismiss();if(current())render("unknown",0);else close();
 };
 var transition=fw.common.getCommonTransitionData;
 undo.push(replace(fw.common,"getCommonTransitionData",function(){close();return transition.apply(this,arguments);}));

@@ -604,18 +604,47 @@ for(const cp of ['wireless','autoshow']){
  assert.equal(f.dialog,undefined);
 }
 // Touch-cancelling Import #1 and queuing Import #2 on Developer options keeps Import #2's progress active
-// when Import #1 finishes, sends Import #2, and presents Import #2's result cleanly.
+// by identity with zero page builds when Import #1 finishes, sends Import #2, and presents Import #2's result cleanly.
 f=warm({...developer});select(f,'developer');select(f,'import');f.pick('import');
 assert.equal(f.operation('import').length,1);
-f.fw.common.handleControllerEvent('audio');
+f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
 assert.equal(f.dialog,undefined);
 select(f,'import');f.pick('import');
-assert.equal(f.dialog.props.text1,'Importing public key');
+const secondWait=f.dialog,beforeFirstReply=f.pages.length;
+assert.equal(secondWait.props.text1,'Importing public key');
 assert.equal(f.operation('import').length,1);
 f.reply(f.operation('import')[0],f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
-assert.equal(f.dialog.props.text1,'Importing public key','queued Import #2 progress must stay open when Import #1 finishes');
+assert.equal(f.dialog,secondWait,'queued Import #2 progress must keep exact dialog identity when Import #1 finishes');
+assert.equal(f.pages.length,beforeFirstReply,'Import #1 handoff must build zero templates behind Import #2 progress');
 assert.equal(f.operation('import').length,2,'queued Import #2 must start after Import #1 finishes');
 f.reply(f.operation('import')[1],f.state({...developer,key:'f'.repeat(64),fingerprint:Array(16).fill('cd').join(':'),revision:'f'.repeat(64)}));
 assert.equal(f.dialog.props.title,'Public key imported');
 assert.ok(f.dialog.props.text1.includes('cd:cd:cd'));
+// If queued Import #2 fails via restart_required or 12 s readback timeout, Settings must build
+// exactly one Restart Mazda Connect guidance template and retain its incoming slide animation.
+for(const mode of ['restart_required','timeout']){
+ f=warm({...developer});
+ f.fw._offscreenTemplateParent={appendChild(n){n.parentNode=this;},removeChild(n){n.parentNode=null;}};
+ select(f,'developer');select(f,'import');f.pick('import');
+ f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
+ select(f,'import');f.pick('import');
+ const w2=f.dialog,pagesAtHandoff=f.pages.length;
+ f.reply(f.operation('import')[0],f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ assert.equal(f.dialog,w2);assert.equal(f.pages.length,pagesAtHandoff);
+ assert.equal(f.operation('import').length,2);
+ if(mode==='restart_required'){
+  f.reply(f.operation('import')[1],{ok:false,error:'restart_required'});
+  f.reply(f.requests.at(-1),f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ }else{
+  f.reply(f.operation('import')[1],null);
+  f.advance(12000);
+ }
+ assert.equal(f.pages.length,pagesAtHandoff+1,mode+': failure must build Restart Mazda Connect exactly once');
+ const guidance=f.pages.at(-1);
+ assert.equal(guidance.cleaned,undefined);
+ assert.equal(guidance.list2Ctrl.title.text1,'Restart Mazda Connect');
+ assert.ok(guidance.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),mode+': incoming slide class must remain active');
+ f.endAnimations();
+ assert.equal(guidance.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),false);
+}
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

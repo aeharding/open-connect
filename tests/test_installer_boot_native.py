@@ -140,7 +140,7 @@ class NativeBootPlan(unittest.TestCase):
         cls.program = Path(cls.temp.name).resolve() / "boot-select"
         # Compile unmodified production C sources with host sanitizers; stock-root
         # remapping for temporary shell fixtures uses the clean OC_HOST_STOCK_ROOT hook.
-        core_srcs = sorted((ASSETS / "core").glob("*.c"))
+        core_srcs = [p for p in sorted((ASSETS / "core").glob("*.c")) if p.name != "oc-api.c"]
         subprocess.run(
             [
                 "clang",
@@ -340,9 +340,7 @@ class NativeBootPlan(unittest.TestCase):
         source = fixture.source / "firmware.sh"
         source.write_text(source.read_text().replace("/jci/version.ini", str(version)))
         # This host fixture stores state outside /tmp/mnt/data_persist/open-connect and
-        # exercises the 2-phase shell transaction/recovery path; admit compatibility explicitly.
-        svc = fixture.source / "service.sh"
-        svc.write_text(svc.read_text() + "\nboot_select_verified() { return 2; }\n")
+        # exercises the 2-phase shell transaction/recovery path directly via backend.sh.
         shutil.copyfile(self.program, fixture.source / "boot-select")
         (fixture.source / "boot-select").chmod(0o700)
         real_flush = fixture.root / "flush-real"

@@ -13,11 +13,17 @@ endif
 ARM_FLAGS = --target=armv7-linux-gnueabi -marm -mfloat-abi=soft -Os -fno-pic -fvisibility=hidden \
     -ffunction-sections -fdata-sections -ffreestanding -fno-stack-protector \
     -fno-unwind-tables -fno-asynchronous-unwind-tables -nostdlib -static -Wall -Wextra -Werror
-LINK_FLAGS = --ld-path=$(LLD) -Wl,-e,_start,--build-id=none,--gc-sections,-z,max-page-size=4096,--strip-all
-CORE_SRCS = cmu/installer/core/oc-hash.c cmu/installer/core/oc-io.c \
+THUMB_FLAGS = --target=armv7-linux-gnueabi -march=armv7-a -mthumb -fomit-frame-pointer -mfloat-abi=soft \
+    -Oz -mllvm -enable-machine-outliner -fno-builtin -fno-pic -fvisibility=hidden -ffunction-sections -fdata-sections -ffreestanding \
+    -fno-stack-protector -fno-unwind-tables -fno-asynchronous-unwind-tables -nostdlib -static \
+    -Wall -Wextra -Werror
+LINK_FLAGS = --ld-path=$(LLD) -Wl,-e,_start,--build-id=none,--gc-sections,--icf=all,-z,max-page-size=4096,--strip-all
+SHARED_CORE_SRCS = cmu/installer/core/oc-hash.c cmu/installer/core/oc-io.c \
     cmu/installer/core/oc-manifest.c cmu/installer/core/oc-record.c \
-    cmu/installer/core/oc-config.c cmu/installer/core/oc-plan.c \
+    cmu/installer/core/oc-config.c cmu/installer/core/oc-guard.c
+CORE_SRCS = $(SHARED_CORE_SRCS) cmu/installer/core/oc-plan.c \
     cmu/installer/core/oc-store.c cmu/installer/core/oc-boot.c
+API_SRCS = cmu/installer/api.c $(SHARED_CORE_SRCS) cmu/installer/core/oc-api.c
 CORE_HDR = cmu/installer/core/oc-core.h
 NATIVE_FLAGS = --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard \
     -mfpu=vfpv3 -Oz -ffreestanding -fPIC -fvisibility=hidden \
@@ -45,14 +51,16 @@ check-ui:
 $(OUT):
 	mkdir -p "$@"
 
-$(OUT)/api: cmu/installer/api.c | $(OUT)
-	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
+$(OUT)/api: $(API_SRCS) $(CORE_HDR) | $(OUT)
+	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) $(API_SRCS) -o "$@"
+	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@"
 
 $(OUT)/flush: cmu/startup/flush.c cmu/installer/boot-hash.h | $(OUT)
 	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
 
 $(OUT)/boot-select: cmu/installer/boot-select.c $(CORE_SRCS) $(CORE_HDR) | $(OUT)
-	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) cmu/installer/boot-select.c $(CORE_SRCS) -o "$@"
+	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) cmu/installer/boot-select.c $(CORE_SRCS) -o "$@"
+	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@"
 
 $(OUT)/mmui.o: cmu/installer/mmui.S | $(OUT)
 	$(CLANG) --target=armv7-none-eabi -marm -c "$<" -o "$@"

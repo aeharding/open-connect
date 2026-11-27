@@ -66,6 +66,6 @@ static int run(int argc, char **argv) {
 int main(int argc, char **argv) { return run(argc,argv); }
 #else
 int entry(unsigned *stack) { return run((int)stack[0],(char **)(stack+1)); }
-__asm__(".text\n.global _start\n.type _start,%function\n"
+__asm__(".text\n.arm\n.global _start\n.type _start,%function\n"
         "_start:\nmov r0,sp\nbic sp,sp,#7\nbl entry\nmov r7,#1\nsvc 0\n");
 #endif

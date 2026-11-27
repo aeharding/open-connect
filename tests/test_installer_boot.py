@@ -13,6 +13,8 @@ import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from tests.test_installer_transaction import compile_host_api
+
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "cmu/installer"
 
@@ -40,6 +42,8 @@ class InstallerBoot(unittest.TestCase):
             ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.source / "flush"],
             check=True,
         )
+        shutil.copyfile(compile_host_api(), self.source / "api")
+        (self.source / "api").chmod(0o700)
         shutil.copyfile(self.source / "flush", self.runtime / "flush")
         (self.runtime / "flush").chmod(0o700)
         (self.runtime / "lock").touch()
@@ -316,7 +320,14 @@ boot_ui_stage() {
             )
         self.write_profiles()
         self.composed_manifest()
-        self.env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
+        self.env = {
+            **os.environ,
+            "PATH": str(self.tools) + os.pathsep + os.environ["PATH"],
+            "OC_HOST_DATA": str(self.data),
+            "OC_HOST_RAM": str(self.runtime),
+            "OC_HOST_SKIP_FW_GUARD": "1",
+            "OC_HOST_WIRELESS_FILE": str(self.root / "no-factory-wireless"),
+        }
         self.shell(r"""
 printf 'stock\n' > "$D/stock"; chmod 755 "$D/stock"
 R_BASE=$(fixture_snapshot "$D/stock" - 0 0 absent "755:$(id -u):$(id -g)")

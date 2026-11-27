@@ -139,44 +139,6 @@ int oc_plan_rows(int root, int snapshot, int input, int output, int mode) {
     return status==0 && count>0;
 }
 
-int oc_mounts_mode(int root, char *scratch, unsigned cap, int allow_rw) {
-    if (oc_text(root,"proc/self/mounts",scratch,cap,1)<0) return 0;
-    unsigned rcount=0, data=0, rootfs=0;
-    char *p=scratch;
-    while (*p) {
-        char *f[6]; unsigned n=0;
-        while (*p && *p!='\n') {
-            if (*p==' '||*p=='\t') { ++p; continue; }
-            if (n==6) return 0;
-            f[n++]=p;
-            while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
-            if (*p==' '||*p=='\t') *p++=0;
-        }
-        if (!*p || n!=6) return 0;
-        *p++=0;
-        if (oc_equal(f[1],"/")) {
-            if (oc_equal(f[0],"rootfs")&&oc_equal(f[2],"rootfs")&&oc_equal(f[3],"rw")&&!rcount&&!rootfs) ++rootfs;
-            else {
-                if (!oc_equal(f[0],"/dev/ffx01p1")||!oc_equal(f[2],"relfs")||
-                    (!oc_equal(f[3],"ro,noatime")&&!(allow_rw&&oc_equal(f[3],"rw,noatime")))) return 0;
-                ++rcount;
-            }
-        }
-        if (oc_equal(f[1],"/tmp/mnt/data_persist")) {
-            if (!oc_equal(f[0],"/dev/mmcblk0p2")||!oc_equal(f[2],"relfs")) return 0;
-            char options[256];
-            if (!oc_join(options,sizeof options,",",f[3])||!oc_join(options,sizeof options,options,",")) return 0;
-            int rw=0;
-            for (char *q=options; *q; ++q) if (oc_prefix(q,",rw,")) ++rw;
-            if (rw!=1) return 0;
-            ++data;
-        }
-        if (oc_equal(f[1],"/" OC_DATA)||oc_prefix(f[1],"/" OC_DATA "/")||
-            oc_equal(f[1],"/" OC_RAM)||oc_prefix(f[1],"/" OC_RAM "/")) return 0;
-    }
-    return rcount==1 && data==1;
-}
-
 int oc_mounts(OcBoot *b) { return oc_mounts_mode(b->root,b->scratch,sizeof b->scratch,0); }
 
 int oc_input_mode(OcInput *input, const char *text) {

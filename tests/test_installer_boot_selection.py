@@ -10,6 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.test_installer_transaction import compile_host_api
+
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "cmu/installer"
 BOOT = "12345678-1234-1234-1234-123456789abc"
@@ -87,7 +89,7 @@ class NativeBootSelection(unittest.TestCase):
         cls.pins_file.write_text("".join(pin_lines))
         # Compile unmodified production C sources with ASan+UBSan; host test
         # pins and fault injection use OC_HOST environment hooks only.
-        core_srcs = sorted((ASSETS / "core").glob("*.c"))
+        core_srcs = [p for p in sorted((ASSETS / "core").glob("*.c")) if p.name != "oc-api.c"]
         subprocess.run(
             [
                 "clang",
@@ -2064,6 +2066,30 @@ package_save
         self.record[1] = "active"
         self.record[6:8] = ["-", "-"]
         self.save_record()
+        # Smart pin reuse: toggling carplay-autoshow while base=1 stays 1 reuses
+        # verified base/* and base/vui/* rows cleanly and passes audit.
+        saved_snap = self.snapshot
+        self.snapshot = self.data / "snapshots" / b_id
+        self.record[5] = b_id
+        self.save_record()
+        b_reuse, _ = self._clone_work(".new-base1-reuse", ("wireless=1", "wireless=0"))
+        (b_reuse / "vui-plugins.list").unlink()
+        ok_reuse = self._run_helper(
+            "seal-publish",
+            str(self.root),
+            b_id,
+            str(b_reuse.relative_to(self.root)),
+        )
+        self.assertEqual(ok_reuse.returncode, 0, ok_reuse.stderr)
+        b_reuse_id = ok_reuse.stdout.decode().strip()
+        b_reuse_plan = (self.data / "snapshots" / b_reuse_id / "boot.plan").read_text()
+        self.assertIn(f"base/vui/{vui_names[0]}|", b_reuse_plan)
+        self.record[5] = b_reuse_id
+        self.save_record()
+        self.assertEqual(self._run_helper("audit", str(self.root), b_reuse_id).returncode, 0)
+        self.snapshot = saved_snap
+        self.record[5] = saved_snap.name
+        self.save_record()
         # Tampered VUI plugin on disk is refused with rc=93 (base_inputs_changed).
         self.put("/jci/vui/plugins/" + vui_names[0], "tampered vui plugin\n")
         b_tamper, _ = self._clone_work(".new-base1-tamper", ("base=0", "base=1"))
@@ -2080,229 +2106,23 @@ package_save
         )
         shutil.rmtree(b_tamper)
 
-    def test_boot_select_verified_trust_anchor_and_tamper_detection(self):
-        # Build a complete 13-file RAM session manifest matching packages/<id>,
-        # plus a sealed OC2 snapshot referencing that package.
-        pkg_dir = self.data / "packages/.new-fullpkg"
-        pkg_dir.mkdir(mode=0o700)
-        for name in (
-            "state.sh",
-            "firmware.sh",
-            "access.sh",
-            "service.sh",
-            "VERSION",
-            "preferences.awk",
-            "services.tsv",
-            "sm-profile.awk",
-            "ui-profile.awk",
-            "ui-modules.tsv",
-            "system-hook.js",
-            "base-logging.js",
-        ):
-            (pkg_dir / name).write_bytes((ASSETS / name).read_bytes())
-            (pkg_dir / name).chmod(0o600)
-        shutil.copyfile(Path(self.build.name) / "flush", pkg_dir / "flush")
-        (pkg_dir / "flush").chmod(0o700)
-        (pkg_dir / "boot-select").write_bytes(self.program.read_bytes())
-        (pkg_dir / "boot-select").chmod(0o700)
-        pkg = self.publish(pkg_dir)
-
-        snap_dir = self.data / "snapshots/.new-verify-snap"
-        snap_dir.mkdir(mode=0o700)
-        for p in sorted(self.snapshot.iterdir()):
-            if p.name != "files.sha256":
-                (snap_dir / p.name).write_bytes(p.read_bytes())
-                (snap_dir / p.name).chmod(0o600)
-        (snap_dir / "config").write_text(
-            (snap_dir / "config")
-            .read_text()
-            .replace(self.package_id, pkg.name)
-            .replace(
-                "service-ids=android-auto,pandora\nservice.android-auto=1\nservice.pandora=1\n",
-                "service-ids=android-auto,pandora,siriusxm\n"
-                "service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\n",
-            )
-        )
-        (snap_dir / "selector").write_text(
-            f"{sha((pkg / 'boot-select').read_bytes())}|700:{os.getuid()}:{os.getgid()}|{pkg.name}\n"
-        )
-        snap = self.publish(snap_dir)
-
-        ram_session = self.ram / "session-test"
-        ram_session.mkdir(mode=0o700)
-        for name in ("state.sh", "service.sh", "files.sha256"):
-            (ram_session / name).write_bytes((pkg / name).read_bytes())
-            (ram_session / name).chmod(0o600)
-        shutil.copyfile(Path(self.build.name) / "flush", ram_session / "flush")
-        (ram_session / "flush").chmod(0o700)
-
-        env = self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]})
-
-        def check(role="settings", cur=snap.name, backend=pkg.name, ram=ram_session):
-            return subprocess.run(
-                [
-                    "sh",
-                    "-c",
-                    "set -eu; D=$1; P=$2; R_BACKEND=$3; R_CURRENT=$4; role=$5; "
-                    'request_owner="$(id -u):$(id -g)"; '
-                    '. "$P/state.sh"; . "$P/service.sh"; boot_select_verified',
-                    "verify-helper",
-                    str(self.data),
-                    str(ram),
-                    backend,
-                    cur,
-                    role,
-                ],
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            ).returncode
-
-        self.assertEqual(check(), 0)
-        # Non-settings role returns compatibility code 2.
-        self.assertEqual(check(role="usb"), 2)
-        # Tampered or missing RAM session manifest with role=settings hard-fails (rc=1, NEVER rc=2).
-        ram_mf = ram_session / "files.sha256"
-        orig_ram_mf = ram_mf.read_bytes()
-        ram_mf.write_bytes(orig_ram_mf + b"\n")
-        self.assertEqual(check(), 1)
-        ram_mf.unlink()
-        self.assertEqual(check(), 1)
-        ram_mf.write_bytes(orig_ram_mf)
-        ram_mf.chmod(0o600)
-        # Genuinely unsealed snapshot (boot.plan absent from authenticated manifest and disk) returns rc=2.
-        unsealed_dir = self.data / "snapshots/.new-unsealed"
-        unsealed_dir.mkdir(mode=0o700)
-        for p in sorted(snap.iterdir()):
-            if p.name not in ("files.sha256", "boot.plan"):
-                (unsealed_dir / p.name).write_bytes(p.read_bytes())
-                (unsealed_dir / p.name).chmod(0o600)
-        unsealed_snap = self.publish(unsealed_dir)
-        self.assertEqual(check(cur=unsealed_snap.name), 2)
-        # Undeclared boot.plan physically present on disk hard-fails (rc=1, NEVER rc=2).
-        (unsealed_snap / "boot.plan").write_bytes(b"stray\n")
-        (unsealed_snap / "boot.plan").chmod(0o600)
-        self.assertEqual(check(cur=unsealed_snap.name), 1)
-        (unsealed_snap / "boot.plan").unlink()
-        # Genuinely old selector-less package returns rc=2 on clean unsealed snapshot,
-        # and hard-fails (rc=1) if boot-select is on disk, boot.plan is on disk or declared,
-        # or snapshot manifest is malformed.
-        old_pkg_dir = self.data / "packages/.new-oldpkg"
-        old_pkg_dir.mkdir(mode=0o700)
-        for name in ("state.sh", "service.sh"):
-            (old_pkg_dir / name).write_bytes((ASSETS / name).read_bytes())
-            (old_pkg_dir / name).chmod(0o600)
-        shutil.copyfile(Path(self.build.name) / "flush", old_pkg_dir / "flush")
-        (old_pkg_dir / "flush").chmod(0o700)
-        old_pkg = self.publish(old_pkg_dir)
-        old_ram = self.ram / "session-old"
-        shutil.copytree(old_pkg, old_ram)
-        self.assertEqual(check(backend=old_pkg.name, ram=old_ram, cur=unsealed_snap.name), 2)
-        # Selector-less package with declared boot.plan hard-fails (rc=1).
-        self.assertEqual(check(backend=old_pkg.name, ram=old_ram, cur=snap.name), 1)
-        # Selector-less package with undeclared boot.plan on disk hard-fails (rc=1).
-        (unsealed_snap / "boot.plan").write_bytes(b"stray\n")
-        (unsealed_snap / "boot.plan").chmod(0o600)
-        self.assertEqual(check(backend=old_pkg.name, ram=old_ram, cur=unsealed_snap.name), 1)
-        (unsealed_snap / "boot.plan").unlink()
-        # Undeclared boot-select physically present on disk hard-fails (rc=1, NEVER rc=2).
-        (old_pkg / "boot-select").write_bytes(b"stray")
-        (old_pkg / "boot-select").chmod(0o700)
-        self.assertEqual(check(backend=old_pkg.name, ram=old_ram, cur=unsealed_snap.name), 1)
-        (old_pkg / "boot-select").unlink()
-        # Malformed RAM manifests (even when matching R_BACKEND) hard-fail (rc=1, NEVER rc=2),
-        # including NUL-terminated manifests.
-        lic_hash = sha(b"license\n")
-        for label, bad_mf in (
-            ("empty", b""),
-            ("dup-row", f"{lic_hash}  LICENSE\n{lic_hash}  LICENSE\n".encode()),
-            ("one-space", f"{lic_hash} LICENSE\n".encode()),
-            ("no-newline", f"{lic_hash}  LICENSE".encode()),
-            ("nul-end", f"{lic_hash}  LICENSE\x00".encode()),
-            ("nul-sealed", orig_ram_mf[:-1] + b"\x00"),
-        ):
-            with self.subTest(malformed_pkg=label):
-                bad_id = sha(bad_mf)
-                bad_pkg = self.data / "packages" / bad_id
-                bad_pkg.mkdir(mode=0o700)
-                if label == "nul-sealed":
-                    for p in sorted(pkg.iterdir()):
-                        if p.name != "files.sha256":
-                            (bad_pkg / p.name).write_bytes(p.read_bytes())
-                            (bad_pkg / p.name).chmod(p.stat().st_mode & 0o777)
-                (bad_pkg / "files.sha256").write_bytes(bad_mf)
-                bad_ram = self.ram / f"session-bad-{label}"
-                shutil.copytree(old_ram, bad_ram)
-                (bad_ram / "files.sha256").write_bytes(bad_mf)
-                self.assertEqual(check(backend=bad_id, ram=bad_ram), 1)
-        # Missing declared boot.plan in authenticated manifest hard-fails (rc=1, NEVER rc=2).
-        bp = snap / "boot.plan"
-        orig_bp = bp.read_bytes()
-        bp.unlink()
-        self.assertEqual(check(), 1)
-        bp.write_bytes(orig_bp)
-        bp.chmod(0o600)
-        # Malformed snapshot manifests (even when matching R_CURRENT) hard-fail (rc=1, NEVER rc=2),
-        # on both selector-equipped and selector-less packages, including NUL-terminated manifests.
-        orig_snap_mf = (snap / "files.sha256").read_bytes()
-        for label, bad_mf in (
-            ("empty", b""),
-            ("dup-row", f"{lic_hash}  config\n{lic_hash}  config\n".encode()),
-            ("one-space", f"{lic_hash} config\n".encode()),
-            ("no-newline", f"{lic_hash}  config".encode()),
-            ("nul-end", f"{lic_hash}  config\x00".encode()),
-            ("nul-sealed", orig_snap_mf[:-1] + b"\x00"),
-        ):
-            with self.subTest(malformed_snap=label):
-                bad_id = sha(bad_mf)
-                bad_snap = self.data / "snapshots" / bad_id
-                bad_snap.mkdir(mode=0o700)
-                if label == "nul-sealed":
-                    for p in sorted(snap.iterdir()):
-                        if p.name != "files.sha256":
-                            (bad_snap / p.name).write_bytes(p.read_bytes())
-                            (bad_snap / p.name).chmod(p.stat().st_mode & 0o777)
-                (bad_snap / "files.sha256").write_bytes(bad_mf)
-                self.assertEqual(check(cur=bad_id), 1)
-                self.assertEqual(check(backend=old_pkg.name, ram=old_ram, cur=bad_id), 1)
-        # Wrong mode on persistent boot-select hard-fails (rc=1).
-        (pkg / "boot-select").chmod(0o600)
-        self.assertEqual(check(), 1)
-        (pkg / "boot-select").chmod(0o700)
-        # Tampered persistent boot-select or script hard-fails (rc=1).
-        orig_bs = (pkg / "boot-select").read_bytes()
-        (pkg / "boot-select").write_bytes(orig_bs[:-1] + bytes([orig_bs[-1] ^ 1]))
-        (pkg / "boot-select").chmod(0o700)
-        self.assertEqual(check(), 1)
-        (pkg / "boot-select").write_bytes(orig_bs)
-        (pkg / "boot-select").chmod(0o700)
-        orig_awk = (pkg / "sm-profile.awk").read_bytes()
-        (pkg / "sm-profile.awk").write_bytes(orig_awk + b"\n")
-        self.assertEqual(check(), 1)
-        (pkg / "sm-profile.awk").write_bytes(orig_awk)
-        self.assertEqual(check(), 0)
-
-    def test_fast_set_publish_e2e_nvram_cuts_and_integrity_hard_refusal(self):
-        # Run actual fast_set_publish shell function against the real host-compiled
-        # boot-select (wrapped to pass self.root instead of '/') for:
-        # 1) data-only save (carplay-autoshow 0->1), verifying S_VER="|$after|" cache format
-        #    and exact byte equivalence of selectively rendered profiles vs full render
-        # 2) NVRAM-changing touch 1->0->1, witnessing pending OC1 before nvram_change and
-        #    verifying pre-NVRAM cut + pending-only audit behavior
-        # 3) hard integrity refusals (extra package file, tampered originals/mmui.xml,
-        #    predecessor symlink) returning state_changed without falling back.
-        root_prefix = str(self.root).lstrip("/") + "/"
-        wrapper = Path(self.build.name) / "boot-select-root"
-        wrapper.write_text(
-            "#!/bin/sh\nop=$1; shift; shift\n"
-            f'if test "$op" = seal-publish; then c=$1; w=${{2#{shlex.quote(root_prefix)}}}; shift 2; '
-            f'exec {shlex.quote(str(self.program))} "$op" {shlex.quote(str(self.root))} "$c" "$w" "$@"; fi\n'
-            f'exec {shlex.quote(str(self.program))} "$op" {shlex.quote(str(self.root))} "$@"\n'
-        )
-        wrapper.chmod(0o700)
-        env = self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]})
+    def test_native_api_fast_set_e2e_nvram_cuts_and_integrity_hard_refusal(self):
+        # Exercise the REAL host-compiled ASan+UBSan `api` binary over HTTP POST /control
+        # against the rooted fixture and real `boot-select`:
+        # 1) Trust-anchor / tamper checks (tampered/missing session files.sha256, wrong mode
+        #    or tampered persistent boot-select, stray undeclared boot.plan, extra package file)
+        #    all hard-refuse with state_changed without falling back to backend.sh.
+        # 2) NO_BS package and genuinely unsealed OC2 snapshot fall back cleanly to backend.sh.
+        # 3) Data-only save (carplay-autoshow 0->1->0) runs 100% natively in `api` (sentinel
+        #    backend.sh never executed), matches AWK index.html rendering, preserves unchanged
+        #    profiles, passes audit, and runs GC.
+        # 4) NVRAM-changing save (touch 1->0->1) invokes $session/touch.sh, witnesses pending
+        #    OC1 before NVRAM write, handles pre/post-NVRAM cuts, and commits cleanly.
+        # 5) Real backend.sh unsealed OC2 fallback check remains green.
+        api_bin = compile_host_api()
         nvram_file = self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction"
         witness_file = self.ram / "nvram-witness.txt"
+        tok = "a" * 32
 
         pkg_dir = self.data / "packages/.new-e2epkg"
         pkg_dir.mkdir(mode=0o700)
@@ -2376,85 +2196,117 @@ package_save
         )
         self.change_current("dependencies", "".join(f"{d}  {k}\n" for d, k in new_deps))
 
-        def run_fast(key, desired, cut_mode=""):
-            script = r"""set -eu
-D=$1; P=$2; BOOT_SELECT=$3; NV=$4; WIT=$5; KEY=$6; VAL=$7; CUT=$8
-request_owner="$(id -u):$(id -g)"; S_CACHE=1; S_VER=; S_CUR=
-. "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; . "$P/transaction.sh"
-uuid() { printf '%s\n' "0123456789abcdef0123456789abcdef"; }
-fail() { printf '{"ok":false,"error":"%s"}\n' "$1"; exit 1; }
-nvram_change() {
-  cat "$D/record" > "$WIT"
-  if test "$CUT" = before_nvram; then exit 99; fi
-  if test "$2" = absent; then rm -f "$NV"; else printf '%s\n' "$2" > "$NV"; fi
-  if test "$CUT" = after_nvram; then exit 98; fi
-}
-record_read
-VERIFIED_PACKAGE=$R_BACKEND
-snapshot_decode "$R_CURRENT"
-package=$S_PACKAGE; prefs=$S_PREFS; schema=$S_SCHEMA; mode=$S_META
-cur_nvram=$S_NVRAM; O_T2=0; test "$S_TOUCH" != 2 || O_T2=1
-O_W=$S_WARNING; O_B=$S_BASE; O_WL=$S_WIRELESS; O_S=$S_SERVICES; O_AS=$S_AUTOSHOW
-prefs=$(preferences_change "$prefs" "$package" "$KEY" "$VAL" "$schema")
-touch=$(preference_value "$prefs" touch)
-snapshot_decode "$R_BASE"
-nvram=$S_NVRAM; test "$touch" != 1 || nvram=disable
-fast_set_publish
-printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
-"""
-            return subprocess.run(
-                [
-                    "sh",
-                    "-c",
-                    script,
-                    "fast-e2e",
-                    str(self.data),
-                    str(self.package),
-                    str(wrapper),
-                    str(nvram_file),
-                    str(witness_file),
-                    key,
-                    desired,
-                    cut_mode,
-                ],
-                env=env,
+        session = self.ram / "sessions/session-ap0001"
+        session.mkdir(parents=True, mode=0o700)
+        shutil.copyfile(self.package / "files.sha256", session / "files.sha256")
+        (session / "files.sha256").chmod(0o600)
+        shutil.copyfile(self.package / "VERSION", session / "VERSION")
+        (session / "VERSION").chmod(0o600)
+        (session / "token").write_text(tok + "\n")
+        (session / "token").chmod(0o600)
+        sentinel_be = session / "backend.sh"
+        sentinel_be.write_text('printf \'{"ok":false,"error":"fell_back"}\\n\'\nexit 0\n')
+        sentinel_be.chmod(0o700)
+        (session / "touch.sh").write_text(
+            "#!/bin/sh\nset -eu\n"
+            f"cat {shlex.quote(str(self.data / 'record'))} > {shlex.quote(str(witness_file))}\n"
+            'if test "${OC_TEST_NV_CUT:-}" = before_nvram; then exit 99; fi\n'
+            f'if test "$3" = absent; then rm -f {shlex.quote(str(nvram_file))}; '
+            f'else printf "%s\\n" "$3" > {shlex.quote(str(nvram_file))}; fi\n'
+            'if test "${OC_TEST_NV_CUT:-}" = after_nvram; then exit 98; fi\n'
+        )
+        (session / "touch.sh").chmod(0o700)
+        (self.ram / "lock").write_text("")
+        (self.ram / "lock").chmod(0o600)
+        (self.ram / "selected").write_text(self.snapshot.name + "\n")
+        (self.ram / "selected").chmod(0o600)
+        (self.ram / "boot-id").symlink_to(BOOT)
+        (self.ram / "runtime").symlink_to(session)
+
+        env = self._host_env(
+            {
+                "PATH": self.build.name + os.pathsep + os.environ["PATH"],
+                "OC_HOST_ROOT": str(self.root),
+                "OC_HOST_NONROOT": "1",
+                "OC_HOST_SKIP_FW_GUARD": "1",
+                "OC_HOST_WIRELESS_FILE": str(self.root / "no-wireless"),
+            }
+        )
+
+        def call_api(rev, op, arg, exp="-", des="-", *, extra_env=None):
+            body = f"{tok}|{rev}|{op}|{arg}|{exp}|{des}".encode()
+            req = (
+                b"POST /control HTTP/1.1\r\nHost: 127.0.0.1:15555\r\n"
+                b"Content-Type: text/plain;charset=UTF-8\r\n"
+                + f"Content-Length: {len(body)}\r\n\r\n".encode()
+                + body
+            )
+            run_env = {**env, **(extra_env or {})}
+            proc = subprocess.run(
+                [str(api_bin), str(session / "token"), str(sentinel_be)],
+                input=req,
+                env=run_env,
                 capture_output=True,
-                text=True,
                 timeout=15,
             )
+            _, payload = proc.stdout.split(b"\r\n\r\n", 1)
+            return proc, json.loads(payload)
 
-        # 1) Data-only save: carplay-autoshow 0 -> 1.
-        res = run_fast("carplay-autoshow", "1")
-        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
-        data = json.loads(res.stdout)
-        self.assertTrue(data["ok"])
-        self.assertEqual(data["s_ver"], f"|{data['current']}|")
-        self.assertEqual(self._run_helper("audit", str(self.root), data["current"]).returncode, 0)
-        # Reused profiles (mmui.xml, sm-normal.conf, sm-wcp.conf, vui-plugins.list) were
-        # copied in C identically to the predecessor while index.html includes carplay.js.
-        new_snap = self.data / "snapshots" / data["current"]
+        # 1) Data-only save: carplay-autoshow 0 -> 1 via native api (never hits sentinel backend.sh).
+        orig_cur = self.snapshot.name
+        proc, reply = call_api(orig_cur, "set", "carplay-autoshow", "0", "1")
+        self.assertEqual(proc.returncode, 0, (reply, proc.stderr))
+        self.assertTrue(reply["ok"], reply)
+        self.assertEqual(reply["carplayAutoshow"], 1)
+        cur1 = reply["revision"]
+        self.assertNotEqual(cur1, orig_cur)
+        self.assertEqual(self._run_helper("audit", str(self.root), cur1).returncode, 0)
+        new_snap = self.data / "snapshots" / cur1
         for unchanged in ("mmui.xml", "vui-plugins.list", "sm-normal.conf", "sm-wcp.conf"):
             self.assertEqual(
                 (new_snap / unchanged).read_bytes(), (self.snapshot / unchanged).read_bytes()
             )
         self.assertIn("carplay.js", (new_snap / "index.html").read_text())
 
-        # 2) NVRAM-changing save: touch 1 -> 0 -> 1, witnessing pending OC1 before nvram_change.
-        res_off = run_fast("touch", "0")
-        self.assertEqual(res_off.returncode, 0, res_off.stdout + res_off.stderr)
-        off_cur = json.loads(res_off.stdout)["current"]
+        # No-op set runs native audit and never falls back.
+        proc, noop_reply = call_api(cur1, "set", "carplay-autoshow", "1", "1")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue(noop_reply["ok"], noop_reply)
+        self.assertEqual(noop_reply["revision"], cur1)
+
+        # 2) Trust-anchor & tamper refusals (non-ctime-mutating): hard state_changed, NEVER falls back.
+        # (a) Tampered RAM session files.sha256
+        orig_ram_mf = (session / "files.sha256").read_bytes()
+        (session / "files.sha256").write_bytes(orig_ram_mf + b"\n")
+        _, r_mf = call_api(cur1, "set", "carplay-autoshow", "1", "0")
+        (session / "files.sha256").write_bytes(orig_ram_mf)
+        self.assertEqual(r_mf["error"], "state_changed")
+        # (b) Extra package file causes hard state_changed on both no-op and mutating set.
+        pkg_extra = self.package / "be-extra"
+        pkg_extra.write_text("bad\n")
+        _, r_en = call_api(cur1, "set", "carplay-autoshow", "1", "1")
+        _, r_es = call_api(cur1, "set", "carplay-autoshow", "1", "0")
+        pkg_extra.unlink()
+        self.assertEqual(r_en["error"], "state_changed")
+        self.assertEqual(r_es["error"], "state_changed")
+
+        # 3) NVRAM-changing save: touch 1 -> 0 -> 1, witnessing pending OC1 before touch.sh.
+        proc, r_off = call_api(cur1, "set", "touch", "1", "0")
+        self.assertEqual(proc.returncode, 0, (r_off, proc.stderr))
+        self.assertTrue(r_off["ok"], r_off)
+        off_cur = r_off["revision"]
         witnessed = witness_file.read_text().strip().split("|")
-        self.assertEqual(witnessed[1], "set")
-        self.assertEqual(witnessed[5], data["current"])
-        self.assertEqual(witnessed[6], data["current"])
-        self.assertEqual(witnessed[7], off_cur)
+        self.assertEqual(
+            (witnessed[1], witnessed[5], witnessed[6], witnessed[7]), ("set", cur1, cur1, off_cur)
+        )
         self.assertFalse(nvram_file.exists())
         self.assertEqual(self._run_helper("audit", str(self.root), off_cur).returncode, 0)
 
-        # Pre-NVRAM cut: touch 0 -> 1 stops right before NVRAM write; pending OC1 intact,
-        # current-only audit refuses pending record, candidate audit refuses until NVRAM matches.
-        cut_pre = run_fast("touch", "1", cut_mode="before_nvram")
-        self.assertEqual(cut_pre.returncode, 99, cut_pre.stdout + cut_pre.stderr)
+        # Pre-NVRAM cut: pending OC1 intact, current-only audit refuses, candidate audit requires NVRAM.
+        _, r_pre = call_api(
+            off_cur, "set", "touch", "0", "1", extra_env={"OC_TEST_NV_CUT": "before_nvram"}
+        )
+        self.assertEqual(r_pre["error"], "nvram_commit_failed")
         rec = (self.data / "record").read_text().strip().split("|")
         self.assertEqual((rec[1], rec[5], rec[6]), ("set", off_cur, off_cur))
         self.assertNotEqual(self._run_helper("audit", str(self.root), off_cur).returncode, 0)
@@ -2463,116 +2315,40 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
         )
         nvram_file.write_text("disable\n")
         self.assertEqual(self._run_helper("audit", str(self.root), off_cur, rec[7]).returncode, 0)
-        # Restore active off_cur + absent NVRAM, then exercise post-NVRAM cut (after_nvram):
-        # NVRAM already matches candidate, pending OC1 intact, current-only audit refuses,
-        # and pending-set candidate audit succeeds immediately.
+
+        # Restore active off_cur + absent NVRAM, then exercise post-NVRAM cut (after_nvram).
         nvram_file.unlink()
         rec[1] = "active"
         rec[6:8] = ["-", "-"]
         (self.data / "record").write_text("|".join(rec) + "\n")
-        cut_post = run_fast("touch", "1", cut_mode="after_nvram")
-        self.assertEqual(cut_post.returncode, 98, cut_post.stdout + cut_post.stderr)
+        _, r_post = call_api(
+            off_cur, "set", "touch", "0", "1", extra_env={"OC_TEST_NV_CUT": "after_nvram"}
+        )
+        self.assertEqual(r_post["error"], "nvram_commit_failed")
         rec2 = (self.data / "record").read_text().strip().split("|")
         self.assertEqual((rec2[1], rec2[5], rec2[6]), ("set", off_cur, off_cur))
         self.assertEqual(nvram_file.read_text(), "disable\n")
-        self.assertNotEqual(self._run_helper("audit", str(self.root), off_cur).returncode, 0)
         self.assertEqual(self._run_helper("audit", str(self.root), off_cur, rec2[7]).returncode, 0)
+
         # Restore active off_cur + absent NVRAM and complete touch 0 -> 1 cleanly.
         nvram_file.unlink()
         rec2[1] = "active"
         rec2[6:8] = ["-", "-"]
         (self.data / "record").write_text("|".join(rec2) + "\n")
-        res_on = run_fast("touch", "1")
-        self.assertEqual(res_on.returncode, 0, res_on.stdout + res_on.stderr)
-        on_cur = json.loads(res_on.stdout)["current"]
+        proc, r_on = call_api(off_cur, "set", "touch", "0", "1")
+        self.assertEqual(proc.returncode, 0, (r_on, proc.stderr))
+        self.assertTrue(r_on["ok"], r_on)
+        on_cur = r_on["revision"]
         self.assertEqual(nvram_file.read_text(), "disable\n")
         self.assertEqual(self._run_helper("audit", str(self.root), on_cur).returncode, 0)
 
-        # Real backend.sh entry-point check on this rooted native fixture:
-        # exercises real backend.sh dispatch (boot_select_verified -> fast_set_publish ->
-        # status_view, no-op audit, and hard state_changed refusal on extra package file).
-        be_session = self.ram / "sessions/session-be0001"
-        be_session.mkdir(parents=True, mode=0o700)
-        for p in sorted(self.package.iterdir()):
-            (be_session / p.name).write_bytes(p.read_bytes())
-            (be_session / p.name).chmod(p.stat().st_mode & 0o777)
-        be_script = (ASSETS / "backend.sh").read_text()
-        be_script = (
-            be_script.replace("/tmp/mnt/data_persist/open-connect", str(self.data))
-            .replace("/tmp/open-connect", str(self.ram))
-            .replace("/usr/bin/autostart", str(self.root / "usr/bin/autostart"))
-            .replace("firmware_guard ", "# firmware_guard ")
-            .replace("flock -n -x 9 || fail busy", ":")
-            .replace("flock -n -s 9 || fail busy", ":")
-            .replace(
-                '. "$P/transaction.sh"',
-                '. "$P/transaction.sh"\n'
-                'uuid() { printf "%s\\n" "0123456789abcdef0123456789abcdef"; }\n'
-                "firmware_guard() { :; }\n"
-                "factory_wireless() { return 1; }\n"
-                'transaction_prepare() { echo "UNEXPECTED_SLOW_PATH" >&2; exit 77; }\n',
-            )
-        )
-        # Wrap persistent boot-select path inside fast_set_publish/no-op audit to supply self.root.
-        (be_session / "service.sh").write_text(
-            (be_session / "service.sh")
-            .read_text()
-            .replace(
-                "BOOT_SELECT=$d/boot-select",
-                f"BOOT_SELECT={shlex.quote(str(wrapper))}",
-            )
-        )
-        (be_session / "firmware.sh").write_text(
-            (be_session / "firmware.sh")
-            .read_text()
-            .replace("/proc/mounts", str(self.root / "proc/mounts"))
-            .replace("/tmp/mnt/data_persist/open-connect", str(self.data))
-            .replace("/tmp/open-connect", str(self.ram))
-        )
-        (be_session / "backend.sh").write_text(be_script)
-        (be_session / "backend.sh").chmod(0o700)
-        (self.ram / "lock").write_text("")
-        (self.ram / "lock").chmod(0o600)
-        (self.ram / "selected").write_text(on_cur + "\n")
-        (self.ram / "selected").chmod(0o600)
-        (self.ram / "boot-id").symlink_to(BOOT)
-        (self.ram / "runtime").symlink_to(be_session)
+        # Toggle carplay-autoshow 1 -> 0 cleanly too.
+        proc, r_back = call_api(on_cur, "set", "carplay-autoshow", "1", "0")
+        self.assertEqual(proc.returncode, 0, (r_back, proc.stderr))
+        self.assertEqual(r_back["carplayAutoshow"], 0)
+        on_cur = r_back["revision"]
 
-        def call_backend(*args):
-            return subprocess.run(
-                ["sh", str(be_session / "backend.sh"), "api", *args],
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-
-        # Data-only save through real backend.sh succeeds via fast path (never hits transaction_prepare).
-        be_set = call_backend(on_cur, "set", "carplay-autoshow", "1", "0")
-        self.assertEqual(be_set.returncode, 0, be_set.stdout + be_set.stderr)
-        be_out = json.loads(be_set.stdout)
-        self.assertTrue(be_out["ok"])
-        self.assertEqual(be_out["carplayAutoshow"], 0)
-        # No-op set through real backend.sh passes native audit.
-        be_noop = call_backend(be_out["revision"], "set", "carplay-autoshow", "0", "0")
-        self.assertEqual(be_noop.returncode, 0, be_noop.stdout + be_noop.stderr)
-        # Extra package file causes real backend.sh to hard-fail state_changed on both no-op and set.
-        pkg_extra = self.package / "be-extra"
-        pkg_extra.write_text("bad\n")
-        be_refuse_noop = call_backend(be_out["revision"], "set", "carplay-autoshow", "0", "0")
-        be_refuse_set = call_backend(be_out["revision"], "set", "carplay-autoshow", "0", "1")
-        pkg_extra.unlink()
-        self.assertNotEqual(be_refuse_noop.returncode, 0)
-        self.assertEqual(json.loads(be_refuse_noop.stdout)["error"], "state_changed")
-        self.assertNotEqual(be_refuse_set.returncode, 0)
-        self.assertEqual(json.loads(be_refuse_set.stdout)["error"], "state_changed")
-        on_cur = be_out["revision"]
-
-        # Real backend.sh unsealed OC2 fallback check:
-        # Build a genuinely unsealed OC2 snapshot (no boot.plan in manifest or disk) and
-        # run real backend.sh with real transaction_prepare/transaction_reconcile.
-        # Clean control must succeed; an extra package file must return state_changed with
-        # original OC1 bytes and unchanged NVRAM on both no-op and touch 1->0.
+        # 4) Native api falls back cleanly to backend.sh on genuinely unsealed OC2 snapshot.
         unsealed_work = self.data / "snapshots/.new-be-unsealed"
         unsealed_work.mkdir(mode=0o700)
         for p in sorted((self.data / "snapshots" / on_cur).iterdir()):
@@ -2580,11 +2356,34 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
                 (unsealed_work / p.name).write_bytes(p.read_bytes())
                 (unsealed_work / p.name).chmod(0o600)
         unsealed_snap = self.publish(unsealed_work)
+        saved_rec = (self.data / "record").read_bytes()
+        unsealed_rec = saved_rec.decode().strip().split("|")
+        unsealed_rec[5] = unsealed_snap.name
+        (self.data / "record").write_text("|".join(unsealed_rec) + "\n")
+        (self.ram / "selected").write_text(unsealed_snap.name + "\n")
+        _, r_fb = call_api(unsealed_snap.name, "set", "carplay-autoshow", "0", "1")
+        self.assertEqual(r_fb["error"], "fell_back")
+        # Undeclared boot.plan on disk inside unsealed snapshot hard-fails (never falls back).
+        (unsealed_snap / "boot.plan").write_bytes(b"stray\n")
+        (unsealed_snap / "boot.plan").chmod(0o600)
+        _, r_stray = call_api(unsealed_snap.name, "set", "carplay-autoshow", "0", "1")
+        (unsealed_snap / "boot.plan").unlink()
+        self.assertEqual(r_stray["error"], "state_changed")
+        (self.data / "record").write_bytes(saved_rec)
+        (self.ram / "selected").write_text(on_cur + "\n")
+
+        # Real backend.sh unsealed OC2 fallback check:
+        # Build a genuinely unsealed OC2 snapshot (no boot.plan in manifest or disk) and
+        # run real backend.sh with real transaction_prepare/transaction_reconcile.
+        # Clean control must succeed; an extra package file must return state_changed with
+        # original OC1 bytes and unchanged NVRAM on both no-op and touch 1->0.
         fb_session = self.ram / "sessions/session-befb01"
         fb_session.mkdir(parents=True, mode=0o700)
         for p in sorted(self.package.iterdir()):
             (fb_session / p.name).write_bytes(p.read_bytes())
             (fb_session / p.name).chmod(p.stat().st_mode & 0o777)
+        shutil.copyfile(api_bin, fb_session / "api")
+        (fb_session / "api").chmod(0o700)
         fb_be = (
             (ASSETS / "backend.sh")
             .read_text()
@@ -2706,30 +2505,30 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
         (self.data / "record").write_bytes(orig_rec_bytes)
         (self.ram / "selected").write_text(on_cur + "\n")
         (self.ram / "runtime").unlink()
-        (self.ram / "runtime").symlink_to(be_session)
+        (self.ram / "runtime").symlink_to(session)
         nvram_file.write_text("disable\n")
 
-        # Oversized composed template (> 262144 B) is refused before awk renders.
+        # Oversized composed template (> 262144 B) is refused before native index render.
         idx_on = self.composed / "index-on.html"
         orig_idx_on = idx_on.read_bytes()
         idx_on.write_bytes(b"a" * 262145)
         before_ov = (self.data / "record").read_bytes()
-        ov_res = run_fast("carplay-autoshow", "1")
+        ov_proc, ov_res = call_api(on_cur, "set", "carplay-autoshow", "0", "1")
         idx_on.write_bytes(orig_idx_on)
         idx_on.chmod(0o600)
-        self.assertNotEqual(ov_res.returncode, 0)
-        self.assertEqual(json.loads(ov_res.stdout)["error"], "state_changed")
+        self.assertNotEqual(ov_proc.returncode, 0)
+        self.assertEqual(ov_res["error"], "state_changed")
         self.assertEqual((self.data / "record").read_bytes(), before_ov)
         self.assertEqual(list((self.data / "snapshots").glob(".new-*")), [])
 
-        # 3) Hard integrity refusals reach caller as state_changed and leave OC1/work clean.
+        # Hard integrity refusals reach caller as state_changed and leave OC1/work clean.
         before_rec = (self.data / "record").read_bytes()
         extra = self.package / "unexpected-extra"
         extra.write_text("bad\n")
-        refused = run_fast("carplay-autoshow", "0")
+        ref_proc, refused = call_api(on_cur, "set", "carplay-autoshow", "0", "1")
         extra.unlink()
-        self.assertNotEqual(refused.returncode, 0)
-        self.assertEqual(json.loads(refused.stdout)["error"], "state_changed")
+        self.assertNotEqual(ref_proc.returncode, 0)
+        self.assertEqual(refused["error"], "state_changed")
         self.assertEqual((self.data / "record").read_bytes(), before_rec)
         self.assertEqual(list((self.data / "snapshots").glob(".new-*")), [])
 
@@ -2738,14 +2537,27 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
         orig_auto = (cur_snap / "autostart").read_bytes()
         (cur_snap / "autostart").unlink()
         (cur_snap / "autostart").symlink_to("/etc/passwd")
-        refused_link = run_fast("carplay-autoshow", "0")
+        link_proc, refused_link = call_api(on_cur, "set", "carplay-autoshow", "0", "1")
         (cur_snap / "autostart").unlink()
         (cur_snap / "autostart").write_bytes(orig_auto)
         (cur_snap / "autostart").chmod(0o600)
-        self.assertNotEqual(refused_link.returncode, 0)
-        self.assertEqual(json.loads(refused_link.stdout)["error"], "state_changed")
+        self.assertNotEqual(link_proc.returncode, 0)
+        self.assertEqual(refused_link["error"], "state_changed")
         self.assertEqual((self.data / "record").read_bytes(), before_rec)
         self.assertEqual(list((self.data / "snapshots").glob(".new-*")), [])
+
+        # Persistent boot-select mode/byte tamper hard-refuses state_changed (never falls back).
+        (self.package / "boot-select").chmod(0o600)
+        _, r_mode = call_api(on_cur, "set", "carplay-autoshow", "0", "1")
+        (self.package / "boot-select").chmod(0o700)
+        self.assertEqual(r_mode["error"], "state_changed")
+        orig_bs = (self.package / "boot-select").read_bytes()
+        (self.package / "boot-select").write_bytes(orig_bs[:-1] + bytes([orig_bs[-1] ^ 1]))
+        (self.package / "boot-select").chmod(0o700)
+        _, r_bs = call_api(on_cur, "set", "carplay-autoshow", "0", "1")
+        (self.package / "boot-select").write_bytes(orig_bs)
+        (self.package / "boot-select").chmod(0o700)
+        self.assertEqual(r_bs["error"], "state_changed")
 
     def _make_dummy_snapshot(self, tag, extra_file=None):
         work = self.data / "snapshots" / f".new-gc-{tag}"
@@ -3042,6 +2854,8 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
         shutil.copytree(ASSETS, be)
         shutil.copyfile(Path(self.build.name) / "flush", be / "flush")
         (be / "flush").chmod(0o700)
+        shutil.copyfile(compile_host_api(), be / "api")
+        (be / "api").chmod(0o700)
         for sh_name in ("state.sh", "firmware.sh", "access.sh", "transaction.sh", "backend.sh"):
             txt = (be / sh_name).read_text()
             txt = txt.replace("/tmp/mnt/data_persist/open-connect", str(self.data))

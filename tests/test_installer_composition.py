@@ -110,58 +110,68 @@ class InstallerComposition(unittest.TestCase):
         data = fixture.create("factory-hash-error")
         fixture.run_ok(data, "install")
         fixture.backend_fixture(data)
+        fake_root = fixture.root / "fake-root"
+        scripts_dir = fake_root / "jci/scripts"
+        scripts_dir.mkdir(parents=True)
         marker = fixture.root / "board-executed"
-        board = fixture.root / "get_board_type.sh"
+        board = scripts_dir / "get_board_type.sh"
         board_result = fixture.root / "board-result"
-        board.write_text(
+        board_body = (
             "touch "
             + shlex.quote(str(marker))
             + '\nexit "$(cat '
             + shlex.quote(str(board_result))
             + ')"\n'
         )
+        board.write_text(board_body)
         digest = hashlib.sha256(board.read_bytes()).hexdigest()
-        firmware = (ASSETS / "firmware.sh").read_text()
-        factory = firmware[
-            firmware.index("factory_wireless() (") : firmware.index("originals_verify()")
-        ]
-        factory = factory.replace("/jci/scripts/get_board_type.sh", str(board)).replace(
-            "2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da", digest
-        )
-        module = fixture.tools / "firmware.sh"
-        module.write_text(module.read_text() + "\n" + factory)
+        pins = fixture.root / "pins.txt"
+        pins.write_text(f"root/board.sh={digest}\n")
+
+        def native_status():
+            env = fixture.host_api_env()
+            env.pop("OC_HOST_WIRELESS_FILE", None)
+            env["OC_HOST_ROOT"] = str(fake_root)
+            env["OC_HOST_PINS"] = str(pins)
+            result = subprocess.run(
+                ["sh", fixture.tools / "backend.sh", "api", "-", "status", "settings", "-", "-"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                env=env,
+            )
+            return result, json.loads(result.stdout)
+
         record = (data / "record").read_bytes()
         for code, factory in ((1, False), (2, True), (0, False), (3, False)):
             with self.subTest(board_result=code):
                 board_result.write_text(str(code) + "\n")
-                result, status = fixture.api("status", argument="settings")
+                result, status = native_status()
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertEqual(status["wirelessFactory"], factory)
                 self.assertTrue(marker.exists())
                 self.assertEqual((data / "record").read_bytes(), record)
                 marker.unlink()
-        real = fixture.root / "flush-real"
-        (fixture.tools / "flush").rename(real)
-        for output, code in (("", 19), (digest, 19), ("invalid", 0), ("0" * 64, 0)):
-            with self.subTest(output=output, code=code):
-                helper = fixture.tools / "flush"
-                helper.write_text(
-                    '#!/bin/sh\nif test "$1:$2" = '
-                    + shlex.quote("h:" + str(board))
-                    + "; then printf '%s\\n' "
-                    + shlex.quote(output)
-                    + f"; exit {code}; fi\nexec "
-                    + shlex.quote(str(real))
-                    + ' "$@"\n'
-                )
-                helper.chmod(0o700)
-                result, status = fixture.api("status", argument="settings")
-                self.assertNotEqual(result.returncode, 0)
-                self.assertEqual(status, {"ok": False, "error": "wireless_unavailable"})
-                self.assertFalse(marker.exists())
-                self.assertEqual((data / "record").read_bytes(), record)
+        # Wrong digest (tampered script bytes) refuses without executing the script.
+        board.write_text(board_body + "# tampered\n")
+        result, status = native_status()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(status, {"ok": False, "error": "wireless_unavailable"})
+        self.assertFalse(marker.exists())
+        self.assertEqual((data / "record").read_bytes(), record)
+        # Symlinked board script refuses without following or executing it.
+        target = fixture.root / "board-target.sh"
+        target.write_text(board_body)
         board.unlink()
-        result, status = fixture.api("status", argument="settings")
+        board.symlink_to(target)
+        result, status = native_status()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(status, {"ok": False, "error": "wireless_unavailable"})
+        self.assertFalse(marker.exists())
+        self.assertEqual((data / "record").read_bytes(), record)
+        # Missing board script refuses cleanly.
+        board.unlink()
+        result, status = native_status()
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(status, {"ok": False, "error": "wireless_unavailable"})
         self.assertFalse(marker.exists())

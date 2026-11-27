@@ -397,53 +397,34 @@ composed_members_verify() {
   manifest_exact "$1" '|autostart|uia.so|mmui.so|mmui.xml|index-on.html|index-off.html|sm-normal-on.conf|sm-normal-off.conf|sm-wcp-on.conf|sm-wcp-off.conf|vui.so|vui.xml|' 12
 }
 
-fast_tpl() {
-  local d; d=$(awk -v k="$2" '$2==k{n++;d=$1;if(NF!=2)b=1}END{if(b||n!=1)exit 1;print d}' "$1") &&
-    file "$3" && test "$(stat -c %s "$3")" -le 262144 && if test -n "$4"; then cp "$3" "$4" && sha_is "$4" "$d"; else sha_is "$3" "$d"; fi
-}
 boot_render_profiles() {
-  local dst=$1 cfg=$2 src st=off p d a xml=/dev/null sk=${FAST_SKIP:-} f=${FAST_FROM:-}
-  if test -z "$f"; then
-    config_decode "$cfg" && test "$S_SCHEMA" = OC2 || return 1
-    test "$S_TOUCH" != 2 || touch_inputs_verify || return 1
-    composed_members_verify "$D/composed/$S_PACKAGE" || return 1
-    test "${VERIFIED_PACKAGE:-}" = "$S_PACKAGE" || verify_manifest "$D/composed/$S_PACKAGE" || return 1
-  fi
+  local dst=$1 cfg=$2 src st=off p d a xml
+  config_decode "$cfg" && test "$S_SCHEMA" = OC2 || return 1
+  test "$S_TOUCH" != 2 || touch_inputs_verify || return 1
+  composed_members_verify "$D/composed/$S_PACKAGE" || return 1
+  test "${VERIFIED_PACKAGE:-}" = "$S_PACKAGE" || verify_manifest "$D/composed/$S_PACKAGE" || return 1
   src=$D/composed/$S_PACKAGE
   test "$P" = "$D/packages/$S_PACKAGE" || return 1
   test "$S_WARNING" != 1 || st=on
   set -- system-hook.js ui-profile.awk ui-modules.tsv
-  if test "$S_BASE" = 1; then test -n "$f" || base_ui_inputs_verify || return 1; set -- "$@" base-logging.js; fi
+  if test "$S_BASE" = 1; then base_ui_inputs_verify || return 1; set -- "$@" base-logging.js; fi
   if test "${VERIFIED_PACKAGE:-}" != "$S_PACKAGE"; then
     for a in "$@"; do file "$P/$a" && d=$(awk -v n="$a" '$2==n{c++;print $1}END{exit c!=1}' "$P/files.sha256") && sha_is "$P/$a" "$d" || return 1; done
   fi
-  case "$sk" in *'|mmui|'*) ;; *)
-    xml=$dst/.mmui-source; d=$(original_files | awk '$2=="mmui.xml"{n++;print $1}END{exit n!=1}') || return 1
-    file "$D/originals/mmui.xml" && test "$(stat -c %s "$D/originals/mmui.xml")" -le 262144 && cp "$D/originals/mmui.xml" "$xml" && sha_is "$xml" "$d" || return 1;; esac
+  xml=$dst/.mmui-source; d=$(original_files | awk '$2=="mmui.xml"{n++;print $1}END{exit n!=1}') || return 1
+  file "$D/originals/mmui.xml" && test "$(stat -c %s "$D/originals/mmui.xml")" -le 262144 && cp "$D/originals/mmui.xml" "$xml" && sha_is "$xml" "$d" || return 1
   for a in mmui plugins; do
-    case "$sk" in *"|$a|"*) continue;; esac
     p=vui-plugins.list; test "$a" != mmui || p=mmui.xml
     awk -v operation=compose -v ui_mode="$a" -v modules="$P/ui-modules.tsv" -v catalog="$P/services.tsv" \
       -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$cfg" -v input_bytes="$(wc -c < "$cfg")" \
       -f "$P/preferences.awk" -f "$P/ui-profile.awk" "$xml" > "$dst/$p" || return 1
   done
-  test "$xml" = /dev/null || rm "$xml" || return 1
-  if test "$S_BASE" = 1 && test -z "$f"; then vui_inputs_verify "$dst/vui-plugins.list" || return 1; fi
-  if test -n "$f" && case "$sk" in *'|sm|'*'|index|'*) false;; *) true;; esac; then
-    fast_tpl "$D/snapshots/$f/files.sha256" dependencies "$D/snapshots/$f/dependencies" "" &&
-      private_dir "$src" && fast_tpl "$D/snapshots/$f/dependencies" "composed-$S_PACKAGE/files.sha256" "$src/files.sha256" "" || return 1
-  fi
-  case "$sk" in *'|sm|'*) ;; *)
-    for p in normal wcp; do
-      a=$src/sm-$p-$st.conf
-      if test -n "$f"; then fast_tpl "$src/files.sha256" "sm-$p-$st.conf" "$a" "$dst/.tpl" || return 1; a=$dst/.tpl; fi
-      awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$cfg" \
-        -v input_bytes="$(wc -c < "$cfg")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" "$a" > "$dst/sm-$p.conf" || return 1
-      test -z "$f" || rm "$dst/.tpl" || return 1
-    done;; esac
-  case "$sk" in *'|index|'*) return 0;; esac
-  a=$src/index-$st.html
-  if test -n "$f"; then fast_tpl "$src/files.sha256" "index-$st.html" "$a" "$dst/.tpl" || return 1; a=$dst/.tpl; fi
+  rm "$xml" || return 1
+  if test "$S_BASE" = 1; then vui_inputs_verify "$dst/vui-plugins.list" || return 1; fi
+  for p in normal wcp; do
+    awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$cfg" \
+      -v input_bytes="$(wc -c < "$cfg")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" "$src/sm-$p-$st.conf" > "$dst/sm-$p.conf" || return 1
+  done
   awk -v base="$S_BASE" -v warning="$S_WARNING" -v services="$S_SERVICES" -v autoshow="$S_AUTOSHOW" \
     -v hook="$P/system-hook.js" -v logger="$P/base-logging.js" '
 BEGIN{c=split(services,e,",");for(i=1;i<=c;i++){split(e[i],p,"=");ch[p[1]]=p[2]}
@@ -464,8 +445,7 @@ sub(/^[ \t]+/,"",ln);print ln};if(r<0)exit 1;close(hook);hk++}
 if(autoshow=="1"){print "</script>";print "<script src=\"file:///tmp/open-connect/feature/carplay.js\"></script>";print "<script>"}}
 {print}
 END{if((base=="1"&&lg!=1)||(nd&&(hk!=1||ap!=1)))exit 1}
-' "$a" > "$dst/index.html" || return 1
-  test -z "$f" || rm "$dst/.tpl" || return 1
+' "$src/index-$st.html" > "$dst/index.html" || return 1
   awk '{n+=gsub(/@TOKEN@/,"@TOKEN@")}END{exit n!=1}' "$dst/index.html"
 }
 

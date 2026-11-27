@@ -17,7 +17,7 @@ typedef struct {
     oc_u8 block[64];
 } OcHash;
 
-enum { OC_READ=0, OC_WRITE=1, OC_RW=2, OC_DIRECTORY=4, OC_CREATE=8, OC_EXCLUSIVE=16 };
+enum { OC_READ=0, OC_WRITE=1, OC_RW=2, OC_DIRECTORY=4, OC_CREATE=8, OC_EXCLUSIVE=16, OC_FOLLOW=32, OC_APPEND=64, OC_BLOCKING=128 };
 enum { OC_REGULAR=0100000, OC_DIR=0040000, OC_TYPE=0170000 };
 enum { OC_COPY_SOURCE=0, OC_COPY_OK=1, OC_COPY_DEST=-1 };
 
@@ -92,7 +92,18 @@ long oc_watch_parent(void);
 long oc_owner(void);
 long oc_group(void);
 long oc_lock(int fd);
+long oc_lock_sh(int fd);
+long oc_unlock(int fd);
 int oc_lock_held_ex(int fd);
+long oc_fork(void);
+long oc_waitpid(int pid, int *status);
+long oc_pipe(int fds[2]);
+long oc_dup2(int oldfd, int newfd);
+long oc_execve(const char *path, char *const argv[], char *const envp[]);
+void oc_exit(int code);
+long oc_set_cloexec(int fd, int on);
+const char *oc_root_path(void);
+int oc_nonroot_allowed(void);
 long oc_mkdir(int fd, const char *name, unsigned mode);
 long oc_unlink(int fd, const char *name);
 long oc_rmdirat(int fd, const char *name);
@@ -145,22 +156,68 @@ int oc_load_manifest(int folder, const char *digest, char *text, unsigned capaci
 int oc_saved_text(int folder, OcManifest *manifest, const char *name, char *text, unsigned capacity);
 
 /* oc-record.c */
+int oc_record_parse_any(char *buf, char *fields[13]);
+int oc_record_read_any(int data_fd, long owner, long group, char *buf, unsigned cap, char *fields[13]);
+int oc_record_write_atomic(int root_fd, int data_fd, char *fields[13], char nonce_out[33]);
 int oc_record_mode(OcBoot *b, const char *expected_before, const char *expected_after);
 int oc_record(OcBoot *b);
 int oc_record_file(OcBoot *b, const char *expected_before, const char *expected_after);
 int oc_record_commit(OcBoot *b);
 
 /* oc-config.c */
+typedef struct {
+    char *id, *label, *def, *enable, *disable;
+} OcService;
+typedef struct {
+    OcService rows[16];
+    unsigned count;
+} OcCatalog;
+typedef struct {
+    int is_oc2;
+    int has_autoshow;
+    char *package, *touch, *warning, *nvram, *metadata, *base, *wireless, *autoshow, *pandora;
+    char *svc_ids[16];
+    char *svc_vals[16];
+    unsigned svc_count;
+} OcPrefs;
 int oc_bit(const char *p);
 int oc_nvram_value(const char *p);
 int oc_metadata_mode(const char *text, unsigned *mode, unsigned *uid, unsigned *gid);
 int oc_order(const char *a, const char *b);
 int oc_service_id(const char *p);
 int oc_service_keys(char *text, char **ids, unsigned *count);
+int oc_catalog_load(char *text, unsigned bytes, OcCatalog *cat);
+int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out);
+int oc_prefs_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned cap);
 int oc_config(OcBoot *b, char *text, char **f, int active, char svc_digest[65]);
 int oc_access(char *text, char **fields);
 int oc_nvram(OcBoot *b, char value[16]);
 int oc_lookup_vui_pin(const char *modules, const char *plugin, char out[65]);
+
+/* oc-guard.c */
+int oc_mounts_mode(int root, char *scratch, unsigned cap, int allow_rw);
+int oc_version_ok(int root, char *scratch, unsigned cap);
+int oc_firmware_guard(int root, const char *op_tag, char *scratch, unsigned cap, const char **err_out);
+
+/* oc-api.c */
+enum { OC_API_DONE=0, OC_API_ERR=1, OC_API_FALLBACK=2 };
+int oc_join4(char *out, unsigned cap, const char *a, const char *b, const char *c, const char *d);
+int oc_api_handle(const char *token_path, const char *rev, const char *op,
+                  const char *arg, const char *exp, const char *des);
+int oc_api_cli(int argc, char **argv);
+#ifdef OC_HOST
+int oc_open_data_dir(int root);
+int oc_open_ram_dir(int root);
+int oc_data_absent(int root);
+int oc_data_base(const char *root_path, char *out, unsigned cap);
+#else
+static inline int oc_open_data_dir(int root) { return oc_open_private(root,OC_DATA); }
+static inline int oc_open_ram_dir(int root) { return oc_open_private(root,OC_RAM); }
+static inline int oc_data_absent(int root) { return oc_absent_at(root,OC_DATA); }
+static inline int oc_data_base(const char *root_path, char *out, unsigned cap) {
+    return oc_join(out,cap,oc_equal(root_path,"/")?"":root_path,"/" OC_DATA);
+}
+#endif
 
 /* oc-plan.c */
 extern const char *const oc_root_names[19];

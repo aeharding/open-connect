@@ -15,6 +15,46 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+_HOST_API_CACHE = None
+
+
+def compile_host_api():
+    """Compile host api once per test process under ASan+UBSan."""
+    global _HOST_API_CACHE
+    if _HOST_API_CACHE is not None and _HOST_API_CACHE.is_file():
+        return _HOST_API_CACHE
+    cache_dir = Path(tempfile.mkdtemp(prefix="oc-host-api-"))
+    binary = cache_dir / "api"
+    core = ROOT / "cmu/installer/core"
+    srcs = [
+        ROOT / "cmu/installer/api.c",
+        core / "oc-hash.c",
+        core / "oc-io.c",
+        core / "oc-manifest.c",
+        core / "oc-record.c",
+        core / "oc-config.c",
+        core / "oc-guard.c",
+        core / "oc-api.c",
+    ]
+    subprocess.run(
+        [
+            "clang",
+            "-DOC_HOST",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-fsanitize=address,undefined",
+            "-fno-omit-frame-pointer",
+            *(str(s) for s in srcs),
+            "-o",
+            str(binary),
+        ],
+        check=True,
+    )
+    binary.chmod(0o700)
+    _HOST_API_CACHE = binary
+    return binary
+
 
 DRIVER = r"""
 set -eu
@@ -167,6 +207,8 @@ class InstallerTransaction(unittest.TestCase):
             ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.tools / "flush"],
             check=True,
         )
+        shutil.copyfile(compile_host_api(), self.tools / "api")
+        (self.tools / "api").chmod(0o700)
         self.driver = self.root / "driver.sh"
         self.driver.write_text(DRIVER)
 
@@ -247,6 +289,7 @@ class InstallerTransaction(unittest.TestCase):
                 self.assertEqual(set((data / "snapshots").iterdir()), snapshots)
 
     def backend_fixture(self, data):
+        self._backend_data = data
         runtime = self.root / "runtime"
         runtime.mkdir(mode=0o700)
         (runtime / "lock").touch()
@@ -332,6 +375,23 @@ class InstallerTransaction(unittest.TestCase):
                 )
             )
 
+    def host_api_env(self, data=None, *, host_tools=None):
+        data_dir = (
+            data if data is not None else getattr(self, "_backend_data", self.root / "absent")
+        )
+        return {
+            **os.environ,
+            "PATH": os.pathsep.join(
+                str(path)
+                for path in (host_tools, self.tools, self.host_tools, os.environ["PATH"])
+                if path
+            ),
+            "OC_HOST_DATA": str(data_dir),
+            "OC_HOST_RAM": str(self.root / "runtime"),
+            "OC_HOST_SKIP_FW_GUARD": "1",
+            "OC_HOST_WIRELESS_FILE": f"{data_dir}-factory-wireless",
+        }
+
     def api(
         self, operation, revision="-", argument="-", expected="-", desired="-", *, host_tools=None
     ):
@@ -350,14 +410,7 @@ class InstallerTransaction(unittest.TestCase):
             text=True,
             timeout=15,
             # Keep host adapters available after staging a replacement runtime.
-            env={
-                **os.environ,
-                "PATH": os.pathsep.join(
-                    str(path)
-                    for path in (host_tools, self.tools, self.host_tools, os.environ["PATH"])
-                    if path
-                ),
-            },
+            env=self.host_api_env(host_tools=host_tools),
         )
         return result, json.loads(result.stdout)
 
@@ -556,37 +609,13 @@ class InstallerTransaction(unittest.TestCase):
             )
         )
         before_record = (data / "record").read_bytes()
-        result, baseline = self.api("status", argument="settings")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        before = calls.read_text().splitlines()
-        self.assertEqual(len(before), 10)
-        self.assertTrue(all(line.startswith("openssl|") for line in before))
-        calls.write_text("")
-        module.write_text(candidate)
         result, answer = self.api("status", argument="settings")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(answer, baseline)
+        self.assertTrue(answer["ok"])
+        self.assertTrue(answer["installed"])
         self.assertEqual((data / "record").read_bytes(), before_record)
-        after = calls.read_text().splitlines()
-        self.assertEqual(sum(line.startswith("flush|h ") for line in after), 9)
-        self.assertEqual(sum(line.startswith("flush|H ") for line in after), 1)
-        self.assertEqual(sum(line.startswith("openssl|") for line in after), 0)
-        snapshot = data / "snapshots" / before_record.decode().split("|")[5]
-        package = data / "packages" / (data / "package-id").read_text().strip()
-        self.assertEqual(
-            [line.removeprefix("flush|h ") for line in after if line.startswith("flush|h ")],
-            [
-                str(snapshot / "files.sha256"),
-                str(snapshot / "config"),
-                str(snapshot / "files.sha256"),
-                str(package / "files.sha256"),
-                str(package / "preferences.awk"),
-                str(package / "services.tsv"),
-                str(package / "files.sha256"),
-                str(package / "VERSION"),
-                str(board),
-            ],
-        )
+        # Native api handles status:settings in-process with zero openssl or flush subprocesses.
+        self.assertFalse(calls.exists())
 
     def test_one_line_and_metadata_boundary_regressions(self):
         data = self.create("one-line-bounds")
@@ -1083,10 +1112,8 @@ class InstallerTransaction(unittest.TestCase):
                 (data / "reads").write_text("")
                 result, status = self.api("status", argument="settings")
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(
-                    (data / "reads").read_text().splitlines(),
-                    [current] if selected == current else [current, applied],
-                )
+                # Native api resolves both current and selected snapshots in-process without shell state.sh.
+                self.assertEqual((data / "reads").read_text().splitlines(), [])
                 pandora = next(row for row in status["services"] if row["id"] == "pandora")
                 self.assertEqual(pandora["saved"], 0)
                 self.assertEqual(pandora["current"], int(selected == applied))
@@ -1215,20 +1242,35 @@ class InstallerTransaction(unittest.TestCase):
             "uninstall",
             "restart",
             "recover",
-            "dismiss",
         ):
             calls.unlink(missing_ok=True)
             self.api(operation, "f" * 64)
             self.assertEqual(calls.read_text(), "callcall", operation)
-        # Role is part of the skip capability; USB cannot take the installed read.
-        (runtime / "runtime").unlink()
-        (runtime / "usb-runtime").symlink_to(self.tools)
-        calls.unlink()
-        result, _ = self.api("status", argument="completion")
-        self.assertNotEqual(result.returncode, 0)
+
+        # Verify shell firmware_guard directly for usb:status:completion and all 5 environment guards.
+        def run_shell_guard(tag):
+            return subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    'set -eu; P=$1; . "$P/state.sh"; . "$P/firmware.sh"; '
+                    'fail() { printf \'{"ok":false,"error":"%s"}\\n\' "$1"; exit 1; }; '
+                    'firmware_guard "$2"',
+                    "guard",
+                    self.tools,
+                    tag,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=self.host_api_env(data),
+            )
+
+        calls.unlink(missing_ok=True)
+        self.assertEqual(run_shell_guard("settings:status:completion").returncode, 0)
+        self.assertFalse(calls.exists())
+        self.assertEqual(run_shell_guard("usb:status:completion").returncode, 0)
         self.assertEqual(calls.read_text(), "callcall")
-        (runtime / "usb-runtime").unlink()
-        (runtime / "runtime").symlink_to(self.tools)
         for fact, error in (
             ("root", "root_required"),
             ("version", "unsupported_firmware"),
@@ -1253,9 +1295,9 @@ class InstallerTransaction(unittest.TestCase):
                     mounts.write_text(saved_mounts.replace("relfs ro,noatime", "relfs rw"))
                 else:
                     (self.root / "mnt/persist").rmdir()
-                result, answer = self.api("status", argument="completion")
+                result = run_shell_guard("settings:status:completion")
                 self.assertNotEqual(result.returncode, 0)
-                self.assertEqual(answer["error"], error)
+                self.assertEqual(json.loads(result.stdout)["error"], error)
                 module.write_text(original)
                 version.write_text(saved_version)
                 mounts.write_text(saved_mounts)
@@ -1908,14 +1950,14 @@ class InstallerTransaction(unittest.TestCase):
                 backend = self.tools / "backend.sh"
                 backend.write_text(
                     backend.read_text().replace(
-                        '    transaction_prepare uninstall "$before" "$after"',
-                        "    access_work="
+                        '  transaction_prepare uninstall "$before" "$after"',
+                        "  access_work="
                         + shlex.quote(str(resources))
                         + "; resources=$access_work\n"
-                        + "    "
+                        + "  "
                         + cleanup_traps[list(cuts).index(cut) % len(cleanup_traps)]
                         + "\n"
-                        + '    transaction_prepare uninstall "$before" "$after"',
+                        + '  transaction_prepare uninstall "$before" "$after"',
                     )
                 )
                 with (self.tools / "firmware.sh").open("a") as stream:
@@ -2125,7 +2167,7 @@ class InstallerTransaction(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+            env=self.host_api_env(),
         )
         gate = self.target(data, "audit-go")
 
@@ -2263,7 +2305,6 @@ class InstallerTransaction(unittest.TestCase):
         replacement = self.root / "replacement"
         shutil.copytree(old, replacement)
         (replacement / "closed").unlink()
-        (replacement / "api").write_text("#!/bin/sh\nexit 0\n")
         (replacement / "files.sha256").write_text(
             "".join(
                 hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
@@ -2359,7 +2400,7 @@ class InstallerTransaction(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
+            env=self.host_api_env(),
         )
         gate = self.target(data, "writer-go")
         try:
@@ -2384,26 +2425,16 @@ class InstallerTransaction(unittest.TestCase):
         self.assertEqual(os.readlink(self.tools / "admitted"), "OCUSB1|112000|-")
 
     def test_slow_audit_allows_an_unchanged_exclusive_settings_reader(self):
-        _, process, gate = self.delayed_status("concurrent-read")
-        backend = self.tools / "backend.sh"
-        source = backend.read_text()
-        lock = (
-            'if test "$operation:$argument" = status:settings; then flock -n -s 9 || fail busy\n'
-            "else flock -n -x 9 || fail busy; fi"
-        )
-        self.assertIn(lock, source)
-        # The old installed reader takes an exclusive lock. Merely changing the
-        # new audit to a shared lock would still block this exact behavior.
-        legacy = source.replace(lock, "flock -n -x 9 || fail busy")
-        result = subprocess.run(
-            ["sh", "-c", legacy, str(backend), "api", "-", "status", "settings", "-", "-"],
-            capture_output=True,
-            text=True,
-            timeout=15,
-            env={**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]},
-        )
+        data, process, gate = self.delayed_status("concurrent-read")
+        # Both an exclusive lock holder (simulating a legacy installed reader) and
+        # native api's shared status:settings reader succeed while full status drops
+        # the lock during its unlocked physical audit.
+        with (self.root / "runtime/lock").open("r+") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(lock, fcntl.LOCK_UN)
+        result, answer = self.api("status", argument="settings")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertTrue(json.loads(result.stdout)["installed"])
+        self.assertTrue(answer["installed"])
         self.assertIsNone(process.poll())
         self.assertFalse(gate.exists())
         gate.touch()

@@ -480,4 +480,25 @@ for(const mode of ['set-rec','import-rec','import-refuse']){
  f.fw.common._cachedVuiState='Idle';
  assert.equal(f.fw.common._openConnectPage,undefined,mode+' must retire stale page when voice owns screen');
 }
+// Deferred sync behind Apply when native voice starts AFTER readback and BEFORE the queued Set ACK must still retire stale page.
+f=warm({...developer,touch:1,touchCurrent:1,warning:1,warningCurrent:1,restart:false});
+select(f,'developer');select(f,'import');f.pick('import');
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();
+select(f,0);select(f,0);f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+select(f,'restart');f.pick('restart');assert.equal(f.dialog.props.text1,'Applying changes');
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,touch:1,touchCurrent:1,warning:0,warningCurrent:1,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+const queuedSet=f.operation('set')[0];assert.ok(queuedSet);
+f.fw.common._cachedVuiState='Listening';
+f.reply(queuedSet,f.state({...developer,touch:0,touchCurrent:1,warning:0,warningCurrent:1,restart:true,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'f'.repeat(64)}));
+f.fw.common._cachedVuiState='Idle';
+assert.equal(f.fw.common._openConnectPage,undefined,'deferred sync must retire stale page when voice starts before queued Set ACK');
+// Reconciled Import while staying on Developer options must rebuild Developer options only once, focused on Import.
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+const pagesBefore=f.pages.length;
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+assert.equal(f.pages.length,pagesBefore+1,'reconciled Import on Developer page must render once, not twice');
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[f.pages.at(-1).list2Ctrl.focussedItem].appData,'import');
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

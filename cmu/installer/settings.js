@@ -270,7 +270,7 @@ function canRestart(){
 var v=prefs.values();
 return v&&v.restart===true&&typeof store.restart==="function"&&!(store.busy&&store.busy()&&!prefs.pending());
 }
-function showWait(t){endWait();wait=dialogs.progress(fw,t,"Do not turn off the car.",function(){wait=null;prefs.cancelQueue();if(ns&&current())prefs.changed("sync");});return!!wait;}
+function showWait(t){endWait();wait=dialogs.progress(fw,t,"Do not turn off the car.",function(){wait=null;prefs.cancelQueue();if(ns)prefs.changed("sync");});return!!wait;}
 function runAction(a){
   if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
   if(store[a](close))return;
@@ -281,7 +281,11 @@ function maintain(a){
   if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
   if(!prefs.pending()){runAction(a);return;}
   if(!showWait(a==="restart"?"Applying changes":"Removing Open Connect"))return;
-  prefs.queue(function(ok){endWait();if(ok&&current())runAction(a);else if(current()&&!prefs.failure)render(choice,a);},a==="uninstall");
+  prefs.queue(function(ok){
+    endWait();
+    if(ok&&current())runAction(a);
+    else if(!prefs.failure){if(current())render(choice,a);else if(ns)close();}
+  },a==="uninstall");
 }
 function select(control,item,params){
   if(!current()||dismiss||wait||!page||control!==page.list2Ctrl)return;
@@ -332,6 +336,7 @@ prefs.select(item,params.additionalData===1?1:0);
     prefs.queue(function(ok){
       if(!ok||!current()){endWait();return;}
       prefs.importKey(function(actual){
+        if(current()&&choice==="developer")ns=false;
         endWait();if(!current()||choice!=="developer")return;
         render("developer","import");
         dismiss=dialogs.message(fw,actual?"Public key imported":"Key could not be imported",
@@ -370,7 +375,7 @@ if(wait){ns=true;return;}
 render(choice,0);return;
 }
 if(!failed){
-if(ns&&current()&&!wait){render(choice,0);return;}
+if(ns&&!wait){prefs.changed("sync");return;}
 if(current()&&choice===null&&!dismiss&&!wait){
 page.list2Ctrl.dataList.items.forEach(function(r,i){if(r.appData==="restart"){r.disabled=!canRestart();page.list2Ctrl.updateItems(i,i);}});
 }return;
@@ -501,7 +506,7 @@ blocked:function(){return active||waiting||session&&session.pending();}};
 
 (function(a,f){
 if(!a||a.loaded&4)return;
-var camera,cameraSeen,displayOff;
+var cam,camS,dOff;
 function owner(c){return c&&c.autoshowState();}
 a.owner=function(){
 if(f.common._openConnectOperation||window.__ocCompletionLoading||window.__ocMaintenanceLoading||
@@ -518,8 +523,8 @@ return id==="system"?(/^(HomeScreen|Entertainment)$/.test(ctx)?0:2):
 a.check=function(focus,next){
 var gate=a.owner(),h=f._currTmpltInstance,id=f.getCurrentApp(),c=f.common,s=OpenConnectSettings,edge=a.edge();
 if(gate)return gate;
-if(a.dialogs||s.blocked&&s.blocked()||displayOff)return 2;
-if(camera||!h||!c||!focus||f._focusStack!==focus||focus[0].id!==id||
+if(a.dialogs||s.blocked&&s.blocked()||dOff)return 2;
+if(cam||!h||!c||!focus||f._focusStack!==focus||focus[0].id!==id||
 h.contextInfo.uiaId!==id||f._frameworkState!==f._FWK_STATE_IDLE||!f._browserShown)return 1;
 var ctx=h.contextInfo.ctxtId,app=f.getAppInstance(id);
 if(!app||!app._currentContext||app._currentContext.ctxtId!==ctx||
@@ -539,7 +544,7 @@ return kind;
 function depart(m,edge){
 if(!edge||!m||m.msgType!=="ctxtChg"||m._cp.seq<=edge.seq||!m._cp.ctx)return false;
 var c=m._cp.ctx;
-if(c[0]==="backupparking"||c[1]==="Idle"||camera)return false;
+if(c[0]==="backupparking"||c[1]==="Idle"||cam)return false;
 var kind=context(c[0],c[1]),old=edge.back||edge.origin;
 if(kind===2)return true;
 if(kind===1)return false;
@@ -554,22 +559,22 @@ var id=m.msgId,p=m.params&&m.params.payload;
 var edge=a.edge(),c=m._cp.ctx;
 if(c){
 if(c[0]==="backupparking"){
-if(c[1]==="Idle"){if(!cameraSeen)camera=null;}
+if(c[1]==="Idle"){if(!camS)cam=null;}
 else{
-if(!camera)camera=m._cp;
-if(m._cp.focus)cameraSeen=true;
-if(edge&&m._cp.seq>edge.seq){edge.reverse=camera.seq;edge.back=null;}
+if(!cam)cam=m._cp;
+if(m._cp.focus)camS=true;
+if(edge&&m._cp.seq>edge.seq){edge.reverse=cam.seq;edge.back=null;}
 }
 }else{
 if(m._cp.focus){
-if(camera&&(cameraSeen||String(c)!==String(camera.base))){camera=null;cameraSeen=false;}
-displayOff=false;
+if(cam&&(camS||String(c)!==String(cam.base))){cam=null;camS=false;}
+dOff=false;
 }
-if(c[1]==="DisplayOff")displayOff=true;
+if(c[1]==="DisplayOff")dOff=true;
 if(c[0]==="phone"&&!m._cp.focus&&/^(ActiveCall|IncomingCall|CallWaiting|MultipleCallWaiting|BTMultipleCall|OutgoingCall|Connecting)/.test(c[1]))a.busy|=2;
 }
 }
-if(edge===m._cp&&camera)edge.reverse=camera.seq;
+if(edge===m._cp&&cam)edge.reverse=cam.seq;
 if(edge&&m._cp.seq>edge.seq&&m.uiaId==="carplay"&&id==="TimedSbn_CarplayConnected")edge.ready=m;
 if(edge&&m._cp.seq>edge.seq&&m.uiaId==="system"&&p&&p.appName==="carplay"&&
 /^(StatusMenuVisibleCarPlay|StatusMenuCarPlayWifi)$/.test(id)){
@@ -586,7 +591,7 @@ if(m.uiaId==="phone"){
 if(/^(ActiveCallInfo|ConferenceCallInfo|BTMultipleCallCP)$/.test(id))a.busy|=2;
 if(id==="NoCallState")a.busy&=~2;
 }
-if(depart(m,edge)||(a.busy||displayOff)&&(!edge||m._cp.seq>=edge.seq))a.cancel();
+if(depart(m,edge)||(a.busy||dOff)&&(!edge||m._cp.seq>=edge.seq))a.cancel();
 };
 a.early.forEach(a.signal);a.early=null;
 a.run=function(edge,input,trust,focus,next){

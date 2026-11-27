@@ -74,74 +74,20 @@ class NativeBootSelection(unittest.TestCase):
         cls.build = tempfile.TemporaryDirectory()
         folder = Path(cls.build.name).resolve()
         cls.program = folder / "boot-select"
-        # Only physical Base/touch input digests are adapted to authored
-        # fixtures. The selector, metadata, commit and publication logic is real.
-        for source in (*ASSETS.glob("boot-*.h"), ASSETS / "boot-select.c"):
-            text = source.read_text()
-            for _, _, data, original in (
-                *cls.BASE_INPUTS,
-                *cls.TOUCH_INPUTS,
-                (
-                    "manager.so",
-                    "/jci/lib/libjciuiamgr.so",
-                    "stock manager.so\n",
-                    "1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29",
-                ),
-                (
-                    "originals/mmui.xml",
-                    "/tmp/mnt/data_persist/open-connect/originals/mmui.xml",
-                    "stock original mmui.xml\n",
-                    "ef9550fa084a34b6a997d2e488c41e50667b409fa2e6ad9c896429c74dc705f0",
-                ),
-            ):
-                text = text.replace(original, sha(data.encode()))
-            text = text.replace(
-                "static int oc_stock_meta(int root,OcMeta *stock) { return oc_stat(root,stock)>=0; }",
-                'static int oc_stock_meta(int root,OcMeta *stock) { int ok=oc_stat(root,stock)>=0; if(getenv("OC_TOUCH_WRONG_FS")) ++stock->device; return ok; }',
-            )
-            # Inject syscall failures in the private host adapter, not in the
-            # shipped selector. All policy/publication/unwind code stays real.
-            if source.name == "boot-io.h":
-                text = text.replace(
-                    "#include <errno.h>",
-                    "#include <errno.h>\n#include <stdlib.h>\n#include <string.h>",
-                )
-                text = text.replace(
-                    "static long oc_metadata(int fd, const char *path, OcMeta *m)",
-                    "static long oc_metadata_raw(int fd, const char *path, OcMeta *m)",
-                    1,
-                )
-                text = text.replace(
-                    "#else\n#define OC_CWD",
-                    """static long oc_metadata(int fd,const char *path,OcMeta *m) {
-    static int failed;
-    const char *fault=getenv("OC_ALIAS_META_FAIL");
-    if(path&&fault&&failed<2&&!strcmp(path,fault)) { ++failed; return -5; }
-    long result=oc_metadata_raw(fd,path,m);
-    if(result>=0&&path&&!strcmp(path,"boot-id")&&getenv("OC_BOOT_OWNER_FAIL")) ++m->uid;
-    return result;
-}
-#else
-#define OC_CWD""",
-                    1,
-                )
-            if source.name == "boot-system.h":
-                text = text.replace(
-                    "static long oc_link(int from,const char *name,int to,const char *target) { return linkat(from,name,to,target,0)<0?-errno:0; }",
-                    """static long oc_link(int from,const char *name,int to,const char *target) {
-    const char *foreign=getenv("OC_ALIAS_FOREIGN"),*fault=getenv("OC_ALIAS_LINK_FAIL"),*after=getenv("OC_ALIAS_LINK_AFTER");
-    if(foreign&&!strcmp(target,foreign)) {
-        long fd=oc_openat(to,target,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
-        if(fd>=0) { (void)oc_write_all((int)fd,"foreign\\n",8); (void)oc_close((int)fd); }
-        return -17;
-    }
-    if(fault&&!strcmp(target,fault)) return -5;
-    if(linkat(from,name,to,target,0)<0) return -errno;
-    return after&&!strcmp(target,after)?-5:0;
-}""",
-                    1,
-                )
-            (folder / source.name).write_text(text)
+        cls.pins_file = folder / "host-pins.txt"
+        pin_lines = []
+        for name, _, data, _ in cls.BASE_INPUTS:
+            pin_lines.append(f"base/{name}={sha(data.encode())}\n")
+        for name, _, data, _ in cls.TOUCH_INPUTS:
+            pin_lines.append(f"touch/devices/{name}={sha(data.encode())}\n")
+        mgr_sha = sha(b"stock manager.so\n")
+        mmui_sha = sha(b"stock original mmui.xml\n")
+        pin_lines.append(f"manager.so={mgr_sha}\n")
+        pin_lines.append(f"originals/mmui.xml={mmui_sha}\n")
+        cls.pins_file.write_text("".join(pin_lines))
+        # Compile unmodified production C sources with ASan+UBSan; host test
+        # pins and fault injection use OC_HOST environment hooks only.
+        core_srcs = sorted((ASSETS / "core").glob("*.c"))
         subprocess.run(
             [
                 "clang",
@@ -149,10 +95,13 @@ class NativeBootSelection(unittest.TestCase):
                 "-D_GNU_SOURCE",
                 "-std=c11",
                 "-O2",
+                "-fsanitize=address,undefined",
+                "-fno-omit-frame-pointer",
                 "-Wall",
                 "-Wextra",
                 "-Werror",
-                folder / "boot-select.c",
+                ASSETS / "boot-select.c",
+                *core_srcs,
                 "-o",
                 cls.program,
             ],
@@ -171,6 +120,12 @@ class NativeBootSelection(unittest.TestCase):
         )
         if shutil.which("gstat"):
             (Path(cls.build.name) / "stat").symlink_to(shutil.which("gstat"))
+
+    def _host_env(self, extra=None):
+        env = {**os.environ, "OC_HOST_PINS": str(self.pins_file)}
+        if extra:
+            env.update(extra)
+        return env
 
     @classmethod
     def tearDownClass(cls):
@@ -425,6 +380,7 @@ class NativeBootSelection(unittest.TestCase):
                 input=text.encode(),
                 stdout=output,
                 stderr=subprocess.PIPE,
+                env=self._host_env(),
                 timeout=5,
             )
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -824,8 +780,7 @@ package_save
     ):
         # A regular fixture models urandom's bytes, refreshing them per entry.
         self.put("dev/urandom", os.urandom(1024))
-        env = {**os.environ}
-        env.update(extra_env or {})
+        env = self._host_env(extra_env)
         if cut:
             env["OC_BOOT_CUT"] = cut
         if term:
@@ -1018,6 +973,7 @@ package_save
         before = (self.data / "record").read_bytes()
         result = subprocess.run(
             [self.program, "copy-ui", self.root, self.snapshot.name, stage.name],
+            env=self._host_env(),
             capture_output=True,
             timeout=5,
         )
@@ -1436,6 +1392,7 @@ package_save
         self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
 
     def _run_helper(self, *args, stdin=b"", env=None, stdout_path=None):
+        run_env = self._host_env(env)
         if stdout_path is not None:
             with Path(stdout_path).open("wb") as out:
                 return subprocess.run(
@@ -1443,7 +1400,7 @@ package_save
                     input=stdin,
                     stdout=out,
                     stderr=subprocess.PIPE,
-                    env={**os.environ, **(env or {})},
+                    env=run_env,
                     timeout=5,
                 )
         return subprocess.run(
@@ -1451,7 +1408,7 @@ package_save
             input=stdin,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            env={**os.environ, **(env or {})},
+            env=run_env,
             timeout=5,
         )
 
@@ -2179,7 +2136,7 @@ package_save
         shutil.copyfile(Path(self.build.name) / "flush", ram_session / "flush")
         (ram_session / "flush").chmod(0o700)
 
-        env = {**os.environ, "PATH": self.build.name + os.pathsep + os.environ["PATH"]}
+        env = self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]})
 
         def check(role="settings", cur=snap.name, backend=pkg.name, ram=ram_session):
             return subprocess.run(
@@ -2343,7 +2300,7 @@ package_save
             f'exec {shlex.quote(str(self.program))} "$op" {shlex.quote(str(self.root))} "$@"\n'
         )
         wrapper.chmod(0o700)
-        env = {**os.environ, "PATH": self.build.name + os.pathsep + os.environ["PATH"]}
+        env = self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]})
         nvram_file = self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction"
         witness_file = self.ram / "nvram-witness.txt"
 
@@ -2789,3 +2746,364 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
         self.assertEqual(json.loads(refused_link.stdout)["error"], "state_changed")
         self.assertEqual((self.data / "record").read_bytes(), before_rec)
         self.assertEqual(list((self.data / "snapshots").glob(".new-*")), [])
+
+    def _make_dummy_snapshot(self, tag, extra_file=None):
+        work = self.data / "snapshots" / f".new-gc-{tag}"
+        work.mkdir(mode=0o700)
+        for nm, val in (
+            ("autostart", f"snap-{tag}\n"),
+            ("config", f"OC2\ntag={tag}\n"),
+            ("boot.plan", f"OCBP1|plan-{tag}\n"),
+        ):
+            (work / nm).write_text(val)
+            (work / nm).chmod(0o600)
+        snap = self.publish(work)
+        if extra_file is not None:
+            (snap / extra_file).write_text("unlisted\n")
+            (snap / extra_file).chmod(0o600)
+        return snap
+
+    def _run_gc(self, *, lock_fd=None, cut=None):
+        cmd = [self.program, "gc", self.root]
+        pass_fds = ()
+        if lock_fd is not None:
+            cmd.append(str(lock_fd))
+            pass_fds = (lock_fd,)
+        env = self._host_env({"OC_BOOT_CUT": cut} if cut else None)
+        return subprocess.run(
+            cmd,
+            env=env,
+            capture_output=True,
+            pass_fds=pass_fds,
+            timeout=5,
+        )
+
+    def test_gc_prunes_unreachable_bounded_resumes_tombstones_and_protects_pins(self):
+        import fcntl
+
+        lock_path = self.ram / "lock"
+        lock_path.write_bytes(b"")
+        lock_path.chmod(0o600)
+
+        # Create pinned selected & access-selected snapshots distinct from R_BASE / R_CURRENT.
+        pin_sel = self._make_dummy_snapshot("pin-sel")
+        pin_acc = self._make_dummy_snapshot("pin-acc")
+        (self.ram / "selected").write_text(pin_sel.name + "\n")
+        (self.ram / "selected").chmod(0o600)
+        (self.ram / "access-selected").write_text(pin_acc.name + "\n")
+        (self.ram / "access-selected").chmod(0o600)
+
+        # Create 6 unreachable valid snapshots + 1 unknown directory + 1 dir with unlisted file.
+        garbage = [self._make_dummy_snapshot(f"g{i}") for i in range(6)]
+        unknown = self.data / "snapshots" / ("a" * 64)
+        unknown.mkdir(mode=0o700)
+        (unknown / "foreign.txt").write_text("keep\n")
+        extra_snap = self._make_dummy_snapshot("extra", extra_file="stray.txt")
+
+        # 1) Inherited lock_fd pointing to wrong inode, unlocked real lock, or
+        #    LOCK_SH-locked real lock are all refused with zero deletions.
+        wrong_lock = self.ram / "wrong-lock"
+        wrong_lock.write_bytes(b"")
+        wrong_lock.chmod(0o600)
+        with wrong_lock.open("r+b") as wf:
+            self.assertNotEqual(self._run_gc(lock_fd=wf.fileno()).returncode, 0)
+        with lock_path.open("r+b") as ulf:
+            self.assertNotEqual(self._run_gc(lock_fd=ulf.fileno()).returncode, 0)
+            fcntl.flock(ulf.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
+            self.assertNotEqual(self._run_gc(lock_fd=ulf.fileno()).returncode, 0)
+        self.assertTrue(all(p.is_dir() for p in garbage))
+
+        # 1b) Unowned / damaged .prune-* entries (5 > OC_GC_MAX) and disallowed-leaf
+        #     or symlink-containing candidates never wedge GC and remain untouched.
+        stuck_tombs = []
+        for idx, kind in enumerate(("nonempty", "bad_mf", "foreign_leaf", "symlink", "file")):
+            tpath = self.data / "snapshots" / f".prune-{idx:064x}"
+            stuck_tombs.append(tpath)
+            if kind == "symlink":
+                tpath.symlink_to(unknown)
+            elif kind == "file":
+                tpath.write_text("not-a-dir\n")
+                tpath.chmod(0o600)
+            else:
+                tpath.mkdir(mode=0o700)
+                if kind == "nonempty":
+                    (tpath / "autostart").write_text("orphaned\n")
+                    (tpath / "autostart").chmod(0o600)
+                elif kind == "bad_mf":
+                    (tpath / "files.sha256").write_text("tampered\n")
+                    (tpath / "files.sha256").chmod(0o600)
+                else:
+                    (tpath / "evil.sh").write_text("bad\n")
+                    (tpath / "evil.sh").chmod(0o600)
+                    mf = sha(b"bad\n") + "  evil.sh\n"
+                    (tpath / "files.sha256").write_text(mf)
+                    (tpath / "files.sha256").chmod(0o600)
+        disallowed_work = self.data / "snapshots" / ".new-disallowed"
+        disallowed_work.mkdir(mode=0o700)
+        (disallowed_work / "evil.sh").write_text("keep-me\n")
+        (disallowed_work / "evil.sh").chmod(0o600)
+        disallowed_snap = self.publish(disallowed_work)
+        sym_snap = self._make_dummy_snapshot("sym-member")
+        (sym_snap / "autostart").unlink()
+        (sym_snap / "autostart").symlink_to("/etc/passwd")
+
+        # 2) Standalone GC fails when lock is held by another open descriptor; succeeds with inherited fd.
+        with lock_path.open("r+b") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.assertNotEqual(self._run_gc().returncode, 0)
+
+            # 3) Non-settled OC1 or legacy_undo != - skips GC cleanly.
+            orig_rec = (self.data / "record").read_bytes()
+            rec_set = list(self.record)
+            rec_set[1] = "set"
+            rec_set[6] = self.snapshot.name
+            rec_set[7] = garbage[0].name
+            (self.data / "record").write_text("|".join(rec_set) + "\n")
+            self.assertNotEqual(self._run_gc(lock_fd=lf.fileno()).returncode, 0)
+            rec_undo = list(self.record)
+            rec_undo[8] = garbage[0].name
+            (self.data / "record").write_text("|".join(rec_undo) + "\n")
+            self.assertNotEqual(self._run_gc(lock_fd=lf.fileno()).returncode, 0)
+            (self.data / "record").write_bytes(orig_rec)
+
+            # 4) Malformed, symlinked, or dangling selected/access-selected markers skip GC.
+            for bad_kind in ("malformed", "symlink", "dangling"):
+                orig_sel = (self.ram / "selected").read_text()
+                (self.ram / "selected").unlink()
+                if bad_kind == "malformed":
+                    (self.ram / "selected").write_text("not-a-hex-id\n")
+                elif bad_kind == "symlink":
+                    (self.ram / "selected").symlink_to(self.ram / "access-selected")
+                else:
+                    (self.ram / "selected").write_text("f" * 64 + "\n")
+                self.assertNotEqual(self._run_gc(lock_fd=lf.fileno()).returncode, 0, bad_kind)
+                (self.ram / "selected").unlink()
+                (self.ram / "selected").write_text(orig_sel)
+                (self.ram / "selected").chmod(0o600)
+            self.assertTrue(all(p.is_dir() for p in garbage))
+
+            # 5) Bounded sweep: first call removes at most 4 of the 6 garbage snapshots.
+            first = self._run_gc(lock_fd=lf.fileno())
+            self.assertEqual(first.returncode, 0, first.stderr)
+            remaining = [p for p in garbage if p.exists()]
+            self.assertEqual(len(remaining), 2)
+            for pinned in (
+                self.baseline,
+                self.snapshot,
+                pin_sel,
+                pin_acc,
+                unknown,
+                extra_snap,
+                disallowed_snap,
+                sym_snap,
+            ):
+                self.assertTrue(pinned.is_dir(), f"must preserve {pinned.name}")
+            for st in stuck_tombs:
+                self.assertTrue(os.path.lexists(st), f"must leave unowned tombstone {st.name}")
+
+            # Second call finishes the remaining 2 garbage snapshots.
+            second = self._run_gc(lock_fd=lf.fileno())
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertEqual([p for p in garbage if p.exists()], [])
+
+            # 6) Tombstone-first crash resume across all 3 cut points.
+            for cut_point in (
+                "gc_tombstone_renamed",
+                "gc_before_manifest_unlink",
+                "gc_after_manifest_unlink",
+            ):
+                victim = self._make_dummy_snapshot(f"cut-{cut_point}")
+                tomb = self.data / "snapshots" / f".prune-{victim.name}"
+                cut_res = self._run_gc(lock_fd=lf.fileno(), cut=cut_point)
+                self.assertEqual(cut_res.returncode, 97, cut_point)
+                self.assertFalse(victim.exists(), cut_point)
+                self.assertTrue(tomb.is_dir(), cut_point)
+                if cut_point == "gc_tombstone_renamed":
+                    self.assertTrue((tomb / "autostart").is_file())
+                    self.assertTrue((tomb / "files.sha256").is_file())
+                elif cut_point == "gc_before_manifest_unlink":
+                    self.assertFalse((tomb / "autostart").exists())
+                    self.assertTrue((tomb / "files.sha256").is_file())
+                else:
+                    self.assertEqual(list(tomb.iterdir()), [])
+                resumed = self._run_gc(lock_fd=lf.fileno())
+                self.assertEqual(resumed.returncode, 0, resumed.stderr)
+                self.assertFalse(tomb.exists(), cut_point)
+
+        # 7) Standalone lock succeeds when unlocked and pins stay intact.
+        extra_victim = self._make_dummy_snapshot("standalone")
+        solo = self._run_gc()
+        self.assertEqual(solo.returncode, 0, solo.stderr)
+        self.assertFalse(extra_victim.exists())
+        for pinned in (self.baseline, self.snapshot, pin_sel, pin_acc, unknown, extra_snap):
+            self.assertTrue(pinned.is_dir())
+
+    def test_gc_failure_isolated_from_save_and_unlocked_status_returns_busy(self):
+        # Verify: (a) gc_snap failure never breaks a settled save; (b) unlocked
+        # full-status audit detects a concurrent commit+GC of S1 -> S2 and returns busy.
+        import fcntl
+
+        lock_path = self.ram / "lock"
+        lock_path.write_bytes(b"")
+        lock_path.chmod(0o600)
+        s1 = self.snapshot
+        # Create a valid OC2 boot-selected snapshot distinct from R_CURRENT (s1),
+        # so backend.sh accepts settings_package and GC can prune s1 once s2 commits.
+        s0_work = self.data / "snapshots" / ".new-gc-selected"
+        s0_work.mkdir(mode=0o700)
+        for p in s1.iterdir():
+            if p.name != "files.sha256":
+                (s0_work / p.name).write_bytes(p.read_bytes())
+                (s0_work / p.name).chmod(0o600)
+        (s0_work / "autostart").write_text("boot-selected autostart\n")
+        (s0_work / "config").write_text(
+            f"OC2\nbase=0\ncarplay-autoshow=0\nmetadata={self.mode}\nnvram=disable\n"
+            f"package={self.package_id}\nservice-ids=android-auto,pandora,siriusxm\n"
+            "service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\n"
+            "touch=1\nwarning=1\nwireless=1\n"
+        )
+        s0 = self.publish(s0_work)
+        (self.ram / "selected").write_text(s0.name + "\n")
+        (self.ram / "selected").chmod(0o600)
+
+        # (a) gc_snap with a failing boot-select still returns 0 (isolated from save),
+        #     and when BOOT_SELECT is unset it refuses symlinked or tampered package
+        #     boot-select without executing it.
+        bad_bs = Path(self.build.name) / "fail-bs"
+        bad_bs.write_text("#!/bin/sh\nexit 17\n")
+        bad_bs.chmod(0o700)
+        iso = subprocess.run(
+            [
+                "sh",
+                "-c",
+                f"set -eu; D={shlex.quote(str(self.data))}; R_BACKEND={self.package_id}; "
+                f"BOOT_SELECT={shlex.quote(str(bad_bs))}; . {shlex.quote(str(ASSETS / 'state.sh'))}; "
+                "gc_snap; printf ok",
+            ],
+            env=self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]}),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        self.assertEqual((iso.returncode, iso.stdout), (0, "ok"), iso.stderr)
+        pwn = self.ram / "pwned-by-gc"
+        evil = Path(self.build.name) / "evil-bs"
+        evil.write_text(f"#!/bin/sh\nprintf pwn > {shlex.quote(str(pwn))}\n")
+        evil.chmod(0o700)
+        orig_bs = (self.package / "boot-select").read_bytes()
+        for mode in ("symlink", "tampered"):
+            (self.package / "boot-select").unlink()
+            if mode == "symlink":
+                (self.package / "boot-select").symlink_to(evil)
+            else:
+                (self.package / "boot-select").write_bytes(evil.read_bytes())
+                (self.package / "boot-select").chmod(0o700)
+            ref = subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    f"set -eu; P={shlex.quote(str(self.package))}; D={shlex.quote(str(self.data))}; "
+                    f"R_BACKEND={self.package_id}; BOOT_SELECT=; . {shlex.quote(str(ASSETS / 'state.sh'))}; "
+                    "gc_snap; printf ok",
+                ],
+                env=self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]}),
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            self.assertEqual((ref.returncode, ref.stdout), (0, "ok"), mode + ": " + ref.stderr)
+            self.assertFalse(pwn.exists(), f"gc_snap executed {mode} boot-select!")
+        (self.package / "boot-select").unlink()
+        (self.package / "boot-select").write_bytes(orig_bs)
+        (self.package / "boot-select").chmod(0o700)
+
+        # (b) Simulate unlocked full-status audit observing S1, then concurrent set
+        # commits S2 + GCs S1 while full-status dropped lock fd 9: backend.sh status
+        # must return busy rather than conflict:true.
+        if not shutil.which("flock"):
+            import sys
+
+            flock_shim = Path(self.build.name) / "flock"
+            flock_shim.write_text(
+                f"#!{sys.executable}\n"
+                "import fcntl, sys\n"
+                "args = sys.argv[1:]\n"
+                "fd = int(args[-1])\n"
+                "if '-u' in args:\n"
+                "    fcntl.flock(fd, fcntl.LOCK_UN)\n"
+                "else:\n"
+                "    op = fcntl.LOCK_SH if '-s' in args else fcntl.LOCK_EX\n"
+                "    if '-n' in args: op |= fcntl.LOCK_NB\n"
+                "    fcntl.flock(fd, op)\n"
+            )
+            flock_shim.chmod(0o700)
+        be = Path(self.build.name) / "gc-status-session"
+        shutil.rmtree(be, ignore_errors=True)
+        shutil.copytree(ASSETS, be)
+        shutil.copyfile(Path(self.build.name) / "flush", be / "flush")
+        (be / "flush").chmod(0o700)
+        for sh_name in ("state.sh", "firmware.sh", "access.sh", "transaction.sh", "backend.sh"):
+            txt = (be / sh_name).read_text()
+            txt = txt.replace("/tmp/mnt/data_persist/open-connect", str(self.data))
+            txt = txt.replace("/tmp/open-connect", str(self.ram))
+            txt = txt.replace("/usr/bin/autostart", str(self.root / "usr/bin/autostart"))
+            txt = txt.replace("/usr/bin/runlogin", str(self.root / "usr/bin/runlogin"))
+            txt = txt.replace("/etc/ssh/sshd_config", str(self.root / "etc/ssh/sshd_config"))
+            txt = txt.replace(
+                "uuid() { tr -d '-' < /proc/sys/kernel/random/uuid; }",
+                "uuid() { openssl rand -hex 16; }",
+            )
+            (be / sh_name).write_text(txt)
+        (be / "firmware.sh").write_text(
+            (be / "firmware.sh").read_text() + "\nfirmware_guard() { :; }\n"
+        )
+        (be / "transaction.sh").write_text(
+            (be / "transaction.sh").read_text()
+            + "\ntargets_match() {\n"
+            + f'  if test "$1" = {shlex.quote(s1.name)}; then\n'
+            + '    printf "waiting\\n" > '
+            + shlex.quote(str(self.ram / "audit-entered"))
+            + "\n"
+            + "    i=0; while test ! -f "
+            + shlex.quote(str(self.ram / "audit-release"))
+            + ' && test "$i" -lt 100; do sleep 0.05; i=$((i+1)); done\n'
+            + "    return 1\n"
+            + "  fi\n"
+            + "  return 0\n"
+            + "}\n"
+            + "dependencies_match() { return 0; }\n"
+        )
+        (self.ram / "runtime").symlink_to(be)
+        env = self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]})
+        proc = subprocess.Popen(
+            ["sh", str(be / "backend.sh"), "api", "-", "status", "-", "-", "-"],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        import time
+
+        deadline = time.monotonic() + 5.0
+        while not (self.ram / "audit-entered").exists() and time.monotonic() < deadline:
+            if proc.poll() is not None:
+                break
+            time.sleep(0.02)
+        if not (self.ram / "audit-entered").exists():
+            out, err = proc.communicate(timeout=5)
+            self.fail(
+                f"backend.sh exited before audit: rc={proc.returncode} out={out!r} err={err!r}"
+            )
+        # Concurrent writer takes lock, advances R_CURRENT to S2, and GCs S1.
+        s2 = self._make_dummy_snapshot("concurrent-s2")
+        with lock_path.open("r+b") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.record[5] = s2.name
+            self.save_record()
+            gc_res = self._run_gc(lock_fd=lf.fileno())
+            self.assertEqual(gc_res.returncode, 0, gc_res.stderr)
+            self.assertFalse(s1.exists())
+        (self.ram / "audit-release").write_text("go\n")
+        out, err = proc.communicate(timeout=5)
+        self.assertNotEqual(proc.returncode, 0, out + err)
+        self.assertEqual(json.loads(out)["error"], "busy")

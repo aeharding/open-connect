@@ -1,10 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Access settings belong to the same immutable snapshots and transaction as the
-# feature settings. Keys are immutable inputs, not a second settings record.
+# Access settings share snapshots/transaction; keys are immutable inputs.
 
 access_capture() {
-  # Destination, requested UART/SSH state and imported key (or -).
   local dest=$1 uart=$2 ssh=$3 key=$4
   file /usr/bin/runlogin && file /etc/ssh/sshd_config || return 1
   cp /usr/bin/runlogin "$dest/runlogin" && cp /etc/ssh/sshd_config "$dest/sshd.conf" || return 1
@@ -258,4 +256,5 @@ fast_set_publish() {
   fi
   R_PHASE=active; R_CURRENT=$after; R_BEFORE=-; R_AFTER=-; R_BUDGET=3; R_OFF=-; R_BOOT=-; R_NOTICE=restart
   record_write; S_VER="|$after|"; S_CUR=
+  gc_snap
 }

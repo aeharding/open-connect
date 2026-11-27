@@ -338,9 +338,9 @@ class InstallerPreferences(unittest.TestCase):
                 self.run_preferences("rows", config, selected_services=selected).returncode, 0
             )
 
-    def test_dev9_changes_retain_supported_policy_and_reject_new_service_writes(self):
+    def test_write_fills_missing_catalog_defaults_and_legacy_operation_is_refused(self):
         current = self.fresh()
-        legacy = (
+        partial = (
             current.replace(b"carplay-autoshow=0\n", b"")
             .replace(b"service.android-auto=1\n", b"")
             .replace(b"service.siriusxm=1\n", b"")
@@ -350,7 +350,7 @@ class InstallerPreferences(unittest.TestCase):
             with self.subTest(pandora=pandora):
                 upgraded = self.run_preferences(
                     "write",
-                    legacy.replace(b"service.pandora=1", f"service.pandora={pandora}".encode()),
+                    partial.replace(b"service.pandora=1", f"service.pandora={pandora}".encode()),
                     package_id="b" * 64,
                     nvram_value="disable",
                     metadata_value="775:1000:1000",
@@ -362,14 +362,9 @@ class InstallerPreferences(unittest.TestCase):
                         b"service.pandora=1", f"service.pandora={pandora}".encode()
                     ),
                 )
-        changed = self.run_preferences("set", legacy, legacy="1", key="service.pandora", value="0")
-        self.assertEqual(changed.returncode, 0, changed.stderr)
-        self.assertEqual(self.run_preferences("legacy", changed.stdout).stdout, b"1|1|0|0|0\n")
+        self.assertNotEqual(self.run_preferences("legacy", current).returncode, 0)
         self.assertNotEqual(
-            self.run_preferences(
-                "set", legacy, legacy="1", key="service.android-auto", value="0"
-            ).returncode,
-            0,
+            self.run_preferences("set", partial, key="service.pandora", value="0").returncode, 0
         )
 
     def profile(self, wcp=False):

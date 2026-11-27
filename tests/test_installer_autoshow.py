@@ -49,6 +49,7 @@ class PageBudgets(unittest.TestCase):
             "firmware.sh": 45056,
             "transaction.sh": 16384,
             "service.sh": 16384,
+            "access.sh": 12288,
         }
         for name, cap in caps.items():
             with self.subTest(name=name):

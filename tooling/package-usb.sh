@@ -6,7 +6,7 @@ out=$1
 case "$out" in /*) ;; *) out=$PWD/$out;; esac
 test -f "$out/api" || { echo 'Build with make release.' >&2; exit 1; }
 # Each staged inode has its own tmpfs page budget; spare space is not transferable.
-for limit in dialog.js:8192 runtime.js:16384 maintenance.js:20480 settings.js:28672 carplay.js:4096 loader.js:4096 backend.sh:24576 state.sh:20480 firmware.sh:45056 transaction.sh:16384 service.sh:16384 preferences.awk:8192 boot.sh:16384; do
+for limit in dialog.js:8192 runtime.js:16384 maintenance.js:20480 settings.js:28672 carplay.js:4096 loader.js:4096 backend.sh:24576 state.sh:20480 firmware.sh:45056 transaction.sh:16384 service.sh:16384 access.sh:12288 preferences.awk:8192 boot.sh:16384; do
     name=${limit%:*}; bytes=${limit#*:}
     test "$(wc -c < "cmu/installer/$name")" -le "$bytes" || {
         echo "$name exceeds its RAM page budget ($bytes bytes)." >&2; exit 1;

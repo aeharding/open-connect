@@ -1,10 +1,19 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later
- * Native settled-boot selector and maintenance-time plan sealer.
- * No shell or target libc is part of the native file-verification path.
+ * Native settled-boot selector, plan sealer, auditor, and bounded snapshot GC.
+ * No shell or target libc is part of the native verification path.
  */
-#include "boot-policy.h"
+#include "core/oc-core.h"
 
 static int run(int argc, char **argv) {
+    if ((argc==3||argc==4)&&oc_equal(argv[1],"gc")&&argv[2][0]=='/') {
+        int lock_fd=-1;
+        if (argc==4) {
+            oc_u64 parsed=0;
+            if (!oc_decimal(argv[3],&parsed) || parsed<3 || parsed>1024) return 64;
+            lock_fd=(int)parsed;
+        }
+        return oc_gc_snapshots(argv[2],lock_fd);
+    }
     if ((argc==4||argc==5)&&oc_equal(argv[1],"audit")&&argv[2][0]=='/'&&oc_hex(argv[3],64)&&
         (argc==4||oc_hex(argv[4],64))) {
         return oc_audit(argv[2],argv[3],argc==5?argv[4]:0);
@@ -14,15 +23,12 @@ static int run(int argc, char **argv) {
     }
     if (argc==5&&oc_equal(argv[1],"copy-ui")&&argv[2][0]=='/'&&oc_hex(argv[3],64)&&
         oc_prefix(argv[4],".feature-")&&oc_key(argv[4])) {
-        /* The verified shell owns fd9's operation lock. No debit, NVRAM,
-         * publication, aliases or side effects outside its private stage.
-         */
-        for (const char *p=argv[4];*p;++p) if (*p=='/') return 64;
+        for (const char *p=argv[4]; *p; ++p) if (*p=='/') return 64;
         OcBoot *b=&oc_boot;
-        b->owner=oc_owner();b->group=oc_group();
+        b->owner=oc_owner(); b->group=oc_group();
         b->root=(int)oc_openat(OC_CWD,argv[2],OC_DIRECTORY,0);
         if (b->root<0) return 1;
-        b->data=oc_open_private(b->root,OC_DATA);b->ram=oc_open_private(b->root,OC_RAM);
+        b->data=oc_open_private(b->root,OC_DATA); b->ram=oc_open_private(b->root,OC_RAM);
         if (b->data<0||b->ram<0||!oc_record(b)||!oc_equal(b->record_fields[5],argv[3])||
             !oc_mounts(b)||!oc_policy_load(b)||!oc_load(b)||b->metadata_drift||
             !oc_absent_at(b->ram,"selected")||!oc_absent_at(b->ram,"feature")) return 1;
@@ -55,6 +61,7 @@ static int run(int argc, char **argv) {
     if (result) (void)oc_write_all(2,"boot_plan_refused\n",18);
     return result;
 }
+
 #ifdef OC_HOST
 int main(int argc, char **argv) { return run(argc,argv); }
 #else

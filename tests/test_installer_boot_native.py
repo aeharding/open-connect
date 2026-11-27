@@ -26,14 +26,19 @@ class NativeBootIO(unittest.TestCase):
             [
                 "clang",
                 "-DOC_HOST",
-                "-std=c11",
                 "-D_GNU_SOURCE",
+                "-std=c11",
                 "-Wall",
                 "-Wextra",
                 "-Werror",
                 "-O2",
+                "-fsanitize=address,undefined",
+                "-fno-omit-frame-pointer",
                 "-I" + str(ASSETS),
                 ROOT / "tests/fixtures/boot-io.c",
+                ASSETS / "core/oc-hash.c",
+                ASSETS / "core/oc-io.c",
+                ASSETS / "core/oc-manifest.c",
                 "-o",
                 cls.program,
             ],
@@ -133,18 +138,9 @@ class NativeBootPlan(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
         cls.program = Path(cls.temp.name).resolve() / "boot-select"
-        # These shell fixtures remap all OEM paths onto a private temporary
-        # volume. Remap only the physical stock-root device reference as well;
-        # the sealer still compares every selected source's actual device.
-        for source in (*ASSETS.glob("boot-*.h"), ASSETS / "boot-select.c"):
-            text = source.read_text()
-            text = text.replace(
-                "static int oc_stock_meta(int root,OcMeta *stock) { return oc_stat(root,stock)>=0; }",
-                'static int oc_stock_meta(int root,OcMeta *stock) { (void)root; long fd=oc_openat(OC_CWD,"'
-                + str(cls.program.parent)
-                + '",OC_DIRECTORY,0); if(fd<0)return 0; int ok=oc_stat((int)fd,stock)>=0; return oc_close((int)fd)>=0&&ok; }',
-            )
-            (cls.program.parent / source.name).write_text(text)
+        # Compile unmodified production C sources with host sanitizers; stock-root
+        # remapping for temporary shell fixtures uses the clean OC_HOST_STOCK_ROOT hook.
+        core_srcs = sorted((ASSETS / "core").glob("*.c"))
         subprocess.run(
             [
                 "clang",
@@ -152,10 +148,13 @@ class NativeBootPlan(unittest.TestCase):
                 "-D_GNU_SOURCE",
                 "-std=c11",
                 "-O2",
+                "-fsanitize=address,undefined",
+                "-fno-omit-frame-pointer",
                 "-Wall",
                 "-Wextra",
                 "-Werror",
-                cls.program.parent / "boot-select.c",
+                ASSETS / "boot-select.c",
+                *core_srcs,
                 "-o",
                 cls.program,
             ],
@@ -334,6 +333,7 @@ class NativeBootPlan(unittest.TestCase):
         )
         fixture.setUp()
         self.addCleanup(fixture.doCleanups)
+        fixture.env["OC_HOST_STOCK_ROOT"] = str(self.program.parent)
         previous = fixture.package_id
         version = fixture.root / "version.ini"
         version.write_text("verified synthetic firmware identity\n")

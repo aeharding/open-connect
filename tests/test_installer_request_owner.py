@@ -97,14 +97,27 @@ class RequestOwner(unittest.TestCase):
 
     def selector_snapshot(self, owner):
         selector = b"synthetic selector\n"
-        package = self.hashed_folder(self.data / "packages", {"boot-select": selector})
+        package = self.hashed_folder(
+            self.data / "packages",
+            {
+                "boot-select": selector,
+                "services.tsv": (ASSETS / "services.tsv").read_bytes(),
+                "preferences.awk": (ASSETS / "preferences.awk").read_bytes(),
+            },
+        )
         digest = hashlib.sha256(selector).hexdigest()
         descriptor = f"{digest}|700:{owner}|{package}\n"
+        config = (
+            f"OC2\nbase=0\ncarplay-autoshow=0\nmetadata=755:{self.owner}\nnvram=disable\n"
+            f"package={package}\nservice-ids=android-auto,pandora,siriusxm\n"
+            "service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\n"
+            "touch=1\nwarning=1\nwireless=0\n"
+        ).encode()
         snapshot = self.hashed_folder(
             self.data / "snapshots",
             {
                 "autostart": b"synthetic startup\n",
-                "config": f"{package}|1|1|disable|755:{self.owner}|1|0|0\n".encode(),
+                "config": config,
                 "dependencies": b"",
                 "selector": descriptor.encode(),
             },

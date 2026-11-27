@@ -18,6 +18,7 @@ class NativePreferences(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
         cls.binary = Path(cls.temp.name) / "boot-config"
+        core_srcs = sorted((ASSETS / "core").glob("*.c"))
         subprocess.run(
             [
                 "clang",
@@ -25,12 +26,15 @@ class NativePreferences(unittest.TestCase):
                 "-D_GNU_SOURCE",
                 "-std=c11",
                 "-O2",
+                "-fsanitize=address,undefined",
+                "-fno-omit-frame-pointer",
                 "-Wall",
                 "-Wextra",
                 "-Werror",
                 "-Wno-unused-function",
                 "-I" + str(ASSETS),
                 ROOT / "tests/fixtures/boot-config.c",
+                *core_srcs,
                 "-o",
                 cls.binary,
             ],
@@ -159,11 +163,11 @@ class NativePreferences(unittest.TestCase):
             self.assertNotEqual(self.decode(config.replace(b",dvd,", b",")), 0)
             self.assertNotEqual(self.decode(config.replace(b"service.dvd=", b"service.other=")), 0)
 
-    def test_only_actual_dev9_stock_and_active_forms_are_admitted(self):
+    def test_stock5_baseline_admitted_and_legacy_dev9_active_refused(self):
         self.assertEqual(self.decode(b"-|0|0|absent|755:0:0\n", False), 0)
         legacy = b"a" * 64 + b"|1|1|disable|755:0:0|0|1|1\n"
-        self.assertEqual(self.decode(legacy), 0)
-        self.assertNotEqual(self.decode(legacy.replace(b"|1|1|", b"|2|1|", 1)), 0)
+        self.assertNotEqual(self.decode(legacy, True), 0)
+        self.assertNotEqual(self.decode(legacy, False), 0)
         for changed in (b"-|0|0|absent|755:0:0|1|0|0\n", b"-|2|0|absent|755:0:0\n"):
             self.assertNotEqual(self.decode(changed, False), 0)
         for fields in (5, 6, 7):

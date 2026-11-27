@@ -156,8 +156,9 @@ snapshot_package() {
     hex "$digest" 64 && sha_is "$dir/config" "$digest" || return 1
   awk '
         NR==1 {if($0=="OC2")modern=1;else {
-            n=split($0,a,"|");if(n!=5&&n!=8)exit 1;p=a[1];count++
+            n=split($0,a,"|");if(n!=5||a[1]!="-")exit 1;p=a[1];count++
         }}
+        NR>1&&!modern {exit 1}
         modern&&/^package=/ {p=substr($0,9);count++}
         END {if(count!=1||(p!="-"&&(length(p)!=64||p~/[^a-f0-9]/)))exit 1;print p}
     ' "$dir/config"
@@ -217,12 +218,10 @@ preference_value() {
 }
 
 preferences_change() (
-  local prefs=$1 package=$2 key=$3 value=$4 schema=$5 folder=$P legacy=0
-  if test "$schema" = OC2; then folder=$(preferences_package "$package") || return 1
-  elif test "$schema" = dev9; then legacy=1
-  else return 1; fi
+  local prefs=$1 package=$2 key=$3 value=$4 schema=$5 folder
+  test "$schema" = OC2 && folder=$(preferences_package "$package") || return 1
   printf '%s\n' "$prefs" | awk -v operation=set -v catalog="$folder/services.tsv" -v catalog_bytes="$(wc -c < "$folder/services.tsv")" \
-    -v input=/dev/stdin -v input_bytes="$((${#prefs}+1))" -v legacy="$legacy" \
+    -v input=/dev/stdin -v input_bytes="$((${#prefs}+1))" \
     -v key="$key" -v value="$value" -f "$folder/preferences.awk"
 )
 
@@ -256,19 +255,10 @@ carplay-autoshow='}; S_AUTOSHOW=${S_AUTOSHOW%%'
     test "$(wc -l < "$source")" -eq 1 || return 1
     test "$(wc -c < "$source")" -eq "$((${#header}+1))" || return 1
     fields=$(awk -F '|' '{print NF}' "$source") || return 1
-    case "$fields" in 5|8) ;; *) return 1;; esac
-    IFS='|' read -r S_PACKAGE S_TOUCH S_WARNING S_NVRAM S_META S_PANDORA S_BASE S_WIRELESS extra < "$source" || return 1
-    test -z "$extra" || return 1
-    S_CONFIG_FIELDS=$fields
-    if test "$fields" = 5; then
-      test "$S_PACKAGE" = - || return 1
-      S_SCHEMA=stock; S_PANDORA=1; S_BASE=0; S_WIRELESS=0; S_SERVICES=; S_PREFS=
-    else
-      hex "$S_PACKAGE" 64 || return 1
-      S_SCHEMA=dev9; S_SERVICES=pandora=$S_PANDORA
-      S_PREFS=$(printf 'OC2\nbase=%s\nmetadata=%s\nnvram=%s\npackage=%s\nservice.pandora=%s\ntouch=%s\nwarning=%s\nwireless=%s' \
-        "$S_BASE" "$S_META" "$S_NVRAM" "$S_PACKAGE" "$S_PANDORA" "$S_TOUCH" "$S_WARNING" "$S_WIRELESS")
-    fi
+    test "$fields" = 5 || return 1
+    IFS='|' read -r S_PACKAGE S_TOUCH S_WARNING S_NVRAM S_META extra < "$source" || return 1
+    test -z "$extra" && test "$S_PACKAGE" = - || return 1
+    S_CONFIG_FIELDS=5; S_SCHEMA=stock; S_PANDORA=1; S_BASE=0; S_WIRELESS=0; S_SERVICES=; S_PREFS=
   fi
   { bit "$S_TOUCH" || test "$S_SCHEMA:$S_TOUCH" = OC2:2; } && bit "$S_WARNING" && bit "$S_PANDORA" && bit "$S_BASE" &&
     bit "$S_WIRELESS" && touch_value "$S_NVRAM" && metadata "$S_META"
@@ -355,30 +345,19 @@ snapshot_create() (
   set -eu
   test "$#" = 7 || fail invalid_snapshot
   if test "$2" = -; then _snapshot_create "$@"; exit; fi
-  local target fields touch warning pandora base wireless
+  local target
   hex "$2" 64 || fail invalid_snapshot
-  if ! absent "$D/packages/$2/preferences.awk"; then
-    if test "${VERIFIED_PACKAGE:-}" = "$2" && private_dir "$D/packages/$2"; then
-      target=$D/packages/$2
-    else
-      target=$(package_programs "$2" state.sh firmware.sh flush VERSION preferences.awk services.tsv sm-profile.awk) || fail invalid_snapshot_package
-    fi
-    sh -c 'set -eu; D=$1; P=$2; R_BASE=$3; R_BACKEND=$4; AUTOSTART=$5; SEAL_BOOT_PLAN=$6; VERIFIED_PACKAGE=$7; shift 7;
-            . "$P/state.sh"; . "$P/firmware.sh";
-            if test "$SEAL_BOOT_PLAN" = 1; then . "$P/access.sh"; fi;
-            _snapshot_create "$@"' \
-      snapshot "$D" "$target" "${R_BASE:-}" "${R_BACKEND:-}" "${AUTOSTART:-}" "${SEAL_BOOT_PLAN:-0}" "${VERIFIED_PACKAGE:-}" "$@"
+  ! absent "$D/packages/$2/preferences.awk" || fail unsupported_snapshot_package
+  if test "${VERIFIED_PACKAGE:-}" = "$2" && private_dir "$D/packages/$2"; then
+    target=$D/packages/$2
   else
-    target=$(package_programs "$2" state.sh firmware.sh flush VERSION) || fail invalid_snapshot_package
-    file "$target/VERSION" && test "$(cat "$target/VERSION")" = 0.3.0-dev.9 || fail unsupported_snapshot_package
-    fields=$(printf '%s\n' "$7" | awk -v operation=legacy -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" \
-      -v input=/dev/stdin -v input_bytes="$((${#7}+1))" -f "$P/preferences.awk") || fail invalid_preferences
-    IFS='|' read -r touch warning pandora base wireless <<VALUES
-$fields
-VALUES
-    sh -c 'set -eu; D=$1; P=$2; shift 2; . "$P/state.sh"; snapshot_create "$@"' \
-      snapshot "$D" "$target" "$1" "$2" "$touch" "$warning" "$3" "$4" "$5" "$6" "$pandora" "$base" "$wireless"
+    target=$(package_programs "$2" state.sh firmware.sh flush VERSION preferences.awk services.tsv sm-profile.awk) || fail invalid_snapshot_package
   fi
+  sh -c 'set -eu; D=$1; P=$2; R_BASE=$3; R_BACKEND=$4; AUTOSTART=$5; SEAL_BOOT_PLAN=$6; VERIFIED_PACKAGE=$7; shift 7;
+          . "$P/state.sh"; . "$P/firmware.sh";
+          if test "$SEAL_BOOT_PLAN" = 1; then . "$P/access.sh"; fi;
+          _snapshot_create "$@"' \
+    snapshot "$D" "$target" "${R_BASE:-}" "${R_BACKEND:-}" "${AUTOSTART:-}" "${SEAL_BOOT_PLAN:-0}" "${VERIFIED_PACKAGE:-}" "$@"
 )
 
 _snapshot_create() (
@@ -435,3 +414,18 @@ _snapshot_create() (
   fi
   snapshot_finish "$work" "$@"
 )
+
+gc_snap() {
+  local b=${BOOT_SELECT:-} dir h
+  if test -n "$b"; then
+    file "$b" || return 0
+  else
+    hex "${R_BACKEND:-}" 64 || return 0
+    dir=$D/packages/$R_BACKEND; b=$dir/boot-select
+    private_dir "$dir" && file "$dir/files.sha256" && sha_is "$dir/files.sha256" "$R_BACKEND" &&
+      file "$b" && test "$(stat -c '%a:%u:%g' "$b")" = "700:$request_owner" || return 0
+    h=$(awk '$2=="boot-select"{n++;v=$1;if(NF!=2)bad=1}END{if(bad||n!=1)exit 1;print v}' "$dir/files.sha256") &&
+      hex "$h" 64 && sha_is "$b" "$h" || return 0
+  fi
+  "$b" gc / 9 >/dev/null 2>&1 || :
+}

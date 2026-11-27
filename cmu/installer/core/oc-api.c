@@ -120,12 +120,13 @@ static int oc_run_prog(const char *path, char *const argv[], int out_fd,
     }
     if (cap_buf) {
         (void)oc_close(pfd[1]);
-        unsigned at=0;
-        while (at+1<cap_sz) {
-            long r=oc_read(pfd[0],cap_buf+at,cap_sz-1-at);
+        unsigned at=0; char drain[64];
+        for (;;) {
+            int full=at+1>=cap_sz;
+            long r=oc_read(pfd[0],full?drain:(cap_buf+at),full?(unsigned)sizeof drain:(cap_sz-1-at));
             if (r==-4) continue;
             if (r<=0) break;
-            at+=(unsigned)r;
+            if (!full) at+=(unsigned)r;
         }
         cap_buf[at]=0;
         (void)oc_close(pfd[0]);
@@ -135,8 +136,8 @@ static int oc_run_prog(const char *path, char *const argv[], int out_fd,
     return (st&0x7f) ? (128+(st&0x7f)) : ((st>>8)&0xff);
 }
 
-/* ---------- Small streaming line reader ---------- */
-typedef struct { int fd; char buf[4096]; unsigned at, filled, total, limit; } OcStream;
+/* ---------- Small streaming line reader (with optional single-pass SHA-256) ---------- */
+typedef struct { int fd; char buf[4096]; unsigned at, filled, total, limit; OcHash *hash; } OcStream;
 
 static int oc_stream_line(OcStream *s, char *out, unsigned cap, int *had_nl) {
     unsigned n=0; *had_nl=0;
@@ -146,6 +147,7 @@ static int oc_stream_line(OcStream *s, char *out, unsigned cap, int *had_nl) {
             if (r==-4) continue;
             if (r<0) return -1;
             if (!r) { out[n]=0; return n?1:0; }
+            if (s->hash) oc_hash_add(s->hash,s->buf,(unsigned)r);
             s->at=0; s->filled=(unsigned)r;
         }
         char c=s->buf[s->at++];
@@ -312,7 +314,7 @@ static int oc_access_key_verify(int data, long owner, long group, const char *ke
 }
 
 static int oc_key_fingerprint(const char *root_path, const char *key_id, char out[128]) {
-    char dbase[320], kpath[512], raw[256];
+    char dbase[320], kpath[512], raw[512];
     if (!oc_data_base(root_path,dbase,sizeof dbase) ||
         !oc_join4(kpath,sizeof kpath,dbase,"/keys/",key_id,".cmu")) return 0;
     const char *prog="/usr/bin/ssh-keygen";
@@ -333,7 +335,7 @@ static int oc_key_fingerprint(const char *root_path, const char *key_id, char ou
         out[n++]=c;
     }
     out[n]=0;
-    return n>0;
+    return n>0 && (*p==' '||*p=='\t'||*p=='\n'||!*p);
 }
 
 static int oc_factory_wireless(int root, const char *root_path) {
@@ -351,7 +353,8 @@ static int oc_factory_wireless(int root, const char *root_path) {
     char spath[512];
     if (!oc_join(spath,sizeof spath,oc_equal(root_path,"/")?"":root_path,"/jci/scripts/get_board_type.sh")) return 2;
     char *argv[]={"sh",spath,0};
-    return oc_run_prog("/bin/sh",argv,-1,0,0,-1)==2 ? 0 : 1;
+    int wrc=oc_run_prog("/bin/sh",argv,-1,0,0,-1);
+    return wrc<0 ? 2 : (wrc==2 ? 0 : 1);
 }
 
 /* ---------- Status view JSON renderer ---------- */
@@ -522,7 +525,8 @@ static int oc_write_str(int fd, const char *s) { return oc_write_all(fd,s,oc_len
 static int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf, int comp_fd, OcManifest *comp_mf,
                                   int work_fd, const OcPrefs *p) {
     const char *tpl_name=oc_equal(p->warning,"1")?"index-on.html":"index-off.html";
-    if (!oc_verify_file_sha(comp_fd,tpl_name,oc_digest(comp_mf,tpl_name),262144)) return 0;
+    const char *tpl_dig=oc_digest(comp_mf,tpl_name);
+    if (!tpl_dig) return 0;
 
     int is_base=oc_equal(p->base,"1"), is_warn=oc_equal(p->warning,"1"), is_as=oc_equal(p->autoshow,"1");
     int aa_off=0, pandora_off=0, sxm_off=0;
@@ -547,11 +551,12 @@ static int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf, int comp_fd, O
     long tfd=oc_openat(comp_fd,tpl_name,OC_READ,0);
     if (tfd<0) return 0;
     OcMeta tm;
-    if (oc_stat((int)tfd,&tm)<0) { (void)oc_close((int)tfd); return 0; }
+    if (oc_stat((int)tfd,&tm)<0 || (tm.mode&OC_TYPE)!=OC_REGULAR) { (void)oc_close((int)tfd); return 0; }
     long ofd=oc_openat(work_fd,"index.html",OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
     if (ofd<0) { (void)oc_close((int)tfd); return 0; }
 
-    OcStream st; st.fd=(int)tfd; st.at=st.filled=st.total=0; st.limit=262144;
+    OcHash th; oc_hash_init(&th);
+    OcStream st; st.fd=(int)tfd; st.at=st.filled=st.total=0; st.limit=262144; st.hash=&th;
     unsigned lg=0, hk=0, ap=0, tok_cnt=0;
     int ok=1, had_nl=0, r;
     while (ok && (r=oc_stream_line(&st,api_mem.line_buf,sizeof api_mem.line_buf,&had_nl))==1) {
@@ -602,7 +607,8 @@ static int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf, int comp_fd, O
         }
         if (ok) ok=oc_write_str((int)ofd,line) && (!had_nl || oc_write_all((int)ofd,"\n",1));
     }
-    if (r<0 || (oc_u64)st.total!=tm.size) ok=0;
+    char got_dig[65]; oc_hash_finish(&th,got_dig);
+    if (r<0 || (oc_u64)st.total!=tm.size || !oc_equal(got_dig,tpl_dig)) ok=0;
     if (ok) ok=oc_mode((int)ofd,0600)>=0 && oc_sync((int)ofd)>=0;
     if (oc_close((int)ofd)<0) ok=0;
     (void)oc_close((int)tfd);
@@ -651,13 +657,15 @@ static int oc_session_mf_matches(const char *session_dir, const char *pkg_id) {
     return ok;
 }
 
-static void oc_mark_closed(const char *session_dir) {
+static int oc_mark_closed(const char *session_dir) {
     long sfd=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
-    if (sfd>=0) {
-        long cfd=oc_openat((int)sfd,"closed",OC_WRITE|OC_CREATE,0600);
-        if (cfd>=0) (void)oc_close((int)cfd);
-        (void)oc_close((int)sfd);
-    }
+    if (sfd<0) return 0;
+    OcMeta cm;
+    long cfd=oc_openat((int)sfd,"closed",OC_WRITE|OC_CREATE,0600);
+    int ok=cfd>=0 && oc_stat((int)cfd,&cm)>=0 && (cm.mode&OC_TYPE)==OC_REGULAR;
+    if (cfd>=0 && oc_close((int)cfd)<0) ok=0;
+    if (oc_close((int)sfd)<0) ok=0;
+    return ok;
 }
 
 static int oc_run_awk_profile(const char *dbase, const char *pkg_id, const char *cfg_path,
@@ -679,18 +687,18 @@ static int oc_run_awk_profile(const char *dbase, const char *pkg_id, const char 
     awk_bin=getenv("OC_HOST_AWK");
     if (!awk_bin || !*awk_bin) awk_bin="/usr/bin/awk";
 #endif
-    int rc;
+    char *argv[24]; unsigned n=0;
+    argv[n++]="awk"; argv[n++]="-v"; argv[n++]="operation=compose";
     if (ui_mode) {
         if (!oc_join4(mod_arg,sizeof mod_arg,"modules=",pdir,"/ui-modules.tsv",0) ||
             !oc_join(mode_arg,sizeof mode_arg,"ui_mode=",ui_mode)) { (void)oc_close((int)ofd); return 0; }
-        char *argv[]={"awk","-v","operation=compose","-v",mode_arg,"-v",mod_arg,"-v",cat_arg,
-                      "-v",cb_arg,"-v",in_arg,"-v",ib_arg,"-f",prefs_awk,"-f",sc_awk,(char *)in_path,0};
-        rc=oc_run_prog(awk_bin,argv,(int)ofd,0,0,-1);
-    } else {
-        char *argv[]={"awk","-v","operation=compose","-v",cat_arg,"-v",cb_arg,"-v",in_arg,
-                      "-v",ib_arg,"-f",prefs_awk,"-f",sc_awk,(char *)in_path,0};
-        rc=oc_run_prog(awk_bin,argv,(int)ofd,0,0,-1);
+        argv[n++]="-v"; argv[n++]=mode_arg; argv[n++]="-v"; argv[n++]=mod_arg;
     }
+    argv[n++]="-v"; argv[n++]=cat_arg; argv[n++]="-v"; argv[n++]=cb_arg;
+    argv[n++]="-v"; argv[n++]=in_arg; argv[n++]="-v"; argv[n++]=ib_arg;
+    argv[n++]="-f"; argv[n++]=prefs_awk; argv[n++]="-f"; argv[n++]=sc_awk;
+    argv[n++]=(char *)in_path; argv[n]=0;
+    int rc=oc_run_prog(awk_bin,argv,(int)ofd,0,0,-1);
     int ok=(rc==0) && oc_mode((int)ofd,0600)>=0;
     if (oc_close((int)ofd)<0) ok=0;
     return ok;
@@ -716,10 +724,11 @@ static int oc_load_state(int root, long owner, long group, int *data_out, int *e
 
 static int oc_api_handle_dir(const char *session_dir, const char *rev, const char *op,
                              const char *arg, const char *exp, const char *des, int allow_fallback) {
-    int is_dismiss_usb = oc_equal(op,"dismiss") && oc_equal(arg,"usb");
-    int is_dismiss_done = oc_equal(op,"dismiss") && oc_equal(arg,"-");
-    int is_status_settings = oc_equal(op,"status") && oc_equal(arg,"settings");
-    int is_status_comp = oc_equal(op,"status") && oc_equal(arg,"completion");
+    int op_dm = oc_equal(op,"dismiss"), op_st = oc_equal(op,"status");
+    int is_dismiss_usb = op_dm && oc_equal(arg,"usb");
+    int is_dismiss_done = op_dm && oc_equal(arg,"-");
+    int is_status_settings = op_st && oc_equal(arg,"settings");
+    int is_status_comp = op_st && oc_equal(arg,"completion");
     int is_fast_set = oc_equal(op,"set") && !oc_equal(arg,"uart") && !oc_equal(arg,"ssh");
     if (!is_dismiss_usb && !is_dismiss_done && !is_status_settings && !is_status_comp && !is_fast_set)
         return allow_fallback ? OC_API_FALLBACK : emit_fail("invalid_request");
@@ -749,13 +758,6 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
     if (!oc_join4(op_tag,sizeof op_tag,is_usb?"usb:":"settings:",op,":",arg)) { err="invalid_request"; goto out; }
     if (!oc_firmware_guard(root,op_tag,api_mem.scratch,sizeof api_mem.scratch,&err)) goto out;
 
-    if (is_dismiss_usb) {
-        if (!is_usb) { err="invalid_request"; goto out; }
-        oc_mark_closed(session_dir);
-        res=oc_write_all(1,"{\"ok\":true}\n",12) ? OC_API_DONE : OC_API_ERR;
-        goto out;
-    }
-
     {
         OcMeta lm;
         long lfd=oc_openat(ram,"lock",OC_RW,0);
@@ -763,6 +765,13 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
             lm.uid!=(unsigned)owner || lm.gid!=(unsigned)group) {
             if (lfd>=0) (void)oc_close((int)lfd);
             err="invalid_lock"; goto out;
+        }
+        if (is_dismiss_usb) {
+            (void)oc_close((int)lfd);
+            if (!is_usb) { err="invalid_request"; goto out; }
+            if (!oc_mark_closed(session_dir)) { err="state_changed"; goto out; }
+            res=oc_write_all(1,"{\"ok\":true}\n",12) ? OC_API_DONE : OC_API_ERR;
+            goto out;
         }
         if ((is_status_settings ? oc_lock_sh((int)lfd) : oc_lock((int)lfd)) < 0) {
             (void)oc_close((int)lfd); err="busy"; goto out;
@@ -815,7 +824,7 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
         if (!oc_equal(rev,rec[5]) || !oc_equal(rec[12],"installed")) { err="stale_state"; goto out; }
         rec[12]="-";
         if (!oc_record_write_atomic(root,data,rec,0)) { err="record_rename_failed"; goto out; }
-        oc_mark_closed(session_dir);
+        if (!oc_mark_closed(session_dir)) { err="state_changed"; goto out; }
         res=oc_write_all(1,"{\"ok\":true}\n",12) ? OC_API_DONE : OC_API_ERR;
         goto out;
     }
@@ -904,7 +913,10 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
         if (sdir>=0) (void)oc_close(sdir);
     }
     if (has_plan<0 || (bs_state==0 && has_plan==1)) { err="state_changed"; goto out; }
-    if (bs_state==0 || has_plan==0) { (void)oc_unlock(lock_fd); res=OC_API_FALLBACK; goto out; }
+    if (bs_state==0 || has_plan==0) {
+        if (!allow_fallback) { err="state_changed"; goto out; }
+        (void)oc_unlock(lock_fd); res=OC_API_FALLBACK; goto out;
+    }
 
     static OcSnapInfo cur_snap, base_snap;
     OcCatalog cat; cat.count=0;
@@ -989,13 +1001,16 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
                 need_sm?"sm-profile.awk":0};
             for (unsigned i=0; render_ok&&i<5; ++i)
                 if (nf[i] && !oc_verify_file_sha(pdir,nf[i],oc_digest(&pmf,nf[i]),262144)) render_ok=0;
-            OcMeta cat_m; long cfd=render_ok?oc_openat(pdir,"services.tsv",OC_READ,0):-1;
+            OcMeta cat_m; cat_m.size=0;
+            long cfd=render_ok?oc_openat(pdir,"services.tsv",OC_READ,0):-1;
             if (cfd<0 || oc_stat((int)cfd,&cat_m)<0) render_ok=0;
             if (cfd>=0) (void)oc_close((int)cfd);
             char dbase[320], cfg_path[320], cfg_len_s[16], cat_len_s[16];
-            oc_u32_dec(oc_length(new_cfg),cfg_len_s); oc_u32_dec((unsigned)cat_m.size,cat_len_s);
-            if (!oc_data_base(root_path,dbase,sizeof dbase) ||
-                !oc_join4(cfg_path,sizeof cfg_path,dbase,"/snapshots/",work_leaf,"/config")) render_ok=0;
+            if (render_ok) {
+                oc_u32_dec(oc_length(new_cfg),cfg_len_s); oc_u32_dec((unsigned)cat_m.size,cat_len_s);
+                if (!oc_data_base(root_path,dbase,sizeof dbase) ||
+                    !oc_join4(cfg_path,sizeof cfg_path,dbase,"/snapshots/",work_leaf,"/config")) render_ok=0;
+            }
             if (render_ok && need_mmui) {
                 int orig=oc_open_private(data,"originals");
                 int mok=orig>=0 && oc_verify_file_sha(orig,"mmui.xml",
@@ -1037,7 +1052,7 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
     int sp_rc=oc_run_prog(bs_path,sp_argv,-1,sp_out,sizeof sp_out,-1);
     if (!oc_absent_at(snaps_fd,work_leaf)) oc_cleanup_work(snaps_fd,work_leaf);
     if (sp_rc!=0) {
-        if (sp_rc==95) { (void)oc_unlock(lock_fd); res=OC_API_FALLBACK; goto out; }
+        if (sp_rc==95 && allow_fallback) { (void)oc_unlock(lock_fd); res=OC_API_FALLBACK; goto out; }
         err=sp_rc==92?"touch_inputs_changed":sp_rc==93?"base_inputs_changed":"state_changed"; goto out;
     }
     if (!oc_one_line(sp_out) || !oc_hex(sp_out,64)) { err="plan_failed"; goto out; }
@@ -1105,22 +1120,26 @@ int oc_api_cli(int argc, char **argv) {
     int ram=oc_open_ram_dir(root), rc=64;
 
     if (oc_equal(argv[1],"--status-view") && argc>=6 && argc<=7) {
-        const char *session_dir=argv[2];
-        int conflict=oc_equal(argv[3],"1")||oc_equal(argv[3],"true");
-        int removed_now=oc_equal(argv[4],"1")||oc_equal(argv[4],"true");
-        int empty_state=oc_equal(argv[5],"1")||oc_equal(argv[5],"true");
-        const char *settings_pkg=(argc==7 && !oc_equal(argv[6],"-"))?argv[6]:"";
-        int data=-1, exists=0, tmp_empty=0;
-        const char *lerr=0;
-        char rec_buf[1024], *rec[13], sel_snap[65]; sel_snap[0]=0;
-        if (ram>=0) (void)oc_read_hex64_file(ram,"selected",sel_snap);
-        if (!oc_load_state(root,owner,group,&data,&exists,&tmp_empty,rec_buf,rec,&lerr)) {
-            rc=emit_fail(lerr);
+        if (ram<0) {
+            rc=emit_fail("runtime_unavailable");
         } else {
-            rc=oc_api_emit_status_view(root,root_path,data,ram,session_dir,owner,group,
-                                       exists,empty_state,rec,settings_pkg,sel_snap,conflict,removed_now);
+            const char *session_dir=argv[2];
+            int conflict=oc_equal(argv[3],"1")||oc_equal(argv[3],"true");
+            int removed_now=oc_equal(argv[4],"1")||oc_equal(argv[4],"true");
+            int empty_state=oc_equal(argv[5],"1")||oc_equal(argv[5],"true");
+            const char *settings_pkg=(argc==7 && !oc_equal(argv[6],"-"))?argv[6]:"";
+            int data=-1, exists=0, tmp_empty=0;
+            const char *lerr=0;
+            char rec_buf[1024], *rec[13], sel_snap[65]; sel_snap[0]=0;
+            (void)oc_read_hex64_file(ram,"selected",sel_snap);
+            if (!oc_load_state(root,owner,group,&data,&exists,&tmp_empty,rec_buf,rec,&lerr)) {
+                rc=emit_fail(lerr);
+            } else {
+                rc=oc_api_emit_status_view(root,root_path,data,ram,session_dir,owner,group,
+                                           exists,empty_state,rec,settings_pkg,sel_snap,conflict,removed_now);
+            }
+            if (data>=0) (void)oc_close(data);
         }
-        if (data>=0) (void)oc_close(data);
     } else if (oc_equal(argv[1],"--gc") && argc==4) {
         int data=oc_open_data_dir(root);
         char bs_path[512]; oc_u64 lfd=0;

@@ -2066,7 +2066,7 @@ package_save
         self.record[1] = "active"
         self.record[6:8] = ["-", "-"]
         self.save_record()
-        # Smart pin reuse: toggling carplay-autoshow while base=1 stays 1 reuses
+        # Smart pin reuse: toggling wireless while base=1 stays 1 reuses
         # verified base/* and base/vui/* rows cleanly and passes audit.
         saved_snap = self.snapshot
         self.snapshot = self.data / "snapshots" / b_id
@@ -2087,6 +2087,70 @@ package_save
         self.record[5] = b_reuse_id
         self.save_record()
         self.assertEqual(self._run_helper("audit", str(self.root), b_reuse_id).returncode, 0)
+        # Smart pin reuse for touch=2 staying 2: toggling wireless reuses touch/devices/* pins
+        # cleanly, and tampering a touch/devices/* file during reuse is still refused with rc=92.
+        self.snapshot = self.data / "snapshots" / b_reuse_id
+        t2_work, _ = self._clone_work(
+            ".new-touch2-seed", ("touch=1", "touch=2"), profiles=("sm-normal.conf", "sm-wcp.conf")
+        )
+        (t2_work / "config").write_text(
+            (t2_work / "config").read_text().replace("nvram=disable", "nvram=absent")
+        )
+        (t2_work / "config").chmod(0o600)
+        ok_t2 = self._run_helper(
+            "seal-publish",
+            str(self.root),
+            b_reuse_id,
+            str(t2_work.relative_to(self.root)),
+            "absent",
+        )
+        self.assertEqual(ok_t2.returncode, 0, ok_t2.stderr)
+        t2_id = ok_t2.stdout.decode().strip()
+        self.snapshot = self.data / "snapshots" / t2_id
+        self.record[5] = t2_id
+        self.save_record()
+        nvram_path = self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction"
+        saved_nv = nvram_path.read_bytes()
+        nvram_path.unlink()
+        t2_reuse, _ = self._clone_work(
+            ".new-touch2-reuse",
+            ("wireless=0", "wireless=1"),
+            profiles=("sm-normal.conf", "sm-wcp.conf"),
+        )
+        ok_t2r = self._run_helper(
+            "seal-publish",
+            str(self.root),
+            t2_id,
+            str(t2_reuse.relative_to(self.root)),
+        )
+        self.assertEqual(ok_t2r.returncode, 0, ok_t2r.stderr)
+        t2r_id = ok_t2r.stdout.decode().strip()
+        t2r_plan = (self.data / "snapshots" / t2r_id / "boot.plan").read_text()
+        self.assertIn("touch/devices/svc|", t2r_plan)
+        self.snapshot = self.data / "snapshots" / t2r_id
+        self.record[5] = t2r_id
+        self.save_record()
+        self.assertEqual(self._run_helper("audit", str(self.root), t2r_id).returncode, 0)
+        # Tampering touch/devices/svc while touch=2 stays 2 must be refused with rc=92.
+        saved_svc = (self.root / "jci/devices/svc-com-jci-cpp-devices.so").read_bytes()
+        self.put("/jci/devices/svc-com-jci-cpp-devices.so", "tampered devices\n")
+        t2_bad, _ = self._clone_work(
+            ".new-touch2-bad",
+            ("wireless=1", "wireless=0"),
+            profiles=("sm-normal.conf", "sm-wcp.conf"),
+        )
+        self.assertEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                t2r_id,
+                str(t2_bad.relative_to(self.root)),
+            ).returncode,
+            92,
+        )
+        shutil.rmtree(t2_bad)
+        self.put("/jci/devices/svc-com-jci-cpp-devices.so", saved_svc)
+        nvram_path.write_bytes(saved_nv)
         self.snapshot = saved_snap
         self.record[5] = saved_snap.name
         self.save_record()
@@ -2138,12 +2202,22 @@ package_save
         self.package_id = self.package.name
         new_comp = self.data / "composed" / self.package_id
         shutil.copytree(self.composed, new_comp)
+        from tests.test_installer_preferences import InstallerPreferences
+
         idx_tpl = (
             '<html><head><script src="common/js/logDefaults.js"></script></head>'
             "<body><script>/*@TOKEN@*/framework.init();</script></body></html>\n"
         )
         for nm in ("index-on.html", "index-off.html"):
             (new_comp / nm).write_text(idx_tpl)
+            (new_comp / nm).chmod(0o600)
+        for nm, wcp in (
+            ("sm-normal-on.conf", False),
+            ("sm-normal-off.conf", False),
+            ("sm-wcp-on.conf", True),
+            ("sm-wcp-off.conf", True),
+        ):
+            (new_comp / nm).write_text(InstallerPreferences().profile(wcp))
             (new_comp / nm).chmod(0o600)
         self.manifest(new_comp)
         self.composed = new_comp
@@ -2348,7 +2422,27 @@ package_save
         self.assertEqual(r_back["carplayAutoshow"], 0)
         on_cur = r_back["revision"]
 
-        # 4) Native api falls back cleanly to backend.sh on genuinely unsealed OC2 snapshot.
+        # 4) E2E sp_rc == 95 (OC_SLOW) fallback through api: touch=2 with drifted
+        # touch/devices/svc while setting touch 2 -> 1 unlocks and falls back cleanly.
+        pre_t2_rec = (self.data / "record").read_bytes()
+        for _, tpath, tdata, _ in self.TOUCH_INPUTS:
+            self.put(tpath, tdata)
+        (self.ram / "selected").write_text(on_cur + "\n")
+        proc, r_t2 = call_api(on_cur, "set", "touch", "1", "2")
+        self.assertEqual(proc.returncode, 0, (r_t2, proc.stderr))
+        self.assertTrue(r_t2["ok"], r_t2)
+        t2_cur = r_t2["revision"]
+        saved_dev_svc = (self.root / "jci/devices/svc-com-jci-cpp-devices.so").read_bytes()
+        self.put("/jci/devices/svc-com-jci-cpp-devices.so", "drifted devices\n")
+        _, r_slow = call_api(t2_cur, "set", "touch", "2", "1")
+        self.assertEqual(r_slow["error"], "fell_back")
+        self.put("/jci/devices/svc-com-jci-cpp-devices.so", saved_dev_svc)
+        (self.data / "record").write_bytes(pre_t2_rec)
+        nvram_file.write_text("disable\n")
+
+        # 5) Native api falls back cleanly to backend.sh on genuinely unsealed OC2 snapshot
+        # and NO_BS selector-less package, while hard-refusing tamper/malformed-manifest/
+        # stray-plan/tampered-AWK conditions.
         unsealed_work = self.data / "snapshots/.new-be-unsealed"
         unsealed_work.mkdir(mode=0o700)
         for p in sorted((self.data / "snapshots" / on_cur).iterdir()):
@@ -2369,6 +2463,85 @@ package_save
         _, r_stray = call_api(unsealed_snap.name, "set", "carplay-autoshow", "0", "1")
         (unsealed_snap / "boot.plan").unlink()
         self.assertEqual(r_stray["error"], "state_changed")
+        # Missing declared boot.plan on disk hard-fails (never falls back).
+        (self.data / "record").write_bytes(saved_rec)
+        (self.ram / "selected").write_text(on_cur + "\n")
+        saved_plan = (self.data / "snapshots" / on_cur / "boot.plan").read_bytes()
+        (self.data / "snapshots" / on_cur / "boot.plan").unlink()
+        _, r_miss_plan = call_api(on_cur, "set", "carplay-autoshow", "0", "1")
+        (self.data / "snapshots" / on_cur / "boot.plan").write_bytes(saved_plan)
+        (self.data / "snapshots" / on_cur / "boot.plan").chmod(0o600)
+        self.assertEqual(r_miss_plan["error"], "state_changed")
+        # Malformed session/package manifest shapes all hard-fail with state_changed.
+        orig_sess_mf = (session / "files.sha256").read_bytes()
+        for bad_mf in (
+            b"",
+            orig_sess_mf + orig_sess_mf,
+            orig_sess_mf.replace(b"  ", b" ", 1),
+            orig_sess_mf.rstrip(b"\n"),
+            orig_sess_mf + b"\x00",
+        ):
+            (session / "files.sha256").write_bytes(bad_mf)
+            _, r_badmf = call_api(on_cur, "set", "carplay-autoshow", "0", "1")
+            self.assertEqual(r_badmf["error"], "state_changed")
+        (session / "files.sha256").write_bytes(orig_sess_mf)
+        # Tampered persistent AWK script (sm-profile.awk) hard-fails without fallback.
+        sm_awk = self.package / "sm-profile.awk"
+        orig_sm_awk = sm_awk.read_bytes()
+        sm_awk.write_bytes(orig_sm_awk + b"\n# tamper\n")
+        _, r_awk = call_api(on_cur, "set", "wireless", "1", "0")
+        sm_awk.write_bytes(orig_sm_awk)
+        self.assertEqual(r_awk["error"], "state_changed")
+        # NO_BS selector-less package: clean unsealed snapshot falls back; declared boot.plan
+        # or stray undeclared boot-select on disk hard-fails with state_changed.
+        nobs_dir = self.data / "packages/.new-nobs-e2e"
+        nobs_dir.mkdir(mode=0o700)
+        for p in sorted(self.package.iterdir()):
+            if p.name not in ("files.sha256", "boot-select"):
+                (nobs_dir / p.name).write_bytes(p.read_bytes())
+                (nobs_dir / p.name).chmod(p.stat().st_mode & 0o777)
+        nobs_pkg = self.publish(nobs_dir)
+        nobs_snap_work = self.data / "snapshots/.new-nobs-snap"
+        nobs_snap_work.mkdir(mode=0o700)
+        for p in sorted((self.data / "snapshots" / on_cur).iterdir()):
+            if p.name not in ("files.sha256", "boot.plan"):
+                body = p.read_bytes()
+                if p.name == "config":
+                    body = body.replace(self.package_id.encode(), nobs_pkg.name.encode())
+                (nobs_snap_work / p.name).write_bytes(body)
+                (nobs_snap_work / p.name).chmod(0o600)
+        nobs_snap = self.publish(nobs_snap_work)
+        nobs_rec = saved_rec.decode().strip().split("|")
+        nobs_rec[3] = nobs_pkg.name
+        nobs_rec[5] = nobs_snap.name
+        (self.data / "record").write_text("|".join(nobs_rec) + "\n")
+        (self.ram / "selected").write_text(nobs_snap.name + "\n")
+        shutil.copyfile(nobs_pkg / "files.sha256", session / "files.sha256")
+        _, r_nobs_fb = call_api(nobs_snap.name, "set", "carplay-autoshow", "0", "1")
+        self.assertEqual(r_nobs_fb["error"], "fell_back")
+        # NO_BS + stray undeclared boot-select on disk -> hard state_changed.
+        (nobs_pkg / "boot-select").write_bytes(b"stray\n")
+        (nobs_pkg / "boot-select").chmod(0o700)
+        _, r_nobs_stray = call_api(nobs_snap.name, "set", "carplay-autoshow", "0", "1")
+        (nobs_pkg / "boot-select").unlink()
+        self.assertEqual(r_nobs_stray["error"], "state_changed")
+        # NO_BS + declared boot.plan -> hard state_changed.
+        nobs_plan_work = self.data / "snapshots/.new-nobs-plan"
+        nobs_plan_work.mkdir(mode=0o700)
+        for p in sorted(nobs_snap.iterdir()):
+            if p.name != "files.sha256":
+                (nobs_plan_work / p.name).write_bytes(p.read_bytes())
+                (nobs_plan_work / p.name).chmod(0o600)
+        (nobs_plan_work / "boot.plan").write_text("OCBP1\n")
+        (nobs_plan_work / "boot.plan").chmod(0o600)
+        nobs_plan_snap = self.publish(nobs_plan_work)
+        nobs_rec[5] = nobs_plan_snap.name
+        (self.data / "record").write_text("|".join(nobs_rec) + "\n")
+        (self.ram / "selected").write_text(nobs_plan_snap.name + "\n")
+        _, r_nobs_plan = call_api(nobs_plan_snap.name, "set", "carplay-autoshow", "0", "1")
+        self.assertEqual(r_nobs_plan["error"], "state_changed")
+        # Restore clean sealed state before real backend.sh fallback check.
+        shutil.copyfile(self.package / "files.sha256", session / "files.sha256")
         (self.data / "record").write_bytes(saved_rec)
         (self.ram / "selected").write_text(on_cur + "\n")
 

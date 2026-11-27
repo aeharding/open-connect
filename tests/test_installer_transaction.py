@@ -1,5 +1,6 @@
 """Interrupt the maintained transaction code around real file publications."""
 
+import atexit
 import fcntl
 import hashlib
 import json
@@ -24,6 +25,7 @@ def compile_host_api():
     if _HOST_API_CACHE is not None and _HOST_API_CACHE.is_file():
         return _HOST_API_CACHE
     cache_dir = Path(tempfile.mkdtemp(prefix="oc-host-api-"))
+    atexit.register(shutil.rmtree, cache_dir, True)
     binary = cache_dir / "api"
     core = ROOT / "cmu/installer/core"
     srcs = [

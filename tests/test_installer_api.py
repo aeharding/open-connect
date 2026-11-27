@@ -62,7 +62,11 @@ class InstallerApi(unittest.TestCase):
 
     def invoke(self, request):
         return subprocess.run(
-            [self.api, self.token, self.backend], input=request, capture_output=True, timeout=5
+            [self.api, self.token, self.backend],
+            input=request,
+            capture_output=True,
+            timeout=5,
+            env={**os.environ, "OC_HOST_ROOT": str(self.root)},
         )
 
     def test_status_and_setting_dispatch_only_arguments(self):
@@ -584,3 +588,136 @@ class InstallerApiNative(unittest.TestCase):
                     f"Mismatch for w={w} b={b} a={a} aa={aa} pa={pa} sx={sx}",
                 )
         _ = NativeBootSelection  # keep import clean
+
+    def test_record_apply_phase_invariants_fail_closed_and_key_fingerprint(self):
+        """Cover OC1|apply recovery, phase/before/after invariants, dismiss:usb symlink refusal,
+        --status-view missing ram refusal, and OC_HOST_SSH_KEYGEN fingerprint bounds."""
+        import hashlib
+
+        from tests.test_installer_transaction import InstallerTransaction, compile_host_api
+
+        fixture = InstallerTransaction()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        data = fixture.create("apply-invariants")
+        fixture.run_ok(data, "install")
+        fixture.backend_fixture(data)
+        api_bin = compile_host_api()
+        runtime = fixture.root / "runtime"
+        orig_rec_bytes = (data / "record").read_bytes()
+        base_fields = orig_rec_bytes.decode().strip().split("|")
+        cur_snap = base_fields[5]
+
+        def run_cli(args, *, extra_env=None):
+            env = {**fixture.host_api_env(), **(extra_env or {})}
+            proc = subprocess.run(
+                [str(api_bin), *args], capture_output=True, text=True, timeout=10, env=env
+            )
+            return proc, json.loads(proc.stdout)
+
+        # 1) Valid OC1|apply pending record succeeds on both Settings and USB status:settings.
+        apply_fields = list(base_fields)
+        apply_fields[1] = "apply"
+        apply_fields[6] = cur_snap
+        apply_fields[7] = base_fields[4]
+        (data / "record").write_text("|".join(apply_fields) + "\n")
+        proc, st = run_cli(["--handle", str(fixture.tools), "-", "status", "settings", "-", "-"])
+        self.assertEqual(proc.returncode, 0, (st, proc.stderr))
+        self.assertTrue(st["ok"] and st["pending"])
+        self.assertEqual(st["revision"], apply_fields[2])
+        # Switch pointer to usb-runtime and verify usb:status:settings also succeeds.
+        (runtime / "runtime").unlink()
+        (runtime / "usb-runtime").symlink_to(fixture.tools)
+        proc, ust = run_cli(["--handle", str(fixture.tools), "-", "status", "settings", "-", "-"])
+        self.assertEqual(proc.returncode, 0, (ust, proc.stderr))
+        self.assertTrue(ust["ok"] and ust["pending"])
+        self.assertEqual(ust["revision"], apply_fields[2])
+        # 2) dismiss:usb with a symlinked session/closed file must fail closed.
+        target = fixture.root / "symlink-closed-target"
+        target.write_text("")
+        (fixture.tools / "closed").symlink_to(target)
+        proc, derr = run_cli(["--handle", str(fixture.tools), "-", "dismiss", "usb", "-", "-"])
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertFalse(derr["ok"])
+        (fixture.tools / "closed").unlink()
+        (runtime / "usb-runtime").unlink()
+        (runtime / "runtime").symlink_to(fixture.tools)
+
+        # 3) Malformed phase <-> (before, after) combinations are rejected as invalid_record.
+        for bad_phase, bad_before, bad_after in (
+            ("active", cur_snap, cur_snap),
+            ("purge", cur_snap, cur_snap),
+            ("removed", cur_snap, "-"),
+            ("set", "-", "-"),
+            ("apply", "-", cur_snap),
+            ("install", cur_snap, "-"),
+        ):
+            with self.subTest(phase=bad_phase, before=bad_before, after=bad_after):
+                bad = list(base_fields)
+                bad[1], bad[6], bad[7] = bad_phase, bad_before, bad_after
+                (data / "record").write_text("|".join(bad) + "\n")
+                proc, err = run_cli(
+                    ["--handle", str(fixture.tools), "-", "status", "settings", "-", "-"]
+                )
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertEqual(err, {"ok": False, "error": "invalid_record"})
+        (data / "record").write_bytes(orig_rec_bytes)
+
+        # 4) --status-view with missing RAM dir fails closed with runtime_unavailable.
+        proc, rerr = run_cli(
+            ["--status-view", str(fixture.tools), "false", "false", "false", "-"],
+            extra_env={"OC_HOST_RAM": str(fixture.root / "missing-ram")},
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(rerr, {"ok": False, "error": "runtime_unavailable"})
+
+        # 5) oc_key_fingerprint via OC_HOST_SSH_KEYGEN: valid vs oversized (>=128 chars) rejected.
+        keys_dir = data / "keys"
+        keys_dir.mkdir(mode=0o700)
+        key_bytes = b"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKeyForOpenConnect test@host\n"
+        key_id = hashlib.sha256(key_bytes).hexdigest()
+        key_file = keys_dir / f"{key_id}.cmu"
+        key_file.write_bytes(key_bytes)
+        key_file.chmod(0o600)
+        snap_dir = data / "snapshots" / cur_snap
+        snap_work = data / "snapshots/.new-keytest"
+        shutil.copytree(snap_dir, snap_work)
+        (snap_work / "access").write_text(f"0|1|{key_id}|755:0:0|644:0:0|-\n")
+        (snap_work / "access").chmod(0o600)
+        (snap_work / "runlogin").write_text("rl\n")
+        (snap_work / "runlogin").chmod(0o600)
+        (snap_work / "sshd.conf").write_text("sc\n")
+        (snap_work / "sshd.conf").chmod(0o600)
+        (snap_work / "files.sha256").unlink()
+        mf = "".join(
+            hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+            for p in sorted(snap_work.iterdir())
+        )
+        (snap_work / "files.sha256").write_text(mf)
+        (snap_work / "files.sha256").chmod(0o600)
+        key_snap_id = hashlib.sha256(mf.encode()).hexdigest()
+        snap_work.rename(data / "snapshots" / key_snap_id)
+        krec = list(base_fields)
+        krec[5] = key_snap_id
+        (data / "record").write_text("|".join(krec) + "\n")
+        (runtime / "selected").write_text(key_snap_id + "\n")
+
+        fake_kg = fixture.root / "fake-ssh-keygen"
+        fp_valid = "ab:cd:ef:01:23:45:67:89:ab:cd:ef:01:23:45:67:89"
+        fake_kg.write_text(f'#!/bin/sh\nprintf "256 %s %s (ED25519)\\n" "{fp_valid}" "$3"\n')
+        fake_kg.chmod(0o700)
+        proc, kst = run_cli(
+            ["--handle", str(fixture.tools), "-", "status", "settings", "-", "-"],
+            extra_env={"OC_HOST_SSH_KEYGEN": str(fake_kg)},
+        )
+        self.assertEqual(proc.returncode, 0, (kst, proc.stderr))
+        self.assertEqual(kst["fingerprint"], fp_valid)
+        # Oversized (>=128 char) fingerprint must be rejected (reported as "-"), never truncated.
+        fp_long = "ab:" * 45 + "cd"
+        fake_kg.write_text(f'#!/bin/sh\nprintf "256 %s %s (ED25519)\\n" "{fp_long}" "$3"\n')
+        proc, kst2 = run_cli(
+            ["--handle", str(fixture.tools), "-", "status", "settings", "-", "-"],
+            extra_env={"OC_HOST_SSH_KEYGEN": str(fake_kg)},
+        )
+        self.assertEqual(proc.returncode, 0, (kst2, proc.stderr))
+        self.assertEqual(kst2["fingerprint"], "-")

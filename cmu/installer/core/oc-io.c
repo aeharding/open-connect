@@ -22,14 +22,12 @@
 #endif
 
 long oc_openat(int parent, const char *path, unsigned options, unsigned mode) {
-    int flags=O_CLOEXEC;
+    int flags=O_CLOEXEC|O_NOFOLLOW;
     if (!(options&OC_BLOCKING)) flags|=O_NONBLOCK;
-    if (!(options&OC_FOLLOW)) flags|=O_NOFOLLOW;
     flags|=(options&OC_RW)?O_RDWR:((options&OC_WRITE)?O_WRONLY:O_RDONLY);
     if (options&OC_DIRECTORY) flags|=O_DIRECTORY;
     if (options&OC_CREATE) flags|=O_CREAT;
     if (options&OC_EXCLUSIVE) flags|=O_EXCL;
-    if (options&OC_APPEND) flags|=O_APPEND;
     int fd=openat(parent,path,flags,mode);
     return fd<0?-errno:fd;
 }
@@ -232,14 +230,12 @@ static long oc_syscall4(long number, long a, long b, long c, long d) {
     return r0;
 }
 long oc_openat(int parent, const char *path, unsigned options, unsigned mode) {
-    unsigned flags=0400000|02000000; /* ARM LARGEFILE/CLOEXEC */
+    unsigned flags=0400000|02000000|0100000; /* ARM LARGEFILE|CLOEXEC|NOFOLLOW */
     if (!(options&OC_BLOCKING)) flags|=04000; /* O_NONBLOCK */
-    if (!(options&OC_FOLLOW)) flags|=0100000; /* O_NOFOLLOW */
     flags|=(options&OC_RW)?2:((options&OC_WRITE)?1:0);
     if (options&OC_DIRECTORY) flags|=040000;
     if (options&OC_CREATE) flags|=0100;
     if (options&OC_EXCLUSIVE) flags|=0200;
-    if (options&OC_APPEND) flags|=02000;
     return oc_syscall4(322,parent,(long)path,flags,mode);
 }
 long oc_read(int fd, void *p, unsigned n) { return oc_syscall4(3,fd,(long)p,n,0); }

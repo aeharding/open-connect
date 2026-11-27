@@ -39,6 +39,10 @@ class TouchDisable(unittest.TestCase):
         self.assertLessEqual(shim.stat().st_size, 4096)
         self.assertLessEqual((folder / "api").stat().st_size, 32768)
         self.assertLessEqual((folder / "boot-select").stat().st_size, 36864)
+        self.assertLessEqual((folder / "ignition").stat().st_size, 4096)
+        ig_report = subprocess.check_output([READELF, "-l", "-r", folder / "ignition"], text=True)
+        self.assertIn("There are no relocations in this file.", ig_report)
+        self.assertNotIn("RWE", ig_report)
         report = subprocess.check_output(
             [READELF, "-l", "-S", "-d", "--dyn-syms", "--unwind", shim],
             text=True,

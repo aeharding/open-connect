@@ -216,8 +216,8 @@ static int oc_stage(OcBoot *b) {
     if (!oc_random(b->root,b->nonce)||!oc_join(b->observer_name,sizeof b->observer_name,".ignition-",b->nonce)||
         oc_mkdir(b->ram,b->observer_name,0700)<0) return 0;
     b->observer=oc_open_private(b->ram,b->observer_name);
-    if (b->observer<0 || !oc_package_copy(b,"ignition.sh",b->observer,"ignition.sh",0600)||
-        !oc_package_copy(b,"state.sh",b->observer,"state.sh",0600)||!oc_package_copy(b,"flush",b->observer,"flush",0700)) return 0;
+    if (b->observer<0 || !oc_package_copy(b,"ignition",b->observer,"ignition",0700)||
+        !oc_package_copy(b,"flush",b->observer,"flush",0700)) return 0;
     if (!b->selected) return 1;
     if (!oc_token(b)||!oc_join(b->stage_name,sizeof b->stage_name,".feature-",b->nonce)||oc_mkdir(b->ram,b->stage_name,0700)<0) return 0;
     b->stage=oc_open_private(b->ram,b->stage_name);
@@ -366,7 +366,7 @@ int oc_load(OcBoot *b) {
     if (b->package<0||b->composed<0||
         !oc_load_manifest(b->package,b->record_fields[3],b->package_manifest,sizeof b->package_manifest,&b->pkg)||b->pkg.count>64) return 0;
     const char *mandatory[]={"boot-select","boot.sh","state.sh","transaction.sh","firmware.sh","access.sh","service.sh",
-        "ignition.sh","flush","api","runtime.js","dialog.js","settings.js","VERSION","INSTANCE",
+        "ignition","flush","api","runtime.js","dialog.js","settings.js","VERSION","INSTANCE",
         "preferences.awk","services.tsv","sm-profile.awk"};
     for (unsigned i=0; i<sizeof mandatory/sizeof *mandatory; ++i) if (!oc_digest(&b->pkg,mandatory[i])) return 0;
     b->access_present=oc_digest(&b->current,"access")!=0;

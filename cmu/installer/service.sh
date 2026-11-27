@@ -206,7 +206,7 @@ while read -r digest name extra; do
   expected="$expected$digest *$work/$name
 "
   linked=false
-  case "$kind:$name" in boot:runtime.js|boot:dialog.js|boot:settings.js|boot:service.sh|boot:state.sh|boot:flush)
+  case "$kind:$name" in boot:runtime.js|boot:dialog.js|boot:settings.js|boot:service.sh|boot:flush)
     for shared in "$R/feature/$name" "$R/ignition/$name"; do
       if test -f "$shared" && test ! -L "$shared"; then
         if test "$name" = flush && test "$(stat -c %a "$shared")" != 700; then continue; fi
@@ -243,6 +243,7 @@ $copied
 COPIED
 chmod 600 "$@"
 chmod 700 "$work/api" "$work/flush"
+if test -f "$work/ignition" && test ! -L "$work/ignition"; then chmod 700 "$work/ignition"; fi
 set --
 while read -r digest name extra; do
   if test -f "$work/$name" && test ! -L "$work/$name"; then set -- "$@" "$work/$name"; fi

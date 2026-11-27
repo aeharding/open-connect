@@ -47,8 +47,8 @@ class InstallerBoot(unittest.TestCase):
         (self.runtime / "flush").chmod(0o700)
         (self.runtime / "lock").touch()
         (self.runtime / "token").write_text("a" * 32 + "\n")
-        (self.runtime / "ignition.sh").write_text("exit 0\n")
-        (self.source / "ignition.sh").write_text("exit 0\n")
+        (self.source / "ignition").write_text("#!/bin/sh\nexit 0\n")
+        (self.source / "ignition").chmod(0o700)
         for name in (
             "runtime.js",
             "dialog.js",
@@ -563,7 +563,8 @@ record_write
                 )
                 self.assertEqual(self.record()[1], "active")
                 self.assertEqual(self.record()[9], "2")
-                self.assertTrue((self.runtime / "ignition/ignition.sh").is_file())
+                self.assertTrue((self.runtime / "ignition/ignition").is_file())
+                self.assertFalse((self.runtime / "ignition/state.sh").exists())
                 self.assertFalse((self.runtime / "listen-attempted").exists())
                 if fixture == "usb":
                     self.assertEqual((self.runtime / "listener").read_text(), "owned USB session\n")
@@ -1582,118 +1583,195 @@ boot_ui_unwind
         self.assertEqual((self.runtime / "boot-id").readlink().as_posix(), expected)
         self.assertEqual(self.record()[9], "2")
 
-    def ignition_fixture(self):
-        script = (ASSETS / "ignition.sh").read_text()
-        for old, new in {
-            "/tmp/mnt/data_persist/open-connect": str(self.data),
-            "/tmp/open-connect": str(self.runtime),
-            "/proc/sys/kernel/random/boot_id": str(self.root / "boot-id"),
-            "/proc/uptime": str(self.root / "uptime"),
-            "/sys/class/gpio/ACC_Sense/value": str(self.root / "acc"),
-        }.items():
-            script = script.replace(old, new)
-        path = self.package / "ignition.sh"
-        path.write_text(script)
-        return path
+    def _setup_native_ignition(self):
+        from tests.host_bins import host_ignition
+
+        ig = host_ignition()
+        dev = self.root / "dev"
+        dev.mkdir(exist_ok=True)
+        (dev / "urandom").write_bytes(os.urandom(1024))
+        # Model real Linux sysfs where /sys/class/gpio/ACC_Sense is a symlink.
+        gpio_real = self.root / "sys/devices/virtual/gpio/gpio58"
+        gpio_real.mkdir(parents=True, exist_ok=True)
+        gpio_class = self.root / "sys/class/gpio"
+        gpio_class.mkdir(parents=True, exist_ok=True)
+        acc_link = gpio_class / "ACC_Sense"
+        if not acc_link.is_symlink():
+            acc_link.symlink_to("../../devices/virtual/gpio/gpio58")
+        acc = gpio_real / "value"
+        acc.write_text("1\n")
+        (self.runtime / "lock").chmod(0o600)
+        (self.data / "record").chmod(0o600)
+        env = {
+            **os.environ,
+            "OC_HOST_ROOT": str(self.root),
+            "OC_HOST_DATA": str(self.data),
+            "OC_HOST_RAM": str(self.runtime),
+            "OC_HOST_IGNITION_SLEEP_MS": "15",
+        }
+        return ig, acc, env
+
+    def _write_acc(self, acc: Path, value: str):
+        tmp = acc.parent / f".{acc.name}.tmp"
+        tmp.write_text(value)
+        os.replace(tmp, acc)
+
+    def _swap_symlink(self, link: Path, target: str):
+        tmp = link.parent / f".{link.name}.tmp"
+        tmp.unlink(missing_ok=True)
+        tmp.symlink_to(target)
+        os.replace(tmp, link)
+
+    def _wait_ignition_locked(self, proc: subprocess.Popen, timeout: float = 5.0):
+        import fcntl
+
+        lock = self.runtime / "ignition.lock"
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if proc.poll() is not None:
+                out, err = proc.communicate(timeout=1)
+                self.fail(f"ignition exited early rc={proc.returncode} out={out!r} err={err!r}")
+            if lock.is_file():
+                with lock.open("r+b") as f:
+                    try:
+                        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                    except BlockingIOError:
+                        return
+            time.sleep(0.01)
+        self.fail("ignition did not acquire ignition.lock in time")
+
+    def _wait_off(self, wanted: str, timeout: float = 3.0):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.record()[10] == wanted:
+                return
+            time.sleep(0.01)
+        self.fail(f"R_OFF did not reach {wanted!r} (got {self.record()[10]!r})")
 
     def test_ignition_requires_sustained_off_and_clears_quick_resume_evidence(self):
+        import fcntl
+
         self.assertEqual(self.boot(1).returncode, 0)
         boot = self.record()[11]
-        path = self.ignition_fixture()
-        state = self.package / "state.sh"
-        state.write_text(state.read_text().replace("current_boot_id() {", "checked_boot_id() {"))
-        trace = shlex.quote(str(self.root / "identity-trace"))
-        path.write_text(
-            path.read_text().replace(
-                '. "$P/state.sh"',
-                '. "$P/state.sh"\ncurrent_boot_id() { printf "identity\\n" >> '
-                + trace
-                + "; checked_boot_id; }",
-            )
-        )
-        (self.tools / "flock").write_text(
-            '#!/bin/sh\nfor last; do :; done\nprintf "lock %s\\n" "$last" >> ' + trace + "\n"
-        )
-        (self.root / "sequence").write_text("0\n1\n0\n0\n0\n1\nend\n")
-        (self.root / "step").write_text("0\n")
-        # Advance physical samples instead of waiting; capture the real record
-        # after each observation, including a short OFF and same-kernel resume.
-        (self.tools / "sleep").write_text(
-            "#!/bin/sh\nset -eu\nR=" + shlex.quote(str(self.root)) + "\n"
-            'cut -d "|" -f 11 "$R/data/record" >> "$R/observed"\n'
-            'n=$(cat "$R/step"); n=$((n+1)); echo "$n" > "$R/step"\n'
-            'next=$(sed -n "${n}p" "$R/sequence")\n'
-            'if test "$next" = end; then rm "$R/runtime/boot-id"; '
-            'else printf "%s\\n" "$next" > "$R/acc"; fi\n'
-        )
-        (self.tools / "sleep").chmod(0o700)
+        ig, acc, env = self._setup_native_ignition()
         marker = self.runtime / "boot-id"
+
         for arguments in ([boot], []):
             with self.subTest(arguments=arguments):
-                if not marker.is_symlink():
-                    marker.symlink_to(boot)
-                (self.root / "step").write_text("0\n")
-                (self.root / "acc").write_text("1\n")
-                (self.root / "observed").unlink(missing_ok=True)
-                (self.root / "identity-trace").write_text("")
-                subprocess.run(
-                    ["sh", self.package / "ignition.sh", *arguments],
-                    env=self.env,
-                    capture_output=True,
+                self._swap_symlink(marker, boot)
+                # Start with ACC=0 before any ON: sustained OFF must NOT persist.
+                self._write_acc(acc, "0\n")
+                proc = subprocess.Popen(
+                    [str(ig), *arguments],
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    check=True,
-                    timeout=10,
                 )
-                self.assertEqual(
-                    (self.root / "observed").read_text().splitlines(),
-                    ["-", "-", "-", "-", "-", boot, "-"],
-                )
-                self.assertEqual(self.record()[9:11], ["2", "-"])
-                # No identity validation/forks during the five idle samples.
-                # The only later reads follow successful fd9 lock acquisition.
-                self.assertEqual(
-                    (self.root / "identity-trace").read_text().splitlines(),
-                    ["identity", "lock 8", "lock 9", "identity", "lock 9", "identity"],
-                )
+                try:
+                    self._wait_ignition_locked(proc)
+                    time.sleep(0.12)
+                    self.assertIsNone(proc.poll())
+                    self.assertEqual(self.record()[10], "-")
+
+                    # Single-instance lock: a second observer exits 0 immediately.
+                    dup = subprocess.run(
+                        [str(ig), *arguments], env=env, capture_output=True, text=True, timeout=5
+                    )
+                    self.assertEqual(dup.returncode, 0, dup.stderr)
+
+                    # Transition to ON -> seen_on=true, R_OFF stays "-".
+                    self._write_acc(acc, "1\n")
+                    time.sleep(0.15)
+                    self.assertEqual(self.record()[10], "-")
+
+                    # Transient 1-sample OFF glitch after ON must reset off_samples
+                    # when ACC returns to 1 and must NOT persist R_OFF.
+                    self._write_acc(acc, "0\n")
+                    time.sleep(0.02)
+                    self._write_acc(acc, "1\n")
+                    time.sleep(0.12)
+                    self.assertIsNone(proc.poll())
+                    self.assertEqual(self.record()[10], "-")
+
+                    # Hold ram/lock while ACC drops to 0: observer must retry cleanly
+                    # rather than exiting on EWOULDBLOCK, then persist once unlocked.
+                    with (self.runtime / "lock").open("r+b") as lf:
+                        fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        self._write_acc(acc, "0\n")
+                        time.sleep(0.15)
+                        self.assertIsNone(proc.poll())
+                        self.assertEqual(self.record()[10], "-")
+                    self._wait_off(boot)
+                    self.assertEqual(self.record()[9:11], ["2", boot])
+
+                    # QuickStart resume (same kernel back to ON) clears R_OFF -> "-".
+                    self._write_acc(acc, "1\n")
+                    self._wait_off("-")
+                    self.assertEqual(self.record()[9:11], ["2", "-"])
+
+                    # Removing boot-id terminates the observer cleanly with exit 0.
+                    marker.unlink()
+                    out, err = proc.communicate(timeout=5)
+                    self.assertEqual(proc.returncode, 0, err)
+                finally:
+                    if proc.poll() is None:
+                        proc.terminate()
+                        proc.wait(timeout=5)
 
     def test_ignition_revalidates_identity_under_the_record_lock(self):
+        import fcntl
+
         self.assertEqual(self.boot(1).returncode, 0)
         boot = self.record()[11]
-        path = self.ignition_fixture()
-        (self.tools / "sleep").write_text(
-            "#!/bin/sh\nR=" + shlex.quote(str(self.root)) + "\n"
-            'n=$(cat "$R/step"); n=$((n+1)); echo "$n" > "$R/step"\n'
-            'if test "$n" -gt 6; then rm "$R/runtime/boot-id"; '
-            'else echo 0 > "$R/acc"; fi\n'
-        )
-        (self.tools / "sleep").chmod(0o700)
+        ig, acc, env = self._setup_native_ignition()
         marker = self.runtime / "boot-id"
+
         for replacement in ("87654321-1234-1234-1234-123456789abc", "x" * 36):
             with self.subTest(marker=replacement):
-                marker.unlink(missing_ok=True)
-                marker.symlink_to(boot)
-                (self.root / "step").write_text("0\n")
-                (self.root / "acc").write_text("1\n")
+                self._swap_symlink(marker, boot)
+                self._write_acc(acc, "1\n")
                 before = (self.data / "record").read_bytes()
-                (self.tools / "flock").write_text(
-                    '#!/bin/sh\nfor last; do :; done\nif test "$last" = 9; then\n'
-                    "rm "
-                    + shlex.quote(str(marker))
-                    + "\nln -s "
-                    + shlex.quote(replacement)
-                    + " "
-                    + shlex.quote(str(marker))
-                    + "\nfi\n"
-                )
-                result = subprocess.run(
-                    ["sh", path, boot],
-                    env=self.env,
-                    capture_output=True,
+                proc = subprocess.Popen(
+                    [str(ig), boot],
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
-                    timeout=10,
                 )
-                self.assertNotEqual(result.returncode, 0)
-                self.assertEqual((self.data / "record").read_bytes(), before)
+                try:
+                    self._wait_ignition_locked(proc)
+                    time.sleep(0.15)
+                    with (self.runtime / "lock").open("r+b") as lf:
+                        fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        self._write_acc(acc, "0\n")
+                        time.sleep(0.15)
+                        self._swap_symlink(marker, replacement)
+                    out, err = proc.communicate(timeout=5)
+                    self.assertNotEqual(proc.returncode, 0)
+                    self.assertEqual((self.data / "record").read_bytes(), before)
+                finally:
+                    if proc.poll() is None:
+                        proc.terminate()
+                        proc.wait(timeout=5)
+
+        # Invalid ACC value and symlinked ignition.lock are both refused with nonzero exit.
+        self._swap_symlink(marker, boot)
+        self._write_acc(acc, "2\n")
+        bad_acc = subprocess.run(
+            [str(ig), boot], env=env, capture_output=True, text=True, timeout=5
+        )
+        self.assertNotEqual(bad_acc.returncode, 0)
+
+        self._write_acc(acc, "1\n")
+        ig_lock = self.runtime / "ignition.lock"
+        ig_lock.unlink(missing_ok=True)
+        ig_lock.symlink_to(self.runtime / "lock")
+        sym_lock = subprocess.run(
+            [str(ig), boot], env=env, capture_output=True, text=True, timeout=5
+        )
+        self.assertNotEqual(sym_lock.returncode, 0)
 
     def test_boot_finishes_interrupted_uninstall_from_ram_and_starts_stock(self):
         self.shell(r"""

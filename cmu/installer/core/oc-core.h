@@ -95,6 +95,8 @@ long oc_lock(int fd);
 long oc_lock_sh(int fd);
 long oc_unlock(int fd);
 int oc_lock_held_ex(int fd);
+int oc_is_wouldblock(long err);
+void oc_sleep_ms(unsigned ms);
 long oc_fork(void);
 long oc_waitpid(int pid, int *status);
 long oc_pipe(int fds[2]);

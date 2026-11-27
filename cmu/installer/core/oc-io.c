@@ -16,6 +16,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 #ifdef __linux__
 #include <sys/prctl.h>
@@ -77,6 +78,13 @@ int oc_lock_held_ex(int fd) {
     if (flock(fd,LOCK_SH|LOCK_NB)<0) return errno==EWOULDBLOCK || errno==EAGAIN;
     (void)flock(fd,LOCK_UN);
     return 0;
+}
+int oc_is_wouldblock(long err) { return err==-EWOULDBLOCK || err==-EAGAIN; }
+void oc_sleep_ms(unsigned ms) {
+    struct timespec ts;
+    ts.tv_sec=(time_t)(ms/1000u);
+    ts.tv_nsec=(long)(ms%1000u)*1000000L;
+    (void)nanosleep(&ts,0);
 }
 long oc_fork(void) { pid_t p=fork(); return p<0?-errno:(long)p; }
 long oc_waitpid(int pid, int *status) {
@@ -280,6 +288,13 @@ int oc_lock_held_ex(int fd) {
     if (r==-11) return 1; /* EAGAIN/EWOULDBLOCK: exclusive lock is held */
     if (r>=0) (void)oc_syscall4(143,fd,8,0,0); /* LOCK_UN */
     return 0;
+}
+int oc_is_wouldblock(long err) { return err==-11; }
+void oc_sleep_ms(unsigned ms) {
+    unsigned sec=0;
+    while (ms>=1000u) { __asm__ volatile("" : "+r"(ms)); ms-=1000u; ++sec; }
+    struct { long sec, nsec; } ts={(long)sec,(long)ms*1000000L};
+    (void)oc_syscall4(162,(long)&ts,0,0,0);
 }
 long oc_fork(void) { return oc_syscall4(2,0,0,0,0); }
 long oc_waitpid(int pid, int *status) {

@@ -58,6 +58,9 @@
                         PATH=/usr/bin:/bin:/usr/sbin:/sbin
                         export PATH
                         exec 7>&- 8>&- 9>&-
+                        if test -f /tmp/open-connect/ignition/ignition && test ! -L /tmp/open-connect/ignition/ignition && test -x /tmp/open-connect/ignition/ignition; then
+                            exec /tmp/open-connect/ignition/ignition
+                        fi
                         exec /bin/busybox sh /tmp/open-connect/ignition/ignition.sh
                     ) </dev/null >/dev/null 2>&1 &
                 fi;;
@@ -158,7 +161,7 @@ if awk '\''$0=="# Open Connect locked selector interface 1"{n++}END{exit n!=1}'\
     oc_times="hook_entry|$entered
 "; oc_stamp_count=1
     startup_stamp package_verified
-    oc_outer_observer=true
+    oc_outer_observer=native
     boot_select
     startup_stamps_publish
 else

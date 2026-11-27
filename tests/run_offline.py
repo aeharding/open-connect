@@ -175,11 +175,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         # Pre-warm shared host binaries once before fanning out across workers.
         if shutil.which("clang"):
-            from tests.host_bins import host_api, host_boot_select, host_flush
+            from tests.host_bins import host_api, host_boot_select, host_flush, host_ignition
 
             host_flush()
             host_boot_select()
             host_api()
+            host_ignition()
 
         failed_cases, shards = _build_shards(
             suite, shard_index=shard_index, shard_total=shard_total

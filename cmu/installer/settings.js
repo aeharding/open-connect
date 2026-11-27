@@ -171,7 +171,7 @@ prefs.importKey=function(done){
       return;
     }
     if(rec&&qd)drain(false);
-    if(!done(actual)&&rec&&prefs.changed)prefs.changed("sync");
+    if(!done(actual)&&prefs.changed)prefs.changed("sync");
     flush();
   }
   try{store.importKey(finish);}catch(e){finish(null);}
@@ -304,19 +304,19 @@ if(current()&&choice==="phone")render("phone","wireless");
 }
 if(choice===null&&item==="base"||choice==="phone"||choice==="sources"){
 if(!params||(params.additionalData!==1&&params.additionalData!==2))return;
-var on=params.additionalData===1,desired=on?1:0,values=prefs.values();
-if(!values){render("unknown",0);return;}
-var row=service(values,item);
-if(item!=="base"&&!row&&!(item==="pandora"&&!values.services))return;
-if(preference(values,item)===undefined||preference(values,item)===desired)return;
+var on=params.additionalData===1,desired=on?1:0,v=prefs.values();
+if(!v){render("unknown",0);return;}
+var row=service(v,item);
+if(item!=="base"&&!row&&!(item==="pandora"&&!v.services))return;
+if(preference(v,item)===undefined||preference(v,item)===desired)return;
 var label=item==="base"?"Startup optimizations":row?row.label:"Pandora";
-var text=item==="base"?(on?(values.services?"Reduces background logging and unused services. Applies after restart.":"Reduces native diagnostic logging. Applies after restart."):
-(values.services?"Restores original logging and startup behavior "+R:"Restores original native logging "+R)):row?(on?row.enable:row.disable):"Changes apply "+R;
-if(item==="base"&&on&&values.wireless)text+=" Wireless CarPlay delays Mazda Navigation about 20 s.";
+var text=item==="base"?(on?(v.services?"Reduces background logging and unused services. Applies after restart.":"Reduces native diagnostic logging. Applies after restart."):
+(v.services?"Restores original logging and startup behavior "+R:"Restores original native logging "+R)):row?(on?row.enable:row.disable):"Changes apply "+R;
+if(item==="base"&&on&&v.wireless)text+=" Wireless CarPlay delays Mazda Navigation about 20 s.";
 var origin=choice;
 dismiss=ask((on?"Enable ":"Disable ")+label+"?",text,on?"Enable":"Disable","apply",function(a){
 dismiss=null;if(a==="apply"&&current())prefs.select(item,desired);
-if(current()&&choice===origin)render(origin,item);
+if(a!=="closed"&&current()&&choice===origin)render(origin,item);
 });return;
 }
 if(choice==="developer"){
@@ -325,7 +325,7 @@ var values=prefs.values();if(item==="ssh"&&values.key==="-")return;
 if(params.additionalData===1&&values[item]===0){
 dismiss=ask(item==="uart"?"Enable UART?":"Enable SSH?",item==="uart"?"Passwordless root access over UART. Changes apply after restart.":"Changes apply "+R,"Enable","enable",function(a){
 dismiss=null;if(a==="enable"&&current())prefs.select(item,1);
-if(current()&&choice==="developer")render("developer",item);
+if(a!=="closed"&&current()&&choice==="developer")render("developer",item);
 });return;
 }
 prefs.select(item,params.additionalData===1?1:0);

@@ -545,4 +545,38 @@ for(const kind of ['ack','reconcile','refuse']){
  assert.equal(f.dialog,undefined);
  assert.equal(f.fw.common.getCommonTransitionData.name,'oldTransition','Home must restore original transition callback');
 }
+// Direct Import ACK after Home/re-entry OR while voice resumes must invalidate a stale second Import prompt.
+for(const path of ['reenter','voice']){
+ f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+ if(path==='reenter'){
+  f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+  f.nativeSettings();f.tap();f.endAnimations();select(f,'developer');
+ }else{
+  f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
+ }
+ select(f,'import');const secondPrompt=f.dialog;assert.equal(secondPrompt.props.title,'Import public key?');
+ if(path==='voice')f.fw.common._cachedVuiState='Listening';
+ f.reply(f.operation('import')[0],f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ if(path==='voice')f.fw.common._cachedVuiState='Idle';
+ assert.equal(secondPrompt.destroyed,true,path+' direct Import ACK must retire stale confirmation');
+ secondPrompt.props.defaultSelectCallback(secondPrompt,'import');
+ assert.equal(f.operation('import').length,1,path+' retired prompt must not send a second Import');
+}
+// Retiring an open Enable UART? or Enable SSH? prompt on Import completion builds Developer options only once.
+for(const toggleItem of ['uart','ssh']){
+ const baseState=toggleItem==='ssh'?{...developer,key:'a'.repeat(64),fingerprint:Array(16).fill('cd').join(':')}:developer;
+ for(const kind of ['ack','reconcile','refuse']){
+  f=warm(baseState);select(f,'developer');select(f,'import');f.pick('import');
+  f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
+  select(f,toggleItem,{additionalData:1});assert.match(f.dialog.props.title,new RegExp('Enable '+toggleItem.toUpperCase()+'\\?'));
+  const beforePages=f.pages.length;
+  const op=f.operation('import')[0];
+  const okState=f.state({...baseState,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)});
+  if(kind==='ack'){f.reply(op,okState);}
+  else if(kind==='reconcile'){f.reply(op,null);f.reply(f.requests.at(-1),okState);}
+  else{f.reply(op,{ok:false,error:'invalid_public_key'});f.reply(f.requests.at(-1),f.state(baseState));}
+  assert.equal(f.pages.length,beforePages+1,toggleItem+'/'+kind+' must build Developer options once');
+  assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[f.pages.at(-1).list2Ctrl.focussedItem].appData,'import');
+ }
+}
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

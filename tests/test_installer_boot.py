@@ -768,9 +768,13 @@ record_write
         tool.unlink(missing_ok=True)
         plugin = str(self.root / "vui/plugins/vui_plugin_common.so")
         tool.write_text(
-            '#!/bin/sh\nif test "$1:$2:$3" = '
-            + shlex.quote("-c:%d:" + plugin)
-            + '; then printf "999999\\n"; else exec '
+            '#!/bin/sh\nif test "$1:$2" = "-c:%d"; then\n'
+            + '  shift 2\n  for p in "$@"; do\n'
+            + '    if test "$p" = '
+            + shlex.quote(plugin)
+            + '; then printf "999999\\n"; else '
+            + shlex.quote(real)
+            + ' -c %d "$p"; fi\n  done\nelse exec '
             + shlex.quote(real)
             + ' "$@"; fi\n'
         )

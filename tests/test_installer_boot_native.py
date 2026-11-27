@@ -360,9 +360,9 @@ class NativeBootPlan(unittest.TestCase):
             + "; then exit 1; fi\n"
             + shlex.quote(str(real_flush))
             + ' "$@"\n'
-            'if test "$1" = f && test "${2##*/}" = boot.plan && test -f '
+            'case "$1:$*" in f:*/boot.plan|F:*/boot.plan*) if test -f '
             + shlex.quote(str(fixture.root / "cut-seal"))
-            + '; then kill -KILL "$PPID"; fi\n'
+            + '; then kill -KILL "$PPID"; fi;; esac\n'
             'case "$1:$2" in f:*/.open-connect-*-root-login) if test -f '
             + shlex.quote(str(fixture.root / "cut-publisher"))
             + '; then kill -KILL "$PPID"; fi;; esac\n'
@@ -536,7 +536,7 @@ class NativeBootPlan(unittest.TestCase):
             original = transaction.read_text()
             transaction.write_text(
                 original.replace(
-                    "    PREPARED_REV=$R_REV", "    kill -KILL $$\n    PREPARED_REV=$R_REV"
+                    "  PREPARED_REV=$R_REV", "  kill -KILL $$\n  PREPARED_REV=$R_REV"
                 )
             )
             result = self.touch_api(
@@ -573,7 +573,7 @@ class NativeBootPlan(unittest.TestCase):
             {key for key in configs[0] if configs[0][key] != configs[1][key]},
             {"carplay-autoshow"} if operation == "set" else set(),
         )
-        self.assertFalse((snapshots / pending[7] / "boot.plan").exists())
+        self.assertEqual((snapshots / pending[7] / "boot.plan").exists(), operation == "set")
         if cut == "startup":
             # Exit immediately after a real physical target publication, before sealing.
             with self.assertRaises(subprocess.CalledProcessError) as caught:
@@ -669,15 +669,15 @@ class NativeBootPlan(unittest.TestCase):
                     fixture, client, pending, stage = self.staged_touch_pending(reversal=reversal)
                     transaction = client / "transaction.sh"
                     original = transaction.read_text()
-                    retire = '            startup_staging_retire "$R_AFTER" || fail startup_stage_changed\n'
+                    retire = '      startup_staging_retire "$R_AFTER" || fail startup_stage_changed\n'
                     if cut == "before":
-                        changed = original.replace(retire, "            kill -KILL $$\n" + retire)
+                        changed = original.replace(retire, "      kill -KILL $$\n" + retire)
                     elif cut == "after":
-                        changed = original.replace(retire, retire + "            kill -KILL $$\n")
+                        changed = original.replace(retire, retire + "      kill -KILL $$\n")
                     else:
                         changed = original.replace(
-                            "            record_write\n            transaction_reconcile; return",
-                            "            record_write\n            kill -KILL $$\n            transaction_reconcile; return",
+                            "      record_write\n      transaction_reconcile; return",
+                            "      record_write\n      kill -KILL $$\n      transaction_reconcile; return",
                         )
                     self.assertNotEqual(changed, original)
                     transaction.write_text(changed)
@@ -861,8 +861,8 @@ class NativeBootPlan(unittest.TestCase):
                         original = transaction.read_text()
                         transaction.write_text(
                             original.replace(
-                                "            record_write\n            transaction_reconcile; return",
-                                "            record_write\n            kill -KILL $$\n            transaction_reconcile; return",
+                                "      record_write\n      transaction_reconcile; return",
+                                "      record_write\n      kill -KILL $$\n      transaction_reconcile; return",
                             )
                         )
                         interrupted = self.touch_api(fixture, "recover", pending[2])
@@ -1005,8 +1005,8 @@ class NativeBootPlan(unittest.TestCase):
             original = transaction.read_text()
             transaction.write_text(
                 original.replace(
-                    "            record_write\n            transaction_reconcile; return",
-                    "            record_write\n            kill -KILL $$\n            transaction_reconcile; return",
+                    "      record_write\n      transaction_reconcile; return",
+                    "      record_write\n      kill -KILL $$\n      transaction_reconcile; return",
                 )
             )
             interrupted = subprocess.run(

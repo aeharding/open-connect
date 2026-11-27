@@ -271,7 +271,9 @@ for(const op of ['set','import'])for(const leave of [false,true]){
  const mutation=f.operation(op)[0],lostAt=f.now;
  f.reply(mutation,null);const read=f.requests.at(-1);
  if(leave){f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();}
- f.advance(11999);assert.equal(f.dialog,undefined);
+ f.advance(11999);
+ if(op==='import'&&!leave)assert.equal(f.dialog.props.text1,'Importing public key');
+ else assert.equal(f.dialog,undefined);
  if(!leave)assert.doesNotMatch(f.pages.at(-1).list2Ctrl.title.text1,/Restart Mazda Connect/);
  f.advance(1);f.endAnimations();assert.equal(f.now-lostAt,12000);
  assert.equal(f.dialog,undefined,'page feedback never gets an extra runtime modal');
@@ -296,15 +298,31 @@ for(const op of ['set','import'])for(const leave of [false,true]){
 // Import failure belongs to the live preference session, including a different
 // page opened before the reply was lost. Queued values must not replace it.
 for(const navigation of ['back','reenter','queued']){
- f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+ f=warm(developer);select(f,'developer');
+ if(navigation==='queued'){
+  select(f,'uart',{additionalData:1});f.pick('enable');
+  select(f,'import');f.pick('import');
+  const setOp=f.operation('set')[0];
+  f.reply(setOp,f.state({...developer,uart:1,restart:true}));
+  const mutation=f.operation('import')[0];
+  f.reply(mutation,null);const read=f.requests.at(-1);
+  f.advance(12000);f.endAnimations();
+  assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Restart Mazda Connect',navigation);
+  assert.equal(f.operation('import').length,1);assert.equal(f.operation('set').length,1);
+  assert.equal(f.ctx.OpenConnect.protected(),true);assert.equal(f.dialog,undefined);
+  f.reply(mutation,f.state({...developer,uart:1,key:'d'.repeat(64),revision:'e'.repeat(64)}));
+  f.reply(read,f.state({...developer,uart:1,key:'d'.repeat(64),revision:'e'.repeat(64)}));
+  f.advance(1000);assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Restart Mazda Connect');
+  assert.equal(f.operation('set').length,1);assert.equal(f.operation('restart').length,0);
+  continue;
+ }
+ select(f,'import');f.pick('import');
  const mutation=f.operation('import')[0];
  if(navigation==='back'){
   f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
- }else if(navigation==='reenter'){
+ }else{
   f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
   f.nativeSettings();f.tap();f.endAnimations();
- }else{
-  select(f,'uart',{additionalData:1});f.pick('enable');f.advance(250);
  }
  f.reply(mutation,null);const read=f.requests.at(-1);
  f.advance(12000);f.endAnimations();

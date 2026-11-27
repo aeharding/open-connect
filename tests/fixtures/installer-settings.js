@@ -15,22 +15,23 @@ const settings = ctx.OpenConnectSettings;
 const open=settings.open;
 settings.open=(...args)=>{const result=open(...args);settle();return result;};
 const pages = [], calls = [];
-const parent = {removeChild(node) { node.parentNode = null; }};
+const offscreen = {removeChild(node) { node.parentNode = null; }, appendChild(n) { n.parentNode = this; }};
+const parent = {removeChild(node) { node.parentNode = null; }, appendChild(n) { n.parentNode = this; }};
 const input = () => "stock input", send = (...args) => calls.push(args);
 const transition = () => "stock transition";
 const host = {divElt: element(parent), list2Ctrl: {},
     handleControllerEvent: input};
 const fw = {getCurrentApp: () => "syssettings", getCurrCtxtId: () => "SystemTab",
-    _frameworkState: 1, _FWK_STATE_IDLE: 1, _currTmpltInstance: host,
+    _frameworkState: 1, _FWK_STATE_IDLE: 1, _currTmpltInstance: host, _offscreenTemplateParent: offscreen,
     common: {getCommonTransitionData: transition}, multicontroller: {getMode: () => "controllerActive"},
     sendEventToMmui: send,
     instantiateTemplate(app, container, type, props) {
-        assert.equal(type, "List2Tmplt"); assert.equal(app, "syssettings"); assert.equal(container, parent);
+        assert.equal(type, "List2Tmplt"); assert.equal(app, "syssettings"); assert.equal(container, offscreen);
         const ctrl = props.List2Ctrl;
         ctrl.updateItems = (first,last) => {
             assert.ok(first>=0&&last>=first&&last<ctrl.dataList.items.length);
         };
-        pages.push({ctrl, list2Ctrl: ctrl, divElt: element(parent), events: [],
+        pages.push({ctrl, list2Ctrl: ctrl, divElt: element(offscreen), events: [],
             cleanUp() { this.cleaned = true; }, handleControllerEvent(e) { this.events.push(e); return "consumed"; }});
         return pages.at(-1);
     }};
@@ -59,11 +60,11 @@ assert.deepEqual(writes, []);
 pick(0); pick(1); pick(0);
 assert.equal(pages.at(-1),page);
 assert.deepEqual(Array.from(page.ctrl.dataList.items,r=>r.checked),[true,false,false]);
-assert.deepEqual(writes,[]);
+assert.deepEqual(writes,[["touch",1,0]]);
 back(); assert.equal(pages.at(-1).ctrl.dataList.items[0].label1,"Factory behavior");
 back(); assert.equal(host.divElt.style.display,"");
-idle(); assert.deepEqual(writes,[["touch",1,0]]);
-settings.open(fw,store); pick(0); pick(1); idle();
+assert.deepEqual(writes,[["touch",1,0]]);
+settings.open(fw,store); pick(0); pick(1);
 assert.deepEqual(writes,[["touch",1,0]]);
 values={touch:0,warning:0}; reply(values);
 assert.deepEqual(writes,[["touch",1,0],["touch",0,1]]);
@@ -144,9 +145,11 @@ let modal, removals = 0;
 fw.instantiateControl = (app, parent, type, props) => {
     assert.equal(type, "Dialog3Ctrl");
     assert.equal(parent, ctx.document.body);
-    modal = {props, divElt: {classList: {add() {}}}, handleControllerEvent() {}};
+    modal = {props, divElt: {classList: {add() {}}, style: {}}, handleControllerEvent() {}, setText1(){}, setText2(){}};
     return modal;
 };
+ctx.document.addEventListener = () => {};
+ctx.document.removeEventListener = () => {};
 fw.destroyControl = control => { assert.equal(control, modal); modal = null; };
 fw.common.handleControllerEvent = input;
 settings.open(fw, store);
@@ -170,9 +173,9 @@ pick("uninstall"); assert.equal(fw.common.getCommonTransitionData(), "stock tran
 assert.equal(removals, 0); assert.equal(host.divElt.style.display, "");
 
 settings.open(fw, store); pick(0); pick(0); back(); pick("uninstall");
-assert.match(modal.props.text1, /Finishing your settings change/);
-assert.equal(modal.props.buttonConfig.button2, undefined); back();
-idle(); values = {touch: 0, warning: 1}; reply(values);
+assert.equal(modal.props.buttonConfig.button2.appData, "uninstall");
+modal.props.defaultSelectCallback(modal, "cancel");
+values = {touch: 0, warning: 1}; reply(values);
 pick("uninstall");
 const confirmed = modal;
 confirmed.props.defaultSelectCallback(confirmed, "uninstall");
@@ -212,13 +215,12 @@ assert.equal(modal.props.title, "Import public key?");
 modal.props.defaultSelectCallback(modal, "cancel");
 assert.equal(importReply, undefined);
 pick(2); modal.props.defaultSelectCallback(modal, "import");
-back(); pick("uninstall");
-assert.match(modal.props.text1, /Finishing your settings change/);
-back(); back();
+assert.equal(modal.props.text1, "Importing public key");
 values = {...values, key: "c".repeat(64), fingerprint: Array(16).fill("ab").join(":"), restart: true};
 importReply(values);
+assert.equal(modal.props.title, "Public key imported");
+modal.props.defaultSelectCallback(modal, "done");
 assert.equal(modal, null);
-settings.open(fw, store); pick(2);
 assert.equal(pages.at(-1).ctrl.dataList.items[1].disabled, false);
 const developerCtrl = pages.at(-1).ctrl;
 developerCtrl.selectCallback(developerCtrl, "ssh", {additionalData: 1});
@@ -229,7 +231,6 @@ assert.equal(pages.at(-1).ctrl.dataList.items[1].value, 2);
 let sshCtrl = pages.at(-1).ctrl;
 sshCtrl.selectCallback(sshCtrl, "ssh", {additionalData: 1});
 modal.props.defaultSelectCallback(modal, "enable");
-idle();
 assert.deepEqual(writes.at(-1), ["ssh", 0, 1]);
 values = {...values, ssh: 1}; reply(values);
 values = {...values, restart: false};
@@ -242,21 +243,21 @@ let uartCtrl = pages.at(-1).ctrl;
 uartCtrl.selectCallback(uartCtrl, "uart", {additionalData: 1});
 modal.props.defaultSelectCallback(modal, "enable");
 const savingUartPage = pages.at(-1);
-assert.equal(savingUartPage.ctrl.dataList.items[2].disabled, true);
-idle();
+assert.equal(savingUartPage.ctrl.dataList.items[2].disabled, false);
 assert.deepEqual(writes.at(-1), ["uart", 0, 1]);
 values = {...values, uart: 1, restart: true}; reply(values);
 assert.equal(pages.at(-1), savingUartPage);
 assert.equal(savingUartPage.ctrl.dataList.items[2].disabled, false);
-// Cancelling an unsent change also releases the Import control, without a write.
+// Toggling off and back on while first write is in flight coalesces cleanly.
 const beforeCoalesced = writes.length;
 const cancelCtrl = pages.at(-1).ctrl;
 cancelCtrl.selectCallback(cancelCtrl, "uart", {additionalData: 2});
 cancelCtrl.selectCallback(cancelCtrl, "uart", {additionalData: 1});
 modal.props.defaultSelectCallback(modal, "enable");
-assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, true);
-idle();
-assert.equal(writes.length, beforeCoalesced);
+assert.equal(writes.length, beforeCoalesced + 1);
+values = {...values, uart: 0}; reply(values);
+assert.equal(writes.length, beforeCoalesced + 2);
+values = {...values, uart: 1}; reply(values);
 assert.equal(pages.at(-1).ctrl.dataList.items[2].disabled, false);
 // Keep every fingerprint octet visible in Mazda's fixed-width dialog.
 pick(2); modal.props.defaultSelectCallback(modal, "import");

@@ -98,6 +98,7 @@ service-off)
 install)
     printf 'installed\n' > "$D/installed"
     package=$(cat "$D/package-id")
+    R_BACKEND=$package
     mkdir -p "$D/composed/$package"
     cp "$D/installed" "$D/composed/$package/autostart"
     service_choice=1; base_choice=0; wireless_choice=0
@@ -288,10 +289,16 @@ class InstallerTransaction(unittest.TestCase):
         # Use the real backend and state/transaction code; replace only physical
         # firmware, NVRAM, mount, root-publication and reboot adapters.
         adapters = DRIVER[DRIVER.index("root_mode()") : DRIVER.index('if test "$ACTION" = init;')]
+        fw_src = (ROOT / "cmu/installer/firmware.sh").read_text()
+        manifest_exact_fn = fw_src[
+            fw_src.index("manifest_exact() {") : fw_src.index("composed_members_verify() {")
+        ]
         (self.tools / "firmware.sh").write_text(
             'CUT=none\nfirmware_guard() { :; }\nfactory_wireless() { test -f "$D-factory-wireless"; }\n'
             'native_log_inputs_verify() { test ! -e "$D-base-changed"; }\n'
-            'touch_inputs_verify() { test ! -e "$D-touch-changed"; }\n' + adapters
+            'touch_inputs_verify() { test ! -e "$D-touch-changed"; }\n'
+            + manifest_exact_fn
+            + adapters
         )
         (self.tools / "flock").write_text("#!/bin/sh\nexit 0\n")
         (self.tools / "flock").chmod(0o700)
@@ -308,13 +315,22 @@ class InstallerTransaction(unittest.TestCase):
         }.items():
             script = script.replace(old, new)
         (self.tools / "backend.sh").write_text(script)
-        (self.tools / "files.sha256").write_text(
-            "".join(
-                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
-                for p in sorted(self.tools.iterdir())
-                if p.is_file() and not p.is_symlink() and p.name != "files.sha256"
+        backend_manifest = None
+        if (data / "record").exists():
+            rec_fields = (data / "record").read_text().split("|")
+            candidate = data / "packages" / rec_fields[3] / "files.sha256"
+            if rec_fields[1] == "active" and candidate.is_file():
+                backend_manifest = candidate
+        if backend_manifest is not None:
+            shutil.copyfile(backend_manifest, self.tools / "files.sha256")
+        else:
+            (self.tools / "files.sha256").write_text(
+                "".join(
+                    hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                    for p in sorted(self.tools.iterdir())
+                    if p.is_file() and not p.is_symlink() and p.name != "files.sha256"
+                )
             )
-        )
 
     def api(
         self, operation, revision="-", argument="-", expected="-", desired="-", *, host_tools=None
@@ -372,6 +388,42 @@ class InstallerTransaction(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(self.target(data, "nvram").read_text(), baseline + "\n")
                 shutil.rmtree(self.root / "runtime")
+
+    def test_selectorless_oc2_fallback_refuses_extra_package_file(self):
+        data = self.create("selectorless-extra")
+        self.run_ok(data, "install")
+        self.backend_fixture(data)
+        package_id = (data / "package-id").read_text().strip()
+        package_dir = data / "packages" / package_id
+        _, status = self.api("status")
+        rev = status["revision"]
+        record_before = (data / "record").read_bytes()
+        # Clean control: no-op touch 1->1 succeeds.
+        res_noop_clean, out_noop_clean = self.api("set", rev, "touch", "1", "1")
+        self.assertEqual(
+            res_noop_clean.returncode, 0, res_noop_clean.stdout + res_noop_clean.stderr
+        )
+        self.assertTrue(out_noop_clean["ok"])
+        self.assertEqual((data / "record").read_bytes(), record_before)
+        self.assertEqual(self.target(data, "nvram").read_text(), "disable\n")
+        # Extra ordinary file in selector-less OC2 package refuses both no-op and touch 1->0
+        # with state_changed, preserving byte-identical OC1 and unchanged NVRAM.
+        extra = package_dir / "stray-file"
+        extra.write_text("stray\n")
+        for desired in ("1", "0"):
+            with self.subTest(extra_desired=desired):
+                res, out = self.api("set", rev, "touch", "1", desired)
+                self.assertNotEqual(res.returncode, 0)
+                self.assertEqual(out["error"], "state_changed")
+                self.assertEqual((data / "record").read_bytes(), record_before)
+                self.assertEqual(self.target(data, "nvram").read_text(), "disable\n")
+        extra.unlink()
+        # Clean control: changing touch 1->0 succeeds and clears NVRAM.
+        res_clean, out_clean = self.api("set", rev, "touch", "1", "0")
+        self.assertEqual(res_clean.returncode, 0, res_clean.stdout + res_clean.stderr)
+        self.assertTrue(out_clean["ok"])
+        self.assertEqual(out_clean["touch"], 0)
+        self.assertEqual(self.target(data, "nvram").read_text(), "absent\n")
 
     def test_touch_pin_refusal_before_prepare_leaves_exit_and_uninstall_usable(self):
         data = self.create("touch-pin-refusal")
@@ -1057,6 +1109,7 @@ class InstallerTransaction(unittest.TestCase):
                 self.assertFalse(fast["completionReady"])
                 _, strict = self.api("status")
                 self.assertTrue(strict["conflict"])
+                saved_manifest = (self.tools / "files.sha256").read_bytes()
                 for operation, args in (
                     ("set", ("warning", "1", "0")),
                     ("import", ()),
@@ -1064,11 +1117,22 @@ class InstallerTransaction(unittest.TestCase):
                     ("uninstall", ()),
                     ("restart", ()),
                 ):
+                    if operation == "install":
+                        (self.tools / "files.sha256").write_text(
+                            "".join(
+                                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                                for p in sorted(self.tools.iterdir())
+                                if p.is_file() and not p.is_symlink() and p.name != "files.sha256"
+                            )
+                        )
+                    else:
+                        (self.tools / "files.sha256").write_bytes(saved_manifest)
                     result, answer = self.api(operation, revision, *args)
                     self.assertNotEqual(result.returncode, 0)
                     self.assertEqual(answer["error"], "state_changed")
                     self.assertEqual((data / "record").read_bytes(), record)
                     self.assertEqual(path.read_bytes(), b"external edit\n")
+                (self.tools / "files.sha256").write_bytes(saved_manifest)
                 path.write_bytes(original)
 
     def completion_fixture(self, name):
@@ -2472,6 +2536,13 @@ class InstallerTransaction(unittest.TestCase):
         data = self.create("reinstall-conflict")
         self.run_ok(data, "install")
         self.backend_fixture(data)
+        (self.tools / "files.sha256").write_text(
+            "".join(
+                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                for p in sorted(self.tools.iterdir())
+                if p.is_file() and not p.is_symlink() and p.name != "files.sha256"
+            )
+        )
         revision = (data / "record").read_text().split("|")[5]
         for name in ("target", "nvram", "relevant"):
             with self.subTest(changed=name):

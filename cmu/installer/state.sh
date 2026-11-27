@@ -165,10 +165,12 @@ snapshot_package() {
 
 package_version() {
   local folder=$D/packages/$1 digest value
-  hex "$1" 64 && private_dir "$folder" && file "$folder/files.sha256" &&
-    sha_is "$folder/files.sha256" "$1" && file "$folder/VERSION" || return 1
-  digest=$(awk '$2=="VERSION"{n++;v=$1;if(NF!=2)bad=1}END{if(bad||n!=1)exit 1;print v}' "$folder/files.sha256") &&
-    hex "$digest" 64 && sha_is "$folder/VERSION" "$digest" || return 1
+  if test "${VERIFIED_PACKAGE:-}" != "$1"; then
+    hex "$1" 64 && private_dir "$folder" && file "$folder/files.sha256" &&
+      sha_is "$folder/files.sha256" "$1" && file "$folder/VERSION" || return 1
+    digest=$(awk '$2=="VERSION"{n++;v=$1;if(NF!=2)bad=1}END{if(bad||n!=1)exit 1;print v}' "$folder/files.sha256") &&
+      hex "$digest" 64 && sha_is "$folder/VERSION" "$digest" || return 1
+  else file "$folder/VERSION" || return 1; fi
   value=$(cat "$folder/VERSION") || return 1
   case "$value" in ''|*[!a-zA-Z0-9.-]*) return 1;; esac
   printf '%s\n' "$value"

@@ -398,12 +398,21 @@ set|import)
   if test -n "$settings_package"; then
     test "$(snapshot_package "$R_CURRENT")" = "$settings_package" || fail restart_required
   fi
-  targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed
-  VERIFIED_CURRENT=$R_CURRENT; VERIFIED_PACKAGE=$R_BACKEND
-  package=$S_PACKAGE; prefs=$S_PREFS; schema=$S_SCHEMA; mode=$S_META
-  test "$schema" = OC2 || test "$schema" = dev9 || fail unsupported_snapshot
-  uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
-  access_source=$D/snapshots/$R_CURRENT; SEAL_BOOT_PLAN=0
+  FAST_READY=0; BOOT_SELECT=; SEAL_BOOT_PLAN=0
+  case "$operation:$argument" in set:uart|set:ssh|import:*) ;; *)
+    bs_rc=0; boot_select_verified || bs_rc=$?
+    case "$bs_rc" in
+      0) VERIFIED_PACKAGE=$R_BACKEND; S_CUR=; snapshot_decode "$R_CURRENT" || fail state_changed
+         test "$S_SCHEMA:$S_PACKAGE" = "OC2:$R_BACKEND" || fail state_changed; FAST_READY=1;;
+      2) BOOT_SELECT=;;
+      *) fail state_changed;;
+    esac;;
+  esac
+  if test "$FAST_READY" = 0; then targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed; VERIFIED_CURRENT=$R_CURRENT; VERIFIED_PACKAGE=$R_BACKEND; fi
+  package=$S_PACKAGE; prefs=$S_PREFS; schema=$S_SCHEMA; mode=$S_META; test "$schema" = OC2 || test "$schema" = dev9 || fail unsupported_snapshot
+  uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY; cur_nvram=$S_NVRAM; O_T2=0; test "$S_TOUCH" != 2 || O_T2=1
+  O_W=$S_WARNING; O_B=$S_BASE; O_WL=$S_WIRELESS; O_S=$S_SERVICES; O_AS=$S_AUTOSHOW
+  access_source=$D/snapshots/$R_CURRENT
   if test "$operation" = import || test "$argument" = uart || test "$argument" = ssh; then
     test "$S_ACCESS" = true || fail developer_update_required
     test "$S_LOGIN_INODE" != - || fail developer_reinstall_required
@@ -431,14 +440,30 @@ set|import)
     actual=$(preference_value "$prefs" "$preference_key") || fail invalid_setting
     test "$actual" = "$expected" || fail stale_setting
     prefs=$(preferences_change "$prefs" "$package" "$preference_key" "$desired" "$schema") || fail invalid_setting
-    if test "$schema" = OC2 && test "$package" = "$R_BACKEND" && ! absent "$D/packages/$package/boot-select"; then
-      SEAL_BOOT_PLAN=1
-    fi
+    SEAL_BOOT_PLAN=1
   fi
-  if test "$operation" = set && test "$expected" = "$desired"; then status_view false; exit; fi
-  if test "$(preference_value "$prefs" base)" = 1; then native_log_inputs_verify || fail base_inputs_changed; fi
+  if test "$schema" = OC2; then
+    test "$FAST_READY" = 1 || manifest_exact "$D/packages/$package" "" 0 "$package" || fail state_changed
+    test "$package" = "$R_BACKEND" && ! absent "$D/packages/$package/boot-select" || SEAL_BOOT_PLAN=0
+  else SEAL_BOOT_PLAN=0; fi
+  if test "$operation:$expected" = "set:$desired"; then
+    if test "$FAST_READY" = 1; then "$BOOT_SELECT" audit / "$R_CURRENT" || fail state_changed; S_VER="|$R_CURRENT|"; S_CUR=$R_CURRENT; fi
+    status_view false; exit
+  fi
   touch=$(preference_value "$prefs" touch) || fail invalid_preferences
-  if test "$touch" = 2; then touch_inputs_verify || fail touch_inputs_changed; fi
+  if test "$FAST_READY" = 1; then
+    b=$D/snapshots/$R_BASE
+    private_dir "$b" && file "$b/files.sha256" && sha_is "$b/files.sha256" "$R_BASE" &&
+      snapshot_decode "$R_BASE" || fail originals_changed
+    nvram=$S_NVRAM; test "$touch" != 1 || nvram=disable
+    if fast_set_publish; then status_view false; exit; fi
+    VERIFIED_CURRENT=; VERIFIED_PACKAGE=; BOOT_SELECT=; S_VER=; S_CUR=
+    targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" &&
+      manifest_exact "$D/packages/$package" "" 0 "$package" || fail state_changed
+    VERIFIED_CURRENT=$R_CURRENT; VERIFIED_PACKAGE=$R_BACKEND
+  fi
+  test "$(preference_value "$prefs" base)" != 1 || native_log_inputs_verify || fail base_inputs_changed
+  test "$touch" != 2 || touch_inputs_verify || fail touch_inputs_changed
   snapshot_read "$R_BASE" || fail originals_changed
   nvram=$S_NVRAM; test "$touch" != 1 || nvram=disable
   after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$access_source" "$prefs") || fail plan_failed

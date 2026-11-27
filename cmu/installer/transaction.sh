@@ -72,9 +72,10 @@ DEPS
 }
 
 boot_dependencies_match() {
-  local snapshot=$1 digest name extra scope leaf target parent checked= seen='|' mapping pin key path
+  local snapshot=$1 digest name extra scope leaf target parent checked= seen='|' mapping pin key path t
   local members='|' member_count=1 package_count=0 manager=0 found expected= actual
   local composed='|' composed_count=0 composed_expected=1 root_count=0 root_expected=0
+  manifest_exact "$P" "" 0 "$R_BACKEND" || return 1
   while read -r digest name extra; do
     members="$members$name:$digest|"; member_count=$((member_count+1))
   done < "$P/files.sha256"

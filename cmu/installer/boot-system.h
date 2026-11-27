@@ -83,7 +83,7 @@ static long oc_block(void) {
 static void oc_cut(const char *phase) { (void)phase; }
 #endif
 
-static int oc_join(char *out,unsigned capacity,const char *a,const char *b) {
+static __attribute__((noinline)) int oc_join(char *out,unsigned capacity,const char *a,const char *b) {
     unsigned n=oc_length(a),m=oc_length(b);
     if (n+m+1>capacity) return 0;
     for (unsigned i=0;i<n;++i) out[i]=a[i];
@@ -119,7 +119,7 @@ static int oc_text(int root,const char *path,char *out,unsigned capacity,int vir
     if (oc_close((int)fd)<0) n=-1;
     return n;
 }
-static int oc_verified_text(int folder,const char *name,const char *expected,char *out,unsigned capacity) {
+static __attribute__((noinline)) int oc_verified_text(int folder,const char *name,const char *expected,char *out,unsigned capacity) {
     long fd=oc_beneath(folder,name,OC_READ,0);
     if (fd<0) return 0;
     OcMeta before,after;

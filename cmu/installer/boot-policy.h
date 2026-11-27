@@ -11,7 +11,6 @@
 enum { OC_SLOW=95, OC_STOCK=2, OC_REFUSE=1, OC_MEMBERS=128 };
 typedef struct { char *name,*digest; } OcMember;
 typedef struct { OcMember rows[OC_MEMBERS]; unsigned count; } OcManifest;
-typedef struct { char *key,*path,*digest; OcMeta meta; int absent,used; } OcInput;
 typedef struct {
     int root,data,ram,lock,snapshot,baseline,package,composed,stage,observer,log;
     char record[1024],next[1024],config[1024],access[320],selector[256],base_config[1024],base_access[320];
@@ -21,9 +20,9 @@ typedef struct {
     char *record_fields[13],*flags[9],*access_fields[6],*base_flags[9],*base_access_fields[6];
     OcManifest current,base,pkg,composition;
     OcInput inputs[OC_PLAN_ROWS]; unsigned input_count;
-    char boot[40],token[34],nonce[33],stage_name[64],observer_name[64],log_name[64],times[1024]; unsigned time_count;
+    char boot[40],token[34],nonce[33],stage_name[64],observer_name[64],log_name[64],times[1024],svc_digest[65]; unsigned time_count;
     long owner,group,parent;
-    int selected,access_present,base_access_present,debited,input_failure,gated,gate_sent,released,metadata_drift;
+    int selected,access_present,base_access_present,debited,input_failure,gated,gate_sent,released,metadata_drift,touch_drift;
     unsigned ui_aliases; /* Low three bits: attempted; next three: linked. */
     OcMeta ui_identity[3];
 } OcBoot;
@@ -48,11 +47,11 @@ static const char *const oc_composed_names[]={
     "sm-normal-on.conf","sm-normal-off.conf","sm-wcp-on.conf","sm-wcp-off.conf","vui.so","vui.xml"
 };
 
-static char *oc_digest(OcManifest *manifest,const char *name) {
+static __attribute__((noinline)) char *oc_digest(OcManifest *manifest,const char *name) {
     for (unsigned i=0;i<manifest->count;++i) if (oc_equal(manifest->rows[i].name,name)) return manifest->rows[i].digest;
     return 0;
 }
-static int oc_manifest(char *text,OcManifest *manifest,int dependencies) {
+static __attribute__((noinline)) int oc_manifest(char *text,OcManifest *manifest,int dependencies) {
     manifest->count=0;
     while (*text) {
         if (manifest->count==OC_MEMBERS) return 0;
@@ -69,7 +68,7 @@ static int oc_manifest(char *text,OcManifest *manifest,int dependencies) {
     }
     return manifest->count>0;
 }
-static int oc_members(int folder,OcManifest *manifest) {
+static __attribute__((noinline)) int oc_members(int folder,OcManifest *manifest,int expect_manifest) {
     unsigned count=0;
 #ifdef OC_HOST
     int copy=dup(folder);
@@ -80,7 +79,7 @@ static int oc_members(int folder,OcManifest *manifest) {
     while ((entry=readdir(directory))) {
         const char *name=entry->d_name;
         if (oc_equal(name,".")||oc_equal(name,"..")) continue;
-        if (!oc_equal(name,"files.sha256") && !oc_digest(manifest,name)) { closedir(directory); return 0; }
+        if ((expect_manifest!=1||!oc_equal(name,"files.sha256")) && !oc_digest(manifest,name)) { closedir(directory); return 0; }
         if (++count>OC_MEMBERS+1) { closedir(directory); return 0; }
     }
     if (closedir(directory)<0) return 0;
@@ -101,7 +100,7 @@ static int oc_members(int folder,OcManifest *manifest) {
             while (j<size && name[j]) ++j;
             if (j==size) return 0;
             if (!oc_equal(name,".")&&!oc_equal(name,"..")) {
-                if (!oc_equal(name,"files.sha256")&&!oc_digest(manifest,name)) return 0;
+                if ((expect_manifest!=1||!oc_equal(name,"files.sha256"))&&!oc_digest(manifest,name)) return 0;
                 if (++count>OC_MEMBERS+1) return 0;
             }
             at+=length;
@@ -109,31 +108,34 @@ static int oc_members(int folder,OcManifest *manifest) {
     }
 
 #endif
-    return count==manifest->count+1;
+    return expect_manifest==2 ? 1 : count==manifest->count+(expect_manifest?1u:0u);
 }
-static int oc_load_manifest(int folder,const char *digest,char *text,unsigned capacity,OcManifest *manifest) {
+static __attribute__((noinline)) int oc_load_manifest(int folder,const char *digest,char *text,unsigned capacity,OcManifest *manifest) {
     return oc_verified_text(folder,"files.sha256",digest,text,capacity) &&
-        oc_manifest(text,manifest,0) && oc_members(folder,manifest);
+        oc_manifest(text,manifest,0) && oc_members(folder,manifest,1);
 }
-static int oc_saved_text(int folder,OcManifest *manifest,const char *name,char *text,unsigned capacity) {
+static __attribute__((noinline)) int oc_saved_text(int folder,OcManifest *manifest,const char *name,char *text,unsigned capacity) {
     const char *digest=oc_digest(manifest,name);
     return digest && oc_verified_text(folder,name,digest,text,capacity);
 }
-static int oc_fields_line(char *text,char **fields,unsigned count) {
+static __attribute__((noinline)) int oc_fields_line(char *text,char **fields,unsigned count) {
     return oc_one_line(text) && oc_fields(text,fields,count)==count;
 }
 static int oc_bit(const char *p) { return oc_equal(p,"0")||oc_equal(p,"1"); }
 static int oc_nvram_value(const char *p) { return oc_equal(p,"absent")||oc_equal(p,"enable")||oc_equal(p,"disable"); }
-static int oc_record(OcBoot *b) {
+static __attribute__((noinline)) int oc_record_mode(OcBoot *b,const char *expected_before,const char *expected_after) {
     if (oc_text(b->data,"record",b->record,sizeof b->record,0)<0 || !oc_fields_line(b->record,b->record_fields,13)) return 0;
     char **f=b->record_fields;
     if (!oc_equal(f[0],"OC1")||!oc_hex(f[2],32)||!oc_hex(f[3],64)||!oc_hex(f[4],64)||!oc_hex(f[5],64)) return 0;
     for (unsigned i=6;i<=8;++i) if (!oc_equal(f[i],"-")&&!oc_hex(f[i],64)) return 0;
-    if (!oc_equal(f[6],"-")||!oc_equal(f[7],"-")||!oc_equal(f[1],"active")) return 0;
     if (oc_length(f[9])!=1||f[9][0]<'0'||f[9][0]>'3') return 0;
     if ((!oc_equal(f[10],"-")&&!oc_uuid(f[10]))||(!oc_equal(f[11],"-")&&!oc_uuid(f[11]))) return 0;
-    return oc_equal(f[12],"-")||oc_equal(f[12],"installed")||oc_equal(f[12],"removed")||oc_equal(f[12],"undone")||oc_equal(f[12],"restart");
+    if (!(oc_equal(f[12],"-")||oc_equal(f[12],"installed")||oc_equal(f[12],"removed")||oc_equal(f[12],"undone")||oc_equal(f[12],"restart"))) return 0;
+    if (expected_after)
+        return oc_equal(f[1],"set")&&oc_equal(f[5],expected_before)&&oc_equal(f[6],expected_before)&&oc_equal(f[7],expected_after);
+    return oc_equal(f[1],"active")&&oc_equal(f[6],"-")&&oc_equal(f[7],"-")&&(!expected_before||oc_equal(f[5],expected_before));
 }
+static int oc_record(OcBoot *b) { return oc_record_mode(b,0,0); }
 static int oc_metadata_mode(const char *text,unsigned *mode,unsigned *uid,unsigned *gid) {
     unsigned values[3]={0,0,0},field=0,n=0;
     while (*text) {
@@ -177,9 +179,10 @@ static int oc_service_keys(char *text,char **ids,unsigned *count) {
     }
     return *count>0;
 }
-static int oc_config(OcBoot *b,char *text,char **f,int active) {
+static int oc_config(OcBoot *b,char *text,char **f,int active,char svc_digest[65]) {
     unsigned mode,uid,gid;
     f[8]="0";
+    if (svc_digest) svc_digest[0]=0;
     if (!oc_prefix(text,"OC2\n")) {
         if (!oc_one_line(text)||oc_fields(text,f,8)!=(active?8u:5u)) return 0;
         if (active?!oc_hex(f[0],64):!oc_equal(f[0],"-")) return 0;
@@ -194,6 +197,8 @@ static int oc_config(OcBoot *b,char *text,char **f,int active) {
     const unsigned slots[]={0,1,2,3,4,6,7};
     char *previous="",*p=text+4;
     f[5]="1";
+    OcHash sh;
+    if (svc_digest) oc_hash_init(&sh);
     while (*p) {
         char *key=p,*value=0;
         while (*p && *p!='\n') {
@@ -210,6 +215,7 @@ static int oc_config(OcBoot *b,char *text,char **f,int active) {
             f[8]=value; continue;
         }
         if (oc_equal(key,"service-ids")) {
+            if (svc_digest) { oc_hash_add(&sh,value,oc_length(value)); oc_hash_add(&sh,"\n",1); }
             if (!oc_service_keys(value,ids,&count)) return 0;
             seen|=128; continue;
         }
@@ -221,11 +227,13 @@ static int oc_config(OcBoot *b,char *text,char **f,int active) {
         if (!oc_prefix(key,"service.")||!oc_bit(value)) return 0;
         for (unsigned i=0;i<count;++i) if (oc_equal(key+8,ids[i])) {
             service_seen|=1u<<i; found=1;
+            if (svc_digest) { oc_hash_add(&sh,key,oc_length(key)); oc_hash_add(&sh,value,1); }
             if (oc_equal(ids[i],"pandora")) f[5]=value;
             break;
         }
         if (!found) return 0;
     }
+    if (svc_digest) oc_hash_finish(&sh,svc_digest);
     return seen==255 && service_seen==((1u<<count)-1) && oc_hex(f[0],64)&&
         (oc_bit(f[1])||oc_equal(f[1],"2"))&&oc_bit(f[2])&&oc_nvram_value(f[3])&&
         oc_metadata_mode(f[4],&mode,&uid,&gid)&&oc_bit(f[6])&&oc_bit(f[7]);
@@ -235,11 +243,11 @@ static int oc_input_mode(OcInput *input,const char *text) {
     return !input->absent && oc_metadata_mode(text,&mode,&uid,&gid) &&
         input->meta.mode==(OC_REGULAR|mode) && input->meta.uid==uid && input->meta.gid==gid;
 }
-static OcInput *oc_find(OcBoot *b,const char *key) {
+static __attribute__((noinline)) OcInput *oc_find(OcBoot *b,const char *key) {
     for (unsigned i=0;i<b->input_count;++i) if (oc_equal(b->inputs[i].key,key)) return &b->inputs[i];
     return 0;
 }
-static OcInput *oc_expect(OcBoot *b,const char *key,const char *path,const char *digest) {
+static __attribute__((noinline)) OcInput *oc_expect(OcBoot *b,const char *key,const char *path,const char *digest) {
     OcInput *row=oc_find(b,key);
     if (!row||row->used||!oc_equal(row->path,path)||!oc_equal(row->digest,digest)) return 0;
     row->used=1;
@@ -275,12 +283,16 @@ static int oc_plan(OcBoot *b) {
         } else {
             if (!oc_hex(fields[2],64)||!oc_meta_parse(fields+3,&row->meta)) return 0;
             long fd=oc_beneath(parent,path,OC_READ,0);
-            if (fd<0) return 0;
+            if (fd<0) {
+                if (fd==-2&&(b->touch_drift&1)&&oc_prefix(row->key,"touch/devices/")) { b->touch_drift|=2; continue; }
+                return 0;
+            }
             OcMeta actual;
             int ok=oc_stat((int)fd,&actual)>=0;
             if (oc_close((int)fd)<0) ok=0;
             if (!ok) return 0;
             if (!oc_meta_equal(&row->meta,&actual)) {
+                if ((b->touch_drift&1)&&oc_prefix(row->key,"touch/devices/")) { b->touch_drift|=2; continue; }
                 /* Only identical-byte inode/time drift may request resealing.
                  * Keep permission, identity and coverage checks; never activate
                  * from these replacement metadata, even if every hash matches.
@@ -312,6 +324,8 @@ static int oc_dependency_coverage(OcBoot *b) {
         if (!oc_join(name,sizeof name,"root/",oc_root_names[i])) return 0;
         const char *digest=oc_digest(&dependencies,name);
         if (!digest||!oc_expect(b,name,oc_root_paths[i],digest)) return 0;
+        if (oc_equal(oc_root_names[i],"manager.so")&&
+            !oc_equal(digest,"1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29")) return 0;
     }
     for (unsigned kind=0;kind<2;++kind) {
         OcManifest *m=kind?&b->composition:&b->pkg;
@@ -336,7 +350,7 @@ static int oc_dependency_coverage(OcBoot *b) {
     return 1;
 }
 
-static int oc_mounts(OcBoot *b) {
+static __attribute__((noinline)) int oc_mounts(OcBoot *b) {
     if (oc_text(b->root,"proc/self/mounts",b->scratch,sizeof b->scratch,1)<0) return 0;
     unsigned root=0,data=0,rootfs=0;
     char *p=b->scratch;
@@ -373,7 +387,7 @@ static int oc_mounts(OcBoot *b) {
     }
     return root==1 && data==1;
 }
-static int oc_open_private(int parent,const char *path) {
+static __attribute__((noinline)) int oc_open_private(int parent,const char *path) {
     long fd=oc_beneath(parent,path,OC_DIRECTORY,0);
     if (fd<0) return -1;
     if (!oc_private((int)fd)) { (void)oc_close((int)fd); return -1; }
@@ -460,11 +474,27 @@ static int oc_access_coverage(OcBoot *b) {
         else if (hold->absent) return 0;
     }
     if (!oc_equal(f[2],"-")) {
-        if (!oc_join(path,sizeof path,"/" OC_DATA "/keys/",f[2])||!oc_join(path,sizeof path,path,".cmu")||
-            !oc_expect(b,"key/owner",path,f[2])) return 0;
+        long keys=oc_open_private(b->data,"keys");
+        if (keys<0||oc_close((int)keys)<0) return 0;
+        if (!oc_join(path,sizeof path,"/" OC_DATA "/keys/",f[2])||!oc_join(path,sizeof path,path,".cmu")) return 0;
+        OcInput *key=oc_expect(b,"key/owner",path,f[2]);
+        if (!key||key->absent||key->meta.mode!=(OC_REGULAR|0600)||
+            key->meta.uid!=(unsigned)b->owner||key->meta.gid!=(unsigned)b->group) return 0;
     }
     return 1;
 }
+typedef struct { const char *key,*path,*digest; int stock; } OcPin;
+static const OcPin oc_touch_pins[]={
+    {"touch/devices/svc","/jci/devices/svc-com-jci-cpp-devices.so","e438bef5acb59c65c810df905488c7b1230cce88b20a295dc2da182f78da2695",1},
+    {"touch/devices/lib","/jci/lib/libjcidevices.so","4d05f4242ffab8ed2e21c4785b077b7225ea54c3e62c8e02a26eb400eb6a1171",1}
+};
+static const OcPin oc_base_pins[]={
+    {"base/settings.txt","/config/common/log/settings.txt","8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0",0},
+    {"base/libjcicommon.so","/jci/lib/libjcicommon.so","637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d",0},
+    {"base/log-defaults.js","/jci/gui/common/js/logDefaults.js","83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a",0},
+    {"base/vui/vui.so","/jci/vui/svcjcivui.so","ba72171a04dcc264ff5f690ac25ac2b009624158499159cdb6aebb08a9ab34f4",1},
+    {"base/vui/vui.xml","/jci/vui/vui_config.xml","d2511533b59bc9773f92d8fff9cbcf591d9ff461c33839ff4eaaae6f5d0aaef0",1}
+};
 static int oc_identity_coverage(OcBoot *b) {
     OcInput *version=oc_find(b,"guard/version.ini");
     if (!version||version->used||!oc_equal(version->path,"/jci/version.ini")||version->absent||
@@ -483,22 +513,18 @@ static int oc_identity_coverage(OcBoot *b) {
     if (oc_equal(b->flags[1],"2")) {
         OcMeta stock;
         if (!oc_stock_meta(b->root,&stock)) return 0;
-        OcInput *svc=oc_expect(b,"touch/devices/svc","/jci/devices/svc-com-jci-cpp-devices.so",
-            "e438bef5acb59c65c810df905488c7b1230cce88b20a295dc2da182f78da2695");
-        OcInput *lib=oc_expect(b,"touch/devices/lib","/jci/lib/libjcidevices.so",
-            "4d05f4242ffab8ed2e21c4785b077b7225ea54c3e62c8e02a26eb400eb6a1171");
-        if (!svc||!lib||svc->absent||lib->absent||svc->meta.device!=stock.device||lib->meta.device!=stock.device) return 0;
+        for (unsigned i=0;i<2;++i) {
+            OcInput *row=oc_expect(b,oc_touch_pins[i].key,oc_touch_pins[i].path,oc_touch_pins[i].digest);
+            if (!row||row->absent||(!(b->touch_drift&2)&&row->meta.device!=stock.device)) return 0;
+        }
     }
     if (oc_equal(b->flags[6],"1")) {
         OcMeta stock;
         if (!oc_stock_meta(b->root,&stock)) return 0;
         for (unsigned i=0;i<b->input_count;++i)
             if (oc_prefix(b->inputs[i].key,"base/vui/")&&b->inputs[i].meta.device!=stock.device) return 0;
-        if (!oc_expect(b,"base/settings.txt","/config/common/log/settings.txt","8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0")||
-            !oc_expect(b,"base/libjcicommon.so","/jci/lib/libjcicommon.so","637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d")||
-            !oc_expect(b,"base/log-defaults.js","/jci/gui/common/js/logDefaults.js","83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a")||
-            !oc_expect(b,"base/vui/vui.so","/jci/vui/svcjcivui.so","ba72171a04dcc264ff5f690ac25ac2b009624158499159cdb6aebb08a9ab34f4")||
-            !oc_expect(b,"base/vui/vui.xml","/jci/vui/vui_config.xml","d2511533b59bc9773f92d8fff9cbcf591d9ff461c33839ff4eaaae6f5d0aaef0")) return 0;
+        for (unsigned i=0;i<5;++i)
+            if (!oc_expect(b,oc_base_pins[i].key,oc_base_pins[i].path,oc_base_pins[i].digest)) return 0;
     }
     b->plugins=b->dependencies;
     if (!oc_saved_text(b->snapshot,&b->current,"vui-plugins.list",b->plugins,4096)) return 0;
@@ -717,7 +743,7 @@ static int oc_ui_alias(OcBoot *b) {
     }
     return oc_unlink(b->stage,".vui-link")>=0;
 }
-static int oc_nvram(OcBoot *b,char value[16]) {
+static __attribute__((noinline)) int oc_nvram(OcBoot *b,char value[16]) {
     /* These class parents are kernel-owned sysfs links, unlike durable paths.
      * Open the keys directory first so inaccessible parents cannot mean absent.
      */
@@ -934,7 +960,7 @@ static int oc_base_read_ahead(OcBoot *b) {
     if (oc_close((int)queue)<0) ok=0;
     return ok;
 }
-static int oc_policy_load(OcBoot *b) {
+static __attribute__((noinline)) int oc_policy_load(OcBoot *b) {
     char path[192];
     if (!oc_join(path,sizeof path,"snapshots/",b->record_fields[5])) return 0;
     b->snapshot=oc_open_private(b->data,path);
@@ -944,12 +970,12 @@ static int oc_policy_load(OcBoot *b) {
         !oc_load_manifest(b->snapshot,b->record_fields[5],b->current_manifest,sizeof b->current_manifest,&b->current)||
         !oc_load_manifest(b->baseline,b->record_fields[4],b->base_manifest,sizeof b->base_manifest,&b->base)||
         !oc_saved_text(b->snapshot,&b->current,"config",b->config,sizeof b->config)||
-        !oc_config(b,b->config,b->flags,1)||!oc_equal(b->flags[0],b->record_fields[3])||
+        !oc_config(b,b->config,b->flags,1,b->svc_digest)||!oc_equal(b->flags[0],b->record_fields[3])||
         !oc_saved_text(b->baseline,&b->base,"config",b->base_config,sizeof b->base_config)||
-        !oc_config(b,b->base_config,b->base_flags,0)) return 0;
+        !oc_config(b,b->base_config,b->base_flags,0,0)) return 0;
     return 1;
 }
-static int oc_load(OcBoot *b) {
+static __attribute__((noinline)) int oc_load(OcBoot *b) {
     char path[192];
     if (!oc_join(path,sizeof path,"packages/",b->record_fields[3])) return 0;
     b->package=oc_open_private(b->data,path);
@@ -974,6 +1000,15 @@ static int oc_load(OcBoot *b) {
     for (unsigned i=0;i<sizeof oc_composed_names/sizeof *oc_composed_names;++i) if (!oc_digest(&b->composition,oc_composed_names[i])) return 0;
     return oc_dependency_coverage(b)&&oc_snapshot_coverage(b)&&oc_access_coverage(b)&&oc_identity_coverage(b);
 }
+static __attribute__((noinline)) int oc_record_file(OcBoot *b,const char *expected_before,const char *expected_after) {
+    OcMeta record_meta;
+    long record=oc_openat(b->data,"record",OC_READ,0);
+    if (record<0) return 0;
+    int ok=oc_stat((int)record,&record_meta)>=0&&record_meta.mode==(OC_REGULAR|0600)&&
+        record_meta.uid==(unsigned)b->owner&&record_meta.gid==(unsigned)b->group;
+    if (oc_close((int)record)<0) ok=0;
+    return ok && oc_record_mode(b,expected_before,expected_after);
+}
 static int oc_select(OcBoot *b,int root) {
     b->root=root; b->data=b->ram=b->lock=b->snapshot=b->baseline=b->package=b->composed=b->stage=b->observer=b->log=-1;
     b->owner=oc_owner(); b->group=oc_group();
@@ -996,15 +1031,10 @@ static int oc_select(OcBoot *b,int root) {
     oc_stamp(b,"hook_entry");
     if (b->gated) oc_stamp(b,"worker_cpu1");
     b->lock=(int)oc_openat(b->ram,"lock",OC_RW|OC_CREATE,0600);
-    OcMeta lock_meta,record_meta;
+    OcMeta lock_meta;
     if (b->lock<0||oc_stat(b->lock,&lock_meta)<0||lock_meta.mode!=(OC_REGULAR|0600)||
         lock_meta.uid!=(unsigned)b->owner||lock_meta.gid!=(unsigned)b->group||oc_lock(b->lock)<0) return OC_REFUSE;
-    long record=oc_openat(b->data,"record",OC_READ,0);
-    if (record<0) return OC_SLOW;
-    int ok=oc_stat((int)record,&record_meta)>=0&&record_meta.mode==(OC_REGULAR|0600)&&
-        record_meta.uid==(unsigned)b->owner&&record_meta.gid==(unsigned)b->group;
-    if (oc_close((int)record)<0) ok=0;
-    if (!ok||!oc_record(b)) return OC_SLOW;
+    if (!oc_record_file(b,0,0)) return OC_SLOW;
     if (!oc_boot_identity(b)) return OC_REFUSE;
     if (oc_equal(b->record_fields[11],b->boot)||!oc_absent_at(b->ram,"selected")||
         !oc_absent_at(b->ram,"feature")||!oc_absent_at(b->ram,"ignition")||!oc_absent_at(b->ram,"access-selected")||
@@ -1039,6 +1069,322 @@ static int oc_select(OcBoot *b,int root) {
     (void)oc_new_text(b->ram,"startup-times",b->times,0600);
     return b->selected?0:OC_STOCK;
 }
+static __attribute__((noinline)) void oc_close_boot(OcBoot *b) {
+    int handles[]={b->log,b->observer,b->stage,b->composed,b->package,
+        b->baseline,b->snapshot,b->lock,b->ram,b->data};
+    for (unsigned i=0;i<sizeof handles/sizeof *handles;++i) if (handles[i]>=0) (void)oc_close(handles[i]);
+}
+static __attribute__((noinline)) int oc_audit_load(OcBoot *b,const char *root_path,const char *expected_current,const char *candidate,int allow_touch_drift) {
+    b->root=b->data=b->ram=b->lock=b->snapshot=b->baseline=b->package=b->composed=b->stage=b->observer=b->log=-1;
+    b->gated=0; b->metadata_drift=0; b->touch_drift=allow_touch_drift?1:0; b->input_count=0;
+    b->owner=oc_owner(); b->group=oc_group();
+    b->root=(int)oc_openat(OC_CWD,root_path,OC_DIRECTORY,0);
+    if (b->root<0) return 0;
+    b->data=oc_open_private(b->root,OC_DATA);
+    if (b->data<0) return 0;
+    if (!oc_record_file(b,expected_current,candidate)) return 0;
+    if (candidate) b->record_fields[5]=(char *)candidate;
+    if (!oc_mounts(b)||!oc_policy_load(b)||!oc_prefix(b->config,"OC2\n")) return 0;
+    char nvram[16];
+    if (!oc_nvram(b,nvram)||!oc_equal(nvram,b->flags[3])) return 0;
+    if (candidate) {
+        const char *wanted=oc_equal(b->flags[1],"1")?"disable":b->base_flags[3];
+        if (!oc_equal(wanted,b->flags[3])) return 0;
+    }
+    return oc_load(b) && !b->metadata_drift;
+}
+static int oc_audit(const char *root_path,const char *expected_current,const char *candidate) {
+    int ok=oc_audit_load(&oc_boot,root_path,expected_current,candidate,0);
+    oc_close_boot(&oc_boot);
+    if (oc_boot.root>=0 && oc_close(oc_boot.root)<0) ok=0;
+    return ok?0:1;
+}
+static __attribute__((noinline)) int oc_copy_verified_member(OcBoot *b,int dst_dir,const char *name,const char *expected_digest,char out_digest[65],OcMeta *out_meta) {
+    if (!expected_digest) return 0;
+    long src=oc_openat(b->snapshot,name,OC_READ,0);
+    if (src<0) return 0;
+    long dst=oc_openat(dst_dir,name,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
+    if (dst<0) { (void)oc_close((int)src); return 0; }
+    OcMeta sm;
+    int ok=oc_hash_copy((int)src,(int)dst,33554432,out_digest,&sm)==OC_COPY_OK &&
+        oc_equal(out_digest,expected_digest) && oc_mode((int)dst,0600)>=0 &&
+        oc_sync((int)dst)>=0 && oc_stat((int)dst,out_meta)>=0 &&
+        out_meta->mode==(OC_REGULAR|0600) && out_meta->uid==(unsigned)b->owner && out_meta->gid==(unsigned)b->group;
+    if (oc_close((int)src)<0) ok=0;
+    if (oc_close((int)dst)<0) ok=0;
+    return ok;
+}
+static __attribute__((noinline)) int oc_emit_plan_row(int fd,const char *key,const char *path,const char *digest,const OcMeta *m,int absent) {
+    char meta[131];
+    if (!oc_write_all(fd,key,oc_length(key))||!oc_write_all(fd,"|",1)||
+        !oc_write_all(fd,path,oc_length(path))||!oc_write_all(fd,"|",1)||
+        !oc_write_all(fd,digest,oc_length(digest))) return 0;
+    if (absent) return oc_write_all(fd,"|-|-|-|-|-|-|-|-|-|-\n",21);
+    unsigned n=oc_meta_text(meta,m);
+    return oc_write_all(fd,meta,n)&&oc_write_all(fd,"\n",1);
+}
+static __attribute__((noinline)) int oc_emit_external_pin(int plan_fd,OcBoot *b,const char *key,const char *path,const char *digest,int stock_req) {
+    OcInput *old=oc_find(b,key);
+    if (old && !old->absent && oc_equal(old->path,path) && oc_equal(old->digest,digest)) {
+        if (stock_req) {
+            OcMeta stock;
+            if (!oc_stock_meta(b->root,&stock)) return 2;
+            if (old->meta.device!=stock.device) return 1;
+        }
+        return oc_emit_plan_row(plan_fd,key,path,digest,&old->meta,0)?0:2;
+    }
+    long fd=oc_beneath(b->root,path+1,OC_READ,0);
+    if (fd<0) return fd==-2?1:2;
+    char got[65]; OcMeta cur;
+    int copied=oc_hash_copy((int)fd,-1,33554432,got,&cur);
+    int closed=oc_close((int)fd)>=0;
+    if (copied!=OC_COPY_OK||!closed) return 2;
+    if (!oc_equal(got,digest)) return 1;
+    if (stock_req) {
+        OcMeta stock;
+        if (!oc_stock_meta(b->root,&stock)) return 2;
+        if (cur.device!=stock.device) return 1;
+    }
+    return oc_emit_plan_row(plan_fd,key,path,digest,&cur,0)?0:2;
+}
+static int oc_lookup_vui_pin(const char *modules,const char *plugin,char out[65]) {
+    unsigned hits=0;
+    const char *p=modules;
+    while (*p) {
+        const char *line=p;
+        while (*p && *p!='\n') ++p;
+        if (!*p) return 0;
+        const char *end=p++;
+        if (line==end || *line=='#') continue;
+        const char *f[4]; unsigned flen[4]; unsigned nf=0;
+        const char *q=line;
+        for (const char *c=line; c<=end; ++c) if (c==end||*c=='\t') {
+            if (nf==4) return 0;
+            f[nf]=q; flen[nf]=(unsigned)(c-q); ++nf; q=c+1;
+        }
+        if (nf!=4) return 0;
+        if (flen[0]==3 && f[0][0]=='v' && f[0][1]=='u' && f[0][2]=='i' &&
+            flen[1]==oc_length(plugin) && flen[3]==64) {
+            unsigned match=1;
+            for (unsigned i=0;i<flen[1];++i) if (f[1][i]!=plugin[i]) { match=0; break; }
+            if (match) {
+                for (unsigned i=0;i<64;++i) out[i]=f[3][i];
+                out[64]=0;
+                if (!oc_hex(out,64)) return 0;
+                ++hits;
+            }
+        }
+    }
+    return hits==1;
+}
+static struct {
+    char m_digest[12][65];
+    OcMeta m_meta[12];
+    char new_cfg[1024];
+    char vui_list[4096];
+    char seen_v[48][64];
+} oc_pub;
+static __attribute__((noinline)) int oc_seal_publish(const char *root_path,const char *expected_current,const char *work_rel,const char *expected_nvram) {
+    OcBoot *b=&oc_boot;
+    const char *prefix=OC_DATA "/snapshots/.new-";
+    if (!oc_prefix(work_rel,prefix)) return 1;
+    const char *work_leaf=work_rel+oc_length(OC_DATA "/snapshots/");
+    for (const char *p=work_leaf;*p;++p) if (*p=='/') return 1;
+    if (!oc_key(work_leaf)||(expected_nvram&&!oc_nvram_value(expected_nvram))) return 1;
+    int err_rc=1;
+    int ok=oc_audit_load(b,root_path,expected_current,0,1);
+    long work=-1,snaps=-1,plan_fd=-1,mf_fd=-1;
+    char snap_id[65]; snap_id[0]=0;
+    if (ok) {
+        long orig_mmui=oc_beneath(b->data,"originals/mmui.xml",OC_READ,0);
+        char mm_d[65]; OcMeta mm_m;
+        ok=orig_mmui>=0 && oc_hash_copy((int)orig_mmui,-1,33554432,mm_d,&mm_m)==OC_COPY_OK &&
+            oc_equal(mm_d,"ef9550fa084a34b6a997d2e488c41e50667b409fa2e6ad9c896429c74dc705f0");
+        if (orig_mmui>=0 && oc_close((int)orig_mmui)<0) ok=0;
+    }
+    if (ok) {
+        work=oc_open_private(b->root,work_rel);
+        ok=work>=0 && oc_absent_at((int)work,"files.sha256") && oc_absent_at((int)work,"boot.plan");
+    }
+    const char *members[12]; unsigned mcount=0;
+    members[mcount++]="autostart"; members[mcount++]="config"; members[mcount++]="dependencies";
+    if (b->access_present) { members[mcount++]="access"; members[mcount++]="runlogin"; members[mcount++]="sshd.conf"; }
+    unsigned sel_idx=mcount; members[mcount++]="selector";
+    unsigned prof_idx=mcount;
+    members[mcount++]="sm-normal.conf"; members[mcount++]="sm-wcp.conf";
+    members[mcount++]="index.html"; members[mcount++]="mmui.xml";
+    unsigned vui_idx=mcount; members[mcount++]="vui-plugins.list";
+    OcManifest work_allowed; work_allowed.count=6;
+    const char *allowed_names[6]={"config","sm-normal.conf","sm-wcp.conf","index.html","mmui.xml","vui-plugins.list"};
+    for (unsigned i=0;i<6;++i) { work_allowed.rows[i].name=(char *)allowed_names[i]; work_allowed.rows[i].digest=(char *)""; }
+    if (ok) ok=oc_members((int)work,&work_allowed,2);
+    char *new_flags[9],new_svc[65];
+    if (ok) {
+        long cfd=oc_openat((int)work,"config",OC_READ,0);
+        ok=cfd>=0 && oc_hash_copy((int)cfd,-1,33554432,oc_pub.m_digest[1],&oc_pub.m_meta[1])==OC_COPY_OK &&
+            oc_pub.m_meta[1].mode==(OC_REGULAR|0600) && oc_pub.m_meta[1].uid==(unsigned)b->owner &&
+            oc_pub.m_meta[1].gid==(unsigned)b->group && oc_sync((int)cfd)>=0;
+        if (cfd>=0 && oc_close((int)cfd)<0) ok=0;
+    }
+    if (ok) {
+        ok=oc_verified_text((int)work,"config",oc_pub.m_digest[1],oc_pub.new_cfg,sizeof oc_pub.new_cfg) &&
+            oc_prefix(oc_pub.new_cfg,"OC2\n") && oc_config(b,oc_pub.new_cfg,new_flags,1,new_svc) &&
+            oc_equal(new_flags[0],b->record_fields[3]) && oc_equal(new_flags[4],b->flags[4]);
+        if (ok) {
+            const char *wanted=oc_equal(new_flags[1],"1")?"disable":b->base_flags[3];
+            const char *req_nv=expected_nvram?expected_nvram:b->flags[3];
+            if (!oc_equal(wanted,new_flags[3])||!oc_equal(new_flags[3],req_nv)) ok=0;
+        }
+    }
+    if (ok && (b->touch_drift&2)) {
+        err_rc=oc_equal(new_flags[1],"2")?92:OC_SLOW;
+        ok=0;
+    }
+    int same_svc=ok&&oc_equal(b->svc_digest,new_svc);
+    int same_w=ok&&oc_equal(b->flags[2],new_flags[2]);
+    int same_b=ok&&oc_equal(b->flags[6],new_flags[6]);
+    int same_wl=ok&&oc_equal(b->flags[7],new_flags[7]);
+    int same_t2=ok&&(oc_equal(b->flags[1],"2")==oc_equal(new_flags[1],"2"));
+    int same_as=ok&&oc_equal(b->flags[8],new_flags[8]);
+    int reuse[5]={
+        same_t2&&same_w&&same_b&&same_wl&&same_svc,
+        same_t2&&same_w&&same_b&&same_wl&&same_svc,
+        same_w&&same_b&&same_svc&&same_as,
+        same_w&&same_b&&same_svc,
+        same_b&&same_svc
+    };
+    if (ok) {
+        const char *st=oc_equal(new_flags[2],"1")?"on":"off";
+        const char *tpl[3]={oc_equal(st,"on")?"sm-normal-on.conf":"sm-normal-off.conf",
+            oc_equal(st,"on")?"sm-wcp-on.conf":"sm-wcp-off.conf",
+            oc_equal(st,"on")?"index-on.html":"index-off.html"};
+        for (unsigned i=0;ok&&i<3;++i) if (!oc_absent_at((int)work,members[prof_idx+i])) {
+            long tfd=oc_openat(b->composed,tpl[i],OC_READ,0);
+            char td[65]; OcMeta tm;
+            const char *exp=oc_digest(&b->composition,tpl[i]);
+            ok=tfd>=0 && exp && oc_hash_copy((int)tfd,-1,33554432,td,&tm)==OC_COPY_OK && oc_equal(td,exp);
+            if (tfd>=0 && oc_close((int)tfd)<0) ok=0;
+        }
+    }
+    for (unsigned i=0;ok&&i<mcount;++i) {
+        if (i==1) continue;
+        if (i<=sel_idx) {
+            ok=oc_copy_verified_member(b,(int)work,members[i],oc_digest(&b->current,members[i]),oc_pub.m_digest[i],&oc_pub.m_meta[i]);
+        } else if (oc_absent_at((int)work,members[i])) {
+            ok=reuse[i-prof_idx] &&
+                oc_copy_verified_member(b,(int)work,members[i],oc_digest(&b->current,members[i]),oc_pub.m_digest[i],&oc_pub.m_meta[i]);
+        } else {
+            long fd=oc_openat((int)work,members[i],OC_READ,0);
+            if (fd<0) { ok=0; break; }
+            ok=oc_hash_copy((int)fd,-1,33554432,oc_pub.m_digest[i],&oc_pub.m_meta[i])==OC_COPY_OK &&
+                oc_pub.m_meta[i].mode==(OC_REGULAR|0600) && oc_pub.m_meta[i].uid==(unsigned)b->owner &&
+                oc_pub.m_meta[i].gid==(unsigned)b->group && oc_sync((int)fd)>=0;
+            if (oc_close((int)fd)<0) ok=0;
+            if (ok && reuse[i-prof_idx]) {
+                const char *prev_d=oc_digest(&b->current,members[i]);
+                if (!prev_d||!oc_equal(oc_pub.m_digest[i],prev_d)) ok=0;
+            }
+        }
+    }
+    if (ok) {
+        plan_fd=oc_openat((int)work,"boot.plan",OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
+        ok=plan_fd>=0 &&
+            oc_write_all((int)plan_fd,"OCBP1|",6) &&
+            oc_write_all((int)plan_fd,b->record_fields[4],64) &&
+            oc_write_all((int)plan_fd,"|",1) &&
+            oc_write_all((int)plan_fd,b->record_fields[3],64) &&
+            oc_write_all((int)plan_fd,"\n",1);
+    }
+    for (unsigned i=0;ok&&i<b->input_count;++i) {
+        OcInput *row=&b->inputs[i];
+        if (oc_prefix(row->key,"current/")||oc_prefix(row->key,"touch/devices/")||oc_prefix(row->key,"base/")) continue;
+        ok=oc_emit_plan_row((int)plan_fd,row->key,row->path,row->digest,&row->meta,row->absent);
+    }
+    for (unsigned i=0;ok&&i<mcount;++i) {
+        char key[192],path[192];
+        ok=oc_join(key,sizeof key,"current/",members[i]) &&
+            oc_join(path,sizeof path,"@/",members[i]) &&
+            oc_emit_plan_row((int)plan_fd,key,path,oc_pub.m_digest[i],&oc_pub.m_meta[i],0);
+    }
+    if (ok && oc_equal(new_flags[1],"2")) {
+        for (unsigned i=0;ok&&i<2;++i) {
+            int pr=oc_emit_external_pin((int)plan_fd,b,oc_touch_pins[i].key,oc_touch_pins[i].path,oc_touch_pins[i].digest,1);
+            if (pr) { err_rc=pr==1?92:1; ok=0; }
+        }
+    }
+    if (ok) ok=oc_verified_text((int)work,"vui-plugins.list",oc_pub.m_digest[vui_idx],oc_pub.vui_list,sizeof oc_pub.vui_list);
+    if (ok && oc_equal(new_flags[6],"1")) {
+        for (unsigned i=0;ok&&i<5;++i) {
+            int pr=oc_emit_external_pin((int)plan_fd,b,oc_base_pins[i].key,oc_base_pins[i].path,oc_base_pins[i].digest,oc_base_pins[i].stock);
+            if (pr) { err_rc=pr==1?93:1; ok=0; }
+        }
+        if (ok) ok=oc_saved_text(b->package,&b->pkg,"ui-modules.tsv",b->scratch,sizeof b->scratch);
+        char *p=oc_pub.vui_list; unsigned vcount=0;
+        while (ok && *p) {
+            char *name=p;
+            while (*p && *p!='\n') ++p;
+            if (!*p) { ok=0; break; }
+            *p++=0;
+            if (!oc_key(name)||vcount==48||oc_length(name)>=64) { ok=0; break; }
+            for (const char *q=name;*q;++q) if (*q=='/') ok=0;
+            for (unsigned j=0;ok&&j<vcount;++j) if (oc_equal(oc_pub.seen_v[j],name)) ok=0;
+            if (!ok) break;
+            for (unsigned j=0;;++j) { oc_pub.seen_v[vcount][j]=name[j]; if (!name[j]) break; }
+            ++vcount;
+            char pin[65],key[192],path[192];
+            if (!oc_lookup_vui_pin(b->scratch,name,pin) ||
+                !oc_join(key,sizeof key,"base/vui/",name) ||
+                !oc_join(path,sizeof path,"/jci/vui/plugins/",name)) { err_rc=93; ok=0; break; }
+            int pr=oc_emit_external_pin((int)plan_fd,b,key,path,pin,1);
+            if (pr) { err_rc=pr==1?93:1; ok=0; }
+        }
+        if (ok && vcount<36) ok=0;
+    } else if (ok && oc_pub.vui_list[0]!=0) ok=0;
+    if (plan_fd>=0) {
+        if (ok) ok=oc_mode((int)plan_fd,0600)>=0 && oc_sync((int)plan_fd)>=0;
+        if (oc_close((int)plan_fd)<0) ok=0;
+    }
+    char plan_digest[65]; OcMeta plan_meta;
+    if (ok) {
+        long pfd=oc_openat((int)work,"boot.plan",OC_READ,0);
+        ok=pfd>=0 && oc_hash_copy((int)pfd,-1,OC_PLAN_LIMIT,plan_digest,&plan_meta)==OC_COPY_OK;
+        if (pfd>=0 && oc_close((int)pfd)<0) ok=0;
+    }
+    if (ok) {
+        mf_fd=oc_openat((int)work,"files.sha256",OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
+        ok=mf_fd>=0;
+        OcHash h; oc_hash_init(&h);
+        for (unsigned i=0;ok&&i<=mcount;++i) {
+            const char *dig=i<mcount?oc_pub.m_digest[i]:plan_digest;
+            const char *nm=i<mcount?members[i]:"boot.plan";
+            char row[192];
+            ok=oc_join(row,sizeof row,dig,"  ") && oc_join(row,sizeof row,row,nm) && oc_join(row,sizeof row,row,"\n");
+            if (ok) {
+                unsigned rlen=oc_length(row);
+                oc_hash_add(&h,row,rlen);
+                ok=oc_write_all((int)mf_fd,row,rlen);
+            }
+        }
+        if (ok) {
+            oc_hash_finish(&h,snap_id);
+            ok=oc_mode((int)mf_fd,0600)>=0 && oc_sync((int)mf_fd)>=0;
+        }
+        if (mf_fd>=0 && oc_close((int)mf_fd)<0) ok=0;
+        if (ok) ok=oc_sync((int)work)>=0;
+    }
+    if (work>=0 && oc_close((int)work)<0) ok=0;
+    work=-1;
+    if (ok) {
+        snaps=oc_open_private(b->data,"snapshots");
+        ok=snaps>=0 && oc_absent_at((int)snaps,snap_id) && oc_rename((int)snaps,work_leaf,snap_id)>=0 && oc_sync((int)snaps)>=0;
+    }
+    if (snaps>=0 && oc_close((int)snaps)<0) ok=0;
+    oc_close_boot(b);
+    if (b->root>=0 && oc_close(b->root)<0) ok=0;
+    if (ok) ok=oc_write_all(1,snap_id,64) && oc_write_all(1,"\n",1);
+    else (void)oc_write_all(2,"boot_plan_refused\n",18);
+    return ok?0:err_rc;
+}
 static int oc_selection(int root,int gated) {
     oc_boot.gated=gated;
     int result=oc_select(&oc_boot,root);
@@ -1051,9 +1397,7 @@ static int oc_selection(int root,int gated) {
         result=OC_REFUSE;
     }
     if (result!=0) oc_ui_unwind(&oc_boot);
-    int handles[]={oc_boot.log,oc_boot.observer,oc_boot.stage,oc_boot.composed,oc_boot.package,
-        oc_boot.baseline,oc_boot.snapshot,oc_boot.lock,oc_boot.ram,oc_boot.data};
-    for (unsigned i=0;i<sizeof handles/sizeof *handles;++i) if (handles[i]>=0) (void)oc_close(handles[i]);
+    oc_close_boot(&oc_boot);
     return result;
 }
 #endif

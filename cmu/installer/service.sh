@@ -5,15 +5,11 @@ service_usb_observe() {
   local index=${R:-/tmp/open-connect}/feature/index.html boot saved ids= usb name number line
   boot=$(current_boot_id) && file "$index" || return 1
   if saved=$(awk -v boot="$boot" '
-        index($0,"<!-- OCUSB1") {
-            n++;s=$0
-            if(sub(/^<!-- OCUSB1[|]/,"",s)!=1||sub(/ -->$/,"",s)!=1||
-               split(s,a,"[|]")!=2||a[1]!=boot||length(a[2])>96||
-               (a[2]!="-"&&a[2]!~/^([0-9]+-[0-9]+([.][0-9]+)*:[0-9]+;)+$/))bad=1
-            value=a[2];next
-        }
-        n&&NF{bad=1}
-        END{if(n!=1||bad)exit 1;print value}' "$index"); then
+index($0,"<!-- OCUSB1"){n++;s=$0
+if(sub(/^<!-- OCUSB1[|]/,"",s)!=1||sub(/ -->$/,"",s)!=1||split(s,a,"[|]")!=2||a[1]!=boot||length(a[2])>96||(a[2]!="-"&&a[2]!~/^([0-9]+-[0-9]+([.][0-9]+)*:[0-9]+;)+$/))bad=1
+value=a[2];next}
+n&&NF{bad=1}
+END{if(n!=1||bad)exit 1;print value}' "$index"); then
     printf '%s\n' "$saved"; return 0
   fi
   grep -F -q '<!-- OCUSB1' "$index" && return 1
@@ -308,21 +304,49 @@ service_stage() {
   service_listen "$runtime" "$1"
 }
 
+boot_select_verified() {
+  local d=$D/packages/$R_BACKEND e a f g nb=0
+  test "$role" = settings || return 2
+  file "$P/files.sha256" && sha_is "$P/files.sha256" "$R_BACKEND" || return 1
+  g='{t+=length($0)+1;h=substr($0,1,64);k=substr($0,67);if(substr($0,65,2)!="  "||length(h)!=64||h~/[^a-f0-9]/||k==""||k=="."||k==".."||k=="files.sha256"||k~/[^a-zA-Z0-9.-]/||s[k]++){b=1;exit 1}'
+  e=$(awk -v d="$d" -v z="$(wc -c < "$P/files.sha256")" -v l="$(wc -l < "$P/files.sha256")" "BEGIN{split(\"boot-select state.sh firmware.sh access.sh flush VERSION preferences.awk services.tsv sm-profile.awk ui-profile.awk ui-modules.tsv system-hook.js base-logging.js\",m,\" \");for(i in m)w[m[i]]=1}
+$g;if(k==\"boot-select\")bs++;if(k in w)r[++n]=h\" *\"d\"/\"k}
+END{if(b||!NR||t!=z+0||NR!=l+0)exit 1;if(!bs){print \"NO_BS\";exit 0};if(n!=13)exit 1;for(i=1;i<=n;i++)print r[i]}" "$P/files.sha256") || return 1
+  private_dir "$d" || return 1
+  if test "$e" = NO_BS; then
+    absent "$d/boot-select" || return 1
+    nb=1
+  else
+    file "$d/boot-select" && test "$(stat -c '%a:%u:%g' "$d/boot-select")" = "700:$request_owner" || return 1
+    set --
+    while read -r _ f; do f=${f#\*}; file "$f" || return 1; set -- "$@" "$f"; done <<F
+$e
+F
+    a=$(sha_many "$@") && test "$a" = "$e" || return 1
+    BOOT_SELECT=$d/boot-select
+  fi
+  d=$D/snapshots/$R_CURRENT; private_dir "$d" && file "$d/files.sha256" && sha_is "$d/files.sha256" "$R_CURRENT" || return 1
+  e=$(awk -v z="$(wc -c < "$d/files.sha256")" -v l="$(wc -l < "$d/files.sha256")" "$g;if(k==\"boot.plan\")c++}END{if(b||!NR||t!=z+0||NR!=l+0)exit 1;print c+0}" "$d/files.sha256") || return 1
+  if test "$e" = 0; then BOOT_SELECT=; absent "$d/boot.plan" && return 2 || return 1; fi
+  file "$d/boot.plan" || return 1
+  test "$nb" = 0 || { BOOT_SELECT=; return 1; }
+}
+
 service_boot() {
   set -eu
   umask 077
   D=/tmp/mnt/data_persist/open-connect
   R=/tmp/open-connect
+  rf() { test -f "$1" && test ! -L "$1"; }
+  rd() { test "$(readlink -f "$1" 2>/dev/null || :)" = "$1" && test "$(stat -c '%a:%u:%g' "$1")" = 700:0:0; }
   service_config settings
   test "$(id -u)" = 0
-  test "$(readlink -f "$D")" = "$D" && test "$(stat -c '%a:%u:%g' "$D")" = 700:0:0 || exit 1
-  test "$(readlink -f "$R")" = "$R" && test "$(stat -c '%a:%u:%g' "$R")" = 700:0:0 || exit 1
-  test -f "$R/lock" && test ! -L "$R/lock" || exit 1
+  rd "$D" && rd "$R" && rf "$R/lock" || exit 1
   notice=
-  if test -f "$D/record" && test ! -L "$D/record"; then
+  if rf "$D/record"; then
     IFS='|' read -r _ _ _ _ _ _ _ _ _ _ _ _ notice _ < "$D/record" || notice=
   fi
-  if test "$notice" != installed; then sleep 4; fi
+  test "$notice" = installed || sleep 4
   exec 9<>"$R/lock"
   tries=0
   until flock -n -x 9; do
@@ -330,26 +354,23 @@ service_boot() {
     /bin/busybox usleep 100000
   done
   if test -e "$service_runtime" || test -L "$service_runtime"; then exit 0; fi
-  test -f "$D/record" && test ! -L "$D/record" && test "$(wc -l < "$D/record")" -eq 1 || exit 1
+  rf "$D/record" && test "$(wc -l < "$D/record")" -eq 1 || exit 1
   IFS='|' read -r format phase rev package base current before after undo budget off boot notice extra < "$D/record"
   test "$format:$phase:$before:$after" = OC1:active:-:- && test -z "$extra" || exit 1
   test -L "$R/boot-id" && test "$(stat -c '%s:%u:%g' "$R/boot-id")" = 36:0:0 &&
     test "$boot" = "$(readlink "$R/boot-id")" || exit 1
   test "${#package}:${#current}" = 64:64
   case "$package$current" in *[!a-f0-9]*) exit 1;; esac
-  test -f "$R/selected" && test ! -L "$R/selected" && test "$(cat "$R/selected")" = "$current" || exit 1
+  rf "$R/selected" && test "$(cat "$R/selected")" = "$current" || exit 1
   P=$D/packages/$package
-  test "$(readlink -f "$P")" = "$P" && test "$(stat -c '%a:%u:%g' "$P")" = 700:0:0 || exit 1
-  test -f "$P/files.sha256" && test ! -L "$P/files.sha256" || exit 1
+  rd "$P" && rf "$P/files.sha256" || exit 1
   hasher=
-  if test "$(readlink -f "$R/ignition" 2>/dev/null || :)" = "$R/ignition" &&
-    test "$(stat -c '%a:%u:%g' "$R/ignition")" = 700:0:0 &&
-    test -f "$R/ignition/flush" && test ! -L "$R/ignition/flush" && test -x "$R/ignition/flush"; then
+  if rd "$R/ignition" && rf "$R/ignition/flush" && test -x "$R/ignition/flush"; then
     hasher=$R/ignition/flush
   fi
   if test -n "$hasher"; then digest=$("$hasher" h "$P/files.sha256"); else digest=$(openssl dgst -sha256 < "$P/files.sha256"); fi
   test "${digest##* }" = "$package"
-  seen='|'; expected=; count=0; mandatory=0
+  seen='|'; expected=; count=0; mn=0
   set --
   while read -r digest name extra; do
     test "${#digest}" = 64 && test -n "$name" && test -z "$extra" || exit 1
@@ -357,21 +378,21 @@ service_boot() {
     case "$name" in .|..|*[!a-zA-Z0-9.-]*) exit 1;; esac
     case "$seen" in *"|$name|"*) exit 1;; esac
     seen="$seen$name|"
-    case "$name" in state.sh|backend.sh|service.sh|api|flush) mandatory=$((mandatory+1));; esac
-    test -f "$P/$name" && test ! -L "$P/$name" || exit 1
+    case "$name" in state.sh|backend.sh|service.sh|api|flush) mn=$((mn+1));; esac
+    rf "$P/$name" || exit 1
     set -- "$@" "$P/$name"
     expected="$expected$digest *$P/$name
 "
     count=$((count+1)); test "$count" -le 64
   done < "$P/files.sha256"
-  test "$mandatory" = 5 && test -x "$P/flush" || exit 1
-  actual_count=0
+  test "$mn" = 5 && test -x "$P/flush" || exit 1
+  ac=0
   for item in "$P"/* "$P"/.[!.]* "$P"/..?*; do
     if test ! -e "$item" && test ! -L "$item"; then continue; fi
-    test -f "$item" && test ! -L "$item"
-    actual_count=$((actual_count+1))
+    rf "$item"
+    ac=$((ac+1))
   done
-  test "$actual_count" -eq "$((count+1))"
+  test "$ac" -eq "$((count+1))"
   if test -n "$hasher"; then actual=$("$hasher" H "$@"); else actual=$(openssl dgst -sha256 -r "$@"); fi
   test "$actual" = "${expected%?}"
   . "$P/state.sh"

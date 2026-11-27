@@ -161,7 +161,7 @@ if awk '\''$0=="# Open Connect locked selector interface 1"{n++}END{exit n!=1}'\
     oc_times="hook_entry|$entered
 "; oc_stamp_count=1
     startup_stamp package_verified
-    oc_outer_observer=true
+    oc_outer_observer=native
     boot_select
     startup_stamps_publish
 else

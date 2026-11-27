@@ -2994,7 +2994,7 @@ package_save
             f"../../mnt/data_persist/open-connect/packages/{maint_id}/maintenance.js"
         )
 
-        # Create 5 unreachable old generations + foreign/unowned dirs in packages/ & composed/.
+        # Create 5 unreachable old generations + foreign/unowned/tampered/staging dirs.
         old_gens = [self._make_dummy_pkg_and_comp(f"old-{i}") for i in range(5)]
         foreign_pkg = self.data / "packages" / ("c" * 64)
         foreign_pkg.mkdir(mode=0o700)
@@ -3003,16 +3003,51 @@ package_save
         foreign_comp.mkdir(mode=0o700)
         (foreign_comp / "evil.sh").write_text("bad\n")
         (foreign_comp / "files.sha256").write_text(sha(b"bad\n") + "  evil.sh\n")
+        # Tampered member bytes in composed/<id> and wrong manifest mode 0644 must NOT be pruned.
+        tampered_comp_id, tampered_pkg_p, tampered_comp_c = self._make_dummy_pkg_and_comp(
+            "tampered-comp"
+        )
+        shutil.rmtree(tampered_pkg_p)
+        (tampered_comp_c / "autostart").write_text("tampered bytes\n")
+        (tampered_comp_c / "autostart").chmod(0o600)
+        badmode_comp_id, badmode_pkg_p, badmode_comp_c = self._make_dummy_pkg_and_comp(
+            "badmode-comp"
+        )
+        shutil.rmtree(badmode_pkg_p)
+        (badmode_comp_c / "files.sha256").chmod(0o644)
+        # Active .new-* staging dirs in packages/ & composed/ must be left untouched.
+        staging_pkg = self.data / "packages" / ".new-staging"
+        staging_pkg.mkdir(mode=0o700)
+        (staging_pkg / "VERSION").write_text("in-flight\n")
+        staging_comp = self.data / "composed" / ".new-staging"
+        staging_comp.mkdir(mode=0o700)
+        (staging_comp / "autostart").write_text("in-flight\n")
+        # Legacy 5-field OC1 active snapshot (non-"-" pkg) pins its package.
+        oc1_id, oc1_p, oc1_c = self._make_dummy_pkg_and_comp("pin-oc1-snap")
+        oc1_work = self.data / "snapshots" / ".new-oc1-active"
+        oc1_work.mkdir(mode=0o700)
+        (oc1_work / "config").write_text(f"{oc1_id}|0|0|absent|{self.mode}\n")
+        (oc1_work / "config").chmod(0o600)
+        (oc1_work / "autostart").write_text("oc1-auto\n")
+        (oc1_work / "autostart").chmod(0o600)
+        oc1_snap = self.publish(oc1_work)
+        (self.ram / "access-selected").write_text(oc1_snap.name + "\n")
+        (self.ram / "access-selected").chmod(0o600)
 
         with lock_path.open("r+b") as lf:
             fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 
-            # 1) Fail-closed on malformed RAM runtime or feature symlinks: 0 deletions.
+            # 1) Fail-closed on malformed/prefix-spoofed RAM runtime or feature symlinks: 0 deletions.
             orig_rt = os.readlink(self.ram / "runtime")
-            (self.ram / "runtime").unlink()
-            (self.ram / "runtime").symlink_to("sessions/session-missing")
-            self.assertEqual(self._run_gc(lock_fd=lf.fileno()).returncode, 0)
-            self.assertTrue(all(p.is_dir() and c.is_dir() for _, p, c in old_gens))
+            for bad_rt in (
+                "sessions/session-missing",
+                "/elsewhere/sessions/session-boot01",
+                f"{self.ram}/sessions/session-a/sessions/session-boot01",
+            ):
+                (self.ram / "runtime").unlink()
+                (self.ram / "runtime").symlink_to(bad_rt)
+                self.assertEqual(self._run_gc(lock_fd=lf.fileno()).returncode, 0, bad_rt)
+                self.assertTrue(all(p.is_dir() and c.is_dir() for _, p, c in old_gens), bad_rt)
             (self.ram / "runtime").unlink()
             (self.ram / "runtime").symlink_to(orig_rt)
 
@@ -3024,7 +3059,8 @@ package_save
             (fdir / "uia.so").unlink()
             (fdir / "uia.so").symlink_to(orig_uia)
 
-            # 2) Fail-closed skip if an unverified/unowned 64-hex dir sits in snapshots/.
+            # 2) Fail-closed skip if an unverified/unowned 64-hex dir sits in snapshots/
+            #    or if surviving snapshots overflow OC_GC_PINS_MAX (32).
             corrupt_snap = self.data / "snapshots" / ("e" * 64)
             corrupt_snap.mkdir(mode=0o700)
             (corrupt_snap / "foreign.txt").write_text("unknown\n")
@@ -3033,13 +3069,29 @@ package_save
             self.assertTrue(all(p.is_dir() and c.is_dir() for _, p, c in old_gens))
             shutil.rmtree(corrupt_snap)
 
+            overflow_snaps = []
+            for idx in range(33):
+                # Keep snapshots pinned via unknown extra file so snapshot GC leaves them,
+                # forcing pin table overflow (>32 distinct packages) in phase 2.
+                pid_hex = f"{idx + 1:064x}"
+                s = self._make_snap_with_pkg(f"ov-{idx}", pid_hex)
+                overflow_snaps.append(s)
+            # Only run with pin-overflow snaps temporarily; note snapshot GC will prune 4
+            # of them per run, leaving 29 + 7 other pins = 36 > 32 -> must skip phase 2.
+            ov_res = self._run_gc(lock_fd=lf.fileno())
+            self.assertEqual(ov_res.returncode, 0, ov_res.stderr)
+            self.assertTrue(all(p.is_dir() and c.is_dir() for _, p, c in old_gens))
+            for s in overflow_snaps:
+                shutil.rmtree(s, ignore_errors=True)
+
             # 3) Bounded sweep: first call removes 4 of 5 old packages and 4 of 5 old composed dirs.
             first = self._run_gc(lock_fd=lf.fileno())
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertEqual(sum(1 for _, p, _ in old_gens if p.exists()), 1)
             self.assertEqual(sum(1 for _, _, c in old_gens if c.exists()), 1)
 
-            # Second call finishes the 5th generation while keeping every pin and foreign dir.
+            # Second call finishes the 5th generation while keeping every pin, tampered,
+            # staging, and foreign dir.
             second = self._run_gc(lock_fd=lf.fileno())
             self.assertEqual(second.returncode, 0, second.stderr)
             self.assertEqual([p for _, p, _ in old_gens if p.exists()], [])
@@ -3051,6 +3103,8 @@ package_save
                 snap_cfg_c,
                 snap_sel_p,
                 snap_sel_c,
+                oc1_p,
+                oc1_c,
                 rt_p,
                 rt_c,
                 usb_p,
@@ -3061,8 +3115,26 @@ package_save
                 maint_c,
                 foreign_pkg,
                 foreign_comp,
+                tampered_comp_c,
+                badmode_comp_c,
+                staging_pkg,
+                staging_comp,
             ):
                 self.assertTrue(keep.is_dir(), f"must preserve {keep}")
+
+            # 3b) Regular-file feature/uia.so & feature/maintenance.js allow GC cleanly.
+            (fdir / "uia.so").unlink()
+            (fdir / "uia.so").write_bytes(b"regular-uia\n")
+            (fdir / "uia.so").chmod(0o600)
+            (fdir / "maintenance.js").unlink()
+            (fdir / "maintenance.js").write_bytes(b"regular-maint\n")
+            (fdir / "maintenance.js").chmod(0o600)
+            reg_res = self._run_gc(lock_fd=lf.fileno())
+            self.assertEqual(reg_res.returncode, 0, reg_res.stderr)
+            self.assertFalse(uia_p.exists())
+            self.assertFalse(uia_c.exists())
+            self.assertFalse(maint_p.exists())
+            self.assertFalse(maint_c.exists())
 
             # 4) Tombstone-first crash resume across all 3 cut points for packages/ and composed/.
             for store_kind in ("packages", "composed"):

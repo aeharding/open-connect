@@ -75,7 +75,7 @@ static int oc_ignition_main(int argc, char **argv) {
         if (acc==1) {
             seen_on=1; off_samples=0; wanted="-";
         } else {
-            if (!seen_on || ++off_samples<3) { oc_sleep_ms(sleep_ms); continue; }
+            if (!seen_on || (off_samples<3 && ++off_samples<3)) { oc_sleep_ms(sleep_ms); continue; }
             wanted=boot;
         }
         if (oc_equal(wanted,recorded)) { oc_sleep_ms(sleep_ms); continue; }
@@ -120,8 +120,10 @@ int main(int argc, char **argv) { return oc_ignition_main(argc,argv); }
 #else
 int entry(int argc, char **argv) { return oc_ignition_main(argc,argv); }
 __asm__(
+    ".text\n"
     ".arm\n"
     ".global _start\n"
+    ".type _start,%function\n"
     "_start:\n"
     "ldr r0,[sp]\n"
     "add r1,sp,#4\n"

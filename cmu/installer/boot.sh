@@ -138,7 +138,9 @@ boot_select() {
         fi
     fi
     if test "$fast" = false; then native_guard; fi
-    modern=${oc_outer_observer:-false}
+    outer=${oc_outer_observer:-false}
+    modern=false
+    case "$outer" in true|native) modern=true;; esac
     if test "$modern:$fast" = true:true; then
         # SM owns Settings; verified fallback stages only the observer.
         boot_observer_stage
@@ -204,11 +206,11 @@ fi
 # Bind staged UI/choices to the final reconciled snapshot.
 snapshot_read "$R_CURRENT" || fail invalid_snapshot
 package=$S_PACKAGE; warning=$S_WARNING; touch=$S_TOUCH; base=$S_BASE; wireless=$S_WIRELESS
-# Modern hooks launch the observer outside the timeout on either valid outcome.
 if test "$modern" = true; then
     absent "$R/ignition" && mv "$observer" "$R/ignition" || fail observer_publish_failed
     runtime=$R/ignition
-else
+fi
+if test "$outer" != native; then
     ( exec 9>&-; exec "$runtime/ignition" "$boot" ) </dev/null >/dev/null 2>&1 &
 fi
 if test "$selected" != true; then

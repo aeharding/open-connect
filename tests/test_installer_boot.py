@@ -1611,6 +1611,17 @@ boot_ui_unwind
         }
         return ig, acc, env
 
+    def _write_acc(self, acc: Path, value: str):
+        tmp = acc.parent / f".{acc.name}.tmp"
+        tmp.write_text(value)
+        os.replace(tmp, acc)
+
+    def _swap_symlink(self, link: Path, target: str):
+        tmp = link.parent / f".{link.name}.tmp"
+        tmp.unlink(missing_ok=True)
+        tmp.symlink_to(target)
+        os.replace(tmp, link)
+
     def _wait_ignition_locked(self, proc: subprocess.Popen, timeout: float = 5.0):
         import fcntl
 
@@ -1648,10 +1659,9 @@ boot_ui_unwind
 
         for arguments in ([boot], []):
             with self.subTest(arguments=arguments):
-                if not marker.is_symlink():
-                    marker.symlink_to(boot)
+                self._swap_symlink(marker, boot)
                 # Start with ACC=0 before any ON: sustained OFF must NOT persist.
-                acc.write_text("0\n")
+                self._write_acc(acc, "0\n")
                 proc = subprocess.Popen(
                     [str(ig), *arguments],
                     env=env,
@@ -1661,7 +1671,7 @@ boot_ui_unwind
                 )
                 try:
                     self._wait_ignition_locked(proc)
-                    time.sleep(0.09)
+                    time.sleep(0.12)
                     self.assertIsNone(proc.poll())
                     self.assertEqual(self.record()[10], "-")
 
@@ -1672,23 +1682,32 @@ boot_ui_unwind
                     self.assertEqual(dup.returncode, 0, dup.stderr)
 
                     # Transition to ON -> seen_on=true, R_OFF stays "-".
-                    acc.write_text("1\n")
-                    time.sleep(0.08)
+                    self._write_acc(acc, "1\n")
+                    time.sleep(0.15)
+                    self.assertEqual(self.record()[10], "-")
+
+                    # Transient 1-sample OFF glitch after ON must reset off_samples
+                    # when ACC returns to 1 and must NOT persist R_OFF.
+                    self._write_acc(acc, "0\n")
+                    time.sleep(0.02)
+                    self._write_acc(acc, "1\n")
+                    time.sleep(0.12)
+                    self.assertIsNone(proc.poll())
                     self.assertEqual(self.record()[10], "-")
 
                     # Hold ram/lock while ACC drops to 0: observer must retry cleanly
                     # rather than exiting on EWOULDBLOCK, then persist once unlocked.
                     with (self.runtime / "lock").open("r+b") as lf:
                         fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                        acc.write_text("0\n")
-                        time.sleep(0.09)
+                        self._write_acc(acc, "0\n")
+                        time.sleep(0.15)
                         self.assertIsNone(proc.poll())
                         self.assertEqual(self.record()[10], "-")
                     self._wait_off(boot)
                     self.assertEqual(self.record()[9:11], ["2", boot])
 
                     # QuickStart resume (same kernel back to ON) clears R_OFF -> "-".
-                    acc.write_text("1\n")
+                    self._write_acc(acc, "1\n")
                     self._wait_off("-")
                     self.assertEqual(self.record()[9:11], ["2", "-"])
 
@@ -1711,9 +1730,8 @@ boot_ui_unwind
 
         for replacement in ("87654321-1234-1234-1234-123456789abc", "x" * 36):
             with self.subTest(marker=replacement):
-                marker.unlink(missing_ok=True)
-                marker.symlink_to(boot)
-                acc.write_text("1\n")
+                self._swap_symlink(marker, boot)
+                self._write_acc(acc, "1\n")
                 before = (self.data / "record").read_bytes()
                 proc = subprocess.Popen(
                     [str(ig), boot],
@@ -1724,13 +1742,12 @@ boot_ui_unwind
                 )
                 try:
                     self._wait_ignition_locked(proc)
-                    time.sleep(0.08)
+                    time.sleep(0.15)
                     with (self.runtime / "lock").open("r+b") as lf:
                         fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                        acc.write_text("0\n")
-                        time.sleep(0.09)
-                        marker.unlink()
-                        marker.symlink_to(replacement)
+                        self._write_acc(acc, "0\n")
+                        time.sleep(0.15)
+                        self._swap_symlink(marker, replacement)
                     out, err = proc.communicate(timeout=5)
                     self.assertNotEqual(proc.returncode, 0)
                     self.assertEqual((self.data / "record").read_bytes(), before)
@@ -1740,15 +1757,14 @@ boot_ui_unwind
                         proc.wait(timeout=5)
 
         # Invalid ACC value and symlinked ignition.lock are both refused with nonzero exit.
-        marker.unlink(missing_ok=True)
-        marker.symlink_to(boot)
-        acc.write_text("2\n")
+        self._swap_symlink(marker, boot)
+        self._write_acc(acc, "2\n")
         bad_acc = subprocess.run(
             [str(ig), boot], env=env, capture_output=True, text=True, timeout=5
         )
         self.assertNotEqual(bad_acc.returncode, 0)
 
-        acc.write_text("1\n")
+        self._write_acc(acc, "1\n")
         ig_lock = self.runtime / "ignition.lock"
         ig_lock.unlink(missing_ok=True)
         ig_lock.symlink_to(self.runtime / "lock")

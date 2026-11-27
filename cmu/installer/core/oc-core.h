@@ -85,13 +85,14 @@ long oc_write(int fd, const void *p, unsigned n);
 long oc_close(int fd);
 long oc_sync(int fd);
 long oc_metadata(int fd, const char *path, OcMeta *m);
-long oc_stat(int fd, OcMeta *m);
+static inline long oc_stat(int fd, OcMeta *m) { return oc_metadata(fd, 0, m); }
 long oc_parent(void);
 long oc_worker_cpu1(void);
 long oc_watch_parent(void);
 long oc_owner(void);
 long oc_group(void);
 long oc_lock(int fd);
+int oc_lock_held_ex(int fd);
 long oc_mkdir(int fd, const char *name, unsigned mode);
 long oc_unlink(int fd, const char *name);
 long oc_rmdirat(int fd, const char *name);
@@ -101,7 +102,11 @@ long oc_symlink(const char *source, int folder, const char *name);
 long oc_readlink(int folder, const char *name, char *out, unsigned capacity);
 long oc_mode(int fd, unsigned mode);
 long oc_block(void);
+#ifdef OC_HOST
 void oc_cut(const char *phase);
+#else
+static inline void oc_cut(const char *phase) { (void)phase; }
+#endif
 int oc_stock_meta(int root, OcMeta *stock);
 const char *oc_pin_digest(const char *key, const char *prod);
 int oc_dir_iter(int folder, int (*cb)(const char *name, void *ctx), void *ctx);

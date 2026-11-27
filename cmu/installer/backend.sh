@@ -38,7 +38,7 @@ exec 9<>/tmp/open-connect/lock
 if test "$operation:$argument" = status:settings; then flock -n -s 9 || fail busy
 else flock -n -x 9 || fail busy; fi
 test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
-S_CACHE=1; S_VER=; S_CUR=
+S_CACHE=1; S_VER=; S_CUR=; BOOT_SELECT=
 if test "$role" = usb && test "$operation" != status; then
   if test -f "$P/closed"; then
     test "$operation" = restart && service_usb_retained "$P" || fail session_closed
@@ -277,7 +277,7 @@ status() {
     if test "$operation" = status; then
       flock -n -x 9 || fail busy
       test "$(readlink -f "$runtime_pointer" 2>/dev/null || :)" = "$P" || fail session_replaced
-      S_CACHE=1; S_VER=; S_CUR=
+      S_CACHE=1; S_VER=; S_CUR=; BOOT_SELECT=
       audit_after=$(status_identity) || fail state_changed
       test "$audit_after" = "$audit_identity" || fail busy
     fi
@@ -443,10 +443,8 @@ set|import)
     prefs=$(preferences_change "$prefs" "$package" "$preference_key" "$desired" "$schema") || fail invalid_setting
     SEAL_BOOT_PLAN=1
   fi
-  if test "$schema" = OC2; then
-    test "$FAST_READY" = 1 || manifest_exact "$D/packages/$package" "" 0 "$package" || fail state_changed
-    test "$package" = "$R_BACKEND" && ! absent "$D/packages/$package/boot-select" || SEAL_BOOT_PLAN=0
-  else SEAL_BOOT_PLAN=0; fi
+  test "$FAST_READY" = 1 || manifest_exact "$D/packages/$package" "" 0 "$package" || fail state_changed
+  test "$package" = "$R_BACKEND" && ! absent "$D/packages/$package/boot-select" || SEAL_BOOT_PLAN=0
   if test "$operation:$expected" = "set:$desired"; then
     if test "$FAST_READY" = 1; then "$BOOT_SELECT" audit / "$R_CURRENT" || fail state_changed; S_VER="|$R_CURRENT|"; S_CUR=$R_CURRENT; fi
     status_view false; exit

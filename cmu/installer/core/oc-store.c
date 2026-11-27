@@ -16,7 +16,7 @@ int oc_audit_load(OcBoot *b, const char *root_path, const char *expected_current
     if (b->data<0) return 0;
     if (!oc_record_file(b,expected_current,candidate)) return 0;
     if (candidate) b->record_fields[5]=(char *)candidate;
-    if (!oc_mounts(b)||!oc_policy_load(b)||!oc_prefix(b->config,"OC2\n")) return 0;
+    if (!oc_mounts(b)||!oc_policy_load(b)) return 0;
     char nvram[16];
     if (!oc_nvram(b,nvram)||!oc_equal(nvram,b->flags[3])) return 0;
     if (candidate) {
@@ -307,6 +307,7 @@ static int oc_snap_leaf_allowed(const char *name) {
 
 typedef struct {
     int dir_fd;
+    oc_u64 snaps_dev;
     OcManifest *mf;
     char leaves[16][32];
     unsigned count;
@@ -316,7 +317,7 @@ typedef struct {
 static int oc_gc_leaf_cb(const char *name, void *raw) {
     OcGcLeafCtx *c=raw;
     OcMeta m;
-    if (oc_metadata(c->dir_fd,name,&m)<0 || (m.mode&OC_TYPE)!=OC_REGULAR) return -1;
+    if (oc_metadata(c->dir_fd,name,&m)<0 || (m.mode&OC_TYPE)!=OC_REGULAR || m.device!=c->snaps_dev) return -1;
     if (oc_equal(name,"files.sha256")) { c->saw_manifest=1; return 1; }
     if (!c->mf || !oc_digest(c->mf,name) || !oc_snap_leaf_allowed(name)) return -1;
     if (c->count>=16 || !oc_join(c->leaves[c->count],sizeof c->leaves[0],"",name)) return -1;
@@ -328,46 +329,75 @@ static int oc_gc_empty_cb(const char *name, void *raw) {
     (void)name; *(int *)raw=1; return 0;
 }
 
+/* Returns 0=not actionable, 1=empty (manifest absent), 2=manifest+leaves valid in lctx. */
+static int oc_gc_inspect_tombstone(int tdir, oc_u64 snaps_dev, const char *id, char mf_buf[4096], OcManifest *mf, OcGcLeafCtx *lctx) {
+    OcMeta tm;
+    if (oc_stat(tdir,&tm)<0 || tm.device!=snaps_dev) return 0;
+    if (oc_absent_at(tdir,"files.sha256")) {
+        int nonempty=0;
+        return oc_dir_iter(tdir,oc_gc_empty_cb,&nonempty) && !nonempty ? 1 : 0;
+    }
+    if (!oc_verified_text(tdir,"files.sha256",id,mf_buf,4096) || !oc_manifest(mf_buf,mf,0)) return 0;
+    for (unsigned i=0; i<mf->count; ++i)
+        if (!oc_snap_leaf_allowed(mf->rows[i].name)) return 0;
+    lctx->dir_fd=tdir; lctx->snaps_dev=snaps_dev; lctx->mf=mf; lctx->count=0; lctx->saw_manifest=0;
+    return oc_dir_iter(tdir,oc_gc_leaf_cb,lctx) && lctx->saw_manifest ? 2 : 0;
+}
+
+static int oc_gc_tombstone_actionable(int snaps, oc_u64 snaps_dev, const char *tname) {
+    int tdir=oc_open_private(snaps,tname);
+    if (tdir<0) return 0;
+    char mf_buf[4096]; OcManifest mf; OcGcLeafCtx lctx;
+    int state=oc_gc_inspect_tombstone(tdir,snaps_dev,tname+7,mf_buf,&mf,&lctx);
+    if (oc_close(tdir)<0) state=0;
+    return state>0;
+}
+
+static int oc_gc_candidate_owned(int snaps, oc_u64 snaps_dev, const char *cname) {
+    char tname[72];
+    if (!oc_join(tname,sizeof tname,".prune-",cname) || !oc_absent_at(snaps,tname)) return 0;
+    int cdir=oc_open_private(snaps,cname);
+    if (cdir<0) return 0;
+    OcMeta cm; char mf_buf[4096]; OcManifest mf; OcGcLeafCtx cctx;
+    int ok=oc_stat(cdir,&cm)>=0 && cm.device==snaps_dev &&
+        oc_load_manifest(cdir,cname,mf_buf,sizeof mf_buf,&mf);
+    for (unsigned j=0; ok&&j<mf.count; ++j)
+        if (!oc_snap_leaf_allowed(mf.rows[j].name)) ok=0;
+    if (ok) {
+        cctx.dir_fd=cdir; cctx.snaps_dev=snaps_dev; cctx.mf=&mf; cctx.count=0; cctx.saw_manifest=0;
+        ok=oc_dir_iter(cdir,oc_gc_leaf_cb,&cctx) && cctx.saw_manifest;
+    }
+    if (oc_close(cdir)<0) ok=0;
+    return ok;
+}
+
 static int oc_gc_finish_tombstone(int snaps, oc_u64 snaps_dev, const char *tname) {
     int tdir=oc_open_private(snaps,tname);
     if (tdir<0) return 0;
-    OcMeta tm;
-    if (oc_stat(tdir,&tm)<0 || tm.device!=snaps_dev) { (void)oc_close(tdir); return 0; }
-    if (oc_absent_at(tdir,"files.sha256")) {
-        int nonempty=0;
-        int ok=oc_dir_iter(tdir,oc_gc_empty_cb,&nonempty);
-        if (oc_close(tdir)<0) ok=0;
-        if (!ok || nonempty) return 0;
-        return oc_rmdirat(snaps,tname)>=0 && oc_sync(snaps)>=0;
+    char mf_buf[4096]; OcManifest mf; OcGcLeafCtx lctx;
+    int state=oc_gc_inspect_tombstone(tdir,snaps_dev,tname+7,mf_buf,&mf,&lctx);
+    int ok=state>0;
+    if (state==2) {
+        for (unsigned i=0; ok&&i<lctx.count; ++i)
+            if (oc_unlink(tdir,lctx.leaves[i])<0) ok=0;
+        if (ok && oc_sync(tdir)<0) ok=0;
+        oc_cut("gc_before_manifest_unlink");
+        if (ok && oc_unlink(tdir,"files.sha256")<0) ok=0;
+        oc_cut("gc_after_manifest_unlink");
     }
-    char mf_buf[4096];
-    OcManifest mf;
-    if (!oc_verified_text(tdir,"files.sha256",tname+7,mf_buf,sizeof mf_buf) || !oc_manifest(mf_buf,&mf,0)) {
-        (void)oc_close(tdir); return 0;
-    }
-    for (unsigned i=0; i<mf.count; ++i) {
-        if (!oc_snap_leaf_allowed(mf.rows[i].name)) { (void)oc_close(tdir); return 0; }
-    }
-    OcGcLeafCtx lctx;
-    lctx.dir_fd=tdir; lctx.mf=&mf; lctx.count=0; lctx.saw_manifest=0;
-    int ok=oc_dir_iter(tdir,oc_gc_leaf_cb,&lctx) && lctx.saw_manifest;
-    for (unsigned i=0; ok&&i<lctx.count; ++i) {
-        if (oc_unlink(tdir,lctx.leaves[i])<0) ok=0;
-    }
-    oc_cut("gc_before_manifest_unlink");
-    if (ok && oc_unlink(tdir,"files.sha256")<0) ok=0;
-    oc_cut("gc_after_manifest_unlink");
     if (oc_close(tdir)<0) ok=0;
     if (ok) ok=oc_rmdirat(snaps,tname)>=0 && oc_sync(snaps)>=0;
     return ok;
 }
 
 typedef struct {
+    int snaps;
+    oc_u64 snaps_dev;
     char pins[4][65];
     unsigned pin_count;
-    char tombs[16][72];
+    char tombs[OC_GC_MAX][72];
     unsigned tomb_count;
-    char cands[32][65];
+    char cands[OC_GC_MAX][65];
     unsigned cand_count;
 } OcGcScanCtx;
 
@@ -379,12 +409,14 @@ static int oc_gc_is_pinned(const OcGcScanCtx *s, const char *id) {
 static int oc_gc_scan_cb(const char *name, void *raw) {
     OcGcScanCtx *s=raw;
     if (oc_prefix(name,".prune-") && oc_hex(name+7,64)) {
-        if (s->tomb_count<16 && oc_join(s->tombs[s->tomb_count],sizeof s->tombs[0],"",name))
+        if (s->tomb_count<OC_GC_MAX && oc_gc_tombstone_actionable(s->snaps,s->snaps_dev,name) &&
+            oc_join(s->tombs[s->tomb_count],sizeof s->tombs[0],"",name))
             ++s->tomb_count;
         return 1;
     }
     if (oc_hex(name,64) && !oc_gc_is_pinned(s,name)) {
-        if (s->cand_count<32 && oc_join(s->cands[s->cand_count],sizeof s->cands[0],"",name))
+        if (s->cand_count<OC_GC_MAX && oc_gc_candidate_owned(s->snaps,s->snaps_dev,name) &&
+            oc_join(s->cands[s->cand_count],sizeof s->cands[0],"",name))
             ++s->cand_count;
     }
     return 1;
@@ -418,6 +450,8 @@ int oc_gc_snapshots(const char *root_path, int lock_fd) {
     OcBoot *b=&oc_boot;
     b->root=b->data=b->ram=b->lock=b->snapshot=b->baseline=b->package=b->composed=b->stage=b->observer=b->log=-1;
     b->owner=oc_owner(); b->group=oc_group();
+    OcMeta held;
+    if (lock_fd>=0 && oc_stat(lock_fd,&held)<0) return 1;
     int snaps=-1, ok=1;
     b->root=(int)oc_openat(OC_CWD,root_path,OC_DIRECTORY,0);
     if (b->root<0) return 1;
@@ -429,11 +463,17 @@ int oc_gc_snapshots(const char *root_path, int lock_fd) {
         expected_lock.mode!=(OC_REGULAR|0600) ||
         expected_lock.uid!=(unsigned)b->owner || expected_lock.gid!=(unsigned)b->group) { ok=0; goto out; }
     if (lock_fd>=0) {
-        OcMeta held;
-        if (oc_stat(lock_fd,&held)<0 || held.device!=expected_lock.device || held.inode!=expected_lock.inode ||
+        if (held.device!=expected_lock.device || held.inode!=expected_lock.inode ||
             held.mode!=expected_lock.mode || held.uid!=expected_lock.uid || held.gid!=expected_lock.gid) {
             ok=0; goto out;
         }
+        long probe=oc_openat(b->ram,"lock",OC_READ,0);
+        OcMeta pm;
+        int ex=probe>=0 && oc_stat((int)probe,&pm)>=0 &&
+            pm.device==expected_lock.device && pm.inode==expected_lock.inode &&
+            oc_lock_held_ex((int)probe);
+        if (probe>=0 && oc_close((int)probe)<0) ex=0;
+        if (!ex) { ok=0; goto out; }
     } else {
         b->lock=(int)oc_openat(b->ram,"lock",OC_RW,0);
         OcMeta opened;
@@ -446,6 +486,7 @@ int oc_gc_snapshots(const char *root_path, int lock_fd) {
     OcMeta snaps_meta;
     if (snaps<0 || oc_stat(snaps,&snaps_meta)<0) { ok=0; goto out; }
     OcGcScanCtx scan;
+    scan.snaps=snaps; scan.snaps_dev=snaps_meta.device;
     scan.pin_count=0; scan.tomb_count=0; scan.cand_count=0;
     for (unsigned i=4; i<=5; ++i) {
         int sdir=oc_open_private(snaps,b->record_fields[i]);
@@ -466,34 +507,17 @@ int oc_gc_snapshots(const char *root_path, int lock_fd) {
     if (!oc_dir_iter(snaps,oc_gc_scan_cb,&scan)) { ok=0; goto out; }
     unsigned done=0;
     for (unsigned i=0; i<scan.tomb_count && done<OC_GC_MAX; ++i) {
-        if (!oc_gc_finish_tombstone(snaps,snaps_meta.device,scan.tombs[i])) ok=0;
-        ++done;
+        if (oc_gc_finish_tombstone(snaps,snaps_meta.device,scan.tombs[i])) ++done;
+        else ok=0;
     }
     for (unsigned i=0; i<scan.cand_count && done<OC_GC_MAX; ++i) {
         char tname[72];
         if (!oc_join(tname,sizeof tname,".prune-",scan.cands[i])) continue;
         if (!oc_absent_at(snaps,tname)) { ok=0; continue; }
-        int cdir=oc_open_private(snaps,scan.cands[i]);
-        if (cdir<0) continue;
-        OcMeta cm;
-        char mf_buf[4096];
-        OcManifest mf;
-        int owned=oc_stat(cdir,&cm)>=0 && cm.device==snaps_meta.device &&
-            oc_load_manifest(cdir,scan.cands[i],mf_buf,sizeof mf_buf,&mf);
-        if (owned) {
-            for (unsigned j=0; j<mf.count; ++j) {
-                if (!oc_snap_leaf_allowed(mf.rows[j].name)) { owned=0; break; }
-            }
-            OcGcLeafCtx cctx;
-            cctx.dir_fd=cdir; cctx.mf=&mf; cctx.count=0; cctx.saw_manifest=0;
-            if (owned && (!oc_dir_iter(cdir,oc_gc_leaf_cb,&cctx) || !cctx.saw_manifest)) owned=0;
-        }
-        if (oc_close(cdir)<0) owned=0;
-        if (!owned) continue;
         if (oc_rename(snaps,scan.cands[i],tname)<0 || oc_sync(snaps)<0) { ok=0; continue; }
         oc_cut("gc_tombstone_renamed");
-        if (!oc_gc_finish_tombstone(snaps,snaps_meta.device,tname)) ok=0;
-        ++done;
+        if (oc_gc_finish_tombstone(snaps,snaps_meta.device,tname)) ++done;
+        else ok=0;
     }
 out:
     if (snaps>=0 && oc_close(snaps)<0) ok=0;

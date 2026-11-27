@@ -2800,13 +2800,52 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
         (unknown / "foreign.txt").write_text("keep\n")
         extra_snap = self._make_dummy_snapshot("extra", extra_file="stray.txt")
 
-        # 1) Inherited lock_fd pointing to wrong inode is refused with zero deletions.
+        # 1) Inherited lock_fd pointing to wrong inode, unlocked real lock, or
+        #    LOCK_SH-locked real lock are all refused with zero deletions.
         wrong_lock = self.ram / "wrong-lock"
         wrong_lock.write_bytes(b"")
         wrong_lock.chmod(0o600)
         with wrong_lock.open("r+b") as wf:
             self.assertNotEqual(self._run_gc(lock_fd=wf.fileno()).returncode, 0)
+        with lock_path.open("r+b") as ulf:
+            self.assertNotEqual(self._run_gc(lock_fd=ulf.fileno()).returncode, 0)
+            fcntl.flock(ulf.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
+            self.assertNotEqual(self._run_gc(lock_fd=ulf.fileno()).returncode, 0)
         self.assertTrue(all(p.is_dir() for p in garbage))
+
+        # 1b) Unowned / damaged .prune-* entries (5 > OC_GC_MAX) and disallowed-leaf
+        #     or symlink-containing candidates never wedge GC and remain untouched.
+        stuck_tombs = []
+        for idx, kind in enumerate(("nonempty", "bad_mf", "foreign_leaf", "symlink", "file")):
+            tpath = self.data / "snapshots" / f".prune-{idx:064x}"
+            stuck_tombs.append(tpath)
+            if kind == "symlink":
+                tpath.symlink_to(unknown)
+            elif kind == "file":
+                tpath.write_text("not-a-dir\n")
+                tpath.chmod(0o600)
+            else:
+                tpath.mkdir(mode=0o700)
+                if kind == "nonempty":
+                    (tpath / "autostart").write_text("orphaned\n")
+                    (tpath / "autostart").chmod(0o600)
+                elif kind == "bad_mf":
+                    (tpath / "files.sha256").write_text("tampered\n")
+                    (tpath / "files.sha256").chmod(0o600)
+                else:
+                    (tpath / "evil.sh").write_text("bad\n")
+                    (tpath / "evil.sh").chmod(0o600)
+                    mf = sha(b"bad\n") + "  evil.sh\n"
+                    (tpath / "files.sha256").write_text(mf)
+                    (tpath / "files.sha256").chmod(0o600)
+        disallowed_work = self.data / "snapshots" / ".new-disallowed"
+        disallowed_work.mkdir(mode=0o700)
+        (disallowed_work / "evil.sh").write_text("keep-me\n")
+        (disallowed_work / "evil.sh").chmod(0o600)
+        disallowed_snap = self.publish(disallowed_work)
+        sym_snap = self._make_dummy_snapshot("sym-member")
+        (sym_snap / "autostart").unlink()
+        (sym_snap / "autostart").symlink_to("/etc/passwd")
 
         # 2) Standalone GC fails when lock is held by another open descriptor; succeeds with inherited fd.
         with lock_path.open("r+b") as lf:
@@ -2848,9 +2887,19 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
             self.assertEqual(first.returncode, 0, first.stderr)
             remaining = [p for p in garbage if p.exists()]
             self.assertEqual(len(remaining), 2)
-            for pinned in (self.baseline, self.snapshot, pin_sel, pin_acc, unknown, extra_snap):
+            for pinned in (
+                self.baseline,
+                self.snapshot,
+                pin_sel,
+                pin_acc,
+                unknown,
+                extra_snap,
+                disallowed_snap,
+                sym_snap,
+            ):
                 self.assertTrue(pinned.is_dir(), f"must preserve {pinned.name}")
-            self.assertFalse(list((self.data / "snapshots").glob(".prune-*")))
+            for st in stuck_tombs:
+                self.assertTrue(os.path.lexists(st), f"must leave unowned tombstone {st.name}")
 
             # Second call finishes the remaining 2 garbage snapshots.
             second = self._run_gc(lock_fd=lf.fileno())
@@ -2917,7 +2966,9 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
         (self.ram / "selected").write_text(s0.name + "\n")
         (self.ram / "selected").chmod(0o600)
 
-        # (a) gc_snap with a failing boot-select still returns 0 (isolated from save).
+        # (a) gc_snap with a failing boot-select still returns 0 (isolated from save),
+        #     and when BOOT_SELECT is unset it refuses symlinked or tampered package
+        #     boot-select without executing it.
         bad_bs = Path(self.build.name) / "fail-bs"
         bad_bs.write_text("#!/bin/sh\nexit 17\n")
         bad_bs.chmod(0o700)
@@ -2926,14 +2977,45 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
                 "sh",
                 "-c",
                 f"set -eu; D={shlex.quote(str(self.data))}; R_BACKEND={self.package_id}; "
-                f"BOOT_SELECT={shlex.quote(str(bad_bs))}; . {shlex.quote(str(ASSETS / 'access.sh'))}; "
+                f"BOOT_SELECT={shlex.quote(str(bad_bs))}; . {shlex.quote(str(ASSETS / 'state.sh'))}; "
                 "gc_snap; printf ok",
             ],
+            env=self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]}),
             capture_output=True,
             text=True,
             timeout=5,
         )
         self.assertEqual((iso.returncode, iso.stdout), (0, "ok"), iso.stderr)
+        pwn = self.ram / "pwned-by-gc"
+        evil = Path(self.build.name) / "evil-bs"
+        evil.write_text(f"#!/bin/sh\nprintf pwn > {shlex.quote(str(pwn))}\n")
+        evil.chmod(0o700)
+        orig_bs = (self.package / "boot-select").read_bytes()
+        for mode in ("symlink", "tampered"):
+            (self.package / "boot-select").unlink()
+            if mode == "symlink":
+                (self.package / "boot-select").symlink_to(evil)
+            else:
+                (self.package / "boot-select").write_bytes(evil.read_bytes())
+                (self.package / "boot-select").chmod(0o700)
+            ref = subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    f"set -eu; P={shlex.quote(str(self.package))}; D={shlex.quote(str(self.data))}; "
+                    f"R_BACKEND={self.package_id}; BOOT_SELECT=; . {shlex.quote(str(ASSETS / 'state.sh'))}; "
+                    "gc_snap; printf ok",
+                ],
+                env=self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]}),
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            self.assertEqual((ref.returncode, ref.stdout), (0, "ok"), mode + ": " + ref.stderr)
+            self.assertFalse(pwn.exists(), f"gc_snap executed {mode} boot-select!")
+        (self.package / "boot-select").unlink()
+        (self.package / "boot-select").write_bytes(orig_bs)
+        (self.package / "boot-select").chmod(0o700)
 
         # (b) Simulate unlocked full-status audit observing S1, then concurrent set
         # commits S2 + GCs S1 while full-status dropped lock fd 9: backend.sh status

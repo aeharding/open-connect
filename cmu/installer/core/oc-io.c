@@ -69,6 +69,11 @@ long oc_watch_parent(void) {
 long oc_owner(void) { return getuid(); }
 long oc_group(void) { return getgid(); }
 long oc_lock(int fd) { return flock(fd,LOCK_EX|LOCK_NB)<0?-errno:0; }
+int oc_lock_held_ex(int fd) {
+    if (flock(fd,LOCK_SH|LOCK_NB)<0) return errno==EWOULDBLOCK || errno==EAGAIN;
+    (void)flock(fd,LOCK_UN);
+    return 0;
+}
 long oc_mkdir(int fd, const char *name, unsigned mode) { return mkdirat(fd,name,mode)<0?-errno:0; }
 long oc_unlink(int fd, const char *name) { return unlinkat(fd,name,0)<0?-errno:0; }
 long oc_rmdirat(int fd, const char *name) { return unlinkat(fd,name,AT_REMOVEDIR)<0?-errno:0; }
@@ -153,12 +158,15 @@ const char *oc_pin_digest(const char *key, const char *prod) {
 int oc_dir_iter(int folder, int (*cb)(const char *name, void *ctx), void *ctx) {
     int copy=dup(folder);
     if (copy<0) return 0;
-    if (lseek(copy,0,SEEK_SET)<0) { close(copy); return 0; }
     DIR *directory=fdopendir(copy);
     if (!directory) { close(copy); return 0; }
+    rewinddir(directory);
     struct dirent *entry;
     int ok=1;
-    while ((entry=readdir(directory))) {
+    for (;;) {
+        errno=0;
+        entry=readdir(directory);
+        if (!entry) { if (errno) ok=0; break; }
         const char *name=entry->d_name;
         if (oc_equal(name,".")||oc_equal(name,"..")) continue;
         int r=cb(name,ctx);
@@ -224,6 +232,12 @@ long oc_watch_parent(void) { return oc_syscall4(172,1,15,0,0); }
 long oc_owner(void) { return oc_syscall4(199,0,0,0,0); }
 long oc_group(void) { return oc_syscall4(200,0,0,0,0); }
 long oc_lock(int fd) { return oc_syscall4(143,fd,6,0,0); }
+int oc_lock_held_ex(int fd) {
+    long r=oc_syscall4(143,fd,5,0,0); /* LOCK_SH|LOCK_NB */
+    if (r==-11) return 1; /* EAGAIN/EWOULDBLOCK: exclusive lock is held */
+    if (r>=0) (void)oc_syscall4(143,fd,8,0,0); /* LOCK_UN */
+    return 0;
+}
 long oc_mkdir(int fd, const char *name, unsigned mode) { return oc_syscall4(323,fd,(long)name,mode,0); }
 long oc_unlink(int fd, const char *name) { return oc_syscall4(328,fd,(long)name,0,0); }
 long oc_rmdirat(int fd, const char *name) { return oc_syscall4(328,fd,(long)name,0x200,0); }
@@ -247,7 +261,6 @@ long oc_block(void) {
     oc_u64 mask=20483; /* HUP, INT, TERM, PIPE. */
     return oc_syscall4(175,0,(long)&mask,0,8);
 }
-void oc_cut(const char *phase) { (void)phase; }
 int oc_stock_meta(int root, OcMeta *stock) { return oc_stat(root,stock)>=0; }
 const char *oc_pin_digest(const char *key, const char *prod) { (void)key; return prod; }
 int oc_dir_iter(int folder, int (*cb)(const char *name, void *ctx), void *ctx) {
@@ -278,8 +291,6 @@ int oc_dir_iter(int folder, int (*cb)(const char *name, void *ctx), void *ctx) {
     return 1;
 }
 #endif
-
-long oc_stat(int fd, OcMeta *m) { return oc_metadata(fd,0,m); }
 
 long oc_beneath(int root, const char *path, unsigned options, unsigned mode) {
     char leaf[192];

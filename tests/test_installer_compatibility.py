@@ -1,4 +1,4 @@
-"""Maintain the one actual predecessor using its verified writer and renderer."""
+"""Verify active dev.9 snapshots are explicitly refused while stock baselines remain readable."""
 
 import hashlib
 import shutil
@@ -147,10 +147,14 @@ snapshot_read "$R_CURRENT"
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual((self.fixture.data / "record").read_bytes(), before)
-        # 5-field stock baseline (R_BASE) remains readable by current code.
+        # snapshot_package also refuses 8-field active dev.9 configs.
+        pkg_dev9 = self.run_shell('record_read; snapshot_package "$R_CURRENT"', check=False)
+        self.assertNotEqual(pkg_dev9.returncode, 0)
+        # 5-field stock baseline (R_BASE) remains readable by snapshot_read and snapshot_package.
         stock = self.run_shell(
             r"""
 record_read
+test "$(snapshot_package "$R_BASE")" = -
 snapshot_read "$R_BASE"
 test "$S_SCHEMA:$S_PACKAGE" = "stock:-"
 """

@@ -258,4 +258,3 @@ fast_set_publish() {
   record_write; S_VER="|$after|"; S_CUR=
   gc_snap
 }
-gc_snap() { local b=${BOOT_SELECT:-$D/packages/$R_BACKEND/boot-select}; test ! -x "$b" || "$b" gc / 9 >/dev/null 2>&1 || :; }

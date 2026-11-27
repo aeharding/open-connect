@@ -320,7 +320,7 @@ vui_input_files() {
   local list=$1 bytes
   file "$list" && file "$P/ui-modules.tsv" || return 1
   bytes=$(wc -c < "$list") || return 1
-  vui_source_files
+  vui_source_files || return 1
   awk -v list="$list" -v expect_bytes="$bytes" '
         BEGIN {
             while((r=getline line < list)>0) {
@@ -606,11 +606,12 @@ boot_snapshot_seal() (
         awk '$2=="boot.plan"{n++}END{exit n!=1}' "$D/snapshots/$snapshot/files.sha256" || fail invalid_boot_plan
       IFS='|' read -r magic base backend < "$D/snapshots/$snapshot/boot.plan"
       if test "$magic:$base:$backend" = "OCBP1:$R_BASE:$package" &&
+        boot_dependencies_match "$snapshot" &&
         "$P/boot-select" check / "${D#/}/snapshots/$snapshot" < "$D/snapshots/$snapshot/boot.plan"; then
         printf '%s\n' "$snapshot"; exit 0
       fi
     fi
-    _boot_snapshot_seal "$snapshot"
+    _boot_snapshot_seal "$snapshot" || exit 1
     exit 0
   fi
   target=$(package_programs "$package" state.sh firmware.sh access.sh transaction.sh flush boot-select VERSION) || fail invalid_boot_package
@@ -641,8 +642,8 @@ _boot_snapshot_seal() (
   else
     P=$(package_programs "$package" flush) || fail invalid_boot_package
   fi
+  boot_dependencies_match "$snapshot" || fail boot_dependencies_changed
   if test -z "${PREPARED_REV:-}" || test "$PREPARED_REV" != "${R_REV:-}" || test "${VERIFIED_PACKAGE:-}" != "$package"; then
-    boot_dependencies_match "$snapshot" || fail boot_dependencies_changed
     snapshot_verify "$R_BASE" && firmware_guard || fail invalid_boot_baseline
   fi
   helper=$P/boot-select

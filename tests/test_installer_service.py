@@ -831,18 +831,21 @@ class InstallerService(unittest.TestCase):
     def test_sm_worker_skips_deferral_sleep_only_for_installed_notice(self):
         for notice, expect_sleep in (("installed", False), ("-", True)):
             with self.subTest(notice=notice):
+                self.stop_listener()
                 shutil.rmtree(self.runtime, ignore_errors=True)
                 shutil.rmtree(self.root / "data", ignore_errors=True)
                 worker, _, data = self.installed_worker()
                 record = (data / "record").read_text()
                 (data / "record").write_text(record.rsplit("|", 1)[0] + "|" + notice + "\n")
+                tools = self.root / f"tools-{notice}"
+                tools.mkdir(mode=0o700, exist_ok=True)
                 sleeps = self.root / f"sleeps-{notice}"
-                fake_sleep = self.tools / "sleep"
+                fake_sleep = tools / "sleep"
                 fake_sleep.write_text(
                     f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {shlex.quote(str(sleeps))}\nexit 0\n"
                 )
                 fake_sleep.chmod(0o700)
-                env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
+                env = {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
                 result = subprocess.run(
                     ["sh", worker, "boot"], capture_output=True, text=True, timeout=10, env=env
                 )
@@ -850,7 +853,7 @@ class InstallerService(unittest.TestCase):
                 self.assertEqual(sleeps.exists(), expect_sleep)
                 if expect_sleep:
                     self.assertEqual(sleeps.read_text().strip(), "4")
-                self.stop_all()
+                self.stop_listener()
 
     def test_sm_worker_refuses_missing_malformed_or_stale_boot_identity(self):
         worker, _, _ = self.installed_worker()

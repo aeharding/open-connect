@@ -1703,7 +1703,33 @@ transaction_prepare uninstall "$R_CURRENT" "$R_BASE"
 
     def test_dependency_and_boot_plan_readers_refuse_failed_or_partial_inputs(self):
         current = self.record()[5]
-        # Positive controls: healthy dependencies_match and boot_plan_inputs succeed.
+        # Helper: build a temporary awk wrapper that swaps ONLY a named -v var (deps or bf)
+        # to a truncated (0-row or 1-row) file AFTER wc -c measured the real length.
+        empty_file = self.root / "empty-trunc"
+        empty_file.write_text("")
+        one_dep = self.root / "one-dep"
+        dep_lines = (self.data / "snapshots" / current / "dependencies").read_text().splitlines()
+        self.assertGreater(len(dep_lines), 1)
+        one_dep.write_text(dep_lines[0] + "\n")
+        one_base = self.root / "one-base"
+        base_lines = (
+            (self.data / "snapshots" / self.record()[4] / "files.sha256").read_text().splitlines()
+        )
+        self.assertGreater(len(base_lines), 1)
+        one_base.write_text(base_lines[0] + "\n")
+
+        def awk_swap_var(var_name, replacement):
+            return (
+                "awk() { "
+                'set -- "$@"; out=; prev=; '
+                "for a; do "
+                f'if test "$prev" = -v && case "$a" in {var_name}=*) true;; *) false;; esac; then '
+                f'a="{var_name}={replacement}"; fi; '
+                "prev=$a; out=\"$out $(printf '%s' \"$a\" | sed \"s/'/'\\\\''/g; s/^/'/; s/$/'/\")\"; "
+                'done; eval "command awk $out"; }; '
+            )
+
+        # Positive control: healthy dependencies_match succeeds.
         ok_deps = subprocess.run(
             [
                 "sh",
@@ -1718,21 +1744,19 @@ transaction_prepare uninstall "$R_CURRENT" "$R_BASE"
         )
         self.assertEqual(ok_deps.returncode, 0, ok_deps.stderr)
 
-        # dependencies_match must refuse producer failure before row 1 and partial/truncated reads after row 1.
+        # dependencies_match must refuse producer failure plus post-length 0-row and 1-row truncation.
         for case, snippet in (
             (
                 "deps-producer-fail",
                 'firmware_dependencies() { return 1; }; dependencies_match "$R_CURRENT"',
             ),
             (
-                "deps-partial-after-row1",
-                'wc() { printf "%d\\n" $(( $(/usr/bin/wc -c) + 10 )); }; dependencies_match "$R_CURRENT"',
+                "deps-zero-rows-after-wc",
+                awk_swap_var("deps", empty_file) + 'dependencies_match "$R_CURRENT"',
             ),
             (
-                "deps-unreadable-before-row1",
-                'file() { true; }; chmod 000 "$D/snapshots/$R_CURRENT/dependencies"; '
-                'rc=0; dependencies_match "$R_CURRENT" || rc=$?; '
-                'chmod 600 "$D/snapshots/$R_CURRENT/dependencies"; exit "$rc"',
+                "deps-one-row-after-wc",
+                awk_swap_var("deps", one_dep) + 'dependencies_match "$R_CURRENT"',
             ),
         ):
             with self.subTest(case=case):
@@ -1750,55 +1774,56 @@ transaction_prepare uninstall "$R_CURRENT" "$R_BASE"
                 )
                 self.assertNotEqual(result.returncode, 0, f"{case} unexpectedly passed")
 
-        # boot_plan_inputs positive control and negative fault cases.
+        # boot_plan_inputs positive control using the real vui_input_files enumerator.
         cur_manifest = (self.data / "snapshots" / current / "files.sha256").read_text()
         members = " ".join(
             line.split()[1] for line in cur_manifest.splitlines() if line.split()[1] != "boot.plan"
         )
-        base_ok_preamble = (
-            '. "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; '
-            'AUTOSTART=$D-target; record_read; snapshot_read "$R_CURRENT"; '
-            "S_BASE=1; native_log_inputs_verify() { :; }; "
-            'sha() { case "$1" in /config/*|/jci/*) printf "%064d\\n" 0;; *) "$P/flush" h "$1";; esac; }; '
-            "base_ui_files() { printf '%064d %s %s\\n' 0 ui /tmp/ui; }; "
-            "vui_input_files() { printf '%064d %s %s\\n' 0 vui.so /jci/vui/svcjcivui.so; }; "
-            'manifest=$(awk \'$2!="boot.plan"\' "$D/snapshots/$R_CURRENT/files.sha256"); '
-        )
-        ok_plan = subprocess.run(
-            [
-                "sh",
-                "-c",
-                base_ok_preamble
-                + f'boot_plan_inputs "$D/snapshots/$R_CURRENT" "$R_CURRENT" "$manifest" {members} >/dev/null',
-            ],
-            env={**self.env, "D": str(self.data), "P": str(self.package)},
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        self.assertEqual(ok_plan.returncode, 0, ok_plan.stderr)
+        vui_names = [
+            line.split()[1]
+            for line in (self.package / "ui-modules.tsv").read_text().splitlines()
+            if line.startswith("vui\t") or line.startswith("vui ")
+        ][:36]
+        self.assertEqual(len(vui_names), 36)
+        vui_list = self.data / "snapshots" / current / "vui-plugins.list"
+        orig_vui_list = vui_list.read_bytes()
+        try:
+            vui_list.write_text("\n".join(vui_names) + "\n")
+            base_ok_preamble = (
+                '. "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; '
+                'AUTOSTART=$D-target; record_read; snapshot_decode "$R_CURRENT"; '
+                "S_BASE=1; native_log_inputs_verify() { :; }; "
+                'sha() { case "$1" in /config/*|/jci/*) printf "%064d\\n" 0;; *) "$P/flush" h "$1";; esac; }; '
+                "base_ui_files() { printf '%064d %s %s\\n' 0 ui /tmp/ui; }; "
+                'manifest=$(awk \'$2!="boot.plan"\' "$D/snapshots/$R_CURRENT/files.sha256"); '
+            )
+            ok_plan = subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    base_ok_preamble
+                    + f'boot_plan_inputs "$D/snapshots/$R_CURRENT" "$R_CURRENT" "$manifest" {members} >/dev/null',
+                ],
+                env={**self.env, "D": str(self.data), "P": str(self.package)},
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertEqual(ok_plan.returncode, 0, ok_plan.stderr)
 
-        for case, override in (
-            ("vui-fail-before-row1", "vui_input_files() { return 1; }"),
-            (
-                "vui-fail-after-row1",
-                "vui_input_files() { printf '%064d %s %s\\n' 0 vui.so /jci/vui/svcjcivui.so; return 1; }",
-            ),
-            (
-                "base-partial-after-row1",
-                'wc() { printf "%d\\n" $(( $(/usr/bin/wc -c) + 10 )); }',
-            ),
-            (
-                "base-unreadable-before-row1",
-                'file() { true; }; chmod 000 "$D/snapshots/$R_BASE/files.sha256"',
-            ),
-            (
-                "fw-deps-fail",
-                "firmware_dependencies() { return 1; }",
-            ),
-        ):
-            with self.subTest(case=case):
-                try:
+            for case, override in (
+                ("vui-source-fail-before-row1", "vui_source_files() { return 1; }"),
+                (
+                    "vui-source-fail-after-row1",
+                    "vui_source_files() { printf '%064d %s %s\\n' 0 vui.so /jci/vui/svcjcivui.so; return 1; }",
+                ),
+                ("deps-zero-rows-after-wc", awk_swap_var("deps", empty_file).rstrip("; ")),
+                ("deps-one-row-after-wc", awk_swap_var("deps", one_dep).rstrip("; ")),
+                ("base-zero-rows-after-wc", awk_swap_var("bf", empty_file).rstrip("; ")),
+                ("base-one-row-after-wc", awk_swap_var("bf", one_base).rstrip("; ")),
+                ("fw-deps-fail", "firmware_dependencies() { return 1; }"),
+            ):
+                with self.subTest(case=case):
                     result = subprocess.run(
                         [
                             "sh",
@@ -1813,5 +1838,36 @@ transaction_prepare uninstall "$R_CURRENT" "$R_BASE"
                         timeout=15,
                     )
                     self.assertNotEqual(result.returncode, 0, f"{case} unexpectedly passed")
-                finally:
-                    (self.data / "snapshots" / self.record()[4] / "files.sha256").chmod(0o600)
+        finally:
+            vui_list.write_bytes(orig_vui_list)
+
+        # Shortened 1-row dependency snapshot must be refused by both transaction_prepare set
+        # and the pre-sealed boot_snapshot_seal fast path even if boot-select is present.
+        selector_stub = self.data / "packages" / self.record()[3] / "boot-select"
+        had_selector = selector_stub.exists()
+        try:
+            if not had_selector:
+                selector_stub.write_text("#!/bin/sh\nexit 0\n")
+                selector_stub.chmod(0o700)
+            short_res = subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    '. "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; . "$P/transaction.sh"; '
+                    'AUTOSTART=$D-target; record_read; snapshot_read "$R_CURRENT"; '
+                    "VERIFIED_CURRENT=$R_CURRENT; VERIFIED_PACKAGE=$R_BACKEND; "
+                    f'short=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$S_PACKAGE" '
+                    f'"$S_NVRAM" "$S_META" {shlex.quote(str(one_dep))} "$D/snapshots/$R_CURRENT" "$S_PREFS"); '
+                    'if (transaction_prepare set "$R_CURRENT" "$short") 2>/dev/null; then exit 11; fi; '
+                    "PREPARED_REV=$R_REV; "
+                    'if (boot_snapshot_seal "$short") >/dev/null 2>&1; then exit 12; fi',
+                ],
+                env={**self.env, "D": str(self.data), "P": str(self.package)},
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertEqual(short_res.returncode, 0, short_res.stderr)
+        finally:
+            if not had_selector and selector_stub.exists():
+                selector_stub.unlink()

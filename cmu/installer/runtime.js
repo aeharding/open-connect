@@ -69,10 +69,10 @@ function paint(){
  if(!view){view=ui.progress(framework,action,warning,function(){view=null;});}
  return!!view;
 }
-function end(actual){
+function end(actual,unacked){
  var reply=job.reply;
  job=null;busy=saving=false;endView();release();
- if(reply){reply(actual);}
+ if(reply){reply(actual,unacked);}
 }
 function refuse(lost,restartRequired){
  if(lost){known=false;}
@@ -115,7 +115,7 @@ function reconcile(a){
  read(function(fresh){
  if(a&&a.ok===false){refuse(!valid(fresh)||fresh.pending,a.error==="restart_required");}
  else if(a===null&&!job.restartSent&&changed(fresh)){
-  if(saving){end(values());}else{restart();}
+  if(saving){end(values(),"reconciled");}else{restart();}
  }else{refuse(true);}
  },budget());
 }

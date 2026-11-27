@@ -235,6 +235,9 @@ retained_match() {
 transaction_prepare() {
   local next
   settled || fail operation_pending
+  if test "$1" = set; then
+    cmp -s "$D/snapshots/$2/dependencies" "$D/snapshots/$3/dependencies" || fail invalid_plan
+  fi
   if test "${VERIFIED_CURRENT:-}" = "$2" && cmp -s "$D/snapshots/$2/dependencies" "$D/snapshots/$3/dependencies"; then
     snapshot_read "$3" || fail invalid_plan
   else

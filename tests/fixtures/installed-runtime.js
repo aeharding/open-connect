@@ -377,4 +377,29 @@ f.fw.instantiateControl=function(a,c,k,p){
 select(f,'import');f.pick('import');
 assert.equal(f.operation('import').length,0,'declined progress dialog must block import');
 assert.equal(f.dialog,undefined);
+// Refused key import after leaving and re-entering Settings must cancel queued Uninstall.
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+assert.equal(f.operation('import').length,1);
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();
+select(f,'uninstall');f.pick('uninstall');
+assert.equal(f.dialog.props.text1,'Removing Open Connect');assert.equal(f.operation('uninstall').length,0);
+f.reply(f.operation('import')[0],{ok:false,error:'stale_state'});
+f.reply(f.requests.at(-1),f.state({...developer,revision:'c'.repeat(64)}));
+f.endAnimations();
+assert.equal(f.operation('uninstall').length,0,'refused import must never release queued uninstall against a newer revision');
+assert.equal(f.dialog,undefined);
+// Lost Set ACK reconciled via readback with unrelated changes preserves preference reconciliation
+// while cancelling queued Uninstall so the user must freshly confirm against the new revision.
+f=warm({touch:1,touchCurrent:1,warning:1,warningCurrent:1,restart:false});
+select(f,0);select(f,0);assert.equal(f.operation('set').length,1);
+f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+select(f,'uninstall');f.pick('uninstall');
+assert.equal(f.dialog.props.text1,'Removing Open Connect');assert.equal(f.operation('uninstall').length,0);
+f.reply(f.operation('set')[0],null);
+f.reply(f.requests.at(-1),f.state({touch:0,touchCurrent:1,warning:0,warningCurrent:1,restart:true,revision:'d'.repeat(64)}));
+f.endAnimations();
+assert.equal(f.operation('uninstall').length,0,'unacknowledged readback must never transfer uninstall confirmation to an unrelated revision');
+assert.equal(f.dialog,undefined);
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[1].label1,'Show','preference reconciliation stays intact');
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

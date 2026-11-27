@@ -58,6 +58,9 @@
                         PATH=/usr/bin:/bin:/usr/sbin:/sbin
                         export PATH
                         exec 7>&- 8>&- 9>&-
+                        if test -f /tmp/open-connect/ignition/ignition && test ! -L /tmp/open-connect/ignition/ignition && test -x /tmp/open-connect/ignition/ignition; then
+                            exec /tmp/open-connect/ignition/ignition
+                        fi
                         exec /bin/busybox sh /tmp/open-connect/ignition/ignition.sh
                     ) </dev/null >/dev/null 2>&1 &
                 fi;;

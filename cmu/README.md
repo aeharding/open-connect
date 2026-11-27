@@ -17,7 +17,7 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | `maintenance.js` | Independent USB choices, progress and installed completion; no Settings replacement |
 | `backend.sh`, `transaction.sh`, `state.sh` | Install, preferences, complete uninstall and interrupted-operation reconciliation |
 | `firmware.sh`, `mmui.S`, `intro.js`, `system-route.js` | Exact v74 guards and composition from this unit's saved originals |
-| `startup-hook.sh`, `boot.sh`, `ignition.sh` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
+| `startup-hook.sh`, `boot.sh`, `ignition.c` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
 | `boot-select.c`, `core/*.c`, `core/oc-core.h` | Modular freestanding C core: seal verified boot inputs, select unchanged snapshots, and safely prune unreachable snapshots |
 | `services.tsv`, `preferences.awk`, `sm-profile.awk` | Built-in Services catalog, canonical preferences and one RAM Service Manager composer |
 | `wireless.sh`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step and narrow native wireless service arguments |

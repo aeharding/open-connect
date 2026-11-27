@@ -159,3 +159,26 @@ def copy_host_api(dest: Path) -> Path:
     shutil.copyfile(host_api(), dest)
     dest.chmod(0o700)
     return dest
+
+
+def host_ignition() -> Path:
+    """Return cached ASan+UBSan host-compiled ignition binary."""
+    core_dir = ASSETS / "core"
+    ig_core = [core_dir / name for name in ("oc-hash.c", "oc-io.c", "oc-manifest.c", "oc-record.c")]
+    headers = sorted(core_dir.glob("*.h"))
+    flags = [
+        "-DOC_HOST",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+    ]
+    return _build_cached("ignition", [ASSETS / "ignition.c", *ig_core], flags, extra_deps=headers)
+
+
+def copy_host_ignition(dest: Path) -> Path:
+    """Copy cached host ignition binary to dest with mode 0700."""
+    shutil.copyfile(host_ignition(), dest)
+    dest.chmod(0o700)
+    return dest

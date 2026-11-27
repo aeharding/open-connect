@@ -170,7 +170,6 @@ class NativeBootSelection(unittest.TestCase):
             "firmware.sh",
             "access.sh",
             "service.sh",
-            "ignition.sh",
             "runtime.js",
             "dialog.js",
             "settings.js",
@@ -195,6 +194,9 @@ class NativeBootSelection(unittest.TestCase):
             (package / name).write_text("fixture " + name + "\n")
         shutil.copyfile(Path(self.build.name) / "flush", package / "flush")
         (package / "flush").chmod(0o700)
+        from tests.host_bins import copy_host_ignition
+
+        copy_host_ignition(package / "ignition")
         (package / "INSTANCE").write_text("1" * 32 + "\n")
         (package / "boot-select").write_bytes(self.program.read_bytes())
         (package / "boot-select").chmod(0o700)
@@ -1176,8 +1178,9 @@ package_save
             self.assertEqual(feature.resolve(), self.composed / name)
         self.assertNotIn("@TOKEN@", (self.ram / "feature/index.html").read_text())
         self.assertEqual(
-            (self.ram / "ignition/state.sh").read_bytes(), (ASSETS / "state.sh").read_bytes()
+            (self.ram / "ignition/ignition").read_bytes(), (self.package / "ignition").read_bytes()
         )
+        self.assertFalse((self.ram / "ignition/state.sh").exists())
         self.assertNotEqual(self.invoke().returncode, 0)
         self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
 
@@ -1249,7 +1252,7 @@ package_save
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual((self.data / "record").read_bytes(), before)
         self.assertFalse((self.ram / "selected").exists())
-        partial = list(self.ram.glob(".ignition-*/state.sh"))
+        partial = list(self.ram.glob(".ignition-*/ignition"))
         self.assertEqual(len(partial), 1)
         self.assertEqual(partial[0].stat().st_size, 4096)
 
@@ -1310,7 +1313,8 @@ package_save
         self.record[9] = "0"
         self.save_record()
         self.assertEqual(self.invoke().returncode, 2)
-        self.assertTrue((self.ram / "ignition/ignition.sh").is_file())
+        self.assertTrue((self.ram / "ignition/ignition").is_file())
+        self.assertFalse((self.ram / "ignition/state.sh").exists())
         self.assertTrue((self.ram / "access-selected").is_file())
         self.assertFalse((self.ram / "selected").exists())
         self.assertFalse((self.ram / "feature").exists())
@@ -2893,6 +2897,195 @@ package_save
         self.assertFalse(extra_victim.exists())
         for pinned in (self.baseline, self.snapshot, pin_sel, pin_acc, unknown, extra_snap):
             self.assertTrue(pinned.is_dir())
+
+    def _make_dummy_pkg_and_comp(self, tag: str) -> tuple[str, Path, Path]:
+        pwork = self.data / "packages" / f".new-pkg-{tag}"
+        pwork.mkdir(mode=0o700)
+        (pwork / "VERSION").write_text(f"0.3.0-{tag}\n")
+        (pwork / "VERSION").chmod(0o600)
+        (pwork / "INSTANCE").write_text(f"{tag}\n")
+        (pwork / "INSTANCE").chmod(0o600)
+        pdir = self.publish(pwork)
+        pid = pdir.name
+        cdir = self.data / "composed" / pid
+        cdir.mkdir(mode=0o700)
+        comp_names = (
+            "autostart",
+            "uia.so",
+            "mmui.so",
+            "mmui.xml",
+            "index-on.html",
+            "index-off.html",
+            "sm-normal-on.conf",
+            "sm-normal-off.conf",
+            "sm-wcp-on.conf",
+            "sm-wcp-off.conf",
+            "vui.so",
+            "vui.xml",
+        )
+        rows = []
+        for nm in comp_names:
+            body = f"composed-{tag}-{nm}\n".encode()
+            (cdir / nm).write_bytes(body)
+            (cdir / nm).chmod(0o600)
+            rows.append(f"{sha(body)}  {nm}\n")
+        (cdir / "files.sha256").write_text("".join(rows))
+        (cdir / "files.sha256").chmod(0o600)
+        return pid, pdir, cdir
+
+    def _make_snap_with_pkg(self, tag: str, cfg_pkg: str, sel_pkg: str | None = None) -> Path:
+        work = self.data / "snapshots" / f".new-spkg-{tag}"
+        work.mkdir(mode=0o700)
+        cfg = (
+            f"OC2\nbase=0\nmetadata={self.mode}\nnvram=absent\npackage={cfg_pkg}\n"
+            "service-ids=pandora\nservice.pandora=1\ntouch=0\nwarning=0\nwireless=0\n"
+        )
+        (work / "config").write_text(cfg)
+        (work / "config").chmod(0o600)
+        (work / "autostart").write_text(f"auto-{tag}\n")
+        (work / "autostart").chmod(0o600)
+        if sel_pkg is not None:
+            (work / "selector").write_text(f"{'b' * 64}|700:0:0|{sel_pkg}\n")
+            (work / "selector").chmod(0o600)
+        return self.publish(work)
+
+    def test_gc_prunes_unreachable_packages_and_composed_protects_all_pins_and_resumes_cuts(self):
+        import fcntl
+
+        lock_path = self.ram / "lock"
+        lock_path.write_bytes(b"")
+        lock_path.chmod(0o600)
+
+        # Create 6 pinned generations covering every live pin source:
+        #   - self.package_id (R_BACKEND)
+        #   - snap_cfg_pkg & snap_sel_pkg (referenced by a pinned surviving snapshot)
+        #   - rt_pkg (live ram/runtime session)
+        #   - usb_pkg (live ram/usb-runtime session)
+        #   - uia_pkg (live ram/feature/uia.so symlink)
+        #   - maint_pkg (live ram/feature/maintenance.js symlink)
+        snap_cfg_id, snap_cfg_p, snap_cfg_c = self._make_dummy_pkg_and_comp("pin-snap-cfg")
+        snap_sel_id, snap_sel_p, snap_sel_c = self._make_dummy_pkg_and_comp("pin-snap-sel")
+        rt_id, rt_p, rt_c = self._make_dummy_pkg_and_comp("pin-runtime")
+        usb_id, usb_p, usb_c = self._make_dummy_pkg_and_comp("pin-usb-runtime")
+        uia_id, uia_p, uia_c = self._make_dummy_pkg_and_comp("pin-feature-uia")
+        maint_id, maint_p, maint_c = self._make_dummy_pkg_and_comp("pin-feature-maint")
+
+        pin_snap = self._make_snap_with_pkg("pin-sel", snap_cfg_id, snap_sel_id)
+        (self.ram / "selected").write_text(pin_snap.name + "\n")
+        (self.ram / "selected").chmod(0o600)
+
+        sessions = self.ram / "sessions"
+        sessions.mkdir(mode=0o700)
+        s_rt = sessions / "session-boot01"
+        s_rt.mkdir(mode=0o700)
+        shutil.copyfile(rt_p / "files.sha256", s_rt / "files.sha256")
+        (self.ram / "runtime").symlink_to(str(s_rt))
+        s_usb = sessions / "session-usb001"
+        s_usb.mkdir(mode=0o700)
+        shutil.copyfile(usb_p / "files.sha256", s_usb / "files.sha256")
+        (self.ram / "usb-runtime").symlink_to("sessions/session-usb001")
+
+        fdir = self.ram / "feature"
+        fdir.mkdir(mode=0o700)
+        (fdir / "uia.so").symlink_to(
+            f"../../mnt/data_persist/open-connect/composed/{uia_id}/uia.so"
+        )
+        (fdir / "maintenance.js").symlink_to(
+            f"../../mnt/data_persist/open-connect/packages/{maint_id}/maintenance.js"
+        )
+
+        # Create 5 unreachable old generations + foreign/unowned dirs in packages/ & composed/.
+        old_gens = [self._make_dummy_pkg_and_comp(f"old-{i}") for i in range(5)]
+        foreign_pkg = self.data / "packages" / ("c" * 64)
+        foreign_pkg.mkdir(mode=0o700)
+        (foreign_pkg / "keep.txt").write_text("keep\n")
+        foreign_comp = self.data / "composed" / ("d" * 64)
+        foreign_comp.mkdir(mode=0o700)
+        (foreign_comp / "evil.sh").write_text("bad\n")
+        (foreign_comp / "files.sha256").write_text(sha(b"bad\n") + "  evil.sh\n")
+
+        with lock_path.open("r+b") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+            # 1) Fail-closed on malformed RAM runtime or feature symlinks: 0 deletions.
+            orig_rt = os.readlink(self.ram / "runtime")
+            (self.ram / "runtime").unlink()
+            (self.ram / "runtime").symlink_to("sessions/session-missing")
+            self.assertEqual(self._run_gc(lock_fd=lf.fileno()).returncode, 0)
+            self.assertTrue(all(p.is_dir() and c.is_dir() for _, p, c in old_gens))
+            (self.ram / "runtime").unlink()
+            (self.ram / "runtime").symlink_to(orig_rt)
+
+            orig_uia = os.readlink(fdir / "uia.so")
+            (fdir / "uia.so").unlink()
+            (fdir / "uia.so").symlink_to("../../etc/passwd")
+            self.assertEqual(self._run_gc(lock_fd=lf.fileno()).returncode, 0)
+            self.assertTrue(all(p.is_dir() and c.is_dir() for _, p, c in old_gens))
+            (fdir / "uia.so").unlink()
+            (fdir / "uia.so").symlink_to(orig_uia)
+
+            # 2) Fail-closed skip if an unverified/unowned 64-hex dir sits in snapshots/.
+            corrupt_snap = self.data / "snapshots" / ("e" * 64)
+            corrupt_snap.mkdir(mode=0o700)
+            (corrupt_snap / "foreign.txt").write_text("unknown\n")
+            skip_res = self._run_gc(lock_fd=lf.fileno())
+            self.assertEqual(skip_res.returncode, 0, skip_res.stderr)
+            self.assertTrue(all(p.is_dir() and c.is_dir() for _, p, c in old_gens))
+            shutil.rmtree(corrupt_snap)
+
+            # 3) Bounded sweep: first call removes 4 of 5 old packages and 4 of 5 old composed dirs.
+            first = self._run_gc(lock_fd=lf.fileno())
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(sum(1 for _, p, _ in old_gens if p.exists()), 1)
+            self.assertEqual(sum(1 for _, _, c in old_gens if c.exists()), 1)
+
+            # Second call finishes the 5th generation while keeping every pin and foreign dir.
+            second = self._run_gc(lock_fd=lf.fileno())
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertEqual([p for _, p, _ in old_gens if p.exists()], [])
+            self.assertEqual([c for _, _, c in old_gens if c.exists()], [])
+            for keep in (
+                self.package,
+                self.composed,
+                snap_cfg_p,
+                snap_cfg_c,
+                snap_sel_p,
+                snap_sel_c,
+                rt_p,
+                rt_c,
+                usb_p,
+                usb_c,
+                uia_p,
+                uia_c,
+                maint_p,
+                maint_c,
+                foreign_pkg,
+                foreign_comp,
+            ):
+                self.assertTrue(keep.is_dir(), f"must preserve {keep}")
+
+            # 4) Tombstone-first crash resume across all 3 cut points for packages/ and composed/.
+            for store_kind in ("packages", "composed"):
+                for cut_point in (
+                    "gc_tombstone_renamed",
+                    "gc_before_manifest_unlink",
+                    "gc_after_manifest_unlink",
+                ):
+                    pid, pdir, cdir = self._make_dummy_pkg_and_comp(f"cut-{store_kind}-{cut_point}")
+                    if store_kind == "composed":
+                        # Remove package dir first so the cut triggers specifically on composed/.
+                        shutil.rmtree(pdir)
+                        victim, tomb = cdir, self.data / "composed" / f".prune-{pid}"
+                    else:
+                        shutil.rmtree(cdir)
+                        victim, tomb = pdir, self.data / "packages" / f".prune-{pid}"
+                    cut_res = self._run_gc(lock_fd=lf.fileno(), cut=cut_point)
+                    self.assertEqual(cut_res.returncode, 97, (store_kind, cut_point))
+                    self.assertFalse(victim.exists(), (store_kind, cut_point))
+                    self.assertTrue(tomb.is_dir(), (store_kind, cut_point))
+                    resumed = self._run_gc(lock_fd=lf.fileno())
+                    self.assertEqual(resumed.returncode, 0, resumed.stderr)
+                    self.assertFalse(tomb.exists(), (store_kind, cut_point))
 
     def test_gc_failure_isolated_from_save_and_unlocked_status_returns_busy(self):
         # Verify: (a) gc_snap failure never breaks a settled save; (b) unlocked

@@ -909,7 +909,7 @@ package_save() (
   package_work=$work; trap 'test -n "${initial_work:-}" || rm -rf "$package_work"' EXIT
   while read -r digest name extra; do
     test "$name" != INSTANCE || continue
-    mode=600; case "$name" in api|flush|boot-select) mode=700;; esac
+    mode=600; case "$name" in api|flush|boot-select|ignition) mode=700;; esac
     cp "$P/$name" "$work/$name" || fail package_copy_failed
     chmod "$mode" "$work/$name" || fail package_mode_failed
     sha_is "$work/$name" "$digest" || fail package_copy_changed

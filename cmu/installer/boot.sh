@@ -45,8 +45,8 @@ boot_copy_package() {
 boot_observer_stage() {
     absent "$R/ignition" || fail observer_already_present
     observer=$(mktemp -d "$R/.ignition-XXXXXX") || fail observer_create_failed
-    boot_copy_package "$observer" ignition.sh state.sh flush || fail observer_copy_failed
-    chmod 600 "$observer/ignition.sh" "$observer/state.sh" && chmod 700 "$observer/flush" || fail observer_mode_failed
+    boot_copy_package "$observer" ignition flush || fail observer_copy_failed
+    chmod 700 "$observer/ignition" "$observer/flush" || fail observer_mode_failed
     runtime=$observer
 }
 
@@ -209,7 +209,7 @@ if test "$modern" = true; then
     absent "$R/ignition" && mv "$observer" "$R/ignition" || fail observer_publish_failed
     runtime=$R/ignition
 else
-    ( exec 9>&-; exec sh "$runtime/ignition.sh" "$boot" ) </dev/null >/dev/null 2>&1 &
+    ( exec 9>&-; exec "$runtime/ignition" "$boot" ) </dev/null >/dev/null 2>&1 &
 fi
 if test "$selected" != true; then
     if test "$modern" = true; then return 2; else return 1; fi

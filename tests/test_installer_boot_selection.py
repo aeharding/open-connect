@@ -2213,47 +2213,6 @@ package_save
         self.assertEqual(check(), 1)
         ram_mf.write_bytes(orig_ram_mf)
         ram_mf.chmod(0o600)
-        # Genuinely old package without boot-select in valid RAM manifest returns rc=2.
-        old_pkg_dir = self.data / "packages/.new-oldpkg"
-        old_pkg_dir.mkdir(mode=0o700)
-        for name in ("state.sh", "service.sh"):
-            (old_pkg_dir / name).write_bytes((ASSETS / name).read_bytes())
-            (old_pkg_dir / name).chmod(0o600)
-        shutil.copyfile(Path(self.build.name) / "flush", old_pkg_dir / "flush")
-        (old_pkg_dir / "flush").chmod(0o700)
-        old_pkg = self.publish(old_pkg_dir)
-        old_ram = self.ram / "session-old"
-        shutil.copytree(old_pkg, old_ram)
-        self.assertEqual(check(backend=old_pkg.name, ram=old_ram), 2)
-        # Undeclared boot-select physically present on disk hard-fails (rc=1, NEVER rc=2).
-        (old_pkg / "boot-select").write_bytes(b"stray")
-        (old_pkg / "boot-select").chmod(0o700)
-        self.assertEqual(check(backend=old_pkg.name, ram=old_ram), 1)
-        (old_pkg / "boot-select").unlink()
-        # Malformed RAM manifests (even when matching R_BACKEND) hard-fail (rc=1, NEVER rc=2).
-        lic_hash = sha(b"license\n")
-        for label, bad_mf in (
-            ("empty", b""),
-            ("dup-row", f"{lic_hash}  LICENSE\n{lic_hash}  LICENSE\n".encode()),
-            ("one-space", f"{lic_hash} LICENSE\n".encode()),
-            ("no-newline", f"{lic_hash}  LICENSE".encode()),
-        ):
-            with self.subTest(malformed_pkg=label):
-                bad_id = sha(bad_mf)
-                bad_pkg = self.data / "packages" / bad_id
-                bad_pkg.mkdir(mode=0o700)
-                (bad_pkg / "files.sha256").write_bytes(bad_mf)
-                bad_ram = self.ram / f"session-bad-{label}"
-                shutil.copytree(old_ram, bad_ram)
-                (bad_ram / "files.sha256").write_bytes(bad_mf)
-                self.assertEqual(check(backend=bad_id, ram=bad_ram), 1)
-        # Missing declared boot.plan in authenticated manifest hard-fails (rc=1, NEVER rc=2).
-        bp = snap / "boot.plan"
-        orig_bp = bp.read_bytes()
-        bp.unlink()
-        self.assertEqual(check(), 1)
-        bp.write_bytes(orig_bp)
-        bp.chmod(0o600)
         # Genuinely unsealed snapshot (boot.plan absent from authenticated manifest and disk) returns rc=2.
         unsealed_dir = self.data / "snapshots/.new-unsealed"
         unsealed_dir.mkdir(mode=0o700)
@@ -2268,19 +2227,87 @@ package_save
         (unsealed_snap / "boot.plan").chmod(0o600)
         self.assertEqual(check(cur=unsealed_snap.name), 1)
         (unsealed_snap / "boot.plan").unlink()
-        # Malformed snapshot manifests (even when matching R_CURRENT) hard-fail (rc=1, NEVER rc=2).
+        # Genuinely old selector-less package returns rc=2 on clean unsealed snapshot,
+        # and hard-fails (rc=1) if boot-select is on disk, boot.plan is on disk or declared,
+        # or snapshot manifest is malformed.
+        old_pkg_dir = self.data / "packages/.new-oldpkg"
+        old_pkg_dir.mkdir(mode=0o700)
+        for name in ("state.sh", "service.sh"):
+            (old_pkg_dir / name).write_bytes((ASSETS / name).read_bytes())
+            (old_pkg_dir / name).chmod(0o600)
+        shutil.copyfile(Path(self.build.name) / "flush", old_pkg_dir / "flush")
+        (old_pkg_dir / "flush").chmod(0o700)
+        old_pkg = self.publish(old_pkg_dir)
+        old_ram = self.ram / "session-old"
+        shutil.copytree(old_pkg, old_ram)
+        self.assertEqual(check(backend=old_pkg.name, ram=old_ram, cur=unsealed_snap.name), 2)
+        # Selector-less package with declared boot.plan hard-fails (rc=1).
+        self.assertEqual(check(backend=old_pkg.name, ram=old_ram, cur=snap.name), 1)
+        # Selector-less package with undeclared boot.plan on disk hard-fails (rc=1).
+        (unsealed_snap / "boot.plan").write_bytes(b"stray\n")
+        (unsealed_snap / "boot.plan").chmod(0o600)
+        self.assertEqual(check(backend=old_pkg.name, ram=old_ram, cur=unsealed_snap.name), 1)
+        (unsealed_snap / "boot.plan").unlink()
+        # Undeclared boot-select physically present on disk hard-fails (rc=1, NEVER rc=2).
+        (old_pkg / "boot-select").write_bytes(b"stray")
+        (old_pkg / "boot-select").chmod(0o700)
+        self.assertEqual(check(backend=old_pkg.name, ram=old_ram, cur=unsealed_snap.name), 1)
+        (old_pkg / "boot-select").unlink()
+        # Malformed RAM manifests (even when matching R_BACKEND) hard-fail (rc=1, NEVER rc=2),
+        # including NUL-terminated manifests.
+        lic_hash = sha(b"license\n")
+        for label, bad_mf in (
+            ("empty", b""),
+            ("dup-row", f"{lic_hash}  LICENSE\n{lic_hash}  LICENSE\n".encode()),
+            ("one-space", f"{lic_hash} LICENSE\n".encode()),
+            ("no-newline", f"{lic_hash}  LICENSE".encode()),
+            ("nul-end", f"{lic_hash}  LICENSE\x00".encode()),
+            ("nul-sealed", orig_ram_mf[:-1] + b"\x00"),
+        ):
+            with self.subTest(malformed_pkg=label):
+                bad_id = sha(bad_mf)
+                bad_pkg = self.data / "packages" / bad_id
+                bad_pkg.mkdir(mode=0o700)
+                if label == "nul-sealed":
+                    for p in sorted(pkg.iterdir()):
+                        if p.name != "files.sha256":
+                            (bad_pkg / p.name).write_bytes(p.read_bytes())
+                            (bad_pkg / p.name).chmod(p.stat().st_mode & 0o777)
+                (bad_pkg / "files.sha256").write_bytes(bad_mf)
+                bad_ram = self.ram / f"session-bad-{label}"
+                shutil.copytree(old_ram, bad_ram)
+                (bad_ram / "files.sha256").write_bytes(bad_mf)
+                self.assertEqual(check(backend=bad_id, ram=bad_ram), 1)
+        # Missing declared boot.plan in authenticated manifest hard-fails (rc=1, NEVER rc=2).
+        bp = snap / "boot.plan"
+        orig_bp = bp.read_bytes()
+        bp.unlink()
+        self.assertEqual(check(), 1)
+        bp.write_bytes(orig_bp)
+        bp.chmod(0o600)
+        # Malformed snapshot manifests (even when matching R_CURRENT) hard-fail (rc=1, NEVER rc=2),
+        # on both selector-equipped and selector-less packages, including NUL-terminated manifests.
+        orig_snap_mf = (snap / "files.sha256").read_bytes()
         for label, bad_mf in (
             ("empty", b""),
             ("dup-row", f"{lic_hash}  config\n{lic_hash}  config\n".encode()),
             ("one-space", f"{lic_hash} config\n".encode()),
             ("no-newline", f"{lic_hash}  config".encode()),
+            ("nul-end", f"{lic_hash}  config\x00".encode()),
+            ("nul-sealed", orig_snap_mf[:-1] + b"\x00"),
         ):
             with self.subTest(malformed_snap=label):
                 bad_id = sha(bad_mf)
                 bad_snap = self.data / "snapshots" / bad_id
                 bad_snap.mkdir(mode=0o700)
+                if label == "nul-sealed":
+                    for p in sorted(snap.iterdir()):
+                        if p.name != "files.sha256":
+                            (bad_snap / p.name).write_bytes(p.read_bytes())
+                            (bad_snap / p.name).chmod(p.stat().st_mode & 0o777)
                 (bad_snap / "files.sha256").write_bytes(bad_mf)
                 self.assertEqual(check(cur=bad_id), 1)
+                self.assertEqual(check(backend=old_pkg.name, ram=old_ram, cur=bad_id), 1)
         # Wrong mode on persistent boot-select hard-fails (rc=1).
         (pkg / "boot-select").chmod(0o600)
         self.assertEqual(check(), 1)

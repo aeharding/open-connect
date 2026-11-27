@@ -368,9 +368,9 @@ INPUTS
 }
 
 manifest_exact() {
-  local d=$1 a=${2:-} r=${3:-0} id=${4:-} h n l t c=0 b=0 e=0 s='|'
-  private_dir "$d" && file "$d/files.sha256" || return 1
-  test -z "$id" || sha_is "$d/files.sha256" "$id" || return 1
+  local d=$1 a=${2:-} r=${3:-0} id=${4:-} f=$1/files.sha256 h n l t c=0 b=0 e=0 s='|'
+  private_dir "$d" && file "$f" || return 1
+  test -z "$id" || sha_is "$f" "$id" || return 1
   while IFS= read -r l; do
     h=${l%% *}; n=${l#"$h  "}
     hex "$h" 64 && test "$l" = "$h  $n" || return 1
@@ -378,9 +378,9 @@ manifest_exact() {
     if test -n "$a"; then case "$a" in *"|$n|"*) ;; *) return 1;; esac; fi
     case "$s" in *"|$n|"*) return 1;; esac
     s="$s$n|"; c=$((c+1)); b=$((b+${#l}+1))
-  done < "$d/files.sha256"
+  done < "$f"
   test "$c" -gt 0 && { test "$r" -eq 0 || test "$c" -eq "$r"; } &&
-    test "$(wc -c < "$d/files.sha256")" -eq "$b" || return 1
+    test "$(wc -c < "$f")" -eq "$b" && test "$(wc -l < "$f")" -eq "$c" || return 1
   for t in "$d"/* "$d"/.[!.]* "$d"/..?*; do
     absent "$t" && continue
     test -f "$t" && test ! -L "$t" || return 1

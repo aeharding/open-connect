@@ -305,26 +305,31 @@ service_stage() {
 }
 
 boot_select_verified() {
-  local d=$D/packages/$R_BACKEND e a f g
+  local d=$D/packages/$R_BACKEND e a f g nb=0
   test "$role" = settings || return 2
   file "$P/files.sha256" && sha_is "$P/files.sha256" "$R_BACKEND" || return 1
   g='{t+=length($0)+1;h=substr($0,1,64);k=substr($0,67);if(substr($0,65,2)!="  "||length(h)!=64||h~/[^a-f0-9]/||k==""||k=="."||k==".."||k=="files.sha256"||k~/[^a-zA-Z0-9.-]/||s[k]++){b=1;exit 1}'
-  e=$(awk -v d="$d" -v z="$(wc -c < "$P/files.sha256")" "BEGIN{split(\"boot-select state.sh firmware.sh access.sh flush VERSION preferences.awk services.tsv sm-profile.awk ui-profile.awk ui-modules.tsv system-hook.js base-logging.js\",m,\" \");for(i in m)w[m[i]]=1}
+  e=$(awk -v d="$d" -v z="$(wc -c < "$P/files.sha256")" -v l="$(wc -l < "$P/files.sha256")" "BEGIN{split(\"boot-select state.sh firmware.sh access.sh flush VERSION preferences.awk services.tsv sm-profile.awk ui-profile.awk ui-modules.tsv system-hook.js base-logging.js\",m,\" \");for(i in m)w[m[i]]=1}
 $g;if(k==\"boot-select\")bs++;if(k in w)r[++n]=h\" *\"d\"/\"k}
-END{if(b||!NR||t!=z+0)exit 1;if(!bs){print \"NO_BS\";exit 0};if(n!=13)exit 1;for(i=1;i<=n;i++)print r[i]}" "$P/files.sha256") || return 1
+END{if(b||!NR||t!=z+0||NR!=l+0)exit 1;if(!bs){print \"NO_BS\";exit 0};if(n!=13)exit 1;for(i=1;i<=n;i++)print r[i]}" "$P/files.sha256") || return 1
   private_dir "$d" || return 1
-  if test "$e" = NO_BS; then absent "$d/boot-select" && return 2 || return 1; fi
-  file "$d/boot-select" && test "$(stat -c '%a:%u:%g' "$d/boot-select")" = "700:$request_owner" || return 1
-  set --
-  while read -r _ f; do f=${f#\*}; file "$f" || return 1; set -- "$@" "$f"; done <<F
+  if test "$e" = NO_BS; then
+    absent "$d/boot-select" || return 1
+    nb=1
+  else
+    file "$d/boot-select" && test "$(stat -c '%a:%u:%g' "$d/boot-select")" = "700:$request_owner" || return 1
+    set --
+    while read -r _ f; do f=${f#\*}; file "$f" || return 1; set -- "$@" "$f"; done <<F
 $e
 F
-  a=$(sha_many "$@") && test "$a" = "$e" || return 1
-  BOOT_SELECT=$d/boot-select
+    a=$(sha_many "$@") && test "$a" = "$e" || return 1
+    BOOT_SELECT=$d/boot-select
+  fi
   d=$D/snapshots/$R_CURRENT; private_dir "$d" && file "$d/files.sha256" && sha_is "$d/files.sha256" "$R_CURRENT" || return 1
-  e=$(awk -v z="$(wc -c < "$d/files.sha256")" "$g;if(k==\"boot.plan\")c++}END{if(b||!NR||t!=z+0)exit 1;print c+0}" "$d/files.sha256") || return 1
+  e=$(awk -v z="$(wc -c < "$d/files.sha256")" -v l="$(wc -l < "$d/files.sha256")" "$g;if(k==\"boot.plan\")c++}END{if(b||!NR||t!=z+0||NR!=l+0)exit 1;print c+0}" "$d/files.sha256") || return 1
   if test "$e" = 0; then BOOT_SELECT=; absent "$d/boot.plan" && return 2 || return 1; fi
   file "$d/boot.plan" || return 1
+  test "$nb" = 0 || { BOOT_SELECT=; return 1; }
 }
 
 service_boot() {

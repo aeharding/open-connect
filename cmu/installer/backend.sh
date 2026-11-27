@@ -442,8 +442,9 @@ set|import)
     prefs=$(preferences_change "$prefs" "$package" "$preference_key" "$desired" "$schema") || fail invalid_setting
     SEAL_BOOT_PLAN=1
   fi
-  if test "$schema:$package" = "OC2:$R_BACKEND" && ! absent "$D/packages/$package/boot-select"; then
+  if test "$schema" = OC2; then
     test "$FAST_READY" = 1 || manifest_exact "$D/packages/$package" "" 0 "$package" || fail state_changed
+    test "$package" = "$R_BACKEND" && ! absent "$D/packages/$package/boot-select" || SEAL_BOOT_PLAN=0
   else SEAL_BOOT_PLAN=0; fi
   if test "$operation:$expected" = "set:$desired"; then
     if test "$FAST_READY" = 1; then "$BOOT_SELECT" audit / "$R_CURRENT" || fail state_changed; S_VER="|$R_CURRENT|"; S_CUR=$R_CURRENT; fi

@@ -282,10 +282,9 @@ function maintain(a){
   if(!prefs.pending()){runAction(a);return;}
   var w=showWait(a==="restart"?"Applying changes":"Removing Open Connect");if(!w)return;
   prefs.queue(function(ok){
-    if(!ok&&!prefs.failure&&current())ns=false;
+    if(!ok)ns=false;
     endWait(w);
     if(ok&&current())runAction(a);
-    else if(!prefs.failure){if(current())render(choice,a);else if(ns)close();}
   },a==="uninstall");
 }
 function select(control,item,params){
@@ -336,12 +335,13 @@ prefs.select(item,d===1?1:0);
     dismiss=null;if(a!=="import"||!current())return;
     var w=showWait("Importing public key");if(!w)return;
     prefs.queue(function(ok){
-      if(!ok||!current()){if(!ok&&current())ns=false;endWait(w);return;}
+      if(!ok||!current()){if(!ok)ns=false;endWait(w);return;}
       prefs.importKey(function(act){
         if(current()&&choice==="developer"&&(!wait||wait===w))ns=false;
         endWait(w);if(!current()||choice!=="developer"||wait)return false;
         if(dismiss)dismiss();
         render("developer","import");
+        if(choice!=="developer")return true;
         dismiss=dialogs.message(fw,act?"Public key imported":"Key could not be imported",
         act?"Fingerprint (MD5):\n"+act.fingerprint.slice(0,23)+"\n"+act.fingerprint.slice(24)+"\nEnable SSH when ready.":
         "Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",

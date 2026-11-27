@@ -689,4 +689,39 @@ for(const action of ['restart','import']){
   assert.equal(f.operation(action).length,0,action+'/'+mode+': failed save #2 must send zero queued actions');
  }
 }
+// A refused Import whose full status read confirms conflict:true while Apply changes or Uninstall is queued
+// must build Change could not be confirmed once, retain and complete its slide, and send zero maintenance requests.
+for(const action of ['restart','uninstall']){
+ f=warm({...developer,touch:1,touchCurrent:0,restart:true});
+ f.fw._offscreenTemplateParent={appendChild(n){n.parentNode=this;},removeChild(n){n.parentNode=null;}};
+ select(f,'developer');select(f,'import');f.pick('import');
+ assert.equal(f.operation('import').length,1);
+ f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
+ f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+ select(f,action);f.pick(action);
+ const pagesBefore=f.pages.length;
+ f.reply(f.operation('import')[0],{ok:false,error:'state_changed'});
+ f.reply(f.requests.at(-1),f.state({...developer,conflict:true,installedVersion:'-',restart:true}));
+ assert.equal(f.dialog,undefined);
+ assert.equal(f.pages.length,pagesBefore+1,action+': conflict readback must build guidance once');
+ const g=f.pages.at(-1);
+ assert.equal(g.cleaned,undefined);
+ assert.equal(g.list2Ctrl.title.text1,'Change could not be confirmed');
+ assert.ok(g.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),action+': incoming slide must remain active');
+ f.endAnimations();
+ assert.equal(g.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),false);
+ assert.equal(f.operation(action).length,0,action+': conflict readback must send zero maintenance requests');
+}
+// Same conflict readback while staying on Developer options must show Change could not be confirmed without
+// layering the unrelated invalid-key help dialog on top.
+f=warm({...developer,touch:1,touchCurrent:0,restart:true});
+f.fw._offscreenTemplateParent={appendChild(n){n.parentNode=this;},removeChild(n){n.parentNode=null;}};
+select(f,'developer');select(f,'import');f.pick('import');
+const devPages=f.pages.length;
+f.reply(f.operation('import')[0],{ok:false,error:'state_changed'});
+f.reply(f.requests.at(-1),f.state({...developer,conflict:true,installedVersion:'-',restart:true}));
+assert.equal(f.pages.length,devPages+1);
+assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Change could not be confirmed');
+assert.equal(f.dialog,undefined,'conflict guidance on Developer options must not show invalid-key dialog');
+f.endAnimations();
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

@@ -335,12 +335,13 @@ prefs.select(item,params.additionalData===1?1:0);
     var w=showWait("Importing public key");if(!w)return;
     prefs.queue(function(ok){
       if(!ok||!current()){endWait(w);return;}
-      prefs.importKey(function(actual){
+      prefs.importKey(function(act){
         if(current()&&choice==="developer")ns=false;
         endWait(w);if(!current()||choice!=="developer")return false;
+        if(dismiss)dismiss();
         render("developer","import");
-        dismiss=dialogs.message(fw,actual?"Public key imported":"Key could not be imported",
-        actual?"Fingerprint (MD5):\n"+actual.fingerprint.slice(0,23)+"\n"+actual.fingerprint.slice(24)+"\nEnable SSH when ready.":
+        dismiss=dialogs.message(fw,act?"Public key imported":"Key could not be imported",
+        act?"Fingerprint (MD5):\n"+act.fingerprint.slice(0,23)+"\n"+act.fingerprint.slice(24)+"\nEnable SSH when ready.":
         "Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",
         {button1:{label:"OK",appData:"done"}},function(){dismiss=null;});
         return true;

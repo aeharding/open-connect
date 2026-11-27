@@ -525,4 +525,24 @@ f.reply(f.operation('import')[0],null);
 f.reply(f.requests.at(-1),f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
 assert.equal(f.pages.length,pagesAfterCancel+1,'reconciled Import after progress dismissal must render Developer page once');
 assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[f.pages.at(-1).list2Ctrl.focussedItem].appData,'import');
+// An open second Developer confirmation must be retired before presenting Import result,
+// keeping late selection inert and restoring Home transition callbacks cleanly.
+for(const kind of ['ack','reconcile','refuse']){
+ f=warm(developer);
+ select(f,'developer');select(f,'import');f.pick('import');
+ f.fw.common._cachedVuiState='Listening';f.touch('mousedown');f.fw.common._cachedVuiState='Idle';
+ select(f,'import');const staleConfirm=f.dialog;assert.equal(staleConfirm.props.title,'Import public key?');
+ const op=f.operation('import')[0];
+ const okState=f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)});
+ if(kind==='ack'){f.reply(op,okState);}
+ else if(kind==='reconcile'){f.reply(op,null);f.reply(f.requests.at(-1),okState);}
+ else{f.reply(op,{ok:false,error:'invalid_public_key'});f.reply(f.requests.at(-1),f.state(developer));}
+ assert.equal(staleConfirm.destroyed,true,kind+' must retire stale confirmation before presenting result');
+ assert.equal(f.dialog.props.title,kind==='refuse'?'Key could not be imported':'Public key imported');
+ staleConfirm.props.defaultSelectCallback(staleConfirm,'import');
+ assert.equal(f.operation('import').length,1,'late selection on retired confirmation must stay inert');
+ f.fw.sendEventToMmui('common','Global.IntentHome');
+ assert.equal(f.dialog,undefined);
+ assert.equal(f.fw.common.getCommonTransitionData.name,'oldTransition','Home must restore original transition callback');
+}
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

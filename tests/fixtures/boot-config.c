@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Exercise the exact native data decoder; ordinary select tests cover debit. */
-#include "boot-policy.h"
+#include "core/oc-core.h"
 int main(int argc,char **argv) {
     if (argc!=4) return 64;
     OcBoot *b=&oc_boot;

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later
  * Test the production streaming hash and descriptor traversal with real files.
  */
-#include "boot-io.h"
+#include "core/oc-core.h"
 #ifdef OC_HOST
 #include <stdio.h>
 int main(int argc, char **argv) {

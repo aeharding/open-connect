@@ -11,9 +11,15 @@ OBJCOPY := $(or $(shell command -v $(OBJCOPY)),$(wildcard /opt/homebrew/opt/llvm
 endif
 
 ARM_FLAGS = --target=armv7-linux-gnueabi -marm -mfloat-abi=soft -Os \
-    -ffreestanding -fno-stack-protector -fno-unwind-tables \
-    -fno-asynchronous-unwind-tables -nostdlib -static -Wall -Wextra -Werror
-LINK_FLAGS = --ld-path=$(LLD) -Wl,-e,_start,--build-id=none,-z,max-page-size=4096,--strip-all
+    -ffunction-sections -fdata-sections -ffreestanding -fno-stack-protector \
+    -fno-unwind-tables -fno-asynchronous-unwind-tables -nostdlib -static -Wall -Wextra -Werror
+LINK_FLAGS = --ld-path=$(LLD) -Wl,-e,_start,--build-id=none,--gc-sections,-z,max-page-size=4096,--strip-all
+COMPACT_LINK_FLAGS = $(LINK_FLAGS),-z,norelro,--no-rosegment
+CORE_SRCS = cmu/installer/core/oc-hash.c cmu/installer/core/oc-io.c \
+    cmu/installer/core/oc-manifest.c cmu/installer/core/oc-record.c \
+    cmu/installer/core/oc-config.c cmu/installer/core/oc-plan.c \
+    cmu/installer/core/oc-store.c cmu/installer/core/oc-boot.c
+CORE_HDR = cmu/installer/core/oc-core.h
 NATIVE_FLAGS = --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard \
     -mfpu=vfpv3 -Oz -ffreestanding -fPIC -fvisibility=hidden \
     -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector
@@ -41,13 +47,13 @@ $(OUT):
 	mkdir -p "$@"
 
 $(OUT)/api: cmu/installer/api.c | $(OUT)
-	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
+	$(CLANG) $(ARM_FLAGS) $(COMPACT_LINK_FLAGS) "$<" -o "$@"
 
 $(OUT)/flush: cmu/startup/flush.c cmu/installer/boot-hash.h | $(OUT)
 	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
 
-$(OUT)/boot-select: cmu/installer/boot-select.c cmu/installer/boot-policy.h cmu/installer/boot-system.h cmu/installer/boot-plan.h cmu/installer/boot-io.h cmu/installer/boot-hash.h | $(OUT)
-	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
+$(OUT)/boot-select: cmu/installer/boot-select.c $(CORE_SRCS) $(CORE_HDR) | $(OUT)
+	$(CLANG) $(ARM_FLAGS) $(COMPACT_LINK_FLAGS) cmu/installer/boot-select.c $(CORE_SRCS) -o "$@"
 
 $(OUT)/mmui.o: cmu/installer/mmui.S | $(OUT)
 	$(CLANG) --target=armv7-none-eabi -marm -c "$<" -o "$@"

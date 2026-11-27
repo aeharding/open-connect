@@ -139,33 +139,28 @@ class InstallerState(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
 
-    def test_stock5_and_active_dev9_fields_remain_distinct(self):
+    def test_stock5_baseline_valid_and_active_dev9_fields_refused(self):
         metadata = f"755:{os.getuid()}:{os.getgid()}"
         stock = f"-|0|0|absent|{metadata}\n".encode()
-        active = f"{'a' * 64}|1|1|disable|{metadata}|0|1|1\n".encode()
+        legacy_active = f"{'a' * 64}|1|1|disable|{metadata}|0|1|1\n".encode()
         stock_id = self.config_snapshot(stock)
-        active_id = self.config_snapshot(active)
         self.assertEqual(self.run_command("read-prefs", stock_id).stdout, "1|0|0\n")
-        self.assertEqual(self.run_command("read-prefs", active_id).stdout, "0|1|1\n")
-        # Stock must reset policy fields after decoding an active record.
-        read = self.run_command("read-pair", active_id, stock_id)
-        self.assertEqual(read.returncode, 0, read.stderr)
-        self.assertEqual(read.stdout, "1|0|0\n")
         for config in (
+            legacy_active,
             stock.replace(b"-|0|", b"-|2|"),
-            active.replace(b"|1|1|", b"|2|1|", 1),
+            legacy_active.replace(b"|1|1|", b"|2|1|", 1),
             stock.replace(metadata.encode(), b"755:4294967296:0"),
             stock.replace(metadata.encode(), b"755:0:4294967296"),
-            active.replace(metadata.encode(), b"755:4294967296:0"),
-            active.replace(metadata.encode(), b"755:0:4294967296"),
+            legacy_active.replace(metadata.encode(), b"755:4294967296:0"),
+            legacy_active.replace(metadata.encode(), b"755:0:4294967296"),
             stock[:-1],
             stock[:-1] + b"\0\n",
             stock.replace(b"-|", b"a" * 64 + b"|", 1),
-            active.replace(b"|0|1|1\n", b"\n"),
-            active.replace(b"|0|1|1\n", b"|0\n"),
-            active.replace(b"|0|1|1\n", b"|0|1\n"),
-            active.replace(b"|0|1|1\n", b"|0|1|2\n"),
-            active.replace(b"|0|1|1\n", b"|0|1|1|0\n"),
+            legacy_active.replace(b"|0|1|1\n", b"\n"),
+            legacy_active.replace(b"|0|1|1\n", b"|0\n"),
+            legacy_active.replace(b"|0|1|1\n", b"|0|1\n"),
+            legacy_active.replace(b"|0|1|1\n", b"|0|1|2\n"),
+            legacy_active.replace(b"|0|1|1\n", b"|0|1|1|0\n"),
         ):
             with self.subTest(config=config):
                 self.assertNotEqual(

@@ -122,13 +122,8 @@ function json_string(value, result, i, character) {
   }
   return result "\""
 }
-function legacy_policy(id) {
-  if(!bit(prefs["touch"]) || prefs["carplay-autoshow"]!="0") refuse()
-  if(!seen["service.pandora"]) refuse()
-  for(id in service_default) if(id!="pandora" && prefs["service." id]!="1") refuse()
-}
 BEGIN {
-  if(operation!~/^(decode|write|set|compose|legacy|rows)$/) refuse()
+  if(legacy!="" || operation!~/^(decode|write|set|compose|rows)$/) refuse()
   load_catalog(catalog)
   prefs["base"]="0";prefs["wireless"]="0";prefs["touch"]="1";prefs["warning"]="1"
   prefs["carplay-autoshow"]="0"
@@ -139,7 +134,7 @@ BEGIN {
     service_keys=service_keys service_ids[i]
   }
   prefs["service-ids"]=service_keys
-  if(input!="") load_preferences(input,operation=="write" || operation=="legacy" || (operation=="set" && legacy=="1"))
+  if(input!="") load_preferences(input,operation=="write")
   else if(operation!="write") refuse()
   if(input!="") validate_preferences()
   if(operation=="write") {
@@ -147,21 +142,11 @@ BEGIN {
     prefs["package"]=package_id;prefs["nvram"]=nvram_value;prefs["metadata"]=metadata_value
   }
   if(operation=="set") {
-    if(!(key=="touch" && legacy!="1" ? touch_mode(value) : bit(value)) || (key!~/^(touch|warning|base|wireless|carplay-autoshow)$/ && index(key,"service.")!=1) ||
+    if(!(key=="touch" ? touch_mode(value) : bit(value)) || (key!~/^(touch|warning|base|wireless|carplay-autoshow)$/ && index(key,"service.")!=1) ||
       !known_key(key)) refuse()
-    if(legacy=="1") {
-      legacy_policy()
-      if(key=="carplay-autoshow") refuse()
-      if(index(key,"service.")==1 && key!="service.pandora") refuse()
-    }
     prefs[key]=value
   }
   validate_preferences()
-  if(operation=="legacy") {
-    legacy_policy()
-    print prefs["touch"] "|" prefs["warning"] "|" prefs["service.pandora"] "|" prefs["base"] "|" prefs["wireless"]
-    exit
-  }
   if(operation=="rows") {
     if(selected_services!="") {
       count=split(selected_services,pairs,",")

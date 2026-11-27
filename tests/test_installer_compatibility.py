@@ -5,7 +5,6 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,13 +18,18 @@ class PredecessorMaintenance(unittest.TestCase):
     def setUpClass(cls):
         cls.build = tempfile.TemporaryDirectory()
         cls.program = Path(cls.build.name) / "boot-select"
+        core_srcs = sorted((ASSETS / "core").glob("*.c"))
         subprocess.run(
             [
                 "clang",
                 "-DOC_HOST",
                 "-D_GNU_SOURCE",
+                "-std=c11",
                 "-O2",
+                "-fsanitize=address,undefined",
+                "-fno-omit-frame-pointer",
                 ASSETS / "boot-select.c",
+                *core_srcs,
                 "-o",
                 cls.program,
             ],
@@ -132,59 +136,44 @@ R_CURRENT=$(boot_snapshot_seal "$R_CURRENT"); record_write
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return result
 
-    def test_new_media_set_and_pending_recovery_keep_dev9_serializer_and_renderer(self):
+    def test_active_dev9_snapshots_are_explicitly_refused_without_mutating_state(self):
+        before = (self.fixture.data / "record").read_bytes()
         result = self.run_shell(
             r"""
-record_read; snapshot_read "$R_CURRENT"
-prefs=$(preferences_change "$S_PREFS" "$S_PACKAGE" service.pandora 0 "$S_SCHEMA")
-after=$(snapshot_create "$AUTOSTART" "$S_PACKAGE" "$S_NVRAM" "$S_META" "$D/snapshots/$R_CURRENT/dependencies" "$D/snapshots/$R_CURRENT" "$prefs")
-transaction_prepare set "$R_CURRENT" "$after"
-exit 9
+record_read
+snapshot_read "$R_CURRENT"
 """,
             check=False,
         )
-        self.assertEqual(result.returncode, 9, result.stderr)
-        self.assertEqual(self.fixture.record()[1], "set")
-        self.run_shell("record_read; transaction_reconcile")
-        f = self.fixture
-        self.assertEqual(f.record()[4], self.baseline)
-        snapshot = f.data / "snapshots" / f.record()[5]
-        fields = (snapshot / "config").read_text().strip().split("|")
-        self.assertEqual(len(fields), 8)
-        self.assertEqual(fields[0], self.old_id)
-        self.assertEqual(fields[5], "0")
-        for name in ("sm-normal.conf", "sm-wcp.conf"):
-            jobs = {node.get("name"): node for node in ET.parse(snapshot / name).iter("service")}
-            self.assertEqual(jobs["blm_ira_pandora"].get("autorun"), "no")
-            self.assertEqual(jobs["jciAAPA"].get("autorun"), "yes")
-        self.assertTrue((snapshot / "boot.plan").is_file())
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((self.fixture.data / "record").read_bytes(), before)
+        # 5-field stock baseline (R_BASE) remains readable by current code.
+        stock = self.run_shell(
+            r"""
+record_read
+snapshot_read "$R_BASE"
+test "$S_SCHEMA:$S_PACKAGE" = "stock:-"
+"""
+        )
+        self.assertEqual(stock.returncode, 0, stock.stderr)
 
-    def test_pending_upgrade_has_old_current_and_first_canonical_after(self):
-        result = self.run_shell(
+    def test_legacy_dev9_package_snapshot_create_and_seal_are_refused(self):
+        before = (self.fixture.data / "record").read_bytes()
+        create = self.run_shell(
             r"""
-record_read; snapshot_read "$R_CURRENT"; prefs=$S_PREFS
-before=$R_CURRENT; R_BACKEND=${P##*/}
-deps=$(mktemp "$D/.new-deps-XXXXXX"); dependencies_capture "$R_BACKEND" > "$deps"
-after=$(snapshot_create "$AUTOSTART" "$R_BACKEND" "$S_NVRAM" "$S_META" "$deps" - "$prefs")
-rm "$deps"
-transaction_prepare install "$before" "$after"
-exit 9
+record_read
+snapshot_create "$AUTOSTART" "$R_BACKEND" disable "755:$(id -u):$(id -g)" "$D/snapshots/$R_CURRENT/dependencies" - ""
 """,
             check=False,
         )
-        self.assertEqual(result.returncode, 9, result.stderr)
-        f = self.fixture
-        record = f.record()
-        self.assertEqual(record[3], f.package_id)
-        self.assertTrue(
-            (f.data / "snapshots" / record[7] / "config").read_text().startswith("OC2\n")
+        self.assertNotEqual(create.returncode, 0)
+        self.assertIn("unsupported_snapshot_package", create.stderr)
+        seal = self.run_shell(
+            r"""
+record_read
+boot_snapshot_seal "$R_CURRENT"
+""",
+            check=False,
         )
-        self.assertEqual(
-            len((f.data / "snapshots" / record[5] / "config").read_text().strip().split("|")), 8
-        )
-        self.run_shell("record_read; transaction_reconcile")
-        self.assertEqual(f.record()[4], self.baseline)
-        self.assertEqual(f.record()[1], "active")
-        config = (f.data / "snapshots" / f.record()[5] / "config").read_text()
-        self.assertIn("service.android-auto=1\n", config)
-        self.assertIn("service.pandora=1\n", config)
+        self.assertNotEqual(seal.returncode, 0)
+        self.assertEqual((self.fixture.data / "record").read_bytes(), before)

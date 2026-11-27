@@ -604,18 +604,11 @@ boot_snapshot_seal() (
     _boot_snapshot_seal "$snapshot" || exit 1
     exit 0
   fi
+  test "$S_SCHEMA" = OC2 || fail invalid_boot_package
   target=$(package_programs "$package" state.sh firmware.sh access.sh transaction.sh flush boot-select VERSION) || fail invalid_boot_package
-  if test "$S_SCHEMA" = dev9; then
-    test "$(cat "$target/VERSION")" = 0.3.0-dev.9 && absent "$target/preferences.awk" || fail unsupported_boot_package
-    sh -c 'set -eu; D=$1; P=$2; R_BACKEND=$3; R_BASE=$4; AUTOSTART=$5;
-            . "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; . "$P/transaction.sh";
-            boot_snapshot_seal "$6"' seal "$D" "$target" "$R_BACKEND" "$R_BASE" "$AUTOSTART" "$snapshot"
-  else
-    test "$S_SCHEMA" = OC2 || fail invalid_boot_package
-    sh -c 'set -eu; D=$1; P=$2; R_BACKEND=$3; R_BASE=$4; AUTOSTART=$5; VERIFIED_PACKAGE=$6;
-            . "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; . "$P/transaction.sh";
-            _boot_snapshot_seal "$7"' seal "$D" "$target" "$R_BACKEND" "$R_BASE" "$AUTOSTART" "$package" "$snapshot"
-  fi
+  sh -c 'set -eu; D=$1; P=$2; R_BACKEND=$3; R_BASE=$4; AUTOSTART=$5; VERIFIED_PACKAGE=$6;
+          . "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; . "$P/transaction.sh";
+          _boot_snapshot_seal "$7"' seal "$D" "$target" "$R_BACKEND" "$R_BASE" "$AUTOSTART" "$package" "$snapshot"
 )
 
 _boot_snapshot_seal() (

@@ -343,7 +343,7 @@ install)
   trap 'record_clean; test -n "${initial_work:-}" || rm -rf "$access_work"' EXIT
   if test "$exists" = true && test "$R_PHASE" = active; then
     snapshot_read "$R_CURRENT" || fail invalid_snapshot
-    test "$S_SCHEMA" = OC2 || test "$S_SCHEMA" = dev9 || fail unsupported_snapshot
+    test "$S_SCHEMA" = OC2 || fail unsupported_snapshot
     old_package=$S_PACKAGE; prefs=$S_PREFS
     uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY
     if test "$S_ACCESS" = true && test "$S_LOGIN_INODE" = -; then fail developer_reinstall_required; fi
@@ -392,6 +392,7 @@ install)
   rm "$deps"
   transaction_prepare install "$before" "$after"
   transaction_reconcile
+  gc_snap
   ;;
 set|import)
   test "$exists" = true && test "$R_PHASE" = active || fail not_installed
@@ -409,7 +410,7 @@ set|import)
     esac;;
   esac
   if test "$FAST_READY" = 0; then targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed; VERIFIED_CURRENT=$R_CURRENT; VERIFIED_PACKAGE=$R_BACKEND; fi
-  package=$S_PACKAGE; prefs=$S_PREFS; schema=$S_SCHEMA; mode=$S_META; test "$schema" = OC2 || test "$schema" = dev9 || fail unsupported_snapshot
+  package=$S_PACKAGE; prefs=$S_PREFS; schema=$S_SCHEMA; mode=$S_META; test "$schema" = OC2 || fail unsupported_snapshot
   uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY; cur_nvram=$S_NVRAM; O_T2=0; test "$S_TOUCH" != 2 || O_T2=1
   O_W=$S_WARNING; O_B=$S_BASE; O_WL=$S_WIRELESS; O_S=$S_SERVICES; O_AS=$S_AUTOSHOW
   access_source=$D/snapshots/$R_CURRENT
@@ -469,6 +470,7 @@ set|import)
   after=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$package" "$nvram" "$mode" "$D/snapshots/$R_CURRENT/dependencies" "$access_source" "$prefs") || fail plan_failed
   transaction_prepare set "$R_CURRENT" "$after"
   transaction_reconcile
+  gc_snap
   status_view false; exit
   ;;
 uninstall)

@@ -2225,6 +2225,28 @@ package_save
         old_ram = self.ram / "session-old"
         shutil.copytree(old_pkg, old_ram)
         self.assertEqual(check(backend=old_pkg.name, ram=old_ram), 2)
+        # Undeclared boot-select physically present on disk hard-fails (rc=1, NEVER rc=2).
+        (old_pkg / "boot-select").write_bytes(b"stray")
+        (old_pkg / "boot-select").chmod(0o700)
+        self.assertEqual(check(backend=old_pkg.name, ram=old_ram), 1)
+        (old_pkg / "boot-select").unlink()
+        # Malformed RAM manifests (even when matching R_BACKEND) hard-fail (rc=1, NEVER rc=2).
+        lic_hash = sha(b"license\n")
+        for label, bad_mf in (
+            ("empty", b""),
+            ("dup-row", f"{lic_hash}  LICENSE\n{lic_hash}  LICENSE\n".encode()),
+            ("one-space", f"{lic_hash} LICENSE\n".encode()),
+            ("no-newline", f"{lic_hash}  LICENSE".encode()),
+        ):
+            with self.subTest(malformed_pkg=label):
+                bad_id = sha(bad_mf)
+                bad_pkg = self.data / "packages" / bad_id
+                bad_pkg.mkdir(mode=0o700)
+                (bad_pkg / "files.sha256").write_bytes(bad_mf)
+                bad_ram = self.ram / f"session-bad-{label}"
+                shutil.copytree(old_ram, bad_ram)
+                (bad_ram / "files.sha256").write_bytes(bad_mf)
+                self.assertEqual(check(backend=bad_id, ram=bad_ram), 1)
         # Missing declared boot.plan in authenticated manifest hard-fails (rc=1, NEVER rc=2).
         bp = snap / "boot.plan"
         orig_bp = bp.read_bytes()
@@ -2232,7 +2254,7 @@ package_save
         self.assertEqual(check(), 1)
         bp.write_bytes(orig_bp)
         bp.chmod(0o600)
-        # Genuinely unsealed snapshot (boot.plan absent from authenticated manifest) returns rc=2.
+        # Genuinely unsealed snapshot (boot.plan absent from authenticated manifest and disk) returns rc=2.
         unsealed_dir = self.data / "snapshots/.new-unsealed"
         unsealed_dir.mkdir(mode=0o700)
         for p in sorted(snap.iterdir()):
@@ -2241,6 +2263,24 @@ package_save
                 (unsealed_dir / p.name).chmod(0o600)
         unsealed_snap = self.publish(unsealed_dir)
         self.assertEqual(check(cur=unsealed_snap.name), 2)
+        # Undeclared boot.plan physically present on disk hard-fails (rc=1, NEVER rc=2).
+        (unsealed_snap / "boot.plan").write_bytes(b"stray\n")
+        (unsealed_snap / "boot.plan").chmod(0o600)
+        self.assertEqual(check(cur=unsealed_snap.name), 1)
+        (unsealed_snap / "boot.plan").unlink()
+        # Malformed snapshot manifests (even when matching R_CURRENT) hard-fail (rc=1, NEVER rc=2).
+        for label, bad_mf in (
+            ("empty", b""),
+            ("dup-row", f"{lic_hash}  config\n{lic_hash}  config\n".encode()),
+            ("one-space", f"{lic_hash} config\n".encode()),
+            ("no-newline", f"{lic_hash}  config".encode()),
+        ):
+            with self.subTest(malformed_snap=label):
+                bad_id = sha(bad_mf)
+                bad_snap = self.data / "snapshots" / bad_id
+                bad_snap.mkdir(mode=0o700)
+                (bad_snap / "files.sha256").write_bytes(bad_mf)
+                self.assertEqual(check(cur=bad_id), 1)
         # Wrong mode on persistent boot-select hard-fails (rc=1).
         (pkg / "boot-select").chmod(0o600)
         self.assertEqual(check(), 1)
@@ -2544,26 +2584,146 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
         self.assertEqual(json.loads(be_refuse_set.stdout)["error"], "state_changed")
         on_cur = be_out["revision"]
 
-        # Extra package entry is also refused by shell fallback's boot_dependencies_match.
+        # Real backend.sh unsealed OC2 fallback check:
+        # Build a genuinely unsealed OC2 snapshot (no boot.plan in manifest or disk) and
+        # run real backend.sh with real transaction_prepare/transaction_reconcile.
+        # Clean control must succeed; an extra package file must return state_changed with
+        # original OC1 bytes and unchanged NVRAM on both no-op and touch 1->0.
+        unsealed_work = self.data / "snapshots/.new-be-unsealed"
+        unsealed_work.mkdir(mode=0o700)
+        for p in sorted((self.data / "snapshots" / on_cur).iterdir()):
+            if p.name not in ("files.sha256", "boot.plan"):
+                (unsealed_work / p.name).write_bytes(p.read_bytes())
+                (unsealed_work / p.name).chmod(0o600)
+        unsealed_snap = self.publish(unsealed_work)
+        fb_session = self.ram / "sessions/session-befb01"
+        fb_session.mkdir(parents=True, mode=0o700)
+        for p in sorted(self.package.iterdir()):
+            (fb_session / p.name).write_bytes(p.read_bytes())
+            (fb_session / p.name).chmod(p.stat().st_mode & 0o777)
+        fb_be = (
+            (ASSETS / "backend.sh")
+            .read_text()
+            .replace("/tmp/mnt/data_persist/open-connect", str(self.data))
+            .replace("/tmp/open-connect", str(self.ram))
+            .replace("/usr/bin/autostart", str(self.root / "usr/bin/autostart"))
+            .replace("firmware_guard ", "# firmware_guard ")
+            .replace("flock -n -x 9 || fail busy", ":")
+            .replace("flock -n -s 9 || fail busy", ":")
+            .replace(
+                '. "$P/transaction.sh"',
+                '. "$P/transaction.sh"\n'
+                'uuid() { printf "%s\\n" "0123456789abcdef0123456789abcdef"; }\n'
+                "firmware_guard() { :; }\n"
+                "factory_wireless() { return 1; }\n"
+                f"nvram_read() {{ if test -f {shlex.quote(str(nvram_file))}; then cat {shlex.quote(str(nvram_file))}; else echo absent; fi; }}\n"
+                f'nvram_change() {{ if test "$2" = absent; then rm -f {shlex.quote(str(nvram_file))}; else printf "%s\\n" "$2" > {shlex.quote(str(nvram_file))}; fi; }}\n'
+                "selector_matches_loaded() { return 0; }\n"
+                "selector_pair_check() { return 0; }\n"
+                "startup_publish() { :; }\n",
+            )
+        )
+        (fb_session / "backend.sh").write_text(fb_be)
+        (fb_session / "backend.sh").chmod(0o700)
+        fb_fw = (
+            (ASSETS / "firmware.sh")
+            .read_text()
+            .replace("/proc/mounts", str(self.root / "proc/mounts"))
+            .replace("/tmp/mnt/data_persist/open-connect", str(self.data))
+            .replace("/tmp/open-connect", str(self.ram))
+            .replace("firmware_dependencies()", "_unused_fw_deps()")
+        )
+        # Preserve host root paths in firmware_dependencies for real dependencies_match.
+        fw_deps_lines = "\n".join(
+            f"  printf '%s\\n' '{d} {k.split('/', 1)[1]} {self.root}{p}'"
+            for k, p, d in self.inputs
+            if k.startswith("root/")
+        )
+        fb_fw = fb_fw.replace(
+            "/usr/bin/open-connect-boot-select",
+            str(self.root / "usr/bin/open-connect-boot-select"),
+        ).replace(
+            "1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29",
+            sha(b"stock manager.so\n"),
+        )
+        fb_fw += (
+            f"\nfirmware_dependencies() {{\n{fw_deps_lines}\n}}\n"
+            'boot_snapshot_seal() { P=$D/packages/$R_BACKEND boot_dependencies_match "$1" || return 1; printf "%s\\n" "$1"; }\n'
+        )
+        (fb_session / "firmware.sh").write_text(fb_fw)
+        (fb_session / "access.sh").write_text(
+            (ASSETS / "access.sh")
+            .read_text()
+            .replace("/usr/bin/runlogin", str(self.root / "usr/bin/runlogin"))
+            .replace("/etc/ssh/sshd_config", str(self.root / "etc/ssh/sshd_config"))
+            .replace(
+                "/usr/bin/.open-connect-runlogin-",
+                str(self.root / "usr/bin/.open-connect-runlogin-"),
+            )
+        )
+        (fb_session / "state.sh").write_text(
+            (ASSETS / "state.sh")
+            .read_text()
+            .replace("SEAL_BOOT_PLAN=$6", "SEAL_BOOT_PLAN=0")
+            .replace(
+                '. "$P/firmware.sh";',
+                '. "$P/firmware.sh"; '
+                'boot_render_profiles() { for n in sm-normal.conf sm-wcp.conf index.html mmui.xml vui-plugins.list; do cp "$D/snapshots/'
+                + unsealed_snap.name
+                + '/$n" "$1/$n"; done; };',
+            )
+        )
+        # Point runtime to fb_session, OC1 to unsealed_snap, NVRAM to disable.
+        orig_rec_bytes = (self.data / "record").read_bytes()
+        fb_rec = orig_rec_bytes.decode().strip().split("|")
+        fb_rec[5] = unsealed_snap.name
+        unsealed_rec_bytes = ("|".join(fb_rec) + "\n").encode()
+        (self.data / "record").write_bytes(unsealed_rec_bytes)
+        (self.ram / "selected").write_text(unsealed_snap.name + "\n")
+        (self.ram / "runtime").unlink()
+        (self.ram / "runtime").symlink_to(fb_session)
+        nvram_file.write_text("disable\n")
+
+        def call_fb(*args):
+            return subprocess.run(
+                ["sh", str(fb_session / "backend.sh"), "api", *args],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+
+        # Extra file in package: both no-op and touch 1->0 fail with state_changed,
+        # preserving original OC1 bytes and NVRAM = disable.
         extra_fb = self.package / "stray-fallback"
         extra_fb.write_text("stray\n")
-        fb_rc = subprocess.run(
-            [
-                "sh",
-                "-c",
-                'set -eu; D=$1; P=$2; R_BACKEND=$3; . "$P/state.sh"; . "$P/firmware.sh"; '
-                '. "$P/transaction.sh"; boot_dependencies_match "$4"',
-                "fb-member-check",
-                str(self.data),
-                str(self.package),
-                self.package_id,
-                on_cur,
-            ],
-            env=env,
-            capture_output=True,
-        ).returncode
+        fb_noop = call_fb(unsealed_snap.name, "set", "carplay-autoshow", "0", "0")
+        self.assertNotEqual(fb_noop.returncode, 0)
+        self.assertEqual(json.loads(fb_noop.stdout)["error"], "state_changed")
+        self.assertEqual((self.data / "record").read_bytes(), unsealed_rec_bytes)
+        self.assertEqual(nvram_file.read_text(), "disable\n")
+        fb_touch = call_fb(unsealed_snap.name, "set", "touch", "1", "0")
+        self.assertNotEqual(fb_touch.returncode, 0)
+        self.assertEqual(json.loads(fb_touch.stdout)["error"], "state_changed")
+        self.assertEqual((self.data / "record").read_bytes(), unsealed_rec_bytes)
+        self.assertEqual(nvram_file.read_text(), "disable\n")
         extra_fb.unlink()
-        self.assertNotEqual(fb_rc, 0)
+
+        # Clean control: unsealed OC2 touch 1->0 succeeds, settles active, clears NVRAM.
+        fb_clean = call_fb(unsealed_snap.name, "set", "touch", "1", "0")
+        self.assertEqual(fb_clean.returncode, 0, fb_clean.stdout + fb_clean.stderr)
+        fb_clean_out = json.loads(fb_clean.stdout)
+        self.assertTrue(fb_clean_out["ok"])
+        self.assertEqual(fb_clean_out["touch"], 0)
+        self.assertEqual((self.data / "record").read_text().strip().split("|")[1], "active")
+        self.assertFalse(nvram_file.exists())
+
+        # Restore original sealed snapshot + runtime + NVRAM for subsequent checks.
+        (self.data / "record").write_bytes(orig_rec_bytes)
+        (self.ram / "selected").write_text(on_cur + "\n")
+        (self.ram / "runtime").unlink()
+        (self.ram / "runtime").symlink_to(be_session)
+        nvram_file.write_text("disable\n")
 
         # Oversized composed template (> 262144 B) is refused before awk renders.
         idx_on = self.composed / "index-on.html"

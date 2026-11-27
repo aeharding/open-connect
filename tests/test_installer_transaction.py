@@ -98,6 +98,7 @@ service-off)
 install)
     printf 'installed\n' > "$D/installed"
     package=$(cat "$D/package-id")
+    R_BACKEND=$package
     mkdir -p "$D/composed/$package"
     cp "$D/installed" "$D/composed/$package/autostart"
     service_choice=1; base_choice=0; wireless_choice=0
@@ -308,13 +309,22 @@ class InstallerTransaction(unittest.TestCase):
         }.items():
             script = script.replace(old, new)
         (self.tools / "backend.sh").write_text(script)
-        (self.tools / "files.sha256").write_text(
-            "".join(
-                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
-                for p in sorted(self.tools.iterdir())
-                if p.is_file() and not p.is_symlink() and p.name != "files.sha256"
+        backend_manifest = None
+        if (data / "record").exists():
+            rec_fields = (data / "record").read_text().split("|")
+            candidate = data / "packages" / rec_fields[3] / "files.sha256"
+            if rec_fields[1] == "active" and candidate.is_file():
+                backend_manifest = candidate
+        if backend_manifest is not None:
+            shutil.copyfile(backend_manifest, self.tools / "files.sha256")
+        else:
+            (self.tools / "files.sha256").write_text(
+                "".join(
+                    hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                    for p in sorted(self.tools.iterdir())
+                    if p.is_file() and not p.is_symlink() and p.name != "files.sha256"
+                )
             )
-        )
 
     def api(
         self, operation, revision="-", argument="-", expected="-", desired="-", *, host_tools=None
@@ -1057,6 +1067,7 @@ class InstallerTransaction(unittest.TestCase):
                 self.assertFalse(fast["completionReady"])
                 _, strict = self.api("status")
                 self.assertTrue(strict["conflict"])
+                saved_manifest = (self.tools / "files.sha256").read_bytes()
                 for operation, args in (
                     ("set", ("warning", "1", "0")),
                     ("import", ()),
@@ -1064,11 +1075,22 @@ class InstallerTransaction(unittest.TestCase):
                     ("uninstall", ()),
                     ("restart", ()),
                 ):
+                    if operation == "install":
+                        (self.tools / "files.sha256").write_text(
+                            "".join(
+                                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                                for p in sorted(self.tools.iterdir())
+                                if p.is_file() and not p.is_symlink() and p.name != "files.sha256"
+                            )
+                        )
+                    else:
+                        (self.tools / "files.sha256").write_bytes(saved_manifest)
                     result, answer = self.api(operation, revision, *args)
                     self.assertNotEqual(result.returncode, 0)
                     self.assertEqual(answer["error"], "state_changed")
                     self.assertEqual((data / "record").read_bytes(), record)
                     self.assertEqual(path.read_bytes(), b"external edit\n")
+                (self.tools / "files.sha256").write_bytes(saved_manifest)
                 path.write_bytes(original)
 
     def completion_fixture(self, name):
@@ -2472,6 +2494,13 @@ class InstallerTransaction(unittest.TestCase):
         data = self.create("reinstall-conflict")
         self.run_ok(data, "install")
         self.backend_fixture(data)
+        (self.tools / "files.sha256").write_text(
+            "".join(
+                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                for p in sorted(self.tools.iterdir())
+                if p.is_file() and not p.is_symlink() and p.name != "files.sha256"
+            )
+        )
         revision = (data / "record").read_text().split("|")[5]
         for name in ("target", "nvram", "relevant"):
             with self.subTest(changed=name):

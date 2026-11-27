@@ -367,28 +367,34 @@ INPUTS
   test "$actual" = "${expected%?}"
 }
 
-composed_members_verify() {
-  local folder=$1 digest name line target rows=0 bytes=0 entries=0 seen='|'
-  local allowed='|autostart|uia.so|mmui.so|mmui.xml|index-on.html|index-off.html|sm-normal-on.conf|sm-normal-off.conf|sm-wcp-on.conf|sm-wcp-off.conf|vui.so|vui.xml|'
-  private_dir "$folder" && file "$folder/files.sha256" || return 1
-  while IFS= read -r line; do
-    digest=${line%% *}; name=${line#"$digest  "}
-    hex "$digest" 64 && test "$line" = "$digest  $name" || return 1
-    case "$allowed" in *"|$name|"*) ;; *) return 1;; esac
-    case "$seen" in *"|$name|"*) return 1;; esac
-    seen="$seen$name|"; rows=$((rows+1)); bytes=$((bytes+${#line}+1))
-  done < "$folder/files.sha256"
-  test "$rows" -eq 12 && test "$(wc -c < "$folder/files.sha256")" -eq "$bytes" || return 1
-  for target in "$folder"/* "$folder"/.[!.]* "$folder"/..?*; do
-    absent "$target" && continue
-    test -f "$target" && test ! -L "$target" || return 1
-    name=${target##*/}
-    if test "$name" != files.sha256; then
-      case "$seen" in *"|$name|"*) ;; *) return 1;; esac
+manifest_exact() {
+  local d=$1 a=${2:-} r=${3:-0} id=${4:-} h n l t c=0 b=0 e=0 s='|'
+  private_dir "$d" && file "$d/files.sha256" || return 1
+  test -z "$id" || sha_is "$d/files.sha256" "$id" || return 1
+  while IFS= read -r l; do
+    h=${l%% *}; n=${l#"$h  "}
+    hex "$h" 64 && test "$l" = "$h  $n" || return 1
+    case "$n" in ''|.|..|files.sha256|*[!a-zA-Z0-9.-]*) return 1;; esac
+    if test -n "$a"; then case "$a" in *"|$n|"*) ;; *) return 1;; esac; fi
+    case "$s" in *"|$n|"*) return 1;; esac
+    s="$s$n|"; c=$((c+1)); b=$((b+${#l}+1))
+  done < "$d/files.sha256"
+  test "$c" -gt 0 && { test "$r" -eq 0 || test "$c" -eq "$r"; } &&
+    test "$(wc -c < "$d/files.sha256")" -eq "$b" || return 1
+  for t in "$d"/* "$d"/.[!.]* "$d"/..?*; do
+    absent "$t" && continue
+    test -f "$t" && test ! -L "$t" || return 1
+    n=${t##*/}
+    if test "$n" != files.sha256; then
+      case "$n" in ''|.|..|*[!a-zA-Z0-9.-]*) return 1;; esac
+      case "$s" in *"|$n|"*) ;; *) return 1;; esac
     fi
-    entries=$((entries+1))
+    e=$((e+1))
   done
-  test "$entries" -eq 13
+  test "$e" -eq "$((c+1))"
+}
+composed_members_verify() {
+  manifest_exact "$1" '|autostart|uia.so|mmui.so|mmui.xml|index-on.html|index-off.html|sm-normal-on.conf|sm-normal-off.conf|sm-wcp-on.conf|sm-wcp-off.conf|vui.so|vui.xml|' 12
 }
 
 fast_tpl() {

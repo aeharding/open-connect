@@ -195,6 +195,13 @@ f.pick("uninstall");assert.equal(f.dialog.props.buttonConfig.button2.appData,"un
 f.confirm("uninstall");assert.equal(removals,0);assert.equal(f.dialog.props.text1,"Removing Open Connect");
 f.ack({...f.value,touch:1,restart:true});assert.equal(removals,1);assert.equal(f.writes.length,1);
 assert.equal(f.host.divElt.style.display,"");assert.equal(f.timers.size,0);
+// Selecting a radio choice during its incoming slide completes Mazda focus initialization on the retained page.
+f=fixture();f.open();f.end();f.pick(0);
+const slidingTouch=f.page();assert.deepEqual(slidingTouch.events,[]);
+f.pick(1);assert.deepEqual(f.writes,[["touch",0,1]]);
+assert.equal(f.page(),slidingTouch);
+assert.deepEqual(slidingTouch.events,["acceptFocusInit","controllerActive"]);
+f.ack({...f.value,touch:1,restart:true});f.fw.sendEventToMmui("common","Global.IntentHome");assert.equal(f.timers.size,0);
 console.log("Settings UX: offscreen slides, Mazda focus order, immediate drafting and queued actions passed");
 
 // Commander selects the third touch mode, then reverses it without touch input.

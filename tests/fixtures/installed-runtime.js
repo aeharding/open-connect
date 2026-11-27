@@ -355,4 +355,26 @@ f=fixture(folder);f.install();f.nativeSettings();f.tap();f.advance(12000);
 assert.match(f.dialog.props.text1,/could not be reached. Try again/);f.pick('done');
 const retry=f.requests.length;f.tap();assert.equal(f.requests.length,retry+1);f.reply(f.requests.at(-1),f.state());
 assert.ok(f.fw.common._openConnectPage);assert.equal(f.dialog,undefined);assert.equal(f.operation('set').length,0);
+// Stale save refusal while Uninstall is queued must cancel Uninstall rather than remove a newer revision.
+f=warm({touch:1,touchCurrent:1,warning:1,warningCurrent:1,restart:false});
+select(f,0);select(f,0);assert.equal(f.operation('set').length,1);
+f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+select(f,'uninstall');f.pick('uninstall');
+assert.equal(f.dialog.props.text1,'Removing Open Connect');assert.equal(f.operation('uninstall').length,0);
+f.reply(f.operation('set')[0],{ok:false,error:'stale_state'});
+f.reply(f.requests.at(-1),f.state({touch:1,touchCurrent:1,warning:1,warningCurrent:1,revision:'b'.repeat(64)}));
+f.endAnimations();
+assert.equal(f.operation('uninstall').length,0,'stale refusal must never authorize uninstall of a newer revision');
+assert.equal(f.dialog,undefined);
+assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Change could not be confirmed');
+// Declined native progress control must prevent key import and queued Apply changes from sending.
+f=warm(developer);select(f,'developer');
+const origCreate=f.fw.instantiateControl;
+f.fw.instantiateControl=function(a,c,k,p){
+ if(k==='Dialog3Ctrl'&&p&&p.text1==='Importing public key')return null;
+ return origCreate.apply(this,arguments);
+};
+select(f,'import');f.pick('import');
+assert.equal(f.operation('import').length,0,'declined progress dialog must block import');
+assert.equal(f.dialog,undefined);
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

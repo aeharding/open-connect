@@ -480,60 +480,56 @@ boot_render_profiles() {
 }
 
 boot_plan_inputs() {
-  local work=$1 snapshot=$2 manifest=$3 digest name target deps
+  local work=$1 snapshot=$2 manifest=$3 digest name target deps base_file deps_bytes base_bytes fw_deps rows
   shift 3
   if test "$snapshot" = -; then deps=$work/dependencies; else deps=$D/snapshots/$snapshot/dependencies; fi
-  file "$deps" && file "$D/snapshots/$R_BASE/files.sha256" || return 1
+  base_file=$D/snapshots/$R_BASE/files.sha256
+  file "$deps" && file "$base_file" || return 1
+  fw_deps=$(firmware_dependencies) || return 1
+  deps_bytes=$(wc -c < "$deps") || return 1
+  base_bytes=$(wc -c < "$base_file") || return 1
   printf 'OCBP1|%s|%s\n' "$R_BASE" "$S_PACKAGE"
   {
-    firmware_dependencies
-    printf '%s\n' '---DEPS---'
-    cat "$deps"
+    printf '%s\n' "$fw_deps"
     printf '%s\n' '---MANIFEST---'
     printf '%s\n' "$manifest"
-    printf '%s\n' '---BASE---'
-    cat "$D/snapshots/$R_BASE/files.sha256"
-  } | awk -v D="$D" -v base="$R_BASE" -v members="$*" '
-        BEGIN {
-            stage=0; n=split(members, mlist, " ")
-        }
-        $0=="---DEPS---" { stage=1; next }
-        $0=="---MANIFEST---" { stage=2; next }
-        $0=="---BASE---" { stage=3; next }
-        stage==0 { if(NF==3 && $2!="autostart") root[$2]=$3; next }
-        stage==1 {
-            if(NF!=2 || length($1)!=64 || $1~/[^a-f0-9]/) { bad=1; exit 1 }
-            slash=index($2,"/")
-            if(!slash) { bad=1; exit 1 }
-            scope=substr($2,1,slash-1); leaf=substr($2,slash+1)
-            if(leaf=="" || leaf=="." || leaf==".." || leaf~/[^a-zA-Z0-9_.-]/) { bad=1; exit 1 }
-            if(scope=="root") {
-                if(!(leaf in root)) { bad=1; exit 1 }
-                target=root[leaf]
-            } else if(index(scope,"package-")==1) {
-                id=substr(scope,9)
-                if(length(id)!=64 || id~/[^a-f0-9]/) { bad=1; exit 1 }
-                target=D "/packages/" id "/" leaf
-            } else if(index(scope,"composed-")==1) {
-                id=substr(scope,10)
-                if(length(id)!=64 || id~/[^a-f0-9]/) { bad=1; exit 1 }
-                target=D "/composed/" id "/" leaf
-            } else { bad=1; exit 1 }
-            printf "%s|%s|%s\n", $2, target, $1
-            next
-        }
-        stage==2 { if(NF==2) { mcount[$2]++; mhash[$2]=$1 }; next }
-        stage==3 { if(NF!=2) { bad=1; exit 1 }; printf "baseline/%s|%s/snapshots/%s/%s|%s\n", $2, D, base, $2, $1; next }
-        END {
-            if(bad || stage!=3) exit 1
-            for(i=1;i<=n;i++) {
-                name=mlist[i]
-                if(mcount[name]!=1 || length(mhash[name])!=64 || mhash[name]~/[^a-f0-9]/) exit 1
-                printf "current/%s|@/%s|%s\n", name, name, mhash[name]
-            }
-            printf "baseline/files.sha256|%s/snapshots/%s/files.sha256|%s\n", D, base, base
-        }
-    ' || return 1
+  } | awk -v D="$D" -v base="$R_BASE" -v deps="$deps" -v db="$deps_bytes" \
+      -v bf="$base_file" -v bb="$base_bytes" -v members="$*" '
+    BEGIN{s=0;n=split(members,m," ")}
+    $0=="---MANIFEST---"{s=1;next}
+    s==0{if(NF==3&&$2!="autostart")r[$2]=$3;next}
+    s==1{if(NF==2){mc[$2]++;mh[$2]=$1};next}
+    END{
+      if(s!=1)exit 1
+      while((st=getline ln<deps)>0){
+        dbytes+=length(ln)+1;nf=split(ln,f);dcnt++
+        if(nf!=2||length(f[1])!=64||f[1]~/[^a-f0-9]/){bad=1;break}
+        sl=index(f[2],"/");if(!sl){bad=1;break}
+        sc=substr(f[2],1,sl-1);lf=substr(f[2],sl+1)
+        if(lf==""||lf=="."||lf==".."||lf~/[^a-zA-Z0-9_.-]/){bad=1;break}
+        if(sc=="root"){if(!(lf in r)){bad=1;break};t=r[lf]}
+        else if(index(sc,"package-")==1){id=substr(sc,9);if(length(id)!=64||id~/[^a-f0-9]/){bad=1;break};t=D "/packages/" id "/" lf}
+        else if(index(sc,"composed-")==1){id=substr(sc,10);if(length(id)!=64||id~/[^a-f0-9]/){bad=1;break};t=D "/composed/" id "/" lf}
+        else{bad=1;break}
+        printf "%s|%s|%s\n",f[2],t,f[1]
+      }
+      close(deps)
+      if(bad||st<0||dbytes!=db+0||(db+0>0&&dcnt<1))exit 1
+      while((st=getline ln<bf)>0){
+        bbytes+=length(ln)+1;nf=split(ln,f);bcnt++
+        if(nf!=2){bad=1;break}
+        printf "baseline/%s|%s/snapshots/%s/%s|%s\n",f[2],D,base,f[2],f[1]
+      }
+      close(bf)
+      if(bad||st<0||bbytes!=bb+0||bcnt<1)exit 1
+      for(i=1;i<=n;i++){
+        nm=m[i]
+        if(mc[nm]!=1||length(mh[nm])!=64||mh[nm]~/[^a-f0-9]/)exit 1
+        printf "current/%s|@/%s|%s\n",nm,nm,mh[nm]
+      }
+      printf "baseline/files.sha256|%s/snapshots/%s/files.sha256|%s\n",D,base,base
+    }
+  ' || return 1
   digest=$(sha "$work/autostart") && hex "$digest" 64 || return 1
   printf 'target/autostart|%s|%s\n' "$AUTOSTART" "$digest"
   if test "${S_SELECTOR_HASH:--}" != -; then
@@ -545,9 +541,12 @@ boot_plan_inputs() {
   done
   if test "$S_TOUCH" = 2; then
     touch_inputs_verify || return 1
-    touch_input_files | while read -r digest name target; do
+    rows=$(touch_input_files) || return 1
+    while read -r digest name target; do
       printf 'touch/devices/%s|%s|%s\n' "$name" "$target" "$digest"
-    done || return 1
+    done <<ROWS
+$rows
+ROWS
   fi
   if test "$S_BASE" = 1; then
     native_log_inputs_verify || return 1
@@ -559,12 +558,18 @@ boot_plan_inputs() {
       digest=$(sha "$target") && hex "$digest" 64 || return 1
       printf 'base/%s|%s|%s\n' "$name" "$target" "$digest"
     done
-    base_ui_files | while read -r digest name target; do
+    rows=$(base_ui_files) || return 1
+    while read -r digest name target; do
       printf 'base/%s|%s|%s\n' "$name" "$target" "$digest"
-    done || return 1
-    vui_input_files "$work/vui-plugins.list" | while read -r digest name target; do
+    done <<ROWS
+$rows
+ROWS
+    rows=$(vui_input_files "$work/vui-plugins.list") || return 1
+    while read -r digest name target; do
       printf 'base/vui/%s|%s|%s\n' "$name" "$target" "$digest"
-    done || return 1
+    done <<ROWS
+$rows
+ROWS
   fi
   if test "$S_ACCESS" = true; then
     digest=$(sha "$work/runlogin") && hex "$digest" 64 || return 1

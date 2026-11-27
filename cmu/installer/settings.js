@@ -134,23 +134,26 @@ return v;
 };
 function drain(ok){var n=queued;queued=null;if(n)n(ok);}
 function flush(){
-var keys=Object.keys(wanted);
-if(busy)return;
-if(!keys.length){pending(false);drain(!prefs.failure);return;}
-var key=keys[0],req=wanted[key];
-if(preference(saved,key)===req){delete wanted[key];flush();if(prefs.changed)prefs.changed(false);return;}
-busy=true;var answered=false;
-function finish(actual,outcome){
-if(answered)return;answered=true;busy=false;
-if(outcome==="restart")wanted={};else if(!valid(actual))actual=read();
-if(valid(actual))saved=actual;
-var failed=!valid(actual)||(preference(actual,key)!==req&&wanted[key]===req);
-if(failed){delete wanted[key];prefs.failure=outcome||key;drain(false);if(prefs.changed)prefs.changed(true);}
-else if(wanted[key]===req)delete wanted[key];
-flush();if(!failed&&prefs.changed)prefs.changed(false);
-}
-try{store.write(key==="carplayAutoshow"?"carplay-autoshow":key,preference(saved,key),req,finish);}
-catch(e){finish(null);}
+  var keys=Object.keys(wanted);
+  if(busy)return;
+  if(!keys.length){pending(false);drain(!prefs.failure);return;}
+  var key=keys[0],req=wanted[key];
+  if(preference(saved,key)===req){delete wanted[key];flush();if(prefs.changed)prefs.changed(false);return;}
+  busy=true;var answered=false;
+  function finish(actual,outcome){
+    if(answered)return;answered=true;busy=false;
+    if(outcome==="restart")wanted={};else if(!valid(actual))actual=read();
+    if(valid(actual))saved=actual;
+    var failed=!!outcome||!valid(actual)||preference(actual,key)!==req;
+    if(failed){
+      wanted={};prefs.failure=outcome==="restart"?"restart":key;
+      pending(false);drain(false);if(prefs.changed)prefs.changed(true);return;
+    }
+    if(wanted[key]===req)delete wanted[key];
+    flush();if(prefs.changed)prefs.changed(false);
+  }
+  try{store.write(key==="carplayAutoshow"?"carplay-autoshow":key,preference(saved,key),req,finish);}
+  catch(e){finish(null);}
 }
 prefs.pending=function(){return busy||Object.keys(wanted).length>0;};
 prefs.select=function(k,v){
@@ -266,20 +269,20 @@ return v&&v.restart===true&&typeof store.restart==="function"&&!(store.busy&&sto
 }
 function showWait(t){endWait();wait=dialogs.progress(fw,t,"Do not turn off the car.",function(){wait=null;prefs.cancelQueue();});return!!wait;}
 function runAction(a){
-if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
-if(store[a](close))return;
-dismiss=dialogs.message(fw,T,"Another action is finishing.",{button1:{label:"OK",appData:"done"}},function(){dismiss=null;if(current())prefs.changed(false);});
+  if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
+  if(store[a](close))return;
+  dismiss=dialogs.message(fw,T,"Another action is finishing.",{button1:{label:"OK",appData:"done"}},function(){dismiss=null;if(current())prefs.changed(false);});
 }
 function maintain(a){
-dismiss=null;if(!current()||(a!=="restart"&&a!=="uninstall"))return;
-if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
-if(!prefs.pending()){runAction(a);return;}
-showWait(a==="restart"?"Applying changes":"Removing Open Connect");
-prefs.queue(function(ok){endWait();if(ok&&current())runAction(a);},a==="uninstall");
+  dismiss=null;if(!current()||(a!=="restart"&&a!=="uninstall"))return;
+  if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
+  if(!prefs.pending()){runAction(a);return;}
+  if(!showWait(a==="restart"?"Applying changes":"Removing Open Connect"))return;
+  prefs.queue(function(ok){endWait();if(ok&&current())runAction(a);},a==="uninstall");
 }
 function select(control,item,params){
-if(!current()||dismiss||wait||!page||control!==page.list2Ctrl)return;
-if(moving)moving(true);
+  if(!current()||dismiss||wait||!page||control!==page.list2Ctrl)return;
+  if(moving)moving(false);
 if(choice===null&&/^(developer|phone|sources)$/.test(item)){render(item,0);return;}
 if(choice==="phone"&&item===2){var v=prefs.values();if(v)render(2,v.carplayAutoshow);return;}
 if(choice==="phone"&&item==="wireless"){
@@ -320,21 +323,21 @@ if(current()&&choice==="developer")render("developer",item);
 }
 prefs.select(item,params.additionalData===1?1:0);
 }else if(item==="import"&&typeof store.importKey==="function"){
-dismiss=ask("Import public key?","Put open-connect.pub on the USB drive. RSA and ECDSA public keys are supported. The imported key will be replaced.","Import","import",function(a){
-dismiss=null;if(a!=="import"||!current())return;
-showWait("Importing public key");
-prefs.queue(function(ok){
-if(!ok||!current()){endWait();return;}
-prefs.importKey(function(actual){
-endWait();if(!current()||choice!=="developer")return;
-render("developer","import");
-dismiss=dialogs.message(fw,actual?"Public key imported":"Key could not be imported",
-actual?"Fingerprint (MD5):\n"+actual.fingerprint.slice(0,23)+"\n"+actual.fingerprint.slice(24)+"\nEnable SSH when ready.":
-"Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",
-{button1:{label:"OK",appData:"done"}},function(){dismiss=null;});
-});
-});
-});
+  dismiss=ask("Import public key?","Put open-connect.pub on the USB drive. RSA and ECDSA public keys are supported. The imported key will be replaced.","Import","import",function(a){
+    dismiss=null;if(a!=="import"||!current())return;
+    if(!showWait("Importing public key"))return;
+    prefs.queue(function(ok){
+      if(!ok||!current()){endWait();return;}
+      prefs.importKey(function(actual){
+        endWait();if(!current()||choice!=="developer")return;
+        render("developer","import");
+        dismiss=dialogs.message(fw,actual?"Public key imported":"Key could not be imported",
+        actual?"Fingerprint (MD5):\n"+actual.fingerprint.slice(0,23)+"\n"+actual.fingerprint.slice(24)+"\nEnable SSH when ready.":
+        "Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",
+        {button1:{label:"OK",appData:"done"}},function(){dismiss=null;});
+      });
+    });
+  });
 }
 return;
 }

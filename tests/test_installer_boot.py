@@ -1700,3 +1700,118 @@ transaction_prepare uninstall "$R_CURRENT" "$R_BASE"
         self.assertEqual((self.root / "data-target").read_text(), "stock\n")
         self.assertEqual((self.root / "data-nvram").read_text(), "absent\n")
         self.assertFalse((self.runtime / "selected").exists())
+
+    def test_dependency_and_boot_plan_readers_refuse_failed_or_partial_inputs(self):
+        current = self.record()[5]
+        # Positive controls: healthy dependencies_match and boot_plan_inputs succeed.
+        ok_deps = subprocess.run(
+            [
+                "sh",
+                "-c",
+                '. "$P/state.sh"; . "$P/firmware.sh"; . "$P/transaction.sh"; '
+                'record_read; dependencies_match "$R_CURRENT"',
+            ],
+            env={**self.env, "D": str(self.data), "P": str(self.package)},
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertEqual(ok_deps.returncode, 0, ok_deps.stderr)
+
+        # dependencies_match must refuse producer failure before row 1 and partial/truncated reads after row 1.
+        for case, snippet in (
+            (
+                "deps-producer-fail",
+                'firmware_dependencies() { return 1; }; dependencies_match "$R_CURRENT"',
+            ),
+            (
+                "deps-partial-after-row1",
+                'wc() { printf "%d\\n" $(( $(/usr/bin/wc -c) + 10 )); }; dependencies_match "$R_CURRENT"',
+            ),
+            (
+                "deps-unreadable-before-row1",
+                'file() { true; }; chmod 000 "$D/snapshots/$R_CURRENT/dependencies"; '
+                'rc=0; dependencies_match "$R_CURRENT" || rc=$?; '
+                'chmod 600 "$D/snapshots/$R_CURRENT/dependencies"; exit "$rc"',
+            ),
+        ):
+            with self.subTest(case=case):
+                result = subprocess.run(
+                    [
+                        "sh",
+                        "-c",
+                        '. "$P/state.sh"; . "$P/firmware.sh"; . "$P/transaction.sh"; '
+                        f"record_read; {snippet}",
+                    ],
+                    env={**self.env, "D": str(self.data), "P": str(self.package)},
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                self.assertNotEqual(result.returncode, 0, f"{case} unexpectedly passed")
+
+        # boot_plan_inputs positive control and negative fault cases.
+        cur_manifest = (self.data / "snapshots" / current / "files.sha256").read_text()
+        members = " ".join(
+            line.split()[1] for line in cur_manifest.splitlines() if line.split()[1] != "boot.plan"
+        )
+        base_ok_preamble = (
+            '. "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; '
+            'AUTOSTART=$D-target; record_read; snapshot_read "$R_CURRENT"; '
+            "S_BASE=1; native_log_inputs_verify() { :; }; "
+            'sha() { case "$1" in /config/*|/jci/*) printf "%064d\\n" 0;; *) "$P/flush" h "$1";; esac; }; '
+            "base_ui_files() { printf '%064d %s %s\\n' 0 ui /tmp/ui; }; "
+            "vui_input_files() { printf '%064d %s %s\\n' 0 vui.so /jci/vui/svcjcivui.so; }; "
+            'manifest=$(awk \'$2!="boot.plan"\' "$D/snapshots/$R_CURRENT/files.sha256"); '
+        )
+        ok_plan = subprocess.run(
+            [
+                "sh",
+                "-c",
+                base_ok_preamble
+                + f'boot_plan_inputs "$D/snapshots/$R_CURRENT" "$R_CURRENT" "$manifest" {members} >/dev/null',
+            ],
+            env={**self.env, "D": str(self.data), "P": str(self.package)},
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertEqual(ok_plan.returncode, 0, ok_plan.stderr)
+
+        for case, override in (
+            ("vui-fail-before-row1", "vui_input_files() { return 1; }"),
+            (
+                "vui-fail-after-row1",
+                "vui_input_files() { printf '%064d %s %s\\n' 0 vui.so /jci/vui/svcjcivui.so; return 1; }",
+            ),
+            (
+                "base-partial-after-row1",
+                'wc() { printf "%d\\n" $(( $(/usr/bin/wc -c) + 10 )); }',
+            ),
+            (
+                "base-unreadable-before-row1",
+                'file() { true; }; chmod 000 "$D/snapshots/$R_BASE/files.sha256"',
+            ),
+            (
+                "fw-deps-fail",
+                "firmware_dependencies() { return 1; }",
+            ),
+        ):
+            with self.subTest(case=case):
+                try:
+                    result = subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            base_ok_preamble
+                            + f"{override}; "
+                            + f'boot_plan_inputs "$D/snapshots/$R_CURRENT" "$R_CURRENT" "$manifest" {members} >/dev/null',
+                        ],
+                        env={**self.env, "D": str(self.data), "P": str(self.package)},
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
+                    )
+                    self.assertNotEqual(result.returncode, 0, f"{case} unexpectedly passed")
+                finally:
+                    (self.data / "snapshots" / self.record()[4] / "files.sha256").chmod(0o600)

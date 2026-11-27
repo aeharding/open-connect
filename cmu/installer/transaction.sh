@@ -4,29 +4,37 @@
 settled() { case "$R_PHASE" in active|removed) true;; *) false;; esac; }
 
 dependencies_match() {
-  local digest name extra target parent checked_parent= checked_root='|' expected= actual snapshot=$1 resolved first=
+  local digest name extra target parent checked_parent= checked_root='|' expected= actual snapshot=$1 resolved first= deps deps_bytes fw_deps
   snapshot_verify "$1" || return 1
-  read -r _ first _ < "$D/snapshots/$snapshot/dependencies" || first=
+  deps=$D/snapshots/$snapshot/dependencies
+  file "$deps" || return 1
+  if test -s "$deps"; then read -r _ first _ < "$deps" || return 1; fi
   if command -v firmware_dependencies >/dev/null 2>&1 && case "$first" in */*) true;; *) false;; esac; then
+    fw_deps=$(firmware_dependencies) || return 1
+    deps_bytes=$(wc -c < "$deps") || return 1
     resolved=$(
-      { firmware_dependencies; printf '%s\n' '---DEPS---'; cat "$D/snapshots/$snapshot/dependencies"; } |
-      awk -v D="$D" '
-        $0=="---DEPS---"{s=1;next} !s{if(NF==3&&$2!="autostart")r[$2]=$3;next}
-        {
-          if(NF!=2||length($1)!=64||$1~/[^a-f0-9]/){bad=1;exit 1}
-          sl=index($2,"/");if(!sl){bad=1;exit 1}
-          sc=substr($2,1,sl-1);lf=substr($2,sl+1)
-          if(lf==""||lf=="."||lf==".."||lf~/[^a-zA-Z0-9_.-]/){bad=1;exit 1}
-          if(sc=="root"){if(!(lf in r)){bad=1;exit 1};t=r[lf]}
-          else if(index(sc,"package-")==1){id=substr(sc,9);if(length(id)!=64||id~/[^a-f0-9]/){bad=1;exit 1};t=D "/packages/" id "/" lf}
-          else if(index(sc,"composed-")==1){id=substr(sc,10);if(length(id)!=64||id~/[^a-f0-9]/){bad=1;exit 1};t=D "/composed/" id "/" lf}
-          else{bad=1;exit 1}
-          print $1,sc,t
+      printf '%s\n' "$fw_deps" |
+      awk -v D="$D" -v deps="$deps" -v expect="$deps_bytes" '
+        NF==3 && $2!="autostart" { r[$2]=$3 }
+        END {
+          while((st=getline line < deps)>0) {
+            bytes+=length(line)+1; n=split(line,f); cnt++
+            if(n!=2||length(f[1])!=64||f[1]~/[^a-f0-9]/){bad=1;exit 1}
+            sl=index(f[2],"/");if(!sl){bad=1;exit 1}
+            sc=substr(f[2],1,sl-1);lf=substr(f[2],sl+1)
+            if(lf==""||lf=="."||lf==".."||lf~/[^a-zA-Z0-9_.-]/){bad=1;exit 1}
+            if(sc=="root"){if(!(lf in r)){bad=1;exit 1};t=r[lf]}
+            else if(index(sc,"package-")==1){id=substr(sc,9);if(length(id)!=64||id~/[^a-f0-9]/){bad=1;exit 1};t=D "/packages/" id "/" lf}
+            else if(index(sc,"composed-")==1){id=substr(sc,10);if(length(id)!=64||id~/[^a-f0-9]/){bad=1;exit 1};t=D "/composed/" id "/" lf}
+            else{bad=1;exit 1}
+            print f[1],sc,t
+          }
+          close(deps)
+          if(bad||st<0||bytes!=expect+0||cnt<1) exit 1
         }
-        END{if(bad||!s)exit 1}
       '
     ) || return 1
-    test -n "$resolved" || return 0
+    test -n "$resolved" || return 1
     set --
     while read -r digest name target; do
       case "$name" in package-*|composed-*)

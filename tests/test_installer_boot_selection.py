@@ -76,7 +76,16 @@ class NativeBootSelection(unittest.TestCase):
         # fixtures. The selector, metadata, commit and publication logic is real.
         for source in (*ASSETS.glob("boot-*.h"), ASSETS / "boot-select.c"):
             text = source.read_text()
-            for _, _, data, original in (*cls.BASE_INPUTS, *cls.TOUCH_INPUTS):
+            for _, _, data, original in (
+                *cls.BASE_INPUTS,
+                *cls.TOUCH_INPUTS,
+                (
+                    "manager.so",
+                    "/jci/lib/libjciuiamgr.so",
+                    "stock manager.so\n",
+                    "1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29",
+                ),
+            ):
                 text = text.replace(original, sha(data.encode()))
             text = text.replace(
                 "static int oc_stock_meta(int root,OcMeta *stock) { return oc_stat(root,stock)>=0; }",
@@ -1415,3 +1424,647 @@ package_save
         self.assertTrue((self.ram / "selected").is_file())
         self.assertTrue((self.ram / "feature/index.html").is_file())
         self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
+
+    def _run_helper(self, *args, stdin=b"", env=None, stdout_path=None):
+        if stdout_path is not None:
+            with Path(stdout_path).open("wb") as out:
+                return subprocess.run(
+                    [self.program, *args],
+                    input=stdin,
+                    stdout=out,
+                    stderr=subprocess.PIPE,
+                    env={**os.environ, **(env or {})},
+                    timeout=5,
+                )
+        return subprocess.run(
+            [self.program, *args],
+            input=stdin,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, **(env or {})},
+            timeout=5,
+        )
+
+    def _clone_work(self, name=".new-delta", config_replace=None):
+        work = self.data / "snapshots" / name
+        work.mkdir(mode=0o700)
+        for p in sorted(self.snapshot.iterdir()):
+            if p.name in ("files.sha256", "boot.plan"):
+                continue
+            dst = work / p.name
+            dst.write_bytes(p.read_bytes())
+            dst.chmod(0o600)
+        if config_replace:
+            old, new = config_replace
+            cfg = (work / "config").read_text()
+            self.assertIn(old, cfg)
+            (work / "config").write_text(cfg.replace(old, new))
+            (work / "config").chmod(0o600)
+        rows = []
+        for key, path, digest in self.inputs:
+            if key.startswith("current/"):
+                member = key.split("/", 1)[1]
+                digest = sha((work / member).read_bytes())
+            rows.append((key, path, digest))
+        return work, rows
+
+    def test_audit_current_and_candidate_enforce_policy_and_zero_side_effects(self):
+        before_record = (self.data / "record").read_bytes()
+        res = self._run_helper("audit", str(self.root), self.snapshot.name)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual((self.data / "record").read_bytes(), before_record)
+        self.assertEqual(list(self.ram.iterdir()), [])
+
+        # Wrong expected_current or pending record must be refused.
+        self.assertNotEqual(self._run_helper("audit", str(self.root), "0" * 64).returncode, 0)
+        self.record[1] = "set"
+        self.record[6:8] = [self.snapshot.name, self.snapshot.name]
+        self.save_record()
+        self.assertNotEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name).returncode, 0
+        )
+        self.record[1] = "active"
+        self.record[6:8] = ["-", "-"]
+        self.save_record()
+
+        # Wrong NVRAM must be refused.
+        nvram = self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction"
+        nvram.write_text("enable\n")
+        self.assertNotEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name).returncode, 0
+        )
+        nvram.write_text("disable\n")
+
+        # Writable rootfs or overlay mount must be refused.
+        mounts = self.root / "proc/self/mounts"
+        good_mounts = mounts.read_text()
+        mounts.write_text(good_mounts.replace("ro,noatime", "rw,noatime"))
+        self.assertNotEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name).returncode, 0
+        )
+        mounts.write_text(good_mounts + "tmpfs /tmp/open-connect tmpfs rw 0 0\n")
+        self.assertNotEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name).returncode, 0
+        )
+        mounts.write_text(good_mounts)
+
+        # Metadata drift / tampered root file must be refused.
+        target = self.root / "jci/sm/sm.conf"
+        orig = target.read_bytes()
+        target.write_bytes(orig + b"x")
+        self.assertNotEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name).returncode, 0
+        )
+        target.write_bytes(orig)
+
+        # Restore fresh sealed current with an owner key and verify key dir/mode checks.
+        key_bytes = b"ssh-ed25519 AAAA test@host\n"
+        key_id = sha(key_bytes)
+        key_path = self.data / "keys" / f"{key_id}.cmu"
+        key_path.write_bytes(key_bytes)
+        key_path.chmod(0o600)
+        self.inputs.append(("key/owner", f"/{key_path.relative_to(self.root)}", key_id))
+        self.change_current(
+            "access", f"0|1|{key_id}|{self.mode}|{self.ssh_mode}|{self.login_inode}\n"
+        )
+        self.assertEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name).returncode, 0
+        )
+
+        # Candidate audit accepts a valid data-only candidate without mutating record,
+        # in both active and pending-set modes, and refuses wrong R_AFTER.
+        work, _ = self._clone_work(".new-cand", ("warning=1", "warning=0"))
+        pub = self._run_helper(
+            "seal-publish",
+            str(self.root),
+            self.snapshot.name,
+            str(work.relative_to(self.root)),
+        )
+        self.assertEqual(pub.returncode, 0, pub.stderr)
+        cand_id = pub.stdout.decode().strip()
+        self.assertEqual(len(cand_id), 64)
+        self.assertFalse(work.exists())
+        self.assertTrue((self.data / "snapshots" / cand_id / "boot.plan").is_file())
+        before_record = (self.data / "record").read_bytes()
+        self.assertEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name, cand_id).returncode,
+            0,
+        )
+        self.assertEqual((self.data / "record").read_bytes(), before_record)
+
+        # NVRAM-changing seal-publish (touch 1 -> 0, nvram disable -> absent) requires
+        # expected_nvram and passes pending-set audit only after R_PHASE=set + live NVRAM match.
+        nv_work, _ = self._clone_work(".new-nv", ("touch=1", "touch=0"))
+        (nv_work / "config").write_text(
+            (nv_work / "config").read_text().replace("nvram=disable", "nvram=absent")
+        )
+        (nv_work / "config").chmod(0o600)
+        # Without expected_nvram, data-only seal-publish refuses NVRAM mismatch.
+        self.assertNotEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(nv_work.relative_to(self.root)),
+            ).returncode,
+            0,
+        )
+        # With expected_nvram="absent", seal-publish succeeds.
+        nv_pub = self._run_helper(
+            "seal-publish",
+            str(self.root),
+            self.snapshot.name,
+            str(nv_work.relative_to(self.root)),
+            "absent",
+        )
+        self.assertEqual(nv_pub.returncode, 0, nv_pub.stderr)
+        nv_cand_id = nv_pub.stdout.decode().strip()
+        self.assertEqual(len(nv_cand_id), 64)
+        # Before NVRAM changes, candidate audit refuses (live NVRAM is still disable).
+        self.record[1] = "set"
+        self.record[6:8] = [self.snapshot.name, nv_cand_id]
+        self.save_record()
+        self.assertNotEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name, nv_cand_id).returncode,
+            0,
+        )
+        # After NVRAM switches to absent (file unlinked), pending-set audit passes for nv_cand_id only.
+        nvram.unlink()
+        self.assertEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name, nv_cand_id).returncode,
+            0,
+        )
+        self.assertNotEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name, cand_id).returncode,
+            0,
+        )
+        nvram.write_text("disable\n")
+        self.record[1] = "active"
+        self.record[6:8] = ["-", "-"]
+        self.save_record()
+
+        # Non-private keys dir or bad key file mode must be refused.
+        (self.data / "keys").chmod(0o755)
+        self.assertNotEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name).returncode, 0
+        )
+        (self.data / "keys").chmod(0o700)
+        key_path.chmod(0o644)
+        self.assertNotEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name).returncode, 0
+        )
+        key_path.chmod(0o600)
+
+    def test_seal_publish_matches_full_seal_and_rejects_tamper_drift_and_forged_prev(self):
+        work, rows = self._clone_work(".new-eq", ("warning=1", "warning=0"))
+        plan_in = (
+            f"OCBP1|{self.baseline.name}|{self.package_id}\n"
+            + "".join("|".join(r) + "\n" for r in rows)
+        ).encode()
+        full_out = self.ram / "full.plan"
+        full = self._run_helper(
+            "seal",
+            str(self.root),
+            str(work.relative_to(self.root)),
+            stdin=plan_in,
+            stdout_path=full_out,
+        )
+        self.assertEqual(full.returncode, 0, full.stderr)
+
+        # Forged predecessor ID and non-.new-* work path are refused.
+        self.assertNotEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                "0" * 64,
+                str(work.relative_to(self.root)),
+            ).returncode,
+            0,
+        )
+        self.assertNotEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(self.snapshot.relative_to(self.root)),
+            ).returncode,
+            0,
+        )
+
+        # Extra stray file in work is refused.
+        stray = work / "stray"
+        stray.write_text("bad\n")
+        stray.chmod(0o600)
+        self.assertNotEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(work.relative_to(self.root)),
+            ).returncode,
+            0,
+        )
+        stray.unlink()
+
+        # Wrong mode on a work member is refused.
+        (work / "config").chmod(0o644)
+        self.assertNotEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(work.relative_to(self.root)),
+            ).returncode,
+            0,
+        )
+        (work / "config").chmod(0o600)
+
+        # Tampered invariant member (autostart) is refused.
+        orig_auto = (work / "autostart").read_bytes()
+        (work / "autostart").write_bytes(orig_auto + b"x")
+        (work / "autostart").chmod(0o600)
+        self.assertNotEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(work.relative_to(self.root)),
+            ).returncode,
+            0,
+        )
+        (work / "autostart").write_bytes(orig_auto)
+        (work / "autostart").chmod(0o600)
+
+        # Capture full seal output on the restored work dir right before seal-publish
+        # so mtime/ctime match identically, then assert exact boot.plan row-set equality.
+        full = self._run_helper(
+            "seal",
+            str(self.root),
+            str(work.relative_to(self.root)),
+            stdin=plan_in,
+            stdout_path=full_out,
+        )
+        self.assertEqual(full.returncode, 0, full.stderr)
+        pub = self._run_helper(
+            "seal-publish",
+            str(self.root),
+            self.snapshot.name,
+            str(work.relative_to(self.root)),
+        )
+        self.assertEqual(pub.returncode, 0, pub.stderr)
+        snap_id = pub.stdout.decode().strip()
+        self.assertEqual(len(snap_id), 64)
+        published = self.data / "snapshots" / snap_id
+        full_lines = full_out.read_text().splitlines()
+        pub_lines = (published / "boot.plan").read_text().splitlines()
+        self.assertEqual(pub_lines[0], full_lines[0])
+        self.assertEqual(sorted(pub_lines[1:]), sorted(full_lines[1:]))
+        # Published snapshot is accepted by check, audit, and native select.
+        chk = self._run_helper(
+            "check",
+            str(self.root),
+            str(published.relative_to(self.root)),
+            stdin=(published / "boot.plan").read_bytes(),
+        )
+        self.assertEqual(chk.returncode, 0, chk.stderr)
+        self.assertEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name, snap_id).returncode,
+            0,
+        )
+        self.record[5] = snap_id
+        self.save_record()
+        self.assertEqual(self.invoke().returncode, 0)
+        shutil.rmtree(self.ram)
+        self.ram.mkdir(mode=0o700)
+        self.record[5] = self.snapshot.name
+        self.record[9] = "3"
+        self.record[11] = "-"
+        self.save_record()
+
+        # Newly added conditional touch=2 rows are freshly SHA-256 + stock-device verified.
+        for _, path, data, _ in self.TOUCH_INPUTS:
+            self.put(path, data)
+        t_work, _ = self._clone_work(".new-t2", ("touch=1", "touch=2"))
+        (t_work / "config").write_text(
+            (t_work / "config").read_text().replace("nvram=disable", "nvram=absent")
+        )
+        (t_work / "config").chmod(0o600)
+        # Wrong stock filesystem device is refused.
+        self.assertNotEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(t_work.relative_to(self.root)),
+                "absent",
+                env={"OC_TOUCH_WRONG_FS": "1"},
+            ).returncode,
+            0,
+        )
+        # Clean work directory after failed attempt (boot.plan may have been created before refusal).
+        for f in ("boot.plan", "files.sha256"):
+            if (t_work / f).exists():
+                (t_work / f).unlink()
+        # Tampered newly added conditional file is refused.
+        self.put(self.TOUCH_INPUTS[0][1], "tampered devices\n")
+        self.assertNotEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(t_work.relative_to(self.root)),
+                "absent",
+            ).returncode,
+            0,
+        )
+        for f in ("boot.plan", "files.sha256"):
+            if (t_work / f).exists():
+                (t_work / f).unlink()
+        # Valid touch=2 conditional files succeed and appear in boot.plan.
+        self.put(self.TOUCH_INPUTS[0][1], self.TOUCH_INPUTS[0][2])
+        ok_touch = self._run_helper(
+            "seal-publish",
+            str(self.root),
+            self.snapshot.name,
+            str(t_work.relative_to(self.root)),
+            "absent",
+        )
+        self.assertEqual(ok_touch.returncode, 0, ok_touch.stderr)
+        t_id = ok_touch.stdout.decode().strip()
+        t_plan = (self.data / "snapshots" / t_id / "boot.plan").read_text()
+        self.assertIn("touch/devices/svc|", t_plan)
+        self.assertIn("touch/devices/lib|", t_plan)
+
+        # Base=1 newly added conditional inputs + ui-modules.tsv VUI plugin pin lookup.
+        # Add ui-modules.tsv matching synthetic VUI payloads into a refreshed package + snapshot.
+        vui_names = []
+        tsv_lines = []
+        for line in (ASSETS / "ui-modules.tsv").read_text().splitlines():
+            if not line.startswith("vui\t"):
+                tsv_lines.append(line)
+                continue
+            kind, name, group, _ = line.split("\t")
+            payload = "authored retained plugin " + name + "\n"
+            digest = sha(payload.encode())
+            tsv_lines.append(f"{kind}\t{name}\t{group}\t{digest}")
+            if group != "base":
+                self.put("/jci/vui/plugins/" + name, payload)
+                vui_names.append(name)
+        for _, path, data, _ in self.BASE_INPUTS:
+            self.put(path, data)
+        # Re-publish package with ui-modules.tsv and re-seal current snapshot.
+        new_pkg = self.data / "packages/.new-with-vui"
+        new_pkg.mkdir(mode=0o700)
+        for p in sorted(self.package.iterdir()):
+            if p.name != "files.sha256":
+                (new_pkg / p.name).write_bytes(p.read_bytes())
+                (new_pkg / p.name).chmod(p.stat().st_mode & 0o777)
+        (new_pkg / "ui-modules.tsv").write_text("\n".join(tsv_lines) + "\n")
+        (new_pkg / "ui-modules.tsv").chmod(0o600)
+        old_pkg_id = self.package_id
+        self.package = self.publish(new_pkg)
+        self.package_id = self.package.name
+        new_comp = self.data / "composed" / self.package_id
+        shutil.copytree(self.composed, new_comp)
+        self.composed = new_comp
+        self.record[3] = self.package_id
+        # Rebuild dependencies and inputs for the updated package.
+        new_deps = []
+        new_inputs = []
+        for key, path, digest in self.inputs:
+            if key.startswith(f"package-{old_pkg_id}/"):
+                continue
+            if key.startswith(f"composed-{old_pkg_id}/"):
+                leaf = key.split("/", 1)[1]
+                key = f"composed-{self.package_id}/{leaf}"
+                path = f"/tmp/mnt/data_persist/open-connect/composed/{self.package_id}/{leaf}"
+            new_inputs.append((key, path, digest))
+        for p in sorted(self.package.iterdir()):
+            if p.name == "files.sha256":
+                continue
+            d = sha(p.read_bytes())
+            new_inputs.append(
+                (f"package-{self.package_id}/{p.name}", f"/{p.relative_to(self.root)}", d)
+            )
+            new_deps.append((d, f"package-{self.package_id}/{p.name}"))
+        new_inputs.append(
+            (
+                f"package-{self.package_id}/files.sha256",
+                f"/{(self.package / 'files.sha256').relative_to(self.root)}",
+                self.package_id,
+            )
+        )
+        new_deps.append((self.package_id, f"package-{self.package_id}/files.sha256"))
+        for line in (self.snapshot / "dependencies").read_text().splitlines():
+            d, k = line.split("  ", 1)
+            if k.startswith(f"package-{old_pkg_id}/"):
+                continue
+            if k.startswith(f"composed-{old_pkg_id}/"):
+                k = f"composed-{self.package_id}/" + k.split("/", 1)[1]
+            new_deps.append((d, k))
+        self.inputs = new_inputs
+        self.change_current(
+            "selector",
+            f"{sha((self.package / 'boot-select').read_bytes())}|700:{os.getuid()}:{os.getgid()}|{self.package_id}\n",
+        )
+        self.change_current(
+            "config",
+            (self.snapshot / "config").read_text().replace(old_pkg_id, self.package_id),
+        )
+        self.change_current(
+            "dependencies",
+            "".join(f"{d}  {k}\n" for d, k in new_deps),
+        )
+        # Test base=0 with non-empty vui-plugins.list is refused.
+        b_bad, _ = self._clone_work(".new-vui-bad")
+        (b_bad / "vui-plugins.list").write_text(vui_names[0] + "\n")
+        (b_bad / "vui-plugins.list").chmod(0o600)
+        self.assertNotEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(b_bad.relative_to(self.root)),
+            ).returncode,
+            0,
+        )
+        shutil.rmtree(b_bad)
+        # Test base=1 with valid vui-plugins.list succeeds and records base/vui/* pins.
+        b_work, _ = self._clone_work(".new-base1", ("base=0", "base=1"))
+        (b_work / "vui-plugins.list").write_text("\n".join(vui_names) + "\n")
+        (b_work / "vui-plugins.list").chmod(0o600)
+        ok_base = self._run_helper(
+            "seal-publish",
+            str(self.root),
+            self.snapshot.name,
+            str(b_work.relative_to(self.root)),
+        )
+        self.assertEqual(ok_base.returncode, 0, ok_base.stderr)
+        b_id = ok_base.stdout.decode().strip()
+        b_plan = (self.data / "snapshots" / b_id / "boot.plan").read_text()
+        self.assertIn(f"base/vui/{vui_names[0]}|", b_plan)
+        self.assertEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name, b_id).returncode,
+            0,
+        )
+        # Tampered VUI plugin on disk is refused when newly adding base=1.
+        self.put("/jci/vui/plugins/" + vui_names[0], "tampered vui plugin\n")
+        b_tamper, _ = self._clone_work(".new-base1-tamper", ("base=0", "base=1"))
+        (b_tamper / "vui-plugins.list").write_text("\n".join(vui_names) + "\n")
+        (b_tamper / "vui-plugins.list").chmod(0o600)
+        self.assertNotEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(b_tamper.relative_to(self.root)),
+            ).returncode,
+            0,
+        )
+        shutil.rmtree(b_tamper)
+
+    def test_boot_select_verified_trust_anchor_and_tamper_detection(self):
+        # Build a complete 13-file RAM session manifest matching packages/<id>.
+        pkg_dir = self.data / "packages/.new-fullpkg"
+        pkg_dir.mkdir(mode=0o700)
+        for name in (
+            "state.sh",
+            "firmware.sh",
+            "access.sh",
+            "service.sh",
+            "VERSION",
+            "preferences.awk",
+            "services.tsv",
+            "sm-profile.awk",
+            "ui-profile.awk",
+            "ui-modules.tsv",
+            "system-hook.js",
+            "base-logging.js",
+        ):
+            (pkg_dir / name).write_bytes((ASSETS / name).read_bytes())
+            (pkg_dir / name).chmod(0o600)
+        shutil.copyfile(Path(self.build.name) / "flush", pkg_dir / "flush")
+        (pkg_dir / "flush").chmod(0o700)
+        (pkg_dir / "boot-select").write_bytes(self.program.read_bytes())
+        (pkg_dir / "boot-select").chmod(0o700)
+        pkg = self.publish(pkg_dir)
+
+        ram_session = self.ram / "session-test"
+        ram_session.mkdir(mode=0o700)
+        for name in ("state.sh", "service.sh", "files.sha256"):
+            (ram_session / name).write_bytes((pkg / name).read_bytes())
+            (ram_session / name).chmod(0o600)
+        shutil.copyfile(Path(self.build.name) / "flush", ram_session / "flush")
+        (ram_session / "flush").chmod(0o700)
+
+        env = {**os.environ, "PATH": self.build.name + os.pathsep + os.environ["PATH"]}
+
+        def check():
+            return subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    "set -eu; D=$1; P=$2; R_BACKEND=$3; role=settings; "
+                    '. "$P/state.sh"; . "$P/service.sh"; boot_select_verified',
+                    "verify-helper",
+                    str(self.data),
+                    str(ram_session),
+                    pkg.name,
+                ],
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            ).returncode
+
+        self.assertEqual(check(), 0)
+        # Wrong mode on persistent boot-select hard-fails (rc=1, not fallback rc=2).
+        (pkg / "boot-select").chmod(0o600)
+        self.assertEqual(check(), 1)
+        (pkg / "boot-select").chmod(0o700)
+        # Tampered persistent boot-select or script hard-fails (rc=1).
+        orig_bs = (pkg / "boot-select").read_bytes()
+        (pkg / "boot-select").write_bytes(orig_bs[:-1] + bytes([orig_bs[-1] ^ 1]))
+        (pkg / "boot-select").chmod(0o700)
+        self.assertEqual(check(), 1)
+        (pkg / "boot-select").write_bytes(orig_bs)
+        (pkg / "boot-select").chmod(0o700)
+        orig_awk = (pkg / "sm-profile.awk").read_bytes()
+        (pkg / "sm-profile.awk").write_bytes(orig_awk + b"\n")
+        self.assertEqual(check(), 1)
+        (pkg / "sm-profile.awk").write_bytes(orig_awk)
+        self.assertEqual(check(), 0)
+
+    def test_fast_verify_batch_detects_reused_and_composed_tamper(self):
+        work = self.data / "snapshots/.new-batch"
+        work.mkdir(mode=0o700)
+        for name in ("mmui.xml", "vui-plugins.list"):
+            (work / name).write_bytes((self.snapshot / name).read_bytes())
+            (work / name).chmod(0o600)
+        env = {**os.environ, "PATH": self.build.name + os.pathsep + os.environ["PATH"]}
+
+        def run_batch(reused, comp_files):
+            return subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    'set -eu; D=$1; P=$2; . "$P/state.sh"; . "$P/access.sh"; '
+                    'fast_verify_batch "$3" "$4" "$5" "$6" "$7"',
+                    "batch-helper",
+                    str(self.data),
+                    str(self.package),
+                    str(self.snapshot),
+                    str(work),
+                    self.package_id,
+                    reused,
+                    comp_files,
+                ],
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            ).returncode
+
+        self.assertEqual(
+            run_batch(
+                "mmui.xml vui-plugins.list", "sm-normal-on.conf sm-wcp-on.conf index-on.html"
+            ),
+            0,
+        )
+        self.assertEqual(run_batch("mmui.xml vui-plugins.list", ""), 0)
+        self.assertEqual(run_batch("", "index-on.html"), 0)
+
+        # Tampered reused profile in work is refused.
+        orig = (work / "mmui.xml").read_bytes()
+        (work / "mmui.xml").write_bytes(orig + b"x")
+        self.assertNotEqual(run_batch("mmui.xml vui-plugins.list", "index-on.html"), 0)
+        (work / "mmui.xml").write_bytes(orig)
+
+        # Tampered composed template is refused.
+        comp_sm = self.composed / "sm-normal-on.conf"
+        orig_sm = comp_sm.read_bytes()
+        comp_sm.write_bytes(orig_sm + b"x")
+        self.assertNotEqual(
+            run_batch("mmui.xml", "sm-normal-on.conf sm-wcp-on.conf"),
+            0,
+        )
+        comp_sm.write_bytes(orig_sm)
+
+        # Tampered composed/files.sha256 is refused.
+        comp_mf = self.composed / "files.sha256"
+        orig_mf = comp_mf.read_bytes()
+        comp_mf.write_bytes(orig_mf + b"\n")
+        self.assertNotEqual(run_batch("mmui.xml", "index-on.html"), 0)
+        comp_mf.write_bytes(orig_mf)
+
+        # Tampered prev/dependencies is refused.
+        deps = self.snapshot / "dependencies"
+        orig_deps = deps.read_bytes()
+        deps.write_bytes(orig_deps + b"\n")
+        self.assertNotEqual(run_batch("mmui.xml", "index-on.html"), 0)
+        deps.write_bytes(orig_deps)
+
+        self.assertEqual(
+            run_batch(
+                "mmui.xml vui-plugins.list", "sm-normal-on.conf sm-wcp-on.conf index-on.html"
+            ),
+            0,
+        )

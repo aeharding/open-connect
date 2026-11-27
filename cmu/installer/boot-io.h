@@ -105,7 +105,7 @@ static long oc_metadata(int fd, const char *path, OcMeta *m) {
 
 static long oc_stat(int fd, OcMeta *m) { return oc_metadata(fd,0,m); }
 
-static long oc_beneath(int root, const char *path, unsigned options, unsigned mode) {
+static __attribute__((noinline)) long oc_beneath(int root, const char *path, unsigned options, unsigned mode) {
     char leaf[192];
     unsigned n, depth=0;
     int parent=root, owned=0;
@@ -141,7 +141,7 @@ static int oc_meta_equal(const OcMeta *a, const OcMeta *b) {
 static inline int oc_meta_resealable(const OcMeta *a,const OcMeta *b) {
     return a->device==b->device&&a->size==b->size&&a->mode==b->mode&&a->uid==b->uid&&a->gid==b->gid;
 }
-static int oc_write_all(int fd, const void *input, unsigned n) {
+static __attribute__((noinline)) int oc_write_all(int fd, const void *input, unsigned n) {
     const char *p=input;
     while (n) {
         long r=oc_write(fd,p,n);
@@ -154,7 +154,7 @@ static int oc_write_all(int fd, const void *input, unsigned n) {
 /* Read/copy once, checking both bytes and the opened inode's stable metadata.
  * Callers first walk parents and reject links/special leaves with oc_openat.
  */
-static int oc_hash_copy(int input, int output, oc_u64 limit, char digest[65], OcMeta *metadata) {
+static __attribute__((noinline)) int oc_hash_copy(int input, int output, oc_u64 limit, char digest[65], OcMeta *metadata) {
     OcHash hash;
     OcMeta before,after;
     oc_u8 buffer[4096];

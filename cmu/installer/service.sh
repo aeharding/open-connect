@@ -308,6 +308,21 @@ service_stage() {
   service_listen "$runtime" "$1"
 }
 
+boot_select_verified() {
+  local d=$D/packages/$R_BACKEND e a f
+  test "$role" = settings && file "$P/files.sha256" && sha_is "$P/files.sha256" "$R_BACKEND" || return 2
+  e=$(awk -v d="$d" 'BEGIN{split("boot-select state.sh firmware.sh access.sh flush VERSION preferences.awk services.tsv sm-profile.awk ui-profile.awk ui-modules.tsv system-hook.js base-logging.js",m," ");for(i in m)w[m[i]]=1}
+NF==2&&($2 in w){if(length($1)!=64||$1~/[^a-f0-9]/||s[$2]++){b=1;exit 1};r[++n]=$1" *"d"/"$2}
+END{if(b||n!=13)exit 1;for(i=1;i<=n;i++)print r[i]}' "$P/files.sha256") || return 2
+  private_dir "$d" && file "$d/boot-select" && test "$(stat -c '%a:%u:%g' "$d/boot-select")" = "700:$(id -u):$(id -g)" || return 1
+  set --
+  while read -r _ f; do f=${f#\*}; test -f "$f" && test ! -L "$f" || return 1; set -- "$@" "$f"; done <<F
+$e
+F
+  a=$(sha_many "$@") && test "$a" = "$e" || return 1
+  BOOT_SELECT=$d/boot-select
+}
+
 service_boot() {
   set -eu
   umask 077

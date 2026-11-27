@@ -11,19 +11,20 @@
 
 enum { OC_PLAN_ROWS=192, OC_LINE_SIZE=1024, OC_PLAN_LIMIT=131072 };
 typedef struct { char bytes[4096]; unsigned at,filled,total; int fd; } OcLines;
+typedef struct { char *key,*path,*digest; OcMeta meta; int absent,used; } OcInput;
 
 static unsigned oc_length(const char *p) { unsigned n=0; while (p[n]) ++n; return n; }
-static int oc_equal(const char *a, const char *b) {
+static __attribute__((noinline)) int oc_equal(const char *a, const char *b) {
     if (!a || !b) return 0;
     while (*a && *a==*b) { ++a; ++b; }
     return *a==*b;
 }
-static int oc_prefix(const char *p,const char *prefix) {
+static __attribute__((noinline)) int oc_prefix(const char *p,const char *prefix) {
     while (*prefix) if (*p++!=*prefix++) return 0;
     return 1;
 }
 static int oc_stock_meta(int root,OcMeta *stock) { return oc_stat(root,stock)>=0; }
-static int oc_hex(const char *p, unsigned n) {
+static __attribute__((noinline)) int oc_hex(const char *p, unsigned n) {
     unsigned i;
     for (i=0; i<n; ++i) if (!((p[i]>='0'&&p[i]<='9')||(p[i]>='a'&&p[i]<='f'))) return 0;
     return !p[n];
@@ -126,7 +127,7 @@ static int oc_absent_at(int root, const char *path) {
 /* The command is also a read-only diagnostic for an already sealed plan.
  * Successful metadata checking alone never selects features or writes record.
  */
-static int oc_plan_rows(int root, int snapshot, int input, int output, int mode) {
+static __attribute__((noinline)) int oc_plan_rows(int root, int snapshot, int input, int output, int mode) {
     int sealing=mode==1;
     OcLines reader;
     char line[OC_LINE_SIZE],original[OC_LINE_SIZE],seen[OC_PLAN_ROWS][192];

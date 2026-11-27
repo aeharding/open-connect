@@ -5,6 +5,13 @@
 #include "boot-policy.h"
 
 static int run(int argc, char **argv) {
+    if ((argc==4||argc==5)&&oc_equal(argv[1],"audit")&&argv[2][0]=='/'&&oc_hex(argv[3],64)&&
+        (argc==4||oc_hex(argv[4],64))) {
+        return oc_audit(argv[2],argv[3],argc==5?argv[4]:0);
+    }
+    if ((argc==5||argc==6)&&oc_equal(argv[1],"seal-publish")&&argv[2][0]=='/'&&oc_hex(argv[3],64)&&oc_key(argv[4])) {
+        return oc_seal_publish(argv[2],argv[3],argv[4],argc==6?argv[5]:0);
+    }
     if (argc==5&&oc_equal(argv[1],"copy-ui")&&argv[2][0]=='/'&&oc_hex(argv[3],64)&&
         oc_prefix(argv[4],".feature-")&&oc_key(argv[4])) {
         /* The verified shell owns fd9's operation lock. No debit, NVRAM,

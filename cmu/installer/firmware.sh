@@ -392,43 +392,48 @@ composed_members_verify() {
 }
 
 boot_render_profiles() {
-  local destination=$1 config=$2 source setting=off profile digest asset xml
-  config_decode "$config" && test "$S_SCHEMA" = OC2 &&
-    test "$P" = "$D/packages/$S_PACKAGE" || return 1
-  if test "$S_TOUCH" = 2; then touch_inputs_verify || return 1; fi
-  source=$D/composed/$S_PACKAGE
-  composed_members_verify "$source" || return 1
-  if test -z "${VERIFIED_PACKAGE:-}" || test "$VERIFIED_PACKAGE" != "$S_PACKAGE"; then
-    verify_manifest "$source" || return 1
+  local destination=$1 config=$2 source setting=off profile digest asset xml=/dev/null skip=${FAST_SKIP:-} f=${FAST_FROM:-}
+  if test -z "$f"; then
+    config_decode "$config" && test "$S_SCHEMA" = OC2 || return 1
+    test "$S_TOUCH" != 2 || touch_inputs_verify || return 1
+    composed_members_verify "$D/composed/$S_PACKAGE" || return 1
+    test "${VERIFIED_PACKAGE:-}" = "$S_PACKAGE" || verify_manifest "$D/composed/$S_PACKAGE" || return 1
   fi
+  source=$D/composed/$S_PACKAGE
+  test "$P" = "$D/packages/$S_PACKAGE" || return 1
   test "$S_WARNING" != 1 || setting=on
   set -- system-hook.js ui-profile.awk ui-modules.tsv
-  if test "$S_BASE" = 1; then base_ui_inputs_verify || return 1; set -- "$@" base-logging.js; fi
-  if test -z "${VERIFIED_PACKAGE:-}" || test "$VERIFIED_PACKAGE" != "$S_PACKAGE"; then
+  if test "$S_BASE" = 1; then
+    test -n "$f" || base_ui_inputs_verify || return 1
+    set -- "$@" base-logging.js
+  fi
+  if test "${VERIFIED_PACKAGE:-}" != "$S_PACKAGE"; then
     for asset in "$@"; do
       test -f "$P/$asset" && test ! -L "$P/$asset" || return 1
       digest=$(awk -v name="$asset" '$2==name{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
       sha_is "$P/$asset" "$digest" || return 1
     done
   fi
-  xml=$destination/.mmui-source
-  digest=$(original_files | awk '$2=="mmui.xml"{n++;print $1}END{exit n!=1}') || return 1
-  file "$D/originals/mmui.xml" && cp "$D/originals/mmui.xml" "$xml" &&
-    sha_is "$xml" "$digest" || return 1
+  case "$skip" in *'|mmui|'*) ;; *)
+    xml=$destination/.mmui-source
+    digest=$(original_files | awk '$2=="mmui.xml"{n++;print $1}END{exit n!=1}') || return 1
+    file "$D/originals/mmui.xml" && cp "$D/originals/mmui.xml" "$xml" && sha_is "$xml" "$digest" || return 1;; esac
   for asset in mmui plugins; do
+    case "$skip" in *"|$asset|"*) continue;; esac
     if test "$asset" = mmui; then profile=mmui.xml; else profile=vui-plugins.list; fi
-    awk -v operation=compose -v ui_mode="$asset" -v modules="$P/ui-modules.tsv" \
-      -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" \
-      -v input="$config" -v input_bytes="$(wc -c < "$config")" \
+    awk -v operation=compose -v ui_mode="$asset" -v modules="$P/ui-modules.tsv" -v catalog="$P/services.tsv" \
+      -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" -v input_bytes="$(wc -c < "$config")" \
       -f "$P/preferences.awk" -f "$P/ui-profile.awk" "$xml" > "$destination/$profile" || return 1
   done
-  rm "$xml" || return 1
-  if test "$S_BASE" = 1; then vui_inputs_verify "$destination/vui-plugins.list" || return 1; fi
-  for profile in normal wcp; do
-    awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" \
-      -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" \
-      "$source/sm-$profile-$setting.conf" > "$destination/sm-$profile.conf" || return 1
-  done
+  test "$xml" = /dev/null || rm "$xml" || return 1
+  if test "$S_BASE" = 1 && test -z "$f"; then vui_inputs_verify "$destination/vui-plugins.list" || return 1; fi
+  case "$skip" in *'|sm|'*) ;; *)
+    for profile in normal wcp; do
+      awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" \
+        -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" \
+        "$source/sm-$profile-$setting.conf" > "$destination/sm-$profile.conf" || return 1
+    done;; esac
+  case "$skip" in *'|index|'*) return 0;; esac
   awk -v base="$S_BASE" -v warning="$S_WARNING" -v services="$S_SERVICES" -v autoshow="$S_AUTOSHOW" \
     -v hook="$P/system-hook.js" -v logger="$P/base-logging.js" '
         BEGIN {

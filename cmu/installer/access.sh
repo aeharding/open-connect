@@ -222,3 +222,99 @@ access_pair_apply() {
         root_publish "$target" "$after/$name" "$mode" "$hash" "$actual_mode" "$hold" "$hold_mode" || return 1
     done
 }
+
+fast_verify_batch() {
+    local prev=$1 work=$2 pkg=$3 reused=$4 comp_files=$5 comp expected actual m
+    comp=$D/composed/$pkg
+    test -n "$reused$comp_files" || return 0
+    if test -n "$comp_files"; then
+        file "$prev/dependencies" && private_dir "$comp" && file "$comp/files.sha256" || return 1
+        set -- "$prev/files.sha256" "$prev/dependencies" "$comp/files.sha256"
+    else
+        set -- "$prev/files.sha256"
+    fi
+    expected=$(awk -v w="$work" -v prev="$prev" -v comp="$comp" -v pkg="$pkg" -v rl="$reused" -v cl="$comp_files" '
+BEGIN{nr=split(rl,rm," ");for(i=1;i<=nr;i++)rw[rm[i]]=1;nc=split(cl,cm," ");for(i=1;i<=nc;i++)cw[cm[i]]=1;ck="composed-"pkg"/files.sha256"}
+FNR==1{f++}
+f==1&&NF==2{if(($2 in rw)||(nc>0&&$2=="dependencies")){if(length($1)!=64||$1~/[^a-f0-9]/||ps[$2]++){b=1;exit 1};ph[$2]=$1}}
+f==2&&NF==2&&$2==ck{if(length($1)!=64||$1~/[^a-f0-9]/||ds++){b=1;exit 1};cd=$1}
+f==3&&NF==2&&($2 in cw){if(length($1)!=64||$1~/[^a-f0-9]/||cs[$2]++){b=1;exit 1};ch[$2]=$1}
+END{
+if(b)exit 1
+for(i=1;i<=nr;i++){if(ps[rm[i]]!=1)exit 1;print ph[rm[i]]" *"w"/"rm[i]}
+if(nc>0){
+  if(ps["dependencies"]!=1||ds!=1)exit 1
+  print ph["dependencies"]" *"prev"/dependencies"
+  print cd" *"comp"/files.sha256"
+  for(i=1;i<=nc;i++){if(cs[cm[i]]!=1)exit 1;print ch[cm[i]]" *"comp"/"cm[i]}
+}}' "$@") || return 1
+    set --
+    for m in $reused; do file "$work/$m" || return 1; set -- "$@" "$work/$m"; done
+    if test -n "$comp_files"; then
+        set -- "$@" "$prev/dependencies" "$comp/files.sha256"
+        for m in $comp_files; do file "$comp/$m" || return 1; set -- "$@" "$comp/$m"; done
+    fi
+    actual=$(sha_many "$@") && test "$actual" = "$expected"
+}
+
+fast_set_publish() {
+    local work expected_cfg m prev=$D/snapshots/$R_CURRENT old_P=$P skip='|' t2=0 copy_list reused='' comp_files='' setting=off
+    work=$(mktemp -d "$D/snapshots/.new-XXXXXX") || return 2
+    expected_cfg=$(printf '%s\n' "$prefs" | awk -v operation=write -v catalog="$P/services.tsv" \
+        -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v package_id="$package" \
+        -v nvram_value="$nvram" -v metadata_value="$mode" \
+        -v input=/dev/stdin -v input_bytes="$((${#prefs}+1))" -f "$P/preferences.awk") || { rm -rf "$work"; return 2; }
+    printf '%s\n' "$expected_cfg" > "$work/config" || { rm -rf "$work"; return 2; }
+    config_decode "$work/config" || { rm -rf "$work"; return 2; }
+    test "$S_TOUCH" != 2 || t2=1
+    test "$S_WARNING" != 1 || setting=on
+    copy_list="autostart dependencies selector"
+    if ! absent "$prev/access"; then copy_list="$copy_list access runlogin sshd.conf"; fi
+    if test "$S_WARNING:$S_BASE:$S_SERVICES" = "$OLD_WARNING:$OLD_BASE:$OLD_SERVICES"; then
+        reused="${reused:+$reused }mmui.xml"; skip="${skip}mmui|"
+    fi
+    if test "$S_BASE:$S_SERVICES" = "$OLD_BASE:$OLD_SERVICES"; then
+        reused="${reused:+$reused }vui-plugins.list"; skip="${skip}plugins|"
+    fi
+    if test "$t2:$S_WARNING:$S_BASE:$S_WIRELESS:$S_SERVICES" = "$OLD_TOUCH2:$OLD_WARNING:$OLD_BASE:$OLD_WIRELESS:$OLD_SERVICES"; then
+        reused="${reused:+$reused }sm-normal.conf sm-wcp.conf"; skip="${skip}sm|"
+    else
+        comp_files="sm-normal-$setting.conf sm-wcp-$setting.conf"
+    fi
+    if test "$S_WARNING:$S_BASE:$S_SERVICES:$S_AUTOSHOW" = "$OLD_WARNING:$OLD_BASE:$OLD_SERVICES:$OLD_AUTOSHOW"; then
+        reused="${reused:+$reused }index.html"; skip="${skip}index|"
+    else
+        comp_files="${comp_files:+$comp_files }index-$setting.html"
+    fi
+    set --
+    for m in $copy_list $reused; do set -- "$@" "$prev/$m"; done
+    cp "$@" "$work/" && fast_verify_batch "$prev" "$work" "$package" "$reused" "$comp_files" || { rm -rf "$work"; return 2; }
+    if test "$skip" != '|mmui|plugins|sm|index|'; then
+        P=$D/packages/$package; FAST_FROM=$R_CURRENT; FAST_SKIP=$skip
+        if ! boot_render_profiles "$work" "$work/config"; then
+            P=$old_P; FAST_FROM=; FAST_SKIP=; rm -rf "$work"; return 2
+        fi
+        P=$old_P; FAST_FROM=; FAST_SKIP=
+    fi
+    chmod 600 "$work"/* || { rm -rf "$work"; return 2; }
+    if test "$cur_nvram" = "$nvram"; then
+        after=$("$BOOT_SELECT" seal-publish / "$R_CURRENT" "${work#/}" 2>/dev/null) || { rm -rf "$work"; return 2; }
+    else
+        after=$("$BOOT_SELECT" seal-publish / "$R_CURRENT" "${work#/}" "$nvram" 2>/dev/null) || { rm -rf "$work"; return 2; }
+    fi
+    rm -rf "$work"
+    hex "$after" 64 && test "$(cat "$D/snapshots/$after/config")" = "$expected_cfg" || fail plan_failed
+    if test "$cur_nvram" = "$nvram"; then
+        R_PHASE=active; R_CURRENT=$after; R_BEFORE=-; R_AFTER=-; R_BUDGET=3; R_OFF=-; R_BOOT=-; R_NOTICE=restart
+        record_write
+    else
+        R_PHASE=set; R_BEFORE=$R_CURRENT; R_AFTER=$after
+        record_stage prepare
+        record_publish || fail record_rename_failed
+        nvram_change "$cur_nvram" "$nvram" || fail nvram_commit_failed
+        "$BOOT_SELECT" audit / "$R_CURRENT" "$after" || fail final_verification_failed
+        R_PHASE=active; R_CURRENT=$after; R_BEFORE=-; R_AFTER=-; R_BUDGET=3; R_OFF=-; R_BOOT=-; R_NOTICE=restart
+        record_write
+    fi
+    S_VER=$after; S_CUR=
+}

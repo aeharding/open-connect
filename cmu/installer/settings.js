@@ -167,12 +167,12 @@ prefs.importKey=function(done){
     if(!ok){
       wanted={};pending(false);drain(false);
       if(failed==="restart"){prefs.failure=failed;if(prefs.changed)prefs.changed(true);}
-      else{if(prefs.changed)prefs.changed("sync");done(null,failed);}
+      else if(!done(null,failed)&&prefs.changed)prefs.changed("sync");
       return;
     }
     if(rec&&qd)drain(false);
-    if(rec&&prefs.changed)prefs.changed("sync");
-    done(actual);flush();
+    if(!done(actual)&&rec&&prefs.changed)prefs.changed("sync");
+    flush();
   }
   try{store.importKey(finish);}catch(e){finish(null);}
 };
@@ -187,7 +187,7 @@ var page,choice,dismiss=null,wait=null,moving=null,closed=false,leaving=false,ns
 var parent=host.divElt.parentNode,oldD=host.divElt.style.display,tab=fw.getCurrCtxtId();
 var R="after restarting Mazda Connect.",T="Try again in a moment.";
 function current(){return!closed&&!leaving&&fw._currTmpltInstance===host&&inTab(fw)&&fw.getCurrCtxtId()===tab;}
-function endWait(){var w=wait;wait=null;if(w)w.close();}
+function endWait(w){if(w&&wait!==w)return;w=wait;wait=null;if(w)w.close();}
 function discard(p){if(p){p.cleanUp();if(p.divElt.parentNode)p.divElt.parentNode.removeChild(p.divElt);}}
 function close(){
 if(closed)return;closed=true;prefs.cancelQueue();
@@ -270,7 +270,7 @@ function canRestart(){
 var v=prefs.values();
 return v&&v.restart===true&&typeof store.restart==="function"&&!(store.busy&&store.busy()&&!prefs.pending());
 }
-function showWait(t){endWait();wait=dialogs.progress(fw,t,"Do not turn off the car.",function(){wait=null;prefs.cancelQueue();if(ns)prefs.changed("sync");});return!!wait;}
+function showWait(t){endWait();wait=dialogs.progress(fw,t,"Do not turn off the car.",function(){wait=null;prefs.cancelQueue();if(ns)prefs.changed("sync");});return wait;}
 function runAction(a){
   if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
   if(store[a](close))return;
@@ -280,9 +280,9 @@ function maintain(a){
   dismiss=null;if(!current()||(a!=="restart"&&a!=="uninstall"))return;
   if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
   if(!prefs.pending()){runAction(a);return;}
-  if(!showWait(a==="restart"?"Applying changes":"Removing Open Connect"))return;
+  var w=showWait(a==="restart"?"Applying changes":"Removing Open Connect");if(!w)return;
   prefs.queue(function(ok){
-    endWait();
+    endWait(w);
     if(ok&&current())runAction(a);
     else if(!prefs.failure){if(current())render(choice,a);else if(ns)close();}
   },a==="uninstall");
@@ -294,10 +294,10 @@ if(choice===null&&/^(developer|phone|sources)$/.test(item)){render(item,0);retur
 if(choice==="phone"&&item===2){var v=prefs.values();if(v)render(2,v.carplayAutoshow);return;}
 if(choice==="phone"&&item==="wireless"){
 if(!params||(params.additionalData!==1&&params.additionalData!==2))return;
-var values=prefs.values(),on=params.additionalData===1;
-if(!values||values.wirelessFactory===true||values.wireless===undefined||values.wireless===(on?1:0))return;
+var v=prefs.values(),on=params.additionalData===1;
+if(!v||v.wirelessFactory===true||v.wireless===undefined||v.wireless===(on?1:0))return;
 dismiss=ask((on?"Enable":"Disable")+" Wireless CarPlay?",on?"Changes apply "+R+" Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth."+
-(values.base?" Delays Mazda Navigation about 20 s.":""):"Restores the original CarPlay behavior "+R,on?"Enable":"Disable","apply",function(a){
+(v.base?" Delays Mazda Navigation about 20 s.":""):"Restores the original CarPlay behavior "+R,on?"Enable":"Disable","apply",function(a){
 dismiss=null;if(a==="apply"&&current())prefs.select("wireless",on?1:0);
 if(current()&&choice==="phone")render("phone","wireless");
 });return;
@@ -332,17 +332,18 @@ prefs.select(item,params.additionalData===1?1:0);
 }else if(item==="import"&&typeof store.importKey==="function"){
   dismiss=ask("Import public key?","Put open-connect.pub on the USB drive. RSA and ECDSA public keys are supported. The imported key will be replaced.","Import","import",function(a){
     dismiss=null;if(a!=="import"||!current())return;
-    if(!showWait("Importing public key"))return;
+    var w=showWait("Importing public key");if(!w)return;
     prefs.queue(function(ok){
-      if(!ok||!current()){endWait();return;}
+      if(!ok||!current()){endWait(w);return;}
       prefs.importKey(function(actual){
         if(current()&&choice==="developer")ns=false;
-        endWait();if(!current()||choice!=="developer")return;
+        endWait(w);if(!current()||choice!=="developer")return false;
         render("developer","import");
         dismiss=dialogs.message(fw,actual?"Public key imported":"Key could not be imported",
         actual?"Fingerprint (MD5):\n"+actual.fingerprint.slice(0,23)+"\n"+actual.fingerprint.slice(24)+"\nEnable SSH when ready.":
         "Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",
         {button1:{label:"OK",appData:"done"}},function(){dismiss=null;});
+        return true;
       });
     });
   });

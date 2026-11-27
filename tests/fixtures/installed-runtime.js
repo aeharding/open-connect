@@ -501,4 +501,28 @@ f.reply(f.operation('import')[0],null);
 f.reply(f.requests.at(-1),f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
 assert.equal(f.pages.length,pagesBefore+1,'reconciled Import on Developer page must render once, not twice');
 assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[f.pages.at(-1).list2Ctrl.focussedItem].appData,'import');
+// Touch-cancelling Import progress during voice, then Back -> Apply or Uninstall in the SAME session:
+// successful Import ACK must not close the newer progress dialog or cancel the queued action.
+for(const action of ['restart','uninstall']){
+ f=warm({...developer,warning:1,warningCurrent:0,restart:true});select(f,'developer');select(f,'import');f.pick('import');
+ f.fw.common._cachedVuiState='Listening';
+ f.touch('mousedown');
+ f.fw.common._cachedVuiState='Idle';
+ assert.equal(f.dialog,undefined);
+ f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+ select(f,action);f.pick(action);
+ assert.equal(f.operation(action).length,0);
+ f.reply(f.operation('import')[0],f.state({...developer,warning:1,warningCurrent:0,restart:true,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ assert.equal(f.operation(action).length,1,'same-session '+action+' must proceed after touch-cancelled Import ACK');
+}
+// Reconciled Import after touch-cancelling progress during Listening -> Idle must still render Developer page only once, focused on Import.
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+f.fw.common._cachedVuiState='Listening';
+f.touch('mousedown');
+f.fw.common._cachedVuiState='Idle';
+const pagesAfterCancel=f.pages.length;
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+assert.equal(f.pages.length,pagesAfterCancel+1,'reconciled Import after progress dismissal must render Developer page once');
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[f.pages.at(-1).list2Ctrl.focussedItem].appData,'import');
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

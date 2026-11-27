@@ -87,39 +87,10 @@ class NativeBootSelection(unittest.TestCase):
         pin_lines.append(f"manager.so={mgr_sha}\n")
         pin_lines.append(f"originals/mmui.xml={mmui_sha}\n")
         cls.pins_file.write_text("".join(pin_lines))
-        # Compile unmodified production C sources with ASan+UBSan; host test
-        # pins and fault injection use OC_HOST environment hooks only.
-        core_srcs = [p for p in sorted((ASSETS / "core").glob("*.c")) if p.name != "oc-api.c"]
-        subprocess.run(
-            [
-                "clang",
-                "-DOC_HOST",
-                "-D_GNU_SOURCE",
-                "-std=c11",
-                "-O2",
-                "-fsanitize=address,undefined",
-                "-fno-omit-frame-pointer",
-                "-Wall",
-                "-Wextra",
-                "-Werror",
-                ASSETS / "boot-select.c",
-                *core_srcs,
-                "-o",
-                cls.program,
-            ],
-            check=True,
-        )
+        from tests.host_bins import copy_host_boot_select, copy_host_flush
 
-        subprocess.run(
-            [
-                "clang",
-                "-DOC_HOST",
-                ROOT / "cmu/startup/flush.c",
-                "-o",
-                Path(cls.build.name) / "flush",
-            ],
-            check=True,
-        )
+        copy_host_boot_select(cls.program)
+        copy_host_flush(Path(cls.build.name) / "flush")
         if shutil.which("gstat"):
             (Path(cls.build.name) / "stat").symlink_to(shutil.which("gstat"))
 

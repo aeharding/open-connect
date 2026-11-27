@@ -23,10 +23,9 @@ class InstallerPublication(unittest.TestCase):
         self.tools.mkdir()
         if shutil.which("gstat"):
             (self.tools / "stat").symlink_to(shutil.which("gstat"))
-        subprocess.run(
-            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.tools / "flush"],
-            check=True,
-        )
+        from tests.host_bins import copy_host_flush
+
+        copy_host_flush(self.tools / "flush")
         self.target = self.bin / "autostart"
         self.source = self.root / "planned"
         self.source.write_text("verified complete startup integration\nsecond line\n")

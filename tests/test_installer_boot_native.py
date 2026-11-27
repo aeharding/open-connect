@@ -138,28 +138,9 @@ class NativeBootPlan(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
         cls.program = Path(cls.temp.name).resolve() / "boot-select"
-        # Compile unmodified production C sources with host sanitizers; stock-root
-        # remapping for temporary shell fixtures uses the clean OC_HOST_STOCK_ROOT hook.
-        core_srcs = [p for p in sorted((ASSETS / "core").glob("*.c")) if p.name != "oc-api.c"]
-        subprocess.run(
-            [
-                "clang",
-                "-DOC_HOST",
-                "-D_GNU_SOURCE",
-                "-std=c11",
-                "-O2",
-                "-fsanitize=address,undefined",
-                "-fno-omit-frame-pointer",
-                "-Wall",
-                "-Wextra",
-                "-Werror",
-                ASSETS / "boot-select.c",
-                *core_srcs,
-                "-o",
-                cls.program,
-            ],
-            check=True,
-        )
+        from tests.host_bins import copy_host_boot_select
+
+        copy_host_boot_select(cls.program)
 
     @classmethod
     def tearDownClass(cls):

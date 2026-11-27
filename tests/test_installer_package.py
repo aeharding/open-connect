@@ -46,12 +46,9 @@ class InstallerPackage(unittest.TestCase):
         if shutil.which("gstat"):
             (self.tools / "stat").symlink_to(shutil.which("gstat"))
         self.env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
-        subprocess.run(
-            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.source / "flush"],
-            check=True,
-            capture_output=True,
-            timeout=20,
-        )
+        from tests.host_bins import copy_host_flush
+
+        copy_host_flush(self.source / "flush")
         for name in ("state.sh", "preferences.awk", "services.tsv", "sm-profile.awk", "VERSION"):
             shutil.copyfile(ASSETS / name, self.source / name)
         state = (

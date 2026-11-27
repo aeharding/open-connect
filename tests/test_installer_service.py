@@ -243,12 +243,9 @@ class InstallerPrivateStaging(unittest.TestCase):
                 tools.mkdir()
                 if shutil.which("gstat"):
                     (tools / "stat").symlink_to(shutil.which("gstat"))
-                subprocess.run(
-                    ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", tools / "flush"],
-                    check=True,
-                    capture_output=True,
-                    timeout=20,
-                )
+                from tests.host_bins import copy_host_flush
+
+                copy_host_flush(tools / "flush")
                 for path in (old, source):
                     shutil.copyfile(tools / "flush", path / "flush")
                     (path / "flush").chmod(0o700)
@@ -529,12 +526,9 @@ class InstallerService(unittest.TestCase):
             "sys.stdout.buffer.write(b'HTTP/1.0 200 OK\\r\\nContent-Length: '+"
             "str(len(body)).encode()+b'\\r\\n\\r\\n'+body)\n"
         )
-        subprocess.run(
-            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.source / "flush"],
-            check=True,
-            capture_output=True,
-            timeout=20,
-        )
+        from tests.host_bins import copy_host_flush
+
+        copy_host_flush(self.source / "flush")
         (self.source / "backend.sh").write_text("backend-one\n")
         for name in (
             "firmware.sh",

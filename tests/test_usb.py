@@ -103,12 +103,9 @@ class UsbBuild(unittest.TestCase):
                 'current_boot_id() { cat "$R/boot"; }; '
                 'record_read() { . "$D/facts"; };\n'
             )
-            subprocess.run(
-                ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", work / "flush"],
-                check=True,
-                capture_output=True,
-                timeout=20,
-            )
+            from tests.host_bins import copy_host_flush
+
+            copy_host_flush(work / "flush")
             facts = durable / "facts"
 
             def record(phase="active", selected=current, selected_boot=boot):

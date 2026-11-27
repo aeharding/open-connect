@@ -1,6 +1,5 @@
 """Interrupt the maintained transaction code around real file publications."""
 
-import atexit
 import fcntl
 import hashlib
 import json
@@ -16,46 +15,13 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-_HOST_API_CACHE = None
 
 
 def compile_host_api():
-    """Compile host api once per test process under ASan+UBSan."""
-    global _HOST_API_CACHE
-    if _HOST_API_CACHE is not None and _HOST_API_CACHE.is_file():
-        return _HOST_API_CACHE
-    cache_dir = Path(tempfile.mkdtemp(prefix="oc-host-api-"))
-    atexit.register(shutil.rmtree, cache_dir, True)
-    binary = cache_dir / "api"
-    core = ROOT / "cmu/installer/core"
-    srcs = [
-        ROOT / "cmu/installer/api.c",
-        core / "oc-hash.c",
-        core / "oc-io.c",
-        core / "oc-manifest.c",
-        core / "oc-record.c",
-        core / "oc-config.c",
-        core / "oc-guard.c",
-        core / "oc-api.c",
-    ]
-    subprocess.run(
-        [
-            "clang",
-            "-DOC_HOST",
-            "-Wall",
-            "-Wextra",
-            "-Werror",
-            "-fsanitize=address,undefined",
-            "-fno-omit-frame-pointer",
-            *(str(s) for s in srcs),
-            "-o",
-            str(binary),
-        ],
-        check=True,
-    )
-    binary.chmod(0o700)
-    _HOST_API_CACHE = binary
-    return binary
+    """Return cached ASan+UBSan host-compiled api binary."""
+    from tests.host_bins import host_api
+
+    return host_api()
 
 
 DRIVER = r"""
@@ -205,10 +171,9 @@ class InstallerTransaction(unittest.TestCase):
         if shutil.which("gstat"):
             (self.tools / "stat").symlink_to(shutil.which("gstat"))
             (self.host_tools / "stat").symlink_to(shutil.which("gstat"))
-        subprocess.run(
-            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.tools / "flush"],
-            check=True,
-        )
+        from tests.host_bins import copy_host_flush
+
+        copy_host_flush(self.tools / "flush")
         shutil.copyfile(compile_host_api(), self.tools / "api")
         (self.tools / "api").chmod(0o700)
         self.driver = self.root / "driver.sh"

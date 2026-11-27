@@ -23,12 +23,9 @@ class RequestOwner(unittest.TestCase):
         self.data.mkdir(mode=0o700)
         self.tools = self.root / "tools"
         self.tools.mkdir()
-        subprocess.run(
-            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.root / "flush"],
-            check=True,
-            capture_output=True,
-            timeout=20,
-        )
+        from tests.host_bins import copy_host_flush
+
+        copy_host_flush(self.root / "flush")
         self.stat = shlex.quote(shutil.which("gstat") or shutil.which("stat"))
         self.id = shlex.quote(shutil.which("id"))
         self.owner = f"{os.geteuid()}:{os.getegid()}"

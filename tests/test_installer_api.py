@@ -25,32 +25,9 @@ class InstallerApi(unittest.TestCase):
         self.token.write_text(TOKEN + "\n")
         self.backend = self.root / "backend.sh"
         self.backend.write_text('printf \'{"operation":"%s","arg":"%s"}\\n\' "$3" "$4"\n')
-        core = ROOT / "cmu/installer/core"
-        api_srcs = [
-            ROOT / "cmu/installer/api.c",
-            core / "oc-hash.c",
-            core / "oc-io.c",
-            core / "oc-manifest.c",
-            core / "oc-record.c",
-            core / "oc-config.c",
-            core / "oc-guard.c",
-            core / "oc-api.c",
-        ]
-        subprocess.run(
-            [
-                "clang",
-                "-DOC_HOST",
-                "-Wall",
-                "-Wextra",
-                "-Werror",
-                "-fsanitize=address,undefined",
-                "-fno-omit-frame-pointer",
-                *(str(s) for s in api_srcs),
-                "-o",
-                str(self.api),
-            ],
-            check=True,
-        )
+        from tests.host_bins import copy_host_api
+
+        copy_host_api(self.api)
 
     def request(self, body=None, headers=None):
         body = body or (TOKEN + "|-|status|-|-|-").encode()

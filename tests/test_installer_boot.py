@@ -38,10 +38,9 @@ class InstallerBoot(unittest.TestCase):
         # Lock contention is covered separately; this fixture is one process.
         (self.tools / "flock").write_text("#!/bin/sh\nexit 0\n")
         (self.tools / "flock").chmod(0o700)
-        subprocess.run(
-            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.source / "flush"],
-            check=True,
-        )
+        from tests.host_bins import copy_host_flush
+
+        copy_host_flush(self.source / "flush")
         shutil.copyfile(compile_host_api(), self.source / "api")
         (self.source / "api").chmod(0o700)
         shutil.copyfile(self.source / "flush", self.runtime / "flush")

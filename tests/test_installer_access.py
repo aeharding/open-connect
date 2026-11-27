@@ -34,10 +34,9 @@ class InstallerAccess(unittest.TestCase):
         self.mounts.write_text(f"/dev/sda1 {self.volume} vfat rw 0 0\n")
         if shutil.which("gstat"):
             (self.tools / "stat").symlink_to(shutil.which("gstat"))
-        subprocess.run(
-            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.tools / "flush"],
-            check=True,
-        )
+        from tests.host_bins import copy_host_flush
+
+        copy_host_flush(self.tools / "flush")
         self.key = self.root / "owner"
         subprocess.run(
             ["ssh-keygen", "-q", "-t", "ecdsa", "-b", "256", "-N", "", "-f", self.key],

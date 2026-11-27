@@ -21,12 +21,9 @@ class InstallerComposition(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory()
         cls.addClassCleanup(cls.temp.cleanup)
         cls.tools = Path(cls.temp.name).resolve()
-        subprocess.run(
-            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", cls.tools / "flush"],
-            check=True,
-            capture_output=True,
-            timeout=20,
-        )
+        from tests.host_bins import copy_host_flush
+
+        copy_host_flush(cls.tools / "flush")
 
     def test_boot_mounts_allow_rootfs_but_refuse_protected_overlays(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -29,10 +29,9 @@ class SelectorPublication(unittest.TestCase):
         self.mount.write_text("ro,noatime\n")
         if shutil.which("gstat"):
             (self.tools / "stat").symlink_to(shutil.which("gstat"))
-        subprocess.run(
-            ["clang", "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", self.tools / "flush"],
-            check=True,
-        )
+        from tests.host_bins import copy_host_flush
+
+        copy_host_flush(self.tools / "flush")
         self.firmware = self.root / "firmware.sh"
         self.firmware.write_text(
             (ASSETS / "firmware.sh").read_text().replace("/usr/bin", str(self.folder))

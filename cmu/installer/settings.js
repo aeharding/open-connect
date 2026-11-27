@@ -128,27 +128,27 @@ return v;
 };
 function drain(ok){var n=queued;queued=null;qd=false;if(n)n(ok);}
 function flush(){
-  var keys=Object.keys(wanted);
-  if(busy)return;
-  if(!keys.length){pending(false);drain(!prefs.failure);return;}
-  var key=keys[0],req=wanted[key];
-  if(preference(saved,key)===req){delete wanted[key];flush();if(prefs.changed)prefs.changed(false);return;}
-  busy=true;var ans=false;
-  function finish(actual,out){
-    if(ans)return;ans=true;busy=false;
-    if(out==="restart")wanted={};else if(!valid(actual))actual=read();
-    if(valid(actual))saved=actual;
-    var rec=out==="reconciled",failed=(!!out&&!rec)||!valid(actual)||preference(actual,key)!==req;
-    if(failed){
-      wanted={};prefs.failure=out==="restart"?"restart":key;
-      pending(false);drain(false);if(prefs.changed)prefs.changed(true);return;
-    }
-    if(rec&&qd)drain(false);
-    if(wanted[key]===req)delete wanted[key];
-    flush();if(prefs.changed)prefs.changed(rec?"sync":false);
-  }
-  try{store.write(key==="carplayAutoshow"?"carplay-autoshow":key,preference(saved,key),req,finish);}
-  catch(e){finish(null);}
+var keys=Object.keys(wanted);
+if(busy)return;
+if(!keys.length){pending(false);drain(!prefs.failure);return;}
+var key=keys[0],req=wanted[key];
+if(preference(saved,key)===req){delete wanted[key];flush();if(prefs.changed)prefs.changed(false);return;}
+busy=true;var ans=false;
+function finish(actual,out){
+if(ans)return;ans=true;busy=false;
+if(out==="restart")wanted={};else if(!valid(actual))actual=read();
+if(valid(actual))saved=actual;
+var rec=out==="reconciled",failed=(!!out&&!rec)||!valid(actual)||preference(actual,key)!==req;
+if(failed){
+wanted={};prefs.failure=out==="restart"?"restart":key;
+pending(false);if(prefs.changed)prefs.changed(true);drain(false);return;
+}
+if(rec&&qd)drain(false);
+if(wanted[key]===req)delete wanted[key];
+flush();if(prefs.changed)prefs.changed(rec?"sync":false);
+}
+try{store.write(key==="carplayAutoshow"?"carplay-autoshow":key,preference(saved,key),req,finish);}
+catch(e){finish(null);}
 }
 prefs.pending=function(){return busy||Object.keys(wanted).length>0;};
 prefs.select=function(k,v){
@@ -158,23 +158,23 @@ prefs.failure=null;wanted[k]=v;if(prefs.changed)prefs.changed(false);flush();
 prefs.queue=function(fn,drop){if(drop)wanted={};if(!prefs.pending()){fn(!prefs.failure);return;}queued=fn;qd=!!drop;flush();};
 prefs.cancelQueue=function(){queued=null;qd=false;};
 prefs.importKey=function(done){
-  if(prefs.pending()||typeof store.importKey!=="function"||!pending(true)){done(null);return;}
-  busy=true;var ans=false;
-  function finish(actual,failed){
-    if(ans)return;ans=true;busy=false;
-    var rec=failed==="reconciled",ok=valid(actual)&&(!failed||rec);
-    if(valid(actual))saved=actual;
-    if(!ok){
-      wanted={};pending(false);drain(false);
-      if(failed==="restart"){prefs.failure=failed;if(prefs.changed)prefs.changed(true);}
-      else if(!done(null,failed)&&prefs.changed)prefs.changed("sync");
-      return;
-    }
-    if(rec&&qd)drain(false);
-    if(!done(actual)&&prefs.changed)prefs.changed("sync");
-    flush();
-  }
-  try{store.importKey(finish);}catch(e){finish(null);}
+if(prefs.pending()||typeof store.importKey!=="function"||!pending(true)){done(null);return;}
+busy=true;var ans=false;
+function finish(actual,failed){
+if(ans)return;ans=true;busy=false;
+var rec=failed==="reconciled",ok=valid(actual)&&(!failed||rec);
+if(valid(actual))saved=actual;
+if(!ok){
+wanted={};pending(false);
+if(failed==="restart"){prefs.failure=failed;if(prefs.changed)prefs.changed(true);drain(false);}
+else{drain(false);if(!done(null,failed)&&prefs.changed)prefs.changed("sync");}
+return;
+}
+if(rec&&qd)drain(false);
+if(!done(actual)&&prefs.changed)prefs.changed("sync");
+flush();
+}
+try{store.importKey(finish);}catch(e){finish(null);}
 };
 return(session=prefs);
 }
@@ -336,7 +336,7 @@ prefs.select(item,d===1?1:0);
     dismiss=null;if(a!=="import"||!current())return;
     var w=showWait("Importing public key");if(!w)return;
     prefs.queue(function(ok){
-      if(!ok||!current()){endWait(w);return;}
+      if(!ok||!current()){if(!ok&&current())ns=false;endWait(w);return;}
       prefs.importKey(function(act){
         if(current()&&choice==="developer"&&(!wait||wait===w))ns=false;
         endWait(w);if(!current()||choice!=="developer"||wait)return false;

@@ -647,4 +647,46 @@ for(const mode of ['restart_required','timeout']){
  f.endAnimations();
  assert.equal(guidance.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),false);
 }
+// A second preference save failing behind queued Apply changes or Import public key after the first
+// save reconciles must build Restart Mazda Connect once, retain and complete its slide, and send zero queued actions.
+for(const action of ['restart','import']){
+ for(const mode of ['restart_required','timeout']){
+  f=warm({...developer,touch:0,touchCurrent:0,uart:0,uartCurrent:0});
+  f.fw._offscreenTemplateParent={appendChild(n){n.parentNode=this;},removeChild(n){n.parentNode=null;}};
+  if(action==='restart'){
+   select(f,0);select(f,1);select(f,2);
+   f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+   select(f,'restart');f.pick('restart');
+  }else{
+   select(f,'developer');select(f,'uart',{additionalData:1});f.pick('enable');
+   select(f,'uart',{additionalData:2});
+   select(f,'import');f.pick('import');
+  }
+  const waitDlg=f.dialog,pagesBefore=f.pages.length;
+  assert.equal(f.operation('set').length,1);
+  f.reply(f.operation('set')[0],null);
+  const mid=action==='restart'
+   ?f.state({...developer,touch:1,touchCurrent:0,restart:true,revision:'d'.repeat(64)})
+   :f.state({...developer,uart:1,uartCurrent:0,restart:true,revision:'d'.repeat(64)});
+  f.reply(f.requests.at(-1),mid);
+  assert.equal(f.dialog,waitDlg,action+'/'+mode+': progress dialog stays open across reconciled save #1');
+  assert.equal(f.pages.length,pagesBefore,action+'/'+mode+': reconciled save #1 builds zero pages behind progress');
+  assert.equal(f.operation('set').length,2);
+  if(mode==='restart_required'){
+   f.reply(f.operation('set')[1],{ok:false,error:'restart_required'});
+   f.reply(f.requests.at(-1),mid);
+  }else{
+   f.reply(f.operation('set')[1],null);
+   f.advance(12000);
+  }
+  assert.equal(f.pages.length,pagesBefore+1,action+'/'+mode+': failed save #2 must build guidance once');
+  const g=f.pages.at(-1);
+  assert.equal(g.cleaned,undefined);
+  assert.equal(g.list2Ctrl.title.text1,'Restart Mazda Connect');
+  assert.ok(g.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),action+'/'+mode+': incoming slide must remain active');
+  f.endAnimations();
+  assert.equal(g.divElt.classes.has('Transitions_slideInRightTmpltWithStatusLeftBtn_0_400'),false);
+  assert.equal(f.operation(action).length,0,action+'/'+mode+': failed save #2 must send zero queued actions');
+ }
+}
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

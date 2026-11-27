@@ -184,3 +184,157 @@ int oc_lookup_vui_pin(const char *modules, const char *plugin, char out[65]) {
     }
     return hits==1;
 }
+
+static int oc_no_cntrl(const char *p) {
+    for (; *p; ++p) if ((unsigned char)*p<32 || (unsigned char)*p==127) return 0;
+    return 1;
+}
+
+static int oc_member_name_ok(const char *p) {
+    unsigned n=0;
+    if (!((*p>='A'&&*p<='Z')||(*p>='a'&&*p<='z')||*p=='_')) return 0;
+    for (; *p; ++p) {
+        if (++n>64 || !((*p>='A'&&*p<='Z')||(*p>='a'&&*p<='z')||(*p>='0'&&*p<='9')||*p=='_')) return 0;
+    }
+    return n>0;
+}
+
+int oc_catalog_load(char *text, unsigned bytes, OcCatalog *cat) {
+    cat->count=0;
+    if (bytes>16384) return 0;
+    char *seen_members[128]; unsigned mcount=0;
+    char *p=text; unsigned counted=0;
+    while (*p) {
+        char *line=p;
+        while (*p && *p!='\n') ++p;
+        if (!*p) return 0;
+        *p++=0;
+        unsigned llen=oc_length(line);
+        counted+=llen+1;
+        if (!llen || line[0]=='#') continue;
+        if (!oc_no_cntrl(line)) return 0;
+        char *cols[6];
+        if (oc_fields(line,cols,6)!=6) return 0;
+        if (!oc_service_id(cols[0]) || cat->count==16) return 0;
+        if (cat->count && oc_order(cols[0],cat->rows[cat->count-1].id)<=0) return 0;
+        if (!*cols[1] || oc_length(cols[1])>64 || !oc_bit(cols[2]) ||
+            !*cols[4] || oc_length(cols[4])>256 || !*cols[5] || oc_length(cols[5])>256) return 0;
+        /* Validate SM member list: 1..8 space-separated unique identifiers, canonical single spaces. */
+        char *m=cols[3]; unsigned mc=0;
+        if (!*m || *m==' ') return 0;
+        while (*m) {
+            char *tok=m;
+            while (*m && *m!=' ') ++m;
+            if (*m==' ') { *m++=0; if (!*m || *m==' ') return 0; }
+            if (++mc>8 || !oc_member_name_ok(tok) || mcount==128) return 0;
+            for (unsigned j=0; j<mcount; ++j) if (oc_equal(seen_members[j],tok)) return 0;
+            seen_members[mcount++]=tok;
+        }
+        OcService *row=&cat->rows[cat->count++];
+        row->id=cols[0]; row->label=cols[1]; row->def=cols[2]; row->enable=cols[4]; row->disable=cols[5];
+    }
+    return cat->count>0 && counted==bytes;
+}
+
+int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out) {
+    unsigned mode, uid, gid;
+    out->is_oc2=0; out->has_autoshow=0; out->svc_count=0;
+    out->package="-"; out->touch="0"; out->warning="0"; out->nvram="absent";
+    out->metadata=""; out->base="0"; out->wireless="0"; out->autoshow="0"; out->pandora="1";
+    if (!oc_prefix(text,"OC2\n")) {
+        char *f[5];
+        if (active || !oc_one_line(text) || oc_fields(text,f,5)!=5 || !oc_equal(f[0],"-")) return 0;
+        if (!oc_bit(f[1])||!oc_bit(f[2])||!oc_nvram_value(f[3])||!oc_metadata_mode(f[4],&mode,&uid,&gid)) return 0;
+        out->package=f[0]; out->touch=f[1]; out->warning=f[2]; out->nvram=f[3]; out->metadata=f[4];
+        return 1;
+    }
+    if (!active) return 0;
+    out->is_oc2=1;
+    char *ids[16]; unsigned count=0, seen=0, service_seen=0;
+    const char *keys[]={"package","touch","warning","nvram","metadata","base","wireless"};
+    char *previous="", *p=text+4;
+    while (*p) {
+        char *key=p, *value=0;
+        while (*p && *p!='\n') {
+            if ((unsigned char)*p<32 || (unsigned char)*p==127) return 0;
+            if (*p=='=') { if (value) return 0; *p=0; value=p+1; }
+            ++p;
+        }
+        if (!*p || !value || !*value) return 0;
+        *p++=0;
+        if (oc_order(key,previous)<=0) return 0;
+        previous=key;
+        if (oc_equal(key,"carplay-autoshow")) {
+            if (!oc_bit(value)) return 0;
+            out->autoshow=value; out->has_autoshow=1; continue;
+        }
+        if (oc_equal(key,"service-ids")) {
+            if (!oc_service_keys(value,ids,&count)) return 0;
+            seen|=128; continue;
+        }
+        unsigned found=0;
+        for (unsigned i=0; i<7; ++i) if (oc_equal(key,keys[i])) {
+            switch (i) {
+                case 0: out->package=value; break;
+                case 1: out->touch=value; break;
+                case 2: out->warning=value; break;
+                case 3: out->nvram=value; break;
+                case 4: out->metadata=value; break;
+                case 5: out->base=value; break;
+                case 6: out->wireless=value; break;
+            }
+            seen|=1u<<i; found=1; break;
+        }
+        if (found) continue;
+        if (!oc_prefix(key,"service.") || !oc_bit(value)) return 0;
+        for (unsigned i=0; i<count; ++i) if (oc_equal(key+8,ids[i])) {
+            service_seen|=1u<<i; found=1;
+            out->svc_ids[i]=ids[i]; out->svc_vals[i]=value;
+            if (oc_equal(ids[i],"pandora")) out->pandora=value;
+            break;
+        }
+        if (!found) return 0;
+    }
+    out->svc_count=count;
+    if (seen!=255 || service_seen!=((1u<<count)-1)) return 0;
+    if (!oc_hex(out->package,64) || !(oc_bit(out->touch)||oc_equal(out->touch,"2")) ||
+        !oc_bit(out->warning) || !oc_nvram_value(out->nvram) ||
+        !oc_metadata_mode(out->metadata,&mode,&uid,&gid) || !oc_bit(out->base) || !oc_bit(out->wireless)) return 0;
+    if (cat) {
+        if (count!=cat->count) return 0;
+        for (unsigned i=0; i<count; ++i) if (!oc_equal(ids[i],cat->rows[i].id)) return 0;
+    }
+    return 1;
+}
+
+static int oc_append(char *out, unsigned cap, unsigned *at, const char *s) {
+    unsigned n=oc_length(s);
+    if (*at+n>=cap) return 0;
+    for (unsigned i=0; i<n; ++i) out[(*at)++]=s[i];
+    out[*at]=0;
+    return 1;
+}
+
+int oc_prefs_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned cap) {
+    unsigned at=0;
+    if (!cat || !cat->count || cat->count!=p->svc_count) return 0;
+    if (!oc_append(out,cap,&at,"OC2\nbase=") || !oc_append(out,cap,&at,p->base) ||
+        !oc_append(out,cap,&at,"\ncarplay-autoshow=") || !oc_append(out,cap,&at,p->autoshow) ||
+        !oc_append(out,cap,&at,"\nmetadata=") || !oc_append(out,cap,&at,p->metadata) ||
+        !oc_append(out,cap,&at,"\nnvram=") || !oc_append(out,cap,&at,p->nvram) ||
+        !oc_append(out,cap,&at,"\npackage=") || !oc_append(out,cap,&at,p->package) ||
+        !oc_append(out,cap,&at,"\nservice-ids=")) return 0;
+    for (unsigned i=0; i<cat->count; ++i) {
+        if (i && !oc_append(out,cap,&at,",")) return 0;
+        if (!oc_append(out,cap,&at,cat->rows[i].id)) return 0;
+    }
+    for (unsigned i=0; i<cat->count; ++i) {
+        if (!oc_append(out,cap,&at,"\nservice.") || !oc_append(out,cap,&at,cat->rows[i].id) ||
+            !oc_append(out,cap,&at,"=") || !oc_append(out,cap,&at,p->svc_vals[i])) return 0;
+    }
+    if (!oc_append(out,cap,&at,"\ntouch=") || !oc_append(out,cap,&at,p->touch) ||
+        !oc_append(out,cap,&at,"\nwarning=") || !oc_append(out,cap,&at,p->warning) ||
+        !oc_append(out,cap,&at,"\nwireless=") || !oc_append(out,cap,&at,p->wireless) ||
+        !oc_append(out,cap,&at,"\n")) return 0;
+    return at<=1023;
+}

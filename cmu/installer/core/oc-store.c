@@ -195,9 +195,13 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
             oc_write_all((int)plan_fd,b->record_fields[3],64) &&
             oc_write_all((int)plan_fd,"\n",1);
     }
+    int reuse_touch = same_t2 && oc_equal(new_flags[1],"2") && b->touch_drift<=1;
+    int reuse_base = same_b && same_svc && oc_equal(new_flags[6],"1");
     for (unsigned i=0; ok&&i<b->input_count; ++i) {
         OcInput *row=&b->inputs[i];
-        if (oc_prefix(row->key,"current/")||oc_prefix(row->key,"touch/devices/")||oc_prefix(row->key,"base/")) continue;
+        if (oc_prefix(row->key,"current/")) continue;
+        if (oc_prefix(row->key,"touch/devices/") && !reuse_touch) continue;
+        if (oc_prefix(row->key,"base/") && !reuse_base) continue;
         ok=oc_emit_plan_row((int)plan_fd,row->key,row->path,row->digest,&row->meta,row->absent);
     }
     for (unsigned i=0; ok&&i<mcount; ++i) {
@@ -206,7 +210,7 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
             oc_join(path,sizeof path,"@/",members[i]) &&
             oc_emit_plan_row((int)plan_fd,key,path,oc_pub.m_digest[i],&oc_pub.m_meta[i],0);
     }
-    if (ok && oc_equal(new_flags[1],"2")) {
+    if (ok && oc_equal(new_flags[1],"2") && !reuse_touch) {
         for (unsigned i=0; ok&&i<2; ++i) {
             int pr=oc_emit_external_pin((int)plan_fd,b,oc_touch_pins[i].key,oc_touch_pins[i].path,
                                         oc_pin_digest(oc_touch_pins[i].key,oc_touch_pins[i].digest),1);
@@ -214,7 +218,7 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
         }
     }
     if (ok) ok=oc_verified_text((int)work,"vui-plugins.list",oc_pub.m_digest[vui_idx],oc_pub.vui_list,sizeof oc_pub.vui_list);
-    if (ok && oc_equal(new_flags[6],"1")) {
+    if (ok && oc_equal(new_flags[6],"1") && !reuse_base) {
         for (unsigned i=0; ok&&i<5; ++i) {
             int pr=oc_emit_external_pin((int)plan_fd,b,oc_base_pins[i].key,oc_base_pins[i].path,
                                         oc_pin_digest(oc_base_pins[i].key,oc_base_pins[i].digest),oc_base_pins[i].stock);
@@ -241,7 +245,7 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
             if (pr) { err_rc=pr==1?93:1; ok=0; }
         }
         if (ok && vcount<36) ok=0;
-    } else if (ok && oc_pub.vui_list[0]!=0) ok=0;
+    } else if (ok && !oc_equal(new_flags[6],"1") && oc_pub.vui_list[0]!=0) ok=0;
     if (plan_fd>=0) {
         if (ok) ok=oc_mode((int)plan_fd,0600)>=0 && oc_sync((int)plan_fd)>=0;
         if (oc_close((int)plan_fd)<0) ok=0;

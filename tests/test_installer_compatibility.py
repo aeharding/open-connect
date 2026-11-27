@@ -18,7 +18,7 @@ class PredecessorMaintenance(unittest.TestCase):
     def setUpClass(cls):
         cls.build = tempfile.TemporaryDirectory()
         cls.program = Path(cls.build.name) / "boot-select"
-        core_srcs = sorted((ASSETS / "core").glob("*.c"))
+        core_srcs = [p for p in sorted((ASSETS / "core").glob("*.c")) if p.name != "oc-api.c"]
         subprocess.run(
             [
                 "clang",

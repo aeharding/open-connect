@@ -44,7 +44,7 @@ class PageBudgets(unittest.TestCase):
             "dialog.js": 8192,
             "preferences.awk": 8192,
             "loader.js": 4096,
-            "backend.sh": 24576,
+            "backend.sh": 16384,
             "state.sh": 20480,
             "firmware.sh": 45056,
             "transaction.sh": 16384,

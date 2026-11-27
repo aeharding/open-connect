@@ -632,7 +632,14 @@ class InstallerService(unittest.TestCase):
         result = self.boot()
         self.assertEqual(result.returncode, 0, result.stderr)
         session = (self.runtime / "runtime").resolve()
-        for name in ("LICENSE", "boot-select", "native.bin", "sm-profile.awk"):
+        for name in (
+            "LICENSE",
+            "boot-select",
+            "native.bin",
+            "sm-profile.awk",
+            "preferences.awk",
+            "services.tsv",
+        ):
             self.assertFalse((session / name).exists())
         for name in ("runtime.js", "dialog.js", "settings.js", "service.sh", "flush"):
             self.assertEqual((session / name).stat().st_ino, (feature / name).stat().st_ino)

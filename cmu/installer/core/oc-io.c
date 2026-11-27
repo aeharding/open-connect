@@ -15,13 +15,15 @@
 #include <string.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #ifdef __linux__
 #include <sys/prctl.h>
 #endif
 
 long oc_openat(int parent, const char *path, unsigned options, unsigned mode) {
-    int flags=O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC;
+    int flags=O_CLOEXEC|O_NOFOLLOW;
+    if (!(options&OC_BLOCKING)) flags|=O_NONBLOCK;
     flags|=(options&OC_RW)?O_RDWR:((options&OC_WRITE)?O_WRONLY:O_RDONLY);
     if (options&OC_DIRECTORY) flags|=O_DIRECTORY;
     if (options&OC_CREATE) flags|=O_CREAT;
@@ -69,11 +71,38 @@ long oc_watch_parent(void) {
 long oc_owner(void) { return getuid(); }
 long oc_group(void) { return getgid(); }
 long oc_lock(int fd) { return flock(fd,LOCK_EX|LOCK_NB)<0?-errno:0; }
+long oc_lock_sh(int fd) { return flock(fd,LOCK_SH|LOCK_NB)<0?-errno:0; }
+long oc_unlock(int fd) { return flock(fd,LOCK_UN)<0?-errno:0; }
 int oc_lock_held_ex(int fd) {
     if (flock(fd,LOCK_SH|LOCK_NB)<0) return errno==EWOULDBLOCK || errno==EAGAIN;
     (void)flock(fd,LOCK_UN);
     return 0;
 }
+long oc_fork(void) { pid_t p=fork(); return p<0?-errno:(long)p; }
+long oc_waitpid(int pid, int *status) {
+    for (;;) {
+        pid_t r=waitpid(pid,status,0);
+        if (r<0 && errno==EINTR) continue;
+        return r<0?-errno:(long)r;
+    }
+}
+long oc_pipe(int fds[2]) {
+    if (pipe(fds)<0) return -errno;
+    (void)fcntl(fds[0],F_SETFD,FD_CLOEXEC);
+    (void)fcntl(fds[1],F_SETFD,FD_CLOEXEC);
+    return 0;
+}
+long oc_dup2(int oldfd, int newfd) { return dup2(oldfd,newfd)<0?-errno:0; }
+long oc_execve(const char *path, char *const argv[], char *const envp[]) {
+    execve(path,argv,envp); return -errno;
+}
+void oc_exit(int code) { _exit(code); }
+long oc_set_cloexec(int fd, int on) { return fcntl(fd,F_SETFD,on?FD_CLOEXEC:0)<0?-errno:0; }
+const char *oc_root_path(void) {
+    const char *r=getenv("OC_HOST_ROOT");
+    return (r && *r=='/') ? r : "/";
+}
+int oc_nonroot_allowed(void) { return getenv("OC_HOST_NONROOT")!=0; }
 long oc_mkdir(int fd, const char *name, unsigned mode) { return mkdirat(fd,name,mode)<0?-errno:0; }
 long oc_unlink(int fd, const char *name) { return unlinkat(fd,name,0)<0?-errno:0; }
 long oc_rmdirat(int fd, const char *name) { return unlinkat(fd,name,AT_REMOVEDIR)<0?-errno:0; }
@@ -180,6 +209,17 @@ int oc_dir_iter(int folder, int (*cb)(const char *name, void *ctx), void *ctx) {
 #if !defined(__arm__) || !defined(__ARM_EABI__)
 #error "Target requires 32-bit ARM EABI"
 #endif
+void *memcpy(void *dst, const void *src, unsigned n) {
+    unsigned char *d=(unsigned char *)dst;
+    const unsigned char *s=(const unsigned char *)src;
+    while (n--) *d++=*s++;
+    return dst;
+}
+void *memset(void *dst, int c, unsigned n) {
+    unsigned char *d=(unsigned char *)dst;
+    while (n--) *d++=(unsigned char)c;
+    return dst;
+}
 static long oc_syscall4(long number, long a, long b, long c, long d) {
     register long r0 __asm__("r0")=a;
     register long r1 __asm__("r1")=b;
@@ -190,7 +230,8 @@ static long oc_syscall4(long number, long a, long b, long c, long d) {
     return r0;
 }
 long oc_openat(int parent, const char *path, unsigned options, unsigned mode) {
-    unsigned flags=0100000|04000|0400000|02000000; /* ARM NOFOLLOW/NONBLOCK/LARGEFILE/CLOEXEC */
+    unsigned flags=0400000|02000000|0100000; /* ARM LARGEFILE|CLOEXEC|NOFOLLOW */
+    if (!(options&OC_BLOCKING)) flags|=04000; /* O_NONBLOCK */
     flags|=(options&OC_RW)?2:((options&OC_WRITE)?1:0);
     if (options&OC_DIRECTORY) flags|=040000;
     if (options&OC_CREATE) flags|=0100;
@@ -232,12 +273,35 @@ long oc_watch_parent(void) { return oc_syscall4(172,1,15,0,0); }
 long oc_owner(void) { return oc_syscall4(199,0,0,0,0); }
 long oc_group(void) { return oc_syscall4(200,0,0,0,0); }
 long oc_lock(int fd) { return oc_syscall4(143,fd,6,0,0); }
+long oc_lock_sh(int fd) { return oc_syscall4(143,fd,5,0,0); }
+long oc_unlock(int fd) { return oc_syscall4(143,fd,8,0,0); }
 int oc_lock_held_ex(int fd) {
     long r=oc_syscall4(143,fd,5,0,0); /* LOCK_SH|LOCK_NB */
     if (r==-11) return 1; /* EAGAIN/EWOULDBLOCK: exclusive lock is held */
     if (r>=0) (void)oc_syscall4(143,fd,8,0,0); /* LOCK_UN */
     return 0;
 }
+long oc_fork(void) { return oc_syscall4(2,0,0,0,0); }
+long oc_waitpid(int pid, int *status) {
+    for (;;) {
+        long r=oc_syscall4(114,pid,(long)status,0,0);
+        if (r==-4) continue;
+        return r;
+    }
+}
+long oc_pipe(int fds[2]) {
+    long r=oc_syscall4(42,(long)fds,0,0,0);
+    if (r>=0) { (void)oc_syscall4(55,fds[0],2,1,0); (void)oc_syscall4(55,fds[1],2,1,0); }
+    return r;
+}
+long oc_dup2(int oldfd, int newfd) { return oc_syscall4(63,oldfd,newfd,0,0); }
+long oc_execve(const char *path, char *const argv[], char *const envp[]) {
+    return oc_syscall4(11,(long)path,(long)argv,(long)envp,0);
+}
+void oc_exit(int code) { (void)oc_syscall4(1,code,0,0,0); for(;;){} }
+long oc_set_cloexec(int fd, int on) { return oc_syscall4(55,fd,2,on?1:0,0); }
+const char *oc_root_path(void) { return "/"; }
+int oc_nonroot_allowed(void) { return 0; }
 long oc_mkdir(int fd, const char *name, unsigned mode) { return oc_syscall4(323,fd,(long)name,mode,0); }
 long oc_unlink(int fd, const char *name) { return oc_syscall4(328,fd,(long)name,0,0); }
 long oc_rmdirat(int fd, const char *name) { return oc_syscall4(328,fd,(long)name,0x200,0); }
@@ -459,3 +523,41 @@ int oc_random(int root, char out[33]) {
     out[32]=0;
     return 1;
 }
+
+int oc_join4(char *out, unsigned cap, const char *a, const char *b, const char *c, const char *d) {
+    const char *parts[4]={a,b,c,d};
+    unsigned at=0;
+    for (unsigned i=0; i<4; ++i) {
+        if (!parts[i]) continue;
+        unsigned n=oc_length(parts[i]);
+        if (at+n>=cap) return 0;
+        for (unsigned j=0; j<n; ++j) out[at++]=parts[i][j];
+    }
+    if (!cap) return 0;
+    out[at]=0;
+    return 1;
+}
+#ifdef OC_HOST
+static int oc_open_host_dir(const char *env_name, int root, const char *rel) {
+    const char *p=getenv(env_name);
+    if (p && *p) {
+        long fd=oc_openat(OC_CWD,p,OC_DIRECTORY,0);
+        if (fd<0) return -1;
+        if (!oc_private((int)fd)) { (void)oc_close((int)fd); return -1; }
+        return (int)fd;
+    }
+    return oc_open_private(root,rel);
+}
+int oc_open_data_dir(int root) { return oc_open_host_dir("OC_HOST_DATA",root,OC_DATA); }
+int oc_open_ram_dir(int root) { return oc_open_host_dir("OC_HOST_RAM",root,OC_RAM); }
+int oc_data_absent(int root) {
+    const char *p=getenv("OC_HOST_DATA");
+    if (p && *p) { OcMeta m; return oc_metadata(OC_CWD,p,&m)==-ENOENT; }
+    return oc_absent_at(root,OC_DATA);
+}
+int oc_data_base(const char *root_path, char *out, unsigned cap) {
+    const char *p=getenv("OC_HOST_DATA");
+    if (p && *p) return oc_join(out,cap,"",p);
+    return oc_join(out,cap,oc_equal(root_path,"/")?"":root_path,"/" OC_DATA);
+}
+#endif

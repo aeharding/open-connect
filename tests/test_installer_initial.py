@@ -224,8 +224,7 @@ flush() {
             capture_output=True,
             text=True,
             env={
-                **os.environ,
-                "PATH": str(self.tools) + os.pathsep + os.environ["PATH"],
+                **self.f.host_api_env(self.data),
                 "INITIAL_FAULT": fault,
                 "INITIAL_MODE": mode,
             },

@@ -58,14 +58,18 @@ void oc_hash_add(OcHash *h, const void *input, unsigned size) {
 
 void oc_hash_finish(OcHash *h, char output[65]) {
     static const char digits[]="0123456789abcdef";
-    oc_u64 bits=h->bytes<<3;
+    oc_u32 hi=((oc_u32)(h->bytes>>32)<<3)|((oc_u32)h->bytes>>29);
+    oc_u32 lo=(oc_u32)h->bytes<<3;
     h->block[h->used++]=0x80;
     if (h->used>56) {
         while (h->used<64) h->block[h->used++]=0;
         oc_hash_block(h); h->used=0;
     }
     while (h->used<56) h->block[h->used++]=0;
-    for (unsigned i=0; i<8; ++i) h->block[63-i]=(oc_u8)(bits>>(i*8));
+    h->block[56]=(oc_u8)(hi>>24); h->block[57]=(oc_u8)(hi>>16);
+    h->block[58]=(oc_u8)(hi>>8);  h->block[59]=(oc_u8)hi;
+    h->block[60]=(oc_u8)(lo>>24); h->block[61]=(oc_u8)(lo>>16);
+    h->block[62]=(oc_u8)(lo>>8);  h->block[63]=(oc_u8)lo;
     oc_hash_block(h);
     for (unsigned i=0; i<64; ++i) output[i]=digits[(h->state[i/8]>>(28-(i%8)*4))&15];
     output[64]=0;

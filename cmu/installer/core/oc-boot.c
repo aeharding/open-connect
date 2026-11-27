@@ -442,6 +442,32 @@ static int oc_select(OcBoot *b, int root) {
     return b->selected?0:OC_STOCK;
 }
 
+int oc_record_commit(OcBoot *b) {
+    if (!oc_random(b->root,b->nonce)) return 0;
+    b->record_fields[2]=b->nonce; b->record_fields[8]="-";
+    b->next[0]=0;
+    for (unsigned i=0; i<13; ++i)
+        if (!oc_join(b->next,sizeof b->next,b->next,b->record_fields[i]) ||
+            !oc_join(b->next,sizeof b->next,b->next,i==12?"\n":"|")) return 0;
+    char name[64];
+    if (!oc_join(name,sizeof name,"record.",b->nonce)) return 0;
+    long fd=oc_openat(b->data,name,OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
+    if (fd<0) return 0;
+    int ok=oc_write_all((int)fd,b->next,oc_length(b->next)) && oc_mode((int)fd,0600)>=0;
+    oc_stamp(b,"record_written"); oc_cut("record_written");
+    if (ok) ok=oc_sync((int)fd)>=0;
+    oc_stamp(b,"record_synced"); oc_cut("record_synced");
+    if (oc_close((int)fd)<0) ok=0;
+    if (!ok) return 0;
+    if (oc_rename(b->data,name,"record")<0) return 0;
+    b->debited=1;
+    oc_stamp(b,"record_renamed"); oc_cut("record_renamed");
+    if (oc_sync(b->data)<0) return 0;
+    oc_stamp(b,"directory_synced"); oc_cut("directory_synced");
+    if (oc_text(b->data,"record",b->scratch,sizeof b->scratch,0)<0 || !oc_equal(b->scratch,b->next)) return 0;
+    return 1;
+}
+
 void oc_close_boot(OcBoot *b) {
     int handles[]={b->log,b->observer,b->stage,b->composed,b->package,
         b->baseline,b->snapshot,b->lock,b->ram,b->data};

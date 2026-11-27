@@ -48,6 +48,8 @@ class TouchOldMedia(unittest.TestCase):
         # from temporary path and random-source substitution.
         shutil.copyfile(f.tools / "flush", self.media / "flush")
         (self.media / "flush").chmod(0o700)
+        shutil.copyfile(f.tools / "api", self.media / "api")
+        (self.media / "api").chmod(0o700)
         runtime = f.root / "runtime"
         login = f.root / "runlogin"
         login.write_text("host original login\n")
@@ -132,7 +134,7 @@ boot_snapshot_seal() { printf '%s\n' "$1"; }
                 "-",
                 "-",
             ],
-            env={**os.environ, "PATH": str(self.fixture.tools) + os.pathsep + os.environ["PATH"]},
+            env=self.fixture.host_api_env(self.data),
             capture_output=True,
             text=True,
             timeout=20,

@@ -156,11 +156,11 @@ snapshot_package() {
     hex "$digest" 64 && sha_is "$dir/config" "$digest" || return 1
   awk '
         NR==1 {if($0=="OC2")modern=1;else {
-            n=split($0,a,"|");if(n!=5||a[1]!="-")exit 1;p=a[1];count++
+            n=split($0,a,"|");if(n!=5||a[1]!="-"){bad=1;exit 1};p=a[1];count++
         }}
-        NR>1&&!modern {exit 1}
+        NR>1&&!modern {bad=1;exit 1}
         modern&&/^package=/ {p=substr($0,9);count++}
-        END {if(count!=1||(p!="-"&&(length(p)!=64||p~/[^a-f0-9]/)))exit 1;print p}
+        END {if(bad||count!=1||(p!="-"&&(length(p)!=64||p~/[^a-f0-9]/)))exit 1;print p}
     ' "$dir/config"
 }
 
@@ -416,16 +416,5 @@ _snapshot_create() (
 )
 
 gc_snap() {
-  local b=${BOOT_SELECT:-} dir h
-  if test -n "$b"; then
-    file "$b" || return 0
-  else
-    hex "${R_BACKEND:-}" 64 || return 0
-    dir=$D/packages/$R_BACKEND; b=$dir/boot-select
-    private_dir "$dir" && file "$dir/files.sha256" && sha_is "$dir/files.sha256" "$R_BACKEND" &&
-      file "$b" && test "$(stat -c '%a:%u:%g' "$b")" = "700:$request_owner" || return 0
-    h=$(awk '$2=="boot-select"{n++;v=$1;if(NF!=2)bad=1}END{if(bad||n!=1)exit 1;print v}' "$dir/files.sha256") &&
-      hex "$h" 64 && sha_is "$b" "$h" || return 0
-  fi
-  "$b" gc / 9 >/dev/null 2>&1 || :
+  hex "${R_BACKEND:-}" 64 && test -n "${P:-}" && test -x "$P/api" && "$P/api" --gc "$R_BACKEND" 9 >/dev/null 2>&1 || :
 }

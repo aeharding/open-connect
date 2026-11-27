@@ -312,21 +312,21 @@ boot_select_verified() {
   local d=$D/packages/$R_BACKEND e a f
   test "$role" = settings || return 2
   file "$P/files.sha256" && sha_is "$P/files.sha256" "$R_BACKEND" || return 1
-  awk 'NF==2&&$2=="boot-select"{n++}END{exit n!=1}' "$P/files.sha256" || return 2
   e=$(awk -v d="$d" 'BEGIN{split("boot-select state.sh firmware.sh access.sh flush VERSION preferences.awk services.tsv sm-profile.awk ui-profile.awk ui-modules.tsv system-hook.js base-logging.js",m," ");for(i in m)w[m[i]]=1}
-NF==2&&($2 in w){if(length($1)!=64||$1~/[^a-f0-9]/||s[$2]++){b=1;exit 1};r[++n]=$1" *"d"/"$2}
-END{if(b||n!=13)exit 1;for(i=1;i<=n;i++)print r[i]}' "$P/files.sha256") || return 1
+NF!=2||length($1)!=64||$1~/[^a-f0-9]/{b=1;exit 1}$2=="boot-select"{bs++}($2 in w){if(s[$2]++){b=1;exit 1};r[++n]=$1" *"d"/"$2}
+END{if(b||bs>1)exit 1;if(!bs){print "NO_BS";exit 0};if(n!=13)exit 1;for(i=1;i<=n;i++)print r[i]}' "$P/files.sha256") || return 1
+  test "$e" != NO_BS || return 2
   private_dir "$d" && file "$d/boot-select" && test "$(stat -c '%a:%u:%g' "$d/boot-select")" = "700:$(id -u):$(id -g)" || return 1
   set --
-  while read -r _ f; do f=${f#\*}; test -f "$f" && test ! -L "$f" || return 1; set -- "$@" "$f"; done <<F
+  while read -r _ f; do f=${f#\*}; file "$f" || return 1; set -- "$@" "$f"; done <<F
 $e
 F
   a=$(sha_many "$@") && test "$a" = "$e" || return 1
   BOOT_SELECT=$d/boot-select
   d=$D/snapshots/$R_CURRENT; private_dir "$d" && file "$d/files.sha256" && sha_is "$d/files.sha256" "$R_CURRENT" || return 1
-  absent "$d/boot.plan" && { BOOT_SELECT=; return 2; }
-  VERIFIED_PACKAGE=$R_BACKEND; S_CUR=; snapshot_decode "$R_CURRENT" || return 1
-  test "$S_SCHEMA:$S_PACKAGE" = "OC2:$R_BACKEND" || { VERIFIED_PACKAGE=; BOOT_SELECT=; return 2; }
+  e=$(awk 'NF!=2||length($1)!=64||$1~/[^a-f0-9]/{b=1;exit 1}$2=="boot.plan"{c++}END{if(b||c>1)exit 1;print c+0}' "$d/files.sha256") || return 1
+  test "$e" != 0 || { BOOT_SELECT=; return 2; }
+  file "$d/boot.plan" || return 1
 }
 
 service_boot() {

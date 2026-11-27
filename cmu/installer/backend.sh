@@ -399,9 +399,16 @@ set|import)
     test "$(snapshot_package "$R_CURRENT")" = "$settings_package" || fail restart_required
   fi
   FAST_READY=0; BOOT_SELECT=; SEAL_BOOT_PLAN=0
-  if test "$operation:$D" = set:/tmp/mnt/data_persist/open-connect && test "$argument" != uart && test "$argument" != ssh; then
-    bs_rc=0; boot_select_verified || bs_rc=$?; test "$bs_rc" -ne 1 || fail state_changed
-    if test "$bs_rc" -eq 0; then FAST_READY=1; else BOOT_SELECT=; fi
+  if test "$operation" = set && test "$argument" != uart && test "$argument" != ssh; then
+    bs_rc=0; boot_select_verified || bs_rc=$?
+    case "$bs_rc" in
+      0) VERIFIED_PACKAGE=$R_BACKEND; S_CUR=; snapshot_decode "$R_CURRENT" || fail state_changed
+         if test "$S_SCHEMA" = dev9; then VERIFIED_PACKAGE=; BOOT_SELECT=
+         elif test "$S_SCHEMA:$S_PACKAGE" = "OC2:$R_BACKEND"; then FAST_READY=1
+         else fail state_changed; fi;;
+      2) BOOT_SELECT=;;
+      *) fail state_changed;;
+    esac
   fi
   if test "$FAST_READY" = 0; then targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed; VERIFIED_CURRENT=$R_CURRENT; VERIFIED_PACKAGE=$R_BACKEND; fi
   package=$S_PACKAGE; prefs=$S_PREFS; schema=$S_SCHEMA; mode=$S_META; test "$schema" = OC2 || test "$schema" = dev9 || fail unsupported_snapshot

@@ -224,29 +224,30 @@ access_pair_apply() {
 }
 
 fast_set_publish() {
-  local w cfg oldP=$P skip='|' t2=0 rc=0
+  local w cfg oldP=$P sk='|' t2=0 rc=0
   w=$(mktemp -d "$D/snapshots/.new-XXXXXX") || fail plan_failed
-  FAST_WORK=$w
-  trap 'record_clean; rm -rf "${FAST_WORK:-}"' EXIT
+  FW=$w
+  trap 'record_clean; test -z "${FW:-}" || rm -rf "$FW"' EXIT
+  trap 'exit 1' HUP INT TERM
   cfg=$(printf '%s\n' "$prefs" | awk -v operation=write -v catalog="$P/services.tsv" \
   -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v package_id="$package" \
   -v nvram_value="$nvram" -v metadata_value="$mode" \
   -v input=/dev/stdin -v input_bytes="$((${#prefs}+1))" -f "$P/preferences.awk") || fail plan_failed
   printf '%s\n' "$cfg" > "$w/config" && config_decode "$w/config" || fail plan_failed
   test "$S_TOUCH" != 2 || t2=1
-  test "$S_WARNING:$S_BASE:$S_SERVICES" != "$O_W:$O_B:$O_S" || skip="${skip}mmui|"
-  test "$S_BASE:$S_SERVICES" != "$O_B:$O_S" || skip="${skip}plugins|"
-  test "$t2:$S_WARNING:$S_BASE:$S_WIRELESS:$S_SERVICES" != "$O_T2:$O_W:$O_B:$O_WL:$O_S" || skip="${skip}sm|"
-  test "$S_WARNING:$S_BASE:$S_SERVICES:$S_AUTOSHOW" != "$O_W:$O_B:$O_S:$O_AS" || skip="${skip}index|"
-  if test "$skip" != '|mmui|plugins|sm|index|'; then
-    P=$D/packages/$package; FAST_FROM=$R_CURRENT; FAST_SKIP=$skip
-    boot_render_profiles "$w" "$w/config" || { P=$oldP; FAST_FROM=; FAST_SKIP=; fail state_changed; }
-    P=$oldP; FAST_FROM=; FAST_SKIP=
+  test "$S_WARNING:$S_BASE:$S_SERVICES" != "$O_W:$O_B:$O_S" || sk="${sk}mmui|"
+  test "$S_BASE:$S_SERVICES" != "$O_B:$O_S" || sk="${sk}plugins|"
+  test "$t2:$S_WARNING:$S_BASE:$S_WIRELESS:$S_SERVICES" != "$O_T2:$O_W:$O_B:$O_WL:$O_S" || sk="${sk}sm|"
+  test "$S_WARNING:$S_BASE:$S_SERVICES:$S_AUTOSHOW" != "$O_W:$O_B:$O_S:$O_AS" || sk="${sk}index|"
+  if test "$sk" != '|mmui|plugins|sm|index|'; then
+  P=$D/packages/$package; FAST_FROM=$R_CURRENT; FAST_SKIP=$sk
+  boot_render_profiles "$w" "$w/config" || { P=$oldP; FAST_FROM=; FAST_SKIP=; fail state_changed; }
+  P=$oldP; FAST_FROM=; FAST_SKIP=
   fi
   chmod 600 "$w"/* || fail plan_failed
   set -- seal-publish / "$R_CURRENT" "${w#/}"; test "$cur_nvram" = "$nvram" || set -- "$@" "$nvram"
   after=$("$BOOT_SELECT" "$@" 2>/dev/null) || rc=$?
-  rm -rf "$w"; FAST_WORK=
+  ! test -e "$w" && FW= || { rm -rf "$w" && FW=; }
   case "$rc" in 0) ;; 92) fail touch_inputs_changed;; 93) fail base_inputs_changed;; 95) return 2;; *) fail state_changed;; esac
   hex "$after" 64 && test "$(cat "$D/snapshots/$after/config")" = "$cfg" || fail plan_failed
   if test "$cur_nvram" != "$nvram"; then

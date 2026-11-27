@@ -72,13 +72,18 @@ DEPS
 }
 
 boot_dependencies_match() {
-  local snapshot=$1 digest name extra scope leaf target parent checked= seen='|' mapping pin key path
+  local snapshot=$1 digest name extra scope leaf target parent checked= seen='|' mapping pin key path t
   local members='|' member_count=1 package_count=0 manager=0 found expected= actual
   local composed='|' composed_count=0 composed_expected=1 root_count=0 root_expected=0
   while read -r digest name extra; do
     members="$members$name:$digest|"; member_count=$((member_count+1))
   done < "$P/files.sha256"
   members="${members}files.sha256:$R_BACKEND|"
+  private_dir "$P" || return 1
+  for t in "$P"/* "$P"/.[!.]* "$P"/..?*; do
+    absent "$t" && continue; file "$t" || return 1
+    case "$members" in *"|${t##*/}:"*) ;; *) return 1;; esac
+  done
   mapping=$(firmware_dependencies) || return 1
   while read -r pin key path; do
     if test "$key" != autostart; then root_expected=$((root_expected+1)); fi

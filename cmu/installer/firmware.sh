@@ -391,95 +391,76 @@ composed_members_verify() {
   test "$entries" -eq 13
 }
 
+fast_tpl() {
+  local d; d=$(awk -v k="$2" '$2==k{n++;d=$1;if(NF!=2)b=1}END{if(b||n!=1)exit 1;print d}' "$1") &&
+    file "$3" && test "$(stat -c %s "$3")" -le 262144 && if test -n "$4"; then cp "$3" "$4" && sha_is "$4" "$d"; else sha_is "$3" "$d"; fi
+}
 boot_render_profiles() {
-  local destination=$1 config=$2 source setting=off profile digest asset xml=/dev/null skip=${FAST_SKIP:-} f=${FAST_FROM:-}
+  local dst=$1 cfg=$2 src st=off p d a xml=/dev/null sk=${FAST_SKIP:-} f=${FAST_FROM:-}
   if test -z "$f"; then
-    config_decode "$config" && test "$S_SCHEMA" = OC2 || return 1
+    config_decode "$cfg" && test "$S_SCHEMA" = OC2 || return 1
     test "$S_TOUCH" != 2 || touch_inputs_verify || return 1
     composed_members_verify "$D/composed/$S_PACKAGE" || return 1
     test "${VERIFIED_PACKAGE:-}" = "$S_PACKAGE" || verify_manifest "$D/composed/$S_PACKAGE" || return 1
   fi
-  source=$D/composed/$S_PACKAGE
+  src=$D/composed/$S_PACKAGE
   test "$P" = "$D/packages/$S_PACKAGE" || return 1
-  test "$S_WARNING" != 1 || setting=on
+  test "$S_WARNING" != 1 || st=on
   set -- system-hook.js ui-profile.awk ui-modules.tsv
-  if test "$S_BASE" = 1; then
-    test -n "$f" || base_ui_inputs_verify || return 1
-    set -- "$@" base-logging.js
-  fi
+  if test "$S_BASE" = 1; then test -n "$f" || base_ui_inputs_verify || return 1; set -- "$@" base-logging.js; fi
   if test "${VERIFIED_PACKAGE:-}" != "$S_PACKAGE"; then
-    for asset in "$@"; do
-      test -f "$P/$asset" && test ! -L "$P/$asset" || return 1
-      digest=$(awk -v name="$asset" '$2==name{n++;print $1}END{exit n!=1}' "$P/files.sha256") || return 1
-      sha_is "$P/$asset" "$digest" || return 1
-    done
+    for a in "$@"; do file "$P/$a" && d=$(awk -v n="$a" '$2==n{c++;print $1}END{exit c!=1}' "$P/files.sha256") && sha_is "$P/$a" "$d" || return 1; done
   fi
-  case "$skip" in *'|mmui|'*) ;; *)
-    xml=$destination/.mmui-source
-    digest=$(original_files | awk '$2=="mmui.xml"{n++;print $1}END{exit n!=1}') || return 1
-    file "$D/originals/mmui.xml" && cp "$D/originals/mmui.xml" "$xml" && sha_is "$xml" "$digest" || return 1;; esac
-  for asset in mmui plugins; do
-    case "$skip" in *"|$asset|"*) continue;; esac
-    profile=vui-plugins.list; test "$asset" != mmui || profile=mmui.xml
-    awk -v operation=compose -v ui_mode="$asset" -v modules="$P/ui-modules.tsv" -v catalog="$P/services.tsv" \
-      -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" -v input_bytes="$(wc -c < "$config")" \
-      -f "$P/preferences.awk" -f "$P/ui-profile.awk" "$xml" > "$destination/$profile" || return 1
+  case "$sk" in *'|mmui|'*) ;; *)
+    xml=$dst/.mmui-source; d=$(original_files | awk '$2=="mmui.xml"{n++;print $1}END{exit n!=1}') || return 1
+    file "$D/originals/mmui.xml" && test "$(stat -c %s "$D/originals/mmui.xml")" -le 262144 && cp "$D/originals/mmui.xml" "$xml" && sha_is "$xml" "$d" || return 1;; esac
+  for a in mmui plugins; do
+    case "$sk" in *"|$a|"*) continue;; esac
+    p=vui-plugins.list; test "$a" != mmui || p=mmui.xml
+    awk -v operation=compose -v ui_mode="$a" -v modules="$P/ui-modules.tsv" -v catalog="$P/services.tsv" \
+      -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$cfg" -v input_bytes="$(wc -c < "$cfg")" \
+      -f "$P/preferences.awk" -f "$P/ui-profile.awk" "$xml" > "$dst/$p" || return 1
   done
   test "$xml" = /dev/null || rm "$xml" || return 1
-  if test "$S_BASE" = 1 && test -z "$f"; then vui_inputs_verify "$destination/vui-plugins.list" || return 1; fi
-  case "$skip" in *'|sm|'*) ;; *)
-    for profile in normal wcp; do
-      asset=$source/sm-$profile-$setting.conf; file "$asset" || return 1
-      awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" \
-        -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" "$asset" > "$destination/sm-$profile.conf" || return 1
+  if test "$S_BASE" = 1 && test -z "$f"; then vui_inputs_verify "$dst/vui-plugins.list" || return 1; fi
+  if test -n "$f" && case "$sk" in *'|sm|'*'|index|'*) false;; *) true;; esac; then
+    fast_tpl "$D/snapshots/$f/files.sha256" dependencies "$D/snapshots/$f/dependencies" "" &&
+      private_dir "$src" && fast_tpl "$D/snapshots/$f/dependencies" "composed-$S_PACKAGE/files.sha256" "$src/files.sha256" "" || return 1
+  fi
+  case "$sk" in *'|sm|'*) ;; *)
+    for p in normal wcp; do
+      a=$src/sm-$p-$st.conf
+      if test -n "$f"; then fast_tpl "$src/files.sha256" "sm-$p-$st.conf" "$a" "$dst/.tpl" || return 1; a=$dst/.tpl; fi
+      awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$cfg" \
+        -v input_bytes="$(wc -c < "$cfg")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" "$a" > "$dst/sm-$p.conf" || return 1
+      test -z "$f" || rm "$dst/.tpl" || return 1
     done;; esac
-  case "$skip" in *'|index|'*) return 0;; esac
-  asset=$source/index-$setting.html; file "$asset" || return 1
+  case "$sk" in *'|index|'*) return 0;; esac
+  a=$src/index-$st.html
+  if test -n "$f"; then fast_tpl "$src/files.sha256" "index-$st.html" "$a" "$dst/.tpl" || return 1; a=$dst/.tpl; fi
   awk -v base="$S_BASE" -v warning="$S_WARNING" -v services="$S_SERVICES" -v autoshow="$S_AUTOSHOW" \
     -v hook="$P/system-hook.js" -v logger="$P/base-logging.js" '
-        BEGIN {
-            count=split(services,entries,",")
-            for(i=1;i<=count;i++) {split(entries[i],pair,"=");choice[pair[1]]=pair[2]}
-            if(base=="1") hidden="stitcher,dab,tv,aharadio,dvd,"
-            if(choice["pandora"]=="0") hidden=hidden "pandora,"
-            if(choice["siriusxm"]=="0") hidden=hidden "satradio,xmaudio,xmdata,"
-            aa_guard=(base=="1" && choice["android-auto"]=="0")
-            if(aa_guard) hidden=hidden "androidauto,"
-            sub(/,$/,"",hidden)
-            needed=(warning=="1" || hidden!="")
-        }
-        base=="1" && /src="common\/js\/logDefaults[.]js"/ {
-            print; print "<script>"
-            while((r=getline line < logger)>0)print line
-            if(r<0)exit 1
-            close(logger); print "</script>"; logging++; next
-        }
-        /framework[.]init[(][)][;]/ {
-          if(needed) {
-            while((r=getline line < hook)>0) {
-                if(index(line,"/* OPEN_CONNECT_AA_BEGIN */")) {aa_block=1;continue}
-                if(index(line,"/* OPEN_CONNECT_AA_END */")) {aa_block=0;continue}
-                if(!aa_guard && (aa_block || index(line,"/* OPEN_CONNECT_AA_CALL */"))) continue
-                sub(/ \/[*] OPEN_CONNECT_AA_CALL [*]\//,"",line)
-                if(index(line,"/*OPEN_CONNECT_APPLIED*/")) {
-                    if(sub(/\/[*]OPEN_CONNECT_APPLIED[*]\//,warning ",\"" hidden "\"",line)!=1)exit 1
-                    applied++
-                }
-                sub(/^[ \t]+/,"",line);print line
-            }
-            if(r<0)exit 1
-            close(hook);hooked++
-          }
-          if(autoshow=="1") {
-            print "</script>"
-            print "<script src=\"file:///tmp/open-connect/feature/carplay.js\"></script>"
-            print "<script>"
-          }
-        }
-        {print}
-        END {if((base=="1" && logging!=1) || (needed && (hooked!=1 || applied!=1)))exit 1}
-    ' "$asset" > "$destination/index.html" || return 1
-  awk '{n+=gsub(/@TOKEN@/,"@TOKEN@")}END{exit n!=1}' "$destination/index.html"
+BEGIN{c=split(services,e,",");for(i=1;i<=c;i++){split(e[i],p,"=");ch[p[1]]=p[2]}
+if(base=="1")h="stitcher,dab,tv,aharadio,dvd,"
+if(ch["pandora"]=="0")h=h "pandora,"
+if(ch["siriusxm"]=="0")h=h "satradio,xmaudio,xmdata,"
+ag=(base=="1"&&ch["android-auto"]=="0");if(ag)h=h "androidauto,"
+sub(/,$/,"",h);nd=(warning=="1"||h!="")}
+base=="1"&&/src="common\/js\/logDefaults[.]js"/{print;print "<script>"
+while((r=getline ln<logger)>0)print ln;if(r<0)exit 1;close(logger);print "</script>";lg++;next}
+/framework[.]init[(][)][;]/{if(nd){while((r=getline ln<hook)>0){
+if(index(ln,"/* OPEN_CONNECT_AA_BEGIN */")){ab=1;continue}
+if(index(ln,"/* OPEN_CONNECT_AA_END */")){ab=0;continue}
+if(!ag&&(ab||index(ln,"/* OPEN_CONNECT_AA_CALL */")))continue
+sub(/ \/[*] OPEN_CONNECT_AA_CALL [*]\//,"",ln)
+if(index(ln,"/*OPEN_CONNECT_APPLIED*/")){if(sub(/\/[*]OPEN_CONNECT_APPLIED[*]\//,warning ",\"" h "\"",ln)!=1)exit 1;ap++}
+sub(/^[ \t]+/,"",ln);print ln};if(r<0)exit 1;close(hook);hk++}
+if(autoshow=="1"){print "</script>";print "<script src=\"file:///tmp/open-connect/feature/carplay.js\"></script>";print "<script>"}}
+{print}
+END{if((base=="1"&&lg!=1)||(nd&&(hk!=1||ap!=1)))exit 1}
+' "$a" > "$dst/index.html" || return 1
+  test -z "$f" || rm "$dst/.tpl" || return 1
+  awk '{n+=gsub(/@TOKEN@/,"@TOKEN@")}END{exit n!=1}' "$dst/index.html"
 }
 
 boot_plan_inputs() {

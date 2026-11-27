@@ -1713,6 +1713,34 @@ package_save
         )
         pre.unlink()
 
+        # Modified supplied reusable profile (vui-plugins.list unchanged by warning 1->0) is refused.
+        orig_vui_p = (work / "vui-plugins.list").read_bytes()
+        (work / "vui-plugins.list").write_bytes(b"tampered-reusable\n")
+        (work / "vui-plugins.list").chmod(0o600)
+        self.assertEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(work.relative_to(self.root)),
+            ).returncode,
+            1,
+        )
+        (work / "vui-plugins.list").write_bytes(orig_vui_p)
+        (work / "vui-plugins.list").chmod(0o600)
+        for cleanup in (
+            "autostart",
+            "dependencies",
+            "selector",
+            "access",
+            "runlogin",
+            "sshd.conf",
+            "boot.plan",
+            "files.sha256",
+        ):
+            if (work / cleanup).exists():
+                (work / cleanup).unlink()
+
         # Omitting a profile whose input changed (warning 1->0 requires mmui.xml) is refused.
         orig_mmui_p = (work / "mmui.xml").read_bytes()
         (work / "mmui.xml").unlink()
@@ -2197,6 +2225,22 @@ package_save
         old_ram = self.ram / "session-old"
         shutil.copytree(old_pkg, old_ram)
         self.assertEqual(check(backend=old_pkg.name, ram=old_ram), 2)
+        # Missing declared boot.plan in authenticated manifest hard-fails (rc=1, NEVER rc=2).
+        bp = snap / "boot.plan"
+        orig_bp = bp.read_bytes()
+        bp.unlink()
+        self.assertEqual(check(), 1)
+        bp.write_bytes(orig_bp)
+        bp.chmod(0o600)
+        # Genuinely unsealed snapshot (boot.plan absent from authenticated manifest) returns rc=2.
+        unsealed_dir = self.data / "snapshots/.new-unsealed"
+        unsealed_dir.mkdir(mode=0o700)
+        for p in sorted(snap.iterdir()):
+            if p.name not in ("files.sha256", "boot.plan"):
+                (unsealed_dir / p.name).write_bytes(p.read_bytes())
+                (unsealed_dir / p.name).chmod(0o600)
+        unsealed_snap = self.publish(unsealed_dir)
+        self.assertEqual(check(cur=unsealed_snap.name), 2)
         # Wrong mode on persistent boot-select hard-fails (rc=1).
         (pkg / "boot-select").chmod(0o600)
         self.assertEqual(check(), 1)
@@ -2395,16 +2439,144 @@ printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
         )
         nvram_file.write_text("disable\n")
         self.assertEqual(self._run_helper("audit", str(self.root), off_cur, rec[7]).returncode, 0)
-        # Restore active off_cur + absent NVRAM and complete touch 0 -> 1 cleanly.
+        # Restore active off_cur + absent NVRAM, then exercise post-NVRAM cut (after_nvram):
+        # NVRAM already matches candidate, pending OC1 intact, current-only audit refuses,
+        # and pending-set candidate audit succeeds immediately.
         nvram_file.unlink()
         rec[1] = "active"
         rec[6:8] = ["-", "-"]
         (self.data / "record").write_text("|".join(rec) + "\n")
+        cut_post = run_fast("touch", "1", cut_mode="after_nvram")
+        self.assertEqual(cut_post.returncode, 98, cut_post.stdout + cut_post.stderr)
+        rec2 = (self.data / "record").read_text().strip().split("|")
+        self.assertEqual((rec2[1], rec2[5], rec2[6]), ("set", off_cur, off_cur))
+        self.assertEqual(nvram_file.read_text(), "disable\n")
+        self.assertNotEqual(self._run_helper("audit", str(self.root), off_cur).returncode, 0)
+        self.assertEqual(self._run_helper("audit", str(self.root), off_cur, rec2[7]).returncode, 0)
+        # Restore active off_cur + absent NVRAM and complete touch 0 -> 1 cleanly.
+        nvram_file.unlink()
+        rec2[1] = "active"
+        rec2[6:8] = ["-", "-"]
+        (self.data / "record").write_text("|".join(rec2) + "\n")
         res_on = run_fast("touch", "1")
         self.assertEqual(res_on.returncode, 0, res_on.stdout + res_on.stderr)
         on_cur = json.loads(res_on.stdout)["current"]
         self.assertEqual(nvram_file.read_text(), "disable\n")
         self.assertEqual(self._run_helper("audit", str(self.root), on_cur).returncode, 0)
+
+        # Real backend.sh entry-point check on this rooted native fixture:
+        # exercises real backend.sh dispatch (boot_select_verified -> fast_set_publish ->
+        # status_view, no-op audit, and hard state_changed refusal on extra package file).
+        be_session = self.ram / "sessions/session-be0001"
+        be_session.mkdir(parents=True, mode=0o700)
+        for p in sorted(self.package.iterdir()):
+            (be_session / p.name).write_bytes(p.read_bytes())
+            (be_session / p.name).chmod(p.stat().st_mode & 0o777)
+        be_script = (ASSETS / "backend.sh").read_text()
+        be_script = (
+            be_script.replace("/tmp/mnt/data_persist/open-connect", str(self.data))
+            .replace("/tmp/open-connect", str(self.ram))
+            .replace("/usr/bin/autostart", str(self.root / "usr/bin/autostart"))
+            .replace("firmware_guard ", "# firmware_guard ")
+            .replace("flock -n -x 9 || fail busy", ":")
+            .replace("flock -n -s 9 || fail busy", ":")
+            .replace(
+                '. "$P/transaction.sh"',
+                '. "$P/transaction.sh"\n'
+                'uuid() { printf "%s\\n" "0123456789abcdef0123456789abcdef"; }\n'
+                "firmware_guard() { :; }\n"
+                "factory_wireless() { return 1; }\n"
+                'transaction_prepare() { echo "UNEXPECTED_SLOW_PATH" >&2; exit 77; }\n',
+            )
+        )
+        # Wrap persistent boot-select path inside fast_set_publish/no-op audit to supply self.root.
+        (be_session / "service.sh").write_text(
+            (be_session / "service.sh")
+            .read_text()
+            .replace(
+                "BOOT_SELECT=$d/boot-select",
+                f"BOOT_SELECT={shlex.quote(str(wrapper))}",
+            )
+        )
+        (be_session / "firmware.sh").write_text(
+            (be_session / "firmware.sh")
+            .read_text()
+            .replace("/proc/mounts", str(self.root / "proc/mounts"))
+            .replace("/tmp/mnt/data_persist/open-connect", str(self.data))
+            .replace("/tmp/open-connect", str(self.ram))
+        )
+        (be_session / "backend.sh").write_text(be_script)
+        (be_session / "backend.sh").chmod(0o700)
+        (self.ram / "lock").write_text("")
+        (self.ram / "lock").chmod(0o600)
+        (self.ram / "selected").write_text(on_cur + "\n")
+        (self.ram / "selected").chmod(0o600)
+        (self.ram / "boot-id").symlink_to(BOOT)
+        (self.ram / "runtime").symlink_to(be_session)
+
+        def call_backend(*args):
+            return subprocess.run(
+                ["sh", str(be_session / "backend.sh"), "api", *args],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+
+        # Data-only save through real backend.sh succeeds via fast path (never hits transaction_prepare).
+        be_set = call_backend(on_cur, "set", "carplay-autoshow", "1", "0")
+        self.assertEqual(be_set.returncode, 0, be_set.stdout + be_set.stderr)
+        be_out = json.loads(be_set.stdout)
+        self.assertTrue(be_out["ok"])
+        self.assertEqual(be_out["carplayAutoshow"], 0)
+        # No-op set through real backend.sh passes native audit.
+        be_noop = call_backend(be_out["revision"], "set", "carplay-autoshow", "0", "0")
+        self.assertEqual(be_noop.returncode, 0, be_noop.stdout + be_noop.stderr)
+        # Extra package file causes real backend.sh to hard-fail state_changed on both no-op and set.
+        pkg_extra = self.package / "be-extra"
+        pkg_extra.write_text("bad\n")
+        be_refuse_noop = call_backend(be_out["revision"], "set", "carplay-autoshow", "0", "0")
+        be_refuse_set = call_backend(be_out["revision"], "set", "carplay-autoshow", "0", "1")
+        pkg_extra.unlink()
+        self.assertNotEqual(be_refuse_noop.returncode, 0)
+        self.assertEqual(json.loads(be_refuse_noop.stdout)["error"], "state_changed")
+        self.assertNotEqual(be_refuse_set.returncode, 0)
+        self.assertEqual(json.loads(be_refuse_set.stdout)["error"], "state_changed")
+        on_cur = be_out["revision"]
+
+        # Extra package entry is also refused by shell fallback's boot_dependencies_match.
+        extra_fb = self.package / "stray-fallback"
+        extra_fb.write_text("stray\n")
+        fb_rc = subprocess.run(
+            [
+                "sh",
+                "-c",
+                'set -eu; D=$1; P=$2; R_BACKEND=$3; . "$P/state.sh"; . "$P/firmware.sh"; '
+                '. "$P/transaction.sh"; boot_dependencies_match "$4"',
+                "fb-member-check",
+                str(self.data),
+                str(self.package),
+                self.package_id,
+                on_cur,
+            ],
+            env=env,
+            capture_output=True,
+        ).returncode
+        extra_fb.unlink()
+        self.assertNotEqual(fb_rc, 0)
+
+        # Oversized composed template (> 262144 B) is refused before awk renders.
+        idx_on = self.composed / "index-on.html"
+        orig_idx_on = idx_on.read_bytes()
+        idx_on.write_bytes(b"a" * 262145)
+        before_ov = (self.data / "record").read_bytes()
+        ov_res = run_fast("carplay-autoshow", "1")
+        idx_on.write_bytes(orig_idx_on)
+        idx_on.chmod(0o600)
+        self.assertNotEqual(ov_res.returncode, 0)
+        self.assertEqual(json.loads(ov_res.stdout)["error"], "state_changed")
+        self.assertEqual((self.data / "record").read_bytes(), before_ov)
+        self.assertEqual(list((self.data / "snapshots").glob(".new-*")), [])
 
         # 3) Hard integrity refusals reach caller as state_changed and leave OC1/work clean.
         before_rec = (self.data / "record").read_bytes()

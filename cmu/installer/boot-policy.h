@@ -284,7 +284,7 @@ static int oc_plan(OcBoot *b) {
             if (!oc_hex(fields[2],64)||!oc_meta_parse(fields+3,&row->meta)) return 0;
             long fd=oc_beneath(parent,path,OC_READ,0);
             if (fd<0) {
-                if ((b->touch_drift&1)&&oc_prefix(row->key,"touch/devices/")) { b->touch_drift|=2; continue; }
+                if (fd==-2&&(b->touch_drift&1)&&oc_prefix(row->key,"touch/devices/")) { b->touch_drift|=2; continue; }
                 return 0;
             }
             OcMeta actual;
@@ -1128,20 +1128,24 @@ static __attribute__((noinline)) int oc_emit_external_pin(int plan_fd,OcBoot *b,
     if (old && !old->absent && oc_equal(old->path,path) && oc_equal(old->digest,digest)) {
         if (stock_req) {
             OcMeta stock;
-            if (!oc_stock_meta(b->root,&stock)||old->meta.device!=stock.device) return 0;
+            if (!oc_stock_meta(b->root,&stock)) return 2;
+            if (old->meta.device!=stock.device) return 1;
         }
-        return oc_emit_plan_row(plan_fd,key,path,digest,&old->meta,0);
+        return oc_emit_plan_row(plan_fd,key,path,digest,&old->meta,0)?0:2;
     }
     long fd=oc_beneath(b->root,path+1,OC_READ,0);
-    if (fd<0) return 0;
+    if (fd<0) return fd==-2?1:2;
     char got[65]; OcMeta cur;
-    int ok=oc_hash_copy((int)fd,-1,33554432,got,&cur)==OC_COPY_OK && oc_equal(got,digest);
-    if (oc_close((int)fd)<0) ok=0;
-    if (ok && stock_req) {
+    int copied=oc_hash_copy((int)fd,-1,33554432,got,&cur);
+    int closed=oc_close((int)fd)>=0;
+    if (copied!=OC_COPY_OK||!closed) return 2;
+    if (!oc_equal(got,digest)) return 1;
+    if (stock_req) {
         OcMeta stock;
-        if (!oc_stock_meta(b->root,&stock)||cur.device!=stock.device) ok=0;
+        if (!oc_stock_meta(b->root,&stock)) return 2;
+        if (cur.device!=stock.device) return 1;
     }
-    return ok && oc_emit_plan_row(plan_fd,key,path,digest,&cur,0);
+    return oc_emit_plan_row(plan_fd,key,path,digest,&cur,0)?0:2;
 }
 static int oc_lookup_vui_pin(const char *modules,const char *plugin,char out[65]) {
     unsigned hits=0;
@@ -1276,6 +1280,10 @@ static __attribute__((noinline)) int oc_seal_publish(const char *root_path,const
                 oc_pub.m_meta[i].mode==(OC_REGULAR|0600) && oc_pub.m_meta[i].uid==(unsigned)b->owner &&
                 oc_pub.m_meta[i].gid==(unsigned)b->group && oc_sync((int)fd)>=0;
             if (oc_close((int)fd)<0) ok=0;
+            if (ok && reuse[i-prof_idx]) {
+                const char *prev_d=oc_digest(&b->current,members[i]);
+                if (!prev_d||!oc_equal(oc_pub.m_digest[i],prev_d)) ok=0;
+            }
         }
     }
     if (ok) {
@@ -1299,17 +1307,17 @@ static __attribute__((noinline)) int oc_seal_publish(const char *root_path,const
             oc_emit_plan_row((int)plan_fd,key,path,oc_pub.m_digest[i],&oc_pub.m_meta[i],0);
     }
     if (ok && oc_equal(new_flags[1],"2")) {
-        for (unsigned i=0;ok&&i<2;++i)
-            if (!oc_emit_external_pin((int)plan_fd,b,oc_touch_pins[i].key,oc_touch_pins[i].path,oc_touch_pins[i].digest,1)) {
-                err_rc=92; ok=0;
-            }
+        for (unsigned i=0;ok&&i<2;++i) {
+            int pr=oc_emit_external_pin((int)plan_fd,b,oc_touch_pins[i].key,oc_touch_pins[i].path,oc_touch_pins[i].digest,1);
+            if (pr) { err_rc=pr==1?92:1; ok=0; }
+        }
     }
     if (ok) ok=oc_verified_text((int)work,"vui-plugins.list",oc_pub.m_digest[vui_idx],oc_pub.vui_list,sizeof oc_pub.vui_list);
     if (ok && oc_equal(new_flags[6],"1")) {
-        for (unsigned i=0;ok&&i<5;++i)
-            if (!oc_emit_external_pin((int)plan_fd,b,oc_base_pins[i].key,oc_base_pins[i].path,oc_base_pins[i].digest,oc_base_pins[i].stock)) {
-                err_rc=93; ok=0;
-            }
+        for (unsigned i=0;ok&&i<5;++i) {
+            int pr=oc_emit_external_pin((int)plan_fd,b,oc_base_pins[i].key,oc_base_pins[i].path,oc_base_pins[i].digest,oc_base_pins[i].stock);
+            if (pr) { err_rc=pr==1?93:1; ok=0; }
+        }
         if (ok) ok=oc_saved_text(b->package,&b->pkg,"ui-modules.tsv",b->scratch,sizeof b->scratch);
         char *p=oc_pub.vui_list; unsigned vcount=0;
         while (ok && *p) {
@@ -1326,8 +1334,9 @@ static __attribute__((noinline)) int oc_seal_publish(const char *root_path,const
             char pin[65],key[192],path[192];
             if (!oc_lookup_vui_pin(b->scratch,name,pin) ||
                 !oc_join(key,sizeof key,"base/vui/",name) ||
-                !oc_join(path,sizeof path,"/jci/vui/plugins/",name) ||
-                !oc_emit_external_pin((int)plan_fd,b,key,path,pin,1)) { err_rc=93; ok=0; }
+                !oc_join(path,sizeof path,"/jci/vui/plugins/",name)) { err_rc=93; ok=0; break; }
+            int pr=oc_emit_external_pin((int)plan_fd,b,key,path,pin,1);
+            if (pr) { err_rc=pr==1?93:1; ok=0; }
         }
         if (ok && vcount<36) ok=0;
     } else if (ok && oc_pub.vui_list[0]!=0) ok=0;

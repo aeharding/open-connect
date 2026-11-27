@@ -339,6 +339,10 @@ class NativeBootPlan(unittest.TestCase):
         version.write_text("verified synthetic firmware identity\n")
         source = fixture.source / "firmware.sh"
         source.write_text(source.read_text().replace("/jci/version.ini", str(version)))
+        # This host fixture stores state outside /tmp/mnt/data_persist/open-connect and
+        # exercises the 2-phase shell transaction/recovery path; admit compatibility explicitly.
+        svc = fixture.source / "service.sh"
+        svc.write_text(svc.read_text() + "\nboot_select_verified() { return 2; }\n")
         shutil.copyfile(self.program, fixture.source / "boot-select")
         (fixture.source / "boot-select").chmod(0o700)
         real_flush = fixture.root / "flush-real"

@@ -420,7 +420,7 @@ boot_render_profiles() {
     file "$D/originals/mmui.xml" && cp "$D/originals/mmui.xml" "$xml" && sha_is "$xml" "$digest" || return 1;; esac
   for asset in mmui plugins; do
     case "$skip" in *"|$asset|"*) continue;; esac
-    if test "$asset" = mmui; then profile=mmui.xml; else profile=vui-plugins.list; fi
+    profile=vui-plugins.list; test "$asset" != mmui || profile=mmui.xml
     awk -v operation=compose -v ui_mode="$asset" -v modules="$P/ui-modules.tsv" -v catalog="$P/services.tsv" \
       -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" -v input_bytes="$(wc -c < "$config")" \
       -f "$P/preferences.awk" -f "$P/ui-profile.awk" "$xml" > "$destination/$profile" || return 1
@@ -429,11 +429,12 @@ boot_render_profiles() {
   if test "$S_BASE" = 1 && test -z "$f"; then vui_inputs_verify "$destination/vui-plugins.list" || return 1; fi
   case "$skip" in *'|sm|'*) ;; *)
     for profile in normal wcp; do
+      asset=$source/sm-$profile-$setting.conf; file "$asset" || return 1
       awk -v operation=compose -v catalog="$P/services.tsv" -v catalog_bytes="$(wc -c < "$P/services.tsv")" -v input="$config" \
-        -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" \
-        "$source/sm-$profile-$setting.conf" > "$destination/sm-$profile.conf" || return 1
+        -v input_bytes="$(wc -c < "$config")" -f "$P/preferences.awk" -f "$P/sm-profile.awk" "$asset" > "$destination/sm-$profile.conf" || return 1
     done;; esac
   case "$skip" in *'|index|'*) return 0;; esac
+  asset=$source/index-$setting.html; file "$asset" || return 1
   awk -v base="$S_BASE" -v warning="$S_WARNING" -v services="$S_SERVICES" -v autoshow="$S_AUTOSHOW" \
     -v hook="$P/system-hook.js" -v logger="$P/base-logging.js" '
         BEGIN {
@@ -448,13 +449,10 @@ boot_render_profiles() {
             needed=(warning=="1" || hidden!="")
         }
         base=="1" && /src="common\/js\/logDefaults[.]js"/ {
-            print
-            print "<script>"
+            print; print "<script>"
             while((r=getline line < logger)>0)print line
             if(r<0)exit 1
-            close(logger)
-            print "</script>"
-            logging++;next
+            close(logger); print "</script>"; logging++; next
         }
         /framework[.]init[(][)][;]/ {
           if(needed) {
@@ -480,7 +478,7 @@ boot_render_profiles() {
         }
         {print}
         END {if((base=="1" && logging!=1) || (needed && (hooked!=1 || applied!=1)))exit 1}
-    ' "$source/index-$setting.html" > "$destination/index.html" || return 1
+    ' "$asset" > "$destination/index.html" || return 1
   awk '{n+=gsub(/@TOKEN@/,"@TOKEN@")}END{exit n!=1}' "$destination/index.html"
 }
 

@@ -399,18 +399,14 @@ set|import)
     test "$(snapshot_package "$R_CURRENT")" = "$settings_package" || fail restart_required
   fi
   FAST_READY=0; BOOT_SELECT=; SEAL_BOOT_PLAN=0
-  if test "$operation" = set && test "$argument" != uart && test "$argument" != ssh; then
+  if test "$operation:$D" = set:/tmp/mnt/data_persist/open-connect && test "$argument" != uart && test "$argument" != ssh; then
     bs_rc=0; boot_select_verified || bs_rc=$?; test "$bs_rc" -ne 1 || fail state_changed
-    if test "$bs_rc" -eq 0 && file "$D/snapshots/$R_CURRENT/files.sha256" && sha_is "$D/snapshots/$R_CURRENT/files.sha256" "$R_CURRENT"; then
-      VERIFIED_PACKAGE=$R_BACKEND; S_VER=$R_CURRENT; S_CUR=
-      if snapshot_decode "$R_CURRENT" && test "$S_SCHEMA:$S_PACKAGE" = "OC2:$R_BACKEND"; then FAST_READY=1; S_CUR=$R_CURRENT
-      else VERIFIED_PACKAGE=; BOOT_SELECT=; S_VER=; S_CUR=; fi
-    else BOOT_SELECT=; fi
+    if test "$bs_rc" -eq 0; then FAST_READY=1; else BOOT_SELECT=; fi
   fi
   if test "$FAST_READY" = 0; then targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed; VERIFIED_CURRENT=$R_CURRENT; VERIFIED_PACKAGE=$R_BACKEND; fi
   package=$S_PACKAGE; prefs=$S_PREFS; schema=$S_SCHEMA; mode=$S_META; test "$schema" = OC2 || test "$schema" = dev9 || fail unsupported_snapshot
-  uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY; cur_nvram=$S_NVRAM; OLD_TOUCH2=0; test "$S_TOUCH" != 2 || OLD_TOUCH2=1
-  OLD_WARNING=$S_WARNING; OLD_BASE=$S_BASE; OLD_WIRELESS=$S_WIRELESS; OLD_SERVICES=$S_SERVICES; OLD_AUTOSHOW=$S_AUTOSHOW
+  uart=$S_UART; owner_ssh=$S_SSH; key=$S_KEY; cur_nvram=$S_NVRAM; O_T2=0; test "$S_TOUCH" != 2 || O_T2=1
+  O_W=$S_WARNING; O_B=$S_BASE; O_WL=$S_WIRELESS; O_S=$S_SERVICES; O_AS=$S_AUTOSHOW
   access_source=$D/snapshots/$R_CURRENT
   if test "$operation" = import || test "$argument" = uart || test "$argument" = ssh; then
     test "$S_ACCESS" = true || fail developer_update_required
@@ -444,12 +440,13 @@ set|import)
     fi
   fi
   if test "$operation" = set && test "$expected" = "$desired"; then
-    test "$FAST_READY" = 0 || "$BOOT_SELECT" audit / "$R_CURRENT" || { targets_match "$R_CURRENT" && dependencies_match "$R_CURRENT" || fail state_changed; }
+    if test "$FAST_READY" = 1; then "$BOOT_SELECT" audit / "$R_CURRENT" || fail state_changed; S_VER="|$R_CURRENT|"; S_CUR=$R_CURRENT; fi
     status_view false; exit
   fi
   touch=$(preference_value "$prefs" touch) || fail invalid_preferences
   if test "$FAST_READY" = 1; then
-    S_VER=$R_BASE; S_CUR=; snapshot_decode "$R_BASE" || fail originals_changed
+    private_dir "$D/snapshots/$R_BASE" && file "$D/snapshots/$R_BASE/files.sha256" &&
+      sha_is "$D/snapshots/$R_BASE/files.sha256" "$R_BASE" && snapshot_decode "$R_BASE" || fail originals_changed
     nvram=$S_NVRAM; test "$touch" != 1 || nvram=disable
     if fast_set_publish; then status_view false; exit; fi
     VERIFIED_CURRENT=; VERIFIED_PACKAGE=; BOOT_SELECT=; S_VER=; S_CUR=

@@ -955,9 +955,18 @@ exact hash/count checks.
 
 This supports metadata stability for those inputs across one kernel restart.
 It does not establish a fast-path hit rate or startup saving. Matching metadata
-does not prove uncopied file bytes are identical; maintenance retains full
-hashes and selected runtime bytes must be checked during copying. Supporting
-records are private `runs/native-boot-20261121/abi-result.json`, `abi-source/`,
+does not prove uncopied file bytes are identical; full maintenance operations
+(Install, Update, Uninstall, Recover, UART/SSH/Import and full `status`)
+retain full byte hashes and selected runtime bytes must still be checked during
+boot copying. For ordinary Settings preference `set` saves on v74, the owner
+explicitly authorized a bounded native fast path (`boot-select seal-publish`
+and `audit`) that byte-verifies the persistent helper and executed package
+scripts against the boot-staged RAM manifest, all copied/rendered snapshot
+members, rendered composed templates, `originals/mmui.xml`, `/jci/version.ini`,
+and any newly added conditional `touch=2` or `base=1` (`ui-modules.tsv` VUI)
+inputs, while relying on the read-only physical root (`ro,noatime`) and exact
+ten-field `stat` pins for unchanged external inputs. Supporting records are
+private `runs/native-boot-20261121/abi-result.json`, `abi-source/`,
 `cross-result.json`, the single ACC capture and `cross-cleanup.out`.
 
 The v74 NVRAM sysfs leaf `keys/lvds_speed_restriction` returned `disable` followed

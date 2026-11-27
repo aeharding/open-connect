@@ -1,7 +1,9 @@
 """Exercise the real native decision and durable writer against complete files."""
 
 import hashlib
+import json
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -84,6 +86,12 @@ class NativeBootSelection(unittest.TestCase):
                     "/jci/lib/libjciuiamgr.so",
                     "stock manager.so\n",
                     "1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29",
+                ),
+                (
+                    "originals/mmui.xml",
+                    "/tmp/mnt/data_persist/open-connect/originals/mmui.xml",
+                    "stock original mmui.xml\n",
+                    "ef9550fa084a34b6a997d2e488c41e50667b409fa2e6ad9c896429c74dc705f0",
                 ),
             ):
                 text = text.replace(original, sha(data.encode()))
@@ -199,8 +207,10 @@ class NativeBootSelection(unittest.TestCase):
         self.data.mkdir(parents=True, mode=0o700)
         self.ram = self.root / "tmp/open-connect"
         self.ram.mkdir(mode=0o700)
-        for name in ("snapshots", "packages", "composed", "keys"):
+        for name in ("snapshots", "packages", "composed", "keys", "originals"):
             (self.data / name).mkdir(mode=0o700)
+        (self.data / "originals/mmui.xml").write_text("stock original mmui.xml\n")
+        (self.data / "originals/mmui.xml").chmod(0o600)
         self.put("proc/sys/kernel/random/boot_id", BOOT + "\n")
         self.put("proc/uptime", "8.00 1.00\n")
         self.put(
@@ -1445,15 +1455,23 @@ package_save
             timeout=5,
         )
 
-    def _clone_work(self, name=".new-delta", config_replace=None):
+    def _clone_work(self, name=".new-delta", config_replace=None, profiles=None):
         work = self.data / "snapshots" / name
         work.mkdir(mode=0o700)
-        for p in sorted(self.snapshot.iterdir()):
-            if p.name in ("files.sha256", "boot.plan"):
-                continue
-            dst = work / p.name
-            dst.write_bytes(p.read_bytes())
-            dst.chmod(0o600)
+        if profiles is None:
+            profiles = (
+                "sm-normal.conf",
+                "sm-wcp.conf",
+                "index.html",
+                "mmui.xml",
+                "vui-plugins.list",
+            )
+        for member in ("config", *profiles):
+            src = self.snapshot / member
+            if src.exists():
+                dst = work / member
+                dst.write_bytes(src.read_bytes())
+                dst.chmod(0o600)
         if config_replace:
             old, new = config_replace
             cfg = (work / "config").read_text()
@@ -1464,7 +1482,8 @@ package_save
         for key, path, digest in self.inputs:
             if key.startswith("current/"):
                 member = key.split("/", 1)[1]
-                digest = sha((work / member).read_bytes())
+                src = work / member if (work / member).exists() else self.snapshot / member
+                digest = sha(src.read_bytes())
             rows.append((key, path, digest))
         return work, rows
 
@@ -1531,8 +1550,8 @@ package_save
             self._run_helper("audit", str(self.root), self.snapshot.name).returncode, 0
         )
 
-        # Candidate audit accepts a valid data-only candidate without mutating record,
-        # in both active and pending-set modes, and refuses wrong R_AFTER.
+        # Candidate audit requires pending-set intent (R_PHASE=set, R_BEFORE=prev, R_AFTER=cand)
+        # and refuses active records even when live NVRAM matches candidate.
         work, _ = self._clone_work(".new-cand", ("warning=1", "warning=0"))
         pub = self._run_helper(
             "seal-publish",
@@ -1546,15 +1565,29 @@ package_save
         self.assertFalse(work.exists())
         self.assertTrue((self.data / "snapshots" / cand_id / "boot.plan").is_file())
         before_record = (self.data / "record").read_bytes()
-        self.assertEqual(
+        # Active record MUST be refused by candidate audit (pending-only predicate).
+        self.assertNotEqual(
             self._run_helper("audit", str(self.root), self.snapshot.name, cand_id).returncode,
             0,
         )
         self.assertEqual((self.data / "record").read_bytes(), before_record)
+        # Pending-set record naming cand_id passes candidate audit without mutating record.
+        self.record[1] = "set"
+        self.record[6:8] = [self.snapshot.name, cand_id]
+        self.save_record()
+        pending_record = (self.data / "record").read_bytes()
+        self.assertEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name, cand_id).returncode,
+            0,
+        )
+        self.assertEqual((self.data / "record").read_bytes(), pending_record)
+        self.record[1] = "active"
+        self.record[6:8] = ["-", "-"]
+        self.save_record()
 
         # NVRAM-changing seal-publish (touch 1 -> 0, nvram disable -> absent) requires
         # expected_nvram and passes pending-set audit only after R_PHASE=set + live NVRAM match.
-        nv_work, _ = self._clone_work(".new-nv", ("touch=1", "touch=0"))
+        nv_work, _ = self._clone_work(".new-nv", ("touch=1", "touch=0"), profiles=())
         (nv_work / "config").write_text(
             (nv_work / "config").read_text().replace("nvram=disable", "nvram=absent")
         )
@@ -1569,7 +1602,7 @@ package_save
             ).returncode,
             0,
         )
-        # With expected_nvram="absent", seal-publish succeeds.
+        # With expected_nvram="absent", seal-publish copies all invariant + unchanged profiles in C and succeeds.
         nv_pub = self._run_helper(
             "seal-publish",
             str(self.root),
@@ -1580,6 +1613,13 @@ package_save
         self.assertEqual(nv_pub.returncode, 0, nv_pub.stderr)
         nv_cand_id = nv_pub.stdout.decode().strip()
         self.assertEqual(len(nv_cand_id), 64)
+        # Active record with matching live NVRAM MUST still be refused by candidate audit.
+        nvram.unlink()
+        self.assertNotEqual(
+            self._run_helper("audit", str(self.root), self.snapshot.name, nv_cand_id).returncode,
+            0,
+        )
+        nvram.write_text("disable\n")
         # Before NVRAM changes, candidate audit refuses (live NVRAM is still disable).
         self.record[1] = "set"
         self.record[6:8] = [self.snapshot.name, nv_cand_id]
@@ -1622,89 +1662,156 @@ package_save
             + "".join("|".join(r) + "\n" for r in rows)
         ).encode()
         full_out = self.ram / "full.plan"
-        full = self._run_helper(
-            "seal",
-            str(self.root),
-            str(work.relative_to(self.root)),
-            stdin=plan_in,
-            stdout_path=full_out,
-        )
-        self.assertEqual(full.returncode, 0, full.stderr)
 
-        # Forged predecessor ID and non-.new-* work path are refused.
-        self.assertNotEqual(
+        # Forged predecessor ID and non-.new-* work path are refused with rc=1.
+        self.assertEqual(
             self._run_helper(
                 "seal-publish",
                 str(self.root),
                 "0" * 64,
                 str(work.relative_to(self.root)),
             ).returncode,
-            0,
+            1,
         )
-        self.assertNotEqual(
+        self.assertEqual(
             self._run_helper(
                 "seal-publish",
                 str(self.root),
                 self.snapshot.name,
                 str(self.snapshot.relative_to(self.root)),
             ).returncode,
-            0,
+            1,
         )
 
         # Extra stray file in work is refused.
         stray = work / "stray"
         stray.write_text("bad\n")
         stray.chmod(0o600)
-        self.assertNotEqual(
+        self.assertEqual(
             self._run_helper(
                 "seal-publish",
                 str(self.root),
                 self.snapshot.name,
                 str(work.relative_to(self.root)),
             ).returncode,
-            0,
+            1,
         )
         stray.unlink()
 
-        # Wrong mode on a work member is refused.
-        (work / "config").chmod(0o644)
-        self.assertNotEqual(
+        # Pre-planted invariant member (autostart) in work is refused (C must copy from snapshot).
+        pre = work / "autostart"
+        pre.write_bytes((self.snapshot / "autostart").read_bytes())
+        pre.chmod(0o600)
+        self.assertEqual(
             self._run_helper(
                 "seal-publish",
                 str(self.root),
                 self.snapshot.name,
                 str(work.relative_to(self.root)),
             ).returncode,
-            0,
+            1,
+        )
+        pre.unlink()
+
+        # Omitting a profile whose input changed (warning 1->0 requires mmui.xml) is refused.
+        orig_mmui_p = (work / "mmui.xml").read_bytes()
+        (work / "mmui.xml").unlink()
+        self.assertEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(work.relative_to(self.root)),
+            ).returncode,
+            1,
+        )
+        (work / "mmui.xml").write_bytes(orig_mmui_p)
+        (work / "mmui.xml").chmod(0o600)
+        for cleanup in (
+            "autostart",
+            "dependencies",
+            "selector",
+            "access",
+            "runlogin",
+            "sshd.conf",
+            "boot.plan",
+            "files.sha256",
+        ):
+            if (work / cleanup).exists():
+                (work / cleanup).unlink()
+
+        # Tampered or missing originals/mmui.xml is refused with rc=1.
+        orig_xml = self.data / "originals/mmui.xml"
+        orig_xml_bytes = orig_xml.read_bytes()
+        orig_xml.write_bytes(b"corrupt xml\n")
+        self.assertEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(work.relative_to(self.root)),
+            ).returncode,
+            1,
+        )
+        orig_xml.unlink()
+        self.assertEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(work.relative_to(self.root)),
+            ).returncode,
+            1,
+        )
+        orig_xml.write_bytes(orig_xml_bytes)
+        orig_xml.chmod(0o600)
+
+        # Extra stray file in packages/<id> is refused with rc=1 (never fallback rc=95).
+        pkg_stray = self.package / "stray-extra"
+        pkg_stray.write_text("stray\n")
+        self.assertEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(work.relative_to(self.root)),
+            ).returncode,
+            1,
+        )
+        pkg_stray.unlink()
+
+        # Tampered composed template read for warning=0 (sm-normal-off.conf) is refused with rc=1.
+        comp_sm = self.composed / "sm-normal-off.conf"
+        orig_comp_sm = comp_sm.read_bytes()
+        comp_sm.write_bytes(orig_comp_sm + b"x")
+        self.assertEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(work.relative_to(self.root)),
+            ).returncode,
+            1,
+        )
+        comp_sm.write_bytes(orig_comp_sm)
+        # Re-seal current snapshot's boot.plan after rewriting comp_sm so stat mtime matches.
+        self.change_current("config", (self.snapshot / "config").read_text())
+
+        # Wrong mode on a work member is refused.
+        (work / "config").chmod(0o644)
+        self.assertEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                self.snapshot.name,
+                str(work.relative_to(self.root)),
+            ).returncode,
+            1,
         )
         (work / "config").chmod(0o600)
 
-        # Tampered invariant member (autostart) is refused.
-        orig_auto = (work / "autostart").read_bytes()
-        (work / "autostart").write_bytes(orig_auto + b"x")
-        (work / "autostart").chmod(0o600)
-        self.assertNotEqual(
-            self._run_helper(
-                "seal-publish",
-                str(self.root),
-                self.snapshot.name,
-                str(work.relative_to(self.root)),
-            ).returncode,
-            0,
-        )
-        (work / "autostart").write_bytes(orig_auto)
-        (work / "autostart").chmod(0o600)
-
-        # Capture full seal output on the restored work dir right before seal-publish
-        # so mtime/ctime match identically, then assert exact boot.plan row-set equality.
-        full = self._run_helper(
-            "seal",
-            str(self.root),
-            str(work.relative_to(self.root)),
-            stdin=plan_in,
-            stdout_path=full_out,
-        )
-        self.assertEqual(full.returncode, 0, full.stderr)
+        # Valid seal-publish copies invariant members in C and produces a boot.plan
+        # matching full seal on the published directory, accepted by check, audit, and select.
         pub = self._run_helper(
             "seal-publish",
             str(self.root),
@@ -1715,11 +1822,19 @@ package_save
         snap_id = pub.stdout.decode().strip()
         self.assertEqual(len(snap_id), 64)
         published = self.data / "snapshots" / snap_id
+        # Compare published boot.plan row set against a fresh full seal on the exact published files.
+        full = self._run_helper(
+            "seal",
+            str(self.root),
+            str(published.relative_to(self.root)),
+            stdin=plan_in,
+            stdout_path=full_out,
+        )
+        self.assertEqual(full.returncode, 0, full.stderr)
         full_lines = full_out.read_text().splitlines()
         pub_lines = (published / "boot.plan").read_text().splitlines()
         self.assertEqual(pub_lines[0], full_lines[0])
         self.assertEqual(sorted(pub_lines[1:]), sorted(full_lines[1:]))
-        # Published snapshot is accepted by check, audit, and native select.
         chk = self._run_helper(
             "check",
             str(self.root),
@@ -1727,10 +1842,15 @@ package_save
             stdin=(published / "boot.plan").read_bytes(),
         )
         self.assertEqual(chk.returncode, 0, chk.stderr)
+        self.record[1] = "set"
+        self.record[6:8] = [self.snapshot.name, snap_id]
+        self.save_record()
         self.assertEqual(
             self._run_helper("audit", str(self.root), self.snapshot.name, snap_id).returncode,
             0,
         )
+        self.record[1] = "active"
+        self.record[6:8] = ["-", "-"]
         self.record[5] = snap_id
         self.save_record()
         self.assertEqual(self.invoke().returncode, 0)
@@ -1741,7 +1861,7 @@ package_save
         self.record[11] = "-"
         self.save_record()
 
-        # Newly added conditional touch=2 rows are freshly SHA-256 + stock-device verified.
+        # Newly added conditional touch=2 rows return rc=92 on wrong stock device or tamper.
         for _, path, data, _ in self.TOUCH_INPUTS:
             self.put(path, data)
         t_work, _ = self._clone_work(".new-t2", ("touch=1", "touch=2"))
@@ -1749,8 +1869,7 @@ package_save
             (t_work / "config").read_text().replace("nvram=disable", "nvram=absent")
         )
         (t_work / "config").chmod(0o600)
-        # Wrong stock filesystem device is refused.
-        self.assertNotEqual(
+        self.assertEqual(
             self._run_helper(
                 "seal-publish",
                 str(self.root),
@@ -1759,15 +1878,16 @@ package_save
                 "absent",
                 env={"OC_TOUCH_WRONG_FS": "1"},
             ).returncode,
-            0,
+            92,
         )
-        # Clean work directory after failed attempt (boot.plan may have been created before refusal).
-        for f in ("boot.plan", "files.sha256"):
-            if (t_work / f).exists():
-                (t_work / f).unlink()
-        # Tampered newly added conditional file is refused.
+        shutil.rmtree(t_work)
+        t_work, _ = self._clone_work(".new-t2", ("touch=1", "touch=2"))
+        (t_work / "config").write_text(
+            (t_work / "config").read_text().replace("nvram=disable", "nvram=absent")
+        )
+        (t_work / "config").chmod(0o600)
         self.put(self.TOUCH_INPUTS[0][1], "tampered devices\n")
-        self.assertNotEqual(
+        self.assertEqual(
             self._run_helper(
                 "seal-publish",
                 str(self.root),
@@ -1775,12 +1895,14 @@ package_save
                 str(t_work.relative_to(self.root)),
                 "absent",
             ).returncode,
-            0,
+            92,
         )
-        for f in ("boot.plan", "files.sha256"):
-            if (t_work / f).exists():
-                (t_work / f).unlink()
-        # Valid touch=2 conditional files succeed and appear in boot.plan.
+        shutil.rmtree(t_work)
+        t_work, _ = self._clone_work(".new-t2", ("touch=1", "touch=2"))
+        (t_work / "config").write_text(
+            (t_work / "config").read_text().replace("nvram=disable", "nvram=absent")
+        )
+        (t_work / "config").chmod(0o600)
         self.put(self.TOUCH_INPUTS[0][1], self.TOUCH_INPUTS[0][2])
         ok_touch = self._run_helper(
             "seal-publish",
@@ -1794,6 +1916,43 @@ package_save
         t_plan = (self.data / "snapshots" / t_id / "boot.plan").read_text()
         self.assertIn("touch/devices/svc|", t_plan)
         self.assertIn("touch/devices/lib|", t_plan)
+
+        # Supported exit from touch=2 when OEM devices lib changes:
+        # leaving touch=2 (2->0) returns rc=95 (OC_SLOW fallback); staying at touch=2 returns rc=92.
+        nvram = self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction"
+        nvram.unlink()
+        old_snap = self.snapshot
+        self.snapshot = self.data / "snapshots" / t_id
+        self.record[5] = t_id
+        self.save_record()
+        self.put(self.TOUCH_INPUTS[1][1], "changed OEM devices library\n")
+        leave_work, _ = self._clone_work(".new-leave2", ("touch=2", "touch=0"))
+        self.assertEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                t_id,
+                str(leave_work.relative_to(self.root)),
+            ).returncode,
+            95,
+        )
+        shutil.rmtree(leave_work)
+        stay_work, _ = self._clone_work(".new-stay2", ("warning=1", "warning=0"))
+        self.assertEqual(
+            self._run_helper(
+                "seal-publish",
+                str(self.root),
+                t_id,
+                str(stay_work.relative_to(self.root)),
+            ).returncode,
+            92,
+        )
+        shutil.rmtree(stay_work)
+        self.put(self.TOUCH_INPUTS[1][1], self.TOUCH_INPUTS[1][2])
+        self.snapshot = old_snap
+        self.record[5] = old_snap.name
+        self.save_record()
+        nvram.write_text("disable\n")
 
         # Base=1 newly added conditional inputs + ui-modules.tsv VUI plugin pin lookup.
         # Add ui-modules.tsv matching synthetic VUI payloads into a refreshed package + snapshot.
@@ -1869,7 +2028,14 @@ package_save
         )
         self.change_current(
             "config",
-            (self.snapshot / "config").read_text().replace(old_pkg_id, self.package_id),
+            (self.snapshot / "config")
+            .read_text()
+            .replace(old_pkg_id, self.package_id)
+            .replace(
+                "service-ids=android-auto,pandora\nservice.android-auto=1\nservice.pandora=1\n",
+                "service-ids=android-auto,pandora,siriusxm\n"
+                "service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\n",
+            ),
         )
         self.change_current(
             "dependencies",
@@ -1903,28 +2069,35 @@ package_save
         b_id = ok_base.stdout.decode().strip()
         b_plan = (self.data / "snapshots" / b_id / "boot.plan").read_text()
         self.assertIn(f"base/vui/{vui_names[0]}|", b_plan)
+        self.record[1] = "set"
+        self.record[6:8] = [self.snapshot.name, b_id]
+        self.save_record()
         self.assertEqual(
             self._run_helper("audit", str(self.root), self.snapshot.name, b_id).returncode,
             0,
         )
-        # Tampered VUI plugin on disk is refused when newly adding base=1.
+        self.record[1] = "active"
+        self.record[6:8] = ["-", "-"]
+        self.save_record()
+        # Tampered VUI plugin on disk is refused with rc=93 (base_inputs_changed).
         self.put("/jci/vui/plugins/" + vui_names[0], "tampered vui plugin\n")
         b_tamper, _ = self._clone_work(".new-base1-tamper", ("base=0", "base=1"))
         (b_tamper / "vui-plugins.list").write_text("\n".join(vui_names) + "\n")
         (b_tamper / "vui-plugins.list").chmod(0o600)
-        self.assertNotEqual(
+        self.assertEqual(
             self._run_helper(
                 "seal-publish",
                 str(self.root),
                 self.snapshot.name,
                 str(b_tamper.relative_to(self.root)),
             ).returncode,
-            0,
+            93,
         )
         shutil.rmtree(b_tamper)
 
     def test_boot_select_verified_trust_anchor_and_tamper_detection(self):
-        # Build a complete 13-file RAM session manifest matching packages/<id>.
+        # Build a complete 13-file RAM session manifest matching packages/<id>,
+        # plus a sealed OC2 snapshot referencing that package.
         pkg_dir = self.data / "packages/.new-fullpkg"
         pkg_dir.mkdir(mode=0o700)
         for name in (
@@ -1949,6 +2122,27 @@ package_save
         (pkg_dir / "boot-select").chmod(0o700)
         pkg = self.publish(pkg_dir)
 
+        snap_dir = self.data / "snapshots/.new-verify-snap"
+        snap_dir.mkdir(mode=0o700)
+        for p in sorted(self.snapshot.iterdir()):
+            if p.name != "files.sha256":
+                (snap_dir / p.name).write_bytes(p.read_bytes())
+                (snap_dir / p.name).chmod(0o600)
+        (snap_dir / "config").write_text(
+            (snap_dir / "config")
+            .read_text()
+            .replace(self.package_id, pkg.name)
+            .replace(
+                "service-ids=android-auto,pandora\nservice.android-auto=1\nservice.pandora=1\n",
+                "service-ids=android-auto,pandora,siriusxm\n"
+                "service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\n",
+            )
+        )
+        (snap_dir / "selector").write_text(
+            f"{sha((pkg / 'boot-select').read_bytes())}|700:{os.getuid()}:{os.getgid()}|{pkg.name}\n"
+        )
+        snap = self.publish(snap_dir)
+
         ram_session = self.ram / "session-test"
         ram_session.mkdir(mode=0o700)
         for name in ("state.sh", "service.sh", "files.sha256"):
@@ -1959,17 +2153,20 @@ package_save
 
         env = {**os.environ, "PATH": self.build.name + os.pathsep + os.environ["PATH"]}
 
-        def check():
+        def check(role="settings", cur=snap.name, backend=pkg.name, ram=ram_session):
             return subprocess.run(
                 [
                     "sh",
                     "-c",
-                    "set -eu; D=$1; P=$2; R_BACKEND=$3; role=settings; "
+                    "set -eu; D=$1; P=$2; R_BACKEND=$3; R_CURRENT=$4; role=$5; "
+                    'request_owner="$(id -u):$(id -g)"; '
                     '. "$P/state.sh"; . "$P/service.sh"; boot_select_verified',
                     "verify-helper",
                     str(self.data),
-                    str(ram_session),
-                    pkg.name,
+                    str(ram),
+                    backend,
+                    cur,
+                    role,
                 ],
                 env=env,
                 stdout=subprocess.PIPE,
@@ -1977,7 +2174,30 @@ package_save
             ).returncode
 
         self.assertEqual(check(), 0)
-        # Wrong mode on persistent boot-select hard-fails (rc=1, not fallback rc=2).
+        # Non-settings role returns compatibility code 2.
+        self.assertEqual(check(role="usb"), 2)
+        # Tampered or missing RAM session manifest with role=settings hard-fails (rc=1, NEVER rc=2).
+        ram_mf = ram_session / "files.sha256"
+        orig_ram_mf = ram_mf.read_bytes()
+        ram_mf.write_bytes(orig_ram_mf + b"\n")
+        self.assertEqual(check(), 1)
+        ram_mf.unlink()
+        self.assertEqual(check(), 1)
+        ram_mf.write_bytes(orig_ram_mf)
+        ram_mf.chmod(0o600)
+        # Genuinely old package without boot-select in valid RAM manifest returns rc=2.
+        old_pkg_dir = self.data / "packages/.new-oldpkg"
+        old_pkg_dir.mkdir(mode=0o700)
+        for name in ("state.sh", "service.sh"):
+            (old_pkg_dir / name).write_bytes((ASSETS / name).read_bytes())
+            (old_pkg_dir / name).chmod(0o600)
+        shutil.copyfile(Path(self.build.name) / "flush", old_pkg_dir / "flush")
+        (old_pkg_dir / "flush").chmod(0o700)
+        old_pkg = self.publish(old_pkg_dir)
+        old_ram = self.ram / "session-old"
+        shutil.copytree(old_pkg, old_ram)
+        self.assertEqual(check(backend=old_pkg.name, ram=old_ram), 2)
+        # Wrong mode on persistent boot-select hard-fails (rc=1).
         (pkg / "boot-select").chmod(0o600)
         self.assertEqual(check(), 1)
         (pkg / "boot-select").chmod(0o700)
@@ -1994,77 +2214,219 @@ package_save
         (pkg / "sm-profile.awk").write_bytes(orig_awk)
         self.assertEqual(check(), 0)
 
-    def test_fast_verify_batch_detects_reused_and_composed_tamper(self):
-        work = self.data / "snapshots/.new-batch"
-        work.mkdir(mode=0o700)
-        for name in ("mmui.xml", "vui-plugins.list"):
-            (work / name).write_bytes((self.snapshot / name).read_bytes())
-            (work / name).chmod(0o600)
+    def test_fast_set_publish_e2e_nvram_cuts_and_integrity_hard_refusal(self):
+        # Run actual fast_set_publish shell function against the real host-compiled
+        # boot-select (wrapped to pass self.root instead of '/') for:
+        # 1) data-only save (carplay-autoshow 0->1), verifying S_VER="|$after|" cache format
+        #    and exact byte equivalence of selectively rendered profiles vs full render
+        # 2) NVRAM-changing touch 1->0->1, witnessing pending OC1 before nvram_change and
+        #    verifying pre-NVRAM cut + pending-only audit behavior
+        # 3) hard integrity refusals (extra package file, tampered originals/mmui.xml,
+        #    predecessor symlink) returning state_changed without falling back.
+        root_prefix = str(self.root).lstrip("/") + "/"
+        wrapper = Path(self.build.name) / "boot-select-root"
+        wrapper.write_text(
+            "#!/bin/sh\nop=$1; shift; shift\n"
+            f'if test "$op" = seal-publish; then c=$1; w=${{2#{shlex.quote(root_prefix)}}}; shift 2; '
+            f'exec {shlex.quote(str(self.program))} "$op" {shlex.quote(str(self.root))} "$c" "$w" "$@"; fi\n'
+            f'exec {shlex.quote(str(self.program))} "$op" {shlex.quote(str(self.root))} "$@"\n'
+        )
+        wrapper.chmod(0o700)
         env = {**os.environ, "PATH": self.build.name + os.pathsep + os.environ["PATH"]}
+        nvram_file = self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction"
+        witness_file = self.ram / "nvram-witness.txt"
 
-        def run_batch(reused, comp_files):
+        pkg_dir = self.data / "packages/.new-e2epkg"
+        pkg_dir.mkdir(mode=0o700)
+        for p in sorted(self.package.iterdir()):
+            if p.name != "files.sha256":
+                (pkg_dir / p.name).write_bytes(p.read_bytes())
+                (pkg_dir / p.name).chmod(p.stat().st_mode & 0o777)
+        for extra in ("ui-profile.awk", "ui-modules.tsv", "system-hook.js", "base-logging.js"):
+            (pkg_dir / extra).write_bytes((ASSETS / extra).read_bytes())
+            (pkg_dir / extra).chmod(0o600)
+        old_pkg_id = self.package_id
+        self.package = self.publish(pkg_dir)
+        self.package_id = self.package.name
+        new_comp = self.data / "composed" / self.package_id
+        shutil.copytree(self.composed, new_comp)
+        idx_tpl = (
+            '<html><head><script src="common/js/logDefaults.js"></script></head>'
+            "<body><script>/*@TOKEN@*/framework.init();</script></body></html>\n"
+        )
+        for nm in ("index-on.html", "index-off.html"):
+            (new_comp / nm).write_text(idx_tpl)
+            (new_comp / nm).chmod(0o600)
+        self.manifest(new_comp)
+        self.composed = new_comp
+        self.record[3] = self.package_id
+        new_deps, new_inputs = [], []
+        for key, path, digest in self.inputs:
+            if key.startswith(f"package-{old_pkg_id}/") or key.startswith(
+                f"composed-{old_pkg_id}/"
+            ):
+                continue
+            new_inputs.append((key, path, digest))
+        for kind, folder in (("package", self.package), ("composed", self.composed)):
+            mf_id = sha((folder / "files.sha256").read_bytes())
+            for p in sorted(folder.iterdir()):
+                if p.name == "files.sha256":
+                    continue
+                d = sha(p.read_bytes())
+                new_inputs.append(
+                    (f"{kind}-{self.package_id}/{p.name}", f"/{p.relative_to(self.root)}", d)
+                )
+                new_deps.append((d, f"{kind}-{self.package_id}/{p.name}"))
+            new_inputs.append(
+                (
+                    f"{kind}-{self.package_id}/files.sha256",
+                    f"/{(folder / 'files.sha256').relative_to(self.root)}",
+                    mf_id,
+                )
+            )
+            new_deps.append((mf_id, f"{kind}-{self.package_id}/files.sha256"))
+        for line in (self.snapshot / "dependencies").read_text().splitlines():
+            d, k = line.split("  ", 1)
+            if k.startswith(f"package-{old_pkg_id}/") or k.startswith(f"composed-{old_pkg_id}/"):
+                continue
+            new_deps.append((d, k))
+        self.inputs = new_inputs
+        self.change_current(
+            "selector",
+            f"{sha((self.package / 'boot-select').read_bytes())}|700:{os.getuid()}:{os.getgid()}|{self.package_id}\n",
+        )
+        self.change_current(
+            "config",
+            (self.snapshot / "config")
+            .read_text()
+            .replace(old_pkg_id, self.package_id)
+            .replace(
+                "service-ids=android-auto,pandora\nservice.android-auto=1\nservice.pandora=1\n",
+                "service-ids=android-auto,pandora,siriusxm\n"
+                "service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\n",
+            ),
+        )
+        self.change_current("dependencies", "".join(f"{d}  {k}\n" for d, k in new_deps))
+
+        def run_fast(key, desired, cut_mode=""):
+            script = r"""set -eu
+D=$1; P=$2; BOOT_SELECT=$3; NV=$4; WIT=$5; KEY=$6; VAL=$7; CUT=$8
+request_owner="$(id -u):$(id -g)"; S_CACHE=1; S_VER=; S_CUR=
+. "$P/state.sh"; . "$P/firmware.sh"; . "$P/access.sh"; . "$P/transaction.sh"
+uuid() { printf '%s\n' "0123456789abcdef0123456789abcdef"; }
+fail() { printf '{"ok":false,"error":"%s"}\n' "$1"; exit 1; }
+nvram_change() {
+  cat "$D/record" > "$WIT"
+  if test "$CUT" = before_nvram; then exit 99; fi
+  if test "$2" = absent; then rm -f "$NV"; else printf '%s\n' "$2" > "$NV"; fi
+  if test "$CUT" = after_nvram; then exit 98; fi
+}
+record_read
+VERIFIED_PACKAGE=$R_BACKEND
+snapshot_decode "$R_CURRENT"
+package=$S_PACKAGE; prefs=$S_PREFS; schema=$S_SCHEMA; mode=$S_META
+cur_nvram=$S_NVRAM; O_T2=0; test "$S_TOUCH" != 2 || O_T2=1
+O_W=$S_WARNING; O_B=$S_BASE; O_WL=$S_WIRELESS; O_S=$S_SERVICES; O_AS=$S_AUTOSHOW
+prefs=$(preferences_change "$prefs" "$package" "$KEY" "$VAL" "$schema")
+touch=$(preference_value "$prefs" touch)
+snapshot_decode "$R_BASE"
+nvram=$S_NVRAM; test "$touch" != 1 || nvram=disable
+fast_set_publish
+printf '{"ok":true,"current":"%s","s_ver":"%s"}\n' "$R_CURRENT" "$S_VER"
+"""
             return subprocess.run(
                 [
                     "sh",
                     "-c",
-                    'set -eu; D=$1; P=$2; . "$P/state.sh"; . "$P/access.sh"; '
-                    'fast_verify_batch "$3" "$4" "$5" "$6" "$7"',
-                    "batch-helper",
+                    script,
+                    "fast-e2e",
                     str(self.data),
                     str(self.package),
-                    str(self.snapshot),
-                    str(work),
-                    self.package_id,
-                    reused,
-                    comp_files,
+                    str(wrapper),
+                    str(nvram_file),
+                    str(witness_file),
+                    key,
+                    desired,
+                    cut_mode,
                 ],
                 env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            ).returncode
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
 
-        self.assertEqual(
-            run_batch(
-                "mmui.xml vui-plugins.list", "sm-normal-on.conf sm-wcp-on.conf index-on.html"
-            ),
-            0,
-        )
-        self.assertEqual(run_batch("mmui.xml vui-plugins.list", ""), 0)
-        self.assertEqual(run_batch("", "index-on.html"), 0)
+        # 1) Data-only save: carplay-autoshow 0 -> 1.
+        res = run_fast("carplay-autoshow", "1")
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        data = json.loads(res.stdout)
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["s_ver"], f"|{data['current']}|")
+        self.assertEqual(self._run_helper("audit", str(self.root), data["current"]).returncode, 0)
+        # Reused profiles (mmui.xml, sm-normal.conf, sm-wcp.conf, vui-plugins.list) were
+        # copied in C identically to the predecessor while index.html includes carplay.js.
+        new_snap = self.data / "snapshots" / data["current"]
+        for unchanged in ("mmui.xml", "vui-plugins.list", "sm-normal.conf", "sm-wcp.conf"):
+            self.assertEqual(
+                (new_snap / unchanged).read_bytes(), (self.snapshot / unchanged).read_bytes()
+            )
+        self.assertIn("carplay.js", (new_snap / "index.html").read_text())
 
-        # Tampered reused profile in work is refused.
-        orig = (work / "mmui.xml").read_bytes()
-        (work / "mmui.xml").write_bytes(orig + b"x")
-        self.assertNotEqual(run_batch("mmui.xml vui-plugins.list", "index-on.html"), 0)
-        (work / "mmui.xml").write_bytes(orig)
+        # 2) NVRAM-changing save: touch 1 -> 0 -> 1, witnessing pending OC1 before nvram_change.
+        res_off = run_fast("touch", "0")
+        self.assertEqual(res_off.returncode, 0, res_off.stdout + res_off.stderr)
+        off_cur = json.loads(res_off.stdout)["current"]
+        witnessed = witness_file.read_text().strip().split("|")
+        self.assertEqual(witnessed[1], "set")
+        self.assertEqual(witnessed[5], data["current"])
+        self.assertEqual(witnessed[6], data["current"])
+        self.assertEqual(witnessed[7], off_cur)
+        self.assertFalse(nvram_file.exists())
+        self.assertEqual(self._run_helper("audit", str(self.root), off_cur).returncode, 0)
 
-        # Tampered composed template is refused.
-        comp_sm = self.composed / "sm-normal-on.conf"
-        orig_sm = comp_sm.read_bytes()
-        comp_sm.write_bytes(orig_sm + b"x")
+        # Pre-NVRAM cut: touch 0 -> 1 stops right before NVRAM write; pending OC1 intact,
+        # current-only audit refuses pending record, candidate audit refuses until NVRAM matches.
+        cut_pre = run_fast("touch", "1", cut_mode="before_nvram")
+        self.assertEqual(cut_pre.returncode, 99, cut_pre.stdout + cut_pre.stderr)
+        rec = (self.data / "record").read_text().strip().split("|")
+        self.assertEqual((rec[1], rec[5], rec[6]), ("set", off_cur, off_cur))
+        self.assertNotEqual(self._run_helper("audit", str(self.root), off_cur).returncode, 0)
         self.assertNotEqual(
-            run_batch("mmui.xml", "sm-normal-on.conf sm-wcp-on.conf"),
-            0,
+            self._run_helper("audit", str(self.root), off_cur, rec[7]).returncode, 0
         )
-        comp_sm.write_bytes(orig_sm)
+        nvram_file.write_text("disable\n")
+        self.assertEqual(self._run_helper("audit", str(self.root), off_cur, rec[7]).returncode, 0)
+        # Restore active off_cur + absent NVRAM and complete touch 0 -> 1 cleanly.
+        nvram_file.unlink()
+        rec[1] = "active"
+        rec[6:8] = ["-", "-"]
+        (self.data / "record").write_text("|".join(rec) + "\n")
+        res_on = run_fast("touch", "1")
+        self.assertEqual(res_on.returncode, 0, res_on.stdout + res_on.stderr)
+        on_cur = json.loads(res_on.stdout)["current"]
+        self.assertEqual(nvram_file.read_text(), "disable\n")
+        self.assertEqual(self._run_helper("audit", str(self.root), on_cur).returncode, 0)
 
-        # Tampered composed/files.sha256 is refused.
-        comp_mf = self.composed / "files.sha256"
-        orig_mf = comp_mf.read_bytes()
-        comp_mf.write_bytes(orig_mf + b"\n")
-        self.assertNotEqual(run_batch("mmui.xml", "index-on.html"), 0)
-        comp_mf.write_bytes(orig_mf)
+        # 3) Hard integrity refusals reach caller as state_changed and leave OC1/work clean.
+        before_rec = (self.data / "record").read_bytes()
+        extra = self.package / "unexpected-extra"
+        extra.write_text("bad\n")
+        refused = run_fast("carplay-autoshow", "0")
+        extra.unlink()
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertEqual(json.loads(refused.stdout)["error"], "state_changed")
+        self.assertEqual((self.data / "record").read_bytes(), before_rec)
+        self.assertEqual(list((self.data / "snapshots").glob(".new-*")), [])
 
-        # Tampered prev/dependencies is refused.
-        deps = self.snapshot / "dependencies"
-        orig_deps = deps.read_bytes()
-        deps.write_bytes(orig_deps + b"\n")
-        self.assertNotEqual(run_batch("mmui.xml", "index-on.html"), 0)
-        deps.write_bytes(orig_deps)
-
-        self.assertEqual(
-            run_batch(
-                "mmui.xml vui-plugins.list", "sm-normal-on.conf sm-wcp-on.conf index-on.html"
-            ),
-            0,
-        )
+        # Symlink in predecessor snapshot (autostart) is refused by C O_NOFOLLOW without copying.
+        cur_snap = self.data / "snapshots" / on_cur
+        orig_auto = (cur_snap / "autostart").read_bytes()
+        (cur_snap / "autostart").unlink()
+        (cur_snap / "autostart").symlink_to("/etc/passwd")
+        refused_link = run_fast("carplay-autoshow", "0")
+        (cur_snap / "autostart").unlink()
+        (cur_snap / "autostart").write_bytes(orig_auto)
+        (cur_snap / "autostart").chmod(0o600)
+        self.assertNotEqual(refused_link.returncode, 0)
+        self.assertEqual(json.loads(refused_link.stdout)["error"], "state_changed")
+        self.assertEqual((self.data / "record").read_bytes(), before_rec)
+        self.assertEqual(list((self.data / "snapshots").glob(".new-*")), [])

@@ -437,4 +437,47 @@ f.reply(f.operation('import')[0],{ok:false,error:'invalid_public_key'});
 f.reply(f.requests.at(-1),f.state({...developer,touch:1,touchCurrent:1}));
 f.endAnimations();
 assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[0].label1,'Always enabled','discarded draft must revert visibly immediately');
+// Already-confirmed Uninstall followed by lost Import ACK readback must cancel Uninstall and refresh Root.
+f=warm(developer);select(f,'developer');select(f,'import');f.pick('import');
+assert.equal(f.operation('import').length,1);
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();
+select(f,'uninstall');f.pick('uninstall');
+assert.equal(f.dialog.props.text1,'Removing Open Connect');assert.equal(f.operation('uninstall').length,0);
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,key:'f'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),warning:0,revision:'f'.repeat(64)}));
+f.endAnimations();
+assert.equal(f.operation('uninstall').length,0,'reconciled import must cancel already-confirmed uninstall');
+assert.equal(f.dialog,undefined);
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[1].label1,'Show');
+// Queued Apply behind lost Import ACK whose readback clears restart must refresh Root to the reconciled values.
+f=warm({...developer,warning:1,warningCurrent:0,restart:true});select(f,'developer');select(f,'import');f.pick('import');
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[1].label1,'Skip');
+select(f,'restart');f.pick('restart');assert.equal(f.dialog.props.text1,'Applying changes');
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),warning:0,warningCurrent:0,restart:false,revision:'e'.repeat(64)}));
+f.endAnimations();
+assert.equal(f.operation('restart').length,0);assert.equal(f.dialog,undefined);
+assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[1].label1,'Show','root must refresh after queued Apply closes');
+// Reconciled Set/Import or refused Import arriving during native voice retires stale page rather than leaving stale labels.
+for(const mode of ['set-rec','import-rec','import-refuse']){
+ f=warm({...developer,touch:1,touchCurrent:1,warning:1,warningCurrent:1});
+ if(mode==='set-rec'){
+  select(f,0);select(f,0);f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();
+ }else{
+  select(f,'developer');select(f,'import');f.pick('import');
+  f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+  f.nativeSettings();f.tap();f.endAnimations();
+  if(mode==='import-refuse'){select(f,0);select(f,0);f.fw.sendEventToMmui('common','Global.GoBack');f.endAnimations();}
+ }
+ f.fw.common._cachedVuiState='Listening';
+ const op=mode==='set-rec'?f.operation('set')[0]:f.operation('import')[0];
+ f.reply(op,mode==='import-refuse'?{ok:false,error:'invalid_public_key'}:null);
+ f.reply(f.requests.at(-1),f.state(mode==='import-refuse'?{...developer,touch:1,touchCurrent:1,warning:1,warningCurrent:1}:
+  {...developer,touch:0,touchCurrent:1,warning:0,warningCurrent:1,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ f.fw.common._cachedVuiState='Idle';
+ assert.equal(f.fw.common._openConnectPage,undefined,mode+' must retire stale page when voice owns screen');
+}
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

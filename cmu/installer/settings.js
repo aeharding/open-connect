@@ -183,8 +183,8 @@ function open(fw,store){
 var host=fw._currTmpltInstance;
 if(active||!inTab(fw)||!host||!host.list2Ctrl)return false;
 var prefs=preferences(store);if(!prefs)return false;
-var page,choice,dismiss=null,wait=null,moving=null,closed=false,leaving=false,restorers=[];
-var parent=host.divElt.parentNode,oldDisplay=host.divElt.style.display,tab=fw.getCurrCtxtId();
+var page,choice,dismiss=null,wait=null,moving=null,closed=false,leaving=false,ns=false,undo=[];
+var parent=host.divElt.parentNode,oldD=host.divElt.style.display,tab=fw.getCurrCtxtId();
 var R="after restarting Mazda Connect.",T="Try again in a moment.";
 function current(){return!closed&&!leaving&&fw._currTmpltInstance===host&&inTab(fw)&&fw.getCurrCtxtId()===tab;}
 function endWait(){var w=wait;wait=null;if(w)w.close();}
@@ -193,14 +193,15 @@ function close(){
 if(closed)return;closed=true;prefs.cancelQueue();
 if(moving)moving(true);endWait();if(dismiss)dismiss();
 prefs.changed=prefs.revert=null;
-while(restorers.length)restorers.pop()();
-discard(page);host.divElt.style.display=oldDisplay;
+while(undo.length)undo.pop()();
+discard(page);host.divElt.style.display=oldD;
 if(fw.common._openConnectPage===close)delete fw.common._openConnectPage;
 active=false;
 }
 function ask(t,x,l,a,d){return dialogs.message(fw,t,x,{button1:{label:"Cancel",appData:"cancel"},button2:{label:l,appData:a}},d);}
 function render(index,focus,back){
 if(moving)moving(true);
+ns=false;
 var values=prefs.failure?null:prefs.values();
 if(!values){index="unknown";focus=0;}
 var rows=[],title="Open Connect",i,row;
@@ -269,7 +270,7 @@ function canRestart(){
 var v=prefs.values();
 return v&&v.restart===true&&typeof store.restart==="function"&&!(store.busy&&store.busy()&&!prefs.pending());
 }
-function showWait(t){endWait();wait=dialogs.progress(fw,t,"Do not turn off the car.",function(){wait=null;prefs.cancelQueue();});return!!wait;}
+function showWait(t){endWait();wait=dialogs.progress(fw,t,"Do not turn off the car.",function(){wait=null;prefs.cancelQueue();if(ns&&current())prefs.changed("sync");});return!!wait;}
 function runAction(a){
   if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
   if(store[a](close))return;
@@ -364,10 +365,12 @@ prefs.revert=function(){if(current())render(choice,0);};
 prefs.changed=function(failed){
 if(failed==="sync"){
 if(dismiss)dismiss();
-if(current()&&!wait)render(choice,0);
-return;
+if(!current()){close();return;}
+if(wait){ns=true;return;}
+render(choice,0);return;
 }
 if(!failed){
+if(ns&&current()&&!wait){render(choice,0);return;}
 if(current()&&choice===null&&!dismiss&&!wait){
 page.list2Ctrl.dataList.items.forEach(function(r,i){if(r.appData==="restart"){r.disabled=!canRestart();page.list2Ctrl.updateItems(i,i);}});
 }return;
@@ -375,15 +378,15 @@ page.list2Ctrl.dataList.items.forEach(function(r,i){if(r.appData==="restart"){r.
 endWait();if(dismiss)dismiss();if(current())render("unknown",0);else close();
 };
 var transition=fw.common.getCommonTransitionData;
-restorers.push(replace(fw.common,"getCommonTransitionData",function(){close();return transition.apply(this,arguments);}));
+undo.push(replace(fw.common,"getCommonTransitionData",function(){close();return transition.apply(this,arguments);}));
 var input=host.handleControllerEvent;
-restorers.push(replace(host,"handleControllerEvent",function(e){
+undo.push(replace(host,"handleControllerEvent",function(e){
 if(leaving&&e==="goBack")return;
 if(!current()){close();return input.apply(this,arguments);}
 return page.handleControllerEvent.apply(page,arguments);
 }));
 var send=fw.sendEventToMmui;
-restorers.push(replace(fw,"sendEventToMmui",function(app,ev){
+undo.push(replace(fw,"sendEventToMmui",function(app,ev){
 if(leaving||/^(Global.Intent|SelectHome|SelectNavigation)/.test(ev))close();
 if(current()&&app==="common"&&(ev==="Global.GoBack"||ev==="Global.MenuUp")){
 if(wait)return;
@@ -392,7 +395,7 @@ else if(choice!==null&&choice!=="unknown")render(choice===2?"phone":null,choice,
 else{
 if(choice==="unknown")prefs.failure=null;
 if(moving)moving(true);leaving=true;
-if(fw._offscreenTemplateParent)moving=slide(page,host,true,close,oldDisplay,parent);else close();
+if(fw._offscreenTemplateParent)moving=slide(page,host,true,close,oldD,parent);else close();
 }return;
 }
 return send.apply(this,arguments);
@@ -401,22 +404,22 @@ return close;
 }
 
 function attach(fw,app,store){
-function template(){return app._currentContextTemplate;}
+function tmpl(){return app._currentContextTemplate;}
 var entry=app._contextTable.SystemTab;
-var original=entry.readyFunction;
+var orig=entry.readyFunction;
 var list=null,release=null,closePage=null;
 var id="open-connect-settings";
 function bind(){
-var host=template();
+var host=tmpl();
 if(!host||!host.list2Ctrl||host.list2Ctrl===list)return;
 if(release)release(false);
 list=host.list2Ctrl;
 var ctrl=list,set=ctrl.setDataList,sel=ctrl.properties.selectCallback;
 var undoSelect=replace(ctrl.properties,"selectCallback",function(c,v){
 if(c===ctrl&&v===id){
-var h=template();
+var h=tmpl();
 var show=function(fresh){
-if(list!==ctrl||fw._currTmpltInstance!==h||template()!==h)return;
+if(list!==ctrl||fw._currTmpltInstance!==h||tmpl()!==h)return;
 if(!fresh){if(store.unavailable)store.unavailable();return;}
 var o=open(fw,store);if(o)closePage=o;
 };
@@ -454,7 +457,7 @@ if(rows.length)ctrl.updateItems(0,rows.length-1);
 function repaint(){
 if(list&&list.dataList.itemCount){list.updateItems(0,list.dataList.itemCount-1);}
 }
-if(fw.getCurrCtxtId()==="SystemTab"&&fw._currTmpltInstance===template()){
+if(fw.getCurrCtxtId()==="SystemTab"&&fw._currTmpltInstance===tmpl()){
 bind();
 if(list){
 if(!list.dataList.items.some(function(r){return r.appData===id;}))list.setDataList(list.dataList);
@@ -463,13 +466,13 @@ repaint();
 }
 var undoReady=replace(entry,"readyFunction",function(){
 bind();
-var result=original.apply(this,arguments);
+var res=orig.apply(this,arguments);
 repaint();
-return result;
+return res;
 });
 return function detach(){
 undoReady();
-if(release){release(template()&&template().list2Ctrl===list);}
+if(release)release(tmpl()&&tmpl().list2Ctrl===list);
 list=release=null;
 };
 }

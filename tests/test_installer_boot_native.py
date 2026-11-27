@@ -535,9 +535,7 @@ class NativeBootPlan(unittest.TestCase):
             transaction = client / "transaction.sh"
             original = transaction.read_text()
             transaction.write_text(
-                original.replace(
-                    "  PREPARED_REV=$R_REV", "  kill -KILL $$\n  PREPARED_REV=$R_REV"
-                )
+                original.replace("  PREPARED_REV=$R_REV", "  kill -KILL $$\n  PREPARED_REV=$R_REV")
             )
             result = self.touch_api(
                 fixture, "set", fixture.record()[5], "carplay-autoshow", "0", "1"
@@ -669,7 +667,9 @@ class NativeBootPlan(unittest.TestCase):
                     fixture, client, pending, stage = self.staged_touch_pending(reversal=reversal)
                     transaction = client / "transaction.sh"
                     original = transaction.read_text()
-                    retire = '      startup_staging_retire "$R_AFTER" || fail startup_stage_changed\n'
+                    retire = (
+                        '      startup_staging_retire "$R_AFTER" || fail startup_stage_changed\n'
+                    )
                     if cut == "before":
                         changed = original.replace(retire, "      kill -KILL $$\n" + retire)
                     elif cut == "after":

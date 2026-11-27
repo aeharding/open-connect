@@ -431,7 +431,10 @@ class InstallerTransaction(unittest.TestCase):
                 dep_passes = passes
             result, answer = self.api(operation, *args)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            for function, expected in (("targets_match_loaded", passes), ("dependencies_match", dep_passes)):
+            for function, expected in (
+                ("targets_match_loaded", passes),
+                ("dependencies_match", dep_passes),
+            ):
                 self.assertEqual(
                     len(re.findall(r"^\++ " + function + r" ", result.stderr, re.M)),
                     expected,

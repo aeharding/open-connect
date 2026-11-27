@@ -1453,9 +1453,68 @@ transaction_reconcile
             timeout=15,
         )
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(fixture.record()[1], "set")
+        self.assertEqual(fixture.record()[1], "active")
         self.assertEqual(fixture.record()[5], before)
-        self.assertIn(b"boot_dependencies_changed", result.stderr)
+        self.assertIn(b"invalid_plan", result.stderr)
+
+        # Direct sealing of an empty-dependency snapshot must still be refused with boot_dependencies_changed.
+        seal_driver = r"""
+set -eu; umask 077; D=$1; P=$2; AUTOSTART=$D-target
+. "$P/state.sh"
+. "$P/firmware.sh"
+. "$P/access.sh"
+. "$P/transaction.sh"
+record_read; snapshot_read "$R_CURRENT"
+after=$(fixture_snapshot "$AUTOSTART" "$R_BACKEND" "$S_TOUCH" "$S_WARNING" "$S_NVRAM" "$S_META" /dev/null - "$S_PANDORA" "$S_BASE" "$S_WIRELESS")
+boot_snapshot_seal "$after"
+"""
+        seal_res = subprocess.run(
+            [
+                "sh",
+                "-c",
+                (ROOT / "tests/fixtures/installer-snapshots.sh").read_text() + seal_driver,
+                "seal",
+                fixture.data,
+                fixture.package,
+            ],
+            env=fixture.env,
+            capture_output=True,
+            timeout=15,
+        )
+        self.assertNotEqual(seal_res.returncode, 0)
+        self.assertIn(b"boot_dependencies_changed", seal_res.stderr)
+
+        # Pre-sealed fast path (boot.plan already present under PREPARED_REV):
+        # full dependency set is accepted unchanged; a 1-row pre-sealed plan is refused.
+        full_deps = fixture.data / "snapshots" / before / "dependencies"
+        one_dep = fixture.root / "one-dep-native"
+        dep_lines = full_deps.read_text().splitlines()
+        self.assertGreater(len(dep_lines), 1)
+        one_dep.write_text(dep_lines[0] + "\n")
+        fast_driver = r"""
+set -eu; umask 077; D=$1; P=$2; FULL=$3; ONE=$4; AUTOSTART=$D-target
+. "$P/state.sh"
+. "$P/firmware.sh"
+. "$P/access.sh"
+. "$P/transaction.sh"
+record_read; snapshot_read "$R_CURRENT"
+VERIFIED_PACKAGE=$R_BACKEND; SEAL_BOOT_PLAN=1; PREPARED_REV=$R_REV
+full_snap=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$S_PACKAGE" "$S_NVRAM" "$S_META" "$FULL" "$D/snapshots/$R_CURRENT" "$S_PREFS")
+test -f "$D/snapshots/$full_snap/boot.plan"
+sealed_full=$(boot_snapshot_seal "$full_snap")
+test "$sealed_full" = "$full_snap"
+short_snap=$(snapshot_create "$D/snapshots/$R_CURRENT/autostart" "$S_PACKAGE" "$S_NVRAM" "$S_META" "$ONE" "$D/snapshots/$R_CURRENT" "$S_PREFS")
+test -f "$D/snapshots/$short_snap/boot.plan"
+"$P/boot-select" check / "${D#/}/snapshots/$short_snap" < "$D/snapshots/$short_snap/boot.plan"
+if (boot_snapshot_seal "$short_snap") >/dev/null 2>&1; then exit 12; fi
+"""
+        fast_res = subprocess.run(
+            ["sh", "-c", fast_driver, "fast", fixture.data, fixture.package, full_deps, one_dep],
+            env=fixture.env,
+            capture_output=True,
+            timeout=15,
+        )
+        self.assertEqual(fast_res.returncode, 0, fast_res.stderr)
 
     def test_prepared_factory_profiles_keep_policy_and_do_not_change_current_record(self):
         fixture = self.native_fixture()

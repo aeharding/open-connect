@@ -37,41 +37,35 @@ bit(s.uartCurrent)&&bit(s.sshCurrent)&&
 /^(?:-|[a-f0-9]{64})$/.test(s.key)&&/^(?:-|[a-f0-9:]{47})$/.test(s.fingerprint)))&&
 versionRE.test(s.version)&&(s.installedVersion===undefined||s.installedVersion==="-"||versionRE.test(s.installedVersion));
 }
-function service(values,key){
-var rows=values&&values.services,i;
-for(i=0;rows&&i<rows.length;i++){if(rows[i].id===key){return rows[i];}}
+function service(v,k){
+var rows=v&&v.services,i;
+for(i=0;rows&&i<rows.length;i++)if(rows[i].id===k)return rows[i];
 return null;
 }
-function preference(values,key){
-var row=service(values,key);
-return row?row.saved:values[key];
+function preference(v,k){
+var r=service(v,k);
+return r?r.saved:v[k];
 }
-function valid(values){
-return values&&validServices(values.services)&&(bit(values.touch)||values.touch===2)&&
-bit(values.warning)&&
-optional(values.pandora)&&
-optional(values.base)&&autoshow(values)&&
-optional(values.wireless)&&
-(values.wirelessFactory===undefined||typeof values.wirelessFactory==="boolean");
+function valid(v){
+return v&&validServices(v.services)&&(bit(v.touch)||v.touch===2)&&bit(v.warning)&&
+optional(v.pandora)&&optional(v.base)&&autoshow(v)&&optional(v.wireless)&&
+(v.wirelessFactory===undefined||typeof v.wirelessFactory==="boolean");
 }
-function autoshow(s){
-return s.carplayAutoshow===undefined||(bit(s.carplayAutoshow)&&
-bit(s.carplayAutoshowCurrent));
-}
-function toggle(title,on,key){return{text1:title,itemStyle:"styleOnOff",value:on?1:2,hasCaret:false,appData:key};}
+function autoshow(s){return s.carplayAutoshow===undefined||(bit(s.carplayAutoshow)&&bit(s.carplayAutoshowCurrent));}
+function toggle(t,on,k){return{text1:t,itemStyle:"styleOnOff",value:on?1:2,hasCaret:false,appData:k};}
 
 function slide(from,to,back,done,reveal,parent){
 var a=from.divElt,b=to.divElt,timer,finished=false;
 var init=back?"Transitions_Init_OffscreenLeft":"Transitions_Init_OffscreenRight";
 var out="Transitions_slideOut"+(back?"Right":"Left")+"TmpltWithStatusLeftBtn_0_400";
 var into="Transitions_slideIn"+(back?"Left":"Right")+"TmpltWithStatusLeftBtn_0_400";
-function finish(event){
-if(finished||event&&event!==true&&event.target!==b){return;}
+function finish(ev){
+if(finished||ev&&ev!==true&&ev.target!==b)return;
 finished=true;clearTimeout(timer);
 b.removeEventListener("animationend",finish,false);
 a.classList.remove(out);b.classList.remove(into);b.classList.remove(init);
 if(to.endTransitionTo)to.endTransitionTo();
-done(event===true);
+done(ev===true);
 }
 b.addEventListener("animationend",finish,false);
 b.classList.add(init);parent.appendChild(b);
@@ -82,12 +76,12 @@ timer=setTimeout(finish,900);
 return finish;
 }
 
-function replace(obj,key,fn){
-var previous=obj[key],local=own.call(obj,key);
-obj[key]=fn;
+function replace(obj,k,fn){
+var prev=obj[k],loc=own.call(obj,k);
+obj[k]=fn;
 return function(){
-if(obj[key]!==fn){return;}
-if(local){obj[key]=previous;}else{delete obj[key];}
+if(obj[k]!==fn)return;
+if(loc)obj[k]=prev;else delete obj[k];
 };
 }
 
@@ -151,7 +145,7 @@ function flush(){
     }
     if(rec&&qd)drain(false);
     if(wanted[key]===req)delete wanted[key];
-    flush();if(prefs.changed)prefs.changed(false);
+    flush();if(prefs.changed)prefs.changed(rec?"sync":false);
   }
   try{store.write(key==="carplayAutoshow"?"carplay-autoshow":key,preference(saved,key),req,finish);}
   catch(e){finish(null);}
@@ -173,10 +167,11 @@ prefs.importKey=function(done){
     if(!ok){
       wanted={};pending(false);drain(false);
       if(failed==="restart"){prefs.failure=failed;if(prefs.changed)prefs.changed(true);}
-      else{done(null,failed);if(prefs.changed)prefs.changed(false);}
+      else{if(prefs.changed)prefs.changed("sync");done(null,failed);}
       return;
     }
     if(rec&&qd)drain(false);
+    if(rec&&prefs.changed)prefs.changed("sync");
     done(actual);flush();
   }
   try{store.importKey(finish);}catch(e){finish(null);}
@@ -367,6 +362,11 @@ if(store.opened)store.opened();
 if(typeof ocCarPlay!=="undefined"&&ocCarPlay)ocCarPlay.cancel();
 prefs.revert=function(){if(current())render(choice,0);};
 prefs.changed=function(failed){
+if(failed==="sync"){
+if(dismiss)dismiss();
+if(current()&&!wait)render(choice,0);
+return;
+}
 if(!failed){
 if(current()&&choice===null&&!dismiss&&!wait){
 page.list2Ctrl.dataList.items.forEach(function(r,i){if(r.appData==="restart"){r.disabled=!canRestart();page.list2Ctrl.updateItems(i,i);}});

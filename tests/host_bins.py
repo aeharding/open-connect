@@ -1,8 +1,8 @@
 """Shared cached host-binary builder for offline tests.
 
 Compiles unmodified target C sources once per cache directory (using atomic
-rename so parallel test workers share binaries safely) instead of invoking
-clang inside every test method's setUp().
+rename so parallel workers and threads share binaries safely) instead of
+invoking clang inside every test method's setUp().
 """
 
 import atexit
@@ -16,23 +16,35 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "cmu/installer"
 _LOCAL_CACHE: Path | None = None
+_LOCAL_CACHE_PID: int | None = None
+
+
+def _cleanup_local_cache(path: Path, creator_pid: int) -> None:
+    if os.getpid() == creator_pid:
+        shutil.rmtree(path, ignore_errors=True)
 
 
 def _cache_dir() -> Path:
-    global _LOCAL_CACHE
+    global _LOCAL_CACHE, _LOCAL_CACHE_PID
     env_dir = os.environ.get("OC_HOST_BIN_CACHE")
     if env_dir:
-        path = Path(env_dir)
+        path = Path(env_dir).resolve()
         path.mkdir(parents=True, exist_ok=True)
         return path
-    if _LOCAL_CACHE is None or not _LOCAL_CACHE.is_dir():
-        _LOCAL_CACHE = Path(tempfile.mkdtemp(prefix="oc-host-bins-"))
-        atexit.register(shutil.rmtree, _LOCAL_CACHE, True)
+    pid = os.getpid()
+    if _LOCAL_CACHE is None or _LOCAL_CACHE_PID != pid or not _LOCAL_CACHE.is_dir():
+        _LOCAL_CACHE = Path(tempfile.mkdtemp(prefix="oc-host-bins-")).resolve()
+        _LOCAL_CACHE_PID = pid
+        atexit.register(_cleanup_local_cache, _LOCAL_CACHE, pid)
     return _LOCAL_CACHE
 
 
 def _build_cached(
-    name: str, sources: list[Path], flags: list[str], *, extra_deps: list[Path] = ()
+    name: str,
+    sources: list[Path],
+    flags: list[str],
+    *,
+    extra_deps: list[Path] | tuple[Path, ...] = (),
 ) -> Path:
     digest = hashlib.sha256()
     digest.update("\0".join(flags).encode())
@@ -46,17 +58,24 @@ def _build_cached(
     target = cache / f"{name}-{key}"
     if target.is_file():
         return target
-    tmp = cache / f".{name}-{key}-{os.getpid()}"
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{name}-{key}-", dir=cache)
+    os.close(fd)
+    tmp = Path(tmp_name)
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["clang", *flags, *(str(s) for s in sources), "-o", str(tmp)],
-            check=True,
             capture_output=True,
+            text=True,
             timeout=60,
         )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"clang failed building {name} (exit {result.returncode}):\n"
+                f"{result.stdout}{result.stderr}"
+            )
         tmp.chmod(0o700)
         os.replace(tmp, target)
-    except Exception:
+    except BaseException:
         tmp.unlink(missing_ok=True)
         raise
     return target
@@ -64,7 +83,12 @@ def _build_cached(
 
 def host_flush() -> Path:
     """Return cached host-compiled flush binary."""
-    return _build_cached("flush", [ROOT / "cmu/startup/flush.c"], ["-DOC_HOST"])
+    return _build_cached(
+        "flush",
+        [ROOT / "cmu/startup/flush.c"],
+        ["-DOC_HOST"],
+        extra_deps=[ASSETS / "boot-hash.h"],
+    )
 
 
 def copy_host_flush(dest: Path) -> Path:

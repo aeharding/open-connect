@@ -274,7 +274,7 @@ function showWait(t){endWait();wait=dialogs.progress(fw,t,"Do not turn off the c
 function runAction(a){
   if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
   if(store[a](close))return;
-  dismiss=dialogs.message(fw,T,"Another action is finishing.",{button1:{label:"OK",appData:"done"}},function(){dismiss=null;if(current())prefs.changed(false);});
+  dismiss=dialogs.message(fw,T,"Another action is finishing.",{button1:{label:"OK",appData:"done"}},function(a){dismiss=null;if(a!=="closed"&&current())prefs.changed(false);});
 }
 function maintain(a){
   dismiss=null;if(!current()||(a!=="restart"&&a!=="uninstall"))return;
@@ -288,23 +288,24 @@ function maintain(a){
   },a==="uninstall");
 }
 function select(control,item,params){
-  if(!current()||dismiss||wait||!page||control!==page.list2Ctrl)return;
-  if(moving)moving(false);
+if(!current()||dismiss||wait||!page||control!==page.list2Ctrl)return;
+if(moving)moving(false);
+var d=params&&params.additionalData;
 if(choice===null&&/^(developer|phone|sources)$/.test(item)){render(item,0);return;}
 if(choice==="phone"&&item===2){var v=prefs.values();if(v)render(2,v.carplayAutoshow);return;}
 if(choice==="phone"&&item==="wireless"){
-if(!params||(params.additionalData!==1&&params.additionalData!==2))return;
-var v=prefs.values(),on=params.additionalData===1;
+if(d!==1&&d!==2)return;
+var v=prefs.values(),on=d===1;
 if(!v||v.wirelessFactory===true||v.wireless===undefined||v.wireless===(on?1:0))return;
 dismiss=ask((on?"Enable":"Disable")+" Wireless CarPlay?",on?"Changes apply "+R+" Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth."+
 (v.base?" Delays Mazda Navigation about 20 s.":""):"Restores the original CarPlay behavior "+R,on?"Enable":"Disable","apply",function(a){
 dismiss=null;if(a==="apply"&&current())prefs.select("wireless",on?1:0);
-if(current()&&choice==="phone")render("phone","wireless");
+if(a!=="closed"&&current()&&choice==="phone")render("phone","wireless");
 });return;
 }
 if(choice===null&&item==="base"||choice==="phone"||choice==="sources"){
-if(!params||(params.additionalData!==1&&params.additionalData!==2))return;
-var on=params.additionalData===1,desired=on?1:0,v=prefs.values();
+if(d!==1&&d!==2)return;
+var on=d===1,desired=on?1:0,v=prefs.values();
 if(!v){render("unknown",0);return;}
 var row=service(v,item);
 if(item!=="base"&&!row&&!(item==="pandora"&&!v.services))return;
@@ -320,15 +321,15 @@ if(a!=="closed"&&current()&&choice===origin)render(origin,item);
 });return;
 }
 if(choice==="developer"){
-if((item==="uart"||item==="ssh")&&params&&(params.additionalData===1||params.additionalData===2)){
-var values=prefs.values();if(item==="ssh"&&values.key==="-")return;
-if(params.additionalData===1&&values[item]===0){
+if((item==="uart"||item==="ssh")&&(d===1||d===2)){
+var v=prefs.values();if(item==="ssh"&&v.key==="-")return;
+if(d===1&&v[item]===0){
 dismiss=ask(item==="uart"?"Enable UART?":"Enable SSH?",item==="uart"?"Passwordless root access over UART. Changes apply after restart.":"Changes apply "+R,"Enable","enable",function(a){
 dismiss=null;if(a==="enable"&&current())prefs.select(item,1);
 if(a!=="closed"&&current()&&choice==="developer")render("developer",item);
 });return;
 }
-prefs.select(item,params.additionalData===1?1:0);
+prefs.select(item,d===1?1:0);
 }else if(item==="import"&&typeof store.importKey==="function"){
   dismiss=ask("Import public key?","Put open-connect.pub on the USB drive. RSA and ECDSA public keys are supported. The imported key will be replaced.","Import","import",function(a){
     dismiss=null;if(a!=="import"||!current())return;
@@ -336,8 +337,8 @@ prefs.select(item,params.additionalData===1?1:0);
     prefs.queue(function(ok){
       if(!ok||!current()){endWait(w);return;}
       prefs.importKey(function(act){
-        if(current()&&choice==="developer")ns=false;
-        endWait(w);if(!current()||choice!=="developer")return false;
+        if(current()&&choice==="developer"&&(!wait||wait===w))ns=false;
+        endWait(w);if(!current()||choice!=="developer"||wait)return false;
         if(dismiss)dismiss();
         render("developer","import");
         dismiss=dialogs.message(fw,act?"Public key imported":"Key could not be imported",
@@ -351,7 +352,7 @@ prefs.select(item,params.additionalData===1?1:0);
 }
 return;
 }
-if(choice===null&&item==="about"){dismiss=dialogs.about(fw,store.version,function(){dismiss=null;if(current())prefs.changed(false);});return;}
+if(choice===null&&item==="about"){dismiss=dialogs.about(fw,store.version,function(a){dismiss=null;if(a!=="closed"&&current())prefs.changed(false);});return;}
 if(choice===null&&item==="restart"){if(canRestart())dismiss=ask("Apply changes?","Restart Mazda Connect to apply your saved changes.","Restart","restart",maintain);return;}
 if(choice===null&&item==="uninstall"&&typeof store.uninstall==="function"){dismiss=dialogs.confirmUninstall(fw,prefs.pending(),maintain);return;}
 if(choice==="unknown"){if(item===0){prefs.failure=null;close();}return;}
@@ -359,7 +360,7 @@ if(typeof item!=="number"||item<0||item>=(choice===null?entries.length:entries[c
 if(choice===null){var v=prefs.values();if(v&&v[entries[item].key]!==undefined)render(item,v[entries[item].key]);return;}
 if(choice===2&&item===1&&preference(prefs.values(),"carplayAutoshow")===0){
 dismiss=ask("Automatically show CarPlay?","Opens CarPlay when your phone connects. Applies "+R,"Enable","apply",function(a){
-dismiss=null;if(current()){if(a==="apply")prefs.select("carplayAutoshow",1);else render(choice,0);}
+dismiss=null;if(current()){if(a==="apply")prefs.select("carplayAutoshow",1);else if(a!=="closed")render(choice,0);}
 });return;
 }
 prefs.select(entries[choice].key,item);
@@ -374,7 +375,8 @@ if(failed==="sync"){
 if(dismiss)dismiss();
 if(!current()){close();return;}
 if(wait){ns=true;return;}
-render(choice,0);return;
+var c=page&&page.list2Ctrl,fi=c&&c.dataList.items[c.focussedItem];
+render(choice,fi?fi.appData:0);return;
 }
 if(!failed){
 if(ns&&!wait){prefs.changed("sync");return;}

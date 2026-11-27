@@ -579,4 +579,43 @@ for(const toggleItem of ['uart','ssh']){
   assert.equal(f.pages.at(-1).list2Ctrl.dataList.items[f.pages.at(-1).list2Ctrl.focussedItem].appData,'import');
  }
 }
+// Late direct Import ACK while viewing Touchscreen (Always disabled) preserves focus on Always disabled;
+// selecting the focused row sends zero writes.
+f=warm({...developer,touch:2,touchCurrent:2});select(f,'developer');select(f,'import');f.pick('import');
+f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+f.nativeSettings();f.tap();f.endAnimations();select(f,0);
+assert.equal(f.pages.at(-1).list2Ctrl.focussedItem,2);
+f.reply(f.operation('import')[0],f.state({...developer,touch:2,touchCurrent:2,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+const touchPage=f.pages.at(-1).list2Ctrl;
+assert.equal(touchPage.focussedItem,2,'sync refresh must preserve focused Touchscreen choice');
+select(f,touchPage.dataList.items[touchPage.focussedItem].appData);
+assert.equal(f.operation('set').length,0,'selecting already-active focused choice must send zero writes');
+// Retiring an open Wireless CarPlay or CarPlay Autoshow prompt on late Import ACK builds the page only once.
+for(const cp of ['wireless','autoshow']){
+ f=warm({...developer,wireless:0,wirelessCurrent:0,wirelessFactory:false,carplayAutoshow:0,carplayAutoshowCurrent:0});
+ select(f,'developer');select(f,'import');f.pick('import');
+ f.fw.sendEventToMmui('common','Global.IntentHome');f.homeScreen();
+ f.nativeSettings();f.tap();f.endAnimations();select(f,'phone');
+ if(cp==='wireless'){select(f,'wireless',{additionalData:1});assert.equal(f.dialog.props.title,'Enable Wireless CarPlay?');}
+ else{select(f,2);select(f,1);assert.equal(f.dialog.props.title,'Automatically show CarPlay?');}
+ const beforeCp=f.pages.length;
+ f.reply(f.operation('import')[0],f.state({...developer,wireless:0,wirelessCurrent:0,wirelessFactory:false,carplayAutoshow:0,carplayAutoshowCurrent:0,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+ assert.equal(f.pages.length,beforeCp+1,cp+' prompt retirement on sync must render once');
+ assert.equal(f.dialog,undefined);
+}
+// Touch-cancelling Import #1 and queuing Import #2 on Developer options keeps Import #2's progress active
+// when Import #1 finishes, sends Import #2, and presents Import #2's result cleanly.
+f=warm({...developer});select(f,'developer');select(f,'import');f.pick('import');
+assert.equal(f.operation('import').length,1);
+f.fw.common.handleControllerEvent('audio');
+assert.equal(f.dialog,undefined);
+select(f,'import');f.pick('import');
+assert.equal(f.dialog.props.text1,'Importing public key');
+assert.equal(f.operation('import').length,1);
+f.reply(f.operation('import')[0],f.state({...developer,key:'e'.repeat(64),fingerprint:Array(16).fill('ab').join(':'),revision:'e'.repeat(64)}));
+assert.equal(f.dialog.props.text1,'Importing public key','queued Import #2 progress must stay open when Import #1 finishes');
+assert.equal(f.operation('import').length,2,'queued Import #2 must start after Import #1 finishes');
+f.reply(f.operation('import')[1],f.state({...developer,key:'f'.repeat(64),fingerprint:Array(16).fill('cd').join(':'),revision:'f'.repeat(64)}));
+assert.equal(f.dialog.props.title,'Public key imported');
+assert.ok(f.dialog.props.text1.includes('cd:cd:cd'));
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

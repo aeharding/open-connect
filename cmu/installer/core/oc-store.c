@@ -116,7 +116,7 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
     const char *allowed_names[6]={"config","sm-normal.conf","sm-wcp.conf","index.html","mmui.xml","vui-plugins.list"};
     for (unsigned i=0; i<6; ++i) { work_allowed.rows[i].name=(char *)allowed_names[i]; work_allowed.rows[i].digest=(char *)""; }
     if (ok) ok=oc_members((int)work,&work_allowed,2);
-    char *new_flags[10], new_svc[65];
+    char *new_flags[12], new_svc[65];
     if (ok) {
         long cfd=oc_openat((int)work,"config",OC_READ,0);
         ok=cfd>=0 && oc_hash_copy((int)cfd,-1,33554432,oc_pub.m_digest[1],&oc_pub.m_meta[1])==OC_COPY_OK &&
@@ -143,12 +143,12 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
     int same_b=ok&&oc_equal(b->flags[6],new_flags[6]);
     int same_wl=ok&&oc_equal(b->flags[7],new_flags[7]);
     int same_t2=ok&&(oc_equal(b->flags[1],"2")==oc_equal(new_flags[1],"2"));
-    int same_as=ok&&oc_equal(b->flags[8],new_flags[8]);
-    int same_so=ok&&oc_equal(b->flags[9],new_flags[9]);
+    int same_opt=ok;
+    for (unsigned i=8; i<12; ++i) if (!oc_equal(b->flags[i],new_flags[i])) same_opt=0;
     int reuse[5]={
         same_t2&&same_w&&same_b&&same_wl&&same_svc,
         same_t2&&same_w&&same_b&&same_wl&&same_svc,
-        same_w&&same_b&&same_svc&&same_as&&same_so,
+        same_w&&same_b&&same_svc&&same_opt,
         same_w&&same_b&&same_svc,
         same_b&&same_svc
     };

@@ -45,7 +45,7 @@ typedef struct {
     char current_manifest[4096], base_manifest[4096], package_manifest[8192], composed_manifest[4096], composed_digest[65];
     char dependencies[24576], plan_text[OC_PLAN_LIMIT+1], scratch[32768];
     char *plugins; /* Reuse parsed dependency storage after coverage checks. */
-    char *record_fields[13], *flags[10], *access_fields[6], *base_flags[10], *base_access_fields[6];
+    char *record_fields[13], *flags[12], *access_fields[6], *base_flags[12], *base_access_fields[6];
     OcManifest current, base, pkg, composition;
     OcInput inputs[OC_PLAN_ROWS];
     unsigned input_count;
@@ -190,7 +190,9 @@ typedef struct {
     int is_oc2;
     int has_autoshow;
     int has_source_order;
-    char *package, *touch, *warning, *nvram, *metadata, *base, *wireless, *autoshow, *source_order, *pandora;
+    int has_menu_loop;
+    int has_hold_scroll;
+    char *package, *touch, *warning, *nvram, *metadata, *base, *wireless, *autoshow, *source_order, *menu_loop, *hold_scroll, *pandora;
     char *svc_ids[16];
     char *svc_vals[16];
     unsigned svc_count;

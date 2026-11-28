@@ -352,26 +352,68 @@ class NativeInstall(unittest.TestCase):
             self.assertEqual(p_t0.returncode, 0, (r_t0, p_t0.stderr))
             self.assertEqual(r_t0["sourceOrder"], 0)
             self.assertEqual(r_t0["sourceOrderCurrent"], 0)
+            self.assertEqual(r_t0["menuLoop"], 0)
+            self.assertEqual(r_t0["menuLoopCurrent"], 0)
+            self.assertEqual(r_t0["holdScroll"], 0)
+            self.assertEqual(r_t0["holdScrollCurrent"], 0)
             self.assertNotIn(
                 "reorderSources", (data / "snapshots" / snap1 / "index.html").read_text()
             )
+            self.assertNotIn("installNav", (data / "snapshots" / snap1 / "index.html").read_text())
             p_as, r_as = self._call_api(
                 api_bin, set_sess, r_t0["revision"], "set", "carplay-autoshow", "0", "1", env=env
             )
             self.assertEqual(p_as.returncode, 0, (r_as, p_as.stderr))
+            no_awk_env = dict(env, OC_HOST_AWK="/nonexistent/awk")
             p_so, r_so = self._call_api(
-                api_bin, set_sess, r_as["revision"], "set", "source-order", "0", "1", env=env
+                api_bin,
+                set_sess,
+                r_as["revision"],
+                "set",
+                "source-order",
+                "0",
+                "1",
+                env=no_awk_env,
             )
             self.assertEqual(p_so.returncode, 0, (r_so, p_so.stderr))
             self.assertEqual(r_so["sourceOrder"], 1)
             self.assertEqual(r_so["sourceOrderCurrent"], 0)
             self.assertTrue(r_so["restart"])
-            snap_mod = r_so["revision"]
-            self.assertIn(
-                "reorderSources", (data / "snapshots" / snap_mod / "index.html").read_text()
+            p_ml, r_ml = self._call_api(
+                api_bin,
+                set_sess,
+                r_so["revision"],
+                "set",
+                "menu-loop",
+                "0",
+                "1",
+                env=no_awk_env,
             )
+            self.assertEqual(p_ml.returncode, 0, (r_ml, p_ml.stderr))
+            self.assertEqual(r_ml["menuLoop"], 1)
+            self.assertEqual(r_ml["menuLoopCurrent"], 0)
+            self.assertTrue(r_ml["restart"])
+            p_hs, r_hs = self._call_api(
+                api_bin,
+                set_sess,
+                r_ml["revision"],
+                "set",
+                "hold-scroll",
+                "0",
+                "1",
+                env=no_awk_env,
+            )
+            self.assertEqual(p_hs.returncode, 0, (r_hs, p_hs.stderr))
+            self.assertEqual(r_hs["holdScroll"], 1)
+            self.assertEqual(r_hs["holdScrollCurrent"], 0)
+            self.assertTrue(r_hs["restart"])
+            snap_mod = r_hs["revision"]
+            snap_idx = (data / "snapshots" / snap_mod / "index.html").read_text()
+            self.assertIn("reorderSources", snap_idx)
+            self.assertIn("installNav", snap_idx)
+            self.assertIn(",1,1,1]));", snap_idx)
 
-            # 3) Upgrade from active via a second USB session (different VERSION) -> preserves touch=0, carplay-autoshow=1 & source-order=1!
+            # 3) Upgrade from active via a second USB session (different VERSION) -> preserves touch=0, carplay-autoshow=1, source-order=1, menu-loop=1 & hold-scroll=1!
             usb2 = ram / "sessions/session-usb200"
             shutil.copytree(
                 usb_sess, usb2, symlinks=False, ignore=shutil.ignore_patterns("admitted")
@@ -394,6 +436,8 @@ class NativeInstall(unittest.TestCase):
             self.assertEqual(r_up["touch"], 0)
             self.assertEqual(r_up["carplayAutoshow"], 1)
             self.assertEqual(r_up["sourceOrder"], 1)
+            self.assertEqual(r_up["menuLoop"], 1)
+            self.assertEqual(r_up["holdScroll"], 1)
             rec_up = (data / "record").read_text().strip().split("|")
             self.assertNotEqual(rec_up[3], pkg1)
             self.assertEqual(rec_up[1], "active")

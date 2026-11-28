@@ -160,6 +160,37 @@ class InstallerPreferences(unittest.TestCase):
                 0,
             )
 
+    def test_menu_loop_and_hold_scroll_defaults_upgrade_and_validation(self):
+        current = self.fresh()
+        self.assertIn(b"hold-scroll=0\n", current)
+        self.assertIn(b"menu-loop=0\n", current)
+        self.assertLess(current.index(b"carplay-autoshow="), current.index(b"hold-scroll="))
+        self.assertLess(current.index(b"hold-scroll="), current.index(b"menu-loop="))
+        self.assertLess(current.index(b"menu-loop="), current.index(b"metadata="))
+        old = current.replace(b"hold-scroll=0\n", b"").replace(b"menu-loop=0\n", b"")
+        for config in (old, current):
+            decoded = self.run_preferences("decode", config)
+            self.assertEqual(decoded.returncode, 0, decoded.stderr)
+        upgraded = self.run_preferences(
+            "write", old, package_id="b" * 64, nvram_value="disable", metadata_value="775:1000:1000"
+        )
+        self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
+        self.assertIn(b"hold-scroll=0\n", upgraded.stdout)
+        self.assertIn(b"menu-loop=0\n", upgraded.stdout)
+        for key in ("menu-loop", "hold-scroll"):
+            enabled = self.run_preferences("set", current, key=key, value="1")
+            self.assertEqual(enabled.returncode, 0, enabled.stderr)
+            self.assertEqual(
+                enabled.stdout.replace(f"{key}=1".encode(), f"{key}=0".encode()), current
+            )
+            for bad in (b"2", b"01", b"1\0", f"1\n{key}=1".encode()):
+                self.assertNotEqual(
+                    self.run_preferences(
+                        "decode", current.replace(f"{key}=0".encode(), f"{key}=".encode() + bad)
+                    ).returncode,
+                    0,
+                )
+
     def test_missing_new_choice_defaults_only_during_upgrade_write(self):
         original = self.fresh()
         older = original.replace(b"service.android-auto=1\n", b"").replace(

@@ -56,11 +56,7 @@ static int oc_boot_identity(OcBoot *b) {
         }
         if (oc_symlink(b->boot,b->ram,"boot-id")<0) return 0;
     }
-    OcMeta meta;
-    if (oc_metadata(b->ram,"boot-id",&meta)<0||(meta.mode&OC_TYPE)!=0120000||
-        meta.uid!=(unsigned)b->owner||meta.gid!=(unsigned)b->group||
-        oc_readlink(b->ram,"boot-id",b->boot,sizeof b->boot)!=36) return 0;
-    b->boot[36]=0;
+    if (oc_readlink_owned(b->ram,"boot-id",b->owner,b->group,b->boot,sizeof b->boot)!=36) return 0;
     return oc_uuid(b->boot);
 }
 
@@ -92,16 +88,9 @@ static int oc_copy_input(OcBoot *b, const char *key, int output, const char *nam
 }
 
 static int oc_reseal_hint(OcBoot *b) {
-    long fd=oc_openat(b->data,"reseal",OC_READ,0);
-    if (fd==-2) return 0;
-    if (fd<0) return -1;
-    OcMeta before, after; char text[66];
-    int ok=oc_stat((int)fd,&before)>=0 && before.mode==(OC_REGULAR|0600) && before.size==65 &&
-        before.uid==(unsigned)b->owner && before.gid==(unsigned)b->group;
-    if (ok) ok=oc_text_fd((int)fd,text,sizeof text)==65 && oc_one_line(text) && oc_hex(text,64) &&
-        oc_stat((int)fd,&after)>=0 && oc_meta_equal(&before,&after);
-    if (oc_close((int)fd)<0) ok=0;
-    return ok?oc_equal(text,b->record_fields[5]):-1;
+    char text[65];
+    int r=oc_read_owned_hex64(b->data,"reseal",b->owner,b->group,1,text);
+    return r>0 ? oc_equal(text,b->record_fields[5]) : r;
 }
 
 static int oc_request_reseal(OcBoot *b) {
@@ -140,7 +129,8 @@ static int oc_composed_copy(OcBoot *b, const char *name, int output, unsigned mo
 static int oc_composed_link(OcBoot *b, const char *name) {
     char target[192];
     return oc_store_copy(b,"composed-",name,-1,0,0) &&
-        oc_join4(target,sizeof target,"../../mnt/data_persist/open-connect/composed/",b->record_fields[3],"/",name) &&
+        oc_join4(target,sizeof target,"../../mnt/data_persist/open-connect","/composed/",b->record_fields[3],"/") &&
+        oc_join(target,sizeof target,target,name) &&
         oc_symlink(target,b->stage,name)>=0;
 }
 
@@ -233,7 +223,7 @@ static int oc_stage(OcBoot *b) {
     if (oc_equal(b->record_fields[12],"installed")) {
         char target[192];
         if (!oc_package_copy(b,"maintenance.js",-1,0,0)||
-            !oc_join4(target,sizeof target,"../../mnt/data_persist/open-connect/packages/",b->record_fields[3],"/maintenance.js",0)||
+            !oc_join4(target,sizeof target,"../../mnt/data_persist/open-connect","/packages/",b->record_fields[3],"/maintenance.js")||
             oc_symlink(target,b->stage,"maintenance.js")<0) return 0;
     }
     if (oc_equal(b->flags[8],"1") && !oc_package_copy(b,"carplay.js",b->stage,"carplay.js",0600)) return 0;
@@ -350,9 +340,9 @@ int oc_policy_load(OcBoot *b) {
         !oc_load_manifest(b->snapshot,b->record_fields[5],b->current_manifest,sizeof b->current_manifest,&b->current)||
         !oc_load_manifest(b->baseline,b->record_fields[4],b->base_manifest,sizeof b->base_manifest,&b->base)||
         !oc_saved_text(b->snapshot,&b->current,"config",b->config,sizeof b->config)||
-        !oc_config(b,b->config,b->flags,1,b->svc_digest)||!oc_equal(b->flags[0],b->record_fields[3])||
+        !oc_config(b->config,b->flags,1,b->svc_digest)||!oc_equal(b->flags[0],b->record_fields[3])||
         !oc_saved_text(b->baseline,&b->base,"config",b->base_config,sizeof b->base_config)||
-        !oc_config(b,b->base_config,b->base_flags,0,0)) return 0;
+        !oc_config(b->base_config,b->base_flags,0,0)) return 0;
     return 1;
 }
 
@@ -458,7 +448,6 @@ int oc_record_commit(OcBoot *b) {
     oc_stamp(b,"record_synced"); oc_cut("record_synced");
     if (oc_close((int)fd)<0) ok=0;
     if (!ok || oc_rename(b->data,name,"record")<0) { (void)oc_unlink(b->data,name); return 0; }
-    b->debited=1;
     oc_stamp(b,"record_renamed"); oc_cut("record_renamed");
     if (oc_sync(b->data)<0) return 0;
     oc_stamp(b,"directory_synced"); oc_cut("directory_synced");

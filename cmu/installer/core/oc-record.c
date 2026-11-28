@@ -13,7 +13,7 @@ int oc_record_parse_any(char *buf, char *f[13]) {
     if (settled) { if (!oc_equal(f[6],"-")||!oc_equal(f[7],"-")) return 0; }
     else { if (!oc_hex(f[6],64)||!oc_hex(f[7],64)) return 0; }
     if (!oc_equal(f[8],"-")&&!oc_hex(f[8],64)) return 0;
-    if (oc_length(f[9])!=1||f[9][0]<'0'||f[9][0]>'3') return 0;
+    if (f[9][1]||f[9][0]<'0'||f[9][0]>'3') return 0;
     if ((!oc_equal(f[10],"-")&&!oc_uuid(f[10]))||(!oc_equal(f[11],"-")&&!oc_uuid(f[11]))) return 0;
     if (!(oc_equal(f[12],"-")||oc_equal(f[12],"installed")||oc_equal(f[12],"removed")||
           oc_equal(f[12],"undone")||oc_equal(f[12],"restart"))) return 0;

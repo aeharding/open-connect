@@ -167,8 +167,12 @@ jobs:
       - name: Install ARMv7 build and QEMU userspace tools
         run: |
           sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 update -qq
+          qemu_pkg=qemu-user-static
+          if apt-cache show qemu-user-binfmt >/dev/null 2>&1; then
+            qemu_pkg=qemu-user-binfmt
+          fi
           sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -y --no-install-recommends \
-            install clang lld llvm qemu-user-static
+            install clang lld llvm "$qemu_pkg"
           image=busybox@sha256:3c6ae8008e2c2eedd141725c30b20d9c36b026eb796688f88205845ef17aa213
           container=$(docker create "$image")
           trap 'docker rm "$container" >/dev/null' EXIT

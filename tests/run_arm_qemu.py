@@ -135,7 +135,8 @@ def ensure_binfmt(qemu: Path) -> None:
     existing = list(bm.glob("qemu-arm*"))
     if existing:
         txt = existing[0].read_text()
-        if "enabled" in txt and "F" in txt:
+        has_f = any(ln.startswith("flags:") and "F" in ln for ln in txt.splitlines())
+        if "enabled" in txt and has_f:
             return
         # Re-register with F flag so chroots execute ARMv7 ELFs transparently.
         existing[0].write_text("-1")

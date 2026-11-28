@@ -28,7 +28,7 @@ See which version of Open Connect is installed.
 
 ## Notes
 
-<p>Read-only view that opens immediately and needs no restart. The current development prerelease is <strong>0.3.0-dev.26</strong> for North American Mazda Connect <strong>74.00.324A</strong> (real-car qualification remains pending).</p>
+<p>Read-only view that opens immediately and needs no restart. The current development prerelease is <strong>0.3.0-dev.27</strong> for North American Mazda Connect <strong>74.00.324A</strong> (real-car qualification remains pending).</p>
 
 ## Check the version
 

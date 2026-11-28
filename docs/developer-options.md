@@ -30,7 +30,7 @@ Use direct SSH or UART access to the head unit for your own purposes. Neither is
 
 <p>Both UART and SSH are <span class="oc-default oc-default--off">Off</span> by default, with no Open Connect public key imported. Turning SSH on can start an SSH daemon; neither toggle has an isolated startup or memory benchmark (see <a href="performance.md">Performance evidence</a>).</p>
 
-<p>UART enables a passwordless root serial shell; SSH authorizes your imported public key. Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong> (use <a href="apply-changes.md">Apply changes</a> to restart right away). <strong>0.3.0-dev.26</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
+<p>UART enables a passwordless root serial shell; SSH authorizes your imported public key. Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong> (use <a href="apply-changes.md">Apply changes</a> to restart right away). <strong>0.3.0-dev.27</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 Restore any changes you make to head-unit storage before installing, upgrading or uninstalling Open Connect. Leaving storage modified can cause maintenance to stop rather than overwrite unexpected files. If you cannot return it cleanly to stock, reinstall Mazda firmware **74.00.324 NA N** first.
 
@@ -58,7 +58,7 @@ See [Wire a bench — pin maps](bench-setup.md#pin-maps) and [UART cables](bench
 
 Authorizes your imported public key on Mazda’s built-in SSH server (port **36000**, account `cmu`) while leaving any pre-existing SSH keys untouched. Turning SSH off removes Open Connect’s key authorization on the next full restart.
 
-SSH requires a network path to the CMU — enabling it does not configure Wi-Fi. Plug a supported **USB-to-Ethernet adapter** into one of the car’s USB ports on the same network as your computer (see [network cables](bench-setup.md#cables)).
+SSH requires a network path to the CMU — enabling it does not configure Wi-Fi. Plug a supported **USB-to-Ethernet adapter** into one of the car’s USB ports on the same network as your computer (see [network cables](bench-setup.md#cables)). When **SSH** is enabled, Open Connect also performs a bounded background DHCP retry on `eth1` if Mazda’s initial boot DHCP attempt finishes before your USB-Ethernet link is ready (preserving Mazda’s fallback `192.168.42.1` address if no DHCP server responds).
 
 ### Import a public key
 
@@ -69,8 +69,8 @@ ssh-keygen -t ecdsa -b 256 -f ~/.ssh/open-connect
 ```
 
 1. Keep the private key (`~/.ssh/open-connect`) on your computer.
-2. Copy **only** `~/.ssh/open-connect.pub` to the root of a FAT32 USB drive and rename it to **`open-connect.pub`**.
-3. Insert the drive, select **Import public key**, and confirm **Import**.
+2. Copy **only** `~/.ssh/open-connect.pub` to the root of a single FAT32 USB drive and rename it to **`open-connect.pub`**.
+3. Insert only that USB drive, select **Import public key**, and confirm **Import**.
 4. Verify all 16 MD5 fingerprint pairs shown on screen against your computer:
 
 ```sh

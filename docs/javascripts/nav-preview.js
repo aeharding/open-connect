@@ -46,10 +46,12 @@
     dvd: root,
     pandora: audio,
     siriusxm: audio,
+    "commander-dial": root,
+    "backup-restore": root,
     "developer-options": ["developer-options.mp4", `${root[1]} → Developer options`],
     "version-info": ["version-info.mp4", "Home → Settings → System → About → Version Information"],
   };
-  const audioNote = "This dev.20 video shows the older Audio sources layout with a separate DVD row. In 0.3.0-dev.26 on North American units, Audio sources contains Pandora and SiriusXM only, and DVD is managed by Startup optimizations.";
+  const audioNote = "This dev.20 video shows the older Audio sources layout with a separate DVD row. In 0.3.0-dev.27 on North American units, Audio sources contains Source order, Pandora and SiriusXM, and DVD is managed by Startup optimizations.";
   const notes = {
     touchscreen: "Select Touchscreen, then choose Factory behavior, Always enabled or Always disabled. (This walkthrough video was recorded on dev.20, which called the row Touchscreen While Driving.)",
     disclaimer: "Select Startup disclaimer, then choose Skip or Show.",
@@ -59,9 +61,11 @@
     "startup-optimizations": "Turn Startup optimizations on or off and confirm the change. The inline screenshot shows it on; the fresh-install default is Off.",
     "audio-sources": audioNote,
     services: audioNote,
-    dvd: "Earlier dev.19/dev.20 builds listed DVD under Audio sources. In 0.3.0-dev.26 on North American units, Startup optimizations manages the unused DVD service; audio CDs still work. (This video was recorded on dev.20.)",
+    dvd: "Earlier dev.19/dev.20 builds listed DVD under Audio sources. In 0.3.0-dev.27 on North American units, Startup optimizations manages the unused DVD service; audio CDs still work. (This video was recorded on dev.20.)",
     pandora: "Turn Pandora on or off and confirm the change. This controls Mazda’s integration, not Pandora through CarPlay or Bluetooth.",
     siriusxm: "Turn SiriusXM on or off and confirm the change. This controls satellite radio and SiriusXM data.",
+    "commander-dial": "Select Commander Dial to toggle Wrap-around menus & lists or Faster hold-scroll. (This walkthrough video was recorded before Commander Dial was added to the Open Connect menu.)",
+    "backup-restore": "Select Backup & restore to export or import open-connect.prefs on a single FAT32 USB drive. (This walkthrough video was recorded before Backup & restore was added to the Open Connect menu.)",
     "apply-changes": "Select Apply changes, then confirm Restart to apply saved choices. It is disabled when there are no pending changes. Keep the car on until Mazda Connect restarts.",
     uninstall: "Select Uninstall and confirm Uninstall. Keep the car on until the automatic restart finishes.",
     about: "Select About to see the installed Open Connect version.",

@@ -32,7 +32,7 @@ Control satellite radio and SiriusXM data services.
 
 <p>Turning it off hides SiriusXM from <strong>Sources</strong> and stops both satellite radio and SiriusXM data. CarPlay and audio CDs still work.</p>
 
-<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. The bench has no satellite tuner, so live radio/data playback and real-car driving remain unqualified on <strong>0.3.0-dev.26</strong> (<strong>74.00.324A NA</strong>).</p>
+<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. The bench has no satellite tuner, so live radio/data playback and real-car driving remain unqualified on <strong>0.3.0-dev.27</strong> (<strong>74.00.324A NA</strong>).</p>
 
 ## Change the setting
 

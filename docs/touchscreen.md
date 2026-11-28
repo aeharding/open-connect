@@ -50,8 +50,8 @@ Choose how Mazda Connect handles touch input. The Commander knob and normal Mazd
 
 ## Upgrading from or using older USB drives
 
-Earlier prereleases (such as **0.3.0-dev.23**) called this setting **Touchscreen While Driving** with only **Allow** and **Factory Default**. Your saved choice migrates automatically when you update to **0.3.0-dev.26**.
+Earlier prereleases (such as **0.3.0-dev.23**) called this setting **Touchscreen While Driving** with only **Allow** and **Factory Default**. Your saved choice migrates automatically when you update to **0.3.0-dev.27**.
 
-To remove **0.3.0-dev.26** while **Always disabled** is saved, use the installed **Uninstall** menu or a **0.3.0-dev.24** (or newer) USB drive. Older USB drives refuse maintenance while **Always disabled** is saved — switch to **Factory behavior** or **Always enabled** first if you need to use an older USB drive.
+To remove **0.3.0-dev.27** while **Always disabled** is saved, use the installed **Uninstall** menu or a **0.3.0-dev.24** (or newer) USB drive. Older USB drives refuse maintenance while **Always disabled** is saved — switch to **Factory behavior** or **Always enabled** first if you need to use an older USB drive.
 
 [Back to Settings](settings.md)

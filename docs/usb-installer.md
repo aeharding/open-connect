@@ -2,7 +2,7 @@
 
 Open Connect installs from a USB drive. After installation, change preferences or uninstall directly from Mazda Settings.
 
-**0.3.0-dev.26** is a development prerelease for North American version **74.00.324 NA N**. Real-car and physical-control qualification remain pending.
+**0.3.0-dev.27** is a development prerelease for North American version **74.00.324 NA N**. Real-car and physical-control qualification remain pending.
 
 ## 1. Check your firmware version
 
@@ -22,7 +22,8 @@ Find **OS Version**. It must read **74.00.324 NA N** (also called **74.00.324A**
 1. Download the latest USB ZIP from [Releases](https://github.com/aeharding/open-connect/releases) and extract it on your computer. It unpacks into a single folder named `open-connect-<version>-usb`.
 2. Format a USB drive as **FAT32**.
 3. Open the extracted `open-connect-<version>-usb` folder, **select all three items inside** (the `.up` trigger file, `jci-autoupdate`, and the `open-connect` folder), and copy them directly to the **root** of your USB drive — do not copy the outer `open-connect-<version>-usb` folder itself.
-4. Safely eject the USB drive.
+4. Optional: to apply custom settings on a fresh installation, copy an `open-connect.prefs` file to the root of the drive as well (see [Backup &amp; restore — Fresh-install preset](backup-restore.md#fresh-install-preset)).
+5. Safely eject the USB drive.
 
 <figure class="oc-diagram">
   <img src="assets/guide/copy-to-usb.svg" alt="Open the extracted open-connect-version-usb folder, select all three items inside (the .up file, jci-autoupdate, and the open-connect folder), and copy them directly to the top-level root of your FAT32 USB drive." width="800" height="320">

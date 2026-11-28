@@ -1,6 +1,6 @@
 # Services
 
-The former Services controls now have individual pages. Start with [Settings](settings.md) for all fresh-install defaults and restart guidance. The [Pandora](pandora.md) and [SiriusXM](siriusxm.md) screenshots show the current Audio sources menu (no DVD row); earlier retained dev.19 screenshots and dev.20 walkthroughs predate that change.
+The former Services controls now have individual pages. Start with [Settings](settings.md) for all fresh-install defaults and restart guidance. The [Pandora](pandora.md) and [SiriusXM](siriusxm.md) screenshots show the earlier Audio sources menu without a DVD row (predating [Source order](source-order.md) in **0.3.0-dev.27**); earlier retained dev.19 screenshots and dev.20 walkthroughs predate both changes.
 
 <span id="base-optimizations"></span>
 
@@ -23,7 +23,7 @@ Open **<span class="oc-nav-path" data-walkthrough="phone-connections">Mazda Sett
 
 ## Audio sources
 
-Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings → System → Open Connect → Audio sources</span>** for **Pandora** and **SiriusXM**. Disabled integrations disappear from Mazda’s Sources list after restart. In **0.3.0-dev.26**, [DVD](dvd.md) is folded into Startup optimizations; older configurations migrate automatically. The earlier dev.20 release has a separate DVD toggle. Audio CDs still work.
+Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings → System → Open Connect → Audio sources</span>** for [Source order](source-order.md), **Pandora** and **SiriusXM**. Disabled integrations disappear from Mazda’s Sources list after restart. In **0.3.0-dev.27**, [DVD](dvd.md) is folded into Startup optimizations; older configurations migrate automatically. The earlier dev.20 release has a separate DVD toggle. Audio CDs still work.
 
 ### Pandora
 

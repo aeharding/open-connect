@@ -30,7 +30,7 @@ Open CarPlay when your iPhone connects, including after startup and reconnection
 
 <p>CarPlay may replace your current screen when your phone connects. Active input, phone calls, voice control, Settings and maintenance dialogs take priority, and Mazda keeps screen and reverse-camera control.</p>
 
-<p>Not measured separately in startup or memory benchmarks (see <a href="performance.md">Performance evidence</a>). Wireless bench checks worked from Mazda’s main screen and Navigation; one intermittent miss occurred with Startup optimizations on, and wired auto-selection, live call/Siri/reverse interactions and real-car driving remain unqualified on <strong>0.3.0-dev.26</strong> (<strong>74.00.324A NA</strong>).</p>
+<p>Not measured separately in startup or memory benchmarks (see <a href="performance.md">Performance evidence</a>). Wireless bench checks worked from Mazda’s main screen and Navigation; one intermittent miss occurred with Startup optimizations on, and wired auto-selection, live call/Siri/reverse interactions and real-car driving remain unqualified on <strong>0.3.0-dev.27</strong> (<strong>74.00.324A NA</strong>).</p>
 
 <p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away.</p>
 

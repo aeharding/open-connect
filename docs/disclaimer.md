@@ -32,7 +32,7 @@ Skip Mazda’s startup warning and continue to your usual screen.
 
 <p>In cold-boot bench tests (dev.20), the main screen appeared at <strong>35.6 s</strong> with Open Connect defaults (Skip) versus <strong>39.9 s</strong> on Stock (Show), a 4.3 s difference that reflects both skipping the disclaimer and the rest of the default install rather than an isolated disclaimer-only trial. See <a href="performance.md#published-dev20-cold-acc-off-comparison-2026-11-25">Performance evidence</a> for details.</p>
 
-<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. <strong>0.3.0-dev.26</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
+<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. <strong>0.3.0-dev.27</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 <span id="change-the-setting"></span>
 

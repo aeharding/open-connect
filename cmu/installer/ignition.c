@@ -22,10 +22,19 @@ static int oc_ig_boot_id(int ram, long owner, long group, char out[37]) {
 
 static int oc_ig_acc(int root) {
     char buf[8];
-    if (oc_text(root,"sys/class/gpio/ACC_Sense/value",buf,sizeof buf,1)<0 || !oc_one_line(buf)) return -1;
-    if (oc_equal(buf,"1")) return 1;
-    if (oc_equal(buf,"0")) return 0;
-    return -1;
+    if (oc_text(root,"sys/class/gpio/ACC_Sense/value",buf,sizeof buf,1)<0 || !oc_one_line(buf) || !buf[0] || buf[1]) return -1;
+    return buf[0]=='1' ? 1 : (buf[0]=='0' ? 0 : -1);
+}
+
+static long oc_ig_open_lock(int ram, const char *name, unsigned opts, long owner, long group) {
+    long fd=oc_openat(ram,name,opts,0600);
+    OcMeta m;
+    if (fd<0 || oc_stat((int)fd,&m)<0 || (m.mode&OC_TYPE)!=OC_REGULAR ||
+        (m.mode&0077) || m.uid!=(unsigned)owner || m.gid!=(unsigned)group) {
+        if (fd>=0) (void)oc_close((int)fd);
+        return -1;
+    }
+    return fd;
 }
 
 static int oc_ignition_main(int argc, char **argv) {
@@ -51,13 +60,8 @@ static int oc_ignition_main(int argc, char **argv) {
     }
 
     /* One observer per kernel, independent of USB or listener readiness. */
-    long ig_lock=oc_openat(ram,"ignition.lock",OC_RW|OC_CREATE,0600);
-    OcMeta im;
-    if (ig_lock<0 || oc_stat((int)ig_lock,&im)<0 || (im.mode&OC_TYPE)!=OC_REGULAR ||
-        (im.mode&0077) || im.uid!=(unsigned)owner || im.gid!=(unsigned)group) {
-        if (ig_lock>=0) (void)oc_close((int)ig_lock);
-        (void)oc_close(ram); (void)oc_close(root); return 1;
-    }
+    long ig_lock=oc_ig_open_lock(ram,"ignition.lock",OC_RW|OC_CREATE,owner,group);
+    if (ig_lock<0) { (void)oc_close(ram); (void)oc_close(root); return 1; }
     long lr=oc_lock((int)ig_lock);
     if (lr<0) {
         (void)oc_close((int)ig_lock); (void)oc_close(ram); (void)oc_close(root);
@@ -80,13 +84,8 @@ static int oc_ignition_main(int argc, char **argv) {
         }
         if (oc_equal(wanted,recorded)) { oc_sleep_ms(sleep_ms); continue; }
 
-        long lfd=oc_openat(ram,"lock",OC_RW,0);
-        OcMeta lm;
-        if (lfd<0 || oc_stat((int)lfd,&lm)<0 || (lm.mode&OC_TYPE)!=OC_REGULAR ||
-            (lm.mode&0077) || lm.uid!=(unsigned)owner || lm.gid!=(unsigned)group) {
-            if (lfd>=0) (void)oc_close((int)lfd);
-            rc=1; break;
-        }
+        long lfd=oc_ig_open_lock(ram,"lock",OC_RW,owner,group);
+        if (lfd<0) { rc=1; break; }
         long tr=oc_lock((int)lfd);
         if (tr<0) {
             (void)oc_close((int)lfd);

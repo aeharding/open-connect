@@ -43,8 +43,10 @@ static int oc_root_is_mode(int root, int rw) {
 
 int oc_remount(int root, const char *root_path, int rw) {
     (void)root_path;
+#if defined(OC_HOST) || defined(OC_TEST_PINFILE)
 #ifdef OC_HOST
     if (getenv("OC_HOST_REMOUNT_FAIL")) return 0;
+#endif
     const char *mpaths[2]={"proc/self/mounts","proc/mounts"};
     int updated=0;
     for (unsigned mi=0; mi<2; ++mi) {
@@ -149,7 +151,7 @@ int oc_nvram_change(int root, const char *expected, const char *desired) {
         if (ok && !oc_equal(desired,expected)) {
             if (oc_equal(desired,"absent")) {
                 ok=oc_write_sysfs_at(root,"sys/class/nvram/nv-config/remove","lvds_speed_restriction\n");
-#ifdef OC_HOST
+#if defined(OC_HOST) || defined(OC_TEST_PINFILE)
                 if (ok) {
                     long kdir=oc_openat(root,"sys/class/nvram/nv-config/keys",OC_DIRECTORY,0);
                     if (kdir>=0) {
@@ -163,7 +165,7 @@ int oc_nvram_change(int root, const char *expected, const char *desired) {
                 char line[48];
                 ok=oc_join4(line,sizeof line,"lvds_speed_restriction=",desired,"\n",0) &&
                     oc_write_sysfs_at(root,"sys/class/nvram/nv-config/add",line);
-#ifdef OC_HOST
+#if defined(OC_HOST) || defined(OC_TEST_PINFILE)
                 if (ok) {
                     long kdir=oc_openat(root,"sys/class/nvram/nv-config/keys",OC_DIRECTORY,0);
                     if (kdir>=0) {

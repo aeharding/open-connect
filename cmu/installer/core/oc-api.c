@@ -985,7 +985,9 @@ static int oc_usb_fence(OcApiCtx *c) {
             if (ok) {
                 int pinned=0;
                 for (const char *p=oc_big_buf; *p; ++p)
-                    if (oc_prefix(p,"# Open Connect pinned Settings 1")) { pinned=1; break; }
+                    if ((p==oc_big_buf || p[-1]=='\n') &&
+                        oc_prefix(p,"# Open Connect pinned Settings 1") &&
+                        (!p[32] || p[32]=='\n')) { pinned=1; break; }
                 ok=pinned;
             }
         }

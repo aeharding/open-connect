@@ -153,9 +153,36 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  arm-qemu:
+    name: ARMv7 QEMU userspace tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Install ARMv7 build and QEMU userspace tools
+        run: |
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -y --no-install-recommends \
+            install clang lld llvm qemu-user-static
+          image=busybox@sha256:3c6ae8008e2c2eedd141725c30b20d9c36b026eb796688f88205845ef17aa213
+          container=$(docker create "$image")
+          trap 'docker rm "$container" >/dev/null' EXIT
+          mkdir -p "$RUNNER_TEMP/oc-arm-tools"
+          docker cp "$container:/bin/busybox" "$RUNNER_TEMP/oc-arm-tools/busybox"
+          chmod 755 "$RUNNER_TEMP/oc-arm-tools/busybox"
+          echo "OC_TEST_BUSYBOX=$RUNNER_TEMP/oc-arm-tools/busybox" >> "$GITHUB_ENV"
+          echo "OC_LLD=$(command -v ld.lld)" >> "$GITHUB_ENV"
+      - name: Run ARMv7 ELF + BusyBox + tmpfs harness
+        run: sudo -E python3 tests/run_arm_qemu.py
+
   prerelease:
     name: Prepare development prerelease
-    needs: [host, host-tests]
+    needs: [host, host-tests, arm-qemu]
     if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'aeharding/open-connect'
     runs-on: ubuntu-latest
     timeout-minutes: 5

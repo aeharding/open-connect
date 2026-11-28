@@ -47,6 +47,7 @@ class StartupHookAndJoinTests(unittest.TestCase):
             if with_startup_times:
                 (ram / "startup-times").write_text("")
 
+            mktemp_bin = None
             if fail_mktemp:
                 mktemp_bin = tools / "mktemp"
                 mktemp_bin.write_text("#!/bin/sh\nexit 1\n")
@@ -127,6 +128,12 @@ class StartupHookAndJoinTests(unittest.TestCase):
                 src = src.replace("/bin/busybox", str(bb_shim))
                 # Standalone BusyBox builds run built-in timeout without searching PATH.
                 src = src.replace("if timeout -t ", f"if {shlex.quote(str(timeout_bin))} -t ")
+                if mktemp_bin is not None and text_name == "hook":
+                    # Standalone BusyBox builds also bypass PATH for built-in mktemp.
+                    src = src.replace(
+                        "oc_directory=$(mktemp -d ",
+                        f"oc_directory=$({shlex.quote(str(mktemp_bin))} -d ",
+                    )
                 if real_recover is not None:
                     src = src.replace("/proc/self/mounts", str(mounts_file))
                     src = src.replace("/tmp/mnt/data_persist/open-connect", str(data))

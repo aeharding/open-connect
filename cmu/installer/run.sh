@@ -15,8 +15,8 @@ test "$(grep '^JCI_SW_FLAVOR=' /jci/version.ini)" = 'JCI_SW_FLAVOR="cmu150_NA"' 
 source=$(dirname "$(readlink -f "$0")")
 case "$source" in /tmp/mnt/sd[a-d]1/open-connect) ;; *) refuse location;; esac
 lock=/tmp/open-connect-usb.lock
-if test ! -e "$lock" && test ! -L "$lock"; then (set -C; : > "$lock") || exit 1; fi
-test -f "$lock" && test ! -L "$lock" && test "$(readlink -f "$lock")" = "$lock" || refuse lock
+if test ! -e "$lock" && test ! -L "$lock"; then (set -C; : > "$lock") 2>/dev/null || :; fi
+test -f "$lock" && test ! -L "$lock" && test "$(readlink -f "$lock")" = "$lock" && test "$(stat -c '%u:%g' "$lock")" = "$(id -u):$(id -g)" || refuse lock
 exec 8<>"$lock"
 flock -n -x 8 || exit 0
 work=$(mktemp -d /tmp/oc-usb-XXXXXX)
@@ -62,5 +62,7 @@ test -f "$work/session.sh" && test -f "$work/api" && test -f "$work/flush" && te
 chmod 600 "$work/files.sha256" "$@"
 chmod 700 "$work/api" "$work/flush" "$work/install"
 # Release Mazda's update scanner; the session owns the staged files and lock.
+# Use a caught no-op handler (not SIG_IGN) so execve resets signals to SIG_DFL in session.sh.
+trap ':' HUP INT TERM
 sh "$work/session.sh" "$work" "$source" </dev/null >/dev/null 2>&1 &
 trap - EXIT

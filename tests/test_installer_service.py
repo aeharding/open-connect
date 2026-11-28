@@ -345,6 +345,63 @@ class InstallerPrivateStaging(unittest.TestCase):
             self.assertFalse(session.exists())
             self.assertEqual(outside.read_text(), "untouched\n")
 
+    def test_retained_usb_stop_drains_and_retires_when_admitted_clears(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            runtime = root / "runtime"
+            old = runtime / "sessions/session-retain"
+            old.mkdir(parents=True, mode=0o700)
+            tools = root / "tools"
+            tools.mkdir()
+            if shutil.which("gstat"):
+                (tools / "stat").symlink_to(shutil.which("gstat"))
+            uptime = root / "uptime"
+            uptime.write_text("100.00 0.00\n")
+            service = (
+                (ASSETS / "service.sh")
+                .read_text()
+                .replace("/proc/uptime", str(uptime))
+                .replace("/tmp/open-connect", str(runtime))
+                .replace("/tmp/mnt/data_persist/open-connect", str(root / "absent-data"))
+            )
+            service += "\nservice_lock() { :; }\nstop_listener() { :; }\n"
+            (old / "service.sh").write_text(service)
+            usb = (
+                (ASSETS / "usb-service.sh")
+                .read_text()
+                .replace("/tmp/open-connect", str(runtime))
+                .replace("/tmp/mnt/data_persist/open-connect", str(root / "absent-data"))
+                .replace(
+                    "for cmd in /proc/[0-9]*/cmdline; do",
+                    'for cmd in "$R"/no-processes/*; do',
+                )
+            )
+            (old / "usb-service.sh").write_text(usb)
+            (old / "offer.next").write_text("partial\n")
+            (old / "admitted").symlink_to("OCUSB1|15000|-")
+            (runtime / "usb-runtime").symlink_to(old)
+            env = {
+                **os.environ,
+                "LC_ALL": "C",
+                "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+            }
+            result = subprocess.run(
+                ["sh", old / "usb-service.sh", "stop"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue((old / "closed").exists())
+            self.assertTrue(old.exists())
+            (old / "admitted").unlink()
+            deadline = time.monotonic() + 5
+            while old.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            self.assertFalse(old.exists())
+            self.assertFalse((runtime / "usb-runtime").is_symlink())
+
     def test_boot_flush_shares_only_mode700_and_verifies_shared_bytes(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder).resolve()

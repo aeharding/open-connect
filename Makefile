@@ -60,12 +60,16 @@ $(OUT):
 	mkdir -p "$@"
 
 $(OUT)/api: $(API_SRCS) $(CORE_HDR) | $(OUT)
-	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) $(API_SRCS) -o "$@"
-	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@"
+	set -eu; trap 'rm -f "$@.tmp"' EXIT; \
+	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) $(API_SRCS) -o "$@.tmp"; \
+	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@.tmp"; \
+	mv "$@.tmp" "$@"
 
 $(OUT)/install: $(INSTALL_SRCS) $(CORE_HDR) | $(OUT)
-	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) $(INSTALL_SRCS) -o "$@"
-	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@"
+	set -eu; trap 'rm -f "$@.tmp"' EXIT; \
+	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) $(INSTALL_SRCS) -o "$@.tmp"; \
+	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@.tmp"; \
+	mv "$@.tmp" "$@"
 
 $(OUT)/flush.o: cmu/startup/flush.c $(CORE_HDR) | $(OUT)
 	$(CLANG) $(ARM_FLAGS) -c "$<" -o "$@"
@@ -78,12 +82,16 @@ $(OUT)/flush: $(OUT)/flush.o $(OUT)/flush-hash.o | $(OUT)
 	    "$(OUT)/flush.o" "$(OUT)/flush-hash.o" -o "$@"
 
 $(OUT)/boot-select: cmu/installer/boot-select.c $(CORE_SRCS) $(CORE_HDR) | $(OUT)
-	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) cmu/installer/boot-select.c $(CORE_SRCS) -o "$@"
-	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@"
+	set -eu; trap 'rm -f "$@.tmp"' EXIT; \
+	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) cmu/installer/boot-select.c $(CORE_SRCS) -o "$@.tmp"; \
+	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@.tmp"; \
+	mv "$@.tmp" "$@"
 
 $(OUT)/ignition: $(IGNITION_SRCS) $(CORE_HDR) | $(OUT)
-	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) $(IGNITION_SRCS) -o "$@"
-	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@"
+	set -eu; trap 'rm -f "$@.tmp"' EXIT; \
+	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) $(IGNITION_SRCS) -o "$@.tmp"; \
+	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@.tmp"; \
+	mv "$@.tmp" "$@"
 
 $(OUT)/mmui.o: cmu/installer/mmui.S | $(OUT)
 	$(CLANG) --target=armv7-none-eabi -marm -c "$<" -o "$@"

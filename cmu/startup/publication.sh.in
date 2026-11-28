@@ -160,10 +160,13 @@ case "$MODE" in
   absent "$S" || die stage_conflict
   ci=$(printf '%s' "$CID" | cut -d: -f2)
   oi=$(printf '%s' "$OID" | cut -d: -f2)
+  set +f
   for maps in /proc/[0-9]*/maps;do
+   set -f
    test -r "$maps" || continue
    if awk -v i="$ci" '$4=="fd:11"&&$5==i{found=1}END{exit !found}' "$maps";then die candidate_still_mapped;fi
   done
+  set -f
   pid=$(pgrep -f '(^| )/jci/mmui/svcjcimmui[.]so( |$)') || die mmui
   case "$pid" in ''|*[!0-9]*)die mmui_identity;;esac
   test "$(md5sum < "/proc/$pid/cmdline")" = 'a43fc1bb895b0e6c13480c8f4b875a58  -' || die mmui_argv

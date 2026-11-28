@@ -177,6 +177,28 @@ print(fmt)
         self.assertIn("'/tmp/dir with spaces/$(id)'", rendered)
         self.assertIn("'1:2:755:0:0$(id)'", rendered)
 
+    def test_clean_refuses_when_candidate_still_mapped_under_noglob(self):
+        self.runmode("APPLY")
+        self.runmode("UNDO")
+        ci = self.c.stat().st_ino
+        proc = self.r / "proc"
+        (proc / "4321").mkdir(parents=True)
+        (proc / "4321/maps").write_text(f"00100000-00101000 r-xp 00000000 fd:11 {ci} /jci/lib.so\n")
+        clean_script = self.r / "clean.sh"
+        clean_script.write_text(
+            self.script.read_text().replace("/proc/[0-9]*/maps", f"{proc}/[0-9]*/maps")
+        )
+        r = subprocess.run(
+            ["/bin/sh", str(clean_script), "CLEAN"],
+            env=self.env,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("candidate_still_mapped", r.stdout + r.stderr)
+        self.assertTrue(self.h.exists() and self.c.exists())
+
 
 class DifferentSizePublication(LinkedTests):
     original_size = 94058

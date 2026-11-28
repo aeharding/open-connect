@@ -14,6 +14,9 @@ function put_attribute(name, value, previous, at, size, space) {
     previous=attribute(name);at=RSTART;size=RLENGTH;space=substr($0,at,1)
     $0=substr($0,1,at-1) space name "=\"" value "\"" substr($0,at+size)
 }
+function append_attribute(name, value) {
+    if(attribute_count(name) || $0~/\/>[ \t]*$/ || sub(/>$/," " name "=\"" value "\">")!=1) refuse()
+}
 BEGIN {
     if(operation!="compose" || invalid) refuse()
     early_wireless=(prefs["base"]=="1" && prefs["wireless"]=="1")
@@ -56,7 +59,7 @@ omit_service {
     }
     if(prefs["base"]=="1" && sm_name in base_affinity) {
         base_affinity[sm_name]++
-        if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
+        append_attribute("affinity_mask","0x03")
     }
     if(prefs["base"]=="1" && prefs["service.pandora"]=="0" && sm_name=="irs_server") {
         irs++
@@ -114,9 +117,7 @@ prefs["base"]=="1" && /^[ \t]*<dependency[ \t]/ && sm_name~/^(stage_vr|stage_gap
 }
 prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="jciMMUI" {
     mmui++
-    if(prefs["base"]=="1") {
-        if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
-    }
+    if(prefs["base"]=="1") append_attribute("affinity_mask","0x03")
     args=attribute("args")
     if(args!~/display=filtered-touchscreen0, wcp$/) {
         if(sub(/display=filtered-touchscreen0$/,"display=filtered-touchscreen0, wcp",args)!=1) refuse()
@@ -127,12 +128,10 @@ prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ {
     if(sm_name in wireless_hits) {
         name=sm_name
         wireless_hits[name]++
-        if(prefs["base"]=="1" && name=="jciCARPLAY") {
-            if(attribute_count("affinity_mask") || sub(/>$/," affinity_mask=\"0x03\">")!=1) refuse()
-        }
+        if(prefs["base"]=="1" && name=="jciCARPLAY") append_attribute("affinity_mask","0x03")
         if(attribute_count("args")) {
             if(attribute("args")!="wcp") refuse()
-        } else if($0~/\/>[ \t]*$/ || sub(/>$/," args=\"wcp\">")!=1) refuse()
+        } else append_attribute("args","wcp")
     }
 }
 prefs["wireless"]=="1" && /^[ \t]*<service[ \t]/ && sm_name=="bds" {
@@ -190,6 +189,7 @@ early_wireless && /^[ \t]*<dependency[ \t]/ && sm_name=="stage_wifi" {
     print "        </service>"
     end++
 }
+/^[ \t]*<\/service>[ \t]*$/ {sm_name=""}
 {print}
 END {
     if(prefs["touch"]=="2" && devices!=1) exit 1

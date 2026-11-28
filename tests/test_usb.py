@@ -4,6 +4,7 @@ import hashlib
 import os
 import shlex
 import shutil
+import signal
 import struct
 import subprocess
 import sys
@@ -537,7 +538,13 @@ class UsbBuild(unittest.TestCase):
             for name in payload:
                 (package / name).write_text("fixture\n")
             (package / "session.sh").write_text(
-                "printf '%s' executed > " + shlex.quote(str(marker)) + "\n"
+                "trap 'printf terminated > "
+                + shlex.quote(str(marker))
+                + "; exit 0' TERM\n"
+                + "printf '%s' \"$$\" > "
+                + shlex.quote(str(root / "session.pid"))
+                + "\n"
+                + 'i=0; while [ "$i" -lt 50 ]; do i=$((i+1)); sleep 0.1; done\n'
             )
             manifest = "".join(
                 hashlib.sha256((package / name).read_bytes()).hexdigest() + "  " + name + "\n"
@@ -553,13 +560,22 @@ class UsbBuild(unittest.TestCase):
                     ["sh", str(package / "run.sh")], capture_output=True, timeout=5
                 )
                 self.assertNotEqual(result.returncode, 0)
+                self.assertFalse((root / "session.pid").exists())
                 self.assertFalse(marker.exists())
                 self.assertEqual(list(root.glob("staged-*")), [])
             (package / "files.sha256").write_text(manifest)
             result = subprocess.run(["sh", str(package / "run.sh")], capture_output=True, timeout=5)
             self.assertEqual(result.returncode, 0, result.stderr)
-            for _ in range(30):
+            pid_file = root / "session.pid"
+            for _ in range(40):
+                if pid_file.exists() and pid_file.read_text().strip().isdigit():
+                    break
+                time.sleep(0.05)
+            self.assertTrue(pid_file.exists(), "session.sh did not launch")
+            child_pid = int(pid_file.read_text().strip())
+            os.kill(child_pid, signal.SIGTERM)
+            for _ in range(40):
                 if marker.exists():
                     break
                 time.sleep(0.05)
-            self.assertEqual(marker.read_text(), "executed")
+            self.assertEqual(marker.read_text(), "terminated")

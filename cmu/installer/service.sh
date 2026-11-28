@@ -91,8 +91,8 @@ service_lock() {
 local c=0
 if absent "$R"; then mkdir -m 700 "$R"; fi
 private_dir "$R" || fail invalid_runtime
-if absent "$R/lock"; then (set -C; : > "$R/lock") || fail invalid_lock; fi
-file "$R/lock" || fail invalid_lock
+if absent "$R/lock"; then (set -C; : > "$R/lock") 2>/dev/null || :; fi
+file "$R/lock" && [ "$(stat -c '%u:%g' "$R/lock")" = "$ro" ] || fail invalid_lock
 exec 9<>"$R/lock"
 until flock -n -x 9; do
 [ "$1" != boot ] || fail busy
@@ -252,6 +252,7 @@ cpn="$cpn$nm
 "
 fi
 done < "$P/files.sha256"
+[ -z "${d:-}${nm:-}${ex:-}" ] || fail invalid_manifest
 if [ "$kind" = boot ]; then [ "$n" -eq 8 ] || fail incomplete_runtime; fi
 case "$kind:${P%/*}:${P##*/}" in usb:/tmp:oc-usb-??????)
 if private_dir "$P" && lks=$(stat -c %h "$@" "$P/files.sha256") &&
@@ -266,9 +267,9 @@ COPIED
 chmod 600 "$@"
 chmod 700 "$w/api" "$w/flush"
 for b in ignition install; do if rf "$w/$b"; then chmod 700 "$w/$b"; fi; done
-set --
-while read -r d nm ex; do if rf "$w/$nm"; then set -- "$@" "$w/$nm"; fi; done < "$P/files.sha256"
 sha_is "$w/files.sha256" "$pid" || fail damaged_runtime
+set --
+while read -r d nm ex; do if rf "$w/$nm"; then set -- "$@" "$w/$nm"; fi; done < "$w/files.sha256"
 act=$(openssl dgst -sha256 -r "$@") || fail damaged_runtime
 [ "$act" = "${exp%?}" ] || fail damaged_runtime
 if [ "$kind" = usb ]; then uuid > "$w/token"

@@ -107,7 +107,8 @@ def run(command, output, name, **kwargs):
 
 def build(output, paths, host_cc):
     run(["make", "release", "OUT=" + str(output / "build")], output, "make", cwd=ROOT)
-    source = output / "build/usb/open-connect"
+    version = (ROOT / "cmu/installer/VERSION").read_text().strip()
+    source = output / f"build/usb/open-connect-{version}-usb/open-connect"
     package = sha(source / "files.sha256")
     root_dir = output / "root"
     data = root_dir / "tmp/mnt/data_persist/open-connect"

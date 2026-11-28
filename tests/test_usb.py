@@ -424,37 +424,43 @@ class UsbBuild(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertNotIn("python", result.stdout.lower())
             version = (ASSETS / "VERSION").read_text().strip()
+            prefix = f"open-connect-{version}-usb/"
             with zipfile.ZipFile(output / f"open-connect-{version}-usb.zip") as z:
-                expected = {TRIGGER, "jci-autoupdate"} | {
-                    "open-connect/" + f for f in (*PAYLOAD, "files.sha256")
+                self.assertTrue(all(n.startswith(prefix) for n in z.namelist()), z.namelist())
+                expected = {prefix + TRIGGER, prefix + "jci-autoupdate"} | {
+                    prefix + "open-connect/" + f for f in (*PAYLOAD, "files.sha256")
                 }
                 self.assertEqual({n for n in z.namelist() if not n.endswith("/")}, expected)
-                self.assertEqual(z.read(TRIGGER), b"")
-                self.assertLessEqual(len(z.read("open-connect/settings.js")), 28672)
+                self.assertEqual(z.read(prefix + TRIGGER), b"")
+                self.assertLessEqual(len(z.read(prefix + "open-connect/settings.js")), 28672)
                 self.assertLessEqual(
                     sum(
-                        (len(z.read("open-connect/" + name)) + 4095) // 4096
+                        (len(z.read(prefix + "open-connect/" + name)) + 4095) // 4096
                         for name in (*PAYLOAD, "files.sha256")
                     ),
                     123,
                 )
                 for name in STATIC:
-                    self.assertEqual(z.read("open-connect/" + name), (ASSETS / name).read_bytes())
+                    self.assertEqual(
+                        z.read(prefix + "open-connect/" + name), (ASSETS / name).read_bytes()
+                    )
                 self.assertEqual(
-                    z.read("open-connect/layout.txt"),
+                    z.read(prefix + "open-connect/layout.txt"),
                     (ROOT / "cmu/features/disclaimer/layout.txt").read_bytes(),
                 )
                 for name in (n for n in PAYLOAD if n.endswith(".sh")):
-                    subprocess.run(["sh", "-n"], input=z.read("open-connect/" + name), check=True)
+                    subprocess.run(
+                        ["sh", "-n"], input=z.read(prefix + "open-connect/" + name), check=True
+                    )
                 rows = [
                     line.split()
-                    for line in z.read("open-connect/files.sha256").decode().splitlines()
+                    for line in z.read(prefix + "open-connect/files.sha256").decode().splitlines()
                 ]
                 self.assertEqual({name for _, name in rows}, set(PAYLOAD))
                 self.assertEqual(len(rows), len(PAYLOAD))
                 for digest, name in rows:
                     self.assertEqual(
-                        hashlib.sha256(z.read("open-connect/" + name)).hexdigest(), digest
+                        hashlib.sha256(z.read(prefix + "open-connect/" + name)).hexdigest(), digest
                     )
             self.assertEqual(
                 struct.unpack("<II", (output / "sizes.bin").read_bytes()),

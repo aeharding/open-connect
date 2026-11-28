@@ -18,12 +18,16 @@ for limit in touch-disable.so:4096 flush:4096 api:81920 install:81920 boot-selec
         echo "$name exceeds its RAM page budget ($bytes bytes)." >&2; exit 1;
     }
 done
+version=$(cat cmu/installer/VERSION)
+case "$version" in ''|*[!a-zA-Z0-9.-]*) exit 1;; esac
+root_dir=open-connect-$version-usb
 test ! -e "$out/usb" && test ! -L "$out/usb" || { echo 'Choose a fresh OUT directory.' >&2; exit 1; }
 mkdir "$out/usb"
+mkdir "$out/usb/$root_dir"
 set -- cmu/installer/usb-root/*.up
 test "$#" -eq 1 && test -f "$1" && test ! -L "$1"
-cp "$1" cmu/installer/usb-root/jci-autoupdate "$out/usb/"
-package=$out/usb/open-connect
+cp "$1" cmu/installer/usb-root/jci-autoupdate "$out/usb/$root_dir/"
+package=$out/usb/$root_dir/open-connect
 mkdir "$package"
 for file in run.sh session.sh service.sh usb-service.sh loader.js runtime.js maintenance.js dialog.js settings.js carplay.js \
     console.sh startup-hook.sh startup-join.sh \
@@ -43,12 +47,10 @@ cp LICENSE "$package/LICENSE"
         printf '%s  %s\n' "${digest##* }" "$file"
     done > files.sha256
 )
-version=$(cat "$package/VERSION")
-case "$version" in ''|*[!a-zA-Z0-9.-]*) exit 1;; esac
-name=open-connect-$version-usb.zip
+name=$root_dir.zip
 archive=$out/$name
 test ! -e "$archive" && test ! -L "$archive"
-(cd "$out/usb" && zip -q -X -r "$archive" .)
+(cd "$out/usb" && zip -q -X -r "$archive" "$root_dir")
 digest=$(openssl dgst -sha256 < "$archive")
 printf '%s  %s\n' "${digest##* }" "$name" > "$out/SHA256SUMS"
 printf '%s\n' "$archive"

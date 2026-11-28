@@ -56,6 +56,8 @@ archive=$out/$name
 test ! -e "$archive" && test ! -L "$archive"
 (
     cd "$out/usb"
+    find "$root_dir" -type d -exec chmod 0755 {} +
+    find "$root_dir" -type f -exec chmod 0644 {} +
     find "$root_dir" -exec touch -t 202601010000 {} +
     find "$root_dir" | LC_ALL=C sort | zip -q -X -@ "$archive"
 )

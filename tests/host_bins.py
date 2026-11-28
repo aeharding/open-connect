@@ -82,11 +82,19 @@ def _build_cached(
 
 
 def host_flush() -> Path:
-    """Return cached host-compiled flush binary."""
+    """Return cached ASan+UBSan host-compiled flush binary."""
     return _build_cached(
         "flush",
         [ROOT / "cmu/startup/flush.c", ASSETS / "core/oc-hash.c"],
-        ["-DOC_HOST", "-O2", "-Wall", "-Wextra", "-Werror"],
+        [
+            "-DOC_HOST",
+            "-O2",
+            "-fsanitize=address,undefined",
+            "-fno-omit-frame-pointer",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+        ],
         extra_deps=[ASSETS / "core/oc-core.h"],
     )
 

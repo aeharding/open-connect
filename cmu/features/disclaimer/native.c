@@ -1,6 +1,5 @@
 /* Independent Intro-only native feature. No OEM source bytes. */
 typedef __UINT32_TYPE__ u32;
-typedef __INT32_TYPE__ s32;
 typedef __UINTPTR_TYPE__ word;
 enum { COLUMNS = 24, ROWS = 166, CELLS = 249,
        INTRO_COLUMN = 10, INTRO_CONTEXT = 1023, SHOW_DISCLAIMER = 1491,

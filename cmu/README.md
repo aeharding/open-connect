@@ -13,13 +13,13 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | --- | --- |
 | `run.sh`, `session.sh`, `loader.js`, `usb-service.sh` | Stage verified USB bytes and own one transient maintenance session |
 | `api.c`, `core/oc-api.c`, `service.sh` | Native local POST server and Settings/USB maintenance engine under BusyBox `tcpsvd`; separate installed and USB listener ownership |
-| `runtime.js`, `dialog.js`, `settings.js` | Boot-selected installed Settings and its native input/page lifecycle |
+| `runtime.js`, `dialog.js`, `settings.js`, `carplay.js`, `system-hook.js`, `base-logging.js` | Boot-selected installed Settings, native input/page lifecycle, CarPlay auto-show and Opera UI/logging hooks |
 | `maintenance.js` | Independent USB choices, progress and installed completion; no Settings replacement |
 | `install.c`, `core/oc-compose.c`, `core/oc-txn.c` | Cold USB installer, exact v74 firmware composer, transactional state engine and slow-path `--boot-recover` |
-| `core/oc-guard.c`, `core/oc-config.c`, `core/oc-root.c`, `core/oc-access.c`, `core/oc-render.c`, `mmui.S` | Exact v74 guards, canonical OC2 preferences, rootfs/NVRAM publisher, console/SSH composition and native profile rendering |
-| `startup-hook.sh`, `startup-join.sh`, `ignition.c` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
+| `core/oc-core.h`, `core/oc-hash.c`, `core/oc-io.c`, `core/oc-manifest.c`, `core/oc-record.c`, `core/oc-guard.c`, `core/oc-config.c`, `core/oc-root.c`, `core/oc-access.c`, `core/oc-render.c`, `mmui.S`, `vui.S`, `console.sh` | Shared freestanding C primitives, exact v74 guards, canonical OC2 preferences, rootfs/NVRAM publisher, console/SSH composition and native profile rendering |
+| `startup-hook.sh`, `startup-join.sh`, `ignition.c`, `defer-gap2.sh`, `defer-nav.sh` | Select a complete RAM configuration before Mazda's normal services, bound repeated attempts and defer optional services |
 | `boot-select.c`, `core/oc-boot.c`, `core/oc-plan.c`, `core/oc-store.c` | Modular freestanding C core: seal verified boot inputs, select unchanged snapshots, and safely prune unreachable generations |
-| `services.tsv`, `preferences.awk`, `sm-profile.awk` | Built-in Services catalog, AWK OC2 composition loader and one RAM Service Manager composer |
+| `services.tsv`, `ui-modules.tsv`, `preferences.awk`, `sm-profile.awk`, `ui-profile.awk` | Built-in Services/UI catalogs, AWK OC2 composition loader, RAM Service Manager composer and sparse UI profile composer |
 | `wireless.sh`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step and narrow native wireless service arguments |
 
 The browser sends `POST /control` to installed port `15555` or transient USB port

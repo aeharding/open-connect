@@ -139,9 +139,7 @@ a.dialogs=0;
 f.instantiateControl=function (id, parent, kind, props) {
   var c=create.apply(this, arguments);
   if (c&&id==="system"&&parent===document.body&&kind==="Dialog3Ctrl") {
-    a.cancel(); a.dialogs++;
-    var b=(props&&props.buttonConfig)||{}, ids=Object.keys(b).map(function (k) { return b[k].appData; }).join();
-    c._oc107=/^(cancel,install(,uninstall)?|done(,settings)?)$/.test(ids) ? 2 : 1;
+    a.cancel(); a.dialogs++; c._oc107=1;
   }
   return c;
 };

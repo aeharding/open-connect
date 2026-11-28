@@ -1437,6 +1437,24 @@ class Eth1DhcpRetry(unittest.TestCase):
             )
             self.assertEqual(res.returncode, 0, res.stderr)
             self.assertEqual(res.stdout.strip(), "caller-value")
+            # Empty /proc/<pid>/stat (vanishing procfs TOCTOU) also returns cleanly.
+            (proc / "12345/stat").write_text("")
+            res_empty = subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    'set -eu; R=$1; . "$2"; service_config usb; old=caller-empty; '
+                    'stop_listener; proc_gone 12345; printf "%s\\n" "$old"',
+                    "t",
+                    ram,
+                    svc_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            self.assertEqual(res_empty.returncode, 0, res_empty.stderr)
+            self.assertEqual(res_empty.stdout.strip(), "caller-empty")
             # Vanished PID directory also returns cleanly without clobbering old.
             shutil.rmtree(proc / "12345")
             res2 = subprocess.run(

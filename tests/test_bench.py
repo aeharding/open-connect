@@ -330,6 +330,64 @@ class Tests(unittest.TestCase):
         self.assertEqual(manifest["outcome"], "unknown")
         self.assertFalse(manifest["port_closed"])
 
+        # KeyboardInterrupt during port.close() must still escalate to ("unknown", 2) inside lock.
+        class InterruptClosePort:
+            def close(self):
+                raise KeyboardInterrupt("ctrl-c during close")
+
+        with (
+            patch.object(p, "open_adapter", return_value=InterruptClosePort()),
+            patch.object(p, "Session", return_value=ShellSession(self.root)),
+            patch.object(p, "AdapterLock", return_value=contextlib.nullcontext()),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            code = p.main(
+                [
+                    "setup",
+                    "--live",
+                    "--bundle",
+                    str(self.root / "close-int"),
+                    "--state",
+                    str(self.store.path),
+                    "--solicit-prompt",
+                ]
+            )
+        self.assertEqual(code, 2)
+        int_manifest = json.loads((self.root / "close-int/manifest.json").read_text())
+        self.assertEqual(int_manifest["outcome"], "unknown")
+        self.assertFalse(int_manifest["port_closed"])
+
+        # AdapterLock.__exit__() error after finish must not silently return 0.
+        @contextlib.contextmanager
+        def failing_exit_lock(*_args, **_kwargs):
+            try:
+                yield
+            finally:
+                raise OSError("lock release failed")
+
+        class OkPort:
+            def close(self):
+                pass
+
+        with (
+            patch.object(p, "open_adapter", return_value=OkPort()),
+            patch.object(p, "Session", return_value=ShellSession(self.root)),
+            patch.object(p, "AdapterLock", side_effect=failing_exit_lock),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            code = p.main(
+                [
+                    "setup",
+                    "--live",
+                    "--bundle",
+                    str(self.root / "lock-exit-fail"),
+                    "--state",
+                    str(self.store.path),
+                    "--solicit-prompt",
+                ]
+            )
+        self.assertEqual(code, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

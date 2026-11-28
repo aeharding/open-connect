@@ -12,6 +12,7 @@ class Video:
     def __init__(self, bundle, index):
         self.bundle, self.index = bundle, index
         self.proc = None
+        self._stopped = False
         self.ready = threading.Event()
         self.rows = []
         self.stop_requests = []
@@ -98,8 +99,9 @@ class Video:
                     pass
 
     def stop(self):
-        if not self.proc:
+        if not self.proc or self._stopped:
             return
+        self._stopped = True
         try:
             if self.proc.poll() is None:
                 self.stop_requests.append(dict(signal="SIGINT", monotonic_ns=time.monotonic_ns()))

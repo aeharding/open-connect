@@ -109,7 +109,7 @@ service_port=15557; service_runtime=$R/usb-runtime; service_listener=$R/usb-list
 fi
 }
 
-proc_gone() { [ ! -d "/proc/$1" ] || [ "$(awk '{print $3}' "/proc/$1/stat" 2>/dev/null)" = Z ]; }
+proc_gone() { local s; s=$(awk '{print $3}' "/proc/$1/stat" 2>/dev/null) || return 0; [ -z "$s" ] || [ "$s" = Z ]; }
 stop_listener() {
 local pid start old extra c=0 st
 if ! absent "$service_listener"; then
@@ -120,7 +120,7 @@ case "$old" in "$R"/sessions/session-*) ;; *) fail invalid_listener;; esac
 [ -z "$extra" ] || fail invalid_listener
 if [ -d "/proc/$pid" ]; then
 st=$(awk '{print $3":"$22}' "/proc/$pid/stat" 2>/dev/null) || return 0
-case "$st" in Z:"$start") return 0;; *:"$start") ;; *) fail listener_replaced;; esac
+case "$st" in ""|:|Z:"$start") return 0;; *:"$start") ;; *) fail listener_replaced;; esac
 if [ "$(readlink "/proc/$pid/exe" 2>/dev/null)" = /bin/busybox ] &&
 tr '\0' '\n' 2>/dev/null < "/proc/$pid/cmdline" | grep -Fq "$old/api"; then :
 elif proc_gone "$pid"; then return 0

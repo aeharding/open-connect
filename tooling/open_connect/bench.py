@@ -512,18 +512,22 @@ def main(argv=None):
                     if port is not None:
                         port.close()
                     bundle.meta["port_closed"] = True
-                except Exception as exc:
+                except (Exception, KeyboardInterrupt, SystemExit) as exc:
                     error = (error + "; " if error else "") + "close failed: " + str(exc)
                     outcome, code = "unknown", 2
                 bundle.finish(outcome, error)
                 finished = True
     except (Exception, KeyboardInterrupt, SystemExit) as exc:
+        msg = type(exc).__name__ + ": " + str(exc)
+        error = (error + "; " if error else "") + msg
+        if (
+            isinstance(exc, UnknownOutcome)
+            or (session is not None and session.state == "uncertain")
+            or outcome == "verified"
+            or finished
+        ):
+            outcome, code = "unknown", 2
         if not finished:
-            error = type(exc).__name__ + ": " + str(exc)
-            if isinstance(exc, UnknownOutcome) or (
-                session is not None and session.state == "uncertain"
-            ):
-                outcome, code = "unknown", 2
             bundle.finish(outcome, error)
             finished = True
     print(

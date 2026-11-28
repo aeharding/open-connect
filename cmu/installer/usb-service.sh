@@ -57,13 +57,9 @@ stop)
     ;;
 start)
     unpublished=
-    retire_old=
     trap 'if test -n "$unpublished" && test -d "$unpublished"; then
         : > "$unpublished/closed"
         (exec 8>&- 9>&-; sh "$unpublished/usb-service.sh" retire) </dev/null >/dev/null 2>&1 &
-    fi
-    if test -n "$retire_old" && test -d "$retire_old"; then
-        (exec 8>&- 9>&-; sh "$retire_old/usb-service.sh" retire) </dev/null >/dev/null 2>&1 &
     fi' EXIT
     trap 'exit 1' HUP INT TERM
     service_lock usb
@@ -91,11 +87,9 @@ start)
         private_dir "$old" || fail invalid_runtime_pointer
         if needed "$old"; then fail operation_pending; fi
         : > "$old/closed"
-        retire_old=$old
     fi
     service_listen "$runtime" usb
     unpublished=
-    retire_old=
     if test -n "$old"; then
         (exec 8>&- 9>&-; sh "$old/usb-service.sh" retire) </dev/null >/dev/null 2>&1 &
     fi

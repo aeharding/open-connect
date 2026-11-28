@@ -45,6 +45,7 @@ class VideoTests(unittest.TestCase):
                         self.fail(str(exc) + "\n" + (b.path / "camera.stderr.txt").read_text())
                     time.sleep(0.7)
                     v.stop()
+                    v.stop()  # idempotent after first stop (e.g. caller finally after failed start)
                 result = json.loads((b.path / "camera-result.json").read_text())
                 self.assertTrue(result["video_verified"])
                 self.assertEqual(result["ffprobe_rc"], 0)

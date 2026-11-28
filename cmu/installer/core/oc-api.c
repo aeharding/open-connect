@@ -11,7 +11,6 @@ extern char **environ;
 #endif
 
 static struct {
-    char scratch[32768];
     char json[16384];
     char cat_buf[16384];
     char mf_buf[8192];
@@ -55,6 +54,13 @@ static __attribute__((noinline)) void j_kv(OcJson *j, char kind, const char *k, 
 #define j_kv_raw(j,k,v) j_kv((j),'r',(k),(v))
 #define j_kv_bool(j,k,v) j_kv((j),'b',(k),(v)?"1":0)
 
+static __attribute__((noinline)) void j_kvs(OcJson *j, const char *types, const char *keys, const char *const *vals) {
+    for (unsigned i=0; types[i]; ++i) {
+        j_kv(j,types[i],keys,vals[i]);
+        keys+=oc_length(keys)+1;
+    }
+}
+
 static char *oc_find_str(char *s, const char *sub) {
     for (; *s; ++s) if (oc_prefix(s,sub)) return s;
     return 0;
@@ -77,63 +83,10 @@ static int emit_fail(const char *err) {
     return OC_API_ERR;
 }
 
-static void oc_u32_dec(unsigned v, char out[16]) {
-    static const unsigned p10[]={
-        1000000000u,100000000u,10000000u,1000000u,100000u,10000u,1000u,100u,10u,1u
-    };
-    unsigned n=0;
-    for (unsigned i=0; i<10; ++i) {
-        unsigned d=0;
-        while (v>=p10[i]) { v-=p10[i]; ++d; }
-        if (d || n || i==9) out[n++]=(char)('0'+d);
-    }
-    out[n]=0;
-}
-
-/* ---------- Subprocess execution ---------- */
-static int oc_run_prog(const char *path, char *const argv[], int out_fd,
-                       char *cap_buf, unsigned cap_sz, int keep_fd) {
-    int pfd[2]={-1,-1};
-    if (cap_buf && oc_pipe(pfd)<0) return -1;
-    long pid=oc_fork();
-    if (pid<0) {
-        if (pfd[0]>=0) { (void)oc_close(pfd[0]); (void)oc_close(pfd[1]); }
-        return -1;
-    }
-    if (pid==0) {
-        if (keep_fd>=0) (void)oc_set_cloexec(keep_fd,0);
-        long devnull=oc_openat(OC_CWD,"/dev/null",OC_RW,0);
-        if (devnull>=0) {
-            (void)oc_dup2((int)devnull,0); (void)oc_dup2((int)devnull,2);
-            if (!cap_buf && out_fd<0) (void)oc_dup2((int)devnull,1);
-            if (devnull>2) (void)oc_close((int)devnull);
-        }
-        if (cap_buf) { (void)oc_dup2(pfd[1],1); (void)oc_close(pfd[0]); (void)oc_close(pfd[1]); }
-        else if (out_fd>=0) (void)oc_dup2(out_fd,1);
-#ifdef OC_HOST
-        (void)oc_execve(path,argv,environ);
-#else
-        char *env[]={"PATH=/bin:/sbin:/usr/bin:/usr/sbin","LC_ALL=C",0};
-        (void)oc_execve(path,argv,env);
-#endif
-        oc_exit(127);
-    }
-    if (cap_buf) {
-        (void)oc_close(pfd[1]);
-        unsigned at=0; char drain[64];
-        for (;;) {
-            int full=at+1>=cap_sz;
-            long r=oc_read(pfd[0],full?drain:(cap_buf+at),full?(unsigned)sizeof drain:(cap_sz-1-at));
-            if (r==-4) continue;
-            if (r<=0) break;
-            if (!full) at+=(unsigned)r;
-        }
-        cap_buf[at]=0;
-        (void)oc_close(pfd[0]);
-    }
-    int st=0;
-    if (oc_waitpid((int)pid,&st)<0) return -1;
-    return (st&0x7f) ? (128+(st&0x7f)) : ((st>>8)&0xff);
+static inline void oc_u32_dec(unsigned v, char out[24]) { oc_u64_dec((oc_u64)v,out); }
+static inline int oc_run_prog(const char *path, char *const argv[], int out_fd,
+                              char *cap_buf, unsigned cap_sz, int keep_fd) {
+    return oc_run_cmd(path,argv,out_fd,cap_buf,cap_sz,keep_fd);
 }
 
 /* ---------- Small streaming line reader (with optional single-pass SHA-256) ---------- */
@@ -160,11 +113,8 @@ static int oc_stream_line(OcStream *s, char *out, unsigned cap, int *had_nl) {
 
 /* ---------- Filesystem / identity helpers ---------- */
 static int oc_verify_file_sha(int dir, const char *name, const char *expected, oc_u64 limit) {
-    long f=oc_openat(dir,name,OC_READ,0);
     char dig[65]; OcMeta fm;
-    int ok=f>=0 && expected && oc_hash_copy((int)f,-1,limit,dig,&fm)==OC_COPY_OK && oc_equal(dig,expected);
-    if (f>=0) (void)oc_close((int)f);
-    return ok;
+    return expected && oc_hash_file_at(dir,name,dig,&fm) && fm.size<=limit && oc_equal(dig,expected);
 }
 
 static int oc_read_hex64_file(int dir, const char *name, char out[65]) {
@@ -201,10 +151,7 @@ static int oc_read_version_file(int dir, const char *expect_digest, char out[64]
 }
 
 static int oc_open_pkg_verified(int data, const char *pkg_id, OcManifest *mf) {
-    if (!oc_hex(pkg_id,64)) return -1;
-    long pkgs=oc_openat(data,"packages",OC_DIRECTORY,0);
-    int pdir=pkgs>=0?oc_open_private((int)pkgs,pkg_id):-1;
-    if (pkgs>=0) (void)oc_close((int)pkgs);
+    int pdir=oc_open_sub(data,"packages",pkg_id);
     if (pdir<0) return -1;
     if (!oc_verified_text(pdir,"files.sha256",pkg_id,api_mem.mf_buf,sizeof api_mem.mf_buf) ||
         !oc_manifest(api_mem.mf_buf,mf,0)) { (void)oc_close(pdir); return -1; }
@@ -249,10 +196,7 @@ static int oc_snap_read(int data, const char *snap_id, OcSnapInfo *out,
                         OcCatalog *cat_opt, char *cat_buf, unsigned cat_cap,
                         int verify_all, const char *cat_pkg_override) {
     out->valid=0; out->has_access=0;
-    if (!oc_hex(snap_id,64)) return 0;
-    long snaps=oc_openat(data,"snapshots",OC_DIRECTORY,0);
-    int sdir=snaps>=0?oc_open_private((int)snaps,snap_id):-1;
-    if (snaps>=0) (void)oc_close((int)snaps);
+    int sdir=oc_open_sub(data,"snapshots",snap_id);
     if (sdir<0) return 0;
     char mf_buf[4096]; OcManifest mf;
     int ok=oc_verified_text(sdir,"files.sha256",snap_id,mf_buf,sizeof mf_buf) && oc_manifest(mf_buf,&mf,0);
@@ -293,24 +237,10 @@ static int oc_snap_read(int data, const char *snap_id, OcSnapInfo *out,
     return ok;
 }
 
-static int oc_snap_package_only(int data, const char *snap_id, char pkg_out[65]) {
-    OcSnapInfo info;
-    return oc_snap_read(data,snap_id,&info,0,0,0,0,0) && oc_join(pkg_out,65,"",info.prefs.package);
-}
+static OcSnapInfo api_snap_a, api_snap_b;
 
-static int oc_access_key_verify(int data, long owner, long group, const char *key_id) {
-    if (!oc_hex(key_id,64)) return 0;
-    int keys=oc_open_private(data,"keys");
-    if (keys<0) return 0;
-    char fname[72];
-    long fd=oc_join(fname,sizeof fname,key_id,".cmu") ? oc_openat(keys,fname,OC_READ,0) : -1;
-    (void)oc_close(keys);
-    if (fd<0) return 0;
-    char dig[65]; OcMeta m;
-    int ok=oc_hash_copy((int)fd,-1,16384,dig,&m)==OC_COPY_OK &&
-        m.mode==(OC_REGULAR|0600) && m.uid==(unsigned)owner && m.gid==(unsigned)group && oc_equal(dig,key_id);
-    if (oc_close((int)fd)<0) ok=0;
-    return ok;
+static int oc_snap_package_only(int data, const char *snap_id, char pkg_out[65]) {
+    return oc_snap_read(data,snap_id,&api_snap_b,0,0,0,0,0) && oc_join(pkg_out,65,"",api_snap_b.prefs.package);
 }
 
 static int oc_key_fingerprint(const char *root_path, const char *key_id, char out[128]) {
@@ -374,7 +304,8 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
     (void)oc_join(inst_ver,sizeof inst_ver,"","-");
     (void)oc_join(fp,sizeof fp,"","-");
 
-    static OcSnapInfo v_snap, s_snap, a_snap;
+    static OcSnapInfo v_snap;
+    OcSnapInfo *s_snap=&api_snap_a, *a_snap=&api_snap_b;
     OcCatalog cat; cat.count=0;
     int s_snap_loaded=0, sel_wl=0;
 
@@ -402,7 +333,7 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
             }
             if (v_snap.has_access) {
                 developer=1; uart=v_snap.acc_fields[0]; owner_ssh=v_snap.acc_fields[1]; key=v_snap.acc_fields[2];
-                if (!oc_equal(key,"-") && oc_access_key_verify(data,owner,group,key)) {
+                if (!oc_equal(key,"-") && oc_access_key_verify(data,key,owner,group)) {
                     if (!oc_key_fingerprint(root_path,key,fp)) (void)oc_join(fp,sizeof fp,"","-");
                 }
             }
@@ -418,19 +349,19 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
             if (sel_snap && *sel_snap && oc_equal(sel_snap,view_id)) {
                 s_snap_loaded=1; sel_wl=oc_equal(v_snap.prefs.wireless,"1"); as_cur=oc_equal(v_snap.prefs.autoshow,"1");
                 touch_cur=touch; warning_cur=warning; base_cur=base; has_touch_cur=1; if (has_base) has_base_cur=1;
-            } else if (sel_snap && *sel_snap && oc_snap_read(data,sel_snap,&s_snap,0,0,0,1,settings_pkg)) {
-                s_snap_loaded=2; sel_wl=oc_equal(s_snap.prefs.wireless,"1"); as_cur=oc_equal(s_snap.prefs.autoshow,"1");
-                touch_cur=s_snap.prefs.touch; warning_cur=s_snap.prefs.warning; has_touch_cur=1;
-                if (s_snap.prefs.is_oc2) { base_cur=s_snap.prefs.base; has_base_cur=1; }
-                if (has_acc_sel && oc_equal(acc_sel,sel_snap) && s_snap.has_access) {
-                    uart_cur=oc_equal(s_snap.acc_fields[0],"1"); ssh_cur=oc_equal(s_snap.acc_fields[1],"1");
-                    sel_key=s_snap.acc_fields[2];
+            } else if (sel_snap && *sel_snap && oc_snap_read(data,sel_snap,s_snap,0,0,0,1,settings_pkg)) {
+                s_snap_loaded=2; sel_wl=oc_equal(s_snap->prefs.wireless,"1"); as_cur=oc_equal(s_snap->prefs.autoshow,"1");
+                touch_cur=s_snap->prefs.touch; warning_cur=s_snap->prefs.warning; has_touch_cur=1;
+                if (s_snap->prefs.is_oc2) { base_cur=s_snap->prefs.base; has_base_cur=1; }
+                if (has_acc_sel && oc_equal(acc_sel,sel_snap) && s_snap->has_access) {
+                    uart_cur=oc_equal(s_snap->acc_fields[0],"1"); ssh_cur=oc_equal(s_snap->acc_fields[1],"1");
+                    sel_key=s_snap->acc_fields[2];
                 }
             } else if (installed) restart_fixed=1;
             if (has_acc_sel && !oc_equal(acc_sel,view_id) && (!sel_snap || !oc_equal(acc_sel,sel_snap))) {
-                if (oc_snap_read(data,acc_sel,&a_snap,0,0,0,1,settings_pkg) && a_snap.has_access) {
-                    uart_cur=oc_equal(a_snap.acc_fields[0],"1"); ssh_cur=oc_equal(a_snap.acc_fields[1],"1");
-                    sel_key=a_snap.acc_fields[2];
+                if (oc_snap_read(data,acc_sel,a_snap,0,0,0,1,settings_pkg) && a_snap->has_access) {
+                    uart_cur=oc_equal(a_snap->acc_fields[0],"1"); ssh_cur=oc_equal(a_snap->acc_fields[1],"1");
+                    sel_key=a_snap->acc_fields[2];
                 }
             }
             if (developer && !oc_equal(key,sel_key) && oc_equal(owner_ssh,"1")) restart_fixed=1;
@@ -455,26 +386,15 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
     if (!vok) return emit_fail("invalid_version");
 
     OcJson j; j_init(&j,api_mem.json,sizeof api_mem.json);
-    j_kv_bool(&j,"ok",1);
-    j_kv_str(&j,"revision",rev);
-    j_kv_bool(&j,"installed",installed);
-    j_kv_bool(&j,"retained",retained);
-    j_kv_bool(&j,"undo",0);
-    j_kv_bool(&j,"conflict",conflict);
-    j_kv_bool(&j,"restart",restart);
-    j_kv_bool(&j,"pending",pending);
-    j_kv_raw(&j,"touch",touch);
-    j_kv_raw(&j,"warning",warning);
-    j_kv_str(&j,"notice",notice);
-    j_kv_str(&j,"version",run_ver);
-    j_kv_str(&j,"installedVersion",inst_ver);
-    j_kv_bool(&j,"developer",developer);
-    j_kv_raw(&j,"uart",uart);
-    j_kv_raw(&j,"ssh",owner_ssh);
-    j_kv_str(&j,"key",key);
-    j_kv_str(&j,"fingerprint",fp);
-    j_kv_raw(&j,"uartCurrent",uart_cur?"1":"0");
-    j_kv_raw(&j,"sshCurrent",ssh_cur?"1":"0");
+    const char *kv[20]={
+        "1",rev,installed?"1":0,retained?"1":0,0,conflict?"1":0,restart?"1":0,pending?"1":0,
+        touch,warning,notice,run_ver,inst_ver,developer?"1":0,
+        uart,owner_ssh,key,fp,uart_cur?"1":"0",ssh_cur?"1":"0"
+    };
+    j_kvs(&j,"bsbbbbbbrrsssbrrssrr",
+          "ok\0revision\0installed\0retained\0undo\0conflict\0restart\0pending\0"
+          "touch\0warning\0notice\0version\0installedVersion\0developer\0"
+          "uart\0ssh\0key\0fingerprint\0uartCurrent\0sshCurrent",kv);
     if (has_pandora) j_kv_raw(&j,"pandora",pandora);
     if (has_base) {
         j_kv_raw(&j,"base",base);
@@ -491,7 +411,7 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
         j_kv_bool(&j,"wirelessFactory",wl_factory);
     }
     if (has_oc2) {
-        OcPrefs *sp = s_snap_loaded==1 ? &v_snap.prefs : (s_snap_loaded==2 ? &s_snap.prefs : 0);
+        OcPrefs *sp = s_snap_loaded==1 ? &v_snap.prefs : (s_snap_loaded==2 ? &s_snap->prefs : 0);
         j_raw(&j,",\"services\":[");
         for (unsigned i=0; i<cat.count; ++i) {
             j_raw(&j,i?",{":"{");
@@ -500,12 +420,9 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
                 for (unsigned k=0; k<sp->svc_count; ++k)
                     if (oc_equal(sp->svc_ids[k],cat.rows[i].id)) { cur_val=sp->svc_vals[k]; break; }
             }
-            j_kv_str(&j,"id",cat.rows[i].id);
-            j_kv_str(&j,"label",cat.rows[i].label);
-            j_kv_raw(&j,"saved",v_snap.prefs.svc_vals[i]);
-            j_kv_raw(&j,"current",cur_val);
-            j_kv_str(&j,"enable",cat.rows[i].enable);
-            j_kv_str(&j,"disable",cat.rows[i].disable);
+            const char *sv[6]={cat.rows[i].id,cat.rows[i].label,v_snap.prefs.svc_vals[i],
+                cur_val,cat.rows[i].enable,cat.rows[i].disable};
+            j_kvs(&j,"ssrrss","id\0label\0saved\0current\0enable\0disable",sv);
             j_raw(&j,"}");
         }
         j_raw(&j,"]");
@@ -522,7 +439,7 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
 /* ---------- Streaming native index.html renderer (buffered line writes) ---------- */
 static int oc_write_str(int fd, const char *s) { return oc_write_all(fd,s,oc_length(s)); }
 
-static int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf, int comp_fd, OcManifest *comp_mf,
+static __attribute__((noinline)) int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf, int comp_fd, OcManifest *comp_mf,
                                   int work_fd, const OcPrefs *p) {
     const char *tpl_name=oc_equal(p->warning,"1")?"index-on.html":"index-off.html";
     const char *tpl_dig=oc_digest(comp_mf,tpl_name);
@@ -616,29 +533,11 @@ static int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf, int comp_fd, O
 }
 
 /* ---------- Cleanup & package boot-select verification ---------- */
-static int oc_unlink_cb(const char *name, void *raw) { (void)oc_unlink(*(int *)raw,name); return 1; }
-static void oc_cleanup_work(int snaps_fd, const char *work_leaf) {
-    int wd=oc_open_private(snaps_fd,work_leaf);
-    if (wd>=0) { (void)oc_dir_iter(wd,oc_unlink_cb,&wd); (void)oc_close(wd); }
-    (void)oc_rmdirat(snaps_fd,work_leaf);
-}
+static inline void oc_cleanup_work(int snaps_fd, const char *work_leaf) { oc_rm_subdir(snaps_fd,work_leaf); }
 
-static int oc_verify_pkg_boot_select(int data, const char *root_path, const char *pkg_id,
-                                     long owner, long group, char bs_path[512]) {
-    OcManifest mf;
-    int pdir=oc_open_pkg_verified(data,pkg_id,&mf);
-    if (pdir<0) return -1;
-    const char *bd=oc_digest(&mf,"boot-select");
-    if (!bd) { int abs=oc_absent_at(pdir,"boot-select"); (void)oc_close(pdir); return abs?0:-1; }
-    long bfd=oc_openat(pdir,"boot-select",OC_READ,0);
-    char dig[65]; OcMeta bm;
-    int ok=bfd>=0 && oc_hash_copy((int)bfd,-1,33554432,dig,&bm)==OC_COPY_OK &&
-        bm.mode==(OC_REGULAR|0700) && bm.uid==(unsigned)owner && bm.gid==(unsigned)group && oc_equal(dig,bd);
-    if (bfd>=0 && oc_close((int)bfd)<0) ok=0;
-    (void)oc_close(pdir);
-    char dbase[320];
-    return ok && oc_data_base(root_path,dbase,sizeof dbase) &&
-        oc_join4(bs_path,512,dbase,"/packages/",pkg_id,"/boot-select") ? 1 : -1;
+static inline int oc_verify_pkg_boot_select(int data, const char *root_path, const char *pkg_id,
+                                            long owner, long group, char bs_path[512]) {
+    return oc_pkg_boot_select(data,root_path,pkg_id,owner,group,bs_path);
 }
 
 static int oc_check_session_pointer(int ram, const char *session_dir, const char *ptr_name) {
@@ -704,6 +603,59 @@ static int oc_run_awk_profile(const char *dbase, const char *pkg_id, const char 
     return ok;
 }
 
+static int oc_open_composed_verified(int data_fd, const char *pkg_id, const char *snap_id,
+                                     char cmf_buf[4096], OcManifest *cmf) {
+    char dep_key[96]; OcManifest dmf, smf;
+    int cdir=oc_open_sub(data_fd,"composed",pkg_id);
+    int cs_fd=oc_open_sub(data_fd,"snapshots",snap_id);
+    int cok=cdir>=0 && cs_fd>=0 &&
+        oc_verified_text(cs_fd,"files.sha256",snap_id,oc_mscratch,sizeof oc_mscratch) && oc_manifest(oc_mscratch,&smf,0) &&
+        oc_saved_text(cs_fd,&smf,"dependencies",oc_big_buf,sizeof oc_big_buf) && oc_manifest(oc_big_buf,&dmf,1) &&
+        oc_join4(dep_key,sizeof dep_key,"composed-",pkg_id,"/files.sha256",0);
+    const char *cdig=cok?oc_digest(&dmf,dep_key):0;
+    if (cs_fd>=0) (void)oc_close(cs_fd);
+    if (!cok || !cdig || !oc_verified_text(cdir,"files.sha256",cdig,cmf_buf,4096) || !oc_manifest(cmf_buf,cmf,0)) {
+        if (cdir>=0) (void)oc_close(cdir);
+        return -1;
+    }
+    return cdir;
+}
+
+int oc_render_sm_profiles(int data_fd, const char *root_path, const char *pkg_id,
+                          const char *snap_id, const char *cfg_path, unsigned cfg_len,
+                          const char *warning_val, int out_dir) {
+    OcManifest pmf, cmf; char cmf_buf[4096], dbase[320], cfg_len_s[24], cat_len_s[24];
+    int pdir=oc_open_pkg_verified(data_fd,pkg_id,&pmf);
+    if (pdir<0) return 0;
+    const char *nf[3]={"preferences.awk","services.tsv","sm-profile.awk"};
+    int ok=1;
+    for (unsigned i=0; ok&&i<3; ++i)
+        ok=oc_verify_file_sha(pdir,nf[i],oc_digest(&pmf,nf[i]),262144);
+    OcMeta cat_m={0};
+    long cfd=ok?oc_openat(pdir,"services.tsv",OC_READ,0):-1;
+    if (cfd<0 || oc_stat((int)cfd,&cat_m)<0) ok=0;
+    if (cfd>=0) (void)oc_close((int)cfd);
+    (void)oc_close(pdir);
+    int cdir=ok?oc_open_composed_verified(data_fd,pkg_id,snap_id,cmf_buf,&cmf):-1;
+    if (cdir<0) return 0;
+    oc_u64_dec((oc_u64)cfg_len,cfg_len_s); oc_u64_dec(cat_m.size,cat_len_s);
+    ok=oc_data_base(root_path,dbase,sizeof dbase);
+    const char *st=oc_equal(warning_val,"1")?"on":"off";
+    const char *profs[2]={"normal","wcp"};
+    for (unsigned i=0; ok&&i<2; ++i) {
+        char tnm[32], onm[32], tin[320];
+        ok=oc_join4(tnm,sizeof tnm,"sm-",profs[i],"-",st) &&
+            oc_join(tnm,sizeof tnm,tnm,".conf") &&
+            oc_join4(onm,sizeof onm,"sm-",profs[i],".conf",0) &&
+            oc_verify_file_sha(cdir,tnm,oc_digest(&cmf,tnm),262144) &&
+            oc_join4(tin,sizeof tin,dbase,"/composed/",pkg_id,"/") &&
+            oc_join(tin,sizeof tin,tin,tnm) &&
+            oc_run_awk_profile(dbase,pkg_id,cfg_path,cfg_len_s,cat_len_s,"sm-profile.awk",0,tin,out_dir,onm);
+    }
+    if (oc_close(cdir)<0) ok=0;
+    return ok;
+}
+
 /* ---------- Main HTTP interactive handler (single clean cleanup epilogue) ---------- */
 static int oc_load_state(int root, long owner, long group, int *data_out, int *exists_out,
                          int *empty_out, char rec_buf[1024], char *rec[13], const char **err_out) {
@@ -722,189 +674,374 @@ static int oc_load_state(int root, long owner, long group, int *data_out, int *e
     return 0;
 }
 
-static int oc_api_handle_dir(const char *session_dir, const char *rev, const char *op,
-                             const char *arg, const char *exp, const char *des, int allow_fallback) {
-    int op_dm = oc_equal(op,"dismiss"), op_st = oc_equal(op,"status");
-    int is_dismiss_usb = op_dm && oc_equal(arg,"usb");
-    int is_dismiss_done = op_dm && oc_equal(arg,"-");
-    int is_status_settings = op_st && oc_equal(arg,"settings");
-    int is_status_comp = op_st && oc_equal(arg,"completion");
-    int is_fast_set = oc_equal(op,"set") && !oc_equal(arg,"uart") && !oc_equal(arg,"ssh");
-    if (!is_dismiss_usb && !is_dismiss_done && !is_status_settings && !is_status_comp && !is_fast_set)
-        return allow_fallback ? OC_API_FALLBACK : emit_fail("invalid_request");
-
-    int root=-1, ram=-1, lock_fd=-1, data=-1, snaps_fd=-1;
-    int res=allow_fallback ? OC_API_FALLBACK : OC_API_ERR;
-    const char *err=0, *root_path=oc_root_path();
-    long owner=oc_owner(), group=oc_group();
-
-    root=(int)oc_openat(OC_CWD,root_path,OC_DIRECTORY,0);
-    if (root<0) { if (!allow_fallback) err="runtime_unavailable"; goto out; }
-    ram=oc_open_ram_dir(root);
-    if (ram<0) { if (!allow_fallback) err="runtime_unavailable"; goto out; }
-
-    int is_usb=0;
-    const char *ptr_name="runtime";
-    if (!oc_check_session_pointer(ram,session_dir,"runtime")) {
-        if (!oc_check_session_pointer(ram,session_dir,"usb-runtime")) { err="session_replaced"; goto out; }
-        is_usb=1; ptr_name="usb-runtime";
+static int oc_api_uptime_cs(int root, oc_u64 *out_cs) {
+    char buf[64];
+    if (oc_text(root,"proc/uptime",buf,sizeof buf,1)<=0) return 0;
+    oc_u64 sec=0, frac=0; unsigned fd=0;
+    const char *p=buf;
+    if (*p<'0'||*p>'9') return 0;
+    while (*p>='0'&&*p<='9') { sec=sec*10+(unsigned)(*p-'0'); ++p; }
+    if (*p=='.') {
+        ++p;
+        while (*p>='0'&&*p<='9'&&fd<2) { frac=frac*10+(unsigned)(*p-'0'); ++fd; ++p; }
+        while (fd<2) { frac*=10; ++fd; }
     }
-    if (is_usb && is_fast_set) {
-        if (allow_fallback) goto out;
-        err="invalid_request"; goto out;
+    *out_cs=sec*100+frac;
+    return 1;
+}
+
+static int oc_usb_retained(int root, const char *session_dir, const char *expect_rev) {
+    if (!expect_rev) return 0;
+    long sdir=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
+    if (sdir<0) return 0;
+    OcMeta m={0}; char target[128];
+    int ok=oc_metadata((int)sdir,"admitted",&m)>=0 && (m.mode&OC_TYPE)==0120000 &&
+        m.size>0 && m.size<sizeof target;
+    long n=ok?oc_readlink((int)sdir,"admitted",target,sizeof target-1):-1;
+    (void)oc_close((int)sdir);
+    if (!ok || n<=0 || (oc_u64)n!=m.size) return 0;
+    target[n]=0;
+    char *f[3]; oc_u64 deadline=0, now=0;
+    if (oc_fields(target,f,3)!=3 || !oc_equal(f[0],"OCUSB1") ||
+        !oc_decimal(f[1],&deadline) || !oc_equal(f[2],expect_rev) ||
+        !oc_api_uptime_cs(root,&now)) return 0;
+    return now<deadline && deadline<=now+12000;
+}
+
+static void oc_usb_retain_set(int root, const char *session_dir, int exists, const char *cur_snap) {
+    oc_u64 now=0;
+    if (!oc_api_uptime_cs(root,&now)) return;
+    char ds[24], target[128];
+    oc_u64_dec(now+12000,ds);
+    if (!oc_join4(target,sizeof target,"OCUSB1|",ds,"|",exists?cur_snap:"-")) return;
+    long sdir=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
+    if (sdir>=0) {
+        (void)oc_unlink((int)sdir,"admitted");
+        (void)oc_symlink(target,(int)sdir,"admitted");
+        (void)oc_close((int)sdir);
     }
+}
 
-    char op_tag[96];
-    if (!oc_join4(op_tag,sizeof op_tag,is_usb?"usb:":"settings:",op,":",arg)) { err="invalid_request"; goto out; }
-    if (!oc_firmware_guard(root,op_tag,api_mem.scratch,sizeof api_mem.scratch,&err)) goto out;
+static void oc_usb_retain_clear(const char *session_dir) {
+    long sdir=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
+    if (sdir>=0) { (void)oc_unlink((int)sdir,"admitted"); (void)oc_close((int)sdir); }
+}
 
-    {
-        OcMeta lm;
-        long lfd=oc_openat(ram,"lock",OC_RW,0);
-        if (lfd<0 || oc_stat((int)lfd,&lm)<0 || (lm.mode&OC_TYPE)!=OC_REGULAR ||
-            lm.uid!=(unsigned)owner || lm.gid!=(unsigned)group) {
-            if (lfd>=0) (void)oc_close((int)lfd);
-            err="invalid_lock"; goto out;
-        }
-        if (is_dismiss_usb) {
-            (void)oc_close((int)lfd);
-            if (!is_usb) { err="invalid_request"; goto out; }
-            if (!oc_mark_closed(session_dir)) { err="state_changed"; goto out; }
-            res=oc_write_all(1,"{\"ok\":true}\n",12) ? OC_API_DONE : OC_API_ERR;
-            goto out;
-        }
-        if ((is_status_settings ? oc_lock_sh((int)lfd) : oc_lock((int)lfd)) < 0) {
-            (void)oc_close((int)lfd); err="busy"; goto out;
-        }
-        lock_fd=(int)lfd;
+static int oc_status_identity(int data, int ram, char out[384]) {
+    out[0]=0;
+    if (data<0 || oc_absent_at(data,"record")) {
+        if (!oc_join(out,384,out,"record=absent\n")) return 0;
+    } else {
+        long fd=oc_openat(data,"record",OC_READ,0);
+        char dig[65]; OcMeta m={0};
+        int ok=fd>=0 && oc_hash_copy((int)fd,-1,4096,dig,&m)==OC_COPY_OK;
+        if (fd>=0 && oc_close((int)fd)<0) ok=0;
+        if (!ok || !oc_join4(out,384,out,"record=",dig,"\n")) return 0;
     }
-    if (!oc_check_session_pointer(ram,session_dir,ptr_name)) { err="session_replaced"; goto out; }
+    const char *mks[3]={"selected","access-selected","boot-id"};
+    for (unsigned i=0; i<3; ++i) {
+        if (oc_absent_at(ram,mks[i])) {
+            if (!oc_join4(out,384,out,mks[i],"=absent\n",0)) return 0;
+            continue;
+        }
+        OcMeta m={0};
+        if (oc_metadata(ram,mks[i],&m)<0) return 0;
+        if ((m.mode&OC_TYPE)==0120000) {
+            char lnk[128];
+            long n=oc_readlink(ram,mks[i],lnk,sizeof lnk-1);
+            if (n<=0 || (oc_u64)n!=m.size) return 0;
+            lnk[n]=0;
+            if (!oc_join4(out,384,out,mks[i],"=link:",lnk) || !oc_join(out,384,out,"\n")) return 0;
+        } else if ((m.mode&OC_TYPE)==OC_REGULAR) {
+            long fd=oc_openat(ram,mks[i],OC_READ,0);
+            char dig[65]; OcMeta fm={0};
+            int ok=fd>=0 && oc_hash_copy((int)fd,-1,4096,dig,&fm)==OC_COPY_OK;
+            if (fd>=0 && oc_close((int)fd)<0) ok=0;
+            if (!ok || !oc_join4(out,384,out,mks[i],"=file:",dig) || !oc_join(out,384,out,"\n")) return 0;
+        } else return 0;
+    }
+    return 1;
+}
 
-    int exists=0, empty_state=0;
+typedef struct {
+    const char *session_dir, *root_path, *ptr_name;
+    const char *rev, *op, *arg, *exp, *des;
+    int root, ram, lock_fd, data, snaps_fd;
+    int is_usb, exists, empty_state, allow_fallback;
+    long owner, group;
     char rec_buf[1024], *rec[13];
-    if (!oc_load_state(root,owner,group,&data,&exists,&empty_state,rec_buf,rec,&err)) goto out;
+    char sel_snap[65], settings_pkg[65];
+    const char *err;
+} OcApiCtx;
 
-    char sel_snap[65]; sel_snap[0]=0;
-    (void)oc_read_hex64_file(ram,"selected",sel_snap);
-
-    /* ----- status:completion & dismiss:- ----- */
-    if (is_status_comp || is_dismiss_done) {
-        if (is_dismiss_done) {
-            if (is_usb) { err=oc_session_is_closed(session_dir)?"session_closed":"invalid_request"; goto out; }
-            if (!oc_equal(exp,"-") || !oc_equal(des,"-")) { err="invalid_request"; goto out; }
-        }
-        if (is_usb || !exists) { err="completion_unavailable"; goto out; }
-        if (!oc_rec_settled(rec)) { err="operation_pending"; goto out; }
-        char cur_boot[37], snap_pkg[65], comp_ver[64];
-        if (!oc_equal(rec[1],"active") || !oc_equal(sel_snap,rec[5]) ||
-            !oc_read_boot_id(ram,owner,group,cur_boot) || !oc_equal(cur_boot,rec[11])) { err="completion_unavailable"; goto out; }
-        if (!oc_snap_package_only(data,rec[5],snap_pkg) || !oc_equal(snap_pkg,rec[3])) { err="invalid_snapshot"; goto out; }
-        if (!oc_session_mf_matches(session_dir,rec[3])) { err="session_replaced"; goto out; }
-        if (!oc_package_version(data,rec[3],comp_ver)) { err="invalid_version"; goto out; }
-        if (!oc_check_session_pointer(ram,session_dir,ptr_name)) { err="session_replaced"; goto out; }
-        if (is_status_comp) {
-            int ready=oc_equal(rec[12],"installed");
-            if (ready) {
-                char *u_argv[]={"sh","-c","P=$1; . \"$P/state.sh\" && . \"$P/service.sh\" && service_usb_observe",
-                                "observe",(char *)session_dir,0};
-                (void)oc_run_prog("/bin/sh",u_argv,-1,0,0,-1);
-            }
-            OcJson j; j_init(&j,api_mem.json,sizeof api_mem.json);
-            j_kv_bool(&j,"ok",1);
-            j_kv_str(&j,"revision",rec[5]);
-            j_kv_str(&j,"package",rec[3]);
-            j_kv_str(&j,"boot",cur_boot);
-            j_kv_str(&j,"installedVersion",comp_ver);
-            j_kv_str(&j,"notice",rec[12]);
-            j_kv_bool(&j,"completionReady",ready);
-            j_raw(&j,"}\n");
-            res=(j.ok && oc_write_all(1,j.buf,j.at)) ? OC_API_DONE : OC_API_ERR;
-            goto out;
-        }
-        if (!oc_equal(rev,rec[5]) || !oc_equal(rec[12],"installed")) { err="stale_state"; goto out; }
-        rec[12]="-";
-        if (!oc_record_write_atomic(root,data,rec,0)) { err="record_rename_failed"; goto out; }
-        if (!oc_mark_closed(session_dir)) { err="state_changed"; goto out; }
-        res=oc_write_all(1,"{\"ok\":true}\n",12) ? OC_API_DONE : OC_API_ERR;
-        goto out;
+static int oc_spawn_reboot(const OcApiCtx *c) {
+#ifdef OC_HOST
+    (void)c;
+    const char *mk=getenv("OC_HOST_REBOOT_MARKER");
+    if (mk && *mk) {
+        long fd=oc_openat(OC_CWD,mk,OC_WRITE|OC_CREATE|OC_TRUNC,0600);
+        if (fd>=0) { (void)oc_write_all((int)fd,"reboot\n",7); (void)oc_close((int)fd); }
     }
+    return 1;
+#else
+    long pid=oc_fork();
+    if (pid<0) return 0;
+    if (pid!=0) return 1;
+    if (c->snaps_fd>=0) (void)oc_close(c->snaps_fd);
+    if (c->data>=0) (void)oc_close(c->data);
+    if (c->lock_fd>=0) (void)oc_close(c->lock_fd);
+    if (c->ram>=0) (void)oc_close(c->ram);
+    if (c->root>=0) (void)oc_close(c->root);
+    long devnull=oc_openat(OC_CWD,"/dev/null",OC_RW,0);
+    if (devnull>=0) {
+        (void)oc_dup2((int)devnull,0); (void)oc_dup2((int)devnull,1); (void)oc_dup2((int)devnull,2);
+        if (devnull>2) (void)oc_close((int)devnull);
+    }
+    oc_sleep_ms(2000);
+    char *argv[]={"/bin/busybox","timeout","-t","10","/sbin/reboot",0};
+    char *env[]={"PATH=/bin:/sbin:/usr/bin:/usr/sbin","LC_ALL=C",0};
+    (void)oc_execve("/bin/busybox",argv,env);
+    oc_exit(127);
+    return 0;
+#endif
+}
 
-    /* ----- usb:status:settings -> usb_metadata ----- */
-    if (is_usb && is_status_settings) {
-        int installed=0, retained=0, pending=empty_state, restart=0;
-        const char *mrev="-", *mnotice="-";
-        char inst_ver[64], run_ver[64], pkg[65];
-        (void)oc_join(inst_ver,sizeof inst_ver,"","-");
-        if (exists) {
-            mrev=rec[5]; mnotice=rec[12];
-            if (oc_rec_settled(rec)) {
-                if (!oc_snap_package_only(data,rec[5],pkg)) { err="invalid_snapshot"; goto out; }
-                if (oc_equal(rec[1],"active")) {
-                    installed=1;
-                    if (!oc_package_version(data,pkg,inst_ver)) { err="invalid_version"; goto out; }
-                    if (!oc_equal(sel_snap,rec[5])) restart=1;
-                } else retained=1;
-            } else { pending=1; restart=1; mrev=rec[2]; }
+static __attribute__((noinline)) int api_err(OcApiCtx *c, const char *e) { c->err=e; return OC_API_ERR; }
+
+static int oc_api_emit_ctx(OcApiCtx *c, int conflict, int removed_now) {
+    return oc_api_emit_status_view(c->root,c->root_path,c->data,c->ram,c->session_dir,c->owner,c->group,
+                                   c->exists,c->empty_state,c->rec,c->settings_pkg,c->sel_snap,conflict,removed_now);
+}
+
+static int oc_api_match_cur(OcApiCtx *c) {
+    return oc_targets_match(c->root,c->data,c->rec[5],c->rec[4],c->owner,c->group) &&
+        oc_dependencies_match(c->root,c->data,c->rec[5],c->owner,c->group);
+}
+
+static void oc_api_run_gc(OcApiCtx *c) {
+    char bs_p[512], fd_s[24]; oc_u32_dec((unsigned)c->lock_fd,fd_s);
+    if (oc_verify_pkg_boot_select(c->data,c->root_path,c->rec[3],c->owner,c->group,bs_p)==1) {
+        char *gc_argv[]={bs_p,"gc",(char *)c->root_path,fd_s,0};
+        (void)oc_run_prog(bs_p,gc_argv,-1,0,0,c->lock_fd);
+    }
+}
+
+static __attribute__((noinline)) int oc_handle_completion(OcApiCtx *c, int is_dismiss_done) {
+    if (is_dismiss_done) {
+        if (c->is_usb) return api_err(c,oc_session_is_closed(c->session_dir)?"session_closed":"invalid_request");
+        if (!oc_equal(c->exp,"-") || !oc_equal(c->des,"-")) return api_err(c,"invalid_request");
+    }
+    if (c->is_usb || !c->exists) return api_err(c,"completion_unavailable");
+    if (!oc_rec_settled(c->rec)) return api_err(c,"operation_pending");
+    char cur_boot[37], snap_pkg[65], comp_ver[64];
+    if (!oc_equal(c->rec[1],"active") || !oc_equal(c->sel_snap,c->rec[5]) ||
+        !oc_read_boot_id(c->ram,c->owner,c->group,cur_boot) || !oc_equal(cur_boot,c->rec[11])) return api_err(c,"completion_unavailable");
+    if (!oc_snap_package_only(c->data,c->rec[5],snap_pkg) || !oc_equal(snap_pkg,c->rec[3])) return api_err(c,"invalid_snapshot");
+    if (!oc_session_mf_matches(c->session_dir,c->rec[3])) return api_err(c,"session_replaced");
+    if (!oc_package_version(c->data,c->rec[3],comp_ver)) return api_err(c,"invalid_version");
+    if (!oc_check_session_pointer(c->ram,c->session_dir,c->ptr_name)) return api_err(c,"session_replaced");
+    if (!is_dismiss_done) {
+        int ready=oc_equal(c->rec[12],"installed");
+        if (ready) {
+            char *u_argv[]={
+                "sh","-c",
+                "P=$1; . \"$P/service.sh\"; current_boot_id() { printf '%s\\n' \"$2\"; }; "
+                "file() { test -f \"$1\" && test ! -L \"$1\" && test \"$(readlink -f \"$1\")\" = \"$1\"; }; "
+                "service_usb_observe",
+                "observe",(char *)c->session_dir,cur_boot,0
+            };
+            (void)oc_run_prog("/bin/sh",u_argv,-1,0,0,-1);
         }
-        long sfd=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
-        int vok=sfd>=0 && oc_read_version_file((int)sfd,0,run_ver);
-        int closed=sfd>=0 && !oc_absent_at((int)sfd,"closed");
-        if (sfd>=0) (void)oc_close((int)sfd);
-        if (!vok) { err="invalid_version"; goto out; }
-        if (!oc_check_session_pointer(ram,session_dir,ptr_name)) { err="session_replaced"; goto out; }
-        if (closed) { err="session_closed"; goto out; }
         OcJson j; j_init(&j,api_mem.json,sizeof api_mem.json);
-        j_kv_bool(&j,"ok",1);
-        j_kv_str(&j,"revision",mrev);
-        j_kv_bool(&j,"installed",installed);
-        j_kv_bool(&j,"retained",retained);
-        j_kv_bool(&j,"pending",pending);
-        j_kv_bool(&j,"restart",restart);
-        j_kv_str(&j,"notice",mnotice);
-        j_kv_str(&j,"version",run_ver);
-        j_kv_str(&j,"installedVersion",inst_ver);
-        j_kv_bool(&j,"completionReady",0);
+        const char *cv[7]={"1",c->rec[5],c->rec[3],cur_boot,comp_ver,c->rec[12],ready?"1":0};
+        j_kvs(&j,"bsssssb","ok\0revision\0package\0boot\0installedVersion\0notice\0completionReady",cv);
         j_raw(&j,"}\n");
-        res=(j.ok && oc_write_all(1,j.buf,j.at)) ? OC_API_DONE : OC_API_ERR;
-        goto out;
+        return (j.ok && oc_write_all(1,j.buf,j.at)) ? OC_API_DONE : OC_API_ERR;
     }
+    if (!oc_equal(c->rev,c->rec[5]) || !oc_equal(c->rec[12],"installed")) return api_err(c,"stale_state");
+    c->rec[12]="-";
+    if (!oc_record_write_atomic(c->root,c->data,c->rec,0)) return api_err(c,"record_rename_failed");
+    if (!oc_mark_closed(c->session_dir)) return api_err(c,"state_changed");
+    return oc_write_all(1,"{\"ok\":true}\n",12) ? OC_API_DONE : OC_API_ERR;
+}
 
-    char settings_pkg[65]; settings_pkg[0]=0;
-    if (!is_usb && exists && !oc_equal(rec[1],"purge") && !oc_equal(rec[1],"removed")) {
-        if (!sel_snap[0] || !oc_snap_package_only(data,sel_snap,settings_pkg) || oc_equal(settings_pkg,"-")) {
-            err="invalid_selected_snapshot"; goto out;
+static __attribute__((noinline)) int oc_handle_usb_meta(OcApiCtx *c) {
+    int installed=0, retained=0, pending=c->empty_state, restart=0;
+    const char *mrev="-", *mnotice="-";
+    char inst_ver[64], run_ver[64], pkg[65];
+    (void)oc_join(inst_ver,sizeof inst_ver,"","-");
+    if (c->exists) {
+        mrev=c->rec[5]; mnotice=c->rec[12];
+        if (oc_rec_settled(c->rec)) {
+            if (!oc_snap_package_only(c->data,c->rec[5],pkg)) return api_err(c,"invalid_snapshot");
+            if (oc_equal(c->rec[1],"active")) {
+                installed=1;
+                if (!oc_package_version(c->data,pkg,inst_ver)) return api_err(c,"invalid_version");
+                if (!oc_equal(c->sel_snap,c->rec[5])) restart=1;
+            } else retained=1;
+        } else { pending=1; restart=1; mrev=c->rec[2]; }
+    }
+    long sfd=oc_openat(OC_CWD,c->session_dir,OC_DIRECTORY,0);
+    int vok=sfd>=0 && oc_read_version_file((int)sfd,0,run_ver);
+    int closed=sfd>=0 && !oc_absent_at((int)sfd,"closed");
+    if (sfd>=0) (void)oc_close((int)sfd);
+    if (!vok) return api_err(c,"invalid_version");
+    if (!oc_check_session_pointer(c->ram,c->session_dir,c->ptr_name)) return api_err(c,"session_replaced");
+    if (closed) return api_err(c,"session_closed");
+    OcJson j; j_init(&j,api_mem.json,sizeof api_mem.json);
+    const char *uv[10]={"1",mrev,installed?"1":0,retained?"1":0,pending?"1":0,restart?"1":0,
+        mnotice,run_ver,inst_ver,0};
+    j_kvs(&j,"bsbbbbsssb",
+          "ok\0revision\0installed\0retained\0pending\0restart\0notice\0version\0installedVersion\0completionReady",uv);
+    j_raw(&j,"}\n");
+    return (j.ok && oc_write_all(1,j.buf,j.at)) ? OC_API_DONE : OC_API_ERR;
+}
+
+static __attribute__((noinline)) int oc_handle_uninstall(OcApiCtx *c) {
+    if (!c->exists) return api_err(c,"not_installed");
+    if (oc_equal(c->rec[1],"removed")) {
+        if (!oc_uninstall_cleanup(c->root,c->root_path,c->data,c->session_dir,c->owner,c->group,&c->err)) return OC_API_ERR;
+        (void)oc_close(c->data); c->data=-1; c->exists=0; c->empty_state=0;
+        if (c->is_usb) oc_usb_retain_set(c->root,c->session_dir,0,"-");
+        return oc_api_emit_ctx(c,0,1);
+    }
+    if (!oc_equal(c->rec[1],"active")) return api_err(c,"not_installed");
+    if (!oc_api_match_cur(c) || !oc_uninstall_owned(c->data,c->rec[5],c->rec[4],c->owner,c->group)) return api_err(c,"state_changed");
+    if (!oc_snap_read(c->data,c->rec[5],&api_snap_a,0,0,0,0,0)) return api_err(c,"invalid_snapshot");
+    if (!oc_snap_read(c->data,c->rec[4],&api_snap_b,0,0,0,0,0)) return api_err(c,"originals_changed");
+    int bdir=-1, rtmp_fd=-1; char rtmp_leaf[48]; rtmp_leaf[0]=0;
+    {
+        bdir=oc_open_sub(c->data,"snapshots",c->rec[4]);
+        int cdir=oc_open_sub(c->data,"snapshots",c->rec[5]);
+        int cur_has_sel = cdir>=0 && !oc_absent_at(cdir,"selector");
+        int base_has_sel = bdir>=0 && !oc_absent_at(bdir,"selector");
+        if (cdir>=0) (void)oc_close(cdir);
+        if (bdir<0) return api_err(c,"originals_changed");
+        if (cur_has_sel && !base_has_sel) {
+            char rn[33];
+            if (!oc_random(c->root,rn) || !oc_join(rtmp_leaf,sizeof rtmp_leaf,".access-",rn) ||
+                oc_mkdir(c->data,rtmp_leaf,0700)<0) { (void)oc_close(bdir); return api_err(c,"selector_plan_failed"); }
+            rtmp_fd=oc_open_private(c->data,rtmp_leaf);
+            int rok=rtmp_fd>=0 && oc_new_text(rtmp_fd,"selector","-\n",0600);
+            if (rok && api_snap_b.has_access) rok=oc_copy_opt(bdir,rtmp_fd,0x007,2);
+            if (!rok) {
+                if (rtmp_fd>=0) (void)oc_close(rtmp_fd);
+                oc_cleanup_work(c->data,rtmp_leaf); (void)oc_close(bdir);
+                return api_err(c,"selector_plan_failed");
+            }
         }
     }
+    char after_id[65], prep_nonce[33], before_id[65];
+    int sok=oc_join(before_id,sizeof before_id,"",c->rec[5]) &&
+        oc_snapshot_create(c->root,c->data,c->rec[4],"-",api_snap_b.prefs.nvram,api_snap_b.prefs.metadata,
+                           before_id,rtmp_fd>=0?rtmp_fd:bdir,"",c->session_dir,c->root_path,c->owner,c->group,after_id);
+    if (rtmp_fd>=0) { (void)oc_close(rtmp_fd); oc_cleanup_work(c->data,rtmp_leaf); }
+    (void)oc_close(bdir);
+    if (!sok) return api_err(c,"plan_failed");
+    if (!oc_transaction_prepare(c->root,c->data,c->rec,"uninstall",before_id,after_id,c->rec[4],1,c->owner,c->group,prep_nonce))
+        return api_err(c,"record_rename_failed");
+    c->rec[2]=prep_nonce;
+    if (!oc_transaction_reconcile(c->root,c->root_path,c->data,c->rec,c->session_dir,prep_nonce,c->owner,c->group,&c->err)) return OC_API_ERR;
+    if (!oc_uninstall_cleanup(c->root,c->root_path,c->data,c->session_dir,c->owner,c->group,&c->err)) return OC_API_ERR;
+    (void)oc_close(c->data); c->data=-1; c->exists=0; c->empty_state=0;
+    if (c->is_usb) oc_usb_retain_set(c->root,c->session_dir,0,"-");
+    return oc_api_emit_ctx(c,0,1);
+}
 
-    /* ----- settings:status:settings ----- */
-    if (is_status_settings) {
-        res=oc_api_emit_status_view(root,root_path,data,ram,session_dir,owner,group,
-                                    exists,empty_state,rec,settings_pkg,sel_snap,0,0);
-        goto out;
+static int oc_commit_set_txn(OcApiCtx *c, const char *before_id, const char *after_id) {
+    char prep_nonce[33];
+    if (!oc_transaction_prepare(c->root,c->data,c->rec,"set",before_id,after_id,c->rec[4],1,c->owner,c->group,prep_nonce))
+        return api_err(c,"record_rename_failed");
+    c->rec[2]=prep_nonce;
+    if (!oc_transaction_reconcile(c->root,c->root_path,c->data,c->rec,c->session_dir,prep_nonce,c->owner,c->group,&c->err)) return OC_API_ERR;
+    if (!oc_record_read_any(c->data,c->owner,c->group,c->rec_buf,sizeof c->rec_buf,c->rec)) return api_err(c,"invalid_record");
+    oc_api_run_gc(c);
+    return oc_api_emit_ctx(c,0,0);
+}
+
+static __attribute__((noinline)) int oc_handle_access(OcApiCtx *c, int is_import) {
+    if (!c->exists || !oc_equal(c->rec[1],"active")) return api_err(c,"not_installed");
+    char cpkg[65];
+    if (c->settings_pkg[0] && (!oc_snap_package_only(c->data,c->rec[5],cpkg) || !oc_equal(cpkg,c->settings_pkg)))
+        return api_err(c,"restart_required");
+    if (!oc_session_mf_matches(c->session_dir,c->rec[3])) return api_err(c,"session_replaced");
+    if (!oc_api_match_cur(c)) return api_err(c,"state_changed");
+    if (!oc_snap_read(c->data,c->rec[5],&api_snap_a,0,0,0,1,0) || !api_snap_a.prefs.is_oc2) return api_err(c,"unsupported_snapshot");
+    if (!api_snap_a.has_access) return api_err(c,"developer_update_required");
+    if (oc_equal(api_snap_a.acc_fields[5],"-")) return api_err(c,"developer_reinstall_required");
+    if (!oc_snap_read(c->data,c->rec[4],&api_snap_b,0,0,0,1,0)) return api_err(c,"originals_changed");
+    char console_dig[65]; console_dig[0]=0;
+    {
+        OcManifest pmf;
+        int pdir=oc_open_pkg_verified(c->data,api_snap_a.prefs.package,&pmf);
+        const char *cd=pdir>=0?oc_digest(&pmf,"console.sh"):0;
+        int pok=pdir>=0 && cd && oc_join(console_dig,sizeof console_dig,"",cd) && oc_members(pdir,&pmf,1);
+        if (pdir>=0 && oc_close(pdir)<0) pok=0;
+        if (!pok) return api_err(c,"state_changed");
     }
+    if (!oc_check_active_pins(c->root,c->data,api_snap_a.prefs.package,c->rec[5],
+                              api_snap_a.prefs.base,api_snap_a.prefs.touch,&c->err)) return OC_API_ERR;
+    char new_uart[4], new_ssh[4], new_key[65];
+    if (!oc_join(new_uart,sizeof new_uart,"",api_snap_a.acc_fields[0]) ||
+        !oc_join(new_ssh,sizeof new_ssh,"",api_snap_a.acc_fields[1]) ||
+        !oc_join(new_key,sizeof new_key,"",api_snap_a.acc_fields[2])) return api_err(c,"access_plan_failed");
+    if (is_import) {
+        if (!oc_equal(c->arg,"-") || !oc_equal(c->exp,"-") || !oc_equal(c->des,"-")) return api_err(c,"invalid_request");
+        const char *kerr="public_key_import_failed";
+        if (!oc_access_key_import(c->root,c->root_path,c->data,c->owner,c->group,new_key,&kerr)) return api_err(c,kerr);
+    } else {
+        if (!oc_bit(c->exp) || !oc_bit(c->des)) return api_err(c,"invalid_setting");
+        char *dst=oc_equal(c->arg,"uart")?new_uart:new_ssh;
+        if (!oc_equal(dst,c->exp)) return api_err(c,"stale_setting");
+        (void)oc_join(dst,4,"",c->des);
+    }
+    char anonce[33], aleaf[48], orig_cfg[1024];
+    if (!oc_random(c->root,anonce) || !oc_join(aleaf,sizeof aleaf,".access-",anonce) ||
+        oc_mkdir(c->data,aleaf,0700)<0) return api_err(c,"access_plan_failed");
+    int awfd=oc_open_private(c->data,aleaf);
+    int aok=awfd>=0 && oc_access_compose(c->root,c->root_path,c->data,c->session_dir,c->rec[4],console_dig,awfd,aleaf,
+                                         new_uart,new_ssh,new_key,c->owner,c->group);
+    int cfg_ok=0;
+    if (aok) {
+        int cdir=oc_open_sub(c->data,"snapshots",c->rec[5]);
+        aok=cdir>=0 && oc_copy_opt(cdir,awfd,0x1f8,0);
+        cfg_ok=aok && oc_text(cdir,"config",orig_cfg,sizeof orig_cfg,0)>0;
+        if (cdir>=0) (void)oc_close(cdir);
+    }
+    if (!aok) {
+        if (awfd>=0) (void)oc_close(awfd);
+        oc_cleanup_work(c->data,aleaf); return api_err(c,"access_plan_failed");
+    }
+    if (!is_import && oc_equal(c->exp,c->des)) {
+        (void)oc_close(awfd); oc_cleanup_work(c->data,aleaf);
+        return oc_api_emit_ctx(c,0,0);
+    }
+    char after_id[65], before_id[65];
+    int cok=cfg_ok && oc_join(before_id,sizeof before_id,"",c->rec[5]) &&
+        oc_snapshot_create(c->root,c->data,before_id,api_snap_a.prefs.package,api_snap_a.prefs.nvram,
+                           api_snap_a.prefs.metadata,before_id,awfd,orig_cfg,c->session_dir,c->root_path,c->owner,c->group,after_id);
+    (void)oc_close(awfd); oc_cleanup_work(c->data,aleaf);
+    if (!cok) return api_err(c,"plan_failed");
+    return oc_commit_set_txn(c,before_id,after_id);
+}
 
-    /* ----- settings:set:<preference> ----- */
-    if (!exists) { err=oc_equal(rev,"-")?"not_installed":"stale_state"; goto out; }
-    int settled=oc_rec_settled(rec);
-    if (!oc_equal(rev,settled?rec[5]:rec[2])) { err="stale_state"; goto out; }
-    if (!settled) { err="operation_pending"; goto out; }
-    if (!oc_mounts_mode(root,api_mem.scratch,sizeof api_mem.scratch,0)) { err="root_mount_changed"; goto out; }
-    if (!oc_equal(rec[1],"active")) { err="not_installed"; goto out; }
+static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
+    if (!c->exists || !oc_equal(c->rec[1],"active")) return api_err(c,"not_installed");
     char cur_pkg[65];
-    if (!oc_snap_package_only(data,rec[5],cur_pkg) || !oc_equal(cur_pkg,settings_pkg)) { err="restart_required"; goto out; }
-    if (!oc_equal(cur_pkg,rec[3]) || !oc_session_mf_matches(session_dir,rec[3])) { err="state_changed"; goto out; }
+    if (!oc_snap_package_only(c->data,c->rec[5],cur_pkg) || !oc_equal(cur_pkg,c->settings_pkg)) return api_err(c,"restart_required");
+    if (!oc_equal(cur_pkg,c->rec[3]) || !oc_session_mf_matches(c->session_dir,c->rec[3])) return api_err(c,"state_changed");
 
     char bs_path[512];
-    int bs_state=oc_verify_pkg_boot_select(data,root_path,rec[3],owner,group,bs_path);
-    if (bs_state<0) { err="state_changed"; goto out; }
+    int bs_state=oc_verify_pkg_boot_select(c->data,c->root_path,c->rec[3],c->owner,c->group,bs_path);
+    if (bs_state<0) return api_err(c,"state_changed");
 
-    snaps_fd=oc_open_private(data,"snapshots");
-    if (snaps_fd<0) { err="state_changed"; goto out; }
+    c->snaps_fd=oc_open_private(c->data,"snapshots");
+    if (c->snaps_fd<0) return api_err(c,"state_changed");
     int has_plan=-1;
     {
-        int sdir=oc_open_private(snaps_fd,rec[5]);
+        int sdir=oc_open_private(c->snaps_fd,c->rec[5]);
         char smf[4096]; OcManifest mf;
-        if (sdir>=0 && oc_verified_text(sdir,"files.sha256",rec[5],smf,sizeof smf) && oc_manifest(smf,&mf,0)) {
+        if (sdir>=0 && oc_verified_text(sdir,"files.sha256",c->rec[5],smf,sizeof smf) && oc_manifest(smf,&mf,0)) {
             if (oc_digest(&mf,"boot.plan")) {
                 OcMeta pm;
                 has_plan = (oc_metadata(sdir,"boot.plan",&pm)>=0 && (pm.mode&OC_TYPE)==OC_REGULAR) ? 1 : -1;
@@ -912,189 +1049,353 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
         }
         if (sdir>=0) (void)oc_close(sdir);
     }
-    if (has_plan<0 || (bs_state==0 && has_plan==1)) { err="state_changed"; goto out; }
+    if (has_plan<0 || (bs_state==0 && has_plan==1)) return api_err(c,"state_changed");
     if (bs_state==0 || has_plan==0) {
-        if (!allow_fallback) { err="state_changed"; goto out; }
-        (void)oc_unlock(lock_fd); res=OC_API_FALLBACK; goto out;
+        if (!c->allow_fallback) return api_err(c,"state_changed");
+        (void)oc_unlock(c->lock_fd); return OC_API_FALLBACK;
     }
 
-    static OcSnapInfo cur_snap, base_snap;
     OcCatalog cat; cat.count=0;
-    if (!oc_snap_read(data,rec[5],&cur_snap,&cat,api_mem.cat_buf,sizeof api_mem.cat_buf,0,0) || !cur_snap.prefs.is_oc2) {
-        err="state_changed"; goto out;
-    }
+    if (!oc_snap_read(c->data,c->rec[5],&api_snap_a,&cat,api_mem.cat_buf,sizeof api_mem.cat_buf,0,0) || !api_snap_a.prefs.is_oc2)
+        return api_err(c,"state_changed");
     char **slot=0;
-    int is_touch=oc_equal(arg,"touch");
-    if (is_touch) slot=&cur_snap.prefs.touch;
-    else if (oc_equal(arg,"warning")) slot=&cur_snap.prefs.warning;
-    else if (oc_equal(arg,"base")) slot=&cur_snap.prefs.base;
-    else if (oc_equal(arg,"wireless")) slot=&cur_snap.prefs.wireless;
-    else if (oc_equal(arg,"carplay-autoshow")) { slot=&cur_snap.prefs.autoshow; cur_snap.prefs.has_autoshow=1; }
+    int is_touch=oc_equal(c->arg,"touch");
+    if (is_touch) slot=&api_snap_a.prefs.touch;
+    else if (oc_equal(c->arg,"warning")) slot=&api_snap_a.prefs.warning;
+    else if (oc_equal(c->arg,"base")) slot=&api_snap_a.prefs.base;
+    else if (oc_equal(c->arg,"wireless")) slot=&api_snap_a.prefs.wireless;
+    else if (oc_equal(c->arg,"carplay-autoshow")) { slot=&api_snap_a.prefs.autoshow; api_snap_a.prefs.has_autoshow=1; }
     else {
-        for (unsigned i=0; i<cur_snap.prefs.svc_count; ++i)
-            if (oc_equal(cur_snap.prefs.svc_ids[i],arg)) { slot=&cur_snap.prefs.svc_vals[i]; break; }
+        for (unsigned i=0; i<api_snap_a.prefs.svc_count; ++i)
+            if (oc_equal(api_snap_a.prefs.svc_ids[i],c->arg)) { slot=&api_snap_a.prefs.svc_vals[i]; break; }
     }
-    if (!slot || !(is_touch?(oc_bit(exp)||oc_equal(exp,"2")):oc_bit(exp)) ||
-        !(is_touch?(oc_bit(des)||oc_equal(des,"2")):oc_bit(des))) { err="invalid_setting"; goto out; }
-    if (!oc_equal(*slot,exp)) { err="stale_setting"; goto out; }
+    if (!slot || !(is_touch?(oc_bit(c->exp)||oc_equal(c->exp,"2")):oc_bit(c->exp)) ||
+        !(is_touch?(oc_bit(c->des)||oc_equal(c->des,"2")):oc_bit(c->des))) return api_err(c,"invalid_setting");
+    if (!oc_equal(*slot,c->exp)) return api_err(c,"stale_setting");
 
-    if (oc_equal(exp,des)) {
-        char *a_argv[]={bs_path,"audit",(char *)root_path,rec[5],0};
-        if (oc_run_prog(bs_path,a_argv,-1,0,0,-1)!=0) { err="state_changed"; goto out; }
-        res=oc_api_emit_status_view(root,root_path,data,ram,session_dir,owner,group,1,0,rec,settings_pkg,sel_snap,0,0);
-        goto out;
+    if (oc_equal(c->exp,c->des)) {
+        char *a_argv[]={bs_path,"audit",(char *)c->root_path,c->rec[5],0};
+        if (oc_run_prog(bs_path,a_argv,-1,0,0,-1)!=0) return api_err(c,"state_changed");
+        return oc_api_emit_ctx(c,0,0);
     }
 
-    if (!oc_snap_read(data,rec[4],&base_snap,0,0,0,0,0)) { err="originals_changed"; goto out; }
-    const char *old_t=cur_snap.prefs.touch, *old_w=cur_snap.prefs.warning, *old_b=cur_snap.prefs.base;
-    const char *old_wl=cur_snap.prefs.wireless, *old_as=cur_snap.prefs.autoshow, *cur_nvram=cur_snap.prefs.nvram;
-    int svc_changed = !is_touch && !oc_equal(arg,"warning") && !oc_equal(arg,"base") &&
-        !oc_equal(arg,"wireless") && !oc_equal(arg,"carplay-autoshow");
-    *slot=(char *)des;
-    const char *new_nvram=oc_equal(cur_snap.prefs.touch,"1")?"disable":base_snap.prefs.nvram;
-    cur_snap.prefs.nvram=(char *)new_nvram;
+    if (!oc_snap_read(c->data,c->rec[4],&api_snap_b,0,0,0,0,0)) return api_err(c,"originals_changed");
+    const char *old_t=api_snap_a.prefs.touch, *old_w=api_snap_a.prefs.warning, *old_b=api_snap_a.prefs.base;
+    const char *old_wl=api_snap_a.prefs.wireless, *old_as=api_snap_a.prefs.autoshow, *cur_nvram=api_snap_a.prefs.nvram;
+    int svc_changed = !is_touch && !oc_equal(c->arg,"warning") && !oc_equal(c->arg,"base") &&
+        !oc_equal(c->arg,"wireless") && !oc_equal(c->arg,"carplay-autoshow");
+    *slot=(char *)c->des;
+    const char *new_nvram=oc_equal(api_snap_a.prefs.touch,"1")?"disable":api_snap_b.prefs.nvram;
+    api_snap_a.prefs.nvram=(char *)new_nvram;
 
-    int w_chg=!oc_equal(old_w,cur_snap.prefs.warning), b_chg=!oc_equal(old_b,cur_snap.prefs.base);
-    int wl_chg=!oc_equal(old_wl,cur_snap.prefs.wireless), as_chg=!oc_equal(old_as,cur_snap.prefs.autoshow);
+    int w_chg=!oc_equal(old_w,api_snap_a.prefs.warning), b_chg=!oc_equal(old_b,api_snap_a.prefs.base);
+    int wl_chg=!oc_equal(old_wl,api_snap_a.prefs.wireless), as_chg=!oc_equal(old_as,api_snap_a.prefs.autoshow);
     int need_mmui=w_chg||b_chg||svc_changed, need_plugins=b_chg||svc_changed;
-    int need_sm=(oc_equal(old_t,"2")!=oc_equal(cur_snap.prefs.touch,"2"))||w_chg||b_chg||wl_chg||svc_changed;
+    int need_sm=(oc_equal(old_t,"2")!=oc_equal(api_snap_a.prefs.touch,"2"))||w_chg||b_chg||wl_chg||svc_changed;
     int need_index=w_chg||b_chg||svc_changed||as_chg;
 
     char new_cfg[1024], wnonce[33], work_leaf[48];
-    if (!oc_prefs_write(&cat,&cur_snap.prefs,new_cfg,sizeof new_cfg) ||
-        !oc_random(root,wnonce) || !oc_join(work_leaf,sizeof work_leaf,".new-",wnonce) ||
-        oc_mkdir(snaps_fd,work_leaf,0700)<0) { err="plan_failed"; goto out; }
-    int work_fd=oc_open_private(snaps_fd,work_leaf);
+    if (!oc_prefs_write(&cat,&api_snap_a.prefs,new_cfg,sizeof new_cfg) ||
+        !oc_random(c->root,wnonce) || !oc_join(work_leaf,sizeof work_leaf,".new-",wnonce) ||
+        oc_mkdir(c->snaps_fd,work_leaf,0700)<0) return api_err(c,"plan_failed");
+    int work_fd=oc_open_private(c->snaps_fd,work_leaf);
     if (work_fd<0 || !oc_new_text(work_fd,"config",new_cfg,0600)) {
         if (work_fd>=0) (void)oc_close(work_fd);
-        oc_cleanup_work(snaps_fd,work_leaf);
-        err="plan_failed"; goto out;
+        oc_cleanup_work(c->snaps_fd,work_leaf);
+        return api_err(c,"plan_failed");
     }
 
     int render_ok=1;
-    if (need_mmui || need_plugins || need_sm || need_index) {
+    if (need_mmui || need_plugins || need_index) {
         OcManifest pmf;
-        int pdir=oc_open_pkg_verified(data,rec[3],&pmf);
+        int pdir=oc_open_pkg_verified(c->data,c->rec[3],&pmf);
         if (pdir<0) render_ok=0;
-        int cdir=-1; char cmf_buf[4096]; OcManifest cmf;
-        if (render_ok && (need_sm || need_index)) {
-            long comp_root=oc_openat(data,"composed",OC_DIRECTORY,0);
-            cdir=comp_root>=0?oc_open_private((int)comp_root,rec[3]):-1;
-            if (comp_root>=0) (void)oc_close((int)comp_root);
-            static char dep_buf[24576];
-            OcManifest dmf, smf; char smf_buf[4096], dep_key[96];
-            int cs_fd=oc_open_private(snaps_fd,rec[5]);
-            int cok = cdir>=0 && cs_fd>=0 &&
-                oc_verified_text(cs_fd,"files.sha256",rec[5],smf_buf,sizeof smf_buf) && oc_manifest(smf_buf,&smf,0) &&
-                oc_saved_text(cs_fd,&smf,"dependencies",dep_buf,sizeof dep_buf) && oc_manifest(dep_buf,&dmf,1) &&
-                oc_join4(dep_key,sizeof dep_key,"composed-",rec[3],"/files.sha256",0);
-            const char *cdig = cok ? oc_digest(&dmf,dep_key) : 0;
-            if (cs_fd>=0) (void)oc_close(cs_fd);
-            if (!cok || !cdig || !oc_verified_text(cdir,"files.sha256",cdig,cmf_buf,sizeof cmf_buf) ||
-                !oc_manifest(cmf_buf,&cmf,0)) render_ok=0;
+        if (render_ok && need_index) {
+            char cmf_buf[4096]; OcManifest cmf;
+            int cdir=oc_open_composed_verified(c->data,c->rec[3],c->rec[5],cmf_buf,&cmf);
+            render_ok=cdir>=0 && oc_render_index_native(pdir,&pmf,cdir,&cmf,work_fd,&api_snap_a.prefs);
+            if (cdir>=0) (void)oc_close(cdir);
         }
-        if (render_ok && need_index)
-            render_ok=oc_render_index_native(pdir,&pmf,cdir,&cmf,work_fd,&cur_snap.prefs);
-        if (render_ok && (need_mmui || need_plugins || need_sm)) {
-            const char *nf[5]={"preferences.awk","services.tsv",
-                (need_mmui||need_plugins)?"ui-profile.awk":0, (need_mmui||need_plugins)?"ui-modules.tsv":0,
-                need_sm?"sm-profile.awk":0};
-            for (unsigned i=0; render_ok&&i<5; ++i)
-                if (nf[i] && !oc_verify_file_sha(pdir,nf[i],oc_digest(&pmf,nf[i]),262144)) render_ok=0;
-            OcMeta cat_m; cat_m.size=0;
+        if (render_ok && (need_mmui || need_plugins)) {
+            const char *nf[4]={"preferences.awk","services.tsv","ui-profile.awk","ui-modules.tsv"};
+            for (unsigned i=0; render_ok&&i<4; ++i)
+                render_ok=oc_verify_file_sha(pdir,nf[i],oc_digest(&pmf,nf[i]),262144);
+            OcMeta cat_m={0};
             long cfd=render_ok?oc_openat(pdir,"services.tsv",OC_READ,0):-1;
             if (cfd<0 || oc_stat((int)cfd,&cat_m)<0) render_ok=0;
             if (cfd>=0) (void)oc_close((int)cfd);
-            char dbase[320], cfg_path[320], cfg_len_s[16], cat_len_s[16];
+            char dbase[320], cfg_path[320], cfg_len_s[24], cat_len_s[24];
             if (render_ok) {
                 oc_u32_dec(oc_length(new_cfg),cfg_len_s); oc_u32_dec((unsigned)cat_m.size,cat_len_s);
-                if (!oc_data_base(root_path,dbase,sizeof dbase) ||
+                if (!oc_data_base(c->root_path,dbase,sizeof dbase) ||
                     !oc_join4(cfg_path,sizeof cfg_path,dbase,"/snapshots/",work_leaf,"/config")) render_ok=0;
             }
             if (render_ok && need_mmui) {
-                int orig=oc_open_private(data,"originals");
+                int orig=oc_open_private(c->data,"originals");
                 int mok=orig>=0 && oc_verify_file_sha(orig,"mmui.xml",
                     oc_pin_digest("originals/mmui.xml","ef9550fa084a34b6a997d2e488c41e50667b409fa2e6ad9c896429c74dc705f0"),262144);
                 if (orig>=0) (void)oc_close(orig);
                 char mmui_in[320];
                 render_ok = mok && oc_join(mmui_in,sizeof mmui_in,dbase,"/originals/mmui.xml") &&
-                    oc_run_awk_profile(dbase,rec[3],cfg_path,cfg_len_s,cat_len_s,"ui-profile.awk","mmui",mmui_in,work_fd,"mmui.xml");
+                    oc_run_awk_profile(dbase,c->rec[3],cfg_path,cfg_len_s,cat_len_s,"ui-profile.awk","mmui",mmui_in,work_fd,"mmui.xml");
             }
             if (render_ok && need_plugins)
-                render_ok=oc_run_awk_profile(dbase,rec[3],cfg_path,cfg_len_s,cat_len_s,"ui-profile.awk","plugins","/dev/null",work_fd,"vui-plugins.list");
-            if (render_ok && need_sm) {
-                const char *st=oc_equal(cur_snap.prefs.warning,"1")?"on":"off";
-                const char *profs[2]={"normal","wcp"};
-                for (unsigned i=0; render_ok&&i<2; ++i) {
-                    char tnm[32], onm[32], tin[320];
-                    render_ok = oc_join4(tnm,sizeof tnm,"sm-",profs[i],"-",st) &&
-                        oc_join(tnm,sizeof tnm,tnm,".conf") &&
-                        oc_join4(onm,sizeof onm,"sm-",profs[i],".conf",0) &&
-                        oc_verify_file_sha(cdir,tnm,oc_digest(&cmf,tnm),262144) &&
-                        oc_join4(tin,sizeof tin,dbase,"/composed/",rec[3],"/") &&
-                        oc_join(tin,sizeof tin,tin,tnm) &&
-                        oc_run_awk_profile(dbase,rec[3],cfg_path,cfg_len_s,cat_len_s,"sm-profile.awk",0,tin,work_fd,onm);
-                }
-            }
+                render_ok=oc_run_awk_profile(dbase,c->rec[3],cfg_path,cfg_len_s,cat_len_s,"ui-profile.awk","plugins","/dev/null",work_fd,"vui-plugins.list");
         }
-        if (cdir>=0) (void)oc_close(cdir);
         if (pdir>=0) (void)oc_close(pdir);
     }
+    if (render_ok && need_sm) {
+        char dbase[320], cfg_path[320];
+        render_ok=oc_data_base(c->root_path,dbase,sizeof dbase) &&
+            oc_join4(cfg_path,sizeof cfg_path,dbase,"/snapshots/",work_leaf,"/config") &&
+            oc_render_sm_profiles(c->data,c->root_path,c->rec[3],c->rec[5],cfg_path,oc_length(new_cfg),api_snap_a.prefs.warning,work_fd);
+    }
     (void)oc_close(work_fd);
-    if (!render_ok) { oc_cleanup_work(snaps_fd,work_leaf); err="state_changed"; goto out; }
+    if (!render_ok) { oc_cleanup_work(c->snaps_fd,work_leaf); return api_err(c,"state_changed"); }
 
     char rel_work[128], sp_out[128];
     if (!oc_join(rel_work,sizeof rel_work,OC_DATA "/snapshots/",work_leaf)) {
-        oc_cleanup_work(snaps_fd,work_leaf); err="plan_failed"; goto out;
+        oc_cleanup_work(c->snaps_fd,work_leaf); return api_err(c,"plan_failed");
     }
     int nv_changed=!oc_equal(cur_nvram,new_nvram);
-    char *sp_argv[7]={bs_path,"seal-publish",(char *)root_path,rec[5],rel_work,nv_changed?(char *)new_nvram:0,0};
+    char *sp_argv[7]={bs_path,"seal-publish",(char *)c->root_path,c->rec[5],rel_work,nv_changed?(char *)new_nvram:0,0};
     int sp_rc=oc_run_prog(bs_path,sp_argv,-1,sp_out,sizeof sp_out,-1);
-    if (!oc_absent_at(snaps_fd,work_leaf)) oc_cleanup_work(snaps_fd,work_leaf);
-    if (sp_rc!=0) {
-        if (sp_rc==95 && allow_fallback) { (void)oc_unlock(lock_fd); res=OC_API_FALLBACK; goto out; }
-        err=sp_rc==92?"touch_inputs_changed":sp_rc==93?"base_inputs_changed":"state_changed"; goto out;
+    if (sp_rc==95 && !c->allow_fallback && oc_equal(old_t,"2") && !oc_equal(api_snap_a.prefs.touch,"2")) {
+        /* Touch=2 -> 0/1 with drifted touch pins: recover natively via full transaction. */
+        char sp_leaf[48];
+        int ok=oc_join(sp_leaf,sizeof sp_leaf,".sp-",wnonce) && oc_rename(c->snaps_fd,work_leaf,sp_leaf)>=0;
+        int wfd=ok?oc_open_private(c->snaps_fd,sp_leaf):-1;
+        int cdir=ok?oc_open_private(c->snaps_fd,c->rec[5]):-1;
+        if (ok) ok=wfd>=0 && cdir>=0 && oc_api_match_cur(c) &&
+            oc_check_active_pins(c->root,c->data,c->rec[3],c->rec[5],
+                                 api_snap_a.prefs.base,api_snap_a.prefs.touch,&c->err) &&
+            oc_copy_opt(cdir,wfd,0x1ff,1);
+        if (cdir>=0) (void)oc_close(cdir);
+        char after_id[65], before_id[65];
+        if (ok) ok=oc_join(before_id,sizeof before_id,"",c->rec[5]) &&
+            oc_snapshot_create(c->root,c->data,before_id,c->rec[3],new_nvram,api_snap_a.prefs.metadata,
+                               before_id,wfd,new_cfg,c->session_dir,c->root_path,c->owner,c->group,after_id);
+        if (wfd>=0) (void)oc_close(wfd);
+        if (!oc_absent_at(c->snaps_fd,sp_leaf)) oc_cleanup_work(c->snaps_fd,sp_leaf);
+        if (!oc_absent_at(c->snaps_fd,work_leaf)) oc_cleanup_work(c->snaps_fd,work_leaf);
+        if (!ok) return c->err ? OC_API_ERR : api_err(c,"state_changed");
+        return oc_commit_set_txn(c,before_id,after_id);
     }
-    if (!oc_one_line(sp_out) || !oc_hex(sp_out,64)) { err="plan_failed"; goto out; }
+    if (!oc_absent_at(c->snaps_fd,work_leaf)) oc_cleanup_work(c->snaps_fd,work_leaf);
+    if (sp_rc!=0) {
+        if (sp_rc==95 && c->allow_fallback) { (void)oc_unlock(c->lock_fd); return OC_API_FALLBACK; }
+        return api_err(c,sp_rc==92?"touch_inputs_changed":sp_rc==93?"base_inputs_changed":"state_changed");
+    }
+    if (!oc_one_line(sp_out) || !oc_hex(sp_out,64)) return api_err(c,"plan_failed");
     {
-        int adir=oc_open_private(snaps_fd,sp_out);
+        int adir=oc_open_private(c->snaps_fd,sp_out);
         char chk_cfg[1024];
         int cok=adir>=0 && oc_text(adir,"config",chk_cfg,sizeof chk_cfg,0)>0 && oc_equal(chk_cfg,new_cfg);
         if (adir>=0) (void)oc_close(adir);
-        if (!cok) { err="plan_failed"; goto out; }
+        if (!cok) return api_err(c,"plan_failed");
     }
 
     if (nv_changed) {
-        char *prev_cur=rec[5], tsh[560];
-        rec[1]="set"; rec[6]=prev_cur; rec[7]=sp_out;
-        if (!oc_record_write_atomic(root,data,rec,0)) { err="record_rename_failed"; goto out; }
-        if (!oc_join(tsh,sizeof tsh,session_dir,"/touch.sh")) { err="nvram_commit_failed"; goto out; }
-        char *t_argv[]={"sh",tsh,"change",(char *)cur_nvram,(char *)new_nvram,0};
-        if (oc_run_prog("/bin/sh",t_argv,-1,0,0,-1)!=0) { err="nvram_commit_failed"; goto out; }
-        char *au_argv[]={bs_path,"audit",(char *)root_path,prev_cur,sp_out,0};
-        if (oc_run_prog(bs_path,au_argv,-1,0,0,-1)!=0) { err="final_verification_failed"; goto out; }
+        char *prev_cur=c->rec[5];
+        c->rec[1]="set"; c->rec[6]=prev_cur; c->rec[7]=sp_out;
+        if (!oc_record_write_atomic(c->root,c->data,c->rec,0)) return api_err(c,"record_rename_failed");
+        if (!oc_nvram_change(c->root,cur_nvram,new_nvram)) return api_err(c,"nvram_commit_failed");
+        char *au_argv[]={bs_path,"audit",(char *)c->root_path,prev_cur,sp_out,0};
+        if (oc_run_prog(bs_path,au_argv,-1,0,0,-1)!=0) return api_err(c,"final_verification_failed");
     }
 
     char final_nonce[33];
-    rec[1]="active"; rec[5]=sp_out; rec[6]="-"; rec[7]="-"; rec[8]="-";
-    rec[9]="3"; rec[10]="-"; rec[11]="-"; rec[12]="restart";
-    if (!oc_record_write_atomic(root,data,rec,final_nonce)) { err="record_rename_failed"; goto out; }
-    rec[2]=final_nonce;
+    c->rec[1]="active"; c->rec[5]=sp_out; c->rec[6]="-"; c->rec[7]="-"; c->rec[8]="-";
+    c->rec[9]="3"; c->rec[10]="-"; c->rec[11]="-"; c->rec[12]="restart";
+    if (!oc_record_write_atomic(c->root,c->data,c->rec,final_nonce)) return api_err(c,"record_rename_failed");
+    c->rec[2]=final_nonce;
+
+    oc_api_run_gc(c);
+    return oc_api_emit_ctx(c,0,0);
+}
+
+static int oc_session_has_file(const char *session_dir, const char *name) {
+    long sfd=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
+    int has=sfd>=0 && !oc_absent_at((int)sfd,name);
+    if (sfd>=0) (void)oc_close((int)sfd);
+    return has;
+}
+
+enum {
+    OP_DM_USB=1, OP_DM_DONE=2, OP_ST_SET=3, OP_ST_COMP=4, OP_ST_FULL=5,
+    OP_RESTART=6, OP_UNINSTALL=7, OP_RECOVER=8, OP_IMPORT=9, OP_ACC_SET=10, OP_FAST_SET=11
+};
+
+static int oc_api_dispatch(OcApiCtx *c, int kind) {
+    const char *session_dir=c->session_dir, *rev=c->rev, *op=c->op, *arg=c->arg;
+    int has_backend=c->allow_fallback;
+    int op_st=(kind==OP_ST_SET || kind==OP_ST_COMP || kind==OP_ST_FULL);
+    c->root=(int)oc_openat(OC_CWD,c->root_path,OC_DIRECTORY,0);
+    if (c->root<0) return has_backend ? OC_API_FALLBACK : api_err(c,"runtime_unavailable");
+    c->ram=oc_open_ram_dir(c->root);
+    if (c->ram<0) return has_backend ? OC_API_FALLBACK : api_err(c,"runtime_unavailable");
+
+    if (!oc_check_session_pointer(c->ram,session_dir,"runtime")) {
+        if (!oc_check_session_pointer(c->ram,session_dir,"usb-runtime")) return api_err(c,"session_replaced");
+        c->is_usb=1; c->ptr_name="usb-runtime";
+    }
+    if (c->is_usb && !op_st && kind!=OP_DM_USB && kind!=OP_UNINSTALL && kind!=OP_RECOVER && kind!=OP_RESTART)
+        return api_err(c,"invalid_request");
+
+    char op_tag[96];
+    if (!oc_join4(op_tag,sizeof op_tag,c->is_usb?"usb:":"settings:",op,":",arg)) return api_err(c,"invalid_request");
+    if (!oc_firmware_guard(c->root,op_tag,oc_big_buf,sizeof oc_big_buf,&c->err)) return OC_API_ERR;
 
     {
-        char fd_s[16]; oc_u32_dec((unsigned)lock_fd,fd_s);
-        char *gc_argv[]={bs_path,"gc",(char *)root_path,fd_s,0};
-        (void)oc_run_prog(bs_path,gc_argv,-1,0,0,lock_fd);
+        OcMeta lm;
+        long lfd=oc_openat(c->ram,"lock",OC_RW,0);
+        if (lfd<0 || oc_stat((int)lfd,&lm)<0 || (lm.mode&OC_TYPE)!=OC_REGULAR ||
+            lm.uid!=(unsigned)c->owner || lm.gid!=(unsigned)c->group) {
+            if (lfd>=0) (void)oc_close((int)lfd);
+            return api_err(c,"invalid_lock");
+        }
+        if (kind==OP_DM_USB) {
+            (void)oc_close((int)lfd);
+            if (!c->is_usb) return api_err(c,"invalid_request");
+            if (!oc_mark_closed(session_dir)) return api_err(c,"state_changed");
+            return oc_write_all(1,"{\"ok\":true}\n",12) ? OC_API_DONE : OC_API_ERR;
+        }
+        if ((kind==OP_ST_SET ? oc_lock_sh((int)lfd) : oc_lock((int)lfd)) < 0) {
+            (void)oc_close((int)lfd); return api_err(c,"busy");
+        }
+        c->lock_fd=(int)lfd;
     }
-    res=oc_api_emit_status_view(root,root_path,data,ram,session_dir,owner,group,1,0,rec,settings_pkg,sel_snap,0,0);
+    if (!oc_check_session_pointer(c->ram,session_dir,c->ptr_name)) return api_err(c,"session_replaced");
 
-out:
-    if (snaps_fd>=0) (void)oc_close(snaps_fd);
-    if (data>=0) (void)oc_close(data);
-    if (lock_fd>=0) (void)oc_close(lock_fd);
-    if (ram>=0) (void)oc_close(ram);
-    if (root>=0) (void)oc_close(root);
-    return err ? emit_fail(err) : res;
+    if (!oc_load_state(c->root,c->owner,c->group,&c->data,&c->exists,&c->empty_state,c->rec_buf,c->rec,&c->err))
+        return OC_API_ERR;
+    (void)oc_read_hex64_file(c->ram,"selected",c->sel_snap);
+
+    /* Under-lock USB closed/retained/fence checks (eliminates pre-lock TOCTOU). */
+    if (c->is_usb && !op_st && kind!=OP_DM_USB) {
+        if (oc_session_is_closed(session_dir)) {
+            const char *expect_rev=0;
+            if (c->exists && oc_rec_settled(c->rec)) expect_rev=c->rec[5];
+            else if (!c->exists && !c->empty_state) expect_rev="-";
+            if (!(kind==OP_RESTART && oc_usb_retained(c->root,session_dir,expect_rev))) return api_err(c,"session_closed");
+        }
+        if ((kind==OP_UNINSTALL || kind==OP_RECOVER) && !oc_absent_at(c->ram,"runtime")) {
+            if (has_backend) { (void)oc_unlock(c->lock_fd); return OC_API_FALLBACK; }
+            return api_err(c,"session_replaced");
+        }
+    }
+
+    if (kind==OP_ST_COMP || kind==OP_DM_DONE) return oc_handle_completion(c,kind==OP_DM_DONE);
+    if (c->is_usb && kind==OP_ST_SET) return oc_handle_usb_meta(c);
+
+    if (!c->is_usb && c->exists && !oc_equal(c->rec[1],"purge") && !oc_equal(c->rec[1],"removed")) {
+        if (!c->sel_snap[0] || !oc_snap_package_only(c->data,c->sel_snap,c->settings_pkg) || oc_equal(c->settings_pkg,"-"))
+            return api_err(c,"invalid_selected_snapshot");
+    }
+    if (kind==OP_ST_SET) return oc_api_emit_ctx(c,0,0);
+
+    if (kind==OP_ST_FULL) {
+        int conflict=0;
+        if (c->exists && !oc_equal(c->rec[1],"purge")) {
+            char id_before[384], id_after[384];
+            if (!oc_status_identity(c->data,c->ram,id_before)) return api_err(c,"state_changed");
+            if (oc_unlock(c->lock_fd)<0) return api_err(c,"invalid_lock");
+            conflict=!oc_api_match_cur(c);
+            if (oc_lock(c->lock_fd)<0) return api_err(c,"busy");
+            if (!oc_check_session_pointer(c->ram,session_dir,c->ptr_name)) return api_err(c,"session_replaced");
+            if (!oc_status_identity(c->data,c->ram,id_after)) return api_err(c,"state_changed");
+            if (!oc_equal(id_before,id_after)) return api_err(c,"busy");
+        }
+        return oc_api_emit_ctx(c,conflict,0);
+    }
+
+    if (c->is_usb) oc_usb_retain_clear(session_dir);
+
+    int settled=c->exists && oc_rec_settled(c->rec);
+    if (c->exists) {
+        if (!oc_equal(rev,settled?c->rec[5]:c->rec[2])) return api_err(c,"stale_state");
+        if (!settled) {
+            if (kind!=OP_RECOVER) return api_err(c,"operation_pending");
+            int removed_now=0;
+            if (!oc_equal(c->rec[1],"purge")) {
+                if (!oc_transaction_reconcile(c->root,c->root_path,c->data,c->rec,session_dir,0,c->owner,c->group,&c->err))
+                    return OC_API_ERR;
+                if (!oc_record_read_any(c->data,c->owner,c->group,c->rec_buf,sizeof c->rec_buf,c->rec))
+                    return api_err(c,"invalid_record");
+            }
+            if (oc_equal(c->rec[1],"removed") || oc_equal(c->rec[1],"purge")) {
+                if (!oc_uninstall_cleanup(c->root,c->root_path,c->data,session_dir,c->owner,c->group,&c->err))
+                    return OC_API_ERR;
+                (void)oc_close(c->data); c->data=-1; c->exists=0; c->empty_state=0; removed_now=1;
+            }
+            int conflict=c->exists && !oc_equal(c->rec[1],"purge") && !oc_api_match_cur(c);
+            if (c->is_usb) oc_usb_retain_set(c->root,session_dir,c->exists,c->exists?c->rec[5]:"-");
+            return oc_api_emit_ctx(c,conflict,removed_now);
+        }
+    } else if (!oc_equal(rev,"-")) return api_err(c,"stale_state");
+
+    if (kind==OP_RESTART) {
+        if (c->exists) { if (!oc_api_match_cur(c)) return api_err(c,"state_changed"); }
+        else if (!oc_data_absent(c->root)) return api_err(c,"operation_pending");
+        if (!oc_mounts_mode(c->root,oc_mscratch,sizeof oc_mscratch,0)) return api_err(c,"root_mount_changed");
+        if (c->is_usb) oc_usb_retain_set(c->root,session_dir,c->exists,c->exists?c->rec[5]:"-");
+        if (!oc_spawn_reboot(c)) return api_err(c,"restart_failed");
+        return oc_write_all(1,"{\"ok\":true,\"restarting\":true}\n",30) ? OC_API_DONE : OC_API_ERR;
+    }
+    if (kind==OP_RECOVER) {
+        int removed_now=0;
+        if (!c->exists && c->empty_state) {
+            if (!oc_uninstall_cleanup(c->root,c->root_path,c->data,session_dir,c->owner,c->group,&c->err))
+                return OC_API_ERR;
+            (void)oc_close(c->data); c->data=-1; c->empty_state=0; removed_now=1;
+        }
+        int conflict=c->exists && !oc_equal(c->rec[1],"purge") && !oc_api_match_cur(c);
+        if (c->is_usb) oc_usb_retain_set(c->root,session_dir,c->exists,c->exists?c->rec[5]:"-");
+        return oc_api_emit_ctx(c,conflict,removed_now);
+    }
+    if (!oc_mounts_mode(c->root,oc_mscratch,sizeof oc_mscratch,0)) return api_err(c,"root_mount_changed");
+    if (kind==OP_UNINSTALL) return oc_handle_uninstall(c);
+    if (kind==OP_IMPORT || kind==OP_ACC_SET) return oc_handle_access(c,kind==OP_IMPORT);
+    return oc_handle_fast_set(c);
+}
+
+static int oc_api_handle_dir(const char *session_dir, const char *rev, const char *op,
+                             const char *arg, const char *exp, const char *des, int allow_fallback) {
+    int has_backend = allow_fallback && oc_session_has_file(session_dir,"backend.sh");
+    int arg_dash = oc_equal(arg,"-"), kind = 0;
+    if (oc_equal(op,"status")) {
+        if (oc_equal(arg,"settings")) kind=OP_ST_SET;
+        else if (oc_equal(arg,"completion")) kind=OP_ST_COMP;
+        else if (arg_dash) kind=OP_ST_FULL;
+    } else if (oc_equal(op,"dismiss")) {
+        if (oc_equal(arg,"usb")) kind=OP_DM_USB;
+        else if (arg_dash) kind=OP_DM_DONE;
+    } else if (oc_equal(op,"set")) {
+        kind=(oc_equal(arg,"uart")||oc_equal(arg,"ssh")) ? OP_ACC_SET : OP_FAST_SET;
+    } else if (arg_dash) {
+        if (oc_equal(op,"restart")) kind=OP_RESTART;
+        else if (oc_equal(op,"uninstall")) kind=OP_UNINSTALL;
+        else if (oc_equal(op,"recover")) kind=OP_RECOVER;
+        else if (oc_equal(op,"import")) kind=OP_IMPORT;
+    }
+    if (!kind) return has_backend ? OC_API_FALLBACK : emit_fail("invalid_request");
+
+    static OcApiCtx ctx;
+    OcApiCtx *c=&ctx;
+    c->session_dir=session_dir; c->root_path=oc_root_path(); c->ptr_name="runtime";
+    c->rev=rev; c->op=op; c->arg=arg; c->exp=exp; c->des=des;
+    c->root=-1; c->ram=-1; c->lock_fd=-1; c->data=-1; c->snaps_fd=-1;
+    c->is_usb=0; c->exists=0; c->empty_state=0; c->allow_fallback=has_backend;
+    c->owner=oc_owner(); c->group=oc_group();
+    c->sel_snap[0]=0; c->settings_pkg[0]=0; c->err=0;
+
+    int res=oc_api_dispatch(c,kind);
+    if (c->snaps_fd>=0) (void)oc_close(c->snaps_fd);
+    if (c->data>=0) (void)oc_close(c->data);
+    if (c->lock_fd>=0) (void)oc_close(c->lock_fd);
+    if (c->ram>=0) (void)oc_close(c->ram);
+    if (c->root>=0) (void)oc_close(c->root);
+    return c->err ? emit_fail(c->err) : res;
 }
 
 int oc_api_handle(const char *token_path, const char *rev, const char *op,
@@ -1150,6 +1451,37 @@ int oc_api_cli(int argc, char **argv) {
         }
         if (data>=0) (void)oc_close(data);
         rc=0;
+    } else if (oc_equal(argv[1],"--nvram") && argc>=3) {
+        if (oc_equal(argv[2],"read") && argc==3) {
+            char nv[16];
+            if (oc_nvram_at(root,nv) && oc_write_all(1,nv,oc_length(nv)) && oc_write_all(1,"\n",1)) rc=0;
+            else rc=1;
+        } else if (oc_equal(argv[2],"change") && argc==5) {
+            rc=oc_nvram_change(root,argv[3],argv[4]) ? 0 : 1;
+        }
+#ifdef OC_HOST
+    } else if (oc_equal(argv[1],"--test-root-publish") && argc==13) {
+        int data=oc_open_data_dir(root);
+        if (data>=0) {
+            int ok=oc_root_publish(root,root_path,data,argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],
+                                   oc_equal(argv[8],"-")?0:argv[8],oc_equal(argv[9],"-")?0:argv[9],
+                                   oc_equal(argv[10],"1"),oc_equal(argv[11],"-")?0:argv[11],owner,group);
+            (void)oc_close(data);
+            rc=ok?0:1;
+        } else rc=1;
+    } else if (oc_equal(argv[1],"--test-staging-guard") && argc==2) {
+        rc=oc_startup_staging_guard(root) ? 0 : 1;
+    } else if (oc_equal(argv[1],"--test-key-import") && argc==2) {
+        int data=oc_open_data_dir(root);
+        char kid[65]; const char *kerr="import_failed";
+        if (data>=0 && oc_access_key_import(root,root_path,data,owner,group,kid,&kerr)) {
+            rc=(oc_write_all(1,kid,64) && oc_write_all(1,"\n",1)) ? 0 : 1;
+        } else {
+            (void)oc_write_all(2,kerr,oc_length(kerr)); (void)oc_write_all(2,"\n",1);
+            rc=1;
+        }
+        if (data>=0) (void)oc_close(data);
+#endif
     }
     if (ram>=0) (void)oc_close(ram);
     (void)oc_close(root);

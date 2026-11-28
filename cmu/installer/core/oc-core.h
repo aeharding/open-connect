@@ -17,7 +17,7 @@ typedef struct {
     oc_u8 block[64];
 } OcHash;
 
-enum { OC_READ=0, OC_WRITE=1, OC_RW=2, OC_DIRECTORY=4, OC_CREATE=8, OC_EXCLUSIVE=16, OC_BLOCKING=32 };
+enum { OC_READ=0, OC_WRITE=1, OC_RW=2, OC_DIRECTORY=4, OC_CREATE=8, OC_EXCLUSIVE=16, OC_BLOCKING=32, OC_TRUNC=64 };
 enum { OC_REGULAR=0100000, OC_DIR=0040000, OC_TYPE=0170000 };
 enum { OC_COPY_SOURCE=0, OC_COPY_OK=1, OC_COPY_DEST=-1 };
 
@@ -114,6 +114,16 @@ long oc_link(int from, const char *name, int to, const char *target);
 long oc_symlink(const char *source, int folder, const char *name);
 long oc_readlink(int folder, const char *name, char *out, unsigned capacity);
 long oc_mode(int fd, unsigned mode);
+long oc_fchown(int fd, unsigned uid, unsigned gid);
+void oc_u64_dec(oc_u64 v, char out[24]);
+int oc_meta_mode_str(const OcMeta *m, char out[40]);
+int oc_hash_file_at(int dir, const char *name, char digest[65], OcMeta *meta);
+int oc_copy_file_at(int src_dir, const char *src_name, int dst_dir, const char *dst_name,
+                    unsigned mode, int excl, int do_sync, char digest_out[65]);
+int oc_run_cmd_io(const char *prog, char *const argv[], int in_fd, int out_fd, char *out, unsigned out_cap, int keep_fd);
+static inline int oc_run_cmd(const char *prog, char *const argv[], int out_fd, char *out, unsigned out_cap, int keep_fd) {
+    return oc_run_cmd_io(prog,argv,-1,out_fd,out,out_cap,keep_fd);
+}
 long oc_block(void);
 #ifdef OC_HOST
 void oc_cut(const char *phase);
@@ -193,17 +203,109 @@ int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out);
 int oc_prefs_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned cap);
 int oc_config(OcBoot *b, char *text, char **f, int active, char svc_digest[65]);
 int oc_access(char *text, char **fields);
+int oc_nvram_at(int root, char value[16]);
 int oc_nvram(OcBoot *b, char value[16]);
 int oc_lookup_vui_pin(const char *modules, const char *plugin, char out[65]);
 
 /* oc-guard.c */
+extern const char *const oc_root_names[19];
+extern const char *const oc_root_paths[19];
+extern const char *const oc_composed_names[12];
+extern const OcPin oc_touch_pins[2];
+extern const OcPin oc_base_pins[5];
 int oc_mounts_mode(int root, char *scratch, unsigned cap, int allow_rw);
 int oc_version_ok(int root, char *scratch, unsigned cap);
 int oc_firmware_guard(int root, const char *op_tag, char *scratch, unsigned cap, const char **err_out);
 
+/* oc-root.c */
+int oc_remount(int root, const char *root_path, int rw);
+int oc_nvram_change(int root, const char *expected, const char *desired);
+int oc_root_publish(int root, const char *root_path, int data_fd, const char *rev,
+                    const char *target_rel, const char *src_rel, const char *mode_str,
+                    const char *expected_hash, const char *expected_mode,
+                    const char *hold_rel, const char *hold_mode, int retire,
+                    const char *base_snap, long owner, long group);
+int oc_selector_matches_at(int root, const char *sel_hash, const char *sel_meta);
+int oc_selector_pair_check(int root, int data_fd, const char *before_id, const char *after_id,
+                           long owner, long group);
+int oc_selector_apply(int root, const char *root_path, int data_fd, const char *rev,
+                      const char *before_id, const char *after_id, const char *base_snap,
+                      long owner, long group);
+int oc_startup_staging_guard(int root);
+int oc_startup_staging_retire(int root, const char *root_path, int data_fd, const char *rev,
+                              const char *snap_id, const char *base_snap, long owner, long group);
+
+/* oc-access.c */
+int oc_access_key_verify(int data_fd, const char *key_id, long owner, long group);
+int oc_access_key_import(int root, const char *root_path, int data_fd, long owner, long group,
+                         char out_id[65], const char **err_out);
+int oc_access_compose(int root, const char *root_path, int data_fd, const char *session_dir,
+                      const char *base_snap, const char *console_dig, int work_fd,
+                      const char *work_leaf, const char *uart, const char *ssh, const char *key,
+                      long owner, long group);
+int oc_access_hold_verify(int root, int data_fd, const char *base_snap, long owner, long group);
+int oc_access_login_check(int root, int data_fd, const char *base_snap, long owner, long group);
+int oc_access_hold_cleanup(int root, const char *root_path, int data_fd, const char *base_snap,
+                           long owner, long group);
+int oc_access_files_match(int root, int data_fd, const char *snap_id, long owner, long group);
+int oc_access_targets_match(int root, int data_fd, const char *snap_id, const char *base_snap,
+                            long owner, long group);
+int oc_access_pair_check(int root, int data_fd, const char *before_id, const char *after_id,
+                         const char *base_snap, long owner, long group);
+int oc_access_pair_apply(int root, const char *root_path, int data_fd, const char *rev,
+                         const char *before_id, const char *after_id, const char *base_snap,
+                         int prepared_same_rev, long owner, long group);
+
+/* oc-txn.c */
+typedef struct {
+    char mf_buf[4096];
+    char cfg_buf[1024];
+    char acc_buf[320];
+    char sel_buf[256];
+    OcManifest mf;
+    char pkg[65], touch[4], warning[4], base[4], nvram[16], meta[40];
+    char auto_dig[65], login_dig[65], ssh_dig[65];
+    char *acc_f[6];
+    char sel_hash[65], sel_meta[40], sel_pkg[65];
+    int is_oc2, has_access, has_selector;
+} OcTxnSnap;
+extern OcTxnSnap oc_snap_pool[7];
+extern char oc_mscratch[8192];
+extern char oc_big_buf[32768];
+int oc_txn_read_snap(int data_fd, const char *snap_id, OcTxnSnap *s);
+int oc_open_sub(int parent, const char *dir, const char *id);
+int oc_copy_opt(int src, int dst, unsigned mask, int skip_exist);
+int oc_pkg_boot_select(int data_fd, const char *root_path, const char *pkg_id,
+                       long owner, long group, char bs_path[512]);
+int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_match);
+void oc_rm_subdir(int parent, const char *leaf);
+int oc_check_active_pins(int root, int data_fd, const char *pkg_id, const char *snap_id,
+                         const char *base_val, const char *touch_val, const char **err_out);
+int oc_targets_match(int root, int data_fd, const char *snap_id, const char *base_snap,
+                     long owner, long group);
+int oc_dependencies_match(int root, int data_fd, const char *snap_id, long owner, long group);
+int oc_dependencies_pair_match(int root, int data_fd, const char *before_id, const char *after_id,
+                               long owner, long group);
+int oc_uninstall_owned(int data_fd, const char *snap_id, const char *base_snap, long owner, long group);
+int oc_snapshot_create(int root, int data_fd, const char *autostart_snap, const char *pkg_id,
+                       const char *nvram, const char *mode_str, const char *deps_snap,
+                       int res_dir, const char *prefs_text, const char *session_dir,
+                       const char *root_path, long owner, long group, char out_id[65]);
+int oc_transaction_prepare(int root, int data_fd, char *rec[13], const char *phase,
+                           const char *before_id, const char *after_id, const char *base_snap,
+                           int skip_before_verify, long owner, long group, char nonce_out[33]);
+int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char *rec[13],
+                             const char *session_dir, const char *prepared_rev,
+                             long owner, long group, const char **err_out);
+int oc_uninstall_cleanup(int root, const char *root_path, int data_fd, const char *session_dir,
+                         long owner, long group, const char **err_out);
+
 /* oc-api.c */
 enum { OC_API_DONE=0, OC_API_ERR=1, OC_API_FALLBACK=2 };
 int oc_join4(char *out, unsigned cap, const char *a, const char *b, const char *c, const char *d);
+int oc_render_sm_profiles(int data_fd, const char *root_path, const char *pkg_id,
+                          const char *snap_id, const char *cfg_path, unsigned cfg_len,
+                          const char *warning_val, int out_dir);
 int oc_api_handle(const char *token_path, const char *rev, const char *op,
                   const char *arg, const char *exp, const char *des);
 int oc_api_cli(int argc, char **argv);
@@ -222,16 +324,10 @@ static inline int oc_data_base(const char *root_path, char *out, unsigned cap) {
 #endif
 
 /* oc-plan.c */
-extern const char *const oc_root_names[19];
-extern const char *const oc_root_paths[19];
-extern const char *const oc_composed_names[12];
-extern const OcPin oc_touch_pins[2];
-extern const OcPin oc_base_pins[5];
 unsigned oc_meta_text(char *p, const OcMeta *m);
 int oc_meta_parse(char **fields, OcMeta *m);
 int oc_line(OcLines *r, char output[OC_LINE_SIZE]);
 int oc_plan_rows(int root, int snapshot, int input, int output, int mode);
-int oc_mounts_mode(int root, char *scratch, unsigned cap, int allow_rw);
 int oc_mounts(OcBoot *b);
 int oc_input_mode(OcInput *input, const char *text);
 OcInput *oc_find(OcBoot *b, const char *key);

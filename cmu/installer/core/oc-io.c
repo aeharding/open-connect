@@ -29,6 +29,7 @@ long oc_openat(int parent, const char *path, unsigned options, unsigned mode) {
     if (options&OC_DIRECTORY) flags|=O_DIRECTORY;
     if (options&OC_CREATE) flags|=O_CREAT;
     if (options&OC_EXCLUSIVE) flags|=O_EXCL;
+    if (options&OC_TRUNC) flags|=O_TRUNC;
     int fd=openat(parent,path,flags,mode);
     return fd<0?-errno:fd;
 }
@@ -133,6 +134,7 @@ long oc_readlink(int folder, const char *name, char *out, unsigned capacity) {
     long n=readlinkat(folder,name,out,capacity); return n<0?-errno:n;
 }
 long oc_mode(int fd, unsigned mode) { return fchmod(fd,mode)<0?-errno:0; }
+long oc_fchown(int fd, unsigned uid, unsigned gid) { return fchown(fd,(uid_t)uid,(gid_t)gid)<0?-errno:0; }
 long oc_block(void) {
     sigset_t mask;
     sigemptyset(&mask); sigaddset(&mask,SIGHUP); sigaddset(&mask,SIGINT); sigaddset(&mask,SIGTERM); sigaddset(&mask,SIGPIPE);
@@ -244,6 +246,7 @@ long oc_openat(int parent, const char *path, unsigned options, unsigned mode) {
     if (options&OC_DIRECTORY) flags|=040000;
     if (options&OC_CREATE) flags|=0100;
     if (options&OC_EXCLUSIVE) flags|=0200;
+    if (options&OC_TRUNC) flags|=01000;
     return oc_syscall4(322,parent,(long)path,flags,mode);
 }
 long oc_read(int fd, void *p, unsigned n) { return oc_syscall4(3,fd,(long)p,n,0); }
@@ -336,6 +339,7 @@ long oc_readlink(int folder, const char *name, char *out, unsigned capacity) {
     return oc_syscall4(332,folder,(long)name,(long)out,capacity);
 }
 long oc_mode(int fd, unsigned mode) { return oc_syscall4(94,fd,mode,0,0); }
+long oc_fchown(int fd, unsigned uid, unsigned gid) { return oc_syscall4(207,fd,uid,gid,0); }
 long oc_block(void) {
     oc_u64 mask=20483; /* HUP, INT, TERM, PIPE. */
     return oc_syscall4(175,0,(long)&mask,0,8);
@@ -551,6 +555,115 @@ int oc_join4(char *out, unsigned cap, const char *a, const char *b, const char *
     if (!cap) return 0;
     out[at]=0;
     return 1;
+}
+
+void oc_u64_dec(oc_u64 v, char out[24]) {
+    static const oc_u64 p10[20]={
+        10000000000000000000ULL,1000000000000000000ULL,100000000000000000ULL,
+        10000000000000000ULL,1000000000000000ULL,100000000000000ULL,
+        10000000000000ULL,1000000000000ULL,100000000000ULL,10000000000ULL,
+        1000000000ULL,100000000ULL,10000000ULL,1000000ULL,100000ULL,
+        10000ULL,1000ULL,100ULL,10ULL,1ULL
+    };
+    unsigned n=0;
+    for (unsigned i=0; i<20; ++i) {
+        unsigned d=0;
+        while (v>=p10[i]) {
+#ifndef OC_HOST
+            __asm__ volatile("" : "+r"(d));
+#endif
+            v-=p10[i]; ++d;
+        }
+        if (d || n || i==19) out[n++]=(char)('0'+d);
+    }
+    out[n]=0;
+}
+
+int oc_meta_mode_str(const OcMeta *m, char out[40]) {
+    unsigned perm=m->mode&07777, at=0, started=0;
+    for (int sh=9; sh>=0; sh-=3) {
+        unsigned d=(perm>>sh)&7u;
+        if (d || started || sh==0) { out[at++]=(char)('0'+d); started=1; }
+    }
+    out[at++]=':';
+    char uid_s[24], gid_s[24];
+    oc_u64_dec(m->uid,uid_s); oc_u64_dec(m->gid,gid_s);
+    out[at]=0;
+    return oc_join4(out+at,40-at,uid_s,":",gid_s,0);
+}
+
+int oc_hash_file_at(int dir, const char *name, char digest[65], OcMeta *meta) {
+    long fd=oc_openat(dir,name,OC_READ,0);
+    if (fd<0) return 0;
+    OcMeta tmp={0};
+    int ok=oc_hash_copy((int)fd,-1,33554432,digest,meta?meta:&tmp)==OC_COPY_OK;
+    if (oc_close((int)fd)<0) ok=0;
+    return ok;
+}
+
+int oc_copy_file_at(int src_dir, const char *src_name, int dst_dir, const char *dst_name,
+                    unsigned mode, int excl, int do_sync, char digest_out[65]) {
+    long sfd=oc_openat(src_dir,src_name,OC_READ,0);
+    if (sfd<0) return 0;
+    unsigned fl=OC_WRITE|OC_CREATE|(excl?OC_EXCLUSIVE:OC_TRUNC);
+    long dfd=oc_openat(dst_dir,dst_name,fl,mode);
+    if (dfd<0) { (void)oc_close((int)sfd); return 0; }
+    char dig[65]; OcMeta sm={0};
+    int ok=oc_hash_copy((int)sfd,(int)dfd,33554432,digest_out?digest_out:dig,&sm)==OC_COPY_OK &&
+        oc_mode((int)dfd,mode)>=0 && (!do_sync || oc_sync((int)dfd)>=0);
+    if (oc_close((int)sfd)<0) ok=0;
+    if (oc_close((int)dfd)<0) ok=0;
+    return ok;
+}
+
+#ifdef OC_HOST
+extern char **environ;
+#endif
+int oc_run_cmd_io(const char *path, char *const argv[], int in_fd, int out_fd,
+                  char *cap_buf, unsigned cap_sz, int keep_fd) {
+    int pfd[2]={-1,-1};
+    if (cap_buf && oc_pipe(pfd)<0) return -1;
+    long pid=oc_fork();
+    if (pid<0) {
+        if (pfd[0]>=0) { (void)oc_close(pfd[0]); (void)oc_close(pfd[1]); }
+        return -1;
+    }
+    if (pid==0) {
+        if (keep_fd>=0) (void)oc_set_cloexec(keep_fd,0);
+        long devnull=oc_openat(OC_CWD,"/dev/null",OC_RW,0);
+        if (devnull>=0) {
+            if (in_fd<0) (void)oc_dup2((int)devnull,0);
+            (void)oc_dup2((int)devnull,2);
+            if (!cap_buf && out_fd<0) (void)oc_dup2((int)devnull,1);
+            if (devnull>2) (void)oc_close((int)devnull);
+        }
+        if (in_fd>=0) { (void)oc_dup2(in_fd,0); if (in_fd>2) (void)oc_close(in_fd); }
+        if (cap_buf) { (void)oc_dup2(pfd[1],1); (void)oc_close(pfd[0]); (void)oc_close(pfd[1]); }
+        else if (out_fd>=0) { (void)oc_dup2(out_fd,1); if (out_fd>2) (void)oc_close(out_fd); }
+#ifdef OC_HOST
+        (void)oc_execve(path,argv,environ);
+#else
+        char *env[]={"PATH=/bin:/sbin:/usr/bin:/usr/sbin","LC_ALL=C",0};
+        (void)oc_execve(path,argv,env);
+#endif
+        oc_exit(127);
+    }
+    if (cap_buf) {
+        (void)oc_close(pfd[1]);
+        unsigned at=0; char drain[64];
+        for (;;) {
+            int full=at+1>=cap_sz;
+            long r=oc_read(pfd[0],full?drain:(cap_buf+at),full?(unsigned)sizeof drain:(cap_sz-1-at));
+            if (r==-4) continue;
+            if (r<=0) break;
+            if (!full) at+=(unsigned)r;
+        }
+        cap_buf[at]=0;
+        (void)oc_close(pfd[0]);
+    }
+    int st=0;
+    if (oc_waitpid((int)pid,&st)<0) return -1;
+    return (st&0x7f) ? (128+(st&0x7f)) : ((st>>8)&0xff);
 }
 #ifdef OC_HOST
 static int oc_open_host_dir(const char *env_name, int root, const char *rel) {

@@ -37,12 +37,15 @@ class TouchDisable(unittest.TestCase):
         folder = self.folder / "build"
         shim = folder / "touch-disable.so"
         self.assertLessEqual(shim.stat().st_size, 4096)
-        self.assertLessEqual((folder / "api").stat().st_size, 32768)
+        self.assertLessEqual((folder / "api").stat().st_size, 65536)
         self.assertLessEqual((folder / "boot-select").stat().st_size, 36864)
         self.assertLessEqual((folder / "ignition").stat().st_size, 4096)
-        ig_report = subprocess.check_output([READELF, "-l", "-r", folder / "ignition"], text=True)
-        self.assertIn("There are no relocations in this file.", ig_report)
-        self.assertNotIn("RWE", ig_report)
+        for native_bin in ("api", "boot-select", "ignition"):
+            bin_report = subprocess.check_output(
+                [READELF, "-l", "-r", folder / native_bin], text=True
+            )
+            self.assertIn("There are no relocations in this file.", bin_report)
+            self.assertNotIn("RWE", bin_report)
         report = subprocess.check_output(
             [READELF, "-l", "-S", "-d", "--dyn-syms", "--unwind", shim],
             text=True,
@@ -76,7 +79,7 @@ class TouchDisable(unittest.TestCase):
         packaged = folder / "usb/open-connect"
         self.assertEqual((packaged / "touch-disable.so").read_bytes(), shim.read_bytes())
         self.assertLessEqual((packaged / "boot.sh").stat().st_size, 16384)
-        self.assertEqual(sum((p.stat().st_size + 4095) // 4096 for p in packaged.iterdir()), 124)
+        self.assertEqual(sum((p.stat().st_size + 4095) // 4096 for p in packaged.iterdir()), 131)
         self.assertFalse((packaged / "svc-com-jci-cpp-devices.so").exists())
         self.assertFalse((packaged / "libdl.so.2").exists())
         # Packaging must reject an oversized artifact even when make skips linking.

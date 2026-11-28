@@ -198,7 +198,7 @@ while read -r digest name extra; do
   test -f "$P/$name" && test ! -L "$P/$name" || fail invalid_source
   if test "$kind" = boot; then
     case "$name" in
-      backend.sh|state.sh|firmware.sh|access.sh|transaction.sh|service.sh|console.sh|touch.sh|VERSION|api|flush|runtime.js|dialog.js|settings.js) ;;
+      service.sh|console.sh|VERSION|api|flush|runtime.js|dialog.js|settings.js) ;;
       *) continue;;
     esac
   fi
@@ -223,7 +223,7 @@ while read -r digest name extra; do
 "
   fi
 done < "$P/files.sha256"
-if test "$kind" = boot; then test "$count" -eq 14 || fail incomplete_runtime; fi
+if test "$kind" = boot; then test "$count" -eq 8 || fail incomplete_runtime; fi
 case "$kind:${P%/*}:${P##*/}" in usb:/tmp:oc-usb-??????)
   if private_dir "$P" && links=$(stat -c %h "$@" "$P/files.sha256") &&
     printf '%s\n' "$links" | awk '$0!="1"{bad=1}END{exit bad}'; then reuse=true; fi

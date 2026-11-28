@@ -127,8 +127,8 @@ int oc_access(char *text, char **fields) {
     return 1;
 }
 
-int oc_nvram(OcBoot *b, char value[16]) {
-    long parent=oc_openat(b->root,"sys/class/nvram/nv-config/keys",OC_DIRECTORY,0);
+int oc_nvram_at(int root, char value[16]) {
+    long parent=oc_openat(root,"sys/class/nvram/nv-config/keys",OC_DIRECTORY,0);
     if (parent<0) return 0;
     long fd=oc_openat((int)parent,"lvds_speed_restriction",OC_READ,0);
     int ok=0;
@@ -153,6 +153,8 @@ int oc_nvram(OcBoot *b, char value[16]) {
     if (oc_close((int)parent)<0) ok=0;
     return ok;
 }
+
+int oc_nvram(OcBoot *b, char value[16]) { return oc_nvram_at(b->root,value); }
 
 int oc_lookup_vui_pin(const char *modules, const char *plugin, char out[65]) {
     unsigned hits=0;

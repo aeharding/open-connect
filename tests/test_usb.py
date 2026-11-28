@@ -498,23 +498,27 @@ class UsbBuild(unittest.TestCase):
             again = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=60)
             self.assertNotEqual(again.returncode, 0)
             self.assertIn("fresh OUT", again.stderr)
-            # Re-packaging the same build output produces a byte-for-byte identical ZIP archive.
+            # Re-packaging across distinct host TZ and perturbed mtimes produces an identical ZIP.
             output2 = Path(temp) / "build2"
             shutil.copytree(
                 output, output2, ignore=shutil.ignore_patterns("usb", "*.zip", "SHA256SUMS")
             )
+            os.utime(output2 / "api", (1700000000, 1700000000))
             res2 = subprocess.run(
                 ["sh", str(ROOT / "tooling/package-usb.sh"), str(output2)],
                 cwd=ROOT,
+                env={**os.environ, "TZ": "UTC+5"},
                 capture_output=True,
                 text=True,
                 timeout=30,
             )
             self.assertEqual(res2.returncode, 0, res2.stdout + res2.stderr)
-            self.assertEqual(
-                (output / f"open-connect-{version}-usb.zip").read_bytes(),
-                (output2 / f"open-connect-{version}-usb.zip").read_bytes(),
-            )
+            zip1 = output / f"open-connect-{version}-usb.zip"
+            zip2 = output2 / f"open-connect-{version}-usb.zip"
+            with zipfile.ZipFile(zip1) as z1:
+                for info in z1.infolist():
+                    self.assertEqual(info.date_time, (2026, 1, 1, 0, 0, 0), info.filename)
+            self.assertEqual(zip1.read_bytes(), zip2.read_bytes())
             self.assertEqual(
                 (output / "SHA256SUMS").read_text(),
                 (output2 / "SHA256SUMS").read_text(),

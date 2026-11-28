@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copy authored files verbatim. The only generated text is checksum data.
 set -eu
+umask 022
 LC_ALL=C
-export LC_ALL
+TZ=UTC
+export LC_ALL TZ
 out=$1
 case "$out" in /*) ;; *) out=$PWD/$out;; esac
 test -f "$out/api" || { echo 'Build with make release.' >&2; exit 1; }
@@ -54,7 +56,7 @@ archive=$out/$name
 test ! -e "$archive" && test ! -L "$archive"
 (
     cd "$out/usb"
-    TZ=UTC find "$root_dir" -exec touch -t 202601010000 {} +
+    find "$root_dir" -exec touch -t 202601010000 {} +
     find "$root_dir" | LC_ALL=C sort | zip -q -X -@ "$archive"
 )
 digest=$(openssl dgst -sha256 < "$archive")

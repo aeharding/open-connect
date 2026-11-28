@@ -695,10 +695,22 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
             stderr=subprocess.PIPE,
         )
         try:
+            lock_path = ram / "ignition.lock"
             lock_deadline = time.monotonic() + 5.0
-            while time.monotonic() < lock_deadline and not (ram / "ignition.lock").exists():
+            locked = False
+            while time.monotonic() < lock_deadline:
+                assert ig_proc.poll() is None, f"ignition exited early ({ig_proc.returncode})"
+                if lock_path.exists():
+                    with lock_path.open("r+b") as lf:
+                        try:
+                            fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        except BlockingIOError:
+                            locked = True
+                            break
+                        else:
+                            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
                 time.sleep(0.05)
-            assert (ram / "ignition.lock").exists(), "ignition did not create ignition.lock"
+            assert locked and ig_proc.poll() is None, "ignition did not acquire ignition.lock"
             # Single-instance guard: second ignition observer exits 0 immediately while first holds lock.
             r_dup_ig = chroot_run(
                 chroot, ["/tmp/open-connect/sessions/session-usb1/ignition", BOOT1]
@@ -1347,7 +1359,7 @@ def part_b_full_lifecycle(
             (chroot / "proc/sys/kernel/random/boot_id").write_text(boot_uuid + "\n")
             (chroot / "dev/urandom").write_bytes(os.urandom(8192))
 
-        clean_ram_for_boot("22345678-1234-1234-1234-123456789abc")
+        clean_ram_for_boot("2a345678-1234-1234-1234-123456789abc")
         r_wavec = chroot_run(
             chroot,
             ["/bin/sh", "-c", "/usr/bin/open-connect-boot-select select-gated; rc=$?; exit $rc"],
@@ -1371,9 +1383,10 @@ def part_b_full_lifecycle(
             "  [B3b] Wave C base=1 + touch=2 ARMv7 select-gated OK (SYS_linkat VUI aliases, touch-disable.so, log stage, read_ahead_kb=4)"
         )
 
-        # B3c. Simulated crash-cut mid-OC1|set (rw,noatime root + leftover staging file) ->
-        #      select-gated returns 'J' + OC_SLOW (95) -> install --boot-recover reconciles &
-        #      restores ro,noatime -> next select-gated succeeds with 'G' + rc=0!
+        # B3c. Simulated crash-cut mid-OC1|set (rw,noatime root + leftover staging prefix) ->
+        #      select-gated returns 'J' + OC_SLOW (95). After reboot (ro,noatime root at entry),
+        #      install --boot-recover remounts ro->rw->ro to retire the staging file, settles
+        #      record to active (snap1), restores NVRAM, and next select-gated succeeds ('G'/0).
         clean_ram_for_boot("2b345678-1234-1234-1234-123456789abc")
         rec_cut = (data / "record").read_text().strip().split("|")
         cut_nonce = "8" * 32
@@ -1422,6 +1435,16 @@ def part_b_full_lifecycle(
         )
         assert r_cut.returncode == 0, f"crash-cut boot-recover failed: {r_cut.stdout}{r_cut.stderr}"
         assert not stg_file.exists(), "leftover staging file was not retired by --boot-recover"
+        rec_post_cut = (data / "record").read_text().strip().split("|")
+        assert (
+            rec_post_cut[1] == "active"
+            and len(rec_post_cut[5]) == 64
+            and rec_post_cut[5] != rev
+            and rec_post_cut[6] == "-"
+            and rec_post_cut[7] == "-"
+        ), rec_post_cut
+        assert "touch=1\n" in (data / "snapshots" / rec_post_cut[5] / "config").read_text()
+        assert "/dev/ffx01p1 / relfs ro,noatime 0 0" in (chroot / "proc/self/mounts").read_text()
         assert (
             chroot / "sys/class/nvram/nv-config/keys/lvds_speed_restriction"
         ).read_text().strip() == "disable"

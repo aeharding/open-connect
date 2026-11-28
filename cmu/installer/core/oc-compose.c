@@ -432,7 +432,7 @@ static int oc_compose_index_tpl(int orig_fd, int work_fd) {
 static int oc_append_file_all(int src_dir, const char *name, int dst_fd, unsigned *bytes_out) {
     long fd=oc_openat(src_dir,name,OC_READ,0);
     if (fd<0) return 0;
-    OcMeta m={0};
+    OcMeta m={0}, m2={0};
     int ok=oc_stat((int)fd,&m)>=0 && (m.mode&OC_TYPE)==OC_REGULAR && m.size>0 && m.size<=65536;
     unsigned tot=0;
     while (ok) {
@@ -440,8 +440,15 @@ static int oc_append_file_all(int src_dir, const char *name, int dst_fd, unsigne
         if (r==-4) continue;
         if (r<0) { ok=0; break; }
         if (!r) break;
+        if ((oc_u64)r > m.size - tot) { ok=0; break; }
         if (!oc_write_all(dst_fd,cm.io,(unsigned)r)) { ok=0; break; }
         tot+=(unsigned)r;
+    }
+    if (ok) {
+        ok=(oc_u64)tot==m.size && oc_stat((int)fd,&m2)>=0 &&
+            m2.device==m.device && m2.inode==m.inode && m2.size==m.size &&
+            m2.modified==m.modified && m2.modified_ns==m.modified_ns &&
+            m2.changed==m.changed && m2.changed_ns==m.changed_ns;
     }
     if (oc_close((int)fd)<0) ok=0;
     if (ok) *bytes_out=tot;
@@ -1147,12 +1154,16 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
         if (!oc_txn_read_snap(data_fd,base_id,bs)) { ferr="originals_changed"; goto fail; }
         if (!bs->has_access) {
             char upgraded[65];
-            if (!oc_access_snapshot(root,root_path,data_fd,base_id,awfd,session_dir,owner,group,upgraded)) {
+            (void)oc_unlink(awfd,"selector");
+            if (!oc_new_text(awfd,"selector","-\n",0600) ||
+                !oc_access_snapshot(root,root_path,data_fd,base_id,awfd,session_dir,owner,group,upgraded)) {
                 ferr="access_backup_failed"; goto fail;
             }
             (void)oc_join(base_id,sizeof base_id,"",upgraded);
         }
     }
+    (void)oc_close(awfd); awfd=-1;
+    oc_rm_subdir(data_fd,aw_leaf); aw_leaf[0]=0;
 
     /* 5. Save package from verified RAM session (reusing verified active immutable files via hardlinks). */
     const char *reuse_pkg=(exists && oc_equal(rec[1],"active") && oc_hex(old_pkg,64) && oc_equal(old_pkg,rec[3])) ? old_pkg : 0;
@@ -1170,15 +1181,13 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
         if (!oc_record_write_atomic(root,data_fd,work_rec,rev_init)) { ferr="record_rename_failed"; goto fail; }
         work_rec[2]=rev_init;
         if (!oc_absent_at(parent_fd,dleaf)) { ferr="state_create_failed"; goto fail; }
-        (void)oc_close(awfd); awfd=-1;
         (void)oc_close(data_fd); data_fd=-1;
         if (oc_rename(parent_fd,init_leaf,dleaf)<0 || oc_sync(parent_fd)<0) {
             ferr="state_publish_failed"; goto fail;
         }
         init_leaf[0]=0; exists=1;
         data_fd=oc_open_data_dir(root);
-        awfd=data_fd>=0 ? oc_open_private(data_fd,aw_leaf) : -1;
-        if (data_fd<0 || awfd<0) { ferr="state_publish_failed"; goto fail; }
+        if (data_fd<0) { ferr="state_publish_failed"; goto fail; }
     } else {
         for (unsigned i=0; i<13; ++i) work_rec[i]=rec[i];
         work_rec[3]=pkg_id; work_rec[4]=base_id;
@@ -1189,8 +1198,6 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
     if (!oc_compose_pkg_from(root,data_fd,root_path,pkg_id,reuse_pkg,reuse_snap,&ferr)) goto fail;
 
     /* 8. Compose new access, selector, preferences, rendered profiles, and dependencies into fresh staging dir. */
-    (void)oc_close(awfd); awfd=-1;
-    oc_rm_subdir(data_fd,aw_leaf); aw_leaf[0]=0;
     {
         char anonce[33];
         if (!oc_random(root,anonce) || !oc_join(aw_leaf,sizeof aw_leaf,".access-",anonce) ||

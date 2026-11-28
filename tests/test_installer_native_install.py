@@ -1516,46 +1516,65 @@ class NativeInstall(unittest.TestCase):
                 )
             )
             (comp6 / "files.sha256").chmod(0o600)
-            # Rebuild snap6 with empty dependencies & matching boot.plan/files.sha256/record so
-            # oc_targets_match and oc_dependencies_match pass (reproducing Probe 5!).
+            # Rebuild snap6 first with empty dependencies to confirm oc_dependencies_match fails
+            # closed (state_changed), then with root-only dependencies (missing composed-<pkg6>/
+            # and package-<pkg6>/ anchors) so oc_targets_match and oc_dependencies_match pass
+            # while Probe 5 still exercises unanchored composed/<pkg6> refusal.
             snap6_dir = data / "snapshots" / snap6
+            orig_deps = (snap6_dir / "dependencies").read_text().splitlines()
+            root_only_deps = "".join(ln + "\n" for ln in orig_deps if "  root/" in ln)
             old_plan_lines = (snap6_dir / "boot.plan").read_text().splitlines()
-            (snap6_dir / "dependencies").write_text("")
-            (snap6_dir / "dependencies").chmod(0o600)
-            (snap6_dir / "boot.plan").unlink()
-            (snap6_dir / "files.sha256").unlink()
-            unsealed = [old_plan_lines[0]]
-            for ln in old_plan_lines[1:]:
-                cols = ln.split("|")
-                if cols[0].startswith(f"composed-{pkg6}/") or cols[0].startswith(
-                    f"package-{pkg6}/"
-                ):
-                    continue
-                if cols[1] == "@/dependencies":
-                    cols[2] = sha(b"")
-                unsealed.append("|".join(cols[:3]))
-            with (snap6_dir / "boot.plan").open("wb") as pl_f:
-                subprocess.run(
-                    [
-                        str(bs_bin),
-                        "seal",
-                        str(root),
-                        f"tmp/mnt/data_persist/open-connect/snapshots/{snap6}",
-                    ],
-                    input=("\n".join(unsealed) + "\n").encode(),
-                    stdout=pl_f,
-                    stderr=subprocess.PIPE,
-                    env=env,
-                    check=True,
+
+            def rebuild_snap6(cur_dir: Path, dep_text: str) -> tuple[Path, str]:
+                (cur_dir / "dependencies").write_text(dep_text)
+                (cur_dir / "dependencies").chmod(0o600)
+                (cur_dir / "boot.plan").unlink()
+                (cur_dir / "files.sha256").unlink()
+                unsealed = [old_plan_lines[0]]
+                for ln in old_plan_lines[1:]:
+                    cols = ln.split("|")
+                    if cols[0].startswith(f"composed-{pkg6}/") or cols[0].startswith(
+                        f"package-{pkg6}/"
+                    ):
+                        continue
+                    if cols[1] == "@/dependencies":
+                        cols[2] = sha(dep_text.encode())
+                    unsealed.append("|".join(cols[:3]))
+                with (cur_dir / "boot.plan").open("wb") as pl_f:
+                    subprocess.run(
+                        [
+                            str(bs_bin),
+                            "seal",
+                            str(root),
+                            f"tmp/mnt/data_persist/open-connect/snapshots/{cur_dir.name}",
+                        ],
+                        input=("\n".join(unsealed) + "\n").encode(),
+                        stdout=pl_f,
+                        stderr=subprocess.PIPE,
+                        env=env,
+                        check=True,
+                    )
+                (cur_dir / "boot.plan").chmod(0o600)
+                new_mf = "".join(
+                    f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(cur_dir.iterdir())
                 )
-            (snap6_dir / "boot.plan").chmod(0o600)
-            new_s6_mf = "".join(
-                f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(snap6_dir.iterdir())
+                (cur_dir / "files.sha256").write_text(new_mf)
+                (cur_dir / "files.sha256").chmod(0o600)
+                new_id = sha(new_mf.encode())
+                new_dir = data / "snapshots" / new_id
+                cur_dir.rename(new_dir)
+                return new_dir, new_id
+
+            empty_dir, empty_snap6 = rebuild_snap6(snap6_dir, "")
+            rec6[5] = empty_snap6
+            (data / "record").write_text("|".join(rec6) + "\n")
+            p_empty, r_empty = self._call_api(
+                usb_comp / "api", usb_comp, empty_snap6, "install", env=env
             )
-            (snap6_dir / "files.sha256").write_text(new_s6_mf)
-            (snap6_dir / "files.sha256").chmod(0o600)
-            new_snap6 = sha(new_s6_mf.encode())
-            snap6_dir.rename(data / "snapshots" / new_snap6)
+            self.assertNotEqual(p_empty.returncode, 0)
+            self.assertEqual(r_empty.get("error"), "state_changed")
+
+            _, new_snap6 = rebuild_snap6(empty_dir, root_only_deps)
             rec6[5] = new_snap6
             (data / "record").write_text("|".join(rec6) + "\n")
             p7, r7 = self._call_api(usb_comp / "api", usb_comp, new_snap6, "install", env=env)

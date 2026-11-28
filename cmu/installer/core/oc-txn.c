@@ -162,7 +162,7 @@ int oc_dependencies_match(int root, int data_fd, const char *snap_id, long owner
         oc_saved_text(sdir,&mf,"dependencies",oc_dep_buf,sizeof oc_dep_buf);
     if (oc_close(sdir)<0) ok=0;
     if (!ok) return 0;
-    if (!oc_dep_buf[0]) return 1;
+    if (!oc_dep_buf[0]) return 0;
 
     char *p=oc_dep_buf;
     int cached_fd=-1; char cached_scope[96]; cached_scope[0]=0;
@@ -644,7 +644,7 @@ int oc_seal_after_snap(int root, const char *root_path, int data_fd,
     }
     /* Dependencies rows */
     if (ok) {
-        ok=oc_text(wfd,"dependencies",oc_dep_buf,sizeof oc_dep_buf,0)>=0;
+        ok=oc_text(wfd,"dependencies",oc_dep_buf,sizeof oc_dep_buf,0)>0;
         char *p=oc_dep_buf;
         while (ok && *p) {
             char *ln=p; while (*p && *p!='\n') ++p;

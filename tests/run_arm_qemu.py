@@ -518,6 +518,7 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
         ):
             d.mkdir(parents=True, exist_ok=True)
         (chroot / "dev/urandom").write_bytes(os.urandom(4096))
+        subprocess.run(["mknod", "-m", "666", str(chroot / "dev/null"), "c", "1", "3"], check=True)
         (chroot / "proc/uptime").write_text("42.00 10.00\n")
         (chroot / "proc/sys/kernel/random/boot_id").write_text(BOOT1 + "\n")
         (chroot / "proc/self/mounts").write_text(
@@ -767,6 +768,7 @@ def part_b_full_lifecycle(
             d.chmod(0o700)
 
         (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+        subprocess.run(["mknod", "-m", "666", str(chroot / "dev/null"), "c", "1", "3"], check=True)
         (chroot / "proc/uptime").write_text("120.50 10.00\n")
         (chroot / "proc/sys/kernel/random/boot_id").write_text(BOOT1 + "\n")
         (chroot / "proc/self/mounts").write_text(

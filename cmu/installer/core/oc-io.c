@@ -56,9 +56,9 @@ static long oc_metadata_raw(int fd, const char *path, OcMeta *m) {
 }
 long oc_metadata(int fd, const char *path, OcMeta *m) {
     static int failed;
-    const char *fault=getenv("OC_ALIAS_META_FAIL");
-    if (path && fault && failed<2 && !strcmp(path,fault)) { ++failed; return -5; }
     long result=oc_metadata_raw(fd,path,m);
+    const char *fault=getenv("OC_ALIAS_META_FAIL");
+    if (result>=0 && path && fault && failed<2 && !strcmp(path,fault)) { ++failed; return -5; }
     if (result>=0 && path && !strcmp(path,"boot-id") && getenv("OC_BOOT_OWNER_FAIL")) ++m->uid;
     return result;
 }
@@ -504,6 +504,7 @@ int oc_open_private(int parent, const char *path) {
 }
 
 int oc_absent_at(int root, const char *path) {
+    if (!path[0] || path[0]=='/') return 0;
     char parent[192];
     unsigned slash=0, n=oc_length(path);
     for (unsigned i=0; i<n; ++i) if (path[i]=='/') slash=i;
@@ -516,10 +517,11 @@ int oc_absent_at(int root, const char *path) {
         if (directory<0) return 0;
         path+=slash+1;
     }
-    long fd=oc_openat((int)directory,path,OC_READ,0);
-    if (fd>=0) (void)oc_close((int)fd);
+    if (!path[0]) { if (slash) (void)oc_close((int)directory); return 0; }
+    OcMeta m;
+    long r=oc_metadata((int)directory,path,&m);
     if (slash) (void)oc_close((int)directory);
-    return fd==-2;
+    return r==-2;
 }
 
 int oc_text_fd(int fd, char *out, unsigned capacity) {
@@ -657,9 +659,13 @@ int oc_copy_file_at(int src_dir, const char *src_name, int dst_dir, const char *
     return ok;
 }
 
-static void oc_wire_fd(int src, int dst) {
-    if (src==dst) (void)oc_set_cloexec(dst,0);
-    else (void)oc_dup2(src,dst);
+static int oc_wire_fd(int src, int dst) {
+    if (src==dst) return oc_set_cloexec(dst,0)>=0;
+    for (;;) {
+        long r=oc_dup2(src,dst);
+        if (r==-4) continue;
+        return r>=0;
+    }
 }
 #ifdef OC_HOST
 extern char **environ;
@@ -674,31 +680,29 @@ int oc_run_cmd_io(const char *path, char *const argv[], int in_fd, int out_fd,
         return -1;
     }
     if (pid==0) {
-        if (keep_fd>=0) (void)oc_set_cloexec(keep_fd,0);
+        if (keep_fd>=0 && oc_set_cloexec(keep_fd,0)<0) oc_exit(127);
         if (pfd[0]>=0) (void)oc_close(pfd[0]);
         int wfd=cap_buf ? pfd[1] : out_fd;
         if (wfd==0 && in_fd==1) {
             long tmp=oc_dup(in_fd);
-            if (tmp<0) oc_exit(127);
-            (void)oc_set_cloexec((int)tmp,1);
+            if (tmp<0 || oc_set_cloexec((int)tmp,1)<0) oc_exit(127);
             in_fd=(int)tmp;
         }
         if (wfd==0) {
-            oc_wire_fd(wfd,1);
-            if (in_fd>=0) oc_wire_fd(in_fd,0);
+            if (!oc_wire_fd(wfd,1)) oc_exit(127);
+            if (in_fd>=0 && !oc_wire_fd(in_fd,0)) oc_exit(127);
         } else {
-            if (in_fd>=0) oc_wire_fd(in_fd,0);
-            if (wfd>=0) oc_wire_fd(wfd,1);
+            if (in_fd>=0 && !oc_wire_fd(in_fd,0)) oc_exit(127);
+            if (wfd>=0 && !oc_wire_fd(wfd,1)) oc_exit(127);
         }
         if (in_fd>=2 && in_fd!=keep_fd) (void)oc_close(in_fd);
         if (wfd>=2 && wfd!=in_fd && wfd!=keep_fd) (void)oc_close(wfd);
         long devnull=oc_openat(OC_CWD,"/dev/null",OC_RW,0);
-        if (devnull>=0) {
-            if (in_fd<0) oc_wire_fd((int)devnull,0);
-            if (wfd<0) oc_wire_fd((int)devnull,1);
-            oc_wire_fd((int)devnull,2);
-            if (devnull>2) (void)oc_close((int)devnull);
-        }
+        if (devnull<0) oc_exit(127);
+        if (in_fd<0 && !oc_wire_fd((int)devnull,0)) oc_exit(127);
+        if (wfd<0 && !oc_wire_fd((int)devnull,1)) oc_exit(127);
+        if (!oc_wire_fd((int)devnull,2)) oc_exit(127);
+        if (devnull>2) (void)oc_close((int)devnull);
 #ifdef OC_HOST
         (void)oc_execve(path,argv,environ);
 #else
@@ -711,13 +715,13 @@ int oc_run_cmd_io(const char *path, char *const argv[], int in_fd, int out_fd,
         (void)oc_close(pfd[1]);
         unsigned at=0; char drain[64];
         for (;;) {
-            int full=at+1>=cap_sz;
+            int full=!cap_sz || at+1>=cap_sz;
             long r=oc_read(pfd[0],full?drain:(cap_buf+at),full?(unsigned)sizeof drain:(cap_sz-1-at));
             if (r==-4) continue;
             if (r<=0) break;
             if (!full) at+=(unsigned)r;
         }
-        cap_buf[at]=0;
+        if (cap_sz) cap_buf[at]=0;
         (void)oc_close(pfd[0]);
     }
     int st=0;

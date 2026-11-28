@@ -58,8 +58,11 @@ int oc_plan_rows(int root, int snapshot, int input, int output, int mode) {
     if (status!=1) return 0;
     n=oc_fields(line,fields,13);
     if (n!=3 || !oc_equal(fields[0],"OCBP1") || !oc_hex(fields[1],64) || !oc_hex(fields[2],64)) return 0;
-    if (sealing && (!oc_write_all(output,"OCBP1|",6) || !oc_write_all(output,fields[1],64) ||
-        !oc_write_all(output,"|",1) || !oc_write_all(output,fields[2],64) || !oc_write_all(output,"\n",1))) return 0;
+    if (sealing) {
+        char hdr[160];
+        if (!oc_join4(hdr,sizeof hdr,"OCBP1|",fields[1],"|",fields[2]) ||
+            !oc_join(hdr,sizeof hdr,hdr,"\n") || !oc_write_all(output,hdr,oc_length(hdr))) return 0;
+    }
     while ((status=oc_line(&reader,line))==1) {
         unsigned length=oc_length(line);
         for (unsigned i=0; i<=length; ++i) original[i]=line[i];
@@ -204,10 +207,8 @@ int oc_dependency_coverage(OcBoot *b) {
     }
     for (unsigned kind=0; kind<2; ++kind) {
         OcManifest *m=kind?&b->composition:&b->pkg;
-        if (!oc_join(scope,sizeof scope,kind?"composed-":"package-",b->record_fields[3])||
-            !oc_join(scope,sizeof scope,scope,"/")||
-            !oc_join(prefix,sizeof prefix,kind?"/" OC_DATA "/composed/":"/" OC_DATA "/packages/",b->record_fields[3])||
-            !oc_join(prefix,sizeof prefix,prefix,"/")) return 0;
+        if (!oc_join4(scope,sizeof scope,kind?"composed-":"package-",b->record_fields[3],"/",0)||
+            !oc_join4(prefix,sizeof prefix,kind?"/" OC_DATA "/composed/":"/" OC_DATA "/packages/",b->record_fields[3],"/",0)) return 0;
         for (unsigned i=0; i<=m->count; ++i) {
             const char *leaf=i==m->count?"files.sha256":m->rows[i].name;
             const char *digest=i==m->count?(kind?b->composed_digest:b->record_fields[3]):m->rows[i].digest;
@@ -235,7 +236,7 @@ int oc_snapshot_coverage(OcBoot *b) {
         if (!oc_join(key,sizeof key,"current/",m->name)||!oc_join(path,sizeof path,"@/",m->name)||
             !oc_expect(b,key,path,m->digest)) return 0;
     }
-    if (!oc_join(path,sizeof path,"/" OC_DATA "/snapshots/",b->record_fields[4])||!oc_join(path,sizeof path,path,"/")) return 0;
+    if (!oc_join4(path,sizeof path,"/" OC_DATA "/snapshots/",b->record_fields[4],"/",0)) return 0;
     if (!oc_expected_members(b,&b->base,"baseline/",path)) return 0;
     if (!oc_join(path,sizeof path,path,"files.sha256")||
         !oc_expect(b,"baseline/files.sha256",path,b->record_fields[4])) return 0;
@@ -279,7 +280,7 @@ int oc_access_coverage(OcBoot *b) {
     if (!oc_equal(f[2],"-")) {
         long keys=oc_open_private(b->data,"keys");
         if (keys<0||oc_close((int)keys)<0) return 0;
-        if (!oc_join(path,sizeof path,"/" OC_DATA "/keys/",f[2])||!oc_join(path,sizeof path,path,".cmu")) return 0;
+        if (!oc_join4(path,sizeof path,"/" OC_DATA "/keys/",f[2],".cmu",0)) return 0;
         OcInput *key=oc_expect(b,"key/owner",path,f[2]);
         if (!key||key->absent||key->meta.mode!=(OC_REGULAR|0600)||
             key->meta.uid!=(unsigned)b->owner||key->meta.gid!=(unsigned)b->group) return 0;

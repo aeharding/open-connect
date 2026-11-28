@@ -18,8 +18,8 @@ void oc_stamp(OcBoot *b, const char *phase) {
     }
     if (!n||tick[n]!=' ') return;
     tick[n]=0;
-    if (!oc_join(line,sizeof line,phase,"|")||!oc_join(line,sizeof line,line,tick)||
-        !oc_join(line,sizeof line,line,"\n")||!oc_join(b->times,sizeof b->times,b->times,line)) return;
+    if (!oc_join4(line,sizeof line,phase,"|",tick,"\n")||
+        !oc_join(b->times,sizeof b->times,b->times,line)) return;
     ++b->time_count;
 }
 
@@ -122,25 +122,24 @@ static int oc_request_reseal(OcBoot *b) {
     return ok;
 }
 
-static int oc_package_copy(OcBoot *b, const char *name, int output, const char *destination, unsigned mode) {
+static int oc_store_copy(OcBoot *b, const char *pfx, const char *name, int output, const char *dst, unsigned mode) {
     char key[192];
-    return oc_join(key,sizeof key,"package-",b->record_fields[3]) && oc_join(key,sizeof key,key,"/") &&
-        oc_join(key,sizeof key,key,name) && oc_copy_input(b,key,output,destination,mode);
+    return oc_join4(key,sizeof key,pfx,b->record_fields[3],"/",name) &&
+        oc_copy_input(b,key,output,dst,mode);
+}
+
+static int oc_package_copy(OcBoot *b, const char *name, int output, const char *destination, unsigned mode) {
+    return oc_store_copy(b,"package-",name,output,destination,mode);
 }
 
 static int oc_composed_copy(OcBoot *b, const char *name, int output, unsigned mode) {
-    char key[192];
-    return oc_join(key,sizeof key,"composed-",b->record_fields[3]) && oc_join(key,sizeof key,key,"/") &&
-        oc_join(key,sizeof key,key,name) && oc_copy_input(b,key,output,name,mode);
+    return oc_store_copy(b,"composed-",name,output,name,mode);
 }
 
 static int oc_composed_link(OcBoot *b, const char *name) {
-    char key[192], target[192];
-    return oc_join(key,sizeof key,"composed-",b->record_fields[3]) &&
-        oc_join(key,sizeof key,key,"/") && oc_join(key,sizeof key,key,name) &&
-        oc_copy_input(b,key,-1,0,0) &&
-        oc_join(target,sizeof target,"../../mnt/data_persist/open-connect/composed/",b->record_fields[3]) &&
-        oc_join(target,sizeof target,target,"/") && oc_join(target,sizeof target,target,name) &&
+    char target[192];
+    return oc_store_copy(b,"composed-",name,-1,0,0) &&
+        oc_join4(target,sizeof target,"../../mnt/data_persist/open-connect/composed/",b->record_fields[3],"/",name) &&
         oc_symlink(target,b->stage,name)>=0;
 }
 
@@ -233,8 +232,7 @@ static int oc_stage(OcBoot *b) {
     if (oc_equal(b->record_fields[12],"installed")) {
         char target[192];
         if (!oc_package_copy(b,"maintenance.js",-1,0,0)||
-            !oc_join(target,sizeof target,"../../mnt/data_persist/open-connect/packages/",b->record_fields[3])||
-            !oc_join(target,sizeof target,target,"/maintenance.js")||
+            !oc_join4(target,sizeof target,"../../mnt/data_persist/open-connect/packages/",b->record_fields[3],"/maintenance.js",0)||
             oc_symlink(target,b->stage,"maintenance.js")<0) return 0;
     }
     if (oc_equal(b->flags[8],"1") && !oc_package_copy(b,"carplay.js",b->stage,"carplay.js",0600)) return 0;
@@ -373,7 +371,7 @@ int oc_load(OcBoot *b) {
     b->base_access_present=oc_digest(&b->base,"access")!=0;
     if (b->access_present && (!oc_saved_text(b->snapshot,&b->current,"access",b->access,sizeof b->access)||!oc_access(b->access,b->access_fields))) return 0;
     if (b->base_access_present && (!oc_saved_text(b->baseline,&b->base,"access",b->base_access,sizeof b->base_access)||!oc_access(b->base_access,b->base_access_fields))) return 0;
-    if (!oc_plan(b)||!oc_join(path,sizeof path,"composed-",b->record_fields[3])||!oc_join(path,sizeof path,path,"/files.sha256")) return 0;
+    if (!oc_plan(b)||!oc_join4(path,sizeof path,"composed-",b->record_fields[3],"/files.sha256",0)) return 0;
     OcInput *composition=oc_find(b,path);
     if (!composition||!oc_hex(composition->digest,64)||!oc_join(b->composed_digest,sizeof b->composed_digest,"",composition->digest)||
         !oc_load_manifest(b->composed,b->composed_digest,b->composed_manifest,sizeof b->composed_manifest,&b->composition)||
@@ -408,9 +406,9 @@ static int oc_select(OcBoot *b, int root) {
         lock_meta.uid!=(unsigned)b->owner||lock_meta.gid!=(unsigned)b->group||oc_lock(b->lock)<0) return OC_REFUSE;
     if (!oc_record_file(b,0,0)) return OC_SLOW;
     if (!oc_boot_identity(b)) return OC_REFUSE;
-    if (oc_equal(b->record_fields[11],b->boot)||!oc_absent_at(b->ram,"selected")||
-        !oc_absent_at(b->ram,"feature")||!oc_absent_at(b->ram,"ignition")||!oc_absent_at(b->ram,"access-selected")||
-        !oc_absent_at(b->ram,".native-selected")) return OC_REFUSE;
+    static const char *const ram_marks[5]={"selected","feature","ignition","access-selected",".native-selected"};
+    if (oc_equal(b->record_fields[11],b->boot)) return OC_REFUSE;
+    for (unsigned i=0; i<5; ++i) if (!oc_absent_at(b->ram,ram_marks[i])) return OC_REFUSE;
     if (!oc_mounts(b)||!oc_policy_load(b)) return OC_SLOW;
     if (oc_equal(b->flags[6],"1")) for (unsigned i=0; i<3; ++i)
         if (!oc_absent_at(b->ram,oc_ui_alias_names[i])) return OC_REFUSE;

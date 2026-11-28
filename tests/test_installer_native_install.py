@@ -1717,6 +1717,59 @@ class NativeInstall(unittest.TestCase):
             self.assertEqual(r_bp["error"], "base_inputs_changed")
             self.assertFalse(data.exists())
 
+            # Drifted VUI plugin (keep + enabled service.<id>) fails before flash writes,
+            # while a drifted VUI plugin for a DISABLED service (pandora=0) does not block!
+            keep_vui = vui_dir / "vui_plugin_common.so"
+            saved_keep_vui = keep_vui.read_bytes()
+            keep_vui.write_bytes(b"drifted keep vui\n")
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nbase=1\n")
+            p_kv, r_kv = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
+            keep_vui.write_bytes(saved_keep_vui)
+            self.assertNotEqual(p_kv.returncode, 0)
+            self.assertEqual(r_kv["error"], "base_inputs_changed")
+            self.assertFalse(data.exists())
+
+            pan_vui = vui_dir / "vui_plugin_pandora.so"
+            saved_pan_vui = pan_vui.read_bytes()
+            pan_vui.write_bytes(b"drifted pandora vui\n")
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nbase=1\nservice.pandora=1\n")
+            p_pv, r_pv = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
+            self.assertNotEqual(p_pv.returncode, 0)
+            self.assertEqual(r_pv["error"], "base_inputs_changed")
+            self.assertFalse(data.exists())
+            pan_vui.write_bytes(saved_pan_vui)
+
+            # Malformed/truncated ui-modules.tsv fails closed with zero flash writes!
+            saved_uimod = (usb_sess / "ui-modules.tsv").read_bytes()
+            saved_mf0 = (usb_sess / "files.sha256").read_bytes()
+            for bad_case, bad_ui in (
+                ("truncated_vui", b"vui\tvui_plugin_common.so\tkeep\t\n"),
+                ("extra_col", saved_uimod + b"vui\tfoo.so\tkeep\t" + b"a" * 64 + b"\textra\n"),
+                ("no_trailing_nl", saved_uimod.rstrip(b"\n")),
+            ):
+                with self.subTest(bad_uimod=bad_case):
+                    (usb_sess / "ui-modules.tsv").write_bytes(bad_ui)
+                    (usb_sess / "files.sha256").unlink()
+                    (usb_sess / "token").unlink()
+                    mf_bad = "".join(
+                        f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(usb_sess.iterdir())
+                    )
+                    (usb_sess / "files.sha256").write_text(mf_bad)
+                    (usb_sess / "files.sha256").chmod(0o600)
+                    (usb_sess / "token").write_text(TOKEN + "\n")
+                    (usb_sess / "token").chmod(0o600)
+                    shutil.copyfile(usb_sess / "files.sha256", vol / "open-connect/files.sha256")
+                    (vol / "open-connect.prefs").write_text("OCPREFS1\nbase=1\n")
+                    p_bu, r_bu = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
+                    self.assertNotEqual(p_bu.returncode, 0)
+                    self.assertEqual(r_bu["error"], "base_inputs_changed")
+                    self.assertFalse(data.exists())
+            (usb_sess / "ui-modules.tsv").write_bytes(saved_uimod)
+            (usb_sess / "ui-modules.tsv").chmod(0o600)
+            (usb_sess / "files.sha256").write_bytes(saved_mf0)
+            (usb_sess / "files.sha256").chmod(0o600)
+            shutil.copyfile(usb_sess / "files.sha256", vol / "open-connect/files.sha256")
+
             # 3) Valid fresh-install preset (comments + CRLF + touch=2 + base=1 + all toggles)
             (vol / "open-connect.prefs").write_bytes(
                 b"OCPREFS1\r\n"
@@ -1819,16 +1872,29 @@ class NativeInstall(unittest.TestCase):
             )
             self.assertIn("/tmp/mnt/sda1 vfat ro,noatime", (root / "proc/self/mounts").read_text())
 
-            # Export with symlink open-connect.prefs refused
+            # Export with symlink open-connect.prefs refused without RW remount
             (vol / "open-connect.prefs").unlink()
             (vol / "open-connect.prefs").symlink_to(target)
+            env_ro_fail = {**env_wl, "OC_HOST_USB_REMOUNT_FAIL": "1"}
             p_ex_sym, r_ex_sym = self._call_api(
-                api_bin, set_sess, snap2, "export", "prefs", env=env_wl
+                api_bin, set_sess, snap2, "export", "prefs", env=env_ro_fail
             )
             self.assertNotEqual(p_ex_sym.returncode, 0)
             self.assertEqual(r_ex_sym["error"], "export_failed")
+            self.assertTrue((vol / "open-connect.prefs").is_symlink())
             (vol / "open-connect.prefs").unlink()
             (vol / "open-connect.prefs").write_text(exported)
+
+            # Export with symlink open-connect.prefs.tmp refused BEFORE RW remount AND without unlinking .tmp
+            (vol / "open-connect.prefs.tmp").symlink_to(target)
+            p_ex_tmp, r_ex_tmp = self._call_api(
+                api_bin, set_sess, snap2, "export", "prefs", env=env_ro_fail
+            )
+            self.assertNotEqual(p_ex_tmp.returncode, 0)
+            self.assertEqual(r_ex_tmp["error"], "export_failed")
+            self.assertTrue((vol / "open-connect.prefs.tmp").is_symlink())
+            self.assertEqual((vol / "open-connect.prefs").read_text(), exported)
+            (vol / "open-connect.prefs.tmp").unlink()
 
             # Export with 2 vfat volumes -> multiple_usb_volumes; 0 -> usb_not_found
             vol2 = root / "tmp/mnt/sdb1"
@@ -1936,27 +2002,43 @@ class NativeInstall(unittest.TestCase):
             )
             snap6 = r_fb["revision"]
 
-            # Settings import|prefs: wireless=0->1 refuses with wireless_unavailable when board.sh fails check (fw==2)
-            (vol / "open-connect.prefs").write_text("OCPREFS1\nwireless=1\n")
-            board_sh.write_bytes(b"#!/bin/sh\n# tampered\nexit 1\n")
-            p_fu_im, r_fu_im = self._call_api(
-                api_bin, set_sess, snap6, "import", "prefs", env=env_fw_unavail
-            )
-            board_sh.write_bytes(saved_board_sh)
-            self.assertNotEqual(p_fu_im.returncode, 0)
-            self.assertEqual(r_fu_im["error"], "wireless_unavailable")
-
-            # P1-2 regression: direct set|wireless|0|1 also enforces oc_factory_wireless() (fw==0 and fw==2)!
+            # P1-2 regression: direct set|wireless|0|1 enforces oc_factory_wireless() (fw==0),
+            # while unchanged wireless=1 and wireless=1->0 are NEVER blocked even under fw==0!
             p_fw_set, r_fw_set = self._call_api(
                 api_bin, set_sess, snap6, "set", "wireless", "0", "1", env=env_fw_enabled
             )
             self.assertNotEqual(p_fw_set.returncode, 0)
             self.assertEqual(r_fw_set["error"], "wireless_factory_enabled")
+
+            p_w1_on, r_w1_on = self._call_api(
+                api_bin, set_sess, snap6, "set", "wireless", "0", "1", env=env_wl
+            )
+            self.assertEqual(p_w1_on.returncode, 0, (r_w1_on, p_w1_on.stderr))
+            snap7 = r_w1_on["revision"]
+            p_w1_keep, r_w1_keep = self._call_api(
+                api_bin, set_sess, snap7, "set", "warning", "0", "1", env=env_fw_enabled
+            )
+            self.assertEqual(p_w1_keep.returncode, 0, (r_w1_keep, p_w1_keep.stderr))
+            snap8 = r_w1_keep["revision"]
+            p_w1_off, r_w1_off = self._call_api(
+                api_bin, set_sess, snap8, "set", "wireless", "1", "0", env=env_fw_enabled
+            )
+            self.assertEqual(p_w1_off.returncode, 0, (r_w1_off, p_w1_off.stderr))
+            self.assertEqual(r_w1_off["wireless"], 0)
+            snap9 = r_w1_off["revision"]
+
+            # Settings import|prefs & set|wireless: wireless=0->1 refuses with wireless_unavailable when board.sh fails check (fw==2)
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nwireless=1\n")
             board_sh.write_bytes(b"#!/bin/sh\n# tampered\nexit 1\n")
+            p_fu_im, r_fu_im = self._call_api(
+                api_bin, set_sess, snap9, "import", "prefs", env=env_fw_unavail
+            )
             p_fu_set, r_fu_set = self._call_api(
-                api_bin, set_sess, snap6, "set", "wireless", "0", "1", env=env_fw_unavail
+                api_bin, set_sess, snap9, "set", "wireless", "0", "1", env=env_fw_unavail
             )
             board_sh.write_bytes(saved_board_sh)
+            self.assertNotEqual(p_fu_im.returncode, 0)
+            self.assertEqual(r_fu_im["error"], "wireless_unavailable")
             self.assertNotEqual(p_fu_set.returncode, 0)
             self.assertEqual(r_fu_set["error"], "wireless_unavailable")
 

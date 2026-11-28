@@ -1004,11 +1004,14 @@ static __attribute__((noinline)) int oc_handle_export_prefs(OcApiCtx *c) {
     (void)oc_close((int)mnt);
     if (found<0) return api_err(c,"usb_not_found");
     {
-        OcMeta em={0};
-        if (!oc_absent_at(found,"open-connect.prefs") &&
-            (oc_metadata(found,"open-connect.prefs",&em)<0 || (em.mode&OC_TYPE)!=OC_REGULAR)) {
-            (void)oc_close(found);
-            return api_err(c,"export_failed");
+        static const char *const enames[2]={"open-connect.prefs","open-connect.prefs.tmp"};
+        for (unsigned i=0; i<2; ++i) {
+            OcMeta em={0};
+            if (!oc_absent_at(found,enames[i]) &&
+                (oc_metadata(found,enames[i],&em)<0 || (em.mode&OC_TYPE)!=OC_REGULAR)) {
+                (void)oc_close(found);
+                return api_err(c,"export_failed");
+            }
         }
     }
 
@@ -1023,7 +1026,7 @@ static __attribute__((noinline)) int oc_handle_export_prefs(OcApiCtx *c) {
         oc_write_all((int)pfd,out,oc_length(out)) && oc_sync((int)pfd)>=0;
     if (pfd>=0 && oc_close((int)pfd)<0) ok=0;
     if (ok && oc_rename(found,"open-connect.prefs.tmp","open-connect.prefs")<0) ok=0;
-    if (!ok) (void)oc_unlink(found,"open-connect.prefs.tmp");
+    if (!ok && pfd>=0) (void)oc_unlink(found,"open-connect.prefs.tmp");
     if (ok && oc_sync(found)<0) ok=0;
     (void)oc_close(found);
     if (remounted && !oc_usb_remount(c->root,mnt_path,0)) ok=0;

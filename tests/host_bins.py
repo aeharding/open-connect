@@ -86,7 +86,7 @@ def host_flush() -> Path:
     return _build_cached(
         "flush",
         [ROOT / "cmu/startup/flush.c"],
-        ["-DOC_HOST"],
+        ["-DOC_HOST", "-O2"],
         extra_deps=[ASSETS / "boot-hash.h"],
     )
 
@@ -165,6 +165,7 @@ def host_api() -> Path:
         "-Wall",
         "-Wextra",
         "-Werror",
+        "-O2",
         "-fsanitize=address,undefined",
         "-fno-omit-frame-pointer",
     ]
@@ -203,6 +204,7 @@ def host_install() -> Path:
         "-Wall",
         "-Wextra",
         "-Werror",
+        "-O2",
         "-fsanitize=address,undefined",
         "-fno-omit-frame-pointer",
     ]
@@ -226,6 +228,7 @@ def host_ignition() -> Path:
         "-Wall",
         "-Wextra",
         "-Werror",
+        "-O2",
         "-fsanitize=address,undefined",
         "-fno-omit-frame-pointer",
     ]

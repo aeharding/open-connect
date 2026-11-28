@@ -182,7 +182,13 @@ class NativeInstall(unittest.TestCase):
             p.write_bytes(content)
             p.chmod(mode)
             pin_lines.append(f"{pin_key}={sha(content)}\n")
-        (root / "etc/ssh/sshd_config").write_text("PermitRootLogin yes\n")
+        (root / "etc/passwd").write_text("cmu:x:0:0:CMU:/home/cmu:/bin/sh\n")
+        (root / "etc/passwd").chmod(0o644)
+        (root / "etc/ssh/sshd_config").write_text(
+            "Port 36000\n"
+            "AuthorizedKeysFile /config-mfg/authorized_keys /owner/keys.%u\n"
+            "PasswordAuthentication no\n"
+        )
         (root / "etc/ssh/sshd_config").chmod(0o644)
         mgr_sha = sha(b"stock manager\n")
         pin_lines.append(f"originals/mmui.xml={sha(mmui_xml)}\n")
@@ -623,35 +629,59 @@ class NativeInstall(unittest.TestCase):
             self.assertNotIn("service.dvd=", new_cfg_txt)
             self.assertIn("service.pandora=0\n", new_cfg_txt)
 
-            # (M2) Unpinned legacy backend.sh in Settings session is refused by oc_usb_fence().
-            leg_pkg_w = data / "packages/.leg"
-            shutil.copytree(data / "packages" / new_rec[3], leg_pkg_w)
-            leg_pkg_w.chmod(0o700)
-            (leg_pkg_w / "backend.sh").write_text("#!/bin/sh\n# unpinned legacy dev.22\n")
-            (leg_pkg_w / "backend.sh").chmod(0o600)
-            (leg_pkg_w / "files.sha256").unlink()
-            lmf = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(leg_pkg_w.iterdir()))
-            (leg_pkg_w / "files.sha256").write_text(lmf)
-            (leg_pkg_w / "files.sha256").chmod(0o600)
-            leg_pkg = sha(lmf.encode())
-            leg_pkg_w.rename(data / "packages" / leg_pkg)
-            leg_snap_w = data / "snapshots/.legsnap"
-            leg_snap_w.mkdir(mode=0o700)
-            lcfg = f"OC2\npackage={leg_pkg}\n"
-            (leg_snap_w / "config").write_text(lcfg)
-            (leg_snap_w / "config").chmod(0o600)
-            lsmf = f"{sha(lcfg.encode())}  config\n"
-            (leg_snap_w / "files.sha256").write_text(lsmf)
-            (leg_snap_w / "files.sha256").chmod(0o600)
-            leg_snap = sha(lsmf.encode())
-            leg_snap_w.rename(data / "snapshots" / leg_snap)
+            # (M2) Unpinned (or substring-spoofed) legacy backend.sh is refused by oc_usb_fence(),
+            # while a genuine whole-line pinned backend.sh passes oc_usb_fence().
+            def make_legacy_pkg_snap(tag: str, backend_text: str):
+                lp_w = data / f"packages/.leg-{tag}"
+                shutil.copytree(data / "packages" / new_rec[3], lp_w)
+                lp_w.chmod(0o700)
+                (lp_w / "backend.sh").write_text(backend_text)
+                (lp_w / "backend.sh").chmod(0o600)
+                (lp_w / "files.sha256").unlink()
+                lmf = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(lp_w.iterdir()))
+                (lp_w / "files.sha256").write_text(lmf)
+                (lp_w / "files.sha256").chmod(0o600)
+                lp_id = sha(lmf.encode())
+                lp_w.rename(data / "packages" / lp_id)
+                ls_w = data / f"snapshots/.legsnap-{tag}"
+                shutil.copytree(data / "snapshots" / new_rec[5], ls_w)
+                ls_w.chmod(0o700)
+                lcfg = new_cfg_txt.replace(f"package={new_rec[3]}\n", f"package={lp_id}\n", 1)
+                (ls_w / "config").write_text(lcfg)
+                (ls_w / "config").chmod(0o600)
+                (ls_w / "files.sha256").unlink()
+                (ls_w / "boot.plan").unlink(missing_ok=True)
+                lsmf = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(ls_w.iterdir()))
+                (ls_w / "files.sha256").write_text(lsmf)
+                (ls_w / "files.sha256").chmod(0o600)
+                ls_id = sha(lsmf.encode())
+                ls_w.rename(data / "snapshots" / ls_id)
+                return lp_id, ls_id
+
             saved_sel = (ram / "selected").read_bytes()
-            (ram / "selected").write_text(leg_snap + "\n")
-            shutil.copyfile(data / "packages" / leg_pkg / "files.sha256", set_sess / "files.sha256")
-            shutil.copyfile(data / "packages" / leg_pkg / "backend.sh", set_sess / "backend.sh")
-            p_unp, r_unp = self._call_api(api_bin, usb_sess, new_rec[5], "recover", env=env)
-            self.assertNotEqual(p_unp.returncode, 0)
-            self.assertEqual(r_unp["error"], "invalid_legacy_runtime")
+            for tag, body in (
+                ("unpinned", "#!/bin/sh\n# unpinned legacy dev.22\n"),
+                ("substring", "#!/bin/sh\n# spoof # Open Connect pinned Settings 1\n"),
+                ("suffix", "#!/bin/sh\n# Open Connect pinned Settings 10\n"),
+            ):
+                lp_id, ls_id = make_legacy_pkg_snap(tag, body)
+                (ram / "selected").write_text(ls_id + "\n")
+                shutil.copyfile(
+                    data / "packages" / lp_id / "files.sha256", set_sess / "files.sha256"
+                )
+                shutil.copyfile(data / "packages" / lp_id / "backend.sh", set_sess / "backend.sh")
+                p_unp, r_unp = self._call_api(api_bin, usb_sess, new_rec[5], "recover", env=env)
+                self.assertNotEqual(p_unp.returncode, 0, tag)
+                self.assertEqual(r_unp["error"], "invalid_legacy_runtime", tag)
+            lp_pin, ls_pin = make_legacy_pkg_snap(
+                "pinned", "#!/bin/sh\n# Open Connect pinned Settings 1\n"
+            )
+            (ram / "selected").write_text(ls_pin + "\n")
+            shutil.copyfile(data / "packages" / lp_pin / "files.sha256", set_sess / "files.sha256")
+            shutil.copyfile(data / "packages" / lp_pin / "backend.sh", set_sess / "backend.sh")
+            p_pin, r_pin = self._call_api(api_bin, usb_sess, new_rec[5], "recover", env=env)
+            self.assertEqual(p_pin.returncode, 0, (r_pin, p_pin.stderr))
+            self.assertTrue(r_pin["ok"], r_pin)
             (set_sess / "backend.sh").unlink()
             shutil.copyfile(data / "packages" / pkg1 / "files.sha256", set_sess / "files.sha256")
             (ram / "selected").write_bytes(saved_sel)
@@ -684,15 +714,35 @@ class NativeInstall(unittest.TestCase):
             self.assertEqual(br_m3.returncode, 0, br_m3.stdout + br_m3.stderr)
             self.assertFalse((data / "reseal").exists())
 
-            # (M3b) Wrong OCBP1 header in boot.plan with matching D/reseal must be refused before recheck!
-            m3b_rec = (data / "record").read_text().strip().split("|")
-            bad_bp_snap = data / "snapshots" / m3b_rec[5]
-            orig_bp = (bad_bp_snap / "boot.plan").read_bytes()
-            (bad_bp_snap / "boot.plan").write_bytes(
-                orig_bp.replace(m3b_rec[4].encode(), b"f" * 64, 1)
+            # (M3b) Wrong OCBP1 header in a hash-valid snapshot with matching D/reseal must be
+            # refused at Step 4 (after Step 2 passes and writes ram/boot-id)!
+            m3b_rec_raw = (data / "record").read_text()
+            m3b_rec = m3b_rec_raw.strip().split("|")
+            bad_bp_w = data / "snapshots/.badbp"
+            shutil.copytree(data / "snapshots" / m3b_rec[5], bad_bp_w)
+            bad_bp_w.chmod(0o700)
+            orig_bp = (bad_bp_w / "boot.plan").read_bytes()
+            (bad_bp_w / "boot.plan").write_bytes(orig_bp.replace(m3b_rec[4].encode(), b"f" * 64, 1))
+            (bad_bp_w / "boot.plan").chmod(0o600)
+            (bad_bp_w / "files.sha256").unlink()
+            bad_mf = "".join(
+                f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(bad_bp_w.iterdir())
             )
-            (data / "reseal").write_text(m3b_rec[5] + "\n")
+            (bad_bp_w / "files.sha256").write_text(bad_mf)
+            (bad_bp_w / "files.sha256").chmod(0o600)
+            bad_bp_id = sha(bad_mf.encode())
+            bad_bp_w.rename(data / "snapshots" / bad_bp_id)
+            m3b_mut = list(m3b_rec)
+            m3b_mut[5] = bad_bp_id
+            (data / "record").write_text("|".join(m3b_mut) + "\n")
+            (data / "reseal").write_text(bad_bp_id + "\n")
             (data / "reseal").chmod(0o600)
+            for child in list(ram.iterdir()):
+                if child.name not in ("lock", ".recover-r1", "sessions", "usb-runtime"):
+                    if child.is_dir() and not child.is_symlink():
+                        shutil.rmtree(child)
+                    else:
+                        child.unlink()
             br_m3b = subprocess.run(
                 [str(inst_ram), "--boot-recover", str(pkg_now), str(rec_exec)],
                 env=env,
@@ -701,7 +751,10 @@ class NativeInstall(unittest.TestCase):
                 timeout=15,
             )
             self.assertNotEqual(br_m3b.returncode, 0)
-            (bad_bp_snap / "boot.plan").write_bytes(orig_bp)
+            self.assertTrue((ram / "boot-id").is_symlink())
+            self.assertTrue((data / "reseal").exists())
+            (data / "record").write_text(m3b_rec_raw)
+            shutil.rmtree(data / "snapshots" / bad_bp_id)
             (data / "reseal").unlink()
 
             # (H2) Verify oc_handle_completion shell invocation passes non-empty cur_boot via B=$2.
@@ -777,3 +830,109 @@ class NativeInstall(unittest.TestCase):
             self.assertEqual(p_re.returncode, 0, (r_re, p_re.stderr))
             self.assertTrue(r_re["ok"] and r_re["installed"], r_re)
             self.assertEqual((data / "record").read_text().strip().split("|")[1], "active")
+
+    @unittest.skipUnless(shutil.which("ssh-keygen"), "ssh-keygen required")
+    def test_upgrade_preserves_base_uart_ssh_and_imported_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            ram, data, usb_sess, env = self._build_fixture(root)
+            env = {**env, "OC_HOST_SSH_KEYGEN": shutil.which("ssh-keygen")}
+            api_bin = usb_sess / "api"
+
+            # Populate synthetic VUI plugins matching ui-modules.tsv so base=1 pins validate.
+            vui_dir = root / "jci/vui/plugins"
+            ui_lines = (usb_sess / "ui-modules.tsv").read_text().splitlines()
+            patched_ui = []
+            for ln in ui_lines:
+                if ln.startswith("vui\t"):
+                    parts = ln.split("\t")
+                    blob = b"vui-plugin-" + parts[1].encode() + b"\n"
+                    (vui_dir / parts[1]).write_bytes(blob)
+                    (vui_dir / parts[1]).chmod(0o755)
+                    parts[3] = sha(blob)
+                    patched_ui.append("\t".join(parts))
+                else:
+                    patched_ui.append(ln)
+            (usb_sess / "ui-modules.tsv").write_text("\n".join(patched_ui) + "\n")
+            (usb_sess / "ui-modules.tsv").chmod(0o600)
+            (usb_sess / "files.sha256").unlink()
+            (usb_sess / "token").unlink()
+            mf0 = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(usb_sess.iterdir()))
+            (usb_sess / "files.sha256").write_text(mf0)
+            (usb_sess / "files.sha256").chmod(0o600)
+            (usb_sess / "token").write_text(TOKEN + "\n")
+            (usb_sess / "token").chmod(0o600)
+
+            # Add a mounted vfat USB volume carrying a valid ECDSA public key.
+            vol = root / "tmp/mnt/sda1"
+            vol.mkdir(parents=True, mode=0o700)
+            (root / "proc/self/mounts").write_text(
+                (root / "proc/self/mounts").read_text() + "/dev/sda1 /tmp/mnt/sda1 vfat rw 0 0\n"
+            )
+            key_path = root / "test_ecdsa"
+            subprocess.run(
+                ["ssh-keygen", "-q", "-t", "ecdsa", "-b", "256", "-N", "", "-f", str(key_path)],
+                check=True,
+            )
+            (vol / "open-connect.pub").write_bytes(key_path.with_suffix(".pub").read_bytes())
+
+            # Fresh install, boot once so Settings session is active, then enable base=1,
+            # import SSH key, enable uart=1 and ssh=1 via Settings session.
+            p0, r0 = self._call_api(api_bin, usb_sess, "-", "install", env=env)
+            self.assertEqual(p0.returncode, 0, (r0, p0.stderr))
+            rec0 = (data / "record").read_text().strip().split("|")
+            bs_bin = root / "usr/bin/open-connect-boot-select"
+            self.assertEqual(
+                subprocess.run(
+                    [str(bs_bin), "select", str(root)], env=env, capture_output=True
+                ).returncode,
+                0,
+            )
+            set_sess = ram / "sessions/session-setkey"
+            set_sess.mkdir(mode=0o700)
+            for nm in ("files.sha256", "api", "console.sh", "VERSION"):
+                shutil.copyfile(data / "packages" / rec0[3] / nm, set_sess / nm)
+                (set_sess / nm).chmod(0o700 if nm == "api" else 0o600)
+            (ram / "runtime").symlink_to(set_sess)
+
+            rev = r0["revision"]
+            p_b, r_b = self._call_api(api_bin, set_sess, rev, "set", "base", "0", "1", env=env)
+            self.assertEqual(p_b.returncode, 0, (r_b, p_b.stderr))
+            rev = r_b["revision"]
+            p_k, r_k = self._call_api(api_bin, set_sess, rev, "import", env=env)
+            self.assertEqual(p_k.returncode, 0, (r_k, p_k.stderr))
+            rev = r_k["revision"]
+            imported_key = r_k["key"]
+            self.assertEqual(len(imported_key), 64)
+            p_u, r_u = self._call_api(api_bin, set_sess, rev, "set", "uart", "0", "1", env=env)
+            self.assertEqual(p_u.returncode, 0, (r_u, p_u.stderr))
+            rev = r_u["revision"]
+            p_s, r_s = self._call_api(api_bin, set_sess, rev, "set", "ssh", "0", "1", env=env)
+            self.assertEqual(p_s.returncode, 0, (r_s, p_s.stderr))
+            rev = r_s["revision"]
+            self.assertEqual((r_s["base"], r_s["uart"], r_s["ssh"]), (1, 1, 1))
+
+            # Upgrade to a fresh package revision and assert base=1, uart=1, ssh=1, and key survive.
+            (usb_sess / "VERSION").write_text("0.3.0-dev.99\n")
+            (usb_sess / "VERSION").chmod(0o600)
+            for meta_nm in ("files.sha256", "token", "admitted", "closed"):
+                (usb_sess / meta_nm).unlink(missing_ok=True)
+            mf = "".join(
+                f"{sha(p.read_bytes())}  {p.name}\n"
+                for p in sorted(usb_sess.iterdir())
+                if not p.is_symlink() and p.is_file()
+            )
+            (usb_sess / "files.sha256").write_text(mf)
+            (usb_sess / "files.sha256").chmod(0o600)
+            (usb_sess / "token").write_text(TOKEN + "\n")
+            (usb_sess / "token").chmod(0o600)
+
+            p_up, r_up = self._call_api(api_bin, usb_sess, rev, "install", env=env)
+            self.assertEqual(p_up.returncode, 0, (r_up, p_up.stderr))
+            self.assertTrue(r_up["ok"] and r_up["installed"], r_up)
+            self.assertEqual((r_up["base"], r_up["uart"], r_up["ssh"]), (1, 1, 1))
+            self.assertEqual(r_up["key"], imported_key)
+            self.assertTrue((data / "keys" / f"{imported_key}.cmu").is_file())
+            rec_up = (data / "record").read_text().strip().split("|")
+            self.assertEqual(rec_up[1], "active")
+            self.assertNotEqual(rec_up[3], rec0[3])

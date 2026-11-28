@@ -347,7 +347,47 @@ long oc_block(void) {
     return oc_syscall4(175,0,(long)&mask,0,8);
 }
 int oc_stock_meta(int root, OcMeta *stock) { return oc_stat(root,stock)>=0; }
+#ifdef OC_TEST_PINFILE
+const char *oc_pin_digest(const char *key, const char *prod) {
+    static char table[8192];
+    static int loaded;
+    if (!loaded) {
+        loaded=1;
+        long fd=oc_openat(OC_CWD,"/etc/oc-test-pins",OC_READ,0);
+        if (fd>=0) {
+            unsigned used=0;
+            while (used+1<sizeof table) {
+                long n=oc_read((int)fd,table+used,sizeof table-1-used);
+                if (n==-4) continue;
+                if (n<=0) break;
+                used+=(unsigned)n;
+            }
+            table[used]=0;
+            (void)oc_close((int)fd);
+        }
+    }
+    if (!table[0]) return prod;
+    const char *p=table;
+    unsigned klen=oc_length(key);
+    while (*p) {
+        const char *line=p;
+        while (*p && *p!='\n') ++p;
+        const char *end=p;
+        if (*p=='\n') ++p;
+        if ((unsigned)(end-line)==klen+65 && line[klen]=='=' && oc_prefix(line,key)) {
+            static char hits[16][65];
+            static unsigned slot;
+            char *dst=hits[slot++ & 15];
+            memcpy(dst,line+klen+1,64);
+            dst[64]=0;
+            return dst;
+        }
+    }
+    return prod;
+}
+#else
 const char *oc_pin_digest(const char *key, const char *prod) { (void)key; return prod; }
+#endif
 int oc_dir_iter(int folder, int (*cb)(const char *name, void *ctx), void *ctx) {
     unsigned char buffer[4096];
     if (oc_syscall4(19,folder,0,0,0)<0) return 0;

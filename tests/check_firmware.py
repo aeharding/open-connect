@@ -159,7 +159,7 @@ def build(output, paths, host_cc):
     return data / "composed" / package
 
 
-def base_logging_contract(output, paths, node, composed):
+def base_logging_contract(output, paths, host_cc, node, composed):
     data = output / "compose"
     package = data / "packages" / composed.name
     harness = output / "idx_harness.c"
@@ -187,7 +187,7 @@ def base_logging_contract(output, paths, node, composed):
     idx_bin = output / "idx_harness"
     run(
         [
-            "clang",
+            host_cc,
             "-DOC_HOST",
             "-I",
             str(core),
@@ -373,7 +373,7 @@ def main(argv=None):
     }
     try:
         composed = build(output, paths, host_cc)
-        base_logging_contract(output, paths, node, composed)
+        base_logging_contract(output, paths, host_cc, node, composed)
         host_contract(output, paths, host_cc, node, composed)
         env = {
             **os.environ,

@@ -11,7 +11,7 @@ if(!usb&&(!boot||boot.notice!=="installed"||
  !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(boot.id)||
  !/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(boot.version)))return null;
 var slot=usb?"OpenConnectMaintenance":"OpenConnectCompletion",previous=window[slot];
-if(previous)previous.cancel(previous.token);
+if(previous)previous.cancel(previous.token,true);
 // Dev.22 can cancel this temporary claim for a deliberate Settings write.
 // It carries no shared read/client handoff and ends at first display or close.
 function releaseDiscovery(){
@@ -71,7 +71,7 @@ function show(fw, title, text, buttons, done, progress) {
   function transition() { finish("cancel"); return previousTransition.apply(this, arguments); }
   function input(event, first) {
     if (!eligible()) { finish("cancel"); return previousInput.apply(this, arguments); }
-    if (progress&&/^(goBack|touchActive|controllerActive|cw|ccw|select|selectStart|left|right|up|down|lostFocus)(Start)?$/.test(event)) { return; }
+    if (progress&&/^(touchActive|controllerActive|cw|ccw|lostFocus|(?:goBack|select|left|right|up|down)(?:Start|Hold)?)$/.test(event)) { return; }
     if (progress) { finish("cancel"); return previousInput.apply(this, arguments); }
     if (event==="goBack") { finish("cancel"); return; }
     if (/^(left|right|up|down)Start$/.test(event)) { return; }
@@ -193,9 +193,9 @@ function close(){
  if(window[slot]===client)window[slot]=null;
  if(window.ocCarPlay)ocCarPlay.pump();
 }
-function cancel(value){
+function cancel(value,replace){
  if(value!==token)return;
- if(job&&job.sent&&!(job.phase==="unresolved"&&!entry.current())||feedback||acking)return;
+ if(job&&job.sent&&!(job.phase==="unresolved"&&(replace||!entry.current()))||feedback||acking)return;
  close();
 }
 function closeUSB(){
@@ -220,7 +220,7 @@ function post(op,args,done,ms,intent){
  var index=requests.indexOf(cancelRequest);if(index!==-1)requests.splice(index,1);
  if(dead||intent!==epoch)return;
  if(op!=="restart"&&op!=="dismiss"&&!(op==="status"&&args&&args[0]==="session"))receive(a,originUSB&&op==="status"&&args&&args[0]==="settings",op==="status"&&args&&args[0]==="completion");
- done(a,xhr.status);
+ done(a);
 }
  xhr.onreadystatechange=function(){
  if(xhr.readyState!==4)return;
@@ -234,16 +234,14 @@ function post(op,args,done,ms,intent){
  xhr.send([token,op==="status"||!s?"-":s.revision,op].concat(args||["-","-","-"]).join("|"));
  }catch(error){finish(null);}
 }
-function read(done,until,attempts,intent,purpose){
+function read(done,until,intent,purpose){
  intent=intent===undefined?epoch:intent;
  if(intent!==epoch||dead)return;
- var left=until?until-Date.now():185000;
+ var left=until-Date.now();
  if(left<=0){done(null);return;}
- post("status",purpose?[purpose,"-","-"]:null,function(a,code){
- 
- if((a&&a.error==="busy"||(!a&&until))&&(until||(attempts||0)<8)){
-  setTimeout(function(){read(done,until,(attempts||0)+1,intent,purpose);},
-   until?Math.min(500,Math.max(0,until-Date.now())):500);
+ post("status",purpose?[purpose,"-","-"]:null,function(a){
+ if(a&&a.error==="busy"||!a){
+  setTimeout(function(){read(done,until,intent,purpose);},Math.min(500,Math.max(0,until-Date.now())));
  }else{done(a);}
  },left,intent);
 }
@@ -255,7 +253,7 @@ function message(title,text,hold){
  if(!job&&(framework.getCurrentApp()!=="system"||framework.getCurrCtxtId()!=="HomeScreen"))return false;
  return ui.message(framework,title,text,{button1:{label:"OK",appData:"done"}},function(action){
   dialog=null;if(hold){if(action==="done"){feedback=false;if(boot)close();else release();}else message(title,text,hold);}
-  else if(action==="done"&&originUSB&&!job)closeUSB();
+  else if((action==="done"||action==="cancel")&&!job){if(originUSB)closeUSB();else if(boot)close();}
 });
 };wake();
 }
@@ -282,7 +280,7 @@ function dismiss(done){
   else{read(function(fresh){
    var matched=sameProof(fresh,confirmation);if(!matched)known=false;
    finish(!!(matched&&fresh.notice==="-"));
-  },until,0,intent,"completion");}
+  },until,intent,"completion");}
  },left,intent);
 }
  send();
@@ -406,14 +404,16 @@ function wake(){
  if(!probing&&originUSB){
   probing=true;session(function(live){probing=false;if(live!==true)cancel(token);});
  }
- if(!dead)timer=setTimeout(wake,1000);
+ clearTimeout(timer);if(!dead&&(originUSB||queued||!job||job.phase!=="unresolved"))timer=setTimeout(wake,1000);
 }
 function completionWaiting(){
  var settings=window.OpenConnect;
  return originUSB&&(window.__ocCompletionLoading||window.OpenConnectCompletion||
   settings&&settings.openSettings&&settings.autoshowState()===2);
 }
-var client={token:token,close:close,cancel:cancel,protected:function(){
+var client={token:token,close:close,cancel:cancel,busy:function(){
+ return!!(job&&job.sent&&job.phase!=="unresolved"||feedback||acking);
+},protected:function(){
  return!!(job&&job.sent||feedback||acking);
 },autoshowState:function(){
  return held()||dialog||queued?2:!ready?1:0;
@@ -423,7 +423,7 @@ function prepared(a){
   // Recovery still consumes the full maintenance contract, with visible progress.
   read(function(fresh){
    if(valid(fresh)&&fresh.pending){ready=true;wake();}else close();
-  },Date.now()+12000,0,epoch,"settings");return;
+  },Date.now()+12000,epoch,"settings");return;
  }
  if(!(boot?proof(a):valid(a,originUSB))){
   if(boot){if(window.ocCarPlay)ocCarPlay.cancel();close();}
@@ -439,12 +439,12 @@ function prepared(a){
 function begin(){
  if(boot){
   if(!framework._browserShown){timer=setTimeout(begin,250);return;}
-  read(prepared,Date.now()+35000,0,epoch,"completion");
+  read(prepared,Date.now()+35000,epoch,"completion");
  }else session(function(live){
   if(live!==true){close();return;}
   read(function(a){
    session(function(stillLive){if(stillLive===true)prepared(a);else close();});
-  },Date.now()+65000,0,epoch,"settings");
+  },Date.now()+65000,epoch,"settings");
  });
 }
 window[slot]=client;

@@ -218,3 +218,34 @@ f=fixture();f.open();f.pick(0);f.pick(2);f.ack(null);
 assert.match(f.page().list2Ctrl.title.text1,/could not be confirmed/);f.end();
 f.pick(0);f.advance(900);assert.equal(f.host.divElt.style.display,"");
 f.unchanged();assert.equal(f.timers.size,0);
+
+// Status Bar Back (Global.GoBack) dismissing a toggle or CarPlay autoshow confirmation
+// dialog re-renders the row back to its saved value instead of leaving List2Ctrl out of sync.
+f=fixture();f.open();f.end();f.pick("developer");f.end();
+const devPage=f.page();
+devPage.list2Ctrl.selectCallback(devPage.list2Ctrl,"uart",{additionalData:1});
+assert.match(f.dialog.props.title,/Enable UART/);
+f.back();
+assert.equal(f.dialog.destroyed,true);
+assert.notEqual(f.page(),devPage,"toggle confirmation Back re-renders the page to revert List2Ctrl");
+assert.equal(f.row("uart").value,2);
+assert.equal(f.writes.length,0);
+f.back();f.end();f.pick("phone");f.end();f.pick(2);f.end();
+const cpPage=f.page();f.pick(1);
+assert.match(f.dialog.props.title,/Automatically show CarPlay/);
+f.back();
+assert.equal(f.dialog.destroyed,true);
+assert.notEqual(f.page(),cpPage,"radio confirmation Back re-renders to revert radio selection");
+assert.equal(f.page().list2Ctrl.dataList.items[0].checked,true);
+assert.equal(f.writes.length,0);
+f.fw.sendEventToMmui("common","Global.IntentHome");assert.equal(f.timers.size,0);
+
+// attach() tolerates null list2Ctrl.dataList when SystemTab is already active.
+{
+ f=fixture();
+ const list={properties:{selectCallback(){}},dataList:null,setDataList(d){this.dataList=d;},updateItems(){}};
+ f.host.list2Ctrl=list;
+ const app={_currentContextTemplate:f.host,_contextTable:{SystemTab:{readyFunction(){}}}};
+ const detach=f.settings.attach(f.fw,app,f.store);
+ detach();
+}

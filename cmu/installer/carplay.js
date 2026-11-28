@@ -21,10 +21,9 @@ function soon(){if(!edge)return;clearTimeout(job);job=setTimeout(pump,0);}
 function wrap(o,k,b,e){
 var old=o[k];
 o[k]=function(){
-try{if(b)b.apply(this,arguments);}catch(e){stop();}
-var r=old.apply(this,arguments);
-try{if(e)e.apply(this,arguments);}catch(e){stop();}
-return r;
+try{if(b)b.apply(this,arguments);}catch(err){stop();}
+try{return old.apply(this,arguments);}
+finally{try{if(e)e.apply(this,arguments);}catch(err){stop();}}
 };
 }
 function note(m){
@@ -68,8 +67,8 @@ if(typeof text!=="string"){safe=false;ids=null;}
 at={t:Date.now(),k:k,len:this._preInitGuiMsgQueue.length};
 },function(){
 var list=this._preInitGuiMsgQueue;
-for(var i=at.len;i<list.length;i++)note(list[i]);
-at=null;soon();
+if(at){for(var i=at.len;i<list.length;i++)note(list[i]);at=null;}
+soon();
 });
 wrap(f,"routeMmuiMsg",note,soon);
 wrap(f,"_focusStackChange",null,function(){

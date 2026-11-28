@@ -44,7 +44,7 @@ function show(fw, title, text, buttons, done, settings, progress) {
   function transition() { finish("cancel"); return previousTransition.apply(this, arguments); }
   function input(event, first) {
     if (!eligible()) { finish("cancel"); return previousInput.apply(this, arguments); }
-    if (progress&&/^(goBack|touchActive|controllerActive|cw|ccw|select|selectStart|left|right|up|down|lostFocus)(Start)?$/.test(event)) { return; }
+    if (progress&&/^(touchActive|controllerActive|cw|ccw|lostFocus|(?:goBack|select|left|right|up|down)(?:Start|Hold)?)$/.test(event)) { return; }
     if (progress) { finish("cancel"); return previousInput.apply(this, arguments); }
     if (event==="goBack") { finish("cancel"); return; }
     if (/^(left|right|up|down)Start$/.test(event)) { return; }
@@ -105,7 +105,7 @@ function show(fw, title, text, buttons, done, settings, progress) {
     }};
   }
   dialog.handleControllerEvent(fw.multicontroller.getMode());
-  return function () { finish("closed"); };
+  return function (action) { finish(action || "closed"); };
 }
 function versionText(version) {
   if (version===undefined||version==="-") { return "Unavailable"; }
@@ -144,9 +144,10 @@ f.instantiateControl=function (id, parent, kind, props) {
   return c;
 };
 f.destroyControl=function (c) {
-  var tag=c&&c._oc107, result=destroy.apply(this, arguments);
-  if (tag) { delete c._oc107; a.dialogs--; setTimeout(function () { a.pump(); }, 0); }
-  return result;
+  var tag=c&&c._oc107;
+  if (tag) { delete c._oc107; }
+  try { return destroy.apply(this, arguments); }
+  finally { if (tag) { if (a.dialogs > 0) { a.dialogs--; } setTimeout(function () { a.pump(); }, 0); } }
 };
 a.loaded |= 2; a.pump();
 }(typeof ocCarPlay==="undefined" ? null : ocCarPlay));

@@ -678,6 +678,56 @@ f.session(true);f.menu(false,false);f.ready();f.advance();
 assert.equal(f.count(),0,'pre-connection safety tracking still suppresses after idle traffic');
 console.log('Live regressions: non-focused cache, applied focus history, safety priority, active Nav and idle timer guard passed');
 
+// Keyboard Enter on Disclaimer Agree must release ocCarPlay.holding so HomeScreen can autoshow.
+f=fixture();f.native('system','Disclaimer');f.fw._initApp('system');
+{
+  const button={_isEnabled:true,_hasFocus:true,divElt:{contains:()=>false}};
+  const dialog=f.fw._currTmpltInstance.dialog3Ctrl={buttonCtrl_0:button};
+  f.session(true);f.menu();
+  f.event('keydown',{keyCode:13});
+  f.apps.system._contextTable.Disclaimer.controlProperties.Dialog3Ctrl.defaultSelectCallback(dialog,'Global.Yes');
+  f.native('system','HomeScreen');f.advance();
+  assert.equal(f.ctx.ocCarPlay.holding,false);
+  assert.equal(f.count(),1,'Enter on Disclaimer Agree releases holding and autoshows CarPlay');
+}
+
+// owner() combines multiple owners with max so 2 (cancel) beats 1 (wait), and check()
+// cancels on dialogs/blocked/dOff/voice even when another owner is 1 (wait).
+f=fixture();
+f.ctx.OpenConnectMaintenance={autoshowState:()=>1};
+f.ctx.OpenConnect={autoshowState:()=>2};
+assert.equal(f.ctx.ocCarPlay.owner(),2,'owner 2 dominates owner 1');
+f.session(true);f.menu();f.advance();
+assert.equal(f.ctx.ocCarPlay.edge(),null,'owner 2 cancels edge despite maintenance 1');
+f=fixture();
+f.ctx.OpenConnectMaintenance={autoshowState:()=>1};
+f.ctx.OpenConnect={autoshowState:()=>0};
+f.ctx.ocCarPlay.dialogs=1;
+f.session(true);f.menu();f.advance();
+assert.equal(f.ctx.ocCarPlay.edge(),null,'dialogs=1 cancels edge even when owner returns 1');
+// Missing framework.common in owner() does not throw.
+f=fixture();const savedCommon=f.fw.common;f.fw.common=null;
+assert.equal(f.ctx.ocCarPlay.owner(),0);
+f.fw.common=savedCommon;
+
+// Waking from system/DisplayOff to system/HomeScreen without focusStack clears dOff,
+// while background phone ctxtChg during DisplayOff keeps dOff active.
+f=fixture();
+f.native('system','DisplayOff');
+f.background('phone','DialPad');
+f.connect();assert.equal(f.count(),0,'background phone ctxtChg does not clear DisplayOff');
+f.send({msgType:'ctxtChg',uiaId:'system',ctxtId:'HomeScreen',contextSeq:3});
+f.session(false);f.connect();
+assert.equal(f.count(),1,'same-app system wake from DisplayOff clears dOff without focusStack');
+
+// Throwing inside stock _doRouteMmuiMsg still clears at via finally.
+f=fixture();
+const realRoute=f.fw.routeMmuiMsg;
+f.fw.routeMmuiMsg=()=>{throw Error('boom');};
+assert.throws(()=>f.send({msgType:'msg',uiaId:'system',msgId:'Test'}),/boom/);
+f.fw.routeMmuiMsg=realRoute;
+f.connect();assert.equal(f.count(),1,'recovery after throwing _doRouteMmuiMsg');
+
 }
 backgroundReplay();
 if(process.argv[3]) {

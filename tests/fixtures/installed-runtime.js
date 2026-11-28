@@ -791,3 +791,29 @@ f.fw._currTmpltInstance={contextInfo:{uiaId:'system',ctxtId:'Disclaimer'},dialog
 assert.equal(f.ctx.ocCarPlay.agree({type:'mousedown',target:{}}),false);
 f.fw._currTmpltInstance=null;
 assert.equal(f.ctx.ocCarPlay.agree('select'),false);
+
+// openSettings() reaching its 12 s refresh timeout shows Settings unavailable instead of failing silently.
+f=fixture(folder);f.install();
+assert.equal(f.ctx.OpenConnect.openSettings(),true);
+f.advance(12000);
+assert.match(f.dialog.props.title,/Settings unavailable/);
+assert.equal(f.ctx.OpenConnect.autoshowState(),2);
+f.pick('done');assert.equal(f.ctx.OpenConnect.autoshowState(),0);
+
+// XHR1 INVALID_STATE_ERR on reading xhr.status before readyState >= 2 must not break timeout/send-error cleanup.
+f=fixture(folder);
+const OrigXHR=f.ctx.XMLHttpRequest;
+f.ctx.XMLHttpRequest=function(){
+ const x=new OrigXHR();
+ let st=0;
+ Object.defineProperty(x,'status',{
+  get(){if((x.readyState||0)<2)throw Error('INVALID_STATE_ERR');return st;},
+  set(v){st=v;}
+ });
+ return x;
+};
+f.install();f.nativeSettings();f.tap();f.advance(12000);
+assert.match(f.dialog.props.title,/Settings unavailable/);
+f.pick('done');
+f.homeScreen();f.usb();f.advance(65000);
+assert.match(f.dialog.props.title,/Unable to finish/);

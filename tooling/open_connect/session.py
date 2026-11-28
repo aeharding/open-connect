@@ -234,8 +234,8 @@ class Bundle:
         with os.fdopen(fd, "wb") as f:
             f.write(data)
 
-    def finish(self, outcome, error=None):
-        if self.closed:
+    def finish(self, outcome, error=None, *, force=False):
+        if self.closed and not force:
             return
         self.meta.update(
             outcome=outcome,
@@ -273,17 +273,31 @@ class Bundle:
             )
         files = {}
         for p in sorted(self.path.iterdir()):
-            if p.is_file() and p.name != "manifest.json":
+            if p.is_file() and p.name not in ("manifest.json", ".manifest.json.tmp"):
                 data = p.read_bytes()
                 files[p.name] = dict(bytes=len(data), sha256=digest(data))
         self.meta["artifacts"] = files
-        if not (self.path / "manifest.json").exists():
-            self.save(
-                "manifest.json", (json.dumps(self.meta, indent=2, sort_keys=True) + "\n").encode()
-            )
-        self.closed = True
+        tmp = self.path / ".manifest.json.tmp"
+        mfd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            with os.fdopen(mfd, "wb") as mf:
+                mf.write((json.dumps(self.meta, indent=2, sort_keys=True) + "\n").encode())
+                mf.flush()
+                try:
+                    os.fsync(mf.fileno())
+                except OSError as exc:
+                    if close_err is None:
+                        close_err = exc
+            os.replace(tmp, self.path / "manifest.json")
+        except BaseException:
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+            raise
         if close_err is not None:
             raise close_err
+        self.closed = True
 
 
 def prompt_state(data):

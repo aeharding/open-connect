@@ -92,6 +92,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(calls, 0)
             self.assertFalse(manifest["adapter_observed"])
             self.assertFalse(manifest["serial_port_opened"])
+            self.assertTrue(manifest["port_closed"])
 
     def test_partial_tx_error_top_level_unknown_and_closed(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -147,6 +148,53 @@ class CliTests(unittest.TestCase):
             self.assertEqual(manifest["outcome"], "unknown")
             self.assertIn("close failed: KeyboardInterrupt", manifest["error"])
             self.assertFalse(manifest["port_closed"])
+
+    def test_unclosed_open_adapter_failure_and_lock_exit_error_match_manifest(self):
+        with tempfile.TemporaryDirectory() as temp:
+
+            def partial_open(bundle):
+                bundle.meta["serial_port_opened"] = True
+                raise OSError("synthetic post-open close failure")
+
+            rc, manifest, _ = self.invoke(Path(temp) / "unclosed", open_error=partial_open)
+            self.assertEqual(rc, 2)
+            self.assertEqual(manifest["outcome"], "unknown")
+            self.assertTrue(manifest["serial_port_opened"])
+            self.assertFalse(manifest["port_closed"])
+
+        class FailingExitLock(LockStub):
+            def __exit__(self, *_):
+                raise OSError("synthetic lock exit failure")
+
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "lock-exit"
+            port = FailingTransport(OSError("synthetic write error"), partial=False)
+            with (
+                patch.object(cli, "AdapterLock", return_value=FailingExitLock()),
+                patch.object(cli, "open_adapter", return_value=port),
+                contextlib.redirect_stdout(io.StringIO()) as out,
+            ):
+                rc = cli.main(
+                    [
+                        "--live",
+                        "--action",
+                        "command",
+                        "--command",
+                        "id",
+                        "--bundle",
+                        str(path),
+                        "--owner",
+                        "synthetic CLI test",
+                        "--deadline",
+                        "0.04",
+                    ]
+                )
+            manifest = json.loads((path / "manifest.json").read_text())
+            stdout_doc = json.loads(out.getvalue())
+            self.assertEqual(rc, 2)
+            self.assertEqual(stdout_doc["outcome"], "unknown")
+            self.assertEqual(manifest["outcome"], "unknown")
+            self.assertIn("synthetic lock exit failure", manifest["error"])
 
 
 if __name__ == "__main__":

@@ -375,21 +375,33 @@ def main(argv=None):
                     close_msg = str(exc) or type(exc).__name__
                     error = (error + "; " if error else "") + "close failed: " + close_msg
                     outcome, code = "unknown_preserved", 2
+                if bundle.meta["serial_port_opened"] and not bundle.meta["port_closed"]:
+                    outcome, code = "unknown_preserved", 2
                 bundle.finish(outcome, error)
                 finished = True
     except (Exception, KeyboardInterrupt, SystemExit) as exc:
         msg = str(exc) or type(exc).__name__
         error = (error + "; " if error else "") + msg
+        if not bundle.meta["serial_port_opened"]:
+            bundle.meta["port_closed"] = True
         uncertain = (
             sent
             or (session is not None and session.state == "uncertain")
             or finished
-            or outcome in ("staged_data_verified", "owned_stage_removed")
+            or outcome
+            in (
+                "staged_data_verified",
+                "owned_stage_removed",
+                "remote_refused_preserved",
+                "unknown_preserved",
+            )
+            or (bundle.meta["serial_port_opened"] and not bundle.meta["port_closed"])
         )
         outcome, code = ("unknown_preserved", 2) if uncertain else ("failed", 1)
-        if not finished:
-            bundle.finish(outcome, error)
-            finished = True
+        try:
+            bundle.finish(outcome, error, force=True)
+        except OSError:
+            pass
     print(json.dumps(dict(bundle=str(bundle.path), outcome=outcome, error=error), indent=2))
     return code
 

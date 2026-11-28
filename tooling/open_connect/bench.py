@@ -27,7 +27,6 @@ from open_connect.session import (
 )
 
 PROFILE = "silent-ui-v1"
-STATE = Path.cwd() / ".bench-state" / "profile.json"
 BUS = "unix:path=/tmp/dbus_hmi_socket"
 SERVICE = "com.xsembedded.service.AudioManagement"
 OBJECT = "/com/xse/service/AudioManagement/HmiMode"
@@ -528,21 +527,27 @@ def main(argv=None):
                     close_msg = str(exc) or type(exc).__name__
                     error = (error + "; " if error else "") + "close failed: " + close_msg
                     outcome, code = "unknown", 2
+                if bundle.meta["serial_port_opened"] and not bundle.meta["port_closed"]:
+                    outcome, code = "unknown", 2
                 bundle.finish(outcome, error)
                 finished = True
     except (Exception, KeyboardInterrupt, SystemExit) as exc:
         msg = type(exc).__name__ + ": " + str(exc)
         error = (error + "; " if error else "") + msg
+        if not bundle.meta["serial_port_opened"]:
+            bundle.meta["port_closed"] = True
         if (
             isinstance(exc, UnknownOutcome)
             or (session is not None and session.state == "uncertain")
-            or outcome == "verified"
+            or outcome in ("verified", "unknown")
             or finished
+            or (bundle.meta["serial_port_opened"] and not bundle.meta["port_closed"])
         ):
             outcome, code = "unknown", 2
-        if not finished:
-            bundle.finish(outcome, error)
-            finished = True
+        try:
+            bundle.finish(outcome, error, force=True)
+        except OSError:
+            pass
     print(
         json.dumps(
             dict(

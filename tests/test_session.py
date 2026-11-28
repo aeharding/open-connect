@@ -252,13 +252,20 @@ class SessionTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 b.finish("completed")
         self.assertTrue(all(f.closed for f in b.streams.values()))
-        self.assertTrue(b.closed)
+        self.assertFalse(b.closed)
         manifest = json.loads((b.path / "manifest.json").read_text())
         self.assertIn("synthetic fsync failure", manifest["error"])
-        b.finish("unknown", "second call is a no-op")
+        # Caller can cleanly escalate outcome after a failed finish; once sealed, repeat finish is a no-op.
+        b.finish("unknown", "escalated after fsync failure")
+        self.assertTrue(b.closed)
         self.assertEqual(
             json.loads((b.path / "manifest.json").read_text())["outcome"],
-            "completed",
+            "unknown",
+        )
+        b.finish("failed", "third call is a no-op")
+        self.assertEqual(
+            json.loads((b.path / "manifest.json").read_text())["outcome"],
+            "unknown",
         )
 
     def test_descriptor_lock_contention_and_release(self):

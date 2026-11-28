@@ -137,3 +137,20 @@ for(const invalid of [media('c'.repeat(32),'../session-ABC123'),media('not-a-tok
  assert.equal(f.mediaRequests.length,1);assert.equal(f.scripts.filter(n=>n.src.endsWith('/loader.js')).length,0);
 }
 console.log('USB receiver preserves native callback and installed Settings; eligibility, stale generations and deadlines passed');
+
+// Synchronous XHR send() throw during USB discovery must still schedule bounded retries.
+app=device();f=fixture(folder,{usbApp:app,autoMedia:false});
+const OrigXHR=f.ctx.XMLHttpRequest;
+let failNext=false;
+f.ctx.XMLHttpRequest=function(){
+ const x=new OrigXHR(),origSend=x.send;
+ x.send=function(b){if(failNext){failNext=false;throw Error('sync send fail');}return origSend.call(this,b);};
+ return x;
+};
+f.install();f.reply(f.mediaRequests[0],{ok:true,media:null});
+failNext=true;connected(f,app);
+const afterThrow=f.mediaRequests.length;
+f.advance(500);
+assert.equal(f.mediaRequests.length,afterThrow+1,'sync send throw still retries discovery after 500ms');
+f.reply(f.mediaRequests.at(-1),media('d'.repeat(32),'session-SYN123'));
+assert.ok(f.ctx.document.getElementById('oc-maintenance-loader'),'retry after sync throw launches loader');

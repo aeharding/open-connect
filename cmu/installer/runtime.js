@@ -60,7 +60,9 @@ if(left<=0){done(null);return;}
 post("status",fast?["settings","-","-"]:null,function(a,code){
 if(fast&&code===400){read(done,until,intent,false);return;}
 if(a&&a.error==="busy"||!a){
-setTimeout(function(){read(done,until,intent,fast);},Math.min(500,Math.max(0,until-Date.now())));
+var wait=until-Date.now();
+if(wait<=0){done(null);return;}
+setTimeout(function(){read(done,until,intent,fast);},Math.min(500,wait));
 }else{done(a);}
 },left,intent);
 }
@@ -189,21 +191,22 @@ c&&!c._openConnectDialog&&!c._openConnectPage&&!c._openConnectOperation&&
 function openWhenReady(){
 var intent=openIntent;
 if(!intent||!menus)return;
-function current(){
-return openIntent===intent&&Date.now()<=intent.until&&homeAvailable()&&
+function current(timed){
+return openIntent===intent&&(!timed||Date.now()<=intent.until)&&homeAvailable()&&
 framework._currTmpltInstance===intent.host&&
 (!intent.host.contextInfo||intent.host.contextInfo.contextSeq===intent.seq);
 }
-if(!current()||held()){openIntent=null;clearTimeout(openTimer);return;}
+if(!current(true)||held()){openIntent=null;clearTimeout(openTimer);return;}
 function open(ok){
-var active=current();
+var active=current(false);
 if(openIntent===intent){openIntent=null;clearTimeout(openTimer);}
 if(!active)return;
-if(ok)menus.fromHome(framework,store,function(){});else store.unavailable();
+if(ok){if(Date.now()<=intent.until)menus.fromHome(framework,store,function(){});}
+else store.unavailable();
 }
 if(values())open(true);else{
 clearTimeout(openTimer);
-openTimer=setTimeout(function(){if(openIntent===intent)openIntent=null;},Math.max(1,intent.until-Date.now())+1);
+openTimer=setTimeout(function(){if(openIntent===intent)openIntent=null;},Math.max(1,intent.until-Date.now())+250);
 store.refresh(open,intent.until);
 }
 }
@@ -245,7 +248,7 @@ window.__ocUSBReceiver=true;
 var generation=0,until=0,retry=500,timer,abort,bound,last,loading;
 function stop(){clearTimeout(timer);if(abort){var old=abort;abort=null;old();}}
 function start(wait){
-stop();generation++;retry=500;until=wait?Date.now()+65000:0;read(generation);
+generation++;stop();retry=500;until=wait?Date.now()+65000:0;read(generation);
 }
 function launch(media){
 if(media.token===last)return false;
@@ -265,9 +268,10 @@ node=document.getElementById(L);loading=node;return true;
 }
 function read(intent){
 var left=until?until-Date.now():3000;if(left<=0)return;
-var cancel;
-cancel=abort=ctrl(token+"|-|status|media|-|-",function(answer){
-if(intent!==generation||abort!==cancel)return;
+var settled=false,cancel;
+cancel=ctrl(token+"|-|status|media|-|-",function(answer){
+settled=true;
+if(intent!==generation)return;
 abort=null;
 var media=answer&&answer.ok===true&&answer.media;
 if(media&&typeof media.session==="string"&&typeof media.token==="string"&&
@@ -279,6 +283,7 @@ timer=setTimeout(function(){read(intent);},Math.min(retry,until-Date.now()));
 retry=Math.min(retry*2,2000);
 }
 },Math.min(3000,left));
+if(!settled&&intent===generation)abort=cancel;
 }
 function bind(){
 var app=f.getAppInstance("usbaudio"),table=app&&app._messageTable;

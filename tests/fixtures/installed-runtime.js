@@ -792,13 +792,23 @@ assert.equal(f.ctx.ocCarPlay.agree({type:'mousedown',target:{}}),false);
 f.fw._currTmpltInstance=null;
 assert.equal(f.ctx.ocCarPlay.agree('select'),false);
 
-// openSettings() reaching its 12 s refresh timeout shows Settings unavailable instead of failing silently.
+// openSettings() reaching its 12 s refresh timeout shows Settings unavailable instead of failing silently,
+// even when Opera timer jitter fires the XHR timeout slightly past intent.until.
 f=fixture(folder);f.install();
 assert.equal(f.ctx.OpenConnect.openSettings(),true);
 f.advance(12000);
 assert.match(f.dialog.props.title,/Settings unavailable/);
 assert.equal(f.ctx.OpenConnect.autoshowState(),2);
 f.pick('done');assert.equal(f.ctx.OpenConnect.autoshowState(),0);
+{
+ f=fixture(folder);
+ const origSetTimeout=f.ctx.setTimeout;
+ f.ctx.setTimeout=(fn,ms)=>origSetTimeout(fn,ms===12000?12015:ms);
+ f.install();
+ assert.equal(f.ctx.OpenConnect.openSettings(),true);
+ f.advance(12015);
+ assert.match(f.dialog.props.title,/Settings unavailable/,'timer jitter past intent.until still surfaces Settings unavailable');
+}
 
 // XHR1 INVALID_STATE_ERR on reading xhr.status before readyState >= 2 must not break timeout/send-error cleanup.
 f=fixture(folder);

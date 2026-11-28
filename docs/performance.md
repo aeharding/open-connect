@@ -14,7 +14,7 @@ remains open**: these are SSH-started software-reboot traces without camera
 Home-visible timing, ACC-off cold-start intervals, or real-car qualification.
 
 Published build: tag `v0.3.0-dev.26`, source
-`cd7095c3be8bf100a3f4a0717e0d601e3159b3df`,
+`cd7095c2f031cf8cbf1c8de611f19001877429e1`,
 [CI 46111168052](https://github.com/aeharding/open-connect/actions/runs/46111168052),
 ZIP SHA-256 `db001e0c15da64aad04d75cf2dacaea4545093dcd92614eb5bec688e20247063`.
 
@@ -40,10 +40,11 @@ ZIP SHA-256 `db001e0c15da64aad04d75cf2dacaea4545093dcd92614eb5bec688e20247063`.
   this software-reboot batch; `/proc/<pid>/stat` process start times (`opera`, `carplayd`)
   and native `/tmp/open-connect/startup-times` stamps are reported separately and are not
   substitutes for visible Home or usable CarPlay.
-- Metric formulas match the dev.20 ACC cohort below: cumulative boot CPU at the sample
-  nearest 60 s (`USER_HZ=100`, two cores = 100%), settled CPU and RAM minima/end across
-  samples wholly inside uptime **60–170 s**, and available-RAM proxy
-  `MemFree + Buffers + Cached + SReclaimable − Shmem`.
+- Metric definitions follow the dev.20 ACC cohort below: cumulative boot CPU at the sample
+  nearest 60 s (`USER_HZ=100`, two cores = 100%), settled CPU across samples wholly inside
+  uptime **60–170 s**, RAM minima/end over that same **60–170 s** window (all 9 trials
+  reach their observed minimum within 60–170 s because collection starts at 35–44 s), and
+  available-RAM proxy `MemFree + Buffers + Cached + SReclaimable − Shmem`.
 
 ### Medians across n=3 software-reboot trials
 
@@ -59,8 +60,8 @@ Differences calculated before rounding displayed medians:
   **+0.06 pp**, ending available-RAM proxy **+2.43 MiB**, `AnonPages` **−2.67 MiB**,
   `opera` start **+0.09 s** (13.11 vs 13.02 s), `carplayd` start **+0.10 s** (7.87 vs 7.77 s).
   Native `boot-select` held the gate for **0.02–0.03 s** (`hook_entry` 5.72 s →
-  `gate_released` 5.74 s) and exited **0.71–0.84 s before `join_entered`** (**0.00 s join wait**
-  on all six installed boots). Own allocated tmpfs dropped to **332 KiB** (down 64 KiB from
+  `gate_released` 5.74 s) and exited **0.71–0.84 s before `join_entered`** on `Base=0`
+  (**0.65–0.79 s** on `Base=1`, **0.00 s join wait** across all six installed boots). Own allocated tmpfs dropped to **332 KiB** (down 64 KiB from
   396 KiB in `v0.3.0-dev.20`), and the freestanding native `ignition` observer used **12 KiB PSS**
   across all six installed trials (down from 160 KiB in the `dev.20` shell observer snapshot).
 - **`dev.26 Base=1` vs Stock:** boot CPU **−6.36 pp** (−7.69 busy CPU-s), settled CPU

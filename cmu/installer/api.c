@@ -160,14 +160,16 @@ static int run(int argc,char **argv) {
     if(oc_equal(op,"status")&&oc_equal(fields[3],"media")) { media_offer(argv[1]);return 0; }
     int handled=oc_api_handle(argv[1],fields[1],op,fields[3],fields[4],fields[5]);
     if(handled!=OC_API_FALLBACK)return handled==OC_API_DONE?0:1;
-    char *args[]={"sh",argv[2],"api",fields[1],fields[2],fields[3],fields[4],fields[5],0};
+    if(!oc_absent_at(OC_CWD,argv[2])) {
+        char *args[]={"sh",argv[2],"api",fields[1],fields[2],fields[3],fields[4],fields[5],0};
 #ifdef OC_HOST
-    extern char **environ;
-    (void)oc_execve("/bin/sh",args,environ);
+        extern char **environ;
+        (void)oc_execve("/bin/sh",args,environ);
 #else
-    char *env[]={"PATH=/bin:/sbin:/usr/bin:/usr/sbin","LC_ALL=C",0};
-    (void)oc_execve("/bin/sh",args,env);
+        char *env[]={"PATH=/bin:/sbin:/usr/bin:/usr/sbin","LC_ALL=C",0};
+        (void)oc_execve("/bin/sh",args,env);
 #endif
+    }
     send_text("{\"ok\":false,\"error\":\"backend_unavailable\"}\n");return 1;
 bad:
     response(400,"bad_request");return 1;

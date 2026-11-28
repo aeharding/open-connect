@@ -467,12 +467,22 @@ class NativeMaintenance(unittest.TestCase):
         pkg_tmp.rename(f.package)
         comp_dst = f.data / "composed" / f.package_id
         shutil.copytree(f.composed, comp_dst)
+        from tests.test_installer_preferences import InstallerPreferences
+
         idx_tpl = (
             '<html><head><script src="common/js/logDefaults.js"></script></head>'
             "<body><script>/*@TOKEN@*/framework.init();</script></body></html>\n"
         )
         for nm in ("index-on.html", "index-off.html"):
             (comp_dst / nm).write_text(idx_tpl)
+            (comp_dst / nm).chmod(0o600)
+        for nm, wcp in (
+            ("sm-normal-on.conf", False),
+            ("sm-normal-off.conf", False),
+            ("sm-wcp-on.conf", True),
+            ("sm-wcp-off.conf", True),
+        ):
+            (comp_dst / nm).write_text(InstallerPreferences().profile(wcp))
             (comp_dst / nm).chmod(0o600)
         f.manifest(comp_dst)
         f.composed = comp_dst
@@ -697,16 +707,52 @@ class NativeMaintenance(unittest.TestCase):
         self.assertTrue((f.data / "snapshots" / rec_id / "boot.plan").is_file())
         self.assertEqual(f._run_helper("audit", str(f.root), rec_id).returncode, 0)
 
-        # 8) Native `uninstall`: refuses on-flash session, succeeds from RAM session, restores everything & purges D
+        # 8) Native `uninstall`: verify cleanup_requires_ram on flash session, then uninstall from RAM
         flash_sess = f.data / "on-flash"
         flash_sess.mkdir(mode=0o700)
         shutil.copyfile(session / "VERSION", flash_sess / "VERSION")
+        shutil.copyfile(session / "files.sha256", flash_sess / "files.sha256")
+        saved_rec = (f.data / "record").read_text()
+        rec_f = saved_rec.strip().split("|")
+        rec_f[1] = "removed"
+        rec_f[6] = "-"
+        rec_f[7] = "-"
+        (f.data / "record").write_text("|".join(rec_f) + "\n")
         (f.ram / "runtime").unlink()
         (f.ram / "runtime").symlink_to(flash_sess)
-        # First uninstall fails cleanup_requires_ram only if already in removed; test active uninstall from RAM
+        p_fl = subprocess.run(
+            [str(self.api_bin), "--handle", str(flash_sess), rec_f[5], "uninstall", "-", "-", "-"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertEqual(json.loads(p_fl.stdout)["error"], "cleanup_requires_ram")
+        (f.data / "record").write_text(saved_rec)
         (f.ram / "runtime").unlink()
         (f.ram / "runtime").symlink_to(session)
         shutil.rmtree(flash_sess)
+
+        # 8b) Unsupported op (install) on 8-file Settings session (NO backend.sh) returns JSON error, never empty HTTP 200
+        tok = "a" * 32
+        (session / "token").write_text(tok + "\n")
+        (session / "token").chmod(0o600)
+        body = f"{tok}|{rec_id}|install|-|-|-"
+        http_req = (
+            f"POST /control HTTP/1.0\r\nContent-Type: text/plain\r\n"
+            f"Content-Length: {len(body)}\r\n\r\n{body}"
+        )
+        p_http = subprocess.run(
+            [str(self.api_bin), str(session / "token"), str(session / "backend.sh")],
+            input=http_req,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertIn("200 OK", p_http.stdout)
+        http_json = json.loads(p_http.stdout.split("\n\n", 1)[1])
+        self.assertEqual(http_json, {"ok": False, "error": "invalid_request"})
 
         proc, r_un = call(rec_id, "uninstall")
         self.assertEqual(proc.returncode, 0, (r_un, proc.stderr))
@@ -726,6 +772,339 @@ class NativeMaintenance(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, (r_emp, proc.stderr))
         self.assertTrue(r_emp["ok"] and not r_emp["pending"])
         self.assertFalse(f.data.exists())
+
+    def test_adversarial_regressions_nvram_commit_pins_integrity_and_leases(self):
+        """Regression suite for Neon R1 findings #1-#7, #10-#11, #14."""
+        from tests.test_installer_boot_selection import NativeBootSelection
+
+        NativeBootSelection.setUpClass()
+        self.addCleanup(NativeBootSelection.tearDownClass)
+        f = NativeBootSelection(
+            "test_touch_disabled_stages_verified_executable_without_warning_or_base"
+        )
+        f.setUp()
+        self.addCleanup(f.doCleanups)
+
+        (f.root / "etc").mkdir(parents=True, exist_ok=True)
+        (f.root / "etc/passwd").write_text("cmu:x:0:0:owner:/root:/bin/sh\n")
+        (f.root / "proc/uptime").write_text("100.00 0.00\n")
+        (f.root / "proc/mounts").write_text((f.root / "proc/self/mounts").read_text())
+        nv_store = f.root / "sys/class/nvram/nv-config"
+        for ctl in ("add", "remove", "commit"):
+            (nv_store / ctl).write_text("")
+        for _, tpath, tdata, _ in f.TOUCH_INPUTS:
+            f.put(tpath, tdata)
+        for _, bpath, bdata, _ in f.BASE_INPUTS:
+            f.put(bpath, bdata)
+        vui_dir = f.root / "jci/vui/plugins"
+        vui_dir.mkdir(parents=True, exist_ok=True)
+        ui_lines = (ASSETS / "ui-modules.tsv").read_text().splitlines()
+        vui_pins = [
+            ln.split("\t")
+            for ln in ui_lines
+            if ln and not ln.startswith("#") and ln.startswith("vui\t")
+        ][:40]
+        for row in vui_pins:
+            (vui_dir / row[1]).write_bytes(b"vui-plugin-" + row[1].encode() + b"\n")
+        pin_overrides = {
+            f"base/vui/{row[1]}": sha((vui_dir / row[1]).read_bytes()) for row in vui_pins
+        }
+
+        runlogin = f.root / "usr/bin/runlogin"
+        stock_login = b"#!/bin/sh\nexec /bin/login\n"
+        runlogin.write_bytes(stock_login)
+        runlogin.chmod(0o755)
+        opened_login = runlogin.open("rb")
+        self.addCleanup(opened_login.close)
+        login_inode = os.fstat(opened_login.fileno()).st_ino
+        login_meta = mode_str(runlogin)
+
+        sshd_cfg = f.root / "etc/ssh/sshd_config"
+        sshd_cfg.parent.mkdir(parents=True, exist_ok=True)
+        stock_sshd = (
+            b"Port 36000\n"
+            b"AuthorizedKeysFile /config-mfg/authorized_keys /owner/keys.%u\n"
+            b"PasswordAuthentication no\n"
+        )
+        sshd_cfg.write_bytes(stock_sshd)
+        sshd_cfg.chmod(0o644)
+        sshd_meta = mode_str(sshd_cfg)
+
+        sshd_stub = f.root / "sshd-stub"
+        sshd_stub.write_text('#!/bin/sh\ntest "$1" = -t && test "$2" = -f && test -f "$3"\n')
+        sshd_stub.chmod(0o700)
+
+        pkg_tmp = f.data / "packages/.new-reg"
+        pkg_tmp.mkdir(mode=0o700)
+        for p in sorted(f.package.iterdir()):
+            if p.name != "files.sha256":
+                (pkg_tmp / p.name).write_bytes(p.read_bytes())
+                (pkg_tmp / p.name).chmod(p.stat().st_mode & 0o777)
+        for extra in (
+            "ui-profile.awk",
+            "system-hook.js",
+            "base-logging.js",
+            "console.sh",
+            "services.tsv",
+        ):
+            (pkg_tmp / extra).write_bytes((ASSETS / extra).read_bytes())
+            (pkg_tmp / extra).chmod(0o600)
+        patched_ui = []
+        for ln in ui_lines:
+            if ln and not ln.startswith("#") and ln.startswith("vui\t"):
+                parts = ln.split("\t")
+                parts[3] = pin_overrides.get(f"base/vui/{parts[1]}", parts[3])
+                patched_ui.append("\t".join(parts))
+            else:
+                patched_ui.append(ln)
+        (pkg_tmp / "ui-modules.tsv").write_text("\n".join(patched_ui) + "\n")
+        (pkg_tmp / "ui-modules.tsv").chmod(0o600)
+
+        old_pkg_id = f.package_id
+        pkg_mf = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(pkg_tmp.iterdir()))
+        (pkg_tmp / "files.sha256").write_text(pkg_mf)
+        (pkg_tmp / "files.sha256").chmod(0o600)
+        f.package_id = sha(pkg_mf.encode())
+        f.package = f.data / "packages" / f.package_id
+        pkg_tmp.rename(f.package)
+        comp_dst = f.data / "composed" / f.package_id
+        shutil.copytree(f.composed, comp_dst)
+        from tests.test_installer_preferences import InstallerPreferences
+
+        idx_tpl = (
+            '<html><head><script src="common/js/logDefaults.js"></script></head>'
+            "<body><script>/*@TOKEN@*/framework.init();</script></body></html>\n"
+        )
+        for nm in ("index-on.html", "index-off.html"):
+            (comp_dst / nm).write_text(idx_tpl)
+            (comp_dst / nm).chmod(0o600)
+        for nm, wcp in (
+            ("sm-normal-on.conf", False),
+            ("sm-normal-off.conf", False),
+            ("sm-wcp-on.conf", True),
+            ("sm-wcp-off.conf", True),
+        ):
+            (comp_dst / nm).write_text(InstallerPreferences().profile(wcp))
+            (comp_dst / nm).chmod(0o600)
+        f.manifest(comp_dst)
+        f.composed = comp_dst
+
+        sel_bin = f.root / "usr/bin/open-connect-boot-select"
+        sel_bin.write_bytes((f.package / "boot-select").read_bytes())
+        sel_bin.chmod(0o700)
+        sel_line = f"{sha(sel_bin.read_bytes())}|{mode_str(sel_bin)}|{f.package_id}\n"
+        acc_line = f"0|0|-|{login_meta}|{sshd_meta}|{login_inode}\n"
+
+        base_work = f.data / "snapshots/.new-base"
+        shutil.copytree(f.baseline, base_work)
+        (base_work / "files.sha256").unlink()
+        (base_work / "access").write_text(acc_line)
+        (base_work / "runlogin").write_bytes(stock_login)
+        (base_work / "sshd.conf").write_bytes(stock_sshd)
+        (base_work / "selector").write_text("-\n")
+        for p in base_work.iterdir():
+            p.chmod(0o600)
+        bmf = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(base_work.iterdir()))
+        (base_work / "files.sha256").write_text(bmf)
+        (base_work / "files.sha256").chmod(0o600)
+        base_id = sha(bmf.encode())
+        base_dir = f.data / "snapshots" / base_id
+        base_work.rename(base_dir)
+        f.baseline = base_dir
+
+        new_deps = []
+        for kind, folder in (("package", f.package), ("composed", f.composed)):
+            mf_id = sha((folder / "files.sha256").read_bytes())
+            for p in sorted(folder.iterdir()):
+                if p.name != "files.sha256":
+                    new_deps.append((sha(p.read_bytes()), f"{kind}-{f.package_id}/{p.name}"))
+            new_deps.append((mf_id, f"{kind}-{f.package_id}/files.sha256"))
+        for line in (f.snapshot / "dependencies").read_text().splitlines():
+            d, k = line.split("  ", 1)
+            if k.startswith(f"package-{old_pkg_id}/") or k.startswith(f"composed-{old_pkg_id}/"):
+                continue
+            new_deps.append((d, k))
+
+        cur_work = f.data / "snapshots/.new-cur"
+        shutil.copytree(f.snapshot, cur_work)
+        (cur_work / "files.sha256").unlink()
+        (cur_work / "boot.plan").unlink()
+        (cur_work / "config").write_text(
+            (cur_work / "config")
+            .read_text()
+            .replace(old_pkg_id, f.package_id)
+            .replace("base=0\n", "base=1\n")
+            .replace("wireless=1\n", "wireless=0\n")
+            .replace(
+                "service-ids=android-auto,pandora\nservice.android-auto=1\nservice.pandora=1\n",
+                "service-ids=android-auto,pandora,siriusxm\n"
+                "service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\n",
+            )
+        )
+        (cur_work / "dependencies").write_text("".join(f"{d}  {k}\n" for d, k in new_deps))
+        (cur_work / "access").write_text(acc_line)
+        (cur_work / "runlogin").write_bytes(stock_login)
+        (cur_work / "sshd.conf").write_bytes(stock_sshd)
+        (cur_work / "selector").write_text(sel_line)
+        (cur_work / "vui-plugins.list").write_text("".join(f"{row[1]}\n" for row in vui_pins))
+        for p in cur_work.iterdir():
+            p.chmod(0o600)
+        cmf = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(cur_work.iterdir()))
+        (cur_work / "files.sha256").write_text(cmf)
+        (cur_work / "files.sha256").chmod(0o600)
+        cur_id = sha(cmf.encode())
+        cur_work.rename(f.data / "snapshots" / cur_id)
+        f.snapshot = f.data / "snapshots" / cur_id
+
+        rec_f = (f.data / "record").read_text().strip().split("|")
+        rec_f[3] = f.package_id
+        rec_f[4] = base_id
+        rec_f[5] = cur_id
+        (f.data / "record").write_text("|".join(rec_f) + "\n")
+        (f.data / "keys").mkdir(mode=0o700, exist_ok=True)
+
+        session = f.ram / "sessions/session-reg001"
+        session.mkdir(parents=True, mode=0o700)
+        for nm in ("VERSION", "files.sha256", "console.sh"):
+            shutil.copyfile(f.package / nm, session / nm)
+            (session / nm).chmod(0o600)
+        (f.ram / "runtime").symlink_to(session)
+        (f.ram / "selected").write_text(cur_id + "\n")
+        (f.ram / "selected").chmod(0o600)
+        (f.ram / "lock").write_text("")
+        (f.ram / "lock").chmod(0o600)
+        env = f._host_env(
+            {
+                "PATH": f.build.name + os.pathsep + os.environ["PATH"],
+                "OC_HOST_ROOT": str(f.root),
+                "OC_HOST_NONROOT": "1",
+                "OC_HOST_SSHD": str(sshd_stub),
+                "OC_HOST_SKIP_FW_GUARD": "1",
+                "OC_HOST_WIRELESS_FILE": str(f.root / "no-wireless"),
+            }
+        )
+
+        def call(rev, op, arg="-", exp="-", des="-", extra_env=None, sdir=session):
+            p = subprocess.run(
+                [str(self.api_bin), "--handle", str(sdir), rev, op, arg, exp, des],
+                env={**env, **(extra_env or {})},
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            return p, json.loads(p.stdout)
+
+        # Seal cur_id natively with base=1 via uart 0->1->0
+        p_s1, r_s1 = call(cur_id, "set", "uart", "0", "1")
+        self.assertEqual(p_s1.returncode, 0, (r_s1, p_s1.stderr))
+        p_s0, r_s0 = call(r_s1["revision"], "set", "uart", "1", "0")
+        self.assertEqual(p_s0.returncode, 0, (r_s0, p_s0.stderr))
+        cur_id = r_s0["revision"]
+        (f.ram / "selected").write_text(cur_id + "\n")
+
+        # (A) Finding #1: post-write / pre-commit NVRAM failure -> recover MUST still write commit!
+        p_fail, r_fail = call(cur_id, "set", "touch", "1", "0", {"OC_HOST_NVRAM_FAIL": "after"})
+        self.assertEqual(r_fail["error"], "nvram_commit_failed")
+        self.assertFalse((nv_store / "keys/lvds_speed_restriction").exists())
+        (nv_store / "commit").write_text("")
+        rec_p = (f.data / "record").read_text().strip().split("|")
+        self.assertEqual(rec_p[1], "set")
+        p_rec, r_rec = call(rec_p[2], "recover")
+        self.assertEqual(p_rec.returncode, 0, (r_rec, p_rec.stderr))
+        self.assertTrue(r_rec["ok"] and r_rec["touch"] == 0 and not r_rec["pending"])
+        self.assertEqual((nv_store / "commit").read_text(), "\n")
+        cur_id = r_rec["revision"]
+
+        # (F) Finding #3: touch=2 -> 0 recovery with drifted touch pins succeeds NATIVELY without backend.sh
+        p_t2, r_t2 = call(cur_id, "set", "touch", "0", "2")
+        self.assertEqual(p_t2.returncode, 0, (r_t2, p_t2.stderr))
+        t2_id = r_t2["revision"]
+        touch_pin = f.root / "jci/devices/svc-com-jci-cpp-devices.so"
+        orig_tp = touch_pin.read_bytes()
+        touch_pin.write_bytes(b"drifted-devices-so\n")
+        p_t0, r_t0 = call(t2_id, "set", "touch", "2", "0")
+        self.assertEqual(p_t0.returncode, 0, (r_t0, p_t0.stderr))
+        self.assertTrue(r_t0["ok"] and r_t0["touch"] == 0 and not r_t0["pending"])
+        cur_id = r_t0["revision"]
+        self.assertTrue((f.data / "snapshots" / cur_id / "boot.plan").is_file())
+        touch_pin.write_bytes(orig_tp)
+
+        # (B) Finding #7: base=1 pin drift must refuse BEFORE mutating rootfs or record on set uart
+        base_pin = f.root / "config/common/log/settings.txt"
+        orig_base = base_pin.read_bytes()
+        base_pin.write_bytes(b"drifted-base\n")
+        _, r_drift = call(cur_id, "set", "uart", "0", "1")
+        self.assertEqual(r_drift["error"], "base_inputs_changed")
+        self.assertEqual((f.data / "record").read_text().strip().split("|")[1], "active")
+        self.assertEqual(runlogin.read_bytes(), stock_login)
+        base_pin.write_bytes(orig_base)
+
+        # (C) Finding #11: tampered session console.sh must be refused on set uart 0->1
+        orig_console = (session / "console.sh").read_bytes()
+        (session / "console.sh").write_bytes(b"#!/bin/sh\necho tampered\n")
+        _, r_tc = call(cur_id, "set", "uart", "0", "1")
+        self.assertEqual(r_tc["error"], "access_plan_failed")
+        (session / "console.sh").write_bytes(orig_console)
+
+        # (G) Finding #4: USB retained lease rejects stale revision & out-of-range deadline
+        usb_sess = f.ram / "sessions/session-usb999"
+        usb_sess.mkdir(parents=True, mode=0o700)
+        shutil.copyfile(f.package / "VERSION", usb_sess / "VERSION")
+        (usb_sess / "closed").write_text("")
+        (f.ram / "usb-runtime").symlink_to(usb_sess)
+        (usb_sess / "admitted").symlink_to(f"OCUSB1|15000|{'0' * 64}")
+        _, r_sr = call(cur_id, "restart", sdir=usb_sess)
+        self.assertEqual(r_sr["error"], "session_closed")
+        (usb_sess / "admitted").unlink()
+        (usb_sess / "admitted").symlink_to(f"OCUSB1|99999|{cur_id}")
+        _, r_ed = call(cur_id, "restart", sdir=usb_sess)
+        self.assertEqual(r_ed["error"], "session_closed")
+        (usb_sess / "admitted").unlink()
+        (usb_sess / "admitted").symlink_to(f"OCUSB1|15000|{cur_id}")
+        p_ok, r_ok = call(cur_id, "restart", sdir=usb_sess)
+        self.assertEqual(p_ok.returncode, 0, (r_ok, p_ok.stderr))
+        self.assertEqual(r_ok, {"ok": True, "restarting": True})
+
+        # (D) Finding #5: corrupt profile file (index.html) in cur snapshot refused by status:- and set uart
+        idx_file = f.data / "snapshots" / cur_id / "index.html"
+        orig_idx = idx_file.read_bytes()
+        idx_file.write_bytes(b"corrupted-index\n")
+        _, r_st = call("-", "status", "-")
+        self.assertTrue(
+            r_st.get("error") == "invalid_snapshot" or (r_st.get("ok") and r_st.get("conflict")),
+            r_st,
+        )
+        _, r_bu = call(cur_id, "set", "uart", "0", "1")
+        self.assertEqual(r_bu["error"], "state_changed")
+        idx_file.write_bytes(orig_idx)
+
+        # (E) Finding #2: corrupt R_BASE must fail closed in status:- (conflict=True)
+        base_cfg = base_dir / "config"
+        orig_bcfg = base_cfg.read_bytes()
+        base_cfg.write_bytes(b"corrupt-base\n")
+        _, r_cb = call("-", "status", "-")
+        self.assertTrue(r_cb["ok"] and r_cb["conflict"])
+        base_cfg.write_bytes(orig_bcfg)
+
+        # (H) Finding #6: stock snapshot with non-'-' selector refused
+        bad_sel_dir = f.data / "snapshots/badsel"
+        shutil.copytree(base_dir, bad_sel_dir)
+        (bad_sel_dir / "files.sha256").unlink()
+        (bad_sel_dir / "selector").write_text(sel_line)
+        bad_mf = "".join(
+            f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(bad_sel_dir.iterdir())
+        )
+        (bad_sel_dir / "files.sha256").write_text(bad_mf)
+        (bad_sel_dir / "files.sha256").chmod(0o600)
+        bad_sel_id = sha(bad_mf.encode())
+        bad_sel_dir.rename(f.data / "snapshots" / bad_sel_id)
+        rec_orig = (f.data / "record").read_text()
+        rf = rec_orig.strip().split("|")
+        rf[4] = bad_sel_id
+        (f.data / "record").write_text("|".join(rf) + "\n")
+        _, r_bs = call("-", "status", "-")
+        self.assertTrue(r_bs["ok"] and r_bs["conflict"])
+        (f.data / "record").write_text(rec_orig)
 
     def test_usb_fence_accepts_native_only_pinned_settings_session(self):
         from tests.host_bins import copy_host_flush
@@ -796,3 +1175,37 @@ class NativeMaintenance(unittest.TestCase):
             bad = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=10)
             self.assertNotEqual(bad.returncode, 0)
             self.assertIn("invalid_legacy_source", bad.stderr)
+
+            # Finding #14: package with unpinned backend.sh must be refused even if session lacks backend.sh!
+            pkg2_tmp = data / "packages/.pkg2"
+            pkg2_tmp.mkdir(mode=0o700)
+            shutil.copyfile(tools / "flush", pkg2_tmp / "flush")
+            (pkg2_tmp / "flush").chmod(0o700)
+            (pkg2_tmp / "api").write_bytes(b"legacy-api-bytes\n")
+            (pkg2_tmp / "api").chmod(0o700)
+            (pkg2_tmp / "backend.sh").write_text(
+                "#!/bin/sh\n# legacy dev.22 without pinned marker\n"
+            )
+            (pkg2_tmp / "backend.sh").chmod(0o600)
+            pmf2 = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(pkg2_tmp.iterdir()))
+            (pkg2_tmp / "files.sha256").write_text(pmf2)
+            (pkg2_tmp / "files.sha256").chmod(0o600)
+            pkg2_id = sha(pmf2.encode())
+            pkg2_tmp.rename(data / "packages" / pkg2_id)
+            snap2_tmp = data / "snapshots/.s2"
+            snap2_tmp.mkdir(mode=0o700)
+            cfg2 = f"OC2\npackage={pkg2_id}\n"
+            (snap2_tmp / "config").write_text(cfg2)
+            (snap2_tmp / "config").chmod(0o600)
+            smf2 = f"{sha(cfg2.encode())}  config\n"
+            (snap2_tmp / "files.sha256").write_text(smf2)
+            (snap2_tmp / "files.sha256").chmod(0o600)
+            snap2_id = sha(smf2.encode())
+            snap2_tmp.rename(data / "snapshots" / snap2_id)
+            shutil.copyfile(data / "packages" / pkg2_id / "files.sha256", sess / "files.sha256")
+            shutil.copyfile(data / "packages" / pkg2_id / "api", sess / "api")
+            (sess / "api").chmod(0o700)
+            (ram / "selected").write_text(snap2_id + "\n")
+            bad2 = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=10)
+            self.assertNotEqual(bad2.returncode, 0)
+            self.assertIn("unsupported_legacy_runtime", bad2.stderr)

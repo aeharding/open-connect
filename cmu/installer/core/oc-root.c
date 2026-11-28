@@ -38,8 +38,7 @@ static int oc_hash_prefix_at(int dir, const char *name, oc_u64 limit, char diges
 }
 
 static int oc_root_is_mode(int root, int rw) {
-    char buf[8192];
-    return oc_mounts_mode(root,buf,sizeof buf,rw?2:0);
+    return oc_mounts_mode(root,oc_mscratch,sizeof oc_mscratch,rw?2:0);
 }
 
 int oc_remount(int root, const char *root_path, int rw) {
@@ -49,8 +48,8 @@ int oc_remount(int root, const char *root_path, int rw) {
     const char *mpaths[2]={"proc/self/mounts","proc/mounts"};
     int updated=0;
     for (unsigned mi=0; mi<2; ++mi) {
-        char buf[8192], out[8192];
-        int n=oc_text(root,mpaths[mi],buf,sizeof buf,0);
+        char *buf=oc_big_buf, *out=oc_big_buf+16384;
+        int n=oc_text(root,mpaths[mi],buf,16384,0);
         if (n<=0) continue;
         const char *from=rw?"ro,noatime":"rw,noatime";
         const char *to=rw?"rw,noatime":"ro,noatime";
@@ -65,20 +64,20 @@ int oc_remount(int root, const char *root_path, int rw) {
                 while (*q) {
                     if (oc_prefix(q,from)) {
                         unsigned tl=oc_length(to);
-                        if (used+tl>=sizeof out) return 0;
+                        if (used+tl>=16384) return 0;
                         for (unsigned j=0; j<tl; ++j) out[used++]=to[j];
                         q+=oc_length(from);
                     } else {
-                        if (used+1>=sizeof out) return 0;
+                        if (used+1>=16384) return 0;
                         out[used++]=*q++;
                     }
                 }
             } else {
                 unsigned ll=oc_length(line);
-                if (used+ll>=sizeof out) return 0;
+                if (used+ll>=16384) return 0;
                 for (unsigned j=0; j<ll; ++j) out[used++]=line[j];
             }
-            if (has_nl) { if (used+1>=sizeof out) return 0; out[used++]='\n'; }
+            if (has_nl) { if (used+1>=16384) return 0; out[used++]='\n'; }
         }
         out[used]=0;
         long fd=oc_beneath(root,mpaths[mi],OC_WRITE|OC_TRUNC,0600);
@@ -117,8 +116,7 @@ int oc_nvram_change(int root, const char *expected, const char *desired) {
     int skip_fw=0;
 #endif
     if (!skip_fw) {
-        static char nv_scratch[32768];
-        if (!oc_version_ok(root,nv_scratch,sizeof nv_scratch)) return 0;
+        if (!oc_version_ok(root,oc_big_buf,sizeof oc_big_buf)) return 0;
         long lfd=oc_beneath(root,"jci/lvds/lvds_service",OC_READ,0);
         char dig[65]; OcMeta lm={0};
         int lok=lfd>=0 && oc_hash_copy((int)lfd,-1,33554432,dig,&lm)==OC_COPY_OK &&
@@ -246,8 +244,7 @@ int oc_root_publish(int root, const char *root_path, int data_fd, const char *re
     if (is_auto) { if (!oc_join(work_leaf,sizeof work_leaf,".open-connect-",rev)) return 0; }
     else { if (!oc_join4(work_leaf,sizeof work_leaf,".open-connect-",rev,"-",leaf)) return 0; }
 
-    char mscratch[8192];
-    if (!oc_mounts_mode(root,mscratch,sizeof mscratch,1)) return 0;
+    if (!oc_mounts_mode(root,oc_mscratch,sizeof oc_mscratch,1)) return 0;
 
     long parent=oc_beneath(root,parent_rel,OC_DIRECTORY,0);
     if (parent<0) return 0;
@@ -399,26 +396,26 @@ int oc_selector_matches_at(int root, const char *sel_hash, const char *sel_meta)
 int oc_selector_pair_check(int root, int data_fd, const char *before_id, const char *after_id,
                            long owner, long group) {
     (void)owner; (void)group;
-    static OcTxnSnap b, a;
-    if (!oc_txn_read_snap(data_fd,before_id,&b) || !oc_txn_read_snap(data_fd,after_id,&a)) return 0;
+    OcTxnSnap *b=&oc_snap_pool[2], *a=&oc_snap_pool[3];
+    if (!oc_txn_read_snap(data_fd,before_id,b) || !oc_txn_read_snap(data_fd,after_id,a)) return 0;
     if (oc_absent_at(root,"usr/bin/open-connect-boot-select"))
-        return oc_equal(b.sel_hash,"-") || oc_equal(a.sel_hash,"-");
-    return oc_selector_matches_at(root,b.sel_hash,b.sel_meta) || oc_selector_matches_at(root,a.sel_hash,a.sel_meta);
+        return oc_equal(b->sel_hash,"-") || oc_equal(a->sel_hash,"-");
+    return oc_selector_matches_at(root,b->sel_hash,b->sel_meta) || oc_selector_matches_at(root,a->sel_hash,a->sel_meta);
 }
 
 int oc_selector_apply(int root, const char *root_path, int data_fd, const char *rev,
                       const char *before_id, const char *after_id, const char *base_snap,
                       long owner, long group) {
     if (!oc_selector_pair_check(root,data_fd,before_id,after_id,owner,group)) return 0;
-    static OcTxnSnap a; char src_rel[128];
-    if (!oc_txn_read_snap(data_fd,after_id,&a)) return 0;
-    if (oc_equal(a.sel_hash,"-")) {
+    OcTxnSnap *a=&oc_snap_pool[2]; char src_rel[128];
+    if (!oc_txn_read_snap(data_fd,after_id,a)) return 0;
+    if (oc_equal(a->sel_hash,"-")) {
         if (!oc_join(src_rel,sizeof src_rel,"","-")) return 0;
     } else {
-        if (!oc_join4(src_rel,sizeof src_rel,"packages/",a.sel_pkg,"/boot-select",0)) return 0;
+        if (!oc_join4(src_rel,sizeof src_rel,"packages/",a->sel_pkg,"/boot-select",0)) return 0;
         char got[65]; OcMeta sm={0};
         long fd=oc_beneath(data_fd,src_rel,OC_READ,0);
-        int ok=fd>=0 && oc_hash_copy((int)fd,-1,33554432,got,&sm)==OC_COPY_OK && oc_equal(got,a.sel_hash);
+        int ok=fd>=0 && oc_hash_copy((int)fd,-1,33554432,got,&sm)==OC_COPY_OK && oc_equal(got,a->sel_hash);
         if (fd>=0 && oc_close((int)fd)<0) ok=0;
         if (!ok) return 0;
     }
@@ -434,7 +431,7 @@ int oc_selector_apply(int root, const char *root_path, int data_fd, const char *
         if (!ok) return 0;
     }
     return oc_root_publish(root,root_path,data_fd,rev,"usr/bin/open-connect-boot-select",
-                           src_rel,a.sel_meta,act_h,act_m,0,0,0,base_snap,owner,group);
+                           src_rel,a->sel_meta,act_h,act_m,0,0,0,base_snap,owner,group);
 }
 
 static int oc_staging_scan_cb(const char *name, void *raw) {
@@ -457,25 +454,25 @@ int oc_startup_staging_guard(int root) {
 
 int oc_startup_staging_retire(int root, const char *root_path, int data_fd, const char *rev,
                               const char *snap_id, const char *base_snap, long owner, long group) {
-    static OcTxnSnap s, b;
-    if (!oc_txn_read_snap(data_fd,snap_id,&s)) return 0;
+    OcTxnSnap *s=&oc_snap_pool[2], *b=&oc_snap_pool[3];
+    if (!oc_txn_read_snap(data_fd,snap_id,s)) return 0;
     const char *names[4]={"autostart","runlogin","sshd.conf","selector"};
     const char *targets[4]={"usr/bin/autostart","usr/bin/runlogin","etc/ssh/sshd_config","usr/bin/open-connect-boot-select"};
     for (unsigned i=0; i<4; ++i) {
         char src_rel[160], hold_rel[96]; const char *hold_mode=0;
         hold_rel[0]=0;
         if (i==3) {
-            if (oc_equal(s.sel_hash,"-")) continue;
-            if (!oc_join4(src_rel,sizeof src_rel,"packages/",s.sel_pkg,"/boot-select",0)) return 0;
+            if (oc_equal(s->sel_hash,"-")) continue;
+            if (!oc_join4(src_rel,sizeof src_rel,"packages/",s->sel_pkg,"/boot-select",0)) return 0;
         } else {
             if (!oc_join4(src_rel,sizeof src_rel,"snapshots/",snap_id,"/",names[i])) return 0;
         }
         if (oc_absent_at(data_fd,src_rel)) continue;
         if (i==1) {
-            if (!oc_txn_read_snap(data_fd,base_snap,&b) || !b.has_access) return 0;
-            if (!oc_equal(b.acc_f[5],"-")) {
-                if (!oc_join(hold_rel,sizeof hold_rel,"usr/bin/.open-connect-runlogin-",b.acc_f[5])) return 0;
-                if (oc_equal(s.login_dig,b.login_dig)) {
+            if (!oc_txn_read_snap(data_fd,base_snap,b) || !b->has_access) return 0;
+            if (!oc_equal(b->acc_f[5],"-")) {
+                if (!oc_join(hold_rel,sizeof hold_rel,"usr/bin/.open-connect-runlogin-",b->acc_f[5])) return 0;
+                if (oc_equal(s->login_dig,b->login_dig)) {
                     if (!oc_absent_at(root,hold_rel)) hold_mode="restore";
                     else hold_rel[0]=0;
                 } else hold_mode="keep";

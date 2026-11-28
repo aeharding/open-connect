@@ -5,47 +5,18 @@
  */
 #include "oc-core.h"
 
+OcTxnSnap oc_snap_pool[7];
+char oc_mscratch[8192];
+char oc_big_buf[32768];
+
 static int oc_txn_parse_cfg(char *text, OcTxnSnap *s) {
-    s->is_oc2=0;
-    (void)oc_join(s->warning,4,"","0"); (void)oc_join(s->base,4,"","0");
-    if (oc_prefix(text,"OC2\n")) {
-        s->is_oc2=1;
-        unsigned seen=0; char *p=text+4;
-        while (*p) {
-            char *ln=p;
-            while (*p && *p!='\n') ++p;
-            if (!*p) return 0;
-            *p++=0;
-            if (oc_prefix(ln,"package=")) {
-                if ((seen&1) || !oc_hex(ln+8,64) || !oc_join(s->pkg,65,"",ln+8)) return 0;
-                seen|=1;
-            } else if (oc_prefix(ln,"touch=")) {
-                if ((seen&2) || !(oc_bit(ln+6)||oc_equal(ln+6,"2")) || !oc_join(s->touch,4,"",ln+6)) return 0;
-                seen|=2;
-            } else if (oc_prefix(ln,"warning=")) {
-                if ((seen&16) || !oc_bit(ln+8) || !oc_join(s->warning,4,"",ln+8)) return 0;
-                seen|=16;
-            } else if (oc_prefix(ln,"base=")) {
-                if ((seen&32) || !oc_bit(ln+5) || !oc_join(s->base,4,"",ln+5)) return 0;
-                seen|=32;
-            } else if (oc_prefix(ln,"nvram=")) {
-                if ((seen&4) || !oc_nvram_value(ln+6) || !oc_join(s->nvram,16,"",ln+6)) return 0;
-                seen|=4;
-            } else if (oc_prefix(ln,"metadata=")) {
-                unsigned pm, pu, pg;
-                if ((seen&8) || !oc_metadata_mode(ln+9,&pm,&pu,&pg) || !oc_join(s->meta,40,"",ln+9)) return 0;
-                seen|=8;
-            }
-        }
-        return (seen&15)==15;
-    }
-    char *f[5]; unsigned pm, pu, pg;
-    if (!oc_one_line(text) || oc_fields(text,f,5)!=5) return 0;
-    if (!oc_equal(f[0],"-") || !oc_bit(f[1]) || !oc_bit(f[2]) ||
-        !oc_nvram_value(f[3]) || !oc_metadata_mode(f[4],&pm,&pu,&pg)) return 0;
-    return oc_join(s->pkg,65,"",f[0]) && oc_join(s->touch,4,"",f[1]) &&
-        oc_join(s->warning,4,"",f[2]) && oc_join(s->nvram,16,"",f[3]) &&
-        oc_join(s->meta,40,"",f[4]);
+    OcPrefs p;
+    int active=oc_prefix(text,"OC2\n");
+    if (!oc_prefs_parse(text,0,active,&p)) return 0;
+    s->is_oc2=p.is_oc2;
+    return oc_join(s->pkg,65,"",p.package) && oc_join(s->touch,4,"",p.touch) &&
+        oc_join(s->warning,4,"",p.warning) && oc_join(s->base,4,"",p.base) &&
+        oc_join(s->nvram,16,"",p.nvram) && oc_join(s->meta,40,"",p.metadata);
 }
 
 int oc_txn_read_snap(int data_fd, const char *snap_id, OcTxnSnap *s) {
@@ -85,7 +56,8 @@ int oc_txn_read_snap(int data_fd, const char *snap_id, OcTxnSnap *s) {
                 char *f[3]; unsigned pm, pu, pg;
                 ok=oc_fields_line(s->sel_buf,f,3) && oc_hex(f[0],64) && oc_hex(f[2],64) &&
                     oc_metadata_mode(f[1],&pm,&pu,&pg) &&
-                    (oc_equal(s->pkg,"-") || oc_equal(f[2],s->pkg)) &&
+                    !oc_equal(s->pkg,"-") && oc_equal(f[2],s->pkg) &&
+                    pm==0700 && pu==(unsigned)oc_owner() && pg==(unsigned)oc_group() &&
                     oc_join(s->sel_hash,65,"",f[0]) && oc_join(s->sel_meta,40,"",f[1]) &&
                     oc_join(s->sel_pkg,65,"",f[2]);
             }
@@ -93,22 +65,29 @@ int oc_txn_read_snap(int data_fd, const char *snap_id, OcTxnSnap *s) {
             ok=0;
         }
     }
+    for (unsigned i=0; ok && i<s->mf.count; ++i) {
+        const char *nm=s->mf.rows[i].name;
+        if (oc_equal(nm,"config") || oc_equal(nm,"autostart") || oc_equal(nm,"access") ||
+            oc_equal(nm,"runlogin") || oc_equal(nm,"sshd.conf") || oc_equal(nm,"selector")) continue;
+        char dig[65];
+        ok=oc_hash_file_at(sdir,nm,dig,&m) && oc_equal(dig,s->mf.rows[i].digest);
+    }
     if (oc_close(sdir)<0) ok=0;
     return ok;
 }
 
 int oc_targets_match(int root, int data_fd, const char *snap_id, const char *base_snap,
                      long owner, long group) {
-    static OcTxnSnap s;
-    if (!oc_txn_read_snap(data_fd,snap_id,&s)) return 0;
+    OcTxnSnap *s=&oc_snap_pool[2];
+    if (!oc_txn_read_snap(data_fd,snap_id,s)) return 0;
     long ubin=oc_beneath(root,"usr/bin",OC_DIRECTORY,0);
     char adig[65], ams[40], nv[16]; OcMeta am={0};
     int ok=ubin>=0 && oc_hash_file_at((int)ubin,"autostart",adig,&am) &&
-        oc_equal(adig,s.auto_dig) && oc_meta_mode_str(&am,ams) && oc_equal(ams,s.meta) &&
-        oc_nvram_at(root,nv) && oc_equal(nv,s.nvram);
+        oc_equal(adig,s->auto_dig) && oc_meta_mode_str(&am,ams) && oc_equal(ams,s->meta) &&
+        oc_nvram_at(root,nv) && oc_equal(nv,s->nvram);
     if (ubin>=0 && oc_close((int)ubin)<0) ok=0;
-    if (ok && s.has_access) ok=oc_access_targets_match(root,data_fd,snap_id,base_snap,owner,group);
-    if (ok && s.has_selector) ok=oc_selector_matches_at(root,s.sel_hash,s.sel_meta);
+    if (ok && s->has_access) ok=oc_access_targets_match(root,data_fd,snap_id,base_snap,owner,group);
+    if (ok && s->has_selector) ok=oc_selector_matches_at(root,s->sel_hash,s->sel_meta);
     return ok;
 }
 
@@ -176,9 +155,9 @@ int oc_dependencies_match(int root, int data_fd, const char *snap_id, long owner
 
 static int oc_deps_equal(int data_fd, const char *a_id, const char *b_id) {
     if (oc_equal(a_id,b_id)) return 1;
-    static OcTxnSnap sa, sb;
-    if (!oc_txn_read_snap(data_fd,a_id,&sa) || !oc_txn_read_snap(data_fd,b_id,&sb)) return 0;
-    const char *da=oc_digest(&sa.mf,"dependencies"), *db=oc_digest(&sb.mf,"dependencies");
+    OcTxnSnap *sa=&oc_snap_pool[2], *sb=&oc_snap_pool[3];
+    if (!oc_txn_read_snap(data_fd,a_id,sa) || !oc_txn_read_snap(data_fd,b_id,sb)) return 0;
+    const char *da=oc_digest(&sa->mf,"dependencies"), *db=oc_digest(&sb->mf,"dependencies");
     return da && db && oc_equal(da,db);
 }
 
@@ -186,60 +165,113 @@ int oc_dependencies_pair_match(int root, int data_fd, const char *before_id, con
                                long owner, long group) {
     if (!oc_dependencies_match(root,data_fd,before_id,owner,group)) return 0;
     if (oc_deps_equal(data_fd,before_id,after_id)) {
-        static OcTxnSnap a; return oc_txn_read_snap(data_fd,after_id,&a);
+        return oc_txn_read_snap(data_fd,after_id,&oc_snap_pool[2]);
     }
     return oc_dependencies_match(root,data_fd,after_id,owner,group);
 }
 
 int oc_uninstall_owned(int data_fd, const char *snap_id, const char *base_snap, long owner, long group) {
     (void)owner; (void)group;
-    static OcTxnSnap cur, base;
-    if (!oc_txn_read_snap(data_fd,snap_id,&cur) || !oc_txn_read_snap(data_fd,base_snap,&base)) return 0;
-    if (!oc_hex(cur.pkg,64)) return 0;
+    OcTxnSnap *cur=&oc_snap_pool[2], *base=&oc_snap_pool[3];
+    if (!oc_txn_read_snap(data_fd,snap_id,cur) || !oc_txn_read_snap(data_fd,base_snap,base)) return 0;
+    if (!oc_hex(cur->pkg,64)) return 0;
     char cpath[128], cdig[65]; OcMeta cm={0};
-    if (!oc_join4(cpath,sizeof cpath,"composed/",cur.pkg,"/autostart",0)) return 0;
+    if (!oc_join4(cpath,sizeof cpath,"composed/",cur->pkg,"/autostart",0)) return 0;
     long fd=oc_beneath(data_fd,cpath,OC_READ,0);
-    int ok=fd>=0 && oc_hash_copy((int)fd,-1,33554432,cdig,&cm)==OC_COPY_OK && oc_equal(cdig,cur.auto_dig);
+    int ok=fd>=0 && oc_hash_copy((int)fd,-1,33554432,cdig,&cm)==OC_COPY_OK && oc_equal(cdig,cur->auto_dig);
     if (fd>=0 && oc_close((int)fd)<0) ok=0;
-    if (!ok || !oc_equal(cur.meta,base.meta)) return 0;
-    return oc_equal(cur.nvram,base.nvram) || (oc_equal(cur.touch,"1") && oc_equal(cur.nvram,"disable"));
+    if (!ok || !oc_equal(cur->meta,base->meta)) return 0;
+    return oc_equal(cur->nvram,base->nvram) || (oc_equal(cur->touch,"1") && oc_equal(cur->nvram,"disable"));
 }
 
 static int oc_txn_copy_sync(int src_dir, const char *src_name, int dst_dir, const char *dst_name, char digest[65]) {
     return oc_copy_file_at(src_dir,src_name,dst_dir,dst_name,0600,1,1,digest);
 }
 
-static void oc_rm_tree_cb_cleanup(int dir_fd, oc_u64 dev);
-typedef struct { int dir; oc_u64 dev; const char *skip; int ok; } OcRmCtx;
-static int oc_rm_entry_cb(const char *name, void *raw) {
-    OcRmCtx *c=raw;
-    if (c->skip && oc_equal(name,c->skip)) return 1;
-    OcMeta m={0};
-    if (oc_metadata(c->dir,name,&m)<0 || m.device!=c->dev) { c->ok=0; return 0; }
-    if ((m.mode&OC_TYPE)==OC_DIR) {
-        long sub=oc_openat(c->dir,name,OC_DIRECTORY,0);
-        if (sub<0) { c->ok=0; return 0; }
-        oc_rm_tree_cb_cleanup((int)sub,c->dev);
-        if (oc_close((int)sub)<0 || oc_rmdirat(c->dir,name)<0) { c->ok=0; return 0; }
-    } else {
-        if (oc_unlink(c->dir,name)<0) { c->ok=0; return 0; }
-    }
+typedef struct { char names[32][128]; unsigned count; int more, ok; const char *skip; } OcRmBatch;
+static int oc_rm_collect_cb(const char *name, void *raw) {
+    OcRmBatch *b=raw;
+    if (b->skip && oc_equal(name,b->skip)) return 1;
+    if (b->count==32) { b->more=1; return 0; }
+    if (!oc_join(b->names[b->count],128,"",name)) { b->ok=0; return 0; }
+    ++b->count;
     return 1;
 }
-static void oc_rm_tree_cb_cleanup(int dir_fd, oc_u64 dev) {
-    OcRmCtx c={dir_fd,dev,0,1};
-    (void)oc_dir_iter(dir_fd,oc_rm_entry_cb,&c);
+static int oc_rm_tree_cb_cleanup(int dir_fd, oc_u64 dev, const char *skip, unsigned depth) {
+    if (depth>8) return 0;
+    for (unsigned pass=0; pass<64; ++pass) {
+        OcRmBatch b; b.count=0; b.more=0; b.ok=1; b.skip=skip;
+        if (!oc_dir_iter(dir_fd,oc_rm_collect_cb,&b) || !b.ok) return 0;
+        if (!b.count) return 1;
+        for (unsigned i=0; i<b.count; ++i) {
+            OcMeta m={0};
+            if (oc_metadata(dir_fd,b.names[i],&m)<0 || m.device!=dev) return 0;
+            if ((m.mode&OC_TYPE)==OC_DIR) {
+                long sub=oc_openat(dir_fd,b.names[i],OC_DIRECTORY,0);
+                if (sub<0) return 0;
+                int rok=oc_rm_tree_cb_cleanup((int)sub,dev,0,depth+1);
+                if (oc_close((int)sub)<0 || !rok || oc_rmdirat(dir_fd,b.names[i])<0) return 0;
+            } else if (oc_unlink(dir_fd,b.names[i])<0) return 0;
+        }
+        if (!b.more) return 1;
+    }
+    return 0;
 }
 
-static void oc_rm_subdir(int parent, const char *leaf) {
+void oc_rm_subdir(int parent, const char *leaf) {
     OcMeta pm={0};
     if (oc_stat(parent,&pm)<0) return;
     long sub=oc_openat(parent,leaf,OC_DIRECTORY,0);
     if (sub>=0) {
-        oc_rm_tree_cb_cleanup((int)sub,pm.device);
+        (void)oc_rm_tree_cb_cleanup((int)sub,pm.device,0,0);
         (void)oc_close((int)sub);
         (void)oc_rmdirat(parent,leaf);
     }
+}
+
+int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_match) {
+    if (oc_text(root,"proc/self/mounts",oc_mscratch,sizeof oc_mscratch,1)<0) return -1;
+    char pref[324];
+    if (prefix_match && !oc_join(pref,sizeof pref,target,"/")) return -1;
+    int hits=0; char *p=oc_mscratch;
+    while (*p) {
+        char *f[6]; unsigned n=0;
+        while (*p && *p!='\n') {
+            if (*p==' '||*p=='\t') { ++p; continue; }
+            if (n==6) return -1;
+            f[n++]=p;
+            while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
+            if (*p==' '||*p=='\t') *p++=0;
+        }
+        if (!*p || n!=6) return -1;
+        *p++=0;
+        int match = oc_equal(f[1],target) || (prefix_match && oc_prefix(f[1],pref));
+        if (match && (!fstype || oc_equal(f[2],fstype))) ++hits;
+    }
+    return hits;
+}
+
+int oc_pkg_boot_select(int data_fd, const char *root_path, const char *pkg_id,
+                       long owner, long group, char bs_path[512]) {
+    if (!oc_hex(pkg_id,64)) return -1;
+    char ppath[128], dbase[320]; OcManifest pmf;
+    if (!oc_join(ppath,sizeof ppath,"packages/",pkg_id)) return -1;
+    int pdir=oc_open_private(data_fd,ppath);
+    if (pdir<0) return -1;
+    int pok=oc_load_manifest(pdir,pkg_id,oc_mscratch,sizeof oc_mscratch,&pmf);
+    const char *bd=pok?oc_digest(&pmf,"boot-select"):0;
+    if (pok && !bd) {
+        int abs=oc_absent_at(pdir,"boot-select");
+        (void)oc_close(pdir);
+        return abs?0:-1;
+    }
+    char bdig[65]; OcMeta bm={0};
+    pok=pok && oc_hash_file_at(pdir,"boot-select",bdig,&bm) &&
+        bm.mode==(OC_REGULAR|0700) && bm.uid==(unsigned)owner && bm.gid==(unsigned)group &&
+        oc_equal(bdig,bd) && oc_data_base(root_path,dbase,sizeof dbase) &&
+        oc_join4(bs_path,512,dbase,"/packages/",pkg_id,"/boot-select");
+    (void)oc_close(pdir);
+    return pok?1:-1;
 }
 
 static int oc_finish_snapshot_dir(int data_fd, int snaps, int wfd, const char *wleaf,
@@ -269,8 +301,7 @@ static int oc_finish_snapshot_dir(int data_fd, int snaps, int wfd, const char *w
             ok=oc_rename(snaps,wleaf,snap_id)>=0 && oc_sync(snaps)>=0;
         } else {
             oc_rm_subdir(snaps,wleaf);
-            static OcTxnSnap verify;
-            ok=oc_txn_read_snap(data_fd,snap_id,&verify) && oc_sync(snaps)>=0;
+            ok=oc_txn_read_snap(data_fd,snap_id,&oc_snap_pool[2]) && oc_sync(snaps)>=0;
         }
     }
     if (!ok) oc_rm_subdir(snaps,wleaf);
@@ -342,11 +373,10 @@ int oc_transaction_prepare(int root, int data_fd, char *rec[13], const char *pha
     if (!oc_equal(rec[1],"active") && !oc_equal(rec[1],"removed")) return 0;
     if (oc_equal(phase,"set") && !oc_deps_equal(data_fd,before_id,after_id)) return 0;
     if (skip_before_verify && oc_deps_equal(data_fd,before_id,after_id)) {
-        static OcTxnSnap a;
-        if (!oc_txn_read_snap(data_fd,after_id,&a)) return 0;
+        if (!oc_txn_read_snap(data_fd,after_id,&oc_snap_pool[2])) return 0;
     } else {
-        static OcTxnSnap b, a;
-        if (!oc_txn_read_snap(data_fd,before_id,&b) || !oc_txn_read_snap(data_fd,after_id,&a)) return 0;
+        if (!oc_txn_read_snap(data_fd,before_id,&oc_snap_pool[2]) ||
+            !oc_txn_read_snap(data_fd,after_id,&oc_snap_pool[3])) return 0;
         if (!oc_targets_match(root,data_fd,before_id,base_snap,owner,group) ||
             !oc_dependencies_pair_match(root,data_fd,before_id,after_id,owner,group)) return 0;
     }
@@ -354,15 +384,60 @@ int oc_transaction_prepare(int root, int data_fd, char *rec[13], const char *pha
     return oc_record_write_atomic(root,data_fd,rec,nonce_out);
 }
 
+static int oc_stock_pin_ok(int root, oc_u64 stock_dev, const char *path, const char *want_dig) {
+    long fd=oc_beneath(root,path[0]=='/'?path+1:path,OC_READ,0);
+    char dig[65]; OcMeta m={0};
+    int ok=fd>=0 && oc_hash_copy((int)fd,-1,33554432,dig,&m)==OC_COPY_OK &&
+        m.device==stock_dev && oc_equal(dig,want_dig);
+    if (fd>=0 && oc_close((int)fd)<0) ok=0;
+    return ok;
+}
+
 static int oc_touch_pins_ok(int root) {
-    for (unsigned i=0; i<2; ++i) {
-        long fd=oc_beneath(root,oc_touch_pins[i].path+1,OC_READ,0);
-        char dig[65]; OcMeta m={0};
-        int ok=fd>=0 && oc_hash_copy((int)fd,-1,33554432,dig,&m)==OC_COPY_OK &&
-            oc_equal(dig,oc_pin_digest(oc_touch_pins[i].key,oc_touch_pins[i].digest));
-        if (fd>=0 && oc_close((int)fd)<0) ok=0;
-        if (!ok) return 0;
+    OcMeta stock={0};
+    if (!oc_stock_meta(root,&stock)) return 0;
+    for (unsigned i=0; i<2; ++i)
+        if (!oc_stock_pin_ok(root,stock.device,oc_touch_pins[i].path,
+                             oc_pin_digest(oc_touch_pins[i].key,oc_touch_pins[i].digest))) return 0;
+    return 1;
+}
+
+int oc_check_active_pins(int root, int data_fd, const char *pkg_id, const char *snap_id,
+                         const char *base_val, const char *touch_val, const char **err_out) {
+    if (oc_equal(touch_val,"2") && !oc_touch_pins_ok(root)) {
+        *err_out="touch_inputs_changed"; return 0;
     }
+    if (!oc_equal(base_val,"1")) return 1;
+    OcMeta stock={0};
+    if (!oc_stock_meta(root,&stock)) { *err_out="base_inputs_changed"; return 0; }
+    for (unsigned i=0; i<5; ++i) {
+        if (!oc_stock_pin_ok(root,stock.device,oc_base_pins[i].path,
+                             oc_pin_digest(oc_base_pins[i].key,oc_base_pins[i].digest))) {
+            *err_out="base_inputs_changed"; return 0;
+        }
+    }
+    char ppath[128], spath[128]; OcManifest pmf;
+    char *uimod=oc_big_buf, *vlist=oc_big_buf+16384;
+    if (!oc_join(ppath,sizeof ppath,"packages/",pkg_id) ||
+        !oc_join(spath,sizeof spath,"snapshots/",snap_id)) { *err_out="base_inputs_changed"; return 0; }
+    int pdir=oc_open_private(data_fd,ppath);
+    int sdir=oc_open_private(data_fd,spath);
+    int ok=pdir>=0 && sdir>=0 &&
+        oc_load_manifest(pdir,pkg_id,oc_mscratch,sizeof oc_mscratch,&pmf) &&
+        oc_saved_text(pdir,&pmf,"ui-modules.tsv",uimod,16384) &&
+        oc_text(sdir,"vui-plugins.list",vlist,16384,0)>0;
+    if (sdir>=0) (void)oc_close(sdir);
+    if (pdir>=0) (void)oc_close(pdir);
+    char *p=vlist;
+    while (ok && *p) {
+        char *nm=p; while (*p && *p!='\n') ++p;
+        if (!*p) { ok=0; break; }
+        *p++=0;
+        char pin[65], tp[160];
+        ok=oc_lookup_vui_pin(uimod,nm,pin) && oc_join(tp,sizeof tp,"jci/vui/plugins/",nm) &&
+            oc_stock_pin_ok(root,stock.device,tp,pin);
+    }
+    if (!ok) { *err_out="base_inputs_changed"; return 0; }
     return 1;
 }
 
@@ -377,34 +452,19 @@ static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
                               long owner, long group, char out_id[65]) {
     if (!oc_join(out_id,65,"",snap_id)) return 0;
     if (oc_equal(pkg_id,"-")) return 1;
-    /* Check whether pkg has boot-select; skip sealing only if genuinely absent. */
-    char ppath[128], pmf_buf[8192], bs_path[512], dbase[320]; OcManifest pmf;
-    if (!oc_join(ppath,sizeof ppath,"packages/",pkg_id)) return 0;
-    int pdir=oc_open_private(data_fd,ppath);
-    if (pdir<0) return 0;
-    int pok=oc_load_manifest(pdir,pkg_id,pmf_buf,sizeof pmf_buf,&pmf);
-    const char *bd=pok?oc_digest(&pmf,"boot-select"):0;
-    if (pok && !bd) {
-        int abs=oc_absent_at(pdir,"boot-select");
-        (void)oc_close(pdir);
-        return abs;
-    }
-    char bdig[65]; OcMeta bm={0};
-    pok=pok && oc_hash_file_at(pdir,"boot-select",bdig,&bm) &&
-        bm.mode==(OC_REGULAR|0700) && bm.uid==(unsigned)owner && bm.gid==(unsigned)group &&
-        oc_equal(bdig,bd) && oc_data_base(root_path,dbase,sizeof dbase) &&
-        oc_join4(bs_path,sizeof bs_path,dbase,"/packages/",pkg_id,"/boot-select");
-    if (!pok) { (void)oc_close(pdir); return 0; }
+    char bs_path[512];
+    int bs_st=oc_pkg_boot_select(data_fd,root_path,pkg_id,owner,group,bs_path);
+    if (bs_st<=0) return bs_st==0;
 
-    static OcTxnSnap a, base;
-    if (!oc_txn_read_snap(data_fd,snap_id,&a) || !a.is_oc2 || !oc_equal(a.pkg,pkg_id) ||
-        !oc_txn_read_snap(data_fd,base_id,&base)) { (void)oc_close(pdir); return 0; }
+    OcTxnSnap *a=&oc_snap_pool[2], *base=&oc_snap_pool[3];
+    if (!oc_txn_read_snap(data_fd,snap_id,a) || !a->is_oc2 || !oc_equal(a->pkg,pkg_id) ||
+        !oc_txn_read_snap(data_fd,base_id,base)) return 0;
 
     int snaps=oc_open_private(data_fd,"snapshots");
-    if (snaps<0) { (void)oc_close(pdir); return 0; }
+    if (snaps<0) return 0;
 
-    /* If boot.plan already exists and validates via boot-select check, keep snap_id. */
-    if (oc_digest(&a.mf,"boot.plan")) {
+    /* If boot.plan already exists (SHA already verified by oc_txn_read_snap) and validates via boot-select check, keep snap_id. */
+    if (oc_digest(&a->mf,"boot.plan")) {
         int sdir=oc_open_private(snaps,snap_id);
         char srel[128], hdr[160], expect_hdr[160];
         long pfd=sdir>=0?oc_openat(sdir,"boot.plan",OC_READ,0):-1;
@@ -428,12 +488,12 @@ static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
             }
         } else if (pfd>=0) (void)oc_close((int)pfd);
         if (sdir>=0) (void)oc_close(sdir);
-        if (chk_ok) { (void)oc_close(snaps); (void)oc_close(pdir); return 1; }
+        if (chk_ok) { (void)oc_close(snaps); return 1; }
     }
 
     char nonce[33], wleaf[48];
     if (!oc_random(root,nonce) || !oc_join(wleaf,sizeof wleaf,".new-",nonce) ||
-        oc_mkdir(snaps,wleaf,0700)<0) { (void)oc_close(snaps); (void)oc_close(pdir); return 0; }
+        oc_mkdir(snaps,wleaf,0700)<0) { (void)oc_close(snaps); return 0; }
     int wfd=oc_open_private(snaps,wleaf);
     int sdir=oc_open_private(snaps,snap_id);
     int ok=wfd>=0 && sdir>=0;
@@ -442,8 +502,8 @@ static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
     const char *all[12]={"autostart","config","dependencies","access","runlogin","sshd.conf",
         "selector","sm-normal.conf","sm-wcp.conf","index.html","mmui.xml","vui-plugins.list"};
     for (unsigned i=0; ok && i<12; ++i) {
-        if ((i>=3 && i<=5 && !a.has_access) || (i==6 && !a.has_selector)) continue;
-        const char *exp=oc_digest(&a.mf,all[i]);
+        if ((i>=3 && i<=5 && !a->has_access) || (i==6 && !a->has_selector)) continue;
+        const char *exp=oc_digest(&a->mf,all[i]);
         ok=exp && oc_txn_copy_sync(sdir,all[i],wfd,all[i],mdigs[mc]) && oc_equal(mdigs[mc],exp);
         if (ok) mnames[mc++]=all[i];
     }
@@ -487,11 +547,11 @@ static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
         }
     }
     /* Baseline members + baseline/files.sha256 */
-    for (unsigned i=0; ok && i<base.mf.count; ++i) {
+    for (unsigned i=0; ok && i<base->mf.count; ++i) {
         char k[96], tp[256];
-        ok=oc_join(k,sizeof k,"baseline/",base.mf.rows[i].name) &&
-            oc_join4(tp,sizeof tp,"/" OC_DATA "/snapshots/",base_id,"/",base.mf.rows[i].name) &&
-            oc_write_in_row((int)infd,k,tp,base.mf.rows[i].digest);
+        ok=oc_join(k,sizeof k,"baseline/",base->mf.rows[i].name) &&
+            oc_join4(tp,sizeof tp,"/" OC_DATA "/snapshots/",base_id,"/",base->mf.rows[i].name) &&
+            oc_write_in_row((int)infd,k,tp,base->mf.rows[i].digest);
     }
     if (ok) {
         char tp[256];
@@ -505,9 +565,9 @@ static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
             oc_write_in_row((int)infd,k,tp,mdigs[i]);
     }
     /* Target autostart, selector, guard/version.ini */
-    if (ok) ok=oc_write_in_row((int)infd,"target/autostart","/usr/bin/autostart",a.auto_dig);
-    if (ok && !oc_equal(a.sel_hash,"-"))
-        ok=oc_write_in_row((int)infd,"target/boot-select","/usr/bin/open-connect-boot-select",a.sel_hash);
+    if (ok) ok=oc_write_in_row((int)infd,"target/autostart","/usr/bin/autostart",a->auto_dig);
+    if (ok && !oc_equal(a->sel_hash,"-"))
+        ok=oc_write_in_row((int)infd,"target/boot-select","/usr/bin/open-connect-boot-select",a->sel_hash);
     if (ok) {
         char vdig[65]; OcMeta vm={0};
         long vfd=oc_beneath(root,"jci/version.ini",OC_READ,0);
@@ -515,18 +575,22 @@ static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
         if (vfd>=0 && oc_close((int)vfd)<0) ok=0;
         if (ok) ok=oc_write_in_row((int)infd,"guard/version.ini","/jci/version.ini",vdig);
     }
-    if (ok && oc_equal(a.touch,"2")) {
+    if (ok && oc_equal(a->touch,"2")) {
         for (unsigned i=0; ok && i<2; ++i)
             ok=oc_write_in_row((int)infd,oc_touch_pins[i].key,oc_touch_pins[i].path,
                                oc_pin_digest(oc_touch_pins[i].key,oc_touch_pins[i].digest));
     }
-    if (ok && oc_equal(a.base,"1")) {
+    if (ok && oc_equal(a->base,"1")) {
         for (unsigned i=0; ok && i<5; ++i)
             ok=oc_write_in_row((int)infd,oc_base_pins[i].key,oc_base_pins[i].path,
                                oc_pin_digest(oc_base_pins[i].key,oc_base_pins[i].digest));
-        static char uimod[8192], vlist[4096];
-        if (ok) ok=oc_saved_text(pdir,&pmf,"ui-modules.tsv",uimod,sizeof uimod) &&
-            oc_text(wfd,"vui-plugins.list",vlist,sizeof vlist,0)>0;
+        char ppath[128]; OcManifest pmf;
+        char *uimod=oc_big_buf, *vlist=oc_big_buf+16384;
+        int pdir=oc_join(ppath,sizeof ppath,"packages/",pkg_id)?oc_open_private(data_fd,ppath):-1;
+        ok=pdir>=0 && oc_load_manifest(pdir,pkg_id,oc_mscratch,sizeof oc_mscratch,&pmf) &&
+            oc_saved_text(pdir,&pmf,"ui-modules.tsv",uimod,16384) &&
+            oc_text(wfd,"vui-plugins.list",vlist,16384,0)>0;
+        if (pdir>=0) (void)oc_close(pdir);
         char *p=vlist;
         while (ok && *p) {
             char *nm=p; while (*p && *p!='\n') ++p;
@@ -537,24 +601,23 @@ static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
                 oc_join(tp,sizeof tp,"/jci/vui/plugins/",nm) && oc_write_in_row((int)infd,k,tp,pin);
         }
     }
-    if (ok && a.has_access) {
-        ok=oc_write_in_row((int)infd,"target/runlogin","/usr/bin/runlogin",a.login_dig) &&
-            oc_write_in_row((int)infd,"target/sshd.conf","/etc/ssh/sshd_config",a.ssh_dig);
-        if (ok && !oc_equal(a.acc_f[5],"-")) {
+    if (ok && a->has_access) {
+        ok=oc_write_in_row((int)infd,"target/runlogin","/usr/bin/runlogin",a->login_dig) &&
+            oc_write_in_row((int)infd,"target/sshd.conf","/etc/ssh/sshd_config",a->ssh_dig);
+        if (ok && !oc_equal(a->acc_f[5],"-")) {
             char hrel[96], habs[96];
-            ok=oc_join(hrel,sizeof hrel,"usr/bin/.open-connect-runlogin-",a.acc_f[5]) &&
+            ok=oc_join(hrel,sizeof hrel,"usr/bin/.open-connect-runlogin-",a->acc_f[5]) &&
                 oc_join(habs,sizeof habs,"/",hrel) &&
-                oc_write_in_row((int)infd,"hold/runlogin",habs,oc_absent_at(root,hrel)?"-":base.login_dig);
+                oc_write_in_row((int)infd,"hold/runlogin",habs,oc_absent_at(root,hrel)?"-":base->login_dig);
         }
-        if (ok && !oc_equal(a.acc_f[2],"-")) {
+        if (ok && !oc_equal(a->acc_f[2],"-")) {
             char kp[256];
-            ok=oc_access_key_verify(data_fd,a.acc_f[2],owner,group) &&
-                oc_join4(kp,sizeof kp,"/" OC_DATA "/keys/",a.acc_f[2],".cmu",0) &&
-                oc_write_in_row((int)infd,"key/owner",kp,a.acc_f[2]);
+            ok=oc_access_key_verify(data_fd,a->acc_f[2],owner,group) &&
+                oc_join4(kp,sizeof kp,"/" OC_DATA "/keys/",a->acc_f[2],".cmu",0) &&
+                oc_write_in_row((int)infd,"key/owner",kp,a->acc_f[2]);
         }
     }
     if (infd>=0 && oc_close((int)infd)<0) ok=0;
-    (void)oc_close(pdir);
 
     /* Run boot-select seal <root_path> <OC_DATA>/snapshots/<wleaf>. */
     if (ok) {
@@ -596,9 +659,9 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
             *err_out="state_changed"; return 0;
         }
     }
-    static OcTxnSnap b, a;
-    if (!oc_txn_read_snap(data_fd,before_id,&b)) { *err_out="invalid_before"; return 0; }
-    if (!oc_txn_read_snap(data_fd,after_id,&a)) { *err_out="invalid_after"; return 0; }
+    OcTxnSnap *b=&oc_snap_pool[0], *a=&oc_snap_pool[1];
+    if (!oc_txn_read_snap(data_fd,before_id,b)) { *err_out="invalid_before"; return 0; }
+    if (!oc_txn_read_snap(data_fd,after_id,a)) { *err_out="invalid_after"; return 0; }
     int same_prep=prepared_rev && *prepared_rev && oc_equal(prepared_rev,rev_buf);
     if (!same_prep) {
         if (!oc_dependencies_pair_match(root,data_fd,before_id,after_id,owner,group) || oc_sync(data_fd)<0) {
@@ -611,66 +674,81 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
     if (ubin>=0 && oc_close((int)ubin)<0) aok=0;
     if (!aok) { *err_out="startup_changed"; return 0; }
     if (!oc_nvram_at(root,act_nv)) { *err_out="nvram_unreadable"; return 0; }
-    if (!((oc_equal(act_h,b.auto_dig)&&oc_equal(act_m,b.meta)) ||
-          (oc_equal(act_h,a.auto_dig)&&oc_equal(act_m,a.meta)))) { *err_out="startup_changed"; return 0; }
-    if (!oc_equal(act_nv,b.nvram) && !oc_equal(act_nv,a.nvram)) { *err_out="nvram_changed"; return 0; }
-    if ((b.has_access || a.has_access) && !oc_access_pair_check(root,data_fd,before_id,after_id,base_id,owner,group)) {
+    if (!((oc_equal(act_h,b->auto_dig)&&oc_equal(act_m,b->meta)) ||
+          (oc_equal(act_h,a->auto_dig)&&oc_equal(act_m,a->meta)))) { *err_out="startup_changed"; return 0; }
+    if (!oc_equal(act_nv,b->nvram) && !oc_equal(act_nv,a->nvram)) { *err_out="nvram_changed"; return 0; }
+    if ((b->has_access || a->has_access) && !oc_access_pair_check(root,data_fd,before_id,after_id,base_id,owner,group)) {
         *err_out="access_changed"; return 0;
     }
-    int sel_pair=b.has_selector || a.has_selector;
+    int sel_pair=b->has_selector || a->has_selector;
     if (sel_pair && !oc_selector_pair_check(root,data_fd,before_id,after_id,owner,group)) {
         *err_out="selector_changed"; return 0;
     }
     if ((oc_equal(phase_buf,"set") || oc_equal(phase_buf,"install")) &&
-        oc_equal(a.touch,"2") && !oc_touch_pins_ok(root)) {
+        oc_equal(a->touch,"2") && !oc_touch_pins_ok(root)) {
         if (!oc_startup_staging_retire(root,root_path,data_fd,rev_buf,after_id,base_id,owner,group)) {
             *err_out="startup_stage_changed"; return 0;
         }
-        if (oc_equal(phase_buf,"set") && !oc_equal(b.touch,"2")) {
-            char new_rev[33];
-            char *rb_rec[13];
-            for (unsigned i=0; i<13; ++i) rb_rec[i]=rec[i];
+        char new_rev[33], new_after[65];
+        char *rb_rec[13];
+        for (unsigned i=0; i<13; ++i) rb_rec[i]=rec[i];
+        if (oc_equal(phase_buf,"set") && !oc_equal(b->touch,"2")) {
             rb_rec[6]=after_id; rb_rec[7]=before_id;
-            if (!oc_record_write_atomic(root,data_fd,rb_rec,new_rev)) { *err_out="record_rename_failed"; return 0; }
-            rb_rec[2]=new_rev;
-            return oc_transaction_reconcile(root,root_path,data_fd,rb_rec,session_dir,0,owner,group,err_out);
+        } else {
+            char apath[128], cfg[1024];
+            if (!oc_join(apath,sizeof apath,"snapshots/",after_id)) { *err_out="plan_failed"; return 0; }
+            int adir=oc_open_private(data_fd,apath);
+            int cok=adir>=0 && oc_text(adir,"config",cfg,sizeof cfg,0)>0;
+            char *pos=0;
+            if (cok) {
+                for (char *p=cfg; *p; ++p) if (oc_prefix(p,"\ntouch=2\n")) { pos=p+7; break; }
+            }
+            if (!pos) { if (adir>=0) (void)oc_close(adir); *err_out="invalid_preferences"; return 0; }
+            *pos='0';
+            cok=oc_snapshot_create(root,data_fd,after_id,a->pkg,a->nvram,a->meta,after_id,
+                                   adir,cfg,session_dir,root_path,owner,group,new_after);
+            (void)oc_close(adir);
+            if (!cok) { *err_out="plan_failed"; return 0; }
+            rb_rec[7]=new_after;
         }
-        *err_out="touch_inputs_changed"; return 0;
+        if (!oc_record_write_atomic(root,data_fd,rb_rec,new_rev)) { *err_out="record_rename_failed"; return 0; }
+        rb_rec[2]=new_rev;
+        return oc_transaction_reconcile(root,root_path,data_fd,rb_rec,session_dir,0,owner,group,err_out);
     }
 
-    char auto_src[128], mscratch[8192];
+    char auto_src[128];
     if (!oc_join4(auto_src,sizeof auto_src,"snapshots/",after_id,"/autostart",0)) { *err_out="plan_failed"; return 0; }
     if (!is_uninstall) {
         if (sel_pair) {
             char stg[96];
             int skip_sel=same_prep && oc_equal(phase_buf,"set") &&
-                oc_equal(b.sel_hash,a.sel_hash) && oc_equal(b.sel_meta,a.sel_meta) &&
-                oc_equal(b.sel_pkg,a.sel_pkg) &&
+                oc_equal(b->sel_hash,a->sel_hash) && oc_equal(b->sel_meta,a->sel_meta) &&
+                oc_equal(b->sel_pkg,a->sel_pkg) &&
                 oc_join(stg,sizeof stg,"usr/bin/.open-connect-",rev_buf) &&
                 oc_join(stg,sizeof stg,stg,"-open-connect-boot-select") &&
-                oc_absent_at(root,stg) && oc_mounts_mode(root,mscratch,sizeof mscratch,0);
+                oc_absent_at(root,stg) && oc_mounts_mode(root,oc_mscratch,sizeof oc_mscratch,0);
             if (!skip_sel && !oc_selector_apply(root,root_path,data_fd,rev_buf,before_id,after_id,base_id,owner,group)) {
                 *err_out="selector_apply_failed"; return 0;
             }
         }
-        if (!oc_root_publish(root,root_path,data_fd,rev_buf,"usr/bin/autostart",auto_src,a.meta,
+        if (!oc_root_publish(root,root_path,data_fd,rev_buf,"usr/bin/autostart",auto_src,a->meta,
                              act_h,act_m,0,0,0,base_id,owner,group)) {
             *err_out="startup_publish_failed"; return 0;
         }
     }
-    if (a.has_access &&
+    if (a->has_access &&
         !oc_access_pair_apply(root,root_path,data_fd,rev_buf,before_id,after_id,base_id,same_prep,owner,group)) {
         *err_out="access_apply_failed"; return 0;
     }
-    if (!oc_equal(act_nv,a.nvram) && !oc_nvram_change(root,act_nv,a.nvram)) {
+    if (!oc_equal(b->nvram,a->nvram) && !oc_nvram_change(root,act_nv,a->nvram)) {
         *err_out="nvram_commit_failed"; return 0;
     }
     if (is_uninstall) {
-        if (!oc_root_publish(root,root_path,data_fd,rev_buf,"usr/bin/autostart",auto_src,a.meta,
+        if (!oc_root_publish(root,root_path,data_fd,rev_buf,"usr/bin/autostart",auto_src,a->meta,
                              act_h,act_m,0,0,0,base_id,owner,group)) {
             *err_out="startup_publish_failed"; return 0;
         }
-        if (a.has_access && !oc_access_hold_cleanup(root,root_path,data_fd,base_id,owner,group)) {
+        if (a->has_access && !oc_access_hold_cleanup(root,root_path,data_fd,base_id,owner,group)) {
             *err_out="access_cleanup_failed"; return 0;
         }
         if (sel_pair && !oc_selector_apply(root,root_path,data_fd,rev_buf,before_id,after_id,base_id,owner,group)) {
@@ -685,8 +763,9 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
         *err_out="final_verification_failed"; return 0;
     }
     char sealed_id[65];
-    if (!is_uninstall && !oc_equal(a.pkg,"-") && oc_equal(a.pkg,rec[3])) {
-        if (!oc_seal_after_snap(root,root_path,data_fd,after_id,base_id,rec[3],owner,group,sealed_id)) {
+    if (!is_uninstall && !oc_equal(a->pkg,"-")) {
+        if (!oc_equal(a->pkg,rec[3]) ||
+            !oc_seal_after_snap(root,root_path,data_fd,after_id,base_id,rec[3],owner,group,sealed_id)) {
             *err_out="boot_snapshot_failed"; return 0;
         }
     } else {
@@ -706,38 +785,17 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
     return 1;
 }
 
-static int oc_cleanup_mount_guard(int root, const char *data_abs, char *scratch, unsigned cap) {
-    if (oc_text(root,"proc/self/mounts",scratch,cap,1)<0) return 0;
-    char prefix[320];
-    if (!oc_join(prefix,sizeof prefix,data_abs,"/")) return 0;
-    char *p=scratch;
-    while (*p) {
-        char *f[6]; unsigned n=0;
-        while (*p && *p!='\n') {
-            if (*p==' '||*p=='\t') { ++p; continue; }
-            if (n==6) return 0;
-            f[n++]=p;
-            while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
-            if (*p==' '||*p=='\t') *p++=0;
-        }
-        if (!*p || n!=6) return 0;
-        *p++=0;
-        if (oc_equal(f[1],data_abs) || oc_prefix(f[1],prefix)) return 0;
-    }
-    return 1;
-}
-
 int oc_uninstall_cleanup(int root, const char *root_path, int data_fd, const char *session_dir,
                          long owner, long group, const char **err_out) {
-    char dbase[320], dpref[324], mscratch[8192];
+    char dbase[320], dpref[324];
     if (!oc_data_base(root_path,dbase,sizeof dbase) || !oc_join(dpref,sizeof dpref,dbase,"/")) {
         *err_out="invalid_state_directory"; return 0;
     }
     if (oc_equal(session_dir,dbase) || oc_prefix(session_dir,dpref)) {
         *err_out="cleanup_requires_ram"; return 0;
     }
-    if (!oc_mounts_mode(root,mscratch,sizeof mscratch,0)) { *err_out="root_mount_changed"; return 0; }
-    if (!oc_cleanup_mount_guard(root,dbase,mscratch,sizeof mscratch)) { *err_out="cleanup_mount_present"; return 0; }
+    if (!oc_mounts_mode(root,oc_mscratch,sizeof oc_mscratch,0)) { *err_out="root_mount_changed"; return 0; }
+    if (oc_mounts_has(root,dbase,0,1)!=0) { *err_out="cleanup_mount_present"; return 0; }
 
     char parent_abs[320]; unsigned plen=oc_length(dbase), slash=0;
     for (unsigned i=0; i<plen; ++i) if (dbase[i]=='/') slash=i;
@@ -775,8 +833,7 @@ int oc_uninstall_cleanup(int root, const char *root_path, int data_fd, const cha
     }
     OcMeta dm={0};
     if (oc_stat(data_fd,&dm)<0) { (void)oc_close((int)pdir); *err_out="cleanup_failed"; return 0; }
-    OcRmCtx rc={data_fd,dm.device,"record",1};
-    if (!oc_dir_iter(data_fd,oc_rm_entry_cb,&rc) || !rc.ok ||
+    if (!oc_rm_tree_cb_cleanup(data_fd,dm.device,"record",0) ||
         oc_sync(data_fd)<0 || oc_unlink(data_fd,"record")<0 || oc_sync(data_fd)<0 ||
         oc_rmdirat((int)pdir,dleaf)<0 || oc_sync((int)pdir)<0) {
         (void)oc_close((int)pdir); *err_out="cleanup_failed"; return 0;

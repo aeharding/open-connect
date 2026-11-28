@@ -28,6 +28,7 @@ usb_fence() {
     if absent "$target/backend.sh"; then
         # Native-only pinned Settings session (post-PR3b): verify api against package, never dev.22.
         source=$(package_programs "$package" api) || fail invalid_legacy_source
+        absent "$source/backend.sh" || awk '$0=="# Open Connect pinned Settings 1"{n++}END{exit n!=1}' "$source/backend.sh" || fail unsupported_legacy_runtime
         file "$target/api" && sha_same "$target/api" "$source/api" || fail invalid_legacy_source
         return 0
     fi

@@ -21,23 +21,7 @@ int oc_access_key_verify(int data_fd, const char *key_id, long owner, long group
 }
 
 static int oc_vfat_mount_ok(int root, const char *vol_abs) {
-    char buf[8192];
-    if (oc_text(root,"proc/self/mounts",buf,sizeof buf,1)<0) return 0;
-    unsigned hits=0; char *p=buf;
-    while (*p) {
-        char *f[6]; unsigned n=0;
-        while (*p && *p!='\n') {
-            if (*p==' '||*p=='\t') { ++p; continue; }
-            if (n==6) return 0;
-            f[n++]=p;
-            while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
-            if (*p==' '||*p=='\t') *p++=0;
-        }
-        if (!*p || n!=6) return 0;
-        *p++=0;
-        if (oc_equal(f[1],vol_abs) && oc_equal(f[2],"vfat")) ++hits;
-    }
-    return hits==1;
+    return oc_mounts_has(root,vol_abs,"vfat",0)==1;
 }
 
 static int oc_b64_ok(const char *s) {
@@ -52,31 +36,31 @@ static int oc_b64_ok(const char *s) {
 int oc_access_key_import(int root, const char *root_path, int data_fd, long owner, long group,
                          char out_id[65], const char **err_out) {
     const char *vnames[4]={"sda1","sdb1","sdc1","sdd1"};
-    const char *found_leaf=0;
+    int pub_fd=-1;
     long mnt=oc_beneath(root,"tmp/mnt",OC_DIRECTORY,0);
     if (mnt<0) { *err_out="public_key_not_found"; return 0; }
     for (unsigned i=0; i<4; ++i) {
         if (oc_absent_at((int)mnt,vnames[i])) continue;
         long vd=oc_openat((int)mnt,vnames[i],OC_DIRECTORY,0);
-        if (vd<0) { (void)oc_close((int)mnt); *err_out="invalid_public_key"; return 0; }
+        if (vd<0) { if (pub_fd>=0) (void)oc_close(pub_fd); (void)oc_close((int)mnt); *err_out="invalid_public_key"; return 0; }
         if (oc_absent_at((int)vd,"open-connect.pub")) { (void)oc_close((int)vd); continue; }
-        if (found_leaf) { (void)oc_close((int)vd); (void)oc_close((int)mnt); *err_out="multiple_public_keys"; return 0; }
+        if (pub_fd>=0) { (void)oc_close((int)vd); (void)oc_close(pub_fd); (void)oc_close((int)mnt); *err_out="multiple_public_keys"; return 0; }
+        long pfd=oc_openat((int)vd,"open-connect.pub",OC_READ,0);
         OcMeta fm={0};
-        int fok=oc_metadata((int)vd,"open-connect.pub",&fm)>=0 && (fm.mode&OC_TYPE)==OC_REGULAR && fm.size<=8192;
+        int fok=pfd>=0 && oc_stat((int)pfd,&fm)>=0 && (fm.mode&OC_TYPE)==OC_REGULAR && fm.size<=8192;
         (void)oc_close((int)vd);
-        if (!fok) { (void)oc_close((int)mnt); *err_out="invalid_public_key"; return 0; }
+        if (!fok) { if (pfd>=0) (void)oc_close((int)pfd); (void)oc_close((int)mnt); *err_out="invalid_public_key"; return 0; }
         char vabs[64];
         if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i]) || !oc_vfat_mount_ok(root,vabs)) {
-            (void)oc_close((int)mnt); *err_out="invalid_key_volume"; return 0;
+            (void)oc_close((int)pfd); (void)oc_close((int)mnt); *err_out="invalid_key_volume"; return 0;
         }
-        found_leaf=vnames[i];
+        pub_fd=(int)pfd;
     }
     (void)oc_close((int)mnt);
-    if (!found_leaf) { *err_out="public_key_not_found"; return 0; }
-    char pub_rel[64], raw[8193];
-    if (!oc_join4(pub_rel,sizeof pub_rel,"tmp/mnt/",found_leaf,"/open-connect.pub",0)) { *err_out="invalid_public_key"; return 0; }
-    int n=oc_text(root,pub_rel,raw,sizeof raw,0);
-    if (n<=0) { *err_out="unsupported_public_key"; return 0; }
+    if (pub_fd<0) { *err_out="public_key_not_found"; return 0; }
+    char *raw=oc_big_buf, *clean=oc_big_buf+16384;
+    int n=oc_text_fd(pub_fd,raw,8193);
+    if (oc_close(pub_fd)<0 || n<=0) { *err_out="unsupported_public_key"; return 0; }
 
     /* Extract single non-empty line: <type> <base64> [comment]. */
     char *type=0, *blob=0; unsigned lines=0; char *p=raw;
@@ -103,15 +87,16 @@ int oc_access_key_import(int root, const char *root_path, int data_fd, long owne
           oc_equal(type,"ecdsa-sha2-nistp384")||oc_equal(type,"ecdsa-sha2-nistp521"))) {
         *err_out="unsupported_public_key"; return 0;
     }
-    char clean[8192];
-    if (!oc_join4(clean,sizeof clean,type," ",blob,"\n")) { *err_out="unsupported_public_key"; return 0; }
+    if (!oc_join4(clean,8192,type," ",blob,"\n")) { *err_out="unsupported_public_key"; return 0; }
 
     int kdir=oc_open_private(data_fd,"keys");
     if (kdir<0) { *err_out="invalid_key_directory"; return 0; }
     char nonce[33], wname[48], dbase[320], wabs[400];
     if (!oc_random(root,nonce) || !oc_join(wname,sizeof wname,".new-",nonce) ||
-        !oc_new_text(kdir,wname,clean,0600) ||
-        !oc_data_base(root_path,dbase,sizeof dbase) ||
+        !oc_new_text(kdir,wname,clean,0600)) {
+        (void)oc_close(kdir); *err_out="key_create_failed"; return 0;
+    }
+    if (!oc_data_base(root_path,dbase,sizeof dbase) ||
         !oc_join4(wabs,sizeof wabs,dbase,"/keys/",wname,0)) {
         (void)oc_unlink(kdir,wname); (void)oc_close(kdir);
         *err_out="key_create_failed"; return 0;
@@ -180,9 +165,8 @@ static int oc_lower_eq(const char *a, const char *b) {
 }
 
 static int oc_passwd_uid0_is_cmu(int root) {
-    char buf[8192];
-    if (oc_text(root,"etc/passwd",buf,sizeof buf,0)<=0) return 0;
-    unsigned hits=0; char *p=buf;
+    if (oc_text(root,"etc/passwd",oc_mscratch,sizeof oc_mscratch,0)<=0) return 0;
+    unsigned hits=0; char *p=oc_mscratch;
     while (*p) {
         char *ln=p;
         while (*p && *p!='\n') ++p;
@@ -203,11 +187,11 @@ static int oc_passwd_uid0_is_cmu(int root) {
 }
 
 int oc_access_compose(int root, const char *root_path, int data_fd, const char *session_dir,
-                      const char *base_snap, int work_fd, const char *work_leaf,
-                      const char *uart, const char *ssh, const char *key,
+                      const char *base_snap, const char *console_dig, int work_fd,
+                      const char *work_leaf, const char *uart, const char *ssh, const char *key,
                       long owner, long group) {
-    static OcTxnSnap base;
-    if (!oc_txn_read_snap(data_fd,base_snap,&base) || !base.has_access) return 0;
+    OcTxnSnap *base=&oc_snap_pool[2];
+    if (!oc_txn_read_snap(data_fd,base_snap,base) || !base->has_access) return 0;
     if (!oc_bit(uart) || !oc_bit(ssh)) return 0;
     if (!oc_equal(key,"-") && !oc_access_key_verify(data_fd,key,owner,group)) return 0;
     char bpath[128];
@@ -217,17 +201,20 @@ int oc_access_compose(int root, const char *root_path, int data_fd, const char *
 
     int ok=1;
     if (oc_equal(uart,"1")) {
+        char cdig[65];
         long sdir=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
-        ok=sdir>=0 && oc_copy_file_at((int)sdir,"console.sh",work_fd,"runlogin",0600,0,0,0);
+        ok=sdir>=0 && console_dig && oc_hex(console_dig,64) &&
+            oc_copy_file_at((int)sdir,"console.sh",work_fd,"runlogin",0600,0,0,cdig) &&
+            oc_equal(cdig,console_dig);
         if (sdir>=0 && oc_close((int)sdir)<0) ok=0;
     } else {
         ok=oc_copy_file_at(bdir,"runlogin",work_fd,"runlogin",0600,0,0,0);
     }
 
     if (ok && oc_equal(ssh,"1")) {
-        char src[16384], dst[16384];
+        char *src=oc_big_buf, *dst=oc_big_buf+16384;
         if (!oc_access_key_verify(data_fd,key,owner,group) || !oc_passwd_uid0_is_cmu(root) ||
-            oc_text(bdir,"sshd.conf",src,sizeof src,0)<=0) { ok=0; }
+            oc_text(bdir,"sshd.conf",src,16384,0)<=0) { ok=0; }
         else {
             unsigned used=0, auth_hits=0; char *p=src;
             while (ok && *p) {
@@ -248,11 +235,11 @@ int oc_access_compose(int root, const char *root_path, int data_fd, const char *
                     char extra[128];
                     if (!oc_join4(extra,sizeof extra," /data_persist/open-connect/keys/",key,".%u",0)) { ok=0; break; }
                     unsigned el=oc_length(extra);
-                    if (used+ll+el+1>=sizeof dst) { ok=0; break; }
+                    if (used+ll+el+1>=16384) { ok=0; break; }
                     for (unsigned i=0; i<ll; ++i) dst[used++]=ln[i];
                     for (unsigned i=0; i<el; ++i) dst[used++]=extra[i];
                 } else {
-                    if (used+ll+1>=sizeof dst) { ok=0; break; }
+                    if (used+ll+1>=16384) { ok=0; break; }
                     for (unsigned i=0; i<ll; ++i) dst[used++]=ln[i];
                 }
                 if (has_nl) dst[used++]='\n';
@@ -280,37 +267,38 @@ int oc_access_compose(int root, const char *root_path, int data_fd, const char *
 
     char acc_line[320];
     if (!oc_join4(acc_line,sizeof acc_line,uart,"|",ssh,"|") ||
-        !oc_join4(acc_line,sizeof acc_line,acc_line,key,"|",base.acc_f[3]) ||
-        !oc_join4(acc_line,sizeof acc_line,acc_line,"|",base.acc_f[4],"|") ||
-        !oc_join4(acc_line,sizeof acc_line,acc_line,base.acc_f[5],"\n",0)) return 0;
+        !oc_join4(acc_line,sizeof acc_line,acc_line,key,"|",base->acc_f[3]) ||
+        !oc_join4(acc_line,sizeof acc_line,acc_line,"|",base->acc_f[4],"|") ||
+        !oc_join4(acc_line,sizeof acc_line,acc_line,base->acc_f[5],"\n",0)) return 0;
     return oc_new_text(work_fd,"access",acc_line,0600);
 }
 
 int oc_access_hold_verify(int root, int data_fd, const char *base_snap, long owner, long group) {
     (void)owner; (void)group;
-    static OcTxnSnap base;
-    if (!oc_txn_read_snap(data_fd,base_snap,&base) || !base.has_access || oc_equal(base.acc_f[5],"-")) return 0;
+    OcTxnSnap *base=&oc_snap_pool[6];
+    if (!oc_txn_read_snap(data_fd,base_snap,base) || !base->has_access || oc_equal(base->acc_f[5],"-")) return 0;
     oc_u64 want_ino=0;
-    if (!oc_decimal(base.acc_f[5],&want_ino)) return 0;
+    if (!oc_decimal(base->acc_f[5],&want_ino)) return 0;
     char hleaf[64];
-    if (!oc_join(hleaf,sizeof hleaf,".open-connect-runlogin-",base.acc_f[5])) return 0;
+    if (!oc_join(hleaf,sizeof hleaf,".open-connect-runlogin-",base->acc_f[5])) return 0;
     long ubin=oc_beneath(root,"usr/bin",OC_DIRECTORY,0);
     if (ubin<0) return 0;
     OcMeta hm={0}, rm={0}; char hdig[65], hms[40];
     int ok=oc_metadata((int)ubin,"runlogin",&rm)>=0 &&
         oc_hash_file_at((int)ubin,hleaf,hdig,&hm) && hm.inode==want_ino && hm.device==rm.device &&
-        oc_equal(hdig,base.login_dig) && oc_meta_mode_str(&hm,hms) && oc_equal(hms,base.acc_f[3]);
+        oc_equal(hdig,base->login_dig) && oc_meta_mode_str(&hm,hms) && oc_equal(hms,base->acc_f[3]);
     if (oc_close((int)ubin)<0) ok=0;
     return ok;
 }
 
 int oc_access_login_check(int root, int data_fd, const char *base_snap, long owner, long group) {
-    static OcTxnSnap base;
-    if (!oc_txn_read_snap(data_fd,base_snap,&base) || !base.has_access || oc_equal(base.acc_f[5],"-")) return 1;
+    OcTxnSnap *base=&oc_snap_pool[5];
+    if (!oc_txn_read_snap(data_fd,base_snap,base)) return 0;
+    if (!base->has_access || oc_equal(base->acc_f[5],"-")) return 1;
     oc_u64 want_ino=0;
-    if (!oc_decimal(base.acc_f[5],&want_ino)) return 0;
+    if (!oc_decimal(base->acc_f[5],&want_ino)) return 0;
     char hleaf[64];
-    if (!oc_join(hleaf,sizeof hleaf,".open-connect-runlogin-",base.acc_f[5])) return 0;
+    if (!oc_join(hleaf,sizeof hleaf,".open-connect-runlogin-",base->acc_f[5])) return 0;
     long ubin=oc_beneath(root,"usr/bin",OC_DIRECTORY,0);
     if (ubin<0) return 0;
     int ok=1;
@@ -319,18 +307,19 @@ int oc_access_login_check(int root, int data_fd, const char *base_snap, long own
     if (ok) ok=oc_hash_file_at((int)ubin,"runlogin",cur_dig,&rm);
     if (oc_close((int)ubin)<0) ok=0;
     if (!ok) return 0;
-    if (oc_equal(cur_dig,base.login_dig)) return rm.inode==want_ino;
+    if (oc_equal(cur_dig,base->login_dig)) return rm.inode==want_ino;
     return oc_access_hold_verify(root,data_fd,base_snap,owner,group);
 }
 
 int oc_access_hold_cleanup(int root, const char *root_path, int data_fd, const char *base_snap,
                            long owner, long group) {
-    static OcTxnSnap base;
-    if (!oc_txn_read_snap(data_fd,base_snap,&base) || !base.has_access || oc_equal(base.acc_f[5],"-")) return 1;
+    OcTxnSnap *base=&oc_snap_pool[5];
+    if (!oc_txn_read_snap(data_fd,base_snap,base)) return 0;
+    if (!base->has_access || oc_equal(base->acc_f[5],"-")) return 1;
     oc_u64 want_ino=0;
-    if (!oc_decimal(base.acc_f[5],&want_ino)) return 0;
+    if (!oc_decimal(base->acc_f[5],&want_ino)) return 0;
     char hleaf[64];
-    if (!oc_join(hleaf,sizeof hleaf,".open-connect-runlogin-",base.acc_f[5])) return 0;
+    if (!oc_join(hleaf,sizeof hleaf,".open-connect-runlogin-",base->acc_f[5])) return 0;
     long ubin=oc_beneath(root,"usr/bin",OC_DIRECTORY,0);
     if (ubin<0) return 0;
     OcMeta rm={0};
@@ -347,48 +336,48 @@ int oc_access_hold_cleanup(int root, const char *root_path, int data_fd, const c
 }
 
 int oc_access_files_match(int root, int data_fd, const char *snap_id, long owner, long group) {
-    static OcTxnSnap s;
-    if (!oc_txn_read_snap(data_fd,snap_id,&s)) return 0;
-    if (!s.has_access) return 1;
+    OcTxnSnap *s=&oc_snap_pool[4];
+    if (!oc_txn_read_snap(data_fd,snap_id,s)) return 0;
+    if (!s->has_access) return 1;
     long ubin=oc_beneath(root,"usr/bin",OC_DIRECTORY,0);
     long essh=oc_beneath(root,"etc/ssh",OC_DIRECTORY,0);
     char ldig[65], sdig[65], lms[40], sms[40]; OcMeta lm={0}, sm={0};
     int ok=ubin>=0 && essh>=0 &&
-        oc_hash_file_at((int)ubin,"runlogin",ldig,&lm) && oc_equal(ldig,s.login_dig) &&
-        oc_meta_mode_str(&lm,lms) && oc_equal(lms,s.acc_f[3]) &&
-        oc_hash_file_at((int)essh,"sshd_config",sdig,&sm) && oc_equal(sdig,s.ssh_dig) &&
-        oc_meta_mode_str(&sm,sms) && oc_equal(sms,s.acc_f[4]);
+        oc_hash_file_at((int)ubin,"runlogin",ldig,&lm) && oc_equal(ldig,s->login_dig) &&
+        oc_meta_mode_str(&lm,lms) && oc_equal(lms,s->acc_f[3]) &&
+        oc_hash_file_at((int)essh,"sshd_config",sdig,&sm) && oc_equal(sdig,s->ssh_dig) &&
+        oc_meta_mode_str(&sm,sms) && oc_equal(sms,s->acc_f[4]);
     if (ubin>=0 && oc_close((int)ubin)<0) ok=0;
     if (essh>=0 && oc_close((int)essh)<0) ok=0;
-    if (ok && !oc_equal(s.acc_f[2],"-")) ok=oc_access_key_verify(data_fd,s.acc_f[2],owner,group);
+    if (ok && !oc_equal(s->acc_f[2],"-")) ok=oc_access_key_verify(data_fd,s->acc_f[2],owner,group);
     return ok;
 }
 
 int oc_access_targets_match(int root, int data_fd, const char *snap_id, const char *base_snap,
                             long owner, long group) {
-    static OcTxnSnap s;
-    if (!oc_txn_read_snap(data_fd,snap_id,&s)) return 0;
-    if (!s.has_access) return 1;
+    OcTxnSnap *s=&oc_snap_pool[3];
+    if (!oc_txn_read_snap(data_fd,snap_id,s)) return 0;
+    if (!s->has_access) return 1;
     return oc_access_files_match(root,data_fd,snap_id,owner,group) &&
         oc_access_login_check(root,data_fd,base_snap,owner,group);
 }
 
 int oc_access_pair_check(int root, int data_fd, const char *before_id, const char *after_id,
                          const char *base_snap, long owner, long group) {
-    static OcTxnSnap b, a;
-    if (!oc_txn_read_snap(data_fd,before_id,&b) || !oc_txn_read_snap(data_fd,after_id,&a)) return 0;
-    if (!b.has_access && !a.has_access) return 1;
-    if (!b.has_access || !a.has_access) return 0;
-    if (!oc_equal(a.acc_f[2],"-") && !oc_access_key_verify(data_fd,a.acc_f[2],owner,group)) return 0;
+    OcTxnSnap *b=&oc_snap_pool[3], *a=&oc_snap_pool[4];
+    if (!oc_txn_read_snap(data_fd,before_id,b) || !oc_txn_read_snap(data_fd,after_id,a)) return 0;
+    if (!b->has_access && !a->has_access) return 1;
+    if (!b->has_access || !a->has_access) return 0;
+    if (!oc_equal(a->acc_f[2],"-") && !oc_access_key_verify(data_fd,a->acc_f[2],owner,group)) return 0;
     if (!oc_access_login_check(root,data_fd,base_snap,owner,group)) return 0;
     long ubin=oc_beneath(root,"usr/bin",OC_DIRECTORY,0);
     long essh=oc_beneath(root,"etc/ssh",OC_DIRECTORY,0);
     char ldig[65], sdig[65], lms[40], sms[40]; OcMeta lm={0}, sm={0};
     int ok=ubin>=0 && essh>=0 &&
         oc_hash_file_at((int)ubin,"runlogin",ldig,&lm) && oc_meta_mode_str(&lm,lms) &&
-        ((oc_equal(ldig,b.login_dig)&&oc_equal(lms,b.acc_f[3]))||(oc_equal(ldig,a.login_dig)&&oc_equal(lms,a.acc_f[3]))) &&
+        ((oc_equal(ldig,b->login_dig)&&oc_equal(lms,b->acc_f[3]))||(oc_equal(ldig,a->login_dig)&&oc_equal(lms,a->acc_f[3]))) &&
         oc_hash_file_at((int)essh,"sshd_config",sdig,&sm) && oc_meta_mode_str(&sm,sms) &&
-        ((oc_equal(sdig,b.ssh_dig)&&oc_equal(sms,b.acc_f[4]))||(oc_equal(sdig,a.ssh_dig)&&oc_equal(sms,a.acc_f[4])));
+        ((oc_equal(sdig,b->ssh_dig)&&oc_equal(sms,b->acc_f[4]))||(oc_equal(sdig,a->ssh_dig)&&oc_equal(sms,a->acc_f[4])));
     if (ubin>=0 && oc_close((int)ubin)<0) ok=0;
     if (essh>=0 && oc_close((int)essh)<0) ok=0;
     return ok;
@@ -397,20 +386,19 @@ int oc_access_pair_check(int root, int data_fd, const char *before_id, const cha
 int oc_access_pair_apply(int root, const char *root_path, int data_fd, const char *rev,
                          const char *before_id, const char *after_id, const char *base_snap,
                          int prepared_same_rev, long owner, long group) {
-    static OcTxnSnap b, a, base;
-    if (!oc_txn_read_snap(data_fd,after_id,&a)) return 0;
-    if (!a.has_access) return 1;
+    OcTxnSnap *a=&oc_snap_pool[2], *b=&oc_snap_pool[3], *base=&oc_snap_pool[4];
+    if (!oc_txn_read_snap(data_fd,after_id,a)) return 0;
+    if (!a->has_access) return 1;
     if (!oc_access_pair_check(root,data_fd,before_id,after_id,base_snap,owner,group)) return 0;
-    if (!oc_txn_read_snap(data_fd,before_id,&b) || !oc_txn_read_snap(data_fd,base_snap,&base)) return 0;
+    if (!oc_txn_read_snap(data_fd,before_id,b) || !oc_txn_read_snap(data_fd,base_snap,base)) return 0;
 
     const char *targets[2]={"usr/bin/runlogin","etc/ssh/sshd_config"};
     const char *parents[2]={"usr/bin","etc/ssh"};
     const char *leaves[2]={"runlogin","sshd_config"};
     const char *sn_names[2]={"runlogin","sshd.conf"};
-    const char *bhashes[2]={b.login_dig,b.ssh_dig}, *ahashes[2]={a.login_dig,a.ssh_dig};
-    const char *bmodes[2]={b.acc_f[3],b.acc_f[4]}, *amodes[2]={a.acc_f[3],a.acc_f[4]};
+    const char *bhashes[2]={b->login_dig,b->ssh_dig}, *ahashes[2]={a->login_dig,a->ssh_dig};
+    const char *bmodes[2]={b->acc_f[3],b->acc_f[4]}, *amodes[2]={a->acc_f[3],a->acc_f[4]};
 
-    char mscratch[8192];
     for (unsigned i=0; i<2; ++i) {
         long pdir=oc_beneath(root,parents[i],OC_DIRECTORY,0);
         char act_h[65], act_m[40]; OcMeta m={0};
@@ -424,13 +412,13 @@ int oc_access_pair_apply(int root, const char *root_path, int data_fd, const cha
             !oc_join(stg,sizeof stg,stg,leaves[i])) return 0;
         if (prepared_same_rev && oc_equal(bhashes[i],ahashes[i]) && oc_equal(bmodes[i],amodes[i]) &&
             oc_equal(act_h,ahashes[i]) && oc_equal(act_m,amodes[i]) &&
-            oc_absent_at(root,stg) && oc_mounts_mode(root,mscratch,sizeof mscratch,0)) continue;
+            oc_absent_at(root,stg) && oc_mounts_mode(root,oc_mscratch,sizeof oc_mscratch,0)) continue;
         char src_rel[160], hold_rel[96]; const char *hold_mode=0;
         hold_rel[0]=0;
         if (!oc_join4(src_rel,sizeof src_rel,"snapshots/",after_id,"/",sn_names[i])) return 0;
-        if (i==0 && base.has_access && !oc_equal(base.acc_f[5],"-")) {
-            if (!oc_join(hold_rel,sizeof hold_rel,"usr/bin/.open-connect-runlogin-",base.acc_f[5])) return 0;
-            if (oc_equal(ahashes[0],base.login_dig)) {
+        if (i==0 && base->has_access && !oc_equal(base->acc_f[5],"-")) {
+            if (!oc_join(hold_rel,sizeof hold_rel,"usr/bin/.open-connect-runlogin-",base->acc_f[5])) return 0;
+            if (oc_equal(ahashes[0],base->login_dig)) {
                 if (!oc_absent_at(root,hold_rel)) hold_mode="restore";
                 else hold_rel[0]=0;
             } else hold_mode="keep";

@@ -240,8 +240,8 @@ int oc_access_key_verify(int data_fd, const char *key_id, long owner, long group
 int oc_access_key_import(int root, const char *root_path, int data_fd, long owner, long group,
                          char out_id[65], const char **err_out);
 int oc_access_compose(int root, const char *root_path, int data_fd, const char *session_dir,
-                      const char *base_snap, int work_fd, const char *work_leaf,
-                      const char *uart, const char *ssh, const char *key,
+                      const char *base_snap, const char *console_dig, int work_fd,
+                      const char *work_leaf, const char *uart, const char *ssh, const char *key,
                       long owner, long group);
 int oc_access_hold_verify(int root, int data_fd, const char *base_snap, long owner, long group);
 int oc_access_login_check(int root, int data_fd, const char *base_snap, long owner, long group);
@@ -269,7 +269,16 @@ typedef struct {
     char sel_hash[65], sel_meta[40], sel_pkg[65];
     int is_oc2, has_access, has_selector;
 } OcTxnSnap;
+extern OcTxnSnap oc_snap_pool[7];
+extern char oc_mscratch[8192];
+extern char oc_big_buf[32768];
 int oc_txn_read_snap(int data_fd, const char *snap_id, OcTxnSnap *s);
+int oc_pkg_boot_select(int data_fd, const char *root_path, const char *pkg_id,
+                       long owner, long group, char bs_path[512]);
+int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_match);
+void oc_rm_subdir(int parent, const char *leaf);
+int oc_check_active_pins(int root, int data_fd, const char *pkg_id, const char *snap_id,
+                         const char *base_val, const char *touch_val, const char **err_out);
 int oc_targets_match(int root, int data_fd, const char *snap_id, const char *base_snap,
                      long owner, long group);
 int oc_dependencies_match(int root, int data_fd, const char *snap_id, long owner, long group);

@@ -17,7 +17,7 @@ PKG = "b" * 64
 BASE = "c" * 64
 CUR = "d" * 64
 AFTER = "e" * 64
-SLEEP_MS = 50
+SLEEP_MS = 80
 
 
 def _make_record(phase="active", before="-", after="-", off="-", boot=BOOT_ID):
@@ -132,6 +132,9 @@ class IgnitionObserverTests(unittest.TestCase):
                 if proc.poll() is None:
                     proc.kill()
                     proc.wait(timeout=3)
+                for stream in (proc.stdout, proc.stderr):
+                    if stream is not None:
+                        stream.close()
 
     def test_single_instance_lock_and_ram_lock_contention_retry(self):
         ig = host_ignition()
@@ -166,6 +169,9 @@ class IgnitionObserverTests(unittest.TestCase):
                 if proc.poll() is None:
                     proc.kill()
                     proc.wait(timeout=3)
+                for stream in (proc.stdout, proc.stderr):
+                    if stream is not None:
+                        stream.close()
 
     def test_survives_transient_pending_record_and_exits_on_removed(self):
         ig = host_ignition()
@@ -196,6 +202,9 @@ class IgnitionObserverTests(unittest.TestCase):
                 if proc.poll() is None:
                     proc.kill()
                     proc.wait(timeout=3)
+                for stream in (proc.stdout, proc.stderr):
+                    if stream is not None:
+                        stream.close()
 
 
 if __name__ == "__main__":

@@ -44,12 +44,15 @@ class FirmwareCheck(unittest.TestCase):
     def test_public_and_symlink_output_refused(self):
         with self.assertRaisesRegex(ValueError, "below"):
             checker.private_output(ROOT / "should-not-exist")
+        (ROOT / "runs").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir=ROOT / "runs") as directory:
             root = Path(directory)
             (root / "link").symlink_to(root / "destination")
             with self.assertRaisesRegex(ValueError, "symlink"):
                 checker.private_output(root / "link")
             self.assertFalse((root / "destination").exists())
+            fresh = root / "fresh-output"
+            self.assertEqual(checker.private_output(fresh), fresh.resolve())
 
     def test_explicit_tools_and_linux_discovery_do_not_require_xcode(self):
         with (

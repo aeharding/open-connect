@@ -140,7 +140,7 @@ def binfmt_arm(qemu: Path):
             res = subprocess.run(["mount", "-t", "binfmt_misc", "binfmt_misc", str(bm)])
             if res.returncode != 0 and not (bm / "register").exists():
                 raise RuntimeError("failed to mount binfmt_misc")
-            mounted = True
+            mounted = res.returncode == 0
         if (bm / "status").read_text().strip() != "enabled":
             raise RuntimeError("binfmt_misc is globally disabled")
         exact = bm / "qemu-arm"
@@ -165,14 +165,23 @@ def binfmt_arm(qemu: Path):
 
 
 def stop_proc(proc: subprocess.Popen) -> None:
-    if proc.poll() is not None:
-        return
-    proc.terminate()
     try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait(timeout=5)
+        if proc.poll() is not None:
+            return
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        except BaseException:
+            proc.kill()
+            proc.wait(timeout=5)
+            raise
+    finally:
+        for stream in (proc.stdout, proc.stderr):
+            if stream is not None:
+                stream.close()
 
 
 def pick_port() -> int:
@@ -208,9 +217,16 @@ def http_control(
         conn.close()
 
 
-def wait_port(port: int, timeout: float = 5.0) -> None:
+def wait_port(port: int, timeout: float = 5.0, proc: subprocess.Popen | None = None) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
+        if proc is not None and proc.poll() is not None:
+            err = ""
+            if proc.stderr is not None:
+                err = proc.stderr.read().decode("utf-8", errors="replace")
+            raise RuntimeError(
+                f"listener on 127.0.0.1:{port} exited early ({proc.returncode}): {err}"
+            )
         try:
             with socket.create_connection(("127.0.0.1", port), timeout=0.2):
                 return
@@ -552,7 +568,7 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
             stderr=subprocess.PIPE,
         )
         try:
-            wait_port(port)
+            wait_port(port, proc=srv)
             st, hdrs, _ = http_control(port, None, None, method="GET")
             assert st == 400, f"GET expected 400, got {st}"
             assert hdrs.get("access-control-allow-origin") == "*", hdrs
@@ -700,9 +716,7 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
             assert ig_proc.returncode == 0, f"ignition exited {ig_proc.returncode}"
             print("  [ARMv7 ignition] 1-page Thumb-2 ACC_Sense 1->0->1 & clean exit verified")
         finally:
-            if ig_proc.poll() is None:
-                ig_proc.kill()
-                ig_proc.wait(timeout=5)
+            stop_proc(ig_proc)
     finally:
         umount_quiet(chroot_tmp)
 
@@ -903,7 +917,7 @@ def part_b_full_lifecycle(
             stderr=subprocess.PIPE,
         )
         try:
-            wait_port(usb_port)
+            wait_port(usb_port, proc=usb_srv)
             st, _, raw = http_control(usb_port, TOKEN_USB, "-|install|-|-|-")
             assert st == 200, (st, raw)
             res = json.loads(raw)
@@ -984,7 +998,7 @@ def part_b_full_lifecycle(
             stderr=subprocess.PIPE,
         )
         try:
-            wait_port(set_port)
+            wait_port(set_port, proc=set_srv)
             st, _, raw = http_control(set_port, TOKEN_SET, "-|status|settings|-|-")
             assert st == 200 and json.loads(raw)["ok"] is True, (st, raw)
             rev = json.loads(raw)["revision"]
@@ -1270,7 +1284,7 @@ def part_b_full_lifecycle(
             stderr=subprocess.PIPE,
         )
         try:
-            wait_port(un_port)
+            wait_port(un_port, proc=un_srv)
             (chroot / "dev/urandom").write_bytes(os.urandom(8192))
             st, _, raw = http_control(un_port, TOKEN_USB, f"{cur_rev}|uninstall|-|-|-")
             assert st == 200, (st, raw)
@@ -1345,7 +1359,7 @@ def part_b_full_lifecycle(
             stderr=subprocess.PIPE,
         )
         try:
-            wait_port(b6_port)
+            wait_port(b6_port, proc=b6_srv)
             # B6a-neg: Forbidden key (uart=1) in open-connect.prefs fails BEFORE touching flash!
             (usb_vol / "open-connect.prefs").write_text("OCPREFS1\nuart=1\n")
             st, _, raw = http_control(b6_port, TOKEN_USB, "-|install|-|-|-")
@@ -1421,7 +1435,7 @@ def part_b_full_lifecycle(
             stderr=subprocess.PIPE,
         )
         try:
-            wait_port(b6b_port)
+            wait_port(b6b_port, proc=b6b_srv)
             (usb_vol / "open-connect.prefs").write_text("OCPREFS1\nsource-order=0\n")
             (chroot / "dev/urandom").write_bytes(os.urandom(8192))
             st, _, raw = http_control(b6b_port, TOKEN_USB, f"{snap_a}|install|-|-|-")

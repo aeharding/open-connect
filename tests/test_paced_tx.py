@@ -111,7 +111,7 @@ class PacedTxTests(unittest.TestCase):
 
     def test_operation_deadline_applies_during_paced_tx_without_retry(self):
         port = StreamingTransport()
-        s = self.session(port, timeout=0.035)
+        s = self.session(port, timeout=0.055)
         with self.assertRaises(UnknownOutcome):
             s.execute("printf " + ("x" * 300) + "\n: " + (" " * 180))
         sent = bytes(port.tx)

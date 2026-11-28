@@ -67,8 +67,9 @@ int oc_txn_read_snap(int data_fd, const char *snap_id, OcTxnSnap *s) {
     }
     for (unsigned i=0; ok && i<s->mf.count; ++i) {
         const char *nm=s->mf.rows[i].name;
-        if (oc_equal(nm,"config") || oc_equal(nm,"autostart") || oc_equal(nm,"access") ||
-            oc_equal(nm,"runlogin") || oc_equal(nm,"sshd.conf") || oc_equal(nm,"selector")) continue;
+        if (oc_equal(nm,"config") || oc_equal(nm,"autostart") ||
+            (s->has_access && (oc_equal(nm,"access") || oc_equal(nm,"runlogin") || oc_equal(nm,"sshd.conf"))) ||
+            (s->has_selector && oc_equal(nm,"selector"))) continue;
         char dig[65];
         ok=oc_hash_file_at(sdir,nm,dig,&m) && oc_equal(dig,s->mf.rows[i].digest);
     }
@@ -89,6 +90,27 @@ int oc_targets_match(int root, int data_fd, const char *snap_id, const char *bas
     if (ok && s->has_access) ok=oc_access_targets_match(root,data_fd,snap_id,base_snap,owner,group);
     if (ok && s->has_selector) ok=oc_selector_matches_at(root,s->sel_hash,s->sel_meta);
     return ok;
+}
+
+static const char *oc_root_path_lookup(const char *leaf) {
+    for (unsigned i=0; i<19; ++i) if (oc_equal(leaf,oc_root_names[i])) return oc_root_paths[i];
+    return 0;
+}
+
+static int oc_dep_line_parse(char *ln, const char **dig_out, const char **key_out,
+                             char scope[96], const char **leaf_out) {
+    if (oc_length(ln)<67 || ln[64]!=' ' || ln[65]!=' ') return 0;
+    ln[64]=0;
+    const char *dig=ln, *key=ln+66, *sl=0;
+    if (!oc_hex(dig,64)) return 0;
+    for (const char *q=key; *q; ++q) { if (*q=='/') { if (sl) return 0; sl=q; } }
+    if (!sl || sl==key || !sl[1] || !oc_key(sl+1)) return 0;
+    unsigned slen=(unsigned)(sl-key);
+    if (slen>=96) return 0;
+    for (unsigned i=0; i<slen; ++i) scope[i]=key[i];
+    scope[slen]=0;
+    *dig_out=dig; *key_out=key; *leaf_out=sl+1;
+    return 1;
 }
 
 static char oc_dep_buf[24576];
@@ -112,23 +134,11 @@ int oc_dependencies_match(int root, int data_fd, const char *snap_id, long owner
         while (*p && *p!='\n') ++p;
         if (!*p) { ok=0; break; }
         *p++=0;
-        if (oc_length(ln)<67 || ln[64]!=' ' || ln[65]!=' ') { ok=0; break; }
-        ln[64]=0;
-        const char *dig=ln, *key=ln+66;
-        if (!oc_hex(dig,64)) { ok=0; break; }
-        const char *sl=0;
-        for (const char *q=key; *q; ++q) { if (*q=='/') { if (sl) { ok=0; break; } sl=q; } }
-        if (!ok || !sl || sl==key || !sl[1] || !oc_key(sl+1)) { ok=0; break; }
-        unsigned slen=(unsigned)(sl-key);
-        char scope[96];
-        if (slen>=sizeof scope) { ok=0; break; }
-        for (unsigned i=0; i<slen; ++i) scope[i]=key[i];
-        scope[slen]=0;
-        const char *leaf=sl+1;
+        const char *dig, *key, *leaf; char scope[96];
+        if (!oc_dep_line_parse(ln,&dig,&key,scope,&leaf)) { ok=0; break; }
         char got[65]; OcMeta m={0};
         if (oc_equal(scope,"root")) {
-            const char *rpath=0;
-            for (unsigned i=0; i<19; ++i) if (oc_equal(leaf,oc_root_names[i])) { rpath=oc_root_paths[i]; break; }
+            const char *rpath=oc_root_path_lookup(leaf);
             if (!rpath) { ok=0; break; }
             long fd=oc_beneath(root,rpath+1,OC_READ,0);
             ok=fd>=0 && oc_hash_copy((int)fd,-1,33554432,got,&m)==OC_COPY_OK && oc_equal(got,dig);
@@ -384,11 +394,11 @@ int oc_transaction_prepare(int root, int data_fd, char *rec[13], const char *pha
     return oc_record_write_atomic(root,data_fd,rec,nonce_out);
 }
 
-static int oc_stock_pin_ok(int root, oc_u64 stock_dev, const char *path, const char *want_dig) {
+static int oc_stock_pin_ok(int root, oc_u64 stock_dev, int check_stock, const char *path, const char *want_dig) {
     long fd=oc_beneath(root,path[0]=='/'?path+1:path,OC_READ,0);
     char dig[65]; OcMeta m={0};
     int ok=fd>=0 && oc_hash_copy((int)fd,-1,33554432,dig,&m)==OC_COPY_OK &&
-        m.device==stock_dev && oc_equal(dig,want_dig);
+        (!check_stock || m.device==stock_dev) && oc_equal(dig,want_dig);
     if (fd>=0 && oc_close((int)fd)<0) ok=0;
     return ok;
 }
@@ -397,9 +407,35 @@ static int oc_touch_pins_ok(int root) {
     OcMeta stock={0};
     if (!oc_stock_meta(root,&stock)) return 0;
     for (unsigned i=0; i<2; ++i)
-        if (!oc_stock_pin_ok(root,stock.device,oc_touch_pins[i].path,
+        if (!oc_stock_pin_ok(root,stock.device,1,oc_touch_pins[i].path,
                              oc_pin_digest(oc_touch_pins[i].key,oc_touch_pins[i].digest))) return 0;
     return 1;
+}
+
+static int oc_vui_plugins_walk(int data_fd, const char *pkg_id, int vdir,
+                               int (*cb)(const char *nm, const char *pin, void *ctx), void *ctx) {
+    char ppath[128]; OcManifest pmf;
+    char *uimod=oc_big_buf, *vlist=oc_big_buf+16384;
+    int pdir=oc_join(ppath,sizeof ppath,"packages/",pkg_id)?oc_open_private(data_fd,ppath):-1;
+    int ok=pdir>=0 && oc_load_manifest(pdir,pkg_id,oc_mscratch,sizeof oc_mscratch,&pmf) &&
+        oc_saved_text(pdir,&pmf,"ui-modules.tsv",uimod,16384) &&
+        oc_text(vdir,"vui-plugins.list",vlist,16384,0)>0;
+    if (pdir>=0) (void)oc_close(pdir);
+    char *p=vlist;
+    while (ok && *p) {
+        char *nm=p; while (*p && *p!='\n') ++p;
+        if (!*p) return 0;
+        *p++=0;
+        char pin[65];
+        ok=oc_lookup_vui_pin(uimod,nm,pin) && cb(nm,pin,ctx);
+    }
+    return ok;
+}
+
+typedef struct { int root; oc_u64 stock_dev; } OcVuiChkCtx;
+static int oc_vui_chk_cb(const char *nm, const char *pin, void *raw) {
+    OcVuiChkCtx *c=raw; char tp[160];
+    return oc_join(tp,sizeof tp,"jci/vui/plugins/",nm) && oc_stock_pin_ok(c->root,c->stock_dev,1,tp,pin);
 }
 
 int oc_check_active_pins(int root, int data_fd, const char *pkg_id, const char *snap_id,
@@ -411,32 +447,16 @@ int oc_check_active_pins(int root, int data_fd, const char *pkg_id, const char *
     OcMeta stock={0};
     if (!oc_stock_meta(root,&stock)) { *err_out="base_inputs_changed"; return 0; }
     for (unsigned i=0; i<5; ++i) {
-        if (!oc_stock_pin_ok(root,stock.device,oc_base_pins[i].path,
+        if (!oc_stock_pin_ok(root,stock.device,oc_base_pins[i].stock,oc_base_pins[i].path,
                              oc_pin_digest(oc_base_pins[i].key,oc_base_pins[i].digest))) {
             *err_out="base_inputs_changed"; return 0;
         }
     }
-    char ppath[128], spath[128]; OcManifest pmf;
-    char *uimod=oc_big_buf, *vlist=oc_big_buf+16384;
-    if (!oc_join(ppath,sizeof ppath,"packages/",pkg_id) ||
-        !oc_join(spath,sizeof spath,"snapshots/",snap_id)) { *err_out="base_inputs_changed"; return 0; }
-    int pdir=oc_open_private(data_fd,ppath);
-    int sdir=oc_open_private(data_fd,spath);
-    int ok=pdir>=0 && sdir>=0 &&
-        oc_load_manifest(pdir,pkg_id,oc_mscratch,sizeof oc_mscratch,&pmf) &&
-        oc_saved_text(pdir,&pmf,"ui-modules.tsv",uimod,16384) &&
-        oc_text(sdir,"vui-plugins.list",vlist,16384,0)>0;
+    char spath[128];
+    int sdir=oc_join(spath,sizeof spath,"snapshots/",snap_id)?oc_open_private(data_fd,spath):-1;
+    OcVuiChkCtx vc={root,stock.device};
+    int ok=sdir>=0 && oc_vui_plugins_walk(data_fd,pkg_id,sdir,oc_vui_chk_cb,&vc);
     if (sdir>=0) (void)oc_close(sdir);
-    if (pdir>=0) (void)oc_close(pdir);
-    char *p=vlist;
-    while (ok && *p) {
-        char *nm=p; while (*p && *p!='\n') ++p;
-        if (!*p) { ok=0; break; }
-        *p++=0;
-        char pin[65], tp[160];
-        ok=oc_lookup_vui_pin(uimod,nm,pin) && oc_join(tp,sizeof tp,"jci/vui/plugins/",nm) &&
-            oc_stock_pin_ok(root,stock.device,tp,pin);
-    }
     if (!ok) { *err_out="base_inputs_changed"; return 0; }
     return 1;
 }
@@ -445,6 +465,12 @@ static int oc_write_in_row(int fd, const char *k, const char *p, const char *d) 
     char line[384];
     return oc_join4(line,sizeof line,k,"|",p,"|") && oc_join4(line,sizeof line,line,d,"\n",0) &&
         oc_write_all(fd,line,oc_length(line));
+}
+
+static int oc_vui_emit_cb(const char *nm, const char *pin, void *raw) {
+    char k[128], tp[160];
+    return oc_join(k,sizeof k,"base/vui/",nm) && oc_join(tp,sizeof tp,"/jci/vui/plugins/",nm) &&
+        oc_write_in_row(*(int *)raw,k,tp,pin);
 }
 
 static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
@@ -524,19 +550,10 @@ static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
             char *ln=p; while (*p && *p!='\n') ++p;
             if (!*p) { ok=0; break; }
             *p++=0;
-            if (oc_length(ln)<67 || ln[64]!=' ' || ln[65]!=' ') { ok=0; break; }
-            ln[64]=0;
-            const char *dig=ln, *key=ln+66, *sl=0;
-            for (const char *q=key; *q; ++q) if (*q=='/') { sl=q; break; }
-            if (!sl) { ok=0; break; }
-            char sc[96], tp[256]; unsigned slen=(unsigned)(sl-key);
-            if (slen>=sizeof sc) { ok=0; break; }
-            for (unsigned i=0; i<slen; ++i) sc[i]=key[i];
-            sc[slen]=0;
-            const char *lf=sl+1;
+            const char *dig, *key, *lf; char sc[96], tp[256];
+            if (!oc_dep_line_parse(ln,&dig,&key,sc,&lf)) { ok=0; break; }
             if (oc_equal(sc,"root")) {
-                const char *rp=0;
-                for (unsigned i=0; i<19; ++i) if (oc_equal(lf,oc_root_names[i])) { rp=oc_root_paths[i]; break; }
+                const char *rp=oc_root_path_lookup(lf);
                 ok=rp && oc_join(tp,sizeof tp,"",rp);
             } else if (oc_prefix(sc,"package-")) {
                 ok=oc_join4(tp,sizeof tp,"/" OC_DATA "/packages/",sc+8,"/",lf);
@@ -584,22 +601,8 @@ static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
         for (unsigned i=0; ok && i<5; ++i)
             ok=oc_write_in_row((int)infd,oc_base_pins[i].key,oc_base_pins[i].path,
                                oc_pin_digest(oc_base_pins[i].key,oc_base_pins[i].digest));
-        char ppath[128]; OcManifest pmf;
-        char *uimod=oc_big_buf, *vlist=oc_big_buf+16384;
-        int pdir=oc_join(ppath,sizeof ppath,"packages/",pkg_id)?oc_open_private(data_fd,ppath):-1;
-        ok=pdir>=0 && oc_load_manifest(pdir,pkg_id,oc_mscratch,sizeof oc_mscratch,&pmf) &&
-            oc_saved_text(pdir,&pmf,"ui-modules.tsv",uimod,16384) &&
-            oc_text(wfd,"vui-plugins.list",vlist,16384,0)>0;
-        if (pdir>=0) (void)oc_close(pdir);
-        char *p=vlist;
-        while (ok && *p) {
-            char *nm=p; while (*p && *p!='\n') ++p;
-            if (!*p) { ok=0; break; }
-            *p++=0;
-            char pin[65], k[128], tp[160];
-            ok=oc_lookup_vui_pin(uimod,nm,pin) && oc_join(k,sizeof k,"base/vui/",nm) &&
-                oc_join(tp,sizeof tp,"/jci/vui/plugins/",nm) && oc_write_in_row((int)infd,k,tp,pin);
-        }
+        int ifd=(int)infd;
+        if (ok) ok=oc_vui_plugins_walk(data_fd,pkg_id,wfd,oc_vui_emit_cb,&ifd);
     }
     if (ok && a->has_access) {
         ok=oc_write_in_row((int)infd,"target/runlogin","/usr/bin/runlogin",a->login_dig) &&
@@ -695,7 +698,7 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
         if (oc_equal(phase_buf,"set") && !oc_equal(b->touch,"2")) {
             rb_rec[6]=after_id; rb_rec[7]=before_id;
         } else {
-            char apath[128], cfg[1024];
+            char apath[128], cfg[1024], dnonce[33], dleaf[48], dbase[320], cfg_abs[400];
             if (!oc_join(apath,sizeof apath,"snapshots/",after_id)) { *err_out="plan_failed"; return 0; }
             int adir=oc_open_private(data_fd,apath);
             int cok=adir>=0 && oc_text(adir,"config",cfg,sizeof cfg,0)>0;
@@ -705,9 +708,25 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
             }
             if (!pos) { if (adir>=0) (void)oc_close(adir); *err_out="invalid_preferences"; return 0; }
             *pos='0';
-            cok=oc_snapshot_create(root,data_fd,after_id,a->pkg,a->nvram,a->meta,after_id,
-                                   adir,cfg,session_dir,root_path,owner,group,new_after);
+            if (!oc_random(root,dnonce) || !oc_join(dleaf,sizeof dleaf,".downgrade-",dnonce) ||
+                oc_mkdir(data_fd,dleaf,0700)<0) { (void)oc_close(adir); *err_out="plan_failed"; return 0; }
+            int dwfd=oc_open_private(data_fd,dleaf);
+            cok=dwfd>=0 && oc_new_text(dwfd,"config",cfg,0600) &&
+                oc_data_base(root_path,dbase,sizeof dbase) &&
+                oc_join4(cfg_abs,sizeof cfg_abs,dbase,"/",dleaf,"/config");
+            const char *keep[7]={"access","runlogin","sshd.conf","selector",
+                "index.html","mmui.xml","vui-plugins.list"};
+            for (unsigned i=0; cok && i<7; ++i) {
+                if (oc_absent_at(adir,keep[i])) continue;
+                cok=oc_copy_file_at(adir,keep[i],dwfd,keep[i],0600,1,0,0);
+            }
             (void)oc_close(adir);
+            if (cok) cok=oc_render_sm_profiles(data_fd,root_path,a->pkg,after_id,cfg_abs,
+                                               oc_length(cfg),a->warning,dwfd) &&
+                oc_snapshot_create(root,data_fd,after_id,a->pkg,a->nvram,a->meta,after_id,
+                                   dwfd,cfg,session_dir,root_path,owner,group,new_after);
+            if (dwfd>=0) (void)oc_close(dwfd);
+            oc_rm_subdir(data_fd,dleaf);
             if (!cok) { *err_out="plan_failed"; return 0; }
             rb_rec[7]=new_after;
         }

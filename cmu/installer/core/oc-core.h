@@ -301,6 +301,9 @@ int oc_uninstall_cleanup(int root, const char *root_path, int data_fd, const cha
 /* oc-api.c */
 enum { OC_API_DONE=0, OC_API_ERR=1, OC_API_FALLBACK=2 };
 int oc_join4(char *out, unsigned cap, const char *a, const char *b, const char *c, const char *d);
+int oc_render_sm_profiles(int data_fd, const char *root_path, const char *pkg_id,
+                          const char *snap_id, const char *cfg_path, unsigned cfg_len,
+                          const char *warning_val, int out_dir);
 int oc_api_handle(const char *token_path, const char *rev, const char *op,
                   const char *arg, const char *exp, const char *des);
 int oc_api_cli(int argc, char **argv);

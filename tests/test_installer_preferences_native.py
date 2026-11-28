@@ -18,7 +18,20 @@ class NativePreferences(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
         cls.binary = Path(cls.temp.name) / "boot-config"
-        core_srcs = [p for p in sorted((ASSETS / "core").glob("*.c")) if p.name != "oc-api.c"]
+        core_srcs = [
+            ASSETS / "core" / name
+            for name in (
+                "oc-hash.c",
+                "oc-io.c",
+                "oc-manifest.c",
+                "oc-record.c",
+                "oc-config.c",
+                "oc-guard.c",
+                "oc-plan.c",
+                "oc-store.c",
+                "oc-boot.c",
+            )
+        ]
         subprocess.run(
             [
                 "clang",

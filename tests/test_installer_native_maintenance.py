@@ -1021,13 +1021,72 @@ class NativeMaintenance(unittest.TestCase):
         t2_id = r_t2["revision"]
         touch_pin = f.root / "jci/devices/svc-com-jci-cpp-devices.so"
         orig_tp = touch_pin.read_bytes()
+        # (F2) Neon R2 Blocker #1: interrupt set uart 0->1 while touch=2, drift touch pin,
+        # recover MUST downgrade touch=2->0 AND re-render sm-*.conf without touch-disable.so!
+        p_cut2 = subprocess.run(
+            [str(self.api_bin), "--handle", str(session), t2_id, "set", "uart", "0", "1"],
+            env={**env, "OC_BOOT_CUT": "root_publish_staged"},
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        self.assertNotEqual(p_cut2.returncode, 0)
+        rec_p2 = (f.data / "record").read_text().strip().split("|")
+        self.assertEqual(rec_p2[1], "set")
         touch_pin.write_bytes(b"drifted-devices-so\n")
-        p_t0, r_t0 = call(t2_id, "set", "touch", "2", "0")
+        p_rec2, r_rec2 = call(rec_p2[2], "recover")
+        self.assertEqual(p_rec2.returncode, 0, (r_rec2, p_rec2.stderr))
+        self.assertTrue(
+            r_rec2["ok"] and r_rec2["touch"] == 0 and r_rec2["uart"] == 1 and not r_rec2["pending"],
+            r_rec2,
+        )
+        dg_id = r_rec2["revision"]
+        dg_snap = f.data / "snapshots" / dg_id
+        self.assertIn("\ntouch=0\n", (dg_snap / "config").read_text())
+        self.assertNotIn("touch-disable.so", (dg_snap / "sm-normal.conf").read_text())
+        self.assertNotIn("touch-disable.so", (dg_snap / "sm-wcp.conf").read_text())
+        self.assertTrue((dg_snap / "boot.plan").is_file())
+        # Restore touch_pin and uart=0, then also verify direct native touch=2 -> 0 drift recovery (sp_rc==95)
+        touch_pin.write_bytes(orig_tp)
+        p_u0, r_u0 = call(dg_id, "set", "uart", "1", "0")
+        self.assertEqual(p_u0.returncode, 0, (r_u0, p_u0.stderr))
+        p_t2b, r_t2b = call(r_u0["revision"], "set", "touch", "0", "2")
+        self.assertEqual(p_t2b.returncode, 0, (r_t2b, p_t2b.stderr))
+        touch_pin.write_bytes(b"drifted-devices-so\n")
+        p_t0, r_t0 = call(r_t2b["revision"], "set", "touch", "2", "0")
         self.assertEqual(p_t0.returncode, 0, (r_t0, p_t0.stderr))
         self.assertTrue(r_t0["ok"] and r_t0["touch"] == 0 and not r_t0["pending"])
         cur_id = r_t0["revision"]
+        self.assertNotIn(
+            "touch-disable.so", (f.data / "snapshots" / cur_id / "sm-normal.conf").read_text()
+        )
         self.assertTrue((f.data / "snapshots" / cur_id / "boot.plan").is_file())
         touch_pin.write_bytes(orig_tp)
+
+        # (F3) Neon R2 Blocker #3: OC_API_FALLBACK with missing absolute argv[2] returns backend_unavailable JSON
+        tok_path = session / "alt-tok"
+        tok_val = "c" * 32
+        tok_path.write_text(tok_val + "\n")
+        tok_path.chmod(0o600)
+        fb_body = f"{tok_val}|-|status|settings|-|-"
+        fb_req = (
+            f"POST /control HTTP/1.0\r\nContent-Type: text/plain\r\n"
+            f"Content-Length: {len(fb_body)}\r\n\r\n{fb_body}"
+        )
+        p_fb = subprocess.run(
+            [str(self.api_bin), str(tok_path), str(session / "missing-backend.sh")],
+            input=fb_req,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertIn("200 OK", p_fb.stdout)
+        self.assertEqual(
+            json.loads(p_fb.stdout.split("\n\n", 1)[1]),
+            {"ok": False, "error": "backend_unavailable"},
+        )
+        tok_path.unlink()
 
         # (B) Finding #7: base=1 pin drift must refuse BEFORE mutating rootfs or record on set uart
         base_pin = f.root / "config/common/log/settings.txt"

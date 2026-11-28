@@ -101,7 +101,20 @@ def copy_host_flush(dest: Path) -> Path:
 def host_boot_select(*, extra_flags: tuple[str, ...] = ()) -> Path:
     """Return cached ASan+UBSan host-compiled boot-select binary."""
     core_dir = ASSETS / "core"
-    core_srcs = sorted(p for p in core_dir.glob("*.c") if p.name != "oc-api.c")
+    core_srcs = [
+        core_dir / name
+        for name in (
+            "oc-hash.c",
+            "oc-io.c",
+            "oc-manifest.c",
+            "oc-record.c",
+            "oc-config.c",
+            "oc-guard.c",
+            "oc-plan.c",
+            "oc-store.c",
+            "oc-boot.c",
+        )
+    ]
     headers = sorted(core_dir.glob("*.h"))
     flags = [
         "-DOC_HOST",

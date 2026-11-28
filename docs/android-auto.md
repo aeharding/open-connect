@@ -32,7 +32,7 @@ Control Mazda’s built-in Android Auto support.
 
 <p>Turning Android Auto off makes built-in Android Auto unavailable. CarPlay, Bluetooth audio, USB music and audio CDs still work.</p>
 
-<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. Live Android-phone and real-car testing remain unqualified on <strong>0.3.0-dev.26</strong> (<strong>74.00.324A NA</strong>).</p>
+<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. Live Android-phone and real-car testing remain unqualified on <strong>0.3.0-dev.27</strong> (<strong>74.00.324A NA</strong>).</p>
 
 ## Change the setting
 

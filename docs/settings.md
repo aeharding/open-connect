@@ -32,7 +32,7 @@ Change your preferences in Mazda’s own menus. Choices save automatically; use 
 
 <p>Choices save automatically. Use <a href="apply-changes.md">Apply changes</a> to restart Mazda Connect and activate them, or let them take effect on the next full startup.</p>
 
-<p><strong>0.3.0-dev.26</strong> is a development prerelease for North American version <strong>74.00.324A</strong>. Bench checks cover installation, Settings, Apply changes and Uninstall; real-car qualification remains pending.</p>
+<p><strong>0.3.0-dev.27</strong> is a development prerelease for North American version <strong>74.00.324A</strong>. Bench checks cover installation, Settings, Apply changes and Uninstall; real-car qualification remains pending.</p>
 
 <span id="change-a-preference"></span>
 
@@ -48,12 +48,15 @@ Open Connect sits just above **About** in Mazda’s System menu:
     - [Show CarPlay on connection](carplay-on-connection.md): <span class="oc-default oc-default--off">Factory behavior</span> by default (**Factory** in the list); choose **Automatically show** (**Auto**).
     - [Android Auto](android-auto.md): <span class="oc-default oc-default--on">On</span> by default.
 5. **Audio sources**:
+    - [Source order](source-order.md): <span class="oc-default oc-default--off">Factory order</span> by default (**Factory** in the list); choose **Phone &amp; media first** (**Phone first**).
     - [Pandora](pandora.md): <span class="oc-default oc-default--on">On</span> by default.
     - [SiriusXM](siriusxm.md): <span class="oc-default oc-default--on">On</span> by default.
-6. [**Developer options**](developer-options.md): <span class="oc-default oc-default--off">UART Off; SSH Off</span>; no public key imported.
-7. [**Apply changes**](apply-changes.md): restart to activate saved choices; disabled when nothing is pending.
-8. [**Uninstall**](uninstall.md)
-9. [**About**](about.md)
+6. [**Commander Dial**](commander-dial.md): <span class="oc-default oc-default--off">Both Off</span> (**Wrap-around menus &amp; lists** and **Faster hold-scroll**).
+7. [**Backup &amp; restore**](backup-restore.md): export or import `open-connect.prefs` on a FAT32 USB drive.
+8. [**Developer options**](developer-options.md): <span class="oc-default oc-default--off">UART Off; SSH Off</span>; no public key imported.
+9. [**Apply changes**](apply-changes.md): restart to activate saved choices; disabled when nothing is pending.
+10. [**Uninstall**](uninstall.md)
+11. [**About**](about.md)
 
 ## Impact at a glance
 

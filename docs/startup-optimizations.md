@@ -34,7 +34,7 @@ Reduce background logging and stop unused services at startup. Previously called
 
 <p><strong>Navigation delay note:</strong> Mazda Navigation starts about <strong>20 s later</strong> when <strong>both</strong> Startup optimizations and the saved Open Connect <a href="wireless-carplay.md">Wireless CarPlay</a> override are turned on, even if no phone connects. Units with <strong>factory enabled</strong> wireless CarPlay are not affected.</p>
 
-<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. <strong>0.3.0-dev.26</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
+<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. <strong>0.3.0-dev.27</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 ## Change the setting
 

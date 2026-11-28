@@ -8,7 +8,7 @@ Plug-and-play USB install.
 [Browse settings →](settings.md)
 { .oc-actions }
 
-<p class="oc-availability"><strong>0.3.0-dev.26</strong> is a development prerelease for North American Mazda Connect <strong>74.00.324</strong> only. Real-car qualification remains pending, and startup speed varies by setting.</p>
+<p class="oc-availability"><strong>0.3.0-dev.27</strong> is a development prerelease for North American Mazda Connect <strong>74.00.324</strong> only. Real-car qualification remains pending, and startup speed varies by setting.</p>
 
 <figure class="oc-screen oc-screen--lead">
   <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen.png" alt="Open Connect settings showing Touchscreen set to Always enabled, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>
@@ -21,7 +21,9 @@ Plug-and-play USB install.
 - **[Startup disclaimer](disclaimer.md)**: skip Mazda’s startup warning and go straight to your usual screen.
 - **[Startup optimizations](startup-optimizations.md)**: reduce background logging and stop unused services, including DVD on North American units.
 - **CarPlay & Android Auto**: [Wireless CarPlay](wireless-carplay.md), [Show CarPlay on connection](carplay-on-connection.md) and [Android Auto](android-auto.md).
-- **Audio sources**: toggle built-in [Pandora](pandora.md) and [SiriusXM](siriusxm.md).
+- **Audio sources**: [Source order](source-order.md) and built-in [Pandora](pandora.md) and [SiriusXM](siriusxm.md) toggles.
+- **[Commander Dial](commander-dial.md)**: wrap-around menus & lists and faster hold-scroll.
+- **[Backup & restore](backup-restore.md)**: export, import, or preset your Open Connect preferences via USB.
 - **[Developer options](developer-options.md)**: UART, SSH and public-key import for direct access.
 - **[Apply changes](apply-changes.md)**: restart Mazda Connect to activate saved choices.
 - **[Uninstall](uninstall.md)**: restore your saved pre-install configuration.

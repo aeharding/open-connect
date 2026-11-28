@@ -23,7 +23,7 @@ Open **<span class="oc-nav-path" data-walkthrough="phone-connections">Mazda Sett
 
 ## Audio sources
 
-Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings → System → Open Connect → Audio sources</span>** for **Pandora** and **SiriusXM**. Disabled integrations disappear from Mazda’s Sources list after restart. In **0.3.0-dev.26**, [DVD](dvd.md) is folded into Startup optimizations; older configurations migrate automatically. The earlier dev.20 release has a separate DVD toggle. Audio CDs still work.
+Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings → System → Open Connect → Audio sources</span>** for [Source order](source-order.md), **Pandora** and **SiriusXM**. Disabled integrations disappear from Mazda’s Sources list after restart. In **0.3.0-dev.27**, [DVD](dvd.md) is folded into Startup optimizations; older configurations migrate automatically. The earlier dev.20 release has a separate DVD toggle. Audio CDs still work.
 
 ### Pandora
 

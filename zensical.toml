@@ -28,9 +28,12 @@ nav = [
       { "Android Auto" = "android-auto.md" }
     ] },
     { "Audio sources" = [
+      { "Source order" = "source-order.md" },
       { "Pandora" = "pandora.md" },
       { "SiriusXM" = "siriusxm.md" }
     ] },
+    { "Commander Dial" = "commander-dial.md" },
+    { "Backup & restore" = "backup-restore.md" },
     { "Developer options" = "developer-options.md" },
     { "Apply changes" = "apply-changes.md" },
     { "Uninstall" = "uninstall.md" },

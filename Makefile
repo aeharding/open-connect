@@ -29,7 +29,7 @@ API_SRCS = cmu/installer/api.c $(SHARED_CORE_SRCS) cmu/installer/core/oc-root.c 
 INSTALL_SRCS = cmu/installer/install.c $(SHARED_CORE_SRCS) cmu/installer/core/oc-root.c \
     cmu/installer/core/oc-access.c cmu/installer/core/oc-txn.c \
     cmu/installer/core/oc-render.c cmu/installer/core/oc-compose.c
-IGNITION_SRCS = cmu/installer/ignition.c cmu/installer/core/oc-hash.c cmu/installer/core/oc-io.c \
+IGNITION_SRCS = cmu/installer/ignition.c cmu/installer/core/oc-io.c \
     cmu/installer/core/oc-manifest.c cmu/installer/core/oc-record.c
 CORE_HDR = cmu/installer/core/oc-core.h
 NATIVE_FLAGS = --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard \

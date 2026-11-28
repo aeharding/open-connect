@@ -329,8 +329,9 @@ def main(argv=None):
             )
         )
         return 0
+    delivery_bytes = Path(__file__).read_bytes()
     bundle = Bundle(args.bundle, "data_" + args.action, args.owner, mode="live")
-    bundle.meta["delivery_code_sha256"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    bundle.meta["delivery_code_sha256"] = hashlib.sha256(delivery_bytes).hexdigest()
     bundle.meta["payload_execution"] = False
     port = session = None
     outcome, error, code = "failed", None, 1

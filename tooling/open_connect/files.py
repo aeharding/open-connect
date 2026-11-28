@@ -48,7 +48,16 @@ def export_command(path, token, encoder="base64", checksum="md5"):
     ):
         raise ValueError("unsupported path, encoder or checksum")
     check_nonce(token)
-    tool = {"md5": "md5sum", "sha256": "sha256sum"}[checksum]
+    hash_step, hash_step2 = {
+        "md5": (
+            '_h=$(md5sum "$_p") || exit 72\n_h=${_h%% *}',
+            '_h2=$(md5sum "$_p") || exit 74\n_h2=${_h2%% *}',
+        ),
+        "sha256": (
+            '_h=$(openssl dgst -sha256 < "$_p") || exit 72\n_h=${_h##* }',
+            '_h2=$(openssl dgst -sha256 < "$_p") || exit 74\n_h2=${_h2##* }',
+        ),
+    }[checksum]
     encode = {"base64": "base64", "hex": "od -An -tx1 -v"}[encoder]
     # Real newlines keep EACH physical input line short, including shell quoting.
     # All variables and positional arguments belong to an isolated sh -c process.
@@ -59,8 +68,7 @@ _t={token}
 _n=$(wc -c < "$_p") || exit 71
 _n=$((_n + 0))
 [ "$_n" -ge 0 ] && [ "$_n" -le {MAX_BYTES} ] || exit 71
-_h=$({tool} "$_p") || exit 72
-_h=${{_h%% *}}
+{hash_step}
 _c=$(cksum "$_p") || exit 72
 set -- $_c
 _crc=$1
@@ -81,8 +89,7 @@ _o=$((_o + _w))
 done
 _n2=$(wc -c < "$_p") || exit 74
 _n2=$((_n2 + 0))
-_h2=$({tool} "$_p") || exit 74
-_h2=${{_h2%% *}}
+{hash_step2}
 _c2=$(cksum "$_p") || exit 74
 set -- $_c2
 _crc2=$1

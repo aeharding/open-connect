@@ -103,7 +103,7 @@ feature. Separate device observations from failures in the capture or runner.
 
 Give every setting its own Markdown page and sidebar entry, using the exact
 in-car label and menu order. Link directly to that page. Keep the old Services
-index and its anchors working for existing links.
+and Features compatibility pages and their anchors working for existing links.
 
 Use this order on each setting page:
 

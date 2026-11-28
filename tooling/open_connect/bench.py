@@ -484,14 +484,14 @@ def main(argv=None):
         return 0
     if args.bundle is None or not args.owner:
         parser.error("live requires a fresh --bundle and a nonempty owner label")
-    bundle = Bundle(args.bundle, "bench profile " + args.action, args.owner, mode="live")
     profile_bytes = Path(__file__).read_bytes()
-    bundle.save("profile.py", profile_bytes)
+    bundle = Bundle(args.bundle, "bench profile " + args.action, args.owner, mode="live")
     bundle.meta["profile_code_sha256"] = digest(profile_bytes)
     port = session = None
     outcome, error, code = "failed", None, 1
     finished = False
     try:
+        bundle.save("profile.py", profile_bytes)
         with AdapterLock(owner=args.owner, purpose="bench profile " + args.action):
             try:
                 store = Store(args.state)

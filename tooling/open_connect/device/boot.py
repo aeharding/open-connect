@@ -1,6 +1,7 @@
 """Finite camera capture and frame validation for bench startup observations."""
 
 import json
+import math
 import signal
 import subprocess
 import sys
@@ -191,18 +192,20 @@ class Video:
             stream = report["ffprobe"]["streams"][0]
             duration = float(stream.get("duration") or report["ffprobe"]["format"]["duration"])
             report["decoded_frames"] = int(stream["nb_read_frames"])
-            report["actual_frames_per_video_second"] = report["decoded_frames"] / duration
             report["video_duration_s"] = duration
             pts = [float(f["best_effort_timestamp_time"]) for f in report["ffprobe"]["frames"]]
             if (
                 result.returncode != 0
                 or report["decoded_frames"] != len(pts)
                 or len(pts) < 2
+                or not math.isfinite(duration)
                 or duration <= 0
+                or not all(math.isfinite(x) for x in pts)
                 or any(b <= a for a, b in zip(pts, pts[1:]))
             ):
                 raise RuntimeError("video lacks verified frames/increasing timestamps/duration")
             report.update(
+                actual_frames_per_video_second=report["decoded_frames"] / duration,
                 first_frame_pts_s=pts[0],
                 last_frame_pts_s=pts[-1],
                 actual_interval_fps=(len(pts) - 1) / (pts[-1] - pts[0]),

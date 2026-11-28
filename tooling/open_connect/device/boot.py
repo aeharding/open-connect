@@ -12,6 +12,7 @@ class Video:
     def __init__(self, bundle, index):
         self.bundle, self.index = bundle, index
         self.proc = None
+        self._stopped = False
         self.ready = threading.Event()
         self.rows = []
         self.stop_requests = []
@@ -78,6 +79,10 @@ class Video:
                 return
             if self.proc.poll() is not None:
                 break
+        try:
+            self.stop()
+        except Exception:
+            pass
         raise RuntimeError("camera produced no confirmed frame before request; no reboot")
 
     def _progress(self):
@@ -86,23 +91,41 @@ class Video:
                 monotonic_ns=time.monotonic_ns(), line=line.decode("utf8", "replace").strip()
             )
             self.rows.append(row)
-            if row["line"].startswith("frame=") and int(row["line"].split("=")[1].strip()) >= 1:
-                self.ready.set()
+            if row["line"].startswith("frame="):
+                try:
+                    if int(row["line"].split("=", 1)[1].strip()) >= 1:
+                        self.ready.set()
+                except ValueError:
+                    pass
 
     def stop(self):
-        if not self.proc:
+        if not self.proc or self._stopped:
             return
-        if self.proc.poll() is None:
-            self.stop_requests.append(dict(signal="SIGINT", monotonic_ns=time.monotonic_ns()))
-            self.proc.send_signal(signal.SIGINT)  # exact owned child; streamable container
-            try:
-                self.proc.wait(timeout=8)
-            except subprocess.TimeoutExpired:
-                self.stop_requests.append(dict(signal="SIGTERM", monotonic_ns=time.monotonic_ns()))
-                self.proc.terminate()
-                self.proc.wait(timeout=3)
-        self.worker.join(timeout=2)
-        self.stderr.close()
+        self._stopped = True
+        try:
+            if self.proc.poll() is None:
+                self.stop_requests.append(dict(signal="SIGINT", monotonic_ns=time.monotonic_ns()))
+                self.proc.send_signal(signal.SIGINT)  # exact owned child; streamable container
+                try:
+                    self.proc.wait(timeout=8)
+                except subprocess.TimeoutExpired:
+                    self.stop_requests.append(
+                        dict(signal="SIGTERM", monotonic_ns=time.monotonic_ns())
+                    )
+                    self.proc.terminate()
+                    try:
+                        self.proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        self.stop_requests.append(
+                            dict(signal="SIGKILL", monotonic_ns=time.monotonic_ns())
+                        )
+                        self.proc.kill()
+                        self.proc.wait(timeout=3)
+        finally:
+            self.worker.join(timeout=2)
+            if self.proc.stdout:
+                self.proc.stdout.close()
+            self.stderr.close()
         self.bundle.save("camera-progress.json", (json.dumps(self.rows, indent=2) + "\n").encode())
         report = dict(
             pid=self.proc.pid,

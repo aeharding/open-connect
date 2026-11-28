@@ -484,6 +484,7 @@ def main(argv=None):
     bundle.meta["profile_code_sha256"] = digest(Path(__file__).read_bytes())
     port = session = None
     outcome, error, code = "failed", None, 1
+    finished = False
     try:
         with AdapterLock(owner=args.owner, purpose="bench profile " + args.action):
             try:
@@ -500,18 +501,35 @@ def main(argv=None):
                 bundle.save("profile-result.json", json.dumps(result, indent=2).encode())
                 bundle.meta["bench_profile"] = result
                 outcome, code = "verified", 0
+            except (Exception, KeyboardInterrupt, SystemExit) as exc:
+                error = type(exc).__name__ + ": " + str(exc)
+                if isinstance(exc, UnknownOutcome) or (
+                    session is not None and session.state == "uncertain"
+                ):
+                    outcome, code = "unknown", 2
             finally:
-                if port is not None:
-                    port.close()
-                bundle.meta["port_closed"] = True
+                try:
+                    if port is not None:
+                        port.close()
+                    bundle.meta["port_closed"] = True
+                except (Exception, KeyboardInterrupt, SystemExit) as exc:
+                    error = (error + "; " if error else "") + "close failed: " + str(exc)
+                    outcome, code = "unknown", 2
+                bundle.finish(outcome, error)
+                finished = True
     except (Exception, KeyboardInterrupt, SystemExit) as exc:
-        error = type(exc).__name__ + ": " + str(exc)
-        if isinstance(exc, UnknownOutcome) or (
-            session is not None and session.state == "uncertain"
+        msg = type(exc).__name__ + ": " + str(exc)
+        error = (error + "; " if error else "") + msg
+        if (
+            isinstance(exc, UnknownOutcome)
+            or (session is not None and session.state == "uncertain")
+            or outcome == "verified"
+            or finished
         ):
             outcome, code = "unknown", 2
-    finally:
-        bundle.finish(outcome, error)
+        if not finished:
+            bundle.finish(outcome, error)
+            finished = True
     print(
         json.dumps(
             dict(

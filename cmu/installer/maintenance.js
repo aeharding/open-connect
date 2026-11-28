@@ -18,6 +18,7 @@ function releaseDiscovery(){
  var hold=discovery;discovery=null;
  if(hold){hold.stop=null;hold.cancel();}
 }
+if(previous&&window[slot]===previous){releaseDiscovery();return null;}
 if(discovery)discovery.stop=close;
 var ui=(function () {
 "use strict";
@@ -180,7 +181,7 @@ function sameProof(a,b){
  return proof(a)&&a.revision===b.revision&&a.package===b.package&&a.boot===b.boot&&a.installedVersion===b.installedVersion;
 }
 function receive(a,metadata,completion){known=!!(completion?proof(a):valid(a,metadata));if(known)s=a;}
-function advance(){epoch++;}
+function advance(){epoch++;probing=false;}
 function held(){return!!job||feedback||acking;}
 function claim(){return !dead&&!feedback&&!acking&&!framework.common._openConnectPage&&ui.claim(framework);}
 function release(){if(!held())ui.release(framework);}
@@ -351,6 +352,7 @@ function drive(){
  if(a&&a.error==="session_closed"){close();return;}
  if(!valid(a)){reconcile(a);return;}
  if(job.op==="install"||job.op==="uninstall"||a.restart){restart();}
+ else if(boot){close();}
  else{end();}
 });
 }

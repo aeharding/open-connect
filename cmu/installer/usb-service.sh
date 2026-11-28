@@ -61,6 +61,7 @@ start)
         : > "$unpublished/closed"
         (exec 8>&- 9>&-; sh "$unpublished/usb-service.sh" retire) </dev/null >/dev/null 2>&1 &
     fi' EXIT
+    trap 'exit 1' HUP INT TERM
     service_lock usb
     if absent "$R/sessions"; then mkdir -m 700 "$R/sessions"; fi
     private_dir "$R/sessions" || fail invalid_sessions

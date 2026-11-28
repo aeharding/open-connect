@@ -1407,3 +1407,69 @@ class Eth1DhcpRetry(unittest.TestCase):
                     time.sleep(0.15)
                     self.assertFalse(marker.exists(), f"unexpected spawn for case={case}")
                     hold_flag.unlink()
+
+    def test_stop_listener_preserves_caller_old_and_tolerates_zombie_or_vanished_pid(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td).resolve()
+            ram = root / "ram"
+            ram.mkdir(mode=0o700)
+            proc = root / "proc"
+            proc.mkdir()
+            (proc / "12345").mkdir()
+            (proc / "12345/stat").write_text("12345 (busybox) Z " + "0 " * 18 + "999 0\n")
+            svc = (ASSETS / "service.sh").read_text().replace("/proc/", str(proc) + "/")
+            svc_path = root / "service.sh"
+            svc_path.write_text(svc)
+            (ram / "usb-listener").write_text(f"12345 999 {ram}/sessions/session-prev\n")
+            res = subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    'set -eu; R=$1; . "$2"; service_config usb; old=caller-value; '
+                    'stop_listener; printf "%s\\n" "$old"',
+                    "t",
+                    ram,
+                    svc_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertEqual(res.stdout.strip(), "caller-value")
+            # Empty /proc/<pid>/stat (vanishing procfs TOCTOU) also returns cleanly.
+            (proc / "12345/stat").write_text("")
+            res_empty = subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    'set -eu; R=$1; . "$2"; service_config usb; old=caller-empty; '
+                    'stop_listener; proc_gone 12345; printf "%s\\n" "$old"',
+                    "t",
+                    ram,
+                    svc_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            self.assertEqual(res_empty.returncode, 0, res_empty.stderr)
+            self.assertEqual(res_empty.stdout.strip(), "caller-empty")
+            # Vanished PID directory also returns cleanly without clobbering old.
+            shutil.rmtree(proc / "12345")
+            res2 = subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    'set -eu; R=$1; . "$2"; service_config usb; old=caller-still-intact; '
+                    'stop_listener; printf "%s\\n" "$old"',
+                    "t",
+                    ram,
+                    svc_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            self.assertEqual(res2.returncode, 0, res2.stderr)
+            self.assertEqual(res2.stdout.strip(), "caller-still-intact")

@@ -498,6 +498,27 @@ class UsbBuild(unittest.TestCase):
             again = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=60)
             self.assertNotEqual(again.returncode, 0)
             self.assertIn("fresh OUT", again.stderr)
+            # Re-packaging the same build output produces a byte-for-byte identical ZIP archive.
+            output2 = Path(temp) / "build2"
+            shutil.copytree(
+                output, output2, ignore=shutil.ignore_patterns("usb", "*.zip", "SHA256SUMS")
+            )
+            res2 = subprocess.run(
+                ["sh", str(ROOT / "tooling/package-usb.sh"), str(output2)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(res2.returncode, 0, res2.stdout + res2.stderr)
+            self.assertEqual(
+                (output / f"open-connect-{version}-usb.zip").read_bytes(),
+                (output2 / f"open-connect-{version}-usb.zip").read_bytes(),
+            )
+            self.assertEqual(
+                (output / "SHA256SUMS").read_text(),
+                (output2 / "SHA256SUMS").read_text(),
+            )
 
     def test_staging_checks_manifest_before_executing_payload(self):
         # Rewrite physical paths only; exercise the actual staging/hash loop with

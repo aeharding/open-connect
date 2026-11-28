@@ -65,27 +65,28 @@ class NativePreferences(unittest.TestCase):
         self.catalog = (ASSETS / "services.tsv").read_bytes()
 
     def fresh(self):
-        catalog = self.folder / "services.tsv"
-        catalog.write_bytes(self.catalog)
-        return subprocess.check_output(
-            [
-                "awk",
-                "-v",
-                "operation=write",
-                "-v",
-                f"catalog={catalog}",
-                "-v",
-                f"catalog_bytes={len(self.catalog)}",
-                "-v",
-                "package_id=" + "a" * 64,
-                "-v",
-                "nvram_value=disable",
-                "-v",
-                "metadata_value=775:1000:1000",
-                "-f",
-                ASSETS / "preferences.awk",
-            ]
-        )
+        rows = [
+            line.split("|")
+            for line in self.catalog.decode().splitlines()
+            if line and not line.startswith("#")
+        ]
+        entries = {
+            "base": "0",
+            "carplay-autoshow": "0",
+            "hold-scroll": "0",
+            "menu-loop": "0",
+            "metadata": "775:1000:1000",
+            "nvram": "disable",
+            "package": "a" * 64,
+            "service-ids": ",".join(r[0] for r in rows),
+            "source-order": "0",
+            "touch": "1",
+            "warning": "1",
+            "wireless": "0",
+        }
+        for row in rows:
+            entries[f"service.{row[0]}"] = row[2]
+        return ("OC2\n" + "".join(f"{k}={entries[k]}\n" for k in sorted(entries))).encode()
 
     def decode(self, config, active=True):
         (self.folder / "services.tsv").write_bytes(self.catalog)

@@ -2,7 +2,6 @@
 
 import copy
 import itertools
-import json
 import os
 import shutil
 import subprocess
@@ -47,30 +46,39 @@ class InstallerPreferences(unittest.TestCase):
             command, capture_output=True, env={**os.environ, "LC_ALL": "C"}, timeout=5
         )
 
-    def fresh(self):
-        result = self.run_preferences(
-            "write", package_id="a" * 64, nvram_value="disable", metadata_value="775:1000:1000"
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        return result.stdout
+    def fresh(self, **overrides):
+        rows = [
+            line.split("|")
+            for line in self.catalog.read_text().splitlines()
+            if line and not line.startswith("#")
+        ]
+        entries = {
+            "base": "0",
+            "carplay-autoshow": "0",
+            "hold-scroll": "0",
+            "menu-loop": "0",
+            "metadata": "775:1000:1000",
+            "nvram": "disable",
+            "package": "a" * 64,
+            "service-ids": ",".join(r[0] for r in rows),
+            "source-order": "0",
+            "touch": "1",
+            "warning": "1",
+            "wireless": "0",
+        }
+        for row in rows:
+            entries[f"service.{row[0]}"] = row[2]
+        entries.update(overrides)
+        return ("OC2\n" + "".join(f"{k}={entries[k]}\n" for k in sorted(entries))).encode()
 
     def test_touch_modes_are_oc2_only_and_devices_rewrite_is_exact(self):
         original = self.fresh()
         for mode in ("0", "1", "2"):
-            changed = self.run_preferences("set", original, key="touch", value=mode)
-            self.assertEqual(changed.returncode, 0, changed.stderr)
-            self.assertEqual(self.run_preferences("decode", changed.stdout).returncode, 0)
-            if mode == "2":
-                self.assertNotEqual(self.run_preferences("legacy", changed.stdout).returncode, 0)
-                self.assertNotEqual(
-                    self.run_preferences(
-                        "set", original, key="touch", value="2", legacy="1"
-                    ).returncode,
-                    0,
-                )
+            changed = self.fresh(touch=mode)
+            self.assertEqual(self.run_preferences("compose", changed).returncode, 0)
             for wcp in (False, True):
                 source = self.profile(wcp)
-                result = self.compose(source, changed.stdout)
+                result = self.compose(source, changed)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 node = ET.fromstring(result.stdout).find("./service[@name='devices']")
                 self.assertEqual(
@@ -86,160 +94,31 @@ class InstallerPreferences(unittest.TestCase):
                         source.replace('name="peer"', 'name="devices"'),
                         source.replace("/jci/devices/svc-com-jci-cpp-devices.so", "/wrong.so"),
                     ):
-                        self.assertNotEqual(self.compose(bad, changed.stdout).returncode, 0)
+                        self.assertNotEqual(self.compose(bad, changed).returncode, 0)
         for key in ("warning", "base", "wireless", "service.pandora", "carplay-autoshow"):
             self.assertNotEqual(
-                self.run_preferences("set", original, key=key, value="2").returncode, 0
+                self.run_preferences("compose", self.fresh(**{key: "2"})).returncode, 0
             )
+        # Non-compose legacy operations (write/set/decode/rows/legacy) are refused.
+        for op in ("decode", "write", "set", "rows", "legacy"):
+            self.assertNotEqual(self.run_preferences(op, original).returncode, 0)
+        self.assertNotEqual(self.run_preferences("compose", original, legacy="1").returncode, 0)
 
-    def test_round_trip_and_independent_service_selection(self):
-        original = self.fresh()
-        self.assertEqual(original.splitlines()[0], b"OC2")
-        self.assertEqual(original.splitlines()[1:], sorted(original.splitlines()[1:]))
-        decoded = self.run_preferences("decode", original)
-        self.assertEqual(decoded.returncode, 0, decoded.stderr)
-        self.assertTrue(decoded.stdout.endswith(b"|android-auto=1,pandora=1,siriusxm=1\n"))
-        pandora_off = self.run_preferences("set", original, key="service.pandora", value="0")
-        both_off = self.run_preferences(
-            "set", pandora_off.stdout, key="service.android-auto", value="0"
-        )
-        android_restored = self.run_preferences(
-            "set", both_off.stdout, key="service.android-auto", value="1"
-        )
-        self.assertEqual(android_restored.returncode, 0, android_restored.stderr)
-        self.assertEqual(android_restored.stdout, pandora_off.stdout)
-        self.assertEqual(self.config.read_bytes(), both_off.stdout)
-
-    def test_autoshow_defaults_upgrade_and_unchanged_nine_field_decode(self):
+    def test_optional_keys_and_malformed_values_validated_in_compose(self):
         current = self.fresh()
-        self.assertIn(b"carplay-autoshow=0\n", current)
-        old = current.replace(b"carplay-autoshow=0\n", b"")
-        for config in (old, current):
-            decoded = self.run_preferences("decode", config)
-            self.assertEqual(decoded.returncode, 0, decoded.stderr)
-            self.assertEqual(len(decoded.stdout.strip().split(b"|")), 9)
-        upgraded = self.run_preferences(
-            "write", old, package_id="b" * 64, nvram_value="disable", metadata_value="775:1000:1000"
-        )
-        self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
-        self.assertIn(b"carplay-autoshow=0\n", upgraded.stdout)
-        enabled = self.run_preferences("set", current, key="carplay-autoshow", value="1")
-        self.assertEqual(enabled.returncode, 0, enabled.stderr)
-        self.assertEqual(
-            enabled.stdout.replace(b"carplay-autoshow=1", b"carplay-autoshow=0"), current
-        )
-        for bad in (b"2", b"01", b"1\0", b"1\ncarplay-autoshow=1"):
-            self.assertNotEqual(
-                self.run_preferences(
-                    "decode", current.replace(b"carplay-autoshow=0", b"carplay-autoshow=" + bad)
-                ).returncode,
-                0,
-            )
-
-    def test_source_order_defaults_upgrade_and_validation(self):
-        current = self.fresh()
-        self.assertIn(b"source-order=0\n", current)
-        old = current.replace(b"source-order=0\n", b"")
-        for config in (old, current):
-            decoded = self.run_preferences("decode", config)
-            self.assertEqual(decoded.returncode, 0, decoded.stderr)
-            self.assertEqual(len(decoded.stdout.strip().split(b"|")), 9)
-        upgraded = self.run_preferences(
-            "write", old, package_id="b" * 64, nvram_value="disable", metadata_value="775:1000:1000"
-        )
-        self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
-        self.assertIn(b"source-order=0\n", upgraded.stdout)
-        enabled = self.run_preferences("set", current, key="source-order", value="1")
-        self.assertEqual(enabled.returncode, 0, enabled.stderr)
-        self.assertEqual(enabled.stdout.replace(b"source-order=1", b"source-order=0"), current)
-        for bad in (b"2", b"01", b"1\0", b"1\nsource-order=1"):
-            self.assertNotEqual(
-                self.run_preferences(
-                    "decode", current.replace(b"source-order=0", b"source-order=" + bad)
-                ).returncode,
-                0,
-            )
-
-    def test_menu_loop_and_hold_scroll_defaults_upgrade_and_validation(self):
-        current = self.fresh()
-        self.assertIn(b"hold-scroll=0\n", current)
-        self.assertIn(b"menu-loop=0\n", current)
-        self.assertLess(current.index(b"carplay-autoshow="), current.index(b"hold-scroll="))
-        self.assertLess(current.index(b"hold-scroll="), current.index(b"menu-loop="))
-        self.assertLess(current.index(b"menu-loop="), current.index(b"metadata="))
-        old = current.replace(b"hold-scroll=0\n", b"").replace(b"menu-loop=0\n", b"")
-        for config in (old, current):
-            decoded = self.run_preferences("decode", config)
-            self.assertEqual(decoded.returncode, 0, decoded.stderr)
-        upgraded = self.run_preferences(
-            "write", old, package_id="b" * 64, nvram_value="disable", metadata_value="775:1000:1000"
-        )
-        self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
-        self.assertIn(b"hold-scroll=0\n", upgraded.stdout)
-        self.assertIn(b"menu-loop=0\n", upgraded.stdout)
-        for key in ("menu-loop", "hold-scroll"):
-            enabled = self.run_preferences("set", current, key=key, value="1")
-            self.assertEqual(enabled.returncode, 0, enabled.stderr)
+        for key in ("carplay-autoshow", "source-order", "menu-loop", "hold-scroll"):
+            old = current.replace(f"{key}=0\n".encode(), b"")
+            self.assertEqual(self.run_preferences("compose", old).returncode, 0)
             self.assertEqual(
-                enabled.stdout.replace(f"{key}=1".encode(), f"{key}=0".encode()), current
+                self.run_preferences("compose", self.fresh(**{key: "1"})).returncode, 0
             )
             for bad in (b"2", b"01", b"1\0", f"1\n{key}=1".encode()):
                 self.assertNotEqual(
                     self.run_preferences(
-                        "decode", current.replace(f"{key}=0".encode(), f"{key}=".encode() + bad)
+                        "compose", current.replace(f"{key}=0".encode(), f"{key}=".encode() + bad)
                     ).returncode,
                     0,
                 )
-
-    def test_missing_new_choice_defaults_only_during_upgrade_write(self):
-        original = self.fresh()
-        older = original.replace(b"service.android-auto=1\n", b"").replace(
-            b"service-ids=android-auto,pandora,siriusxm", b"service-ids=pandora,siriusxm"
-        )
-        self.assertNotEqual(self.run_preferences("decode", older).returncode, 0)
-        updated = self.run_preferences(
-            "write", older, package_id="b" * 64, nvram_value="enable", metadata_value="775:0:0"
-        )
-        self.assertEqual(updated.returncode, 0, updated.stderr)
-        self.assertIn(b"service.android-auto=1\n", updated.stdout)
-        self.assertIn(b"package=" + b"b" * 64 + b"\n", updated.stdout)
-        self.assertNotIn(b"package=" + b"a" * 64, updated.stdout)
-
-    def test_dev14_upgrade_defaults_and_unknown_service_refusal(self):
-        older = (
-            self.fresh()
-            .replace(b"service.siriusxm=1\n", b"")
-            .replace(
-                b"service-ids=android-auto,pandora,siriusxm",
-                b"service-ids=android-auto,pandora",
-            )
-            .replace(b"service.pandora=1", b"service.pandora=0")
-            .replace(b"base=0", b"base=1")
-            .replace(b"warning=1", b"warning=0")
-        )
-        values = dict(package_id="b" * 64, nvram_value="disable", metadata_value="775:1000:1000")
-        upgraded = self.run_preferences("write", older, **values)
-        self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
-        for choice in (
-            b"service.siriusxm=1\n",
-            b"service.pandora=0\n",
-            b"warning=0\n",
-            b"base=1\n",
-        ):
-            self.assertIn(choice, upgraded.stdout)
-        # A target with the previous catalog cannot silently drop new choices.
-        self.catalog.write_text(
-            "\n".join(
-                line
-                for line in self.catalog.read_text().splitlines()
-                if not line.startswith(("dvd|", "siriusxm|"))
-            )
-            + "\n"
-        )
-        refused = self.run_preferences("write", upgraded.stdout, **values)
-        self.assertNotEqual(refused.returncode, 0)
-        self.assertEqual(refused.stdout, b"")
-        self.assertEqual(self.config.read_bytes(), upgraded.stdout)
 
     def test_malformed_noncanonical_and_oversized_records_refuse(self):
         original = self.fresh()
@@ -254,74 +133,15 @@ class InstallerPreferences(unittest.TestCase):
             original.replace(b"metadata=775:1000:1000", b"metadata=775:4294967296:0"),
             original.replace(b"service.pandora=1", b"service.pandora=2"),
             original.replace(b"service.pandora=1", b"service.unknown=1"),
+            original.replace(b"service.pandora=1", b"service.dvd=0\nservice.pandora=1"),
             original.replace(b"base=0\n", b"base=" + b"0" * 1024 + b"\n"),
         )
         for data in malformed:
             with self.subTest(data=data[:80]):
-                result = self.run_preferences("decode", data)
+                result = self.run_preferences("compose", data)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(result.stdout, b"")
                 self.assertEqual(self.config.read_bytes(), data)
-
-    def test_retired_dvd_is_validated_then_dropped_only_during_upgrade(self):
-        current = self.fresh()
-        values = dict(package_id="b" * 64, nvram_value="disable", metadata_value="775:1000:1000")
-        for dvd, base, autoshow in itertools.product((0, 1), repeat=3):
-            with self.subTest(dvd=dvd, base=base, autoshow=autoshow):
-                old = (
-                    current.replace(b"base=0", f"base={base}".encode())
-                    .replace(
-                        b"service-ids=android-auto,pandora,siriusxm",
-                        b"service-ids=android-auto,dvd,pandora,siriusxm",
-                    )
-                    .replace(b"service.pandora=1", f"service.dvd={dvd}\nservice.pandora=0".encode())
-                )
-                if not autoshow:  # dev.15-dev.18 did not store this key.
-                    old = old.replace(b"carplay-autoshow=0\n", b"")
-                upgraded = self.run_preferences("write", old, **values)
-                self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
-                self.assertNotIn(b"dvd", upgraded.stdout)
-                self.assertIn(f"base={base}\n".encode(), upgraded.stdout)
-                self.assertIn(b"service.pandora=0\n", upgraded.stdout)
-                self.assertEqual(self.run_preferences("decode", upgraded.stdout).returncode, 0)
-                self.assertEqual(self.config.read_bytes(), upgraded.stdout)
-                for operation in ("decode", "compose", "rows", "set"):
-                    self.assertNotEqual(
-                        self.run_preferences(operation, old, key="base", value="1").returncode, 0
-                    )
-                for bad in (
-                    old.replace(f"service.dvd={dvd}".encode(), b"service.dvd=2"),
-                    old.replace(f"service.dvd={dvd}".encode(), b"service.dvd=01"),
-                    old.replace(f"service.dvd={dvd}\n".encode(), b""),
-                    old.replace(b"android-auto,dvd,pandora", b"android-auto,pandora"),
-                    old.replace(b"android-auto,dvd,pandora", b"android-auto,dvd,dvd,pandora"),
-                    old.replace(b"service.dvd=", b"service.unknown="),
-                ):
-                    refused = self.run_preferences("write", bad, **values)
-                    self.assertNotEqual(refused.returncode, 0, bad)
-                    self.assertEqual(refused.stdout, b"")
-                    self.assertEqual(self.config.read_bytes(), bad)
-        self.assertNotEqual(
-            self.run_preferences("set", current, key="service.dvd", value="1").returncode, 0
-        )
-
-    def test_retired_dvd_requires_list_membership_during_upgrade_write(self):
-        current = self.fresh()
-        values = dict(package_id="b" * 64, nvram_value="disable", metadata_value="775:1000:1000")
-        for dvd, missing_list in itertools.product((0, 1), (False, True)):
-            with self.subTest(dvd=dvd, missing_list=missing_list):
-                malformed = current.replace(
-                    b"service.pandora=1", f"service.dvd={dvd}\nservice.pandora=1".encode()
-                )
-                if missing_list:
-                    malformed = malformed.replace(
-                        b"service-ids=android-auto,pandora,siriusxm\n", b""
-                    )
-                refused = self.run_preferences("write", malformed, **values)
-                self.assertEqual(refused.returncode, 1)
-                self.assertEqual(refused.stdout, b"")
-                self.assertEqual(refused.stderr, b"invalid_preferences\n")
-                self.assertEqual(self.config.read_bytes(), malformed)
 
     def test_catalog_rejects_overlapping_resource_claims(self):
         original = self.fresh()
@@ -336,7 +156,7 @@ class InstallerPreferences(unittest.TestCase):
         for data in malformed:
             with self.subTest(catalog=data):
                 self.catalog.write_text(data)
-                result = self.run_preferences("decode", original)
+                result = self.run_preferences("compose", original)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(result.stdout, b"")
 
@@ -354,9 +174,9 @@ class InstallerPreferences(unittest.TestCase):
             ),
             config.replace(b"service-ids=android-auto,pandora,siriusxm\n", b""),
         ):
-            self.assertNotEqual(self.run_preferences("decode", changed).returncode, 0)
+            self.assertNotEqual(self.run_preferences("compose", changed).returncode, 0)
         self.catalog.write_bytes(self.catalog.read_bytes()[:-1])
-        self.assertNotEqual(self.run_preferences("decode", config).returncode, 0)
+        self.assertNotEqual(self.run_preferences("compose", config).returncode, 0)
 
     def test_attributes_are_named_once_and_tabbed_wcp_args_do_not_duplicate(self):
         config = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
@@ -375,52 +195,6 @@ class InstallerPreferences(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             ET.fromstring(result.stdout)
             self.assertEqual(result.stdout.count(b'\targs="wcp"'), tabbed.count('\targs="wcp"'))
-
-    def test_rows_escape_catalog_text_and_keep_unknown_selection_explicit(self):
-        config = self.fresh()
-        self.catalog.write_text(
-            self.catalog.read_text().replace("Pandora|", 'Pandora "test"\\label|')
-        )
-        result = self.run_preferences("rows", config, selected_services="android-auto=0")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        rows = json.loads(result.stdout)
-        self.assertEqual(rows[0]["saved"], 1)
-        self.assertEqual(rows[0]["current"], 0)
-        self.assertIsNone(rows[1]["current"])
-        self.assertEqual(rows[1]["label"], 'Pandora "test"\\label')
-        for selected in ("android-auto=1,android-auto=0", "pandora=2", "=1"):
-            self.assertNotEqual(
-                self.run_preferences("rows", config, selected_services=selected).returncode, 0
-            )
-
-    def test_write_fills_missing_catalog_defaults_and_legacy_operation_is_refused(self):
-        current = self.fresh()
-        partial = (
-            current.replace(b"carplay-autoshow=0\n", b"")
-            .replace(b"service.android-auto=1\n", b"")
-            .replace(b"service.siriusxm=1\n", b"")
-            .replace(b"service-ids=android-auto,pandora,siriusxm\n", b"")
-        )
-        for pandora in (0, 1):
-            with self.subTest(pandora=pandora):
-                upgraded = self.run_preferences(
-                    "write",
-                    partial.replace(b"service.pandora=1", f"service.pandora={pandora}".encode()),
-                    package_id="b" * 64,
-                    nvram_value="disable",
-                    metadata_value="775:1000:1000",
-                )
-                self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
-                self.assertEqual(
-                    upgraded.stdout,
-                    current.replace(b"a" * 64, b"b" * 64).replace(
-                        b"service.pandora=1", f"service.pandora={pandora}".encode()
-                    ),
-                )
-        self.assertNotEqual(self.run_preferences("legacy", current).returncode, 0)
-        self.assertNotEqual(
-            self.run_preferences("set", partial, key="service.pandora", value="0").returncode, 0
-        )
 
     def profile(self, wcp=False):
         root = ET.Element("services")
@@ -812,17 +586,13 @@ class InstallerPreferences(unittest.TestCase):
                 )
 
     def test_restoring_android_auto_leaves_clean_pandora_only_profile(self):
-        original = self.fresh().replace(b"base=0", b"base=1").replace(b"wireless=0", b"wireless=1")
-        pandora_off = self.run_preferences("set", original, key="service.pandora", value="0")
-        both_off = self.run_preferences(
-            "set", pandora_off.stdout, key="service.android-auto", value="0"
-        )
-        restored = self.run_preferences(
-            "set", both_off.stdout, key="service.android-auto", value="1"
+        pandora_off = self.fresh(**{"base": "1", "wireless": "1", "service.pandora": "0"})
+        restored = self.fresh(
+            **{"base": "1", "wireless": "1", "service.pandora": "0", "service.android-auto": "1"}
         )
         for wcp in (False, True):
-            expected = self.compose(self.profile(wcp), pandora_off.stdout)
-            actual = self.compose(self.profile(wcp), restored.stdout)
+            expected = self.compose(self.profile(wcp), pandora_off)
+            actual = self.compose(self.profile(wcp), restored)
             self.assertEqual(expected.returncode, 0, expected.stderr)
             self.assertEqual(actual.returncode, 0, actual.stderr)
             self.assertEqual(actual.stdout, expected.stdout)
@@ -869,11 +639,9 @@ class InstallerPreferences(unittest.TestCase):
     def test_adding_a_service_requires_only_a_catalog_row(self):
         with self.catalog.open("a") as stream:
             stream.write("z-test|Test|1|optional_leaf|Load after restart.|Stop after restart.\n")
-        config = self.fresh()
-        disabled = self.run_preferences("set", config, key="service.z-test", value="0")
-        self.assertEqual(disabled.returncode, 0, disabled.stderr)
+        disabled = self.fresh(**{"service.z-test": "0"})
         source = self.profile().replace('name="peer"', 'name="optional_leaf"')
-        result = self.compose(source, disabled.stdout)
+        result = self.compose(source, disabled)
         self.assertEqual(result.returncode, 0, result.stderr)
         jobs = {node.get("name"): node for node in ET.fromstring(result.stdout)}
         self.assertEqual(jobs["optional_leaf"].get("autorun"), "no")

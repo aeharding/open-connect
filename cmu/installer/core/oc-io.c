@@ -530,8 +530,9 @@ int oc_text_fd(int fd, char *out, unsigned capacity) {
         for (long i=0; i<n; ++i) if (!out[total+i]) return -1;
         total+=(unsigned)n;
     }
-    char extra;
-    if (oc_read(fd,&extra,1)!=0) return -1;
+    char extra; long eof;
+    do { eof=oc_read(fd,&extra,1); } while (eof==-4);
+    if (eof!=0) return -1;
     out[total]=0;
     return (int)total;
 }
@@ -679,9 +680,19 @@ int oc_run_cmd_io(const char *path, char *const argv[], int in_fd, int out_fd,
             if (!cap_buf && out_fd<0) (void)oc_dup2((int)devnull,1);
             if (devnull>2) (void)oc_close((int)devnull);
         }
-        if (in_fd>=0) { (void)oc_dup2(in_fd,0); if (in_fd>2) (void)oc_close(in_fd); }
-        if (cap_buf) { (void)oc_dup2(pfd[1],1); (void)oc_close(pfd[0]); (void)oc_close(pfd[1]); }
-        else if (out_fd>=0) { (void)oc_dup2(out_fd,1); if (out_fd>2) (void)oc_close(out_fd); }
+        if (in_fd>=0) {
+            if (in_fd==0) (void)oc_set_cloexec(0,0);
+            else { (void)oc_dup2(in_fd,0); if (in_fd>2) (void)oc_close(in_fd); }
+        }
+        if (cap_buf) {
+            if (pfd[1]==1) (void)oc_set_cloexec(1,0);
+            else (void)oc_dup2(pfd[1],1);
+            if (pfd[0]!=1) (void)oc_close(pfd[0]);
+            if (pfd[1]!=1) (void)oc_close(pfd[1]);
+        } else if (out_fd>=0) {
+            if (out_fd==1) (void)oc_set_cloexec(1,0);
+            else { (void)oc_dup2(out_fd,1); if (out_fd>2) (void)oc_close(out_fd); }
+        }
 #ifdef OC_HOST
         (void)oc_execve(path,argv,environ);
 #else

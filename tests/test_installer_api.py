@@ -689,3 +689,55 @@ class InstallerApiNative(unittest.TestCase):
             )
             self.assertEqual(proc.returncode, 0, (kst2, proc.stderr))
             self.assertEqual(kst2["fingerprint"], "-")
+
+    def test_listener_startup_race_returns_busy_not_session_replaced_185(self):
+        import fcntl
+
+        api_bin = host_api()
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td).resolve() / "race185"
+            ram = root / "tmp/open-connect"
+            sess = ram / "sessions/session-abc123"
+            sess.mkdir(parents=True, mode=0o700)
+            ram.chmod(0o700)
+            (ram / "sessions").chmod(0o700)
+            lock = ram / "lock"
+            lock.touch(mode=0o600)
+            env = {
+                **os.environ,
+                "OC_HOST_ROOT": str(root),
+                "OC_HOST_NONROOT": "1",
+                "OC_HOST_SKIP_FW_GUARD": "1",
+            }
+
+            def call():
+                proc = subprocess.run(
+                    [str(api_bin), "--handle", str(sess), "-", "status", "completion", "-", "-"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    env=env,
+                )
+                return proc, json.loads(proc.stdout)
+
+            # 1) Lock exclusively held, no runtime symlink yet, session not closed -> transient "busy"
+            with lock.open("r+b") as lf:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                try:
+                    proc, res = call()
+                    self.assertNotEqual(proc.returncode, 0)
+                    self.assertEqual(res, {"ok": False, "error": "busy"})
+
+                    # 2) Same lock held, but session explicitly closed -> terminal "session_replaced"
+                    (sess / "closed").touch(mode=0o600)
+                    proc, res = call()
+                    self.assertNotEqual(proc.returncode, 0)
+                    self.assertEqual(res, {"ok": False, "error": "session_replaced"})
+                    (sess / "closed").unlink()
+                finally:
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+
+            # 3) Lock released and still no pointer -> terminal "session_replaced"
+            proc, res = call()
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertEqual(res, {"ok": False, "error": "session_replaced"})

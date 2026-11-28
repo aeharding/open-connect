@@ -1206,6 +1206,7 @@ class NativeBootSelection(unittest.TestCase):
         self.assertTrue((self.ram / "ignition/ignition").is_file())
         self.assertFalse((self.ram / "ignition/state.sh").exists())
         self.assertTrue((self.ram / "access-selected").is_file())
+        self.assertFalse((self.ram / ".native-selected").exists())
         self.assertFalse((self.ram / "selected").exists())
         self.assertFalse((self.ram / "feature").exists())
         self.assertEqual(

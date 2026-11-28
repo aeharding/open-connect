@@ -91,10 +91,10 @@ int oc_plan_rows(int root, int snapshot, int input, int output, int mode) {
         int ok;
         if (sealing) {
             ok=oc_hash_copy((int)fd,-1,33554432,digest,&current)==OC_COPY_OK && oc_equal(digest,fields[2]);
-        } else if (mode>=2) {
+        } else if (mode==2) {
             ok=oc_meta_parse(fields+3,&expected) &&
                 oc_hash_copy((int)fd,-1,33554432,digest,&current)==OC_COPY_OK && oc_equal(digest,fields[2]) &&
-                (mode==2?oc_meta_resealable(&expected,&current):oc_meta_row_equal(fields[0],&expected,&current));
+                oc_meta_resealable(&expected,&current);
         } else {
             ok=oc_meta_parse(fields+3,&expected) && oc_stat((int)fd,&current)>=0 &&
                 oc_meta_row_equal(fields[0],&expected,&current);
@@ -214,12 +214,7 @@ int oc_dependency_coverage(OcBoot *b) {
             const char *digest=i==m->count?(kind?b->composed_digest:b->record_fields[3]):m->rows[i].digest;
             if (!oc_join(name,sizeof name,scope,leaf)||!oc_join(path,sizeof path,prefix,leaf)) return 0;
             const char *recorded=oc_digest(&dependencies,name);
-            if (!recorded||!oc_equal(recorded,digest)) return 0;
-            if (kind && i==m->count) {
-                OcInput *row=oc_find(b,name);
-                if (!row||row->used||!oc_equal(row->path,path)||!oc_equal(row->digest,digest)) return 0;
-                row->used=1;
-            } else if (!oc_expect(b,name,path,digest)) return 0;
+            if (!recorded||!oc_equal(recorded,digest)||!oc_expect(b,name,path,digest)) return 0;
         }
     }
     return 1;
@@ -227,7 +222,7 @@ int oc_dependency_coverage(OcBoot *b) {
 
 int oc_snapshot_coverage(OcBoot *b) {
     char key[192], path[192];
-    const char *required[]={"autostart","config","dependencies","selector","sm-normal.conf","sm-wcp.conf","index.html","boot.plan","mmui.xml","vui-plugins.list"};
+    static const char *const required[]={"autostart","config","dependencies","selector","sm-normal.conf","sm-wcp.conf","index.html","boot.plan","mmui.xml","vui-plugins.list"};
     if (b->current.count!=(b->access_present?13u:10u)) return 0;
     for (unsigned i=0; i<sizeof required/sizeof *required; ++i) if (!oc_digest(&b->current,required[i])) return 0;
     for (unsigned i=0; i<b->current.count; ++i) {
@@ -293,7 +288,7 @@ int oc_identity_coverage(OcBoot *b) {
     if (!version||version->used||!oc_equal(version->path,"/jci/version.ini")||version->absent||
         !oc_verified_text(b->root,"jci/version.ini",version->digest,b->scratch,sizeof b->scratch)) return 0;
     version->used=1;
-    const char *values[]={"JCI_SW_VER=\"MAZ_CMU-150_74.00.324\"","JCI_SW_VER_PATCH=\"A\"","JCI_SW_FLAVOR=\"cmu150_NA\""};
+    static const char *const values[]={"JCI_SW_VER=\"MAZ_CMU-150_74.00.324\"","JCI_SW_VER_PATCH=\"A\"","JCI_SW_FLAVOR=\"cmu150_NA\""};
     unsigned found[3]={0,0,0}; char *p=b->scratch;
     while (*p) {
         char *line=p;

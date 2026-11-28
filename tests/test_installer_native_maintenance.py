@@ -625,6 +625,12 @@ class NativeMaintenance(unittest.TestCase):
         self.assertTrue((f.data / "snapshots" / u1_id / "boot.plan").is_file())
         self.assertEqual(f._run_helper("audit", str(f.root), u1_id).returncode, 0)
 
+        # 2b) No-op `set uart 1->1` short-circuits before creating any .access-* work dir or txn
+        proc, r_u1_noop = call(u1_id, "set", "uart", "1", "1")
+        self.assertEqual(proc.returncode, 0, (r_u1_noop, proc.stderr))
+        self.assertTrue(r_u1_noop["ok"] and r_u1_noop["revision"] == u1_id)
+        self.assertEqual(list(f.data.glob(".access-*")), [])
+
         # 3) Immediate follow-up `set carplay-autoshow 0->1` succeeds natively (proves sealed boot.plan!)
         proc, r_w0 = call(u1_id, "set", "carplay-autoshow", "0", "1")
         self.assertEqual(proc.returncode, 0, (r_w0, proc.stderr))
@@ -647,6 +653,14 @@ class NativeMaintenance(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, (r_imp, proc.stderr))
         self.assertTrue(r_imp["ok"] and len(r_imp["key"]) == 64)
         imp_id = r_imp["revision"]
+
+        # 4b) Re-importing the exact same public key short-circuits without a spurious txn
+        proc, r_imp2 = call(imp_id, "import", "-", "-", "-")
+        self.assertEqual(proc.returncode, 0, (r_imp2, proc.stderr))
+        self.assertTrue(
+            r_imp2["ok"] and r_imp2["revision"] == imp_id and r_imp2["key"] == r_imp["key"]
+        )
+        self.assertEqual(list(f.data.glob(".access-*")), [])
 
         proc, r_s1 = call(imp_id, "set", "ssh", "0", "1")
         self.assertEqual(proc.returncode, 0, (r_s1, proc.stderr))

@@ -435,6 +435,9 @@ class InstallerApiNative(unittest.TestCase):
                 '  if (oc_text(cdir, "files.sha256", cmf_buf, sizeof cmf_buf, 0) <= 0 || !oc_manifest(cmf_buf, &cmf, 0)) return 3;\n'
                 "  OcPrefs p = {0};\n"
                 "  p.warning = argv[4]; p.base = argv[5]; p.autoshow = argv[6];\n"
+                '  p.source_order = getenv("OC_SO");\n'
+                '  p.menu_loop = getenv("OC_ML");\n'
+                '  p.hold_scroll = getenv("OC_HS");\n'
                 '  p.svc_ids[0] = "android-auto"; p.svc_vals[0] = argv[7];\n'
                 '  p.svc_ids[1] = "pandora"; p.svc_vals[1] = argv[8];\n'
                 '  p.svc_ids[2] = "siriusxm"; p.svc_vals[2] = getenv("OC_SXM");\n'
@@ -514,6 +517,77 @@ class InstallerApiNative(unittest.TestCase):
                 else:
                     self.assertNotIn("OPEN_CONNECT_APPLIED", rendered)
                     self.assertNotIn("framework, [", rendered)
+                # Build-time marker comments must NEVER leak into rendered index.html.
+                for marker in (
+                    "OPEN_CONNECT_AA_CALL",
+                    "OPEN_CONNECT_SO_CALL",
+                    "OPEN_CONNECT_NAV_CALL",
+                    "OPEN_CONNECT_AA_BEGIN",
+                    "OPEN_CONNECT_SO_BEGIN",
+                    "OPEN_CONNECT_NAV_BEGIN",
+                ):
+                    self.assertNotIn(marker, rendered)
+
+            # Verify source-order, menu-loop, and hold-scroll render cleanly with zero leaked markers.
+            for so, ml, hs in (
+                ("1", "0", "0"),
+                ("0", "1", "0"),
+                ("0", "0", "1"),
+                ("1", "1", "1"),
+            ):
+                wdir = tdir / f"nav_{so}{ml}{hs}"
+                wdir.mkdir(mode=0o700)
+                c_res = subprocess.run(
+                    [str(bin_path), str(pdir), str(cdir), str(wdir), "0", "1", "0", "0", "1"],
+                    env={**os.environ, "OC_SXM": "1", "OC_SO": so, "OC_ML": ml, "OC_HS": hs},
+                    capture_output=True,
+                    timeout=5,
+                )
+                self.assertEqual(c_res.returncode, 0, (so, ml, hs, c_res.stderr))
+                rendered = (wdir / "index.html").read_text()
+                for marker in (
+                    "OPEN_CONNECT_AA_CALL",
+                    "OPEN_CONNECT_SO_CALL",
+                    "OPEN_CONNECT_NAV_CALL",
+                ):
+                    self.assertNotIn(marker, rendered)
+                if ml == "1" or hs == "1":
+                    self.assertIn(f",{so},{ml},{hs}]", rendered)
+                else:
+                    self.assertIn(",1]", rendered)
+
+            # carplay-autoshow=1 alone (nd==0) must reject missing or duplicated framework.init().
+            for label, bad_tpl in (
+                (
+                    "missing_init",
+                    '<html><head><script src="common/js/logDefaults.js"></script></head>\n'
+                    "<body><script>/*@TOKEN@*/</script></body></html>\n",
+                ),
+                (
+                    "dup_init",
+                    '<html><head><script src="common/js/logDefaults.js"></script></head>\n'
+                    "<body><script>/*@TOKEN@*/framework.init();\nframework.init();</script></body></html>\n",
+                ),
+            ):
+                bcdir = tdir / f"comp_{label}"
+                bcdir.mkdir(mode=0o700)
+                for nm in ("index-on.html", "index-off.html"):
+                    (bcdir / nm).write_text(bad_tpl)
+                (bcdir / "files.sha256").write_text(
+                    "".join(
+                        hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                        for p in sorted(bcdir.iterdir())
+                    )
+                )
+                wdir = tdir / f"w_{label}"
+                wdir.mkdir(mode=0o700)
+                c_res = subprocess.run(
+                    [str(bin_path), str(pdir), str(bcdir), str(wdir), "0", "0", "1", "1", "1"],
+                    env={**os.environ, "OC_SXM": "1"},
+                    capture_output=True,
+                    timeout=5,
+                )
+                self.assertNotEqual(c_res.returncode, 0, f"expected refusal for {label}")
 
     def test_record_apply_phase_invariants_fail_closed_and_key_fingerprint(self):
         """Cover OC1|apply recovery, phase/before/after invariants, dismiss:usb symlink refusal,

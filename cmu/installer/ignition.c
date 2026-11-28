@@ -91,16 +91,18 @@ static int oc_ignition_main(int argc, char **argv) {
         char cur_boot[37], rec_buf[1024], *rec[13];
         int data=oc_open_data_dir(root);
         int ok=data>=0 && oc_ig_boot_id(ram,owner,group,cur_boot) && oc_equal(cur_boot,boot) &&
-            oc_record_read_any(data,owner,group,rec_buf,sizeof rec_buf,rec) &&
-            oc_equal(rec[1],"active") && oc_equal(rec[11],boot);
-        if (ok && !oc_equal(rec[10],wanted)) {
+            oc_record_read_any(data,owner,group,rec_buf,sizeof rec_buf,rec) && oc_equal(rec[11],boot);
+        int active=ok && oc_equal(rec[1],"active");
+        int retry=ok && rec[6][0]!='-';
+        if (active && !oc_equal(rec[10],wanted)) {
             rec[10]=(char *)wanted;
-            ok=oc_record_write_atomic(root,data,rec,0);
+            if (!oc_record_write_atomic(root,data,rec,0)) active=0;
         }
-        if (data>=0 && oc_close(data)<0) ok=0;
-        if (oc_close((int)lfd)<0) ok=0;
-        if (!ok) { rc=1; break; }
-        recorded=wanted;
+        int keep=active||retry;
+        if (data>=0 && oc_close(data)<0) keep=0;
+        if (oc_close((int)lfd)<0) keep=0;
+        if (!keep) { rc=1; break; }
+        if (active) recorded=wanted;
         oc_sleep_ms(sleep_ms);
     }
 out:

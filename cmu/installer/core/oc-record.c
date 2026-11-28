@@ -52,22 +52,10 @@ int oc_record_write_atomic(int root_fd, int data_fd, char *f[13], char nonce_out
     return oc_text(data_fd,"record",check,sizeof check,0)>0 && oc_equal(check,next);
 }
 
-int oc_record_mode(OcBoot *b, const char *expected_before, const char *expected_after) {
-    if (oc_text(b->data,"record",b->record,sizeof b->record,0)<0 || !oc_record_parse_any(b->record,b->record_fields)) return 0;
+int oc_record_file(OcBoot *b, const char *expected_before, const char *expected_after) {
+    if (!oc_record_read_any(b->data,b->owner,b->group,b->record,sizeof b->record,b->record_fields)) return 0;
     char **f=b->record_fields;
     if (expected_after)
         return oc_equal(f[1],"set")&&oc_equal(f[5],expected_before)&&oc_equal(f[6],expected_before)&&oc_equal(f[7],expected_after);
     return oc_equal(f[1],"active")&&oc_equal(f[6],"-")&&oc_equal(f[7],"-")&&(!expected_before||oc_equal(f[5],expected_before));
-}
-
-int oc_record(OcBoot *b) { return oc_record_mode(b,0,0); }
-
-int oc_record_file(OcBoot *b, const char *expected_before, const char *expected_after) {
-    OcMeta record_meta;
-    long record=oc_openat(b->data,"record",OC_READ,0);
-    if (record<0) return 0;
-    int ok=oc_stat((int)record,&record_meta)>=0 && record_meta.mode==(OC_REGULAR|0600) &&
-        record_meta.uid==(unsigned)b->owner && record_meta.gid==(unsigned)b->group;
-    if (oc_close((int)record)<0) ok=0;
-    return ok && oc_record_mode(b,expected_before,expected_after);
 }

@@ -171,6 +171,7 @@ int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf,
             ++lg; continue;
         }
         if (oc_rfind(line,"framework.init();")) {
+            ++hk;
             if (nd) {
                 int ab=0, sb=0, nb=0;
                 char *hp=oc_rmem.hook_buf;
@@ -185,20 +186,24 @@ int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf,
                     if (oc_rfind(hl,"/* OPEN_CONNECT_NAV_BEGIN */")) { nb=1; continue; }
                     if (oc_rfind(hl,"/* OPEN_CONNECT_NAV_END */")) { nb=0; continue; }
                     char *call_pos=oc_rfind(hl," /* OPEN_CONNECT_AA_CALL */");
-                    int has_call=call_pos!=0 || oc_rfind(hl,"/* OPEN_CONNECT_AA_CALL */")!=0;
-                    if (!ag && (ab || has_call)) continue;
+                    unsigned call_len=27;
+                    if (!call_pos) { call_pos=oc_rfind(hl,"/* OPEN_CONNECT_AA_CALL */"); call_len=26; }
+                    if (!ag && (ab || call_pos!=0)) continue;
                     char *so_pos=oc_rfind(hl," /* OPEN_CONNECT_SO_CALL */");
-                    int has_so=so_pos!=0 || oc_rfind(hl,"/* OPEN_CONNECT_SO_CALL */")!=0;
-                    if (!is_so && (sb || has_so)) continue;
-                    char *nav_pos=oc_rfind(hl,"/* OPEN_CONNECT_NAV_CALL */");
+                    unsigned so_len=27;
+                    if (!so_pos) { so_pos=oc_rfind(hl,"/* OPEN_CONNECT_SO_CALL */"); so_len=26; }
+                    if (!is_so && (sb || so_pos!=0)) continue;
+                    char *nav_pos=oc_rfind(hl," /* OPEN_CONNECT_NAV_CALL */");
+                    unsigned nav_len=28;
+                    if (!nav_pos) { nav_pos=oc_rfind(hl,"/* OPEN_CONNECT_NAV_CALL */"); nav_len=27; }
                     if (!is_nav && (nb || nav_pos!=0)) continue;
                     char *ap_pos=oc_rfind(hl,"/*OPEN_CONNECT_APPLIED*/");
                     while (*hl==' '||*hl=='\t') ++hl;
                     unsigned at=0;
                     for (char *s=hl; ok && *s; ) {
-                        if (call_pos && s==call_pos) { s+=27; call_pos=0; continue; }
-                        if (so_pos && s==so_pos) { s+=27; so_pos=0; continue; }
-                        if (nav_pos && s==nav_pos) { s+=27; nav_pos=0; continue; }
+                        if (call_pos && s==call_pos) { s+=call_len; call_pos=0; continue; }
+                        if (so_pos && s==so_pos) { s+=so_len; so_pos=0; continue; }
+                        if (nav_pos && s==nav_pos) { s+=nav_len; nav_pos=0; continue; }
                         if (ap_pos && s==ap_pos) {
                             char tail[12]; tail[0]=0;
                             if (is_nav) {
@@ -224,7 +229,6 @@ int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf,
                         ok=oc_write_all((int)ofd,oc_rmem.out_buf,at);
                     }
                 }
-                ++hk;
             }
             if (ok && is_as)
                 ok=oc_rwrite_str((int)ofd,"</script>\n<script src=\"file:///tmp/open-connect/feature/carplay.js\"></script>\n<script>\n");
@@ -236,7 +240,7 @@ int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf,
     if (ok) ok=oc_mode((int)ofd,0600)>=0 && oc_sync((int)ofd)>=0;
     if (oc_close((int)ofd)<0) ok=0;
     (void)oc_close((int)tfd);
-    return ok && (!is_base || lg==1) && (!nd || (hk==1 && ap==1)) && tok_cnt==1;
+    return ok && (!is_base || lg==1) && (!(nd || is_as) || hk==1) && (!nd || ap==1) && tok_cnt==1;
 }
 
 static int oc_verify_pkg_awk_inputs(int pdir, OcManifest *pmf, const char *const *names,

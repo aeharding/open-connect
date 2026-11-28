@@ -1273,6 +1273,40 @@ class NativeInstall(unittest.TestCase):
             self.assertEqual((data / "packages" / pkg2 / "api").stat().st_nlink, 1)
             snap_after_gc = rt["revision"]
 
+            # 3b) C1 regression (Probe 1): After GC drops st_nlink 2->1 (mutating st_ctime on
+            #     shared inodes), Settings set #2, boot-select audit, AND next-boot select/select-gated
+            #     MUST all still succeed (zero state_changed, zero OC_REFUSE)!
+            pt2, rt2 = self._call_api(
+                api_bin, set_sess, snap_after_gc, "set", "warning", "0", "1", env=env
+            )
+            self.assertEqual(pt2.returncode, 0, (rt2, pt2.stderr))
+            snap_after_gc = rt2["revision"]
+            self.assertEqual(
+                subprocess.run(
+                    [str(bs_bin), "audit", str(root), snap_after_gc], env=env, capture_output=True
+                ).returncode,
+                0,
+            )
+            for child in list(ram.iterdir()):
+                if child.name in ("sessions", "usb-runtime", "lock"):
+                    continue
+                if child.is_dir() and not child.is_symlink():
+                    shutil.rmtree(child)
+                else:
+                    child.unlink()
+            (root / "proc/sys/kernel/random/boot_id").write_text(
+                "33333333-3333-3333-3333-333333333333\n"
+            )
+            p_sg = subprocess.run(
+                [str(bs_bin), "select-gated", str(root)],
+                env=env,
+                capture_output=True,
+            )
+            self.assertEqual(p_sg.returncode, 0, p_sg.stderr)
+            self.assertEqual(p_sg.stdout, b"G")
+            self.assertFalse((data / "reseal").exists())
+            (ram / "runtime").symlink_to(set_sess)
+
             # 4) Upgrade changing ONLY VERSION: VERSION gets a fresh inode, unchanged payload files
             #    AND all 12 composed outputs are reused via hardlinks!
             usb_ver = ram / "sessions/session-usb167v"
@@ -1348,12 +1382,162 @@ class NativeInstall(unittest.TestCase):
                 pkg3_api_ino,
             )
 
-            # 6) Tampered live /jci/vui/svcjcivui.so MUST still refuse with vui_inputs_changed
-            #    even on an identical reinstall!
+            # 6) C1 regression (Probe 3): Tampered live /jci/vui/svcjcivui.so MUST refuse BEFORE
+            #    mutating packages/ or hardlinking active pkg4, keeping active audit & Settings OK!
             vui_so = root / "jci/vui/svcjcivui.so"
             orig_vui = vui_so.read_bytes()
+            pkgs_before_fail = sorted(p.name for p in (data / "packages").iterdir())
+            pkg4_api_ctime = (data / "packages" / pkg4 / "api").stat().st_ctime_ns
             vui_so.write_bytes(b"tampered vui\n")
             p5, r5 = self._call_api(usb_hook / "api", usb_hook, snap4, "install", env=env)
             self.assertNotEqual(p5.returncode, 0)
             self.assertEqual(r5["error"], "vui_inputs_changed")
             vui_so.write_bytes(orig_vui)
+            self.assertEqual(
+                sorted(p.name for p in (data / "packages").iterdir()), pkgs_before_fail
+            )
+            self.assertEqual((data / "packages" / pkg4 / "api").stat().st_ctime_ns, pkg4_api_ctime)
+            self.assertEqual(
+                subprocess.run(
+                    [str(bs_bin), "audit", str(root), snap4], env=env, capture_output=True
+                ).returncode,
+                0,
+            )
+
+            # 7) H1 regression (Probe 4): Changing the composer binary ('install') digest MUST
+            #    invalidate composed reuse and re-compose fresh inodes!
+            pkg4_uia_ino = (data / "composed" / pkg4 / "uia.so").stat().st_ino
+            usb_comp = ram / "sessions/session-usb167c"
+            shutil.copytree(
+                usb_hook, usb_comp, symlinks=False, ignore=shutil.ignore_patterns("admitted")
+            )
+            usb_comp.chmod(0o700)
+            # Append a harmless trailing byte to a copy of host install binary? Instead use a
+            # thin wrapper script? No: copy install and append 1 trailing NUL byte (valid ELF/Mach-O
+            # padding outside loadable segments, changes SHA-256 while remaining executable!).
+            (usb_comp / "install").write_bytes((usb_comp / "install").read_bytes() + b"\x00")
+            (usb_comp / "install").chmod(0o700)
+            (usb_comp / "files.sha256").unlink()
+            (usb_comp / "token").unlink()
+            (usb_comp / "files.sha256").write_text(
+                "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(usb_comp.iterdir()))
+            )
+            (usb_comp / "files.sha256").chmod(0o600)
+            (usb_comp / "token").write_text(TOKEN + "\n")
+            (usb_comp / "token").chmod(0o600)
+            (ram / "usb-runtime").unlink()
+            (ram / "usb-runtime").symlink_to(usb_comp)
+            p6, r6 = self._call_api(usb_comp / "api", usb_comp, snap4, "install", env=env)
+            self.assertEqual(p6.returncode, 0, (r6, p6.stderr))
+            rec6 = (data / "record").read_text().strip().split("|")
+            pkg6, snap6 = rec6[3], rec6[5]
+            self.assertNotEqual(
+                (data / "composed" / pkg6 / "uia.so").stat().st_ino,
+                pkg4_uia_ino,
+            )
+
+            # 8) H2 regression (Probe 5): Active snapshot with empty dependencies + tampered
+            #    self-signed composed/<pkg6>/uia.so MUST NOT propagate tampered uia.so;
+            #    oc_open_composed_verified rejects unanchored manifest and recomposes cleanly!
+            #    (Also test C1 Probe 2/8a: same-boot immediate reinstall passes audit & select-gated!)
+            comp6 = data / "composed" / pkg6
+            good_uia = (comp6 / "uia.so").read_bytes()
+            (comp6 / "uia.so").write_bytes(b"EVIL_TAMPERED_UIA_BINARY" + b"\x00" * 100)
+            (comp6 / "uia.so").chmod(0o600)
+            (comp6 / "files.sha256").write_text(
+                "".join(
+                    f"{sha((comp6 / nm).read_bytes())}  {nm}\n"
+                    for nm in sorted(p.name for p in comp6.iterdir() if p.name != "files.sha256")
+                )
+            )
+            (comp6 / "files.sha256").chmod(0o600)
+            # Rebuild snap6 with empty dependencies & matching boot.plan/files.sha256/record so
+            # oc_targets_match and oc_dependencies_match pass (reproducing Probe 5!).
+            snap6_dir = data / "snapshots" / snap6
+            old_plan_lines = (snap6_dir / "boot.plan").read_text().splitlines()
+            (snap6_dir / "dependencies").write_text("")
+            (snap6_dir / "dependencies").chmod(0o600)
+            (snap6_dir / "boot.plan").unlink()
+            (snap6_dir / "files.sha256").unlink()
+            unsealed = [old_plan_lines[0]]
+            for ln in old_plan_lines[1:]:
+                cols = ln.split("|")
+                if cols[0].startswith(f"composed-{pkg6}/") or cols[0].startswith(
+                    f"package-{pkg6}/"
+                ):
+                    continue
+                if cols[1] == "@/dependencies":
+                    cols[2] = sha(b"")
+                unsealed.append("|".join(cols[:3]))
+            with (snap6_dir / "boot.plan").open("wb") as pl_f:
+                subprocess.run(
+                    [
+                        str(bs_bin),
+                        "seal",
+                        str(root),
+                        f"tmp/mnt/data_persist/open-connect/snapshots/{snap6}",
+                    ],
+                    input=("\n".join(unsealed) + "\n").encode(),
+                    stdout=pl_f,
+                    stderr=subprocess.PIPE,
+                    env=env,
+                    check=True,
+                )
+            (snap6_dir / "boot.plan").chmod(0o600)
+            new_s6_mf = "".join(
+                f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(snap6_dir.iterdir())
+            )
+            (snap6_dir / "files.sha256").write_text(new_s6_mf)
+            (snap6_dir / "files.sha256").chmod(0o600)
+            new_snap6 = sha(new_s6_mf.encode())
+            snap6_dir.rename(data / "snapshots" / new_snap6)
+            rec6[5] = new_snap6
+            (data / "record").write_text("|".join(rec6) + "\n")
+            p7, r7 = self._call_api(usb_comp / "api", usb_comp, new_snap6, "install", env=env)
+            self.assertEqual(p7.returncode, 0, (r7, p7.stderr))
+            rec7 = (data / "record").read_text().strip().split("|")
+            pkg7, snap7 = rec7[3], rec7[5]
+            self.assertEqual((data / "composed" / pkg7 / "uia.so").read_bytes(), good_uia)
+            self.assertEqual(
+                subprocess.run(
+                    [str(bs_bin), "audit", str(root), snap7], env=env, capture_output=True
+                ).returncode,
+                0,
+            )
+
+            # 8b) C1 regression (Probe 2): Same-boot immediate identical reinstall where GC prunes
+            #     unpinned pkg7 (mutating shared inode st_ctime on pkg8/composed8) MUST still pass
+            #     audit AND next-boot select-gated (rc=0, b"G", zero D/reseal)!
+            p8, r8 = self._call_api(usb_comp / "api", usb_comp, snap7, "install", env=env)
+            self.assertEqual(p8.returncode, 0, (r8, p8.stderr))
+            rec8 = (data / "record").read_text().strip().split("|")
+            pkg8, snap8 = rec8[3], rec8[5]
+            self.assertFalse((data / "packages" / pkg7).exists())
+            # api is still shared with live-booted pkg2 (nlink 3->2 after pkg7 pruned), while
+            # composed/uia.so (recomposed in Step 7) drops nlink 2->1; both mutate st_ctime!
+            self.assertEqual((data / "packages" / pkg8 / "api").stat().st_nlink, 2)
+            self.assertEqual((data / "composed" / pkg8 / "uia.so").stat().st_nlink, 1)
+            self.assertEqual(
+                subprocess.run(
+                    [str(bs_bin), "audit", str(root), snap8], env=env, capture_output=True
+                ).returncode,
+                0,
+            )
+            for child in list(ram.iterdir()):
+                if child.name in ("sessions", "usb-runtime", "lock"):
+                    continue
+                if child.is_dir() and not child.is_symlink():
+                    shutil.rmtree(child)
+                else:
+                    child.unlink()
+            (root / "proc/sys/kernel/random/boot_id").write_text(
+                "44444444-4444-4444-4444-444444444444\n"
+            )
+            p_sg8 = subprocess.run(
+                [str(bs_bin), "select-gated", str(root)],
+                env=env,
+                capture_output=True,
+            )
+            self.assertEqual(p_sg8.returncode, 0, p_sg8.stderr)
+            self.assertEqual(p_sg8.stdout, b"G")
+            self.assertFalse((data / "reseal").exists())

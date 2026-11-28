@@ -135,7 +135,8 @@ int oc_stock_meta(int root, OcMeta *stock);
 const char *oc_pin_digest(const char *key, const char *prod);
 int oc_dir_iter(int folder, int (*cb)(const char *name, void *ctx), void *ctx);
 long oc_beneath(int root, const char *path, unsigned options, unsigned mode);
-int oc_meta_equal(const OcMeta *a, const OcMeta *b);
+int oc_meta_row_equal(const char *key, const OcMeta *a, const OcMeta *b);
+static inline int oc_meta_equal(const OcMeta *a, const OcMeta *b) { return oc_meta_row_equal(0,a,b); }
 int oc_meta_resealable(const OcMeta *a, const OcMeta *b);
 int oc_write_all(int fd, const void *input, unsigned n);
 int oc_hash_copy(int input, int output, oc_u64 limit, char digest[65], OcMeta *metadata);

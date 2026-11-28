@@ -91,9 +91,10 @@ int oc_plan_rows(int root, int snapshot, int input, int output, int mode) {
         } else if (mode>=2) {
             ok=oc_meta_parse(fields+3,&expected) &&
                 oc_hash_copy((int)fd,-1,33554432,digest,&current)==OC_COPY_OK && oc_equal(digest,fields[2]) &&
-                (mode==2?oc_meta_resealable(&expected,&current):oc_meta_equal(&expected,&current));
+                (mode==2?oc_meta_resealable(&expected,&current):oc_meta_row_equal(fields[0],&expected,&current));
         } else {
-            ok=oc_meta_parse(fields+3,&expected) && oc_stat((int)fd,&current)>=0 && oc_meta_equal(&expected,&current);
+            ok=oc_meta_parse(fields+3,&expected) && oc_stat((int)fd,&current)>=0 &&
+                oc_meta_row_equal(fields[0],&expected,&current);
         }
         if (oc_close((int)fd)<0) ok=0;
         if (!ok) return 0;
@@ -167,7 +168,7 @@ int oc_plan(OcBoot *b) {
             int ok=oc_stat((int)fd,&actual)>=0;
             if (oc_close((int)fd)<0) ok=0;
             if (!ok) return 0;
-            if (!oc_meta_equal(&row->meta,&actual)) {
+            if (!oc_meta_row_equal(row->key,&row->meta,&actual)) {
                 if ((b->touch_drift&1)&&oc_prefix(row->key,"touch/devices/")) { b->touch_drift|=2; continue; }
                 if (!b->gated||!oc_meta_resealable(&row->meta,&actual)) return 0;
                 row->meta=actual; b->metadata_drift=1;

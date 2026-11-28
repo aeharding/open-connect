@@ -131,6 +131,19 @@ static int oc_verify_dir_manifest(int dir, OcManifest *mf, char *buf, unsigned c
     return 1;
 }
 
+static int oc_open_pkg_reuse_verified(int data_fd, const char *old_pkg,
+                                      char *buf, unsigned cap, OcManifest *mf) {
+    int pdir=oc_open_pkg_verified(data_fd,old_pkg,buf,cap,mf);
+    if (pdir<0) return -1;
+    if (!oc_members(pdir,mf,1)) { (void)oc_close(pdir); return -1; }
+    for (unsigned i=0; i<mf->count; ++i) {
+        if (!oc_verify_file_sha(pdir,mf->rows[i].name,mf->rows[i].digest,33554432)) {
+            (void)oc_close(pdir); return -1;
+        }
+    }
+    return pdir;
+}
+
 /* ---------- Package save ---------- */
 static int oc_package_save(int root, int data_fd, const char *session_dir, const char *old_pkg,
                            char pkg_out[65], const char **err_out) {
@@ -145,8 +158,11 @@ static int oc_package_save(int root, int data_fd, const char *session_dir, const
     int old_pdir=-1;
     OcManifest old_pmf;
     if (old_pkg && oc_hex(old_pkg,64)) {
-        old_pdir=oc_open_private(pkgs,old_pkg);
-        if (old_pdir>=0 && !oc_verify_dir_manifest(old_pdir,&old_pmf,cm.cat,sizeof cm.cat)) {
+        old_pdir=oc_open_pkg_reuse_verified(data_fd,old_pkg,cm.cat,sizeof cm.cat,&old_pmf);
+        /* Pre-fix boot-select compatibility: only link against old_pkg when boot-select matches. */
+        const char *new_bs=oc_digest(&smf,"boot-select");
+        const char *old_bs=old_pdir>=0 ? oc_digest(&old_pmf,"boot-select") : 0;
+        if (old_pdir>=0 && (!new_bs || !old_bs || !oc_equal(new_bs,old_bs))) {
             (void)oc_close(old_pdir); old_pdir=-1;
         }
     }
@@ -463,6 +479,14 @@ static int oc_append_file_all(int src_dir, const char *name, int dst_fd, unsigne
     return ok && tot>0;
 }
 
+static int oc_autostart_syntax_ok(const char *root_path, const char *wleaf) {
+    char dbase[320], apath[448];
+    if (!oc_data_base(root_path,dbase,sizeof dbase) ||
+        !oc_join4(apath,sizeof apath,dbase,"/composed/",wleaf,"/autostart")) return 0;
+    char *argv[]={"sh","-n",apath,0};
+    return oc_run_cmd("/bin/sh",argv,-1,0,0,-1)==0;
+}
+
 static int oc_compose_autostart(int pkg_fd, int orig_fd, int work_fd,
                                 const char *root_path, const char *wleaf) {
     long sfd=oc_openat(orig_fd,"autostart",OC_READ,0);
@@ -490,48 +514,38 @@ static int oc_compose_autostart(int pkg_fd, int orig_fd, int work_fd,
     if (oc_close((int)sfd)<0) ok=0;
     if (oc_close((int)dfd)<0) ok=0;
     if (!ok) return 0;
-    char dbase[320], apath[448];
-    if (!oc_data_base(root_path,dbase,sizeof dbase) ||
-        !oc_join4(apath,sizeof apath,dbase,"/composed/",wleaf,"/autostart")) return 0;
-    char *argv[]={"sh","-n",apath,0};
-    return oc_run_cmd("/bin/sh",argv,-1,0,0,-1)==0;
+    return oc_autostart_syntax_ok(root_path,wleaf);
 }
 
-static int oc_autostart_syntax_ok(const char *root_path, const char *wleaf) {
-    char dbase[320], apath[448];
-    if (!oc_data_base(root_path,dbase,sizeof dbase) ||
-        !oc_join4(apath,sizeof apath,dbase,"/composed/",wleaf,"/autostart")) return 0;
-    char *argv[]={"sh","-n",apath,0};
-    return oc_run_cmd("/bin/sh",argv,-1,0,0,-1)==0;
-}
-
-static int oc_try_reuse_composed(int data_fd, int comp_root, const char *root_path,
+static int oc_try_reuse_composed(int data_fd, const char *root_path,
                                  const char *wleaf, int wfd, const OcManifest *pmf,
                                  const char *pkg_id, const char *old_pkg,
-                                 const char *vout_pin, OcManifest *reused_mf) {
-    if (!old_pkg || !oc_hex(old_pkg,64) || oc_equal(old_pkg,pkg_id)) return 0;
-    /* Every package-side compose input must match between old_pkg and pkg_id. */
-    static const char *const inputs[13]={
-        "native.bin","branch.bin","sizes.bin","layout.bin","layout.txt",
+                                 const char *old_snap, const char *vout_pin,
+                                 OcManifest *reused_mf) {
+    if (!old_pkg || !old_snap || !oc_hex(old_pkg,64) || !oc_hex(old_snap,64) || oc_equal(old_pkg,pkg_id))
+        return 0;
+    /* Composer binary, boot-select (link-safe), and all 13 compose inputs must match. */
+    static const char *const inputs[15]={
+        "install","boot-select","native.bin","branch.bin","sizes.bin","layout.bin","layout.txt",
         "mmui-path.bin","mmui-sizes.bin","mmui-length.bin",
         "mmui-count-pointer.bin","mmui-pointer.bin",
         "vui-path.bin","startup-hook.sh","startup-join.sh"
     };
-    int old_pdir=oc_open_sub(data_fd,"packages",old_pkg);
+    int old_pdir=oc_open_pkg_reuse_verified(data_fd,old_pkg,cm.cat,sizeof cm.cat,reused_mf);
     if (old_pdir<0) return 0;
-    OcManifest old_pmf;
-    int inp_ok=oc_verify_dir_manifest(old_pdir,&old_pmf,cm.cat,sizeof cm.cat);
-    (void)oc_close(old_pdir);
-    for (unsigned i=0; inp_ok && i<13; ++i) {
+    int inp_ok=1;
+    for (unsigned i=0; inp_ok && i<15; ++i) {
         const char *nd=oc_digest((OcManifest *)pmf,inputs[i]);
-        const char *od=oc_digest(&old_pmf,inputs[i]);
+        const char *od=oc_digest(reused_mf,inputs[i]);
         if (!nd || !od || !oc_equal(nd,od)) inp_ok=0;
     }
+    (void)oc_close(old_pdir);
     if (!inp_ok) return 0;
 
-    int old_cdir=oc_open_private(comp_root,old_pkg);
+    /* Anchor composed/<old_pkg>/files.sha256 to SHA-256-verified snapshots/<old_snap>/dependencies. */
+    int old_cdir=oc_open_composed_verified(data_fd,old_pkg,old_snap,cm.cat,reused_mf);
     if (old_cdir<0) return 0;
-    int ok=oc_verify_dir_manifest(old_cdir,reused_mf,cm.cat,sizeof cm.cat) && reused_mf->count==12;
+    int ok=reused_mf->count==12 && oc_members(old_cdir,reused_mf,1);
     long owner=oc_owner(), group=oc_group();
     if (ok) {
         const char *vd=oc_digest(reused_mf,"vui.so");
@@ -540,8 +554,10 @@ static int oc_try_reuse_composed(int data_fd, int comp_root, const char *root_pa
     unsigned linked=0;
     for (unsigned i=0; ok && i<12; ++i) {
         const char *nm=oc_composed_names[i];
+        const char *dig=oc_digest(reused_mf,nm);
         OcMeta om={0};
-        if (!oc_digest(reused_mf,nm) || oc_metadata(old_cdir,nm,&om)<0 ||
+        if (!dig || !oc_verify_file_sha(old_cdir,nm,dig,33554432) ||
+            oc_metadata(old_cdir,nm,&om)<0 ||
             (om.mode&OC_TYPE)!=OC_REGULAR || (om.mode&07777u)!=0600 ||
             om.uid!=(unsigned)owner || om.gid!=(unsigned)group ||
             oc_link(old_cdir,nm,wfd,nm)<0) { ok=0; break; }
@@ -557,7 +573,7 @@ static int oc_try_reuse_composed(int data_fd, int comp_root, const char *root_pa
 }
 
 static int oc_compose_pkg_from(int root, int data_fd, const char *root_path, const char *pkg_id,
-                               const char *old_pkg, const char **err_out) {
+                               const char *old_pkg, const char *old_snap, const char **err_out) {
     if (!oc_hex(pkg_id,64) || !oc_originals_verify(data_fd)) return cerr(err_out,"compose_inputs_invalid");
     int pdir=oc_open_sub(data_fd,"packages",pkg_id);
     OcManifest pmf;
@@ -599,8 +615,8 @@ static int oc_compose_pkg_from(int root, int data_fd, const char *root_path, con
     }
 
     OcManifest reused_mf;
-    int reused=oc_try_reuse_composed(data_fd,comp_root,root_path,wleaf,wfd,&pmf,
-                                     pkg_id,old_pkg,vout_pin,&reused_mf);
+    int reused=oc_try_reuse_composed(data_fd,root_path,wleaf,wfd,&pmf,
+                                     pkg_id,old_pkg,old_snap,vout_pin,&reused_mf);
     if (!reused) {
         if (!oc_compose_uia(pdir,orig,wfd)) { oc_diag_set("compose","uia.so","patch_failed",0,0); ferr="compose_patch_failed"; goto out; }
         if (!oc_compose_mmui(pdir,orig,wfd)) { oc_diag_set("compose","mmui.so","patch_failed",0,0); ferr="compose_patch_failed"; goto out; }
@@ -680,7 +696,7 @@ out:
 
 int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg_id,
                    const char **err_out) {
-    return oc_compose_pkg_from(root,data_fd,root_path,pkg_id,0,err_out);
+    return oc_compose_pkg_from(root,data_fd,root_path,pkg_id,0,0,err_out);
 }
 
 /* ---------- Dependencies capture & access/selector capture ---------- */
@@ -950,6 +966,20 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
         if (data_fd>=0) (void)oc_close(data_fd);
         return cerr(err_out,"unsupported_original");
     }
+    /* Verify live OEM /jci/vui inputs BEFORE mutating packages/ or hardlinking old_pkg. */
+    {
+        long vdir=oc_beneath(root,"jci/vui",OC_DIRECTORY,0);
+        const char *vso_pin=oc_pin_digest(oc_base_pins[3].key,oc_base_pins[3].digest);
+        const char *vxml_pin=oc_pin_digest(oc_base_pins[4].key,oc_base_pins[4].digest);
+        int vok=vdir>=0 && oc_verify_file_sha((int)vdir,"svcjcivui.so",vso_pin,33554432) &&
+            oc_verify_file_sha((int)vdir,"vui_config.xml",vxml_pin,262144);
+        if (vdir>=0) (void)oc_close((int)vdir);
+        if (!vok) {
+            if (data_fd>=0) (void)oc_close(data_fd);
+            oc_diag_set("compose","/jci/vui","vui_inputs_changed",0,0);
+            return cerr(err_out,"vui_inputs_changed");
+        }
+    }
 
     /* 2. initial_begin: stage fresh state in hidden sibling directory until initial_publish. */
     int parent_fd=-1;
@@ -1087,7 +1117,8 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
     }
 
     /* 5. Save package from verified RAM session (reusing verified active immutable files via hardlinks). */
-    const char *reuse_pkg=(exists && oc_equal(rec[1],"active") && oc_hex(old_pkg,64)) ? old_pkg : 0;
+    const char *reuse_pkg=(exists && oc_equal(rec[1],"active") && oc_hex(old_pkg,64) && oc_equal(old_pkg,rec[3])) ? old_pkg : 0;
+    const char *reuse_snap=reuse_pkg ? rec[5] : 0;
     char pkg_id[65];
     if (!oc_package_save(root,data_fd,session_dir,reuse_pkg,pkg_id,&ferr)) goto fail;
 
@@ -1117,7 +1148,7 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
     }
 
     /* 7. Compose firmware artifacts for pkg_id (reusing verified composed/<reuse_pkg> when inputs match). */
-    if (!oc_compose_pkg_from(root,data_fd,root_path,pkg_id,reuse_pkg,&ferr)) goto fail;
+    if (!oc_compose_pkg_from(root,data_fd,root_path,pkg_id,reuse_pkg,reuse_snap,&ferr)) goto fail;
 
     /* 8. Compose new access, selector, preferences, rendered profiles, and dependencies into fresh staging dir. */
     (void)oc_close(awfd); awfd=-1;

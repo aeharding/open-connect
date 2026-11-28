@@ -444,15 +444,15 @@ done:
     return fd;
 }
 
-int oc_meta_equal(const OcMeta *a, const OcMeta *b) {
-    return a->device==b->device && a->inode==b->inode && a->size==b->size &&
-        a->mode==b->mode && a->uid==b->uid && a->gid==b->gid &&
-        a->modified==b->modified && a->modified_ns==b->modified_ns &&
-        a->changed==b->changed && a->changed_ns==b->changed_ns;
-}
-
 int oc_meta_resealable(const OcMeta *a, const OcMeta *b) {
     return a->device==b->device && a->size==b->size && a->mode==b->mode && a->uid==b->uid && a->gid==b->gid;
+}
+
+int oc_meta_row_equal(const char *key, const OcMeta *a, const OcMeta *b) {
+    if (!oc_meta_resealable(a,b) || a->inode!=b->inode ||
+        a->modified!=b->modified || a->modified_ns!=b->modified_ns) return 0;
+    if (key && (oc_prefix(key,"package-") || oc_prefix(key,"composed-"))) return 1;
+    return a->changed==b->changed && a->changed_ns==b->changed_ns;
 }
 
 int oc_write_all(int fd, const void *input, unsigned n) {

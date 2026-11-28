@@ -496,4 +496,24 @@ assert.equal(pages.at(-1).ctrl.dataList.items[1].label1, "Auto");
 back(); assert.equal(pages.at(-1).ctrl.focussedItem, 3); back();
 assert.equal(settings.validStatus({...values,ok:true,revision:"-",installed:true,retained:false,conflict:false,restart:true,pending:false,version:store.version,wirelessCurrent:0}),true);
 assert.equal(settings.open(fw,{read:()=>({...values,carplayAutoshowCurrent:2})}),false);
+
+// Issue #216: Source order lives in Audio sources, writes wire key source-order,
+// drives restart state, preserves two-level Back focus, and validates bit pairs.
+values={...values,sourceOrder:0,sourceOrderCurrent:0,restart:false,carplayAutoshow:0,carplayAutoshowCurrent:0};
+settings.open(fw,store); choose("sources");
+assert.equal(pages.at(-1).ctrl.title.text1, "Audio sources");
+assert.equal(pages.at(-1).ctrl.dataList.items[0].text1, "Source order");
+assert.equal(pages.at(-1).ctrl.dataList.items[0].label1, "Factory");
+choose(3);
+assert.equal(pages.at(-1).ctrl.title.text1, "Source order");
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items,r=>r.text1),["Factory order","Phone & media first"]);
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items,r=>r.checked),[true,false]);
+pick(1); idle();
+assert.deepEqual(writes.at(-1),["source-order",0,1]);
+values={...values,sourceOrder:1,restart:true}; reply(values); back();
+assert.equal(pages.at(-1).ctrl.title.text1, "Audio sources");
+assert.equal(pages.at(-1).ctrl.focussedItem, 0);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].label1, "Phone first");
+back(); assert.equal(pages.at(-1).ctrl.focussedItem, 4); back();
+assert.equal(settings.open(fw,{read:()=>({...values,sourceOrderCurrent:2})}),false);
 console.log("Reorganized native menus preserve defaults, confirmations, wire keys, restart state and Back focus");

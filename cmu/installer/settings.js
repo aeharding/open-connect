@@ -5,7 +5,8 @@ var active=false,waiting=null,session=null,dialogs=OpenConnectInstaller;
 var entries=[
 {key:"touch",title:"Touchscreen",choices:["Factory behavior","Always enabled","Always disabled"]},
 {key:"warning",title:"Startup disclaimer",choices:["Show","Skip"]},
-{key:"carplayAutoshow",title:"Show CarPlay on connection",choices:["Factory behavior","Automatically show"]}
+{key:"carplayAutoshow",title:"Show CarPlay on connection",choices:["Factory behavior","Automatically show"]},
+{key:"sourceOrder",title:"Source order",choices:["Factory order","Phone & media first"]}
 ];
 var own=Object.prototype.hasOwnProperty;
 function bit(v){return v===0||v===1;}
@@ -14,27 +15,22 @@ function optional(v){return v===undefined||bit(v);}
 function validServices(rows){
 if(rows===undefined)return true;
 if(!Array.isArray(rows)||rows.length<1||rows.length>16)return false;
-var previous="";
-return rows.every(function(row){
-if(!row||!/^[a-z][a-z0-9-]{0,31}$/.test(row.id)||row.id<=previous||
-/^(touch|warning|base|wireless|uart|ssh|carplay-autoshow)$/.test(row.id)||
-!bit(row.saved)||(row.current!==null&&!bit(row.current)))return false;
-previous=row.id;
+var prev="";
+return rows.every(function(r){
+if(!r||!/^[a-z][a-z0-9-]{0,31}$/.test(r.id)||r.id<=prev||
+/^(touch|warning|base|wireless|uart|ssh|carplay-autoshow|source-order)$/.test(r.id)||
+!bit(r.saved)||(r.current!==null&&!bit(r.current)))return false;
+prev=r.id;
 return["label","enable","disable"].every(function(k){
-return typeof row[k]==="string"&&row[k].length>0&&
-row[k].length<=(k==="label"?64:256)&&!/[\x00-\x1f\x7f]/.test(row[k]);
-});
-});
-}
+return typeof r[k]==="string"&&r[k].length>0&&r[k].length<=(k==="label"?64:256)&&!/[\x00-\x1f\x7f]/.test(r[k]);
+});});}
 var versionRE=/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/;
 function validStatus(s){
 return s&&s.ok===true&&valid(s)&&/^(?:-|[a-f0-9]{32}|[a-f0-9]{64})$/.test(s.revision)&&
-["installed","retained","conflict","restart","pending"].every(function(key){return typeof s[key]==="boolean";})&&
+["installed","retained","conflict","restart","pending"].every(function(k){return typeof s[k]==="boolean";})&&
 (s.wireless===undefined||bit(s.wirelessCurrent))&&
-(s.developer===undefined||(typeof s.developer==="boolean"&&
-bit(s.uart)&&bit(s.ssh)&&
-bit(s.uartCurrent)&&bit(s.sshCurrent)&&
-/^(?:-|[a-f0-9]{64})$/.test(s.key)&&/^(?:-|[a-f0-9:]{47})$/.test(s.fingerprint)))&&
+(s.developer===undefined||(typeof s.developer==="boolean"&&bit(s.uart)&&bit(s.ssh)&&
+bit(s.uartCurrent)&&bit(s.sshCurrent)&&/^(?:-|[a-f0-9]{64})$/.test(s.key)&&/^(?:-|[a-f0-9:]{47})$/.test(s.fingerprint)))&&
 versionRE.test(s.version)&&(s.installedVersion===undefined||s.installedVersion==="-"||versionRE.test(s.installedVersion));
 }
 function service(v,k){
@@ -42,26 +38,24 @@ var rows=v&&v.services,i;
 for(i=0;rows&&i<rows.length;i++)if(rows[i].id===k)return rows[i];
 return null;
 }
-function preference(v,k){
-var r=service(v,k);
-return r?r.saved:v[k];
-}
+function preference(v,k){var r=service(v,k);return r?r.saved:v[k];}
 function valid(v){
 return v&&validServices(v.services)&&(bit(v.touch)||v.touch===2)&&bit(v.warning)&&
-optional(v.pandora)&&optional(v.base)&&autoshow(v)&&optional(v.wireless)&&
+optional(v.pandora)&&optional(v.base)&&bitPair(v,"carplayAutoshow","carplayAutoshowCurrent")&&
+bitPair(v,"sourceOrder","sourceOrderCurrent")&&optional(v.wireless)&&
 (v.wirelessFactory===undefined||typeof v.wirelessFactory==="boolean");
 }
-function autoshow(s){return s.carplayAutoshow===undefined||(bit(s.carplayAutoshow)&&bit(s.carplayAutoshowCurrent));}
+function bitPair(s,k,c){return s[k]===undefined||(bit(s[k])&&bit(s[c]));}
 function toggle(t,on,k){return{text1:t,itemStyle:"styleOnOff",value:on?1:2,hasCaret:false,appData:k};}
 
 function slide(from,to,back,done,reveal,parent){
-var a=from.divElt,b=to.divElt,timer,finished=false;
-var init=back?"Transitions_Init_OffscreenLeft":"Transitions_Init_OffscreenRight";
-var out="Transitions_slideOut"+(back?"Right":"Left")+"TmpltWithStatusLeftBtn_0_400";
-var into="Transitions_slideIn"+(back?"Left":"Right")+"TmpltWithStatusLeftBtn_0_400";
+var a=from.divElt,b=to.divElt,timer,fin=false,p="Transitions_";
+var init=p+"Init_Offscreen"+(back?"Left":"Right");
+var out=p+"slideOut"+(back?"Right":"Left")+"TmpltWithStatusLeftBtn_0_400";
+var into=p+"slideIn"+(back?"Left":"Right")+"TmpltWithStatusLeftBtn_0_400";
 function finish(ev){
-if(finished||ev&&ev!==true&&ev.target!==b)return;
-finished=true;clearTimeout(timer);
+if(fin||ev&&ev!==true&&ev.target!==b)return;
+fin=true;clearTimeout(timer);
 b.removeEventListener("animationend",finish,false);
 a.classList.remove(out);b.classList.remove(into);b.classList.remove(init);
 if(to.endTransitionTo)to.endTransitionTo();
@@ -77,18 +71,11 @@ return finish;
 }
 
 function replace(obj,k,fn){
-var prev=obj[k],loc=own.call(obj,k);
-obj[k]=fn;
-return function(){
-if(obj[k]!==fn)return;
-if(loc)obj[k]=prev;else delete obj[k];
-};
+var prev=obj[k],loc=own.call(obj,k);obj[k]=fn;
+return function(){if(obj[k]!==fn)return;if(loc)obj[k]=prev;else delete obj[k];};
 }
 
-function settingsApp(id){
-return /^(sys|veh|audio)settings$/.test(id);
-}
-
+function settingsApp(id){return /^(sys|veh|audio)settings$/.test(id);}
 function voice(fw){
 var c=fw.common;
 return c._vuiHelpDialog||c._vuiExamplesDialog||
@@ -113,6 +100,7 @@ if(saved.restartFixed||v.touch!==saved.touchCurrent||diff(v,"warning","warningCu
 (v.base!==undefined&&diff(v,"base","baseCurrent"))||
 (v.wireless!==undefined&&!v.wirelessFactory&&diff(v,"wireless","wirelessCurrent"))||
 (v.carplayAutoshow!==undefined&&diff(v,"carplayAutoshow","carplayAutoshowCurrent"))||
+(v.sourceOrder!==undefined&&diff(v,"sourceOrder","sourceOrderCurrent"))||
 (v.developer&&(diff(v,"uart","uartCurrent")||diff(v,"ssh","sshCurrent"))))return true;
 return!!(v.services&&v.services.some(function(r){return r.current!==null&&r.saved!==r.current;}));
 }
@@ -128,8 +116,7 @@ return v;
 };
 function drain(ok){var n=queued;queued=null;qd=false;if(n)n(ok);}
 function flush(){
-var keys=Object.keys(wanted);
-if(busy)return;
+var keys=Object.keys(wanted);if(busy)return;
 if(!keys.length){pending(false);drain(!prefs.failure);return;}
 var key=keys[0],req=wanted[key];
 if(preference(saved,key)===req){delete wanted[key];flush();if(prefs.changed)prefs.changed(false);return;}
@@ -139,15 +126,12 @@ if(ans)return;ans=true;busy=false;
 if(out==="restart")wanted={};else if(!valid(actual))actual=read();
 if(valid(actual))saved=actual;
 var rec=out==="reconciled",failed=(!!out&&!rec)||!valid(actual)||preference(actual,key)!==req;
-if(failed){
-wanted={};prefs.failure=out==="restart"?"restart":key;
-pending(false);if(prefs.changed)prefs.changed(true);drain(false);return;
-}
+if(failed){wanted={};prefs.failure=out==="restart"?"restart":key;pending(false);if(prefs.changed)prefs.changed(true);drain(false);return;}
 if(rec&&qd)drain(false);
 if(wanted[key]===req)delete wanted[key];
 flush();if(prefs.changed)prefs.changed(rec?"sync":false);
 }
-try{store.write(key==="carplayAutoshow"?"carplay-autoshow":key,preference(saved,key),req,finish);}
+try{store.write(key==="carplayAutoshow"?"carplay-autoshow":key==="sourceOrder"?"source-order":key,preference(saved,key),req,finish);}
 catch(e){finish(null);}
 }
 prefs.pending=function(){return busy||Object.keys(wanted).length>0;};
@@ -160,18 +144,18 @@ prefs.cancelQueue=function(){queued=null;qd=false;};
 prefs.importKey=function(done){
 if(prefs.pending()||typeof store.importKey!=="function"||!pending(true)){done(null);return;}
 busy=true;var ans=false;
-function finish(actual,failed){
+function finish(act,fail){
 if(ans)return;ans=true;busy=false;
-var rec=failed==="reconciled",ok=valid(actual)&&(!failed||rec);
-if(valid(actual))saved=actual;
+var rec=fail==="reconciled",ok=valid(act)&&(!fail||rec);
+if(valid(act))saved=act;
 if(!ok){
 wanted={};pending(false);
-if(failed==="restart"){prefs.failure=failed;if(prefs.changed)prefs.changed(true);drain(false);}
-else{drain(false);if(!done(null,failed)&&prefs.changed)prefs.changed("sync");}
+if(fail==="restart"){prefs.failure=fail;if(prefs.changed)prefs.changed(true);drain(false);}
+else{drain(false);if(!done(null,fail)&&prefs.changed)prefs.changed("sync");}
 return;
 }
 if(rec&&qd)drain(false);
-if(!done(actual)&&prefs.changed)prefs.changed("sync");
+if(!done(act)&&prefs.changed)prefs.changed("sync");
 flush();
 }
 try{store.importKey(finish);}catch(e){finish(null);}
@@ -192,8 +176,7 @@ function discard(p){if(p){p.cleanUp();if(p.divElt.parentNode)p.divElt.parentNode
 function close(){
 if(closed)return;closed=true;prefs.cancelQueue();
 if(moving)moving(true);endWait();if(dismiss)dismiss();
-prefs.changed=prefs.revert=null;
-while(undo.length)undo.pop()();
+prefs.changed=prefs.revert=null;while(undo.length)undo.pop()();
 discard(page);host.divElt.style.display=oldD;
 if(fw.common._openConnectPage===close)delete fw.common._openConnectPage;
 active=false;
@@ -208,7 +191,7 @@ var rows=[],title="Open Connect",i,row;
 function action(t,k,c,d){rows.push({text1:t,itemStyle:"style01",hasCaret:!!c,appData:k,disabled:!!d});}
 function entry(i){
 var e=entries[i];
-if(values[e.key]!==undefined)rows.push({text1:e.title,label1:i===2?["Factory","Auto"][values.carplayAutoshow]:e.choices[values[e.key]],
+if(values[e.key]!==undefined)rows.push({text1:e.title,label1:i===2?["Factory","Auto"][values.carplayAutoshow]:i===3?["Factory","Phone first"][values.sourceOrder]:e.choices[values[e.key]],
 itemStyle:"style06",labelWidth:i?"normal":"wide",hasCaret:true,appData:i});
 }
 function integrations(phone){
@@ -221,7 +204,7 @@ if(index===null){
 entry(0);entry(1);
 if(values.base!==undefined)rows.push(toggle("Startup optimizations",values.base,"base"));
 if(values.wireless!==undefined||values.carplayAutoshow!==undefined||service(values,"android-auto"))action("CarPlay & Android Auto","phone",true);
-if(values.services||values.pandora!==undefined)action("Audio sources","sources",true);
+if(values.services||values.pandora!==undefined||values.sourceOrder!==undefined)action("Audio sources","sources",true);
 if(values.developer)action("Developer options","developer",true);
 action("Apply changes","restart",false,!canRestart());
 action("Uninstall","uninstall",false,typeof store.uninstall!=="function");
@@ -234,7 +217,7 @@ entry(2);integrations(true);
 }else if(index==="unknown"){
 title=prefs.failure==="restart"?"Restart Mazda Connect":"Change could not be confirmed";
 action("Return to Mazda Settings",0);
-}else if(index==="sources"){title="Audio sources";integrations(false);
+}else if(index==="sources"){title="Audio sources";entry(3);integrations(false);
 }else if(index==="developer"){
 title="Developer options";
 rows.push(toggle("UART",values.uart,"uart"));
@@ -272,20 +255,16 @@ return v&&v.restart===true&&typeof store.restart==="function"&&!(store.busy&&sto
 }
 function showWait(t){endWait();wait=dialogs.progress(fw,t,"Do not turn off the car.",function(){wait=null;prefs.cancelQueue();if(ns)prefs.changed("sync");});return wait;}
 function runAction(a){
-  if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
-  if(store[a](close))return;
-  dismiss=dialogs.message(fw,T,"Another action is finishing.",{button1:{label:"OK",appData:"done"}},function(a){dismiss=null;if(a!=="closed"&&current())prefs.changed(false);});
+if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
+if(store[a](close))return;
+dismiss=dialogs.message(fw,T,"Another action is finishing.",{button1:{label:"OK",appData:"done"}},function(a){dismiss=null;if(a!=="closed"&&current())prefs.changed(false);});
 }
 function maintain(a){
-  dismiss=null;if(!current()||(a!=="restart"&&a!=="uninstall"))return;
-  if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
-  if(!prefs.pending()){runAction(a);return;}
-  var w=showWait(a==="restart"?"Applying changes":"Removing Open Connect");if(!w)return;
-  prefs.queue(function(ok){
-    if(!ok)ns=false;
-    endWait(w);
-    if(ok&&current())runAction(a);
-  },a==="uninstall");
+dismiss=null;if(!current()||(a!=="restart"&&a!=="uninstall"))return;
+if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
+if(!prefs.pending()){runAction(a);return;}
+var w=showWait(a==="restart"?"Applying changes":"Removing Open Connect");if(!w)return;
+prefs.queue(function(ok){if(!ok)ns=false;endWait(w);if(ok&&current())runAction(a);},a==="uninstall");
 }
 function select(control,item,params){
 if(!current()||dismiss||wait||!page||control!==page.list2Ctrl)return;
@@ -293,6 +272,7 @@ if(moving)moving(false);
 var d=params&&params.additionalData;
 if(choice===null&&/^(developer|phone|sources)$/.test(item)){render(item,0);return;}
 if(choice==="phone"&&item===2){var v=prefs.values();if(v)render(2,v.carplayAutoshow);return;}
+if(choice==="sources"&&item===3){var v=prefs.values();if(v)render(3,v.sourceOrder);return;}
 if(choice==="phone"&&item==="wireless"){
 if(d!==1&&d!==2)return;
 var v=prefs.values(),on=d===1;
@@ -331,26 +311,23 @@ if(a!=="closed"&&current()&&choice==="developer")render("developer",item);
 }
 prefs.select(item,d===1?1:0);
 }else if(item==="import"&&typeof store.importKey==="function"){
-  dismiss=ask("Import public key?","Put open-connect.pub on the USB drive. RSA and ECDSA public keys are supported. The imported key will be replaced.","Import","import",function(a){
-    dismiss=null;if(a!=="import"||!current())return;
-    var w=showWait("Importing public key");if(!w)return;
-    prefs.queue(function(ok){
-      if(!ok||!current()){if(!ok)ns=false;endWait(w);return;}
-      prefs.importKey(function(act){
-        if(current()&&choice==="developer"&&(!wait||wait===w))ns=false;
-        endWait(w);if(!current()||choice!=="developer"||wait)return false;
-        if(dismiss)dismiss();
-        render("developer","import");
-        if(choice!=="developer")return true;
-        dismiss=dialogs.message(fw,act?"Public key imported":"Key could not be imported",
-        act?"Fingerprint (MD5):\n"+act.fingerprint.slice(0,23)+"\n"+act.fingerprint.slice(24)+"\nEnable SSH when ready.":
-        "Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",
-        {button1:{label:"OK",appData:"done"}},function(){dismiss=null;});
-        return true;
-      });
-    });
-  });
-}
+dismiss=ask("Import public key?","Put open-connect.pub on the USB drive. RSA and ECDSA public keys are supported. The imported key will be replaced.","Import","import",function(a){
+dismiss=null;if(a!=="import"||!current())return;
+var w=showWait("Importing public key");if(!w)return;
+prefs.queue(function(ok){
+if(!ok||!current()){if(!ok)ns=false;endWait(w);return;}
+prefs.importKey(function(act){
+if(current()&&choice==="developer"&&(!wait||wait===w))ns=false;
+endWait(w);if(!current()||choice!=="developer"||wait)return false;
+if(dismiss)dismiss();
+render("developer","import");
+if(choice!=="developer")return true;
+dismiss=dialogs.message(fw,act?"Public key imported":"Key could not be imported",
+act?"Fingerprint (MD5):\n"+act.fingerprint.slice(0,23)+"\n"+act.fingerprint.slice(24)+"\nEnable SSH when ready.":
+"Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",
+{button1:{label:"OK",appData:"done"}},function(){dismiss=null;});
+return true;
+});});});}
 return;
 }
 if(choice===null&&item==="about"){dismiss=dialogs.about(fw,store.version,function(a){dismiss=null;if(a!=="closed"&&current())prefs.changed(false);});return;}
@@ -401,7 +378,7 @@ if(leaving||/^(Global.Intent|SelectHome|SelectNavigation)/.test(ev))close();
 if(current()&&app==="common"&&(ev==="Global.GoBack"||ev==="Global.MenuUp")){
 if(wait)return;
 if(dismiss)dismiss();
-else if(choice!==null&&choice!=="unknown")render(choice===2?"phone":null,choice,true);
+else if(choice!==null&&choice!=="unknown")render(choice===2?"phone":choice===3?"sources":null,choice,true);
 else{
 if(choice==="unknown")prefs.failure=null;
 if(moving)moving(true);leaving=true;

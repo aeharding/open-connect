@@ -29,7 +29,7 @@ int oc_order(const char *a, const char *b) {
 int oc_service_id(const char *p) {
     unsigned n=0;
     if (*p<'a'||*p>'z') return 0;
-    const char *reserved[]={"touch","warning","base","wireless","uart","ssh","carplay-autoshow"};
+    const char *reserved[]={"touch","warning","base","wireless","uart","ssh","carplay-autoshow","source-order"};
     for (unsigned i=0; i<sizeof reserved/sizeof *reserved; ++i) if (oc_equal(p,reserved[i])) return 0;
     while (*p) {
         unsigned c=(unsigned char)*p++;
@@ -52,7 +52,7 @@ int oc_service_keys(char *text, char **ids, unsigned *count) {
 
 int oc_config(OcBoot *b, char *text, char **f, int active, char svc_digest[65]) {
     unsigned mode, uid, gid;
-    f[8]="0";
+    f[8]="0"; f[9]="0";
     if (svc_digest) svc_digest[0]=0;
     if (!oc_prefix(text,"OC2\n")) {
         if (active||!oc_one_line(text)||oc_fields(text,f,5)!=5||!oc_equal(f[0],"-")) return 0;
@@ -82,6 +82,10 @@ int oc_config(OcBoot *b, char *text, char **f, int active, char svc_digest[65]) 
         if (oc_equal(key,"carplay-autoshow")) {
             if (!oc_bit(value)) return 0;
             f[8]=value; continue;
+        }
+        if (oc_equal(key,"source-order")) {
+            if (!oc_bit(value)) return 0;
+            f[9]=value; continue;
         }
         if (oc_equal(key,"service-ids")) {
             if (svc_digest) { oc_hash_add(&sh,value,oc_length(value)); oc_hash_add(&sh,"\n",1); }
@@ -240,9 +244,9 @@ int oc_catalog_load(char *text, unsigned bytes, OcCatalog *cat) {
 
 int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out) {
     unsigned mode, uid, gid;
-    out->is_oc2=0; out->has_autoshow=0; out->svc_count=0;
+    out->is_oc2=0; out->has_autoshow=0; out->has_source_order=0; out->svc_count=0;
     out->package="-"; out->touch="0"; out->warning="0"; out->nvram="absent";
-    out->metadata=""; out->base="0"; out->wireless="0"; out->autoshow="0"; out->pandora="1";
+    out->metadata=""; out->base="0"; out->wireless="0"; out->autoshow="0"; out->source_order="0"; out->pandora="1";
     if (!oc_prefix(text,"OC2\n")) {
         char *f[5];
         if (active || !oc_one_line(text) || oc_fields(text,f,5)!=5 || !oc_equal(f[0],"-")) return 0;
@@ -269,6 +273,10 @@ int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out) {
         if (oc_equal(key,"carplay-autoshow")) {
             if (!oc_bit(value)) return 0;
             out->autoshow=value; out->has_autoshow=1; continue;
+        }
+        if (oc_equal(key,"source-order")) {
+            if (!oc_bit(value)) return 0;
+            out->source_order=value; out->has_source_order=1; continue;
         }
         if (oc_equal(key,"service-ids")) {
             if (!oc_service_keys(value,ids,&count)) return 0;
@@ -334,7 +342,8 @@ int oc_prefs_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned c
         if (!oc_append(out,cap,&at,"\nservice.") || !oc_append(out,cap,&at,cat->rows[i].id) ||
             !oc_append(out,cap,&at,"=") || !oc_append(out,cap,&at,p->svc_vals[i])) return 0;
     }
-    if (!oc_append(out,cap,&at,"\ntouch=") || !oc_append(out,cap,&at,p->touch) ||
+    if (!oc_append(out,cap,&at,"\nsource-order=") || !oc_append(out,cap,&at,p->source_order) ||
+        !oc_append(out,cap,&at,"\ntouch=") || !oc_append(out,cap,&at,p->touch) ||
         !oc_append(out,cap,&at,"\nwarning=") || !oc_append(out,cap,&at,p->warning) ||
         !oc_append(out,cap,&at,"\nwireless=") || !oc_append(out,cap,&at,p->wireless) ||
         !oc_append(out,cap,&at,"\n")) return 0;

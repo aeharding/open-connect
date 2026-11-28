@@ -350,13 +350,28 @@ class NativeInstall(unittest.TestCase):
 
             p_t0, r_t0 = self._call_api(api_bin, set_sess, snap1, "set", "touch", "1", "0", env=env)
             self.assertEqual(p_t0.returncode, 0, (r_t0, p_t0.stderr))
+            self.assertEqual(r_t0["sourceOrder"], 0)
+            self.assertEqual(r_t0["sourceOrderCurrent"], 0)
+            self.assertNotIn(
+                "reorderSources", (data / "snapshots" / snap1 / "index.html").read_text()
+            )
             p_as, r_as = self._call_api(
                 api_bin, set_sess, r_t0["revision"], "set", "carplay-autoshow", "0", "1", env=env
             )
             self.assertEqual(p_as.returncode, 0, (r_as, p_as.stderr))
-            snap_mod = r_as["revision"]
+            p_so, r_so = self._call_api(
+                api_bin, set_sess, r_as["revision"], "set", "source-order", "0", "1", env=env
+            )
+            self.assertEqual(p_so.returncode, 0, (r_so, p_so.stderr))
+            self.assertEqual(r_so["sourceOrder"], 1)
+            self.assertEqual(r_so["sourceOrderCurrent"], 0)
+            self.assertTrue(r_so["restart"])
+            snap_mod = r_so["revision"]
+            self.assertIn(
+                "reorderSources", (data / "snapshots" / snap_mod / "index.html").read_text()
+            )
 
-            # 3) Upgrade from active via a second USB session (different VERSION) -> preserves touch=0 & carplay-autoshow=1!
+            # 3) Upgrade from active via a second USB session (different VERSION) -> preserves touch=0, carplay-autoshow=1 & source-order=1!
             usb2 = ram / "sessions/session-usb200"
             shutil.copytree(
                 usb_sess, usb2, symlinks=False, ignore=shutil.ignore_patterns("admitted")
@@ -378,6 +393,7 @@ class NativeInstall(unittest.TestCase):
             self.assertTrue(r_up["ok"], r_up)
             self.assertEqual(r_up["touch"], 0)
             self.assertEqual(r_up["carplayAutoshow"], 1)
+            self.assertEqual(r_up["sourceOrder"], 1)
             rec_up = (data / "record").read_text().strip().split("|")
             self.assertNotEqual(rec_up[3], pkg1)
             self.assertEqual(rec_up[1], "active")

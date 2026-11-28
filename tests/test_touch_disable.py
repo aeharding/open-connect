@@ -77,7 +77,8 @@ class TouchDisable(unittest.TestCase):
             )[1]
             self.assertIn("Model: Compact", entry)
             self.assertNotIn("CantUnwind", entry)
-        packaged = folder / "usb/open-connect"
+        version = (ROOT / "cmu/installer/VERSION").read_text().strip()
+        packaged = folder / f"usb/open-connect-{version}-usb/open-connect"
         self.assertEqual((packaged / "touch-disable.so").read_bytes(), shim.read_bytes())
         self.assertLessEqual(
             sum((p.stat().st_size + 4095) // 4096 for p in packaged.iterdir()), 123

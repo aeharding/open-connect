@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 320" role="img" aria-label="Open the extracted open-connect-version-usb folder, select the three items inside (the .up trigger file, jci-autoupdate, and the open-connect folder), and copy them directly to the root of your FAT32 USB drive.">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <defs>
+    <style>
+      .bg { fill: #f6f8fa; stroke: #d0d7de; }
+      .win { fill: #ffffff; stroke: #c6cdd5; }
+      .bar { fill: #eef1f5; }
+      .title { font: 600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1f2328; }
+      .sub { font: 500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #59636e; }
+      .item { font: 500 12.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #1f2328; }
+      .item-sel { font: 600 12.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #0a3069; }
+      .sel-box { fill: #ddf4ff; stroke: #0969da; stroke-width: 1.5; }
+      .sel-row { fill: #b6e3ff; }
+      .step-pill { fill: #1f2328; }
+      .step-txt { font: 700 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #ffffff; }
+      .arrow-txt { font: 700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #c6392b; }
+      .ok-pill { fill: #dafbe1; stroke: #2da44e; }
+      .ok-txt { font: 600 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1a7f37; }
+      .warn-txt { font: 500 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #59636e; }
+      .file-fill { fill: #eaeef2; stroke: #6e7781; }
+      .folder-fill { fill: #54aeff; stroke: #0969da; }
+    </style>
+  </defs>
+
+  <!-- Outer card -->
+  <rect x="4" y="4" width="792" height="312" rx="12" class="bg" stroke-width="1.5"/>
+
+  <!-- Step headers -->
+  <rect x="24" y="20" width="22" height="22" rx="11" class="step-pill"/>
+  <text x="35" y="35" text-anchor="middle" class="step-txt">1</text>
+  <text x="54" y="35" class="title">Open extracted folder &amp; select all 3 items</text>
+
+  <rect x="448" y="20" width="22" height="22" rx="11" class="step-pill"/>
+  <text x="459" y="35" text-anchor="middle" class="step-txt">2</text>
+  <text x="478" y="35" class="title">Copy to root of FAT32 USB drive</text>
+
+  <!-- Left window: Extracted ZIP folder -->
+  <g transform="translate(24, 52)">
+    <rect x="0" y="0" width="328" height="218" rx="8" class="win" stroke-width="1.5"/>
+    <path d="M1 8a7 7 0 0 1 7-7h312a7 7 0 0 1 7 7v26H1Z" class="bar"/>
+    <line x1="0" y1="34" x2="328" y2="34" stroke="#d0d7de" stroke-width="1"/>
+    <circle cx="16" cy="17" r="4.5" fill="#ff5f56"/>
+    <circle cx="30" cy="17" r="4.5" fill="#ffbd2e"/>
+    <circle cx="44" cy="17" r="4.5" fill="#27c93f"/>
+    <text x="60" y="21" class="sub">Downloads / open-connect-&lt;version&gt;-usb</text>
+
+    <!-- Selection highlight box around all 3 items -->
+    <rect x="12" y="46" width="304" height="122" rx="6" class="sel-box" stroke-dasharray="5 3"/>
+
+    <!-- Row 1: trigger .up -->
+    <rect x="18" y="54" width="292" height="32" rx="4" class="sel-row"/>
+    <path d="M28 62h10l4 4v12H28Z" class="file-fill" stroke-width="1.3"/>
+    <text x="50" y="75" class="item-sel">$(S=${HOME%root}; ...).up</text>
+
+    <!-- Row 2: jci-autoupdate -->
+    <rect x="18" y="91" width="292" height="32" rx="4" class="sel-row"/>
+    <path d="M28 99h10l4 4v12H28Z" class="file-fill" stroke-width="1.3"/>
+    <text x="50" y="112" class="item-sel">jci-autoupdate</text>
+
+    <!-- Row 3: open-connect folder -->
+    <rect x="18" y="128" width="292" height="32" rx="4" class="sel-row"/>
+    <path d="M26 138a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H28a2 2 0 0 1-2-2Z" class="folder-fill" stroke-width="1.3"/>
+    <text x="50" y="149" class="item-sel">open-connect</text>
+
+    <!-- Footer status -->
+    <text x="164" y="196" text-anchor="middle" class="sub">3 items selected (Cmd+A / Ctrl+A)</text>
+  </g>
+
+  <!-- Center copy arrow -->
+  <g transform="translate(362, 134)">
+    <text x="38" y="8" text-anchor="middle" class="arrow-txt">Copy 3 items</text>
+    <path d="M6 26h58m-10-9 10 9-10 9" fill="none" stroke="#d85747" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Right window: USB drive root -->
+  <g transform="translate(448, 52)">
+    <rect x="0" y="0" width="328" height="218" rx="8" class="win" stroke-width="1.5"/>
+    <path d="M1 8a7 7 0 0 1 7-7h312a7 7 0 0 1 7 7v26H1Z" class="bar"/>
+    <line x1="0" y1="34" x2="328" y2="34" stroke="#d0d7de" stroke-width="1"/>
+    <!-- USB icon -->
+    <rect x="14" y="11" width="12" height="12" rx="2" fill="#59636e"/>
+    <rect x="17" y="14" width="2" height="4" fill="#ffffff"/>
+    <rect x="21" y="14" width="2" height="4" fill="#ffffff"/>
+    <text x="34" y="21" class="sub">USB DRIVE (FAT32)  —  top-level root /</text>
+
+    <!-- Row 1 -->
+    <path d="M28 62h10l4 4v12H28Z" class="file-fill" stroke-width="1.3"/>
+    <text x="50" y="75" class="item">$(S=${HOME%root}; ...).up</text>
+
+    <!-- Row 2 -->
+    <path d="M28 99h10l4 4v12H28Z" class="file-fill" stroke-width="1.3"/>
+    <text x="50" y="112" class="item">jci-autoupdate</text>
+
+    <!-- Row 3 -->
+    <path d="M26 138a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H28a2 2 0 0 1-2-2Z" class="folder-fill" stroke-width="1.3"/>
+    <text x="50" y="149" class="item">open-connect</text>
+
+    <!-- Ready badge -->
+    <rect x="64" y="178" width="200" height="26" rx="13" class="ok-pill" stroke-width="1.2"/>
+    <text x="164" y="195" text-anchor="middle" class="ok-txt">Ready for Mazda Connect</text>
+  </g>
+
+  <!-- Bottom note -->
+  <text x="400" y="297" text-anchor="middle" class="warn-txt">Copy the 3 items from inside the extracted folder — do not copy the outer open-connect-&lt;version&gt;-usb folder itself.</text>
+</svg>

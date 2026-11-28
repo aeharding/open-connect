@@ -376,7 +376,8 @@ def build_arm_test_bins(out_dir: Path) -> dict[str, Path]:
 def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> None:
     """Part A: Exercise 100% unmodified `make release` ARMv7 ELFs + exact tmpfs page counts."""
     print("=== Part A: Unmodified make release ARMv7 ELFs & Linux tmpfs budgets ===")
-    usb_dir = release_dir / "usb/open-connect"
+    version = (ASSETS / "VERSION").read_text().strip()
+    usb_dir = release_dir / f"usb/open-connect-{version}-usb/open-connect"
     flush_bin = release_dir / "flush"
     ig_bin = release_dir / "ignition"
 
@@ -844,7 +845,8 @@ def part_b_full_lifecycle(
         orig_runlogin_ino = (chroot / "usr/bin/runlogin").stat().st_ino
 
         # Populate USB session from real release bundle, swapping in ARMv7 OC_TEST_PINFILE binaries.
-        usb_src = release_dir / "usb/open-connect"
+        version = (ASSETS / "VERSION").read_text().strip()
+        usb_src = release_dir / f"usb/open-connect-{version}-usb/open-connect"
         for p in usb_src.iterdir():
             if p.name == "files.sha256":
                 continue

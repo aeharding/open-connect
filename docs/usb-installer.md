@@ -19,9 +19,15 @@ Find **OS Version**. It must read **74.00.324 NA N** (also called **74.00.324A**
 
 ## 2. Prepare a USB drive
 
-Download the **v0.3.0-dev.24** USB ZIP from [Releases](https://github.com/aeharding/open-connect/releases).
+1. Download the latest USB ZIP from [Releases](https://github.com/aeharding/open-connect/releases) and extract it on your computer. It unpacks into a single folder named `open-connect-<version>-usb`.
+2. Format a USB drive as **FAT32**.
+3. Open the extracted `open-connect-<version>-usb` folder, **select all three items inside** (the `.up` trigger file, `jci-autoupdate`, and the `open-connect` folder), and copy them directly to the **root** of your USB drive — do not copy the outer `open-connect-<version>-usb` folder itself.
+4. Safely eject the USB drive.
 
-Format a USB drive as FAT32, extract the ZIP onto it — the files must be at the root of the drive, not inside an extra folder — then eject.
+<figure class="oc-diagram">
+  <img src="assets/guide/copy-to-usb.svg" alt="Open the extracted open-connect-version-usb folder, select all three items inside (the .up file, jci-autoupdate, and the open-connect folder), and copy them directly to the top-level root of your FAT32 USB drive." width="800" height="320">
+  <figcaption>Select the three items inside the extracted folder and copy them directly to the root of the FAT32 USB drive.</figcaption>
+</figure>
 
 <span id="2-choose-install"></span>
 
@@ -72,6 +78,6 @@ Remove conflicting modifications first, including older wireless CarPlay tweaks.
 
 ## Troubleshooting
 
-Check the firmware version, FAT32 format and extracted root files. Make sure Mazda Connect is showing its main screen, then reinsert the drive.
+Check the firmware version, FAT32 format and that the three items (`*.up`, `jci-autoupdate`, and `open-connect`) sit directly at the root of the drive rather than inside `open-connect-<version>-usb`. Make sure Mazda Connect is showing its main screen, then reinsert the drive.
 
-If the prompt still doesn’t appear, [report an issue](https://github.com/aeharding/open-connect/issues) with your OS Version, bundle version and any message shown.
+If installation, update or removal stops with an error, Open Connect saves a diagnostic report named `open-connect-error.log` at the root of your USB drive (with no keys or personal data). Attach that file when you [report an issue](https://github.com/aeharding/open-connect/issues), along with your OS Version, bundle version and the message shown.

@@ -65,7 +65,7 @@ static int oc_rec_settled(char **rec) {
 }
 static int oc_session_is_closed(const char *session_dir) {
     long sfd=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
-    int cl=sfd>=0 && !oc_absent_at((int)sfd,"closed");
+    int cl=sfd<0 || !oc_absent_at((int)sfd,"closed");
     if (sfd>=0) (void)oc_close((int)sfd);
     return cl;
 }
@@ -448,12 +448,21 @@ static int oc_api_uptime_cs(int root, oc_u64 *out_cs) {
     oc_u64 sec=0, frac=0; unsigned fd=0;
     const char *p=buf;
     if (*p<'0'||*p>'9') return 0;
-    while (*p>='0'&&*p<='9') { sec=sec*10+(unsigned)(*p-'0'); ++p; }
+    while (*p>='0'&&*p<='9') {
+        unsigned d=(unsigned)(*p-'0');
+        if (sec > 18446744073709551ULL || (sec == 18446744073709551ULL && d > 5)) return 0;
+        sec=sec*10+d; ++p;
+    }
     if (*p=='.') {
         ++p;
-        while (*p>='0'&&*p<='9'&&fd<2) { frac=frac*10+(unsigned)(*p-'0'); ++fd; ++p; }
+        if (*p<'0'||*p>'9') return 0;
+        while (*p>='0'&&*p<='9') {
+            if (fd<2) { frac=frac*10+(unsigned)(*p-'0'); ++fd; }
+            ++p;
+        }
         while (fd<2) { frac*=10; ++fd; }
     }
+    if (*p && *p!=' ' && *p!='\t' && *p!='\n') return 0;
     *out_cs=sec*100+frac;
     return 1;
 }
@@ -1057,7 +1066,8 @@ static __attribute__((noinline)) int oc_handle_import_prefs(OcApiCtx *c) {
 static int oc_usb_fence(OcApiCtx *c) {
     if (oc_absent_at(c->ram,"runtime")) return 1;
     OcMeta lm={0}, tm={0}, pm={0}; char target[512], pkg[65];
-    if (oc_metadata(c->ram,"runtime",&lm)<0 || (lm.mode&OC_TYPE)!=0120000) return 0;
+    if (oc_metadata(c->ram,"runtime",&lm)<0 || (lm.mode&OC_TYPE)!=0120000 ||
+        lm.uid!=(unsigned)c->owner || lm.gid!=(unsigned)c->group) return 0;
     long n=oc_readlink(c->ram,"runtime",target,sizeof target-1);
     if (n<=0 || (unsigned)n>=sizeof target-1) return 0;
     target[n]=0;
@@ -1099,12 +1109,15 @@ static int oc_usb_fence(OcApiCtx *c) {
 
 static int oc_session_install_path(const char *session_dir, char inst_path[560]) {
     long sfd=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
-    OcManifest smf; OcMeta im={0};
-    int ok=sfd>=0 && oc_text((int)sfd,"files.sha256",api_mem.mf_buf,sizeof api_mem.mf_buf,0)>0 &&
+    OcManifest smf; OcMeta im={0}; char got[65];
+    int ok=sfd>=0 && oc_private((int)sfd) &&
+        oc_text((int)sfd,"files.sha256",api_mem.mf_buf,sizeof api_mem.mf_buf,0)>0 &&
         oc_manifest(api_mem.mf_buf,&smf,0);
     const char *idig=ok?oc_digest(&smf,"install"):0;
-    ok=ok && idig && oc_verify_file_sha((int)sfd,"install",idig,4194304) &&
-        oc_metadata((int)sfd,"install",&im)>=0 && im.mode==(OC_REGULAR|0700) &&
+    ok=ok && idig && oc_hash_file_at((int)sfd,"install",got,&im) &&
+        im.size<=4194304 && oc_equal(got,idig) &&
+        im.mode==(OC_REGULAR|0700) &&
+        im.uid==(unsigned)oc_owner() && im.gid==(unsigned)oc_group() &&
         oc_join(inst_path,560,session_dir,"/install");
     if (sfd>=0) (void)oc_close((int)sfd);
     return ok;

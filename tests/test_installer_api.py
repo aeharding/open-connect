@@ -896,3 +896,72 @@ class InstallerApiNative(unittest.TestCase):
                     r = subprocess.run([str(exe), mode, str(inp), str(out)], timeout=10)
                     self.assertEqual(r.returncode, 0)
             self.assertEqual(out.read_text(), "hello\n")
+
+    def test_core_c_fail_closed_helpers(self):
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            src = d / "probe.c"
+            exe = d / "probe"
+            nul_file = d / "has_nul.txt"
+            nul_file.write_bytes(b"abc\x00def\n")
+            src.write_text(
+                '#include "oc-core.h"\n'
+                "#include <fcntl.h>\n"
+                "#include <string.h>\n"
+                "#include <unistd.h>\n"
+                "int main(int argc, char **argv) {\n"
+                "    (void)argc;\n"
+                "    int dfd = open(argv[1], O_RDONLY | O_DIRECTORY);\n"
+                "    if (dfd < 0) return 10;\n"
+                '    if (oc_absent_at(dfd, "") != 0) return 11;\n'
+                '    if (oc_absent_at(dfd, "/does-not-exist-oc-test") != 0) return 12;\n'
+                '    if (oc_absent_at(dfd, "has_nul.txt") != 0) return 13;\n'
+                '    if (oc_absent_at(dfd, "genuinely-absent") != 1) return 14;\n'
+                "    close(dfd);\n"
+                "    char dummy = 0x5a;\n"
+                '    char *av[] = {"/bin/echo", "hi", 0};\n'
+                '    if (oc_run_cmd_io("/bin/echo", av, -1, -1, &dummy, 0, -1) != 0) return 15;\n'
+                "    if (dummy != 0x5a) return 16;\n"
+                '    char acc_ok[] = "0|0|-|755:0:0|600:0:0|18446744073709551615\\n";\n'
+                '    char acc_ov[] = "0|0|-|755:0:0|600:0:0|18446744073709551616\\n";\n'
+                "    char *f[6];\n"
+                "    if (!oc_access(acc_ok, f)) return 17;\n"
+                "    if (oc_access(acc_ov, f)) return 18;\n"
+                "    int nfd = open(argv[2], O_RDONLY);\n"
+                "    if (nfd < 0) return 19;\n"
+                "    OcRStream rs = {0}; rs.fd = nfd; rs.limit = 1024;\n"
+                "    char line[64]; int nl = 0;\n"
+                "    if (oc_rstream_line(&rs, line, sizeof line, &nl) != -1) return 20;\n"
+                "    close(nfd);\n"
+                "    return 0;\n"
+                "}\n"
+            )
+            subprocess.run(
+                [
+                    "clang",
+                    "-DOC_HOST",
+                    "-O2",
+                    "-fsanitize=address,undefined",
+                    "-Wall",
+                    "-Wextra",
+                    "-Werror",
+                    f"-I{ASSETS / 'core'}",
+                    str(src),
+                    str(ASSETS / "core/oc-io.c"),
+                    str(ASSETS / "core/oc-hash.c"),
+                    str(ASSETS / "core/oc-manifest.c"),
+                    str(ASSETS / "core/oc-record.c"),
+                    str(ASSETS / "core/oc-config.c"),
+                    str(ASSETS / "core/oc-guard.c"),
+                    str(ASSETS / "core/oc-root.c"),
+                    str(ASSETS / "core/oc-access.c"),
+                    str(ASSETS / "core/oc-txn.c"),
+                    str(ASSETS / "core/oc-render.c"),
+                    "-o",
+                    str(exe),
+                ],
+                check=True,
+                timeout=20,
+            )
+            r = subprocess.run([str(exe), str(d), str(nul_file)], capture_output=True, timeout=10)
+            self.assertEqual(r.returncode, 0, r.stderr.decode("utf-8", "replace"))

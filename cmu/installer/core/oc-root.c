@@ -539,17 +539,17 @@ int oc_open_single_usb_file(int root, const char *filename, oc_u64 max_size,
             (void)oc_close((int)vd); (void)oc_close(found_fd);
             (void)oc_close((int)mnt); *err_out=dup_err; return -1;
         }
+        char vabs[32]; OcMeta vm={0}, fm={0};
+        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i]) || !oc_vfat_mount_mode(root,vabs)) {
+            (void)oc_close((int)vd); (void)oc_close((int)mnt); *err_out=bad_vol_err; return -1;
+        }
         long fd=oc_openat((int)vd,filename,OC_READ,0);
-        OcMeta fm={0};
-        int fok=fd>=0 && oc_stat((int)fd,&fm)>=0 && (fm.mode&OC_TYPE)==OC_REGULAR && fm.size<=max_size;
+        int fok=fd>=0 && oc_stat((int)vd,&vm)>=0 && oc_stat((int)fd,&fm)>=0 &&
+            fm.device==vm.device && (fm.mode&OC_TYPE)==OC_REGULAR && fm.size<=max_size;
         (void)oc_close((int)vd);
         if (!fok) {
             if (fd>=0) (void)oc_close((int)fd);
             (void)oc_close((int)mnt); *err_out=bad_file_err; return -1;
-        }
-        char vabs[32];
-        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i]) || !oc_vfat_mount_mode(root,vabs)) {
-            (void)oc_close((int)fd); (void)oc_close((int)mnt); *err_out=bad_vol_err; return -1;
         }
         found_fd=(int)fd;
     }

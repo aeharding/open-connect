@@ -152,9 +152,8 @@ int oc_access(char *text, char **fields) {
         if (!oc_metadata_mode(fields[i],&mode,&uid,&gid)) return 0;
     }
     if (!oc_equal(fields[5],"-")) {
-        unsigned len=0;
-        for (char *p=fields[5]; *p; ++p) if (*p<'0'||*p>'9'||++len>20) return 0;
-        if (!len) return 0;
+        oc_u64 ino=0;
+        if (!oc_decimal(fields[5],&ino)) return 0;
     }
     return 1;
 }

@@ -23,20 +23,23 @@ static int lower(int c) { return c>='A'&&c<='Z'?c+32:c; }
 static int header(const char *a,const char *b) {
     while(*b&&lower(*a)==*b){a++;b++;} return !*b;
 }
-static int session_closed(const char *token_path) {
-    char path[512]; unsigned parent=oc_length(token_path);
-    while(parent&&token_path[parent-1]!='/')parent--;
-    if(!parent||parent+7>sizeof path)return 1;
-    for(unsigned i=0;i<parent;i++)path[i]=token_path[i];
-    if(!oc_join(path+parent,sizeof path-parent,"","closed"))return 1;
-    OcMeta m;
-    return oc_metadata(OC_CWD,path,&m)>=0;
-}
-static int send_text(const char *s) { return oc_write_all(1,s,oc_length(s)); }
 static unsigned parent_len(const char *p,unsigned n) {
     while(n&&p[n-1]!='/')n--;
     return n?n-1:0;
 }
+static int session_closed(const char *token_path) {
+    char path[512]; unsigned parent=parent_len(token_path,oc_length(token_path));
+    if(!parent||parent>=sizeof path)return 1;
+    for(unsigned i=0;i<parent;i++)path[i]=token_path[i];
+    path[parent]=0;
+    long sfd=oc_openat(OC_CWD,path,OC_DIRECTORY,0);
+    if(sfd<0)return 1;
+    OcMeta m;
+    int closed=oc_metadata((int)sfd,"closed",&m)!=-2;
+    (void)oc_close((int)sfd);
+    return closed;
+}
+static int send_text(const char *s) { return oc_write_all(1,s,oc_length(s)); }
 static int path_join(char *out,unsigned cap,const char *p,unsigned n,const char *tail) {
     if(n>=cap)return 0;
     for(unsigned i=0;i<n;i++)out[i]=p[i];

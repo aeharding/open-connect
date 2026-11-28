@@ -35,7 +35,7 @@ int oc_rstream_line(OcRStream *s, char *out, unsigned cap, int *had_nl) {
             s->at=0; s->filled=(unsigned)r;
         }
         char c=s->buf[s->at++];
-        if (++s->total > s->limit) return -1;
+        if (!c || ++s->total > s->limit) return -1;
         if (c=='\n') { out[n]=0; *had_nl=1; return 1; }
         if (n+1>=cap) return -1;
         out[n++]=c;

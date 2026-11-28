@@ -75,3 +75,61 @@ class VideoTests(unittest.TestCase):
             self.assertTrue(v.ready.is_set())
             self.assertEqual(len(v.rows), 5)
             b.finish("synthetic_test_finished")
+
+    def test_video_stop_rejects_zero_and_nan_duration_or_pts(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        for label, payload in (
+            (
+                "zero_duration",
+                {
+                    "streams": [{"duration": "0", "nb_read_frames": "2"}],
+                    "frames": [
+                        {"best_effort_timestamp_time": "0.0"},
+                        {"best_effort_timestamp_time": "0.1"},
+                    ],
+                },
+            ),
+            (
+                "nan_duration",
+                {
+                    "streams": [{"duration": "NaN", "nb_read_frames": "2"}],
+                    "frames": [
+                        {"best_effort_timestamp_time": "0.0"},
+                        {"best_effort_timestamp_time": "0.1"},
+                    ],
+                },
+            ),
+            (
+                "nan_pts",
+                {
+                    "streams": [{"duration": "1.0", "nb_read_frames": "2"}],
+                    "frames": [
+                        {"best_effort_timestamp_time": "0.0"},
+                        {"best_effort_timestamp_time": "NaN"},
+                    ],
+                },
+            ),
+        ):
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as tmp:
+                b = Bundle(Path(tmp) / "bundle", "ffprobe guard unit test", "unittest")
+                try:
+                    v = m.Video(b, 0)
+                    v.path = b.path / "camera.mkv"
+                    v.path.write_bytes(b"fake")
+                    v.proc = SimpleNamespace(pid=123, returncode=0, stdout=None, poll=lambda: 0)
+                    v.argv = []
+                    v.launch_argv = []
+                    v.started = 0.0
+                    fake_run = subprocess.CompletedProcess(
+                        ["ffprobe"], 0, json.dumps(payload).encode(), b""
+                    )
+                    with patch.object(m.subprocess, "run", return_value=fake_run):
+                        with self.assertRaises(RuntimeError):
+                            v.stop()
+                    report = json.loads((b.path / "camera-result.json").read_text())
+                    self.assertNotIn("video_verified", report)
+                    self.assertIn("lacks verified frames", report["probe_error"])
+                finally:
+                    b.finish("synthetic_test_finished")

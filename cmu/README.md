@@ -16,10 +16,10 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | `runtime.js`, `dialog.js`, `settings.js` | Boot-selected installed Settings and its native input/page lifecycle |
 | `maintenance.js` | Independent USB choices, progress and installed completion; no Settings replacement |
 | `install.c`, `core/oc-compose.c`, `core/oc-txn.c` | Cold USB installer, exact v74 firmware composer, transactional state engine and slow-path `--boot-recover` |
-| `core/oc-guard.c`, `core/oc-root.c`, `core/oc-access.c`, `core/oc-render.c`, `mmui.S` | Exact v74 guards, rootfs/NVRAM publisher, console/SSH composition and native profile rendering |
+| `core/oc-guard.c`, `core/oc-config.c`, `core/oc-root.c`, `core/oc-access.c`, `core/oc-render.c`, `mmui.S` | Exact v74 guards, canonical OC2 preferences, rootfs/NVRAM publisher, console/SSH composition and native profile rendering |
 | `startup-hook.sh`, `startup-join.sh`, `ignition.c` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
 | `boot-select.c`, `core/oc-boot.c`, `core/oc-plan.c`, `core/oc-store.c` | Modular freestanding C core: seal verified boot inputs, select unchanged snapshots, and safely prune unreachable generations |
-| `services.tsv`, `preferences.awk`, `sm-profile.awk` | Built-in Services catalog, canonical preferences and one RAM Service Manager composer |
+| `services.tsv`, `preferences.awk`, `sm-profile.awk` | Built-in Services catalog, AWK OC2 composition loader and one RAM Service Manager composer |
 | `wireless.sh`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step and narrow native wireless service arguments |
 
 The browser sends `POST /control` to installed port `15555` or transient USB port

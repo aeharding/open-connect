@@ -239,3 +239,20 @@ class MetricsTests(unittest.TestCase):
                 )
                 self.assertEqual(res.returncode, 64, res.stderr)
                 self.assertEqual(res.stderr, "")
+
+    def test_parse_tolerates_utf8_banner_before_boot_marker(self):
+        raw = "Welcome — Mazda bench\n".encode() + trace()
+        parsed = metrics.parse(raw, TOKEN)
+        self.assertEqual(len(parsed["samples"]), 1)
+
+    def test_main_records_system_exit_error_in_manifest(self):
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch.object(metrics.subprocess, "Popen", side_effect=SystemExit(7)),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            path = Path(tmp) / "trace"
+            self.assertEqual(bench.main(["sample", "--live", "--bundle", str(path)]), 1)
+            manifest = json.loads((path / "manifest.json").read_text())
+            self.assertEqual(manifest["outcome"], "incomplete_preserved")
+            self.assertEqual(manifest["error"], "SystemExit: 7")

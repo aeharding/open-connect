@@ -327,9 +327,12 @@ The dev.10 payload stores active preferences as bounded, sorted `OC2` key/value
 text inside the existing immutable snapshot. `record` remains the only durable
 transaction authority; the six-field API and `OCBP1` boot-plan format are unchanged.
 The packaged `services.tsv` owns optional service IDs, defaults, labels,
-confirmations and exact SM members. `preferences.awk` validates those keys;
-`sm-profile.awk` is the single composer for both boards, wireless arguments,
-service choices, qualified Base leaves and the Settings worker.
+confirmations and exact SM members. `cmu/installer/core/oc-config.c` owns
+canonical `OC2` preference parsing, validation, and writing, while
+`preferences.awk` loads those validated keys for `sm-profile.awk` and
+`ui-profile.awk`; `sm-profile.awk` is the single composer for both boards,
+wireless arguments, service choices, qualified Base leaves and the Settings
+worker.
 
 Both profiles are rendered before preparing a transaction. A missing or repeated
 claimed member therefore refuses the change while the prior state and Uninstall

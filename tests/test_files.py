@@ -187,8 +187,11 @@ class FileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             source = Path(temp) / "synthetic-source.bin"
             source.write_bytes(data)
-            for encoder in ("base64", "hex"):
-                command = export_command("/etc/version", TOKEN, encoder, "md5")
+            for encoder, checksum in (("base64", "md5"), ("hex", "md5"), ("base64", "sha256")):
+                command = export_command("/etc/version", TOKEN, encoder, checksum)
+                if checksum == "sha256":
+                    self.assertIn("openssl dgst -sha256", command)
+                    self.assertNotIn("sha256sum", command)
                 argv = shlex.split(command)
                 self.assertEqual(argv[:5], ["timeout", "-t", "20", "-s", "9"])
                 self.assertEqual(argv[5:7], ["/bin/sh", "-c"])
@@ -211,6 +214,7 @@ class FileTests(unittest.TestCase):
                     TOKEN,
                     "/etc/version",
                     encoder,
+                    checksum,
                 )
                 self.assertEqual(decoded, data)
                 # Verify generated script rejects a symlink rather than reading its target.

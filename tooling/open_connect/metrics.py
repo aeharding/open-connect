@@ -36,7 +36,7 @@ def parse(raw, token, processes=None):
     """Require complete ordered frames; keep unsupported/raced reads explicit."""
     prefix = "OCM1 " + token + " "
     boot, samples, sample, current, complete = None, [], None, None, False
-    for line in raw.decode("ascii").splitlines():
+    for line in raw.decode("utf-8", "replace").splitlines():
         if not line.startswith(prefix):
             if current is not None:
                 current.append(line)
@@ -176,9 +176,8 @@ def main(argv=None):
         parser.error("live sampling requires a fresh --bundle")
     verify_package(args.workspace)
     source = (args.workspace / "cmu/bench/metrics.sh").read_bytes()
+    metrics_py = Path(__file__).read_bytes()
     bundle = Bundle(args.bundle, "read-only CMU resource trace", "primary", mode="live")
-    bundle.save("metrics.sh", source)
-    bundle.save("metrics.py", Path(__file__).read_bytes())
     token = secrets.token_hex(16)
     command = [
         "ssh",
@@ -211,6 +210,8 @@ def main(argv=None):
     outcome, error, code = "incomplete_preserved", None, 1
     started = time.monotonic()
     try:
+        bundle.save("metrics.sh", source)
+        bundle.save("metrics.py", metrics_py)
         bundle.save("ssh.stdout", b"")
         bundle.save("ssh.stderr", b"")
         with (
@@ -247,7 +248,7 @@ def main(argv=None):
         outcome, code = "recorded", 0
     except subprocess.TimeoutExpired:
         error = "Collector deadline exceeded; no retry."
-    except (Exception, KeyboardInterrupt) as exc:
+    except (Exception, KeyboardInterrupt, SystemExit) as exc:
         error = type(exc).__name__ + ": " + str(exc)
     finally:
         bundle.meta["host_elapsed_s"] = time.monotonic() - started

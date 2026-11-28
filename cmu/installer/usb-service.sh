@@ -45,6 +45,7 @@ case "${1:-start}" in
 retire) retire;;
 drain)
     trap 'rm -f "$P/draining"' EXIT
+    trap 'exit 1' HUP INT TERM
     count=0
     while test "$count" -lt 130; do
         test "$(readlink -f "$service_runtime" 2>/dev/null || :)" = "$P" || exit 0

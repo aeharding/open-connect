@@ -62,6 +62,7 @@ test -f "$work/session.sh" && test -f "$work/api" && test -f "$work/flush" && te
 chmod 600 "$work/files.sha256" "$@"
 chmod 700 "$work/api" "$work/flush" "$work/install"
 # Release Mazda's update scanner; the session owns the staged files and lock.
-trap '' HUP INT TERM
+# Use a caught no-op handler (not SIG_IGN) so execve resets signals to SIG_DFL in session.sh.
+trap ':' HUP INT TERM
 sh "$work/session.sh" "$work" "$source" </dev/null >/dev/null 2>&1 &
 trap - EXIT

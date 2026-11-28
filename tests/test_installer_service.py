@@ -1349,15 +1349,22 @@ class Eth1DhcpRetry(unittest.TestCase):
                 initial_ips=["    inet 192.168.42.1/24 scope global eth1"],
                 dhcp_on_attempt=0,
             )
+            probed = root / "state/probed"
             ready = root / "state/ready"
-            # Pause briefly inside sleep right after hook creation so SIGTERM hits live worker;
+            # Signal readiness from inside tools/sleep on the first post-probe pause so
+            # SIGTERM always hits the live worker after hook creation even under parallel load;
             # POSIX sh delivers trapped SIGTERM as soon as the foreground sleep exits.
             (root / "tools/udhcpc").write_text(
-                f"#!/bin/sh\n: > {shlex.quote(str(ready))}\nprintf 'probe\\n' >> {shlex.quote(str(root / 'state/log'))}\nexit 1\n"
+                f"#!/bin/sh\n: > {shlex.quote(str(probed))}\nprintf 'probe\\n' >> {shlex.quote(str(root / 'state/log'))}\nexit 1\n"
             )
             (root / "tools/udhcpc").chmod(0o700)
             (root / "tools/sleep").write_text(
-                f"#!/bin/sh\nif [ -f {shlex.quote(str(ready))} ]; then /bin/sleep 0.4; fi\nexit 0\n"
+                f"#!/bin/sh\n"
+                f"if [ -f {shlex.quote(str(probed))} ] && [ ! -f {shlex.quote(str(ready))} ]; then\n"
+                f"  : > {shlex.quote(str(ready))}\n"
+                f"  /bin/sleep 1.5\n"
+                f"fi\n"
+                f"exit 0\n"
             )
             (root / "tools/sleep").chmod(0o700)
             proc = subprocess.Popen(

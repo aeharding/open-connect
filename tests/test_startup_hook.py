@@ -1,9 +1,11 @@
 """Offline shell execution tests for cmu/installer/startup-hook.sh and startup-join.sh."""
 
+import hashlib
 import os
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -21,6 +23,8 @@ class StartupHookAndJoinTests(unittest.TestCase):
         with_ignition: bool = False,
         with_startup_times: bool = False,
         recover_marker: bool = False,
+        fail_mktemp: bool = False,
+        real_recover: dict | None = None,
     ):
         busybox = os.environ.get("OC_TEST_BUSYBOX") or shutil.which("busybox")
         shell = [busybox, "sh"] if busybox else ["/bin/bash"]
@@ -43,6 +47,12 @@ class StartupHookAndJoinTests(unittest.TestCase):
             if with_startup_times:
                 (ram / "startup-times").write_text("")
 
+            mktemp_bin = None
+            if fail_mktemp:
+                mktemp_bin = tools / "mktemp"
+                mktemp_bin.write_text("#!/bin/sh\nexit 1\n")
+                mktemp_bin.chmod(0o700)
+
             sel_bin = tools / "open-connect-boot-select"
             sel_bin.write_text("#!/bin/sh\n" + selector_body + "\n")
             sel_bin.chmod(0o700)
@@ -58,6 +68,58 @@ class StartupHookAndJoinTests(unittest.TestCase):
             )
             bb_shim.chmod(0o700)
 
+            data = None
+            mounts_file = None
+            if real_recover is not None:
+                data = root / "data"
+                data.mkdir(mode=0o700)
+                mounts_file = root / "mounts"
+                mounts_text = real_recover.get(
+                    "mounts",
+                    "rootfs / rootfs rw 0 0\n"
+                    "/dev/ffx01p1 / relfs ro,noatime 0 0\n"
+                    "/dev/mmcblk0p2 /tmp/mnt/data_persist relfs rw,noatime 0 0\n",
+                )
+                mounts_file.write_text(
+                    mounts_text.replace("@DATA@", str(data)).replace("@RAM@", str(ram))
+                )
+                inst_bytes = (
+                    f'#!/bin/sh\nprintf \'%s|%s|%s\\n\' "$1" "$2" "$3" > '
+                    f"{shlex.quote(str(root / 'recover-ran'))}\nexit 0\n"
+                ).encode()
+                inst_sha = hashlib.sha256(inst_bytes).hexdigest()
+                if real_recover.get("tamper_install_digest"):
+                    mf_text = f"{'0' * 64}  install\n"
+                else:
+                    mf_text = f"{inst_sha}  install\n"
+                pkg_id = hashlib.sha256(mf_text.encode()).hexdigest()
+                pkg_dir = data / "packages" / pkg_id
+                pkg_dir.mkdir(parents=True, mode=0o700)
+                (data / "packages").chmod(0o700)
+                pkg_dir.chmod(0o700)
+                (pkg_dir / "install").write_bytes(inst_bytes)
+                (pkg_dir / "install").chmod(0o700)
+                (pkg_dir / "files.sha256").write_text(mf_text)
+                (pkg_dir / "files.sha256").chmod(0o600)
+                (data / "record").write_text(
+                    f"OC1|active|{'a' * 32}|{pkg_id}|{'b' * 64}|{'c' * 64}|-|-|-|3|-|-|-\n"
+                )
+                (data / "record").chmod(0o600)
+                (tools / "id").write_text("#!/bin/sh\necho 0\n")
+                (tools / "id").chmod(0o700)
+                (tools / "stat").write_text(
+                    f"#!{sys.executable}\n"
+                    "import os, sys\n"
+                    "from pathlib import Path\n"
+                    "a = sys.argv[1:]\n"
+                    "fmt = a[0][2:] if a[0].startswith('-c') and a[0] != '-c' else a[1]\n"
+                    "st = Path(a[-1]).lstat()\n"
+                    "vals = {'a': format(st.st_mode & 0o777, 'o'), 'u': 0, 'g': 0}\n"
+                    "for k, v in vals.items(): fmt = fmt.replace('%' + k, str(v))\n"
+                    "print(fmt)\n"
+                )
+                (tools / "stat").chmod(0o700)
+
             hook = (ASSETS / "startup-hook.sh").read_text()
             join = (ASSETS / "startup-join.sh").read_text()
             for text_name, src in (("hook", hook), ("join", join)):
@@ -66,6 +128,15 @@ class StartupHookAndJoinTests(unittest.TestCase):
                 src = src.replace("/bin/busybox", str(bb_shim))
                 # Standalone BusyBox builds run built-in timeout without searching PATH.
                 src = src.replace("if timeout -t ", f"if {shlex.quote(str(timeout_bin))} -t ")
+                if mktemp_bin is not None and text_name == "hook":
+                    # Standalone BusyBox builds also bypass PATH for built-in mktemp.
+                    src = src.replace(
+                        "oc_directory=$(mktemp -d ",
+                        f"oc_directory=$({shlex.quote(str(mktemp_bin))} -d ",
+                    )
+                if real_recover is not None:
+                    src = src.replace("/proc/self/mounts", str(mounts_file))
+                    src = src.replace("/tmp/mnt/data_persist/open-connect", str(data))
                 src = src.replace("/tmp/open-connect", str(ram))
                 src = src.replace("/tmp/.open-connect-gate-XXXXXX", str(root / "gate-XXXXXX"))
                 if recover_marker and text_name == "hook":
@@ -104,6 +175,7 @@ class StartupHookAndJoinTests(unittest.TestCase):
             self.assertEqual(res.returncode, 0, res.stderr)
             self.assertEqual(res.stderr, "")
             self.assertEqual(list(root.glob("gate-*")), [])
+            self.assertEqual(list(ram.glob(".recover-*")), [])
             out = dict(line.split("=", 1) for line in res.stdout.strip().splitlines())
             times = (ram / "startup-times").read_text() if with_startup_times else ""
             # Brief settle for backgrounded ignition marker if expected.
@@ -114,10 +186,11 @@ class StartupHookAndJoinTests(unittest.TestCase):
                         ig_ran = True
                         break
                     time.sleep(0.01)
-            return out, times, ig_ran, (root / "recover-ran").exists()
+            rec_text = (root / "recover-ran").read_text() if (root / "recover-ran").exists() else ""
+            return out, times, ig_ran, (root / "recover-ran").exists(), rec_text
 
     def test_gated_overlap_joins_sets_sm_confs_starts_ignition_and_logs_times(self):
-        out, times, ig_ran, rec_ran = self._run_hook(
+        out, times, ig_ran, rec_ran, _ = self._run_hook(
             'printf "G"; sleep 0.05; exit 0',
             with_ignition=True,
             with_startup_times=True,
@@ -133,7 +206,7 @@ class StartupHookAndJoinTests(unittest.TestCase):
         self.assertIn("join_returned|100.00", times)
 
     def test_fast_j_frame_selects_synchronously_without_overlap(self):
-        out, _, ig_ran, rec_ran = self._run_hook(
+        out, _, ig_ran, rec_ran, _ = self._run_hook(
             'printf "J"; exit 0',
             with_ignition=True,
         )
@@ -144,7 +217,7 @@ class StartupHookAndJoinTests(unittest.TestCase):
         self.assertFalse(rec_ran)
 
     def test_gated_worker_failure_preserves_stock_sm_confs_and_skips_ignition(self):
-        out, _, ig_ran, _ = self._run_hook(
+        out, _, ig_ran, _, _ = self._run_hook(
             'printf "G"; sleep 0.05; exit 1',
             with_ignition=True,
         )
@@ -154,16 +227,96 @@ class StartupHookAndJoinTests(unittest.TestCase):
         self.assertEqual(out["WCP"], "stock-wcp")
         self.assertFalse(ig_ran)
 
+    def test_oc_stock_exit_2_preserves_stock_sm_confs_and_starts_ignition(self):
+        out, _, ig_ran, rec_ran, _ = self._run_hook(
+            'printf "J"; exit 2',
+            with_ignition=True,
+        )
+        self.assertEqual(out["REL"], "false")
+        self.assertEqual(out["RES"], "2")
+        self.assertEqual(out["NORMAL"], "stock-normal")
+        self.assertEqual(out["WCP"], "stock-wcp")
+        self.assertTrue(ig_ran)
+        self.assertFalse(rec_ran)
+
+    def test_delayed_frame_after_initial_read_timeout_recovers_result(self):
+        for frame in ("J", "G"):
+            with self.subTest(frame=frame):
+                out, _, ig_ran, rec_ran, _ = self._run_hook(
+                    f'sleep 1.2; printf "{frame}"; exit 0',
+                    with_ignition=True,
+                )
+                self.assertEqual(out["REL"], "false")
+                self.assertEqual(out["RES"], "0")
+                self.assertTrue(out["NORMAL"].endswith("/feature/sm.conf"))
+                self.assertTrue(ig_ran)
+                self.assertFalse(rec_ran)
+
+    def test_gate_setup_failure_falls_back_to_synchronous_select(self):
+        out, _, ig_ran, rec_ran, _ = self._run_hook(
+            'if [ "$1" = select ]; then exit 0; fi\nexit 1',
+            with_ignition=True,
+            fail_mktemp=True,
+        )
+        self.assertEqual(out["REL"], "false")
+        self.assertEqual(out["RES"], "0")
+        self.assertTrue(out["NORMAL"].endswith("/feature/sm.conf"))
+        self.assertTrue(ig_ran)
+        self.assertFalse(rec_ran)
+
     def test_legacy_exit_64_falls_back_to_boot_recover_and_reselects(self):
         # First invocation (select-gated) exits 64 with no frame -> oc_result=95 ->
         # boot-recover runs -> second invocation (select) exits 0!
-        out, _, _, rec_ran = self._run_hook(
+        out, _, _, rec_ran, _ = self._run_hook(
             'if [ "$1" = select-gated ]; then exit 64; fi\nexit 0',
             recover_marker=True,
         )
         self.assertTrue(rec_ran)
         self.assertEqual(out["RES"], "0")
         self.assertTrue(out["NORMAL"].endswith("/feature/sm.conf"))
+
+    def test_real_boot_recover_bootstrap_verifies_digest_and_runs_install(self):
+        out, _, ig_ran, rec_ran, rec_text = self._run_hook(
+            'if [ "$1" = select-gated ]; then printf "J"; exit 95; fi\nexit 0',
+            with_ignition=True,
+            real_recover={},
+        )
+        self.assertTrue(rec_ran)
+        parts = rec_text.strip().split("|")
+        self.assertEqual(len(parts), 3, rec_text)
+        self.assertEqual(parts[0], "--boot-recover")
+        self.assertIn("/packages/", parts[1])
+        self.assertIn("/.recover-", parts[2])
+        self.assertEqual(out["RES"], "0")
+        self.assertTrue(out["NORMAL"].endswith("/feature/sm.conf"))
+        self.assertTrue(ig_ran)
+
+    def test_real_boot_recover_bootstrap_fails_closed_on_tampered_digest_or_bad_mount(self):
+        for label, cfg in (
+            ("tampered_install_digest", {"tamper_install_digest": True}),
+            (
+                "unexpected_data_mount",
+                {
+                    "mounts": (
+                        "rootfs / rootfs rw 0 0\n"
+                        "/dev/ffx01p1 / relfs ro,noatime 0 0\n"
+                        "/dev/mmcblk0p2 /tmp/mnt/data_persist relfs rw,noatime 0 0\n"
+                        "tmpfs @DATA@/packages tmpfs rw 0 0\n"
+                    )
+                },
+            ),
+        ):
+            with self.subTest(case=label):
+                out, _, ig_ran, rec_ran, _ = self._run_hook(
+                    'if [ "$1" = select-gated ]; then printf "J"; exit 95; fi\nexit 0',
+                    with_ignition=True,
+                    real_recover=cfg,
+                )
+                self.assertFalse(rec_ran)
+                self.assertEqual(out["RES"], "1")
+                self.assertEqual(out["NORMAL"], "stock-normal")
+                self.assertEqual(out["WCP"], "stock-wcp")
+                self.assertFalse(ig_ran)
 
 
 if __name__ == "__main__":

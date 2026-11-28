@@ -256,3 +256,46 @@ class MetricsTests(unittest.TestCase):
             manifest = json.loads((path / "manifest.json").read_text())
             self.assertEqual(manifest["outcome"], "incomplete_preserved")
             self.assertEqual(manifest["error"], "SystemExit: 7")
+
+    def test_main_kills_ssh_child_on_system_exit_during_terminate_wait(self):
+        class FakeProc:
+            def __init__(self):
+                self.returncode = None
+                self.terminated = False
+                self.killed = False
+                self.waited = False
+                self._calls = 0
+
+            def communicate(self, *_args, **_kwargs):
+                self._calls += 1
+                if self._calls == 1:
+                    raise subprocess.TimeoutExpired("ssh", 1)
+                raise SystemExit(9)
+
+            def poll(self):
+                return self.returncode
+
+            def terminate(self):
+                self.terminated = True
+
+            def kill(self):
+                self.killed = True
+                self.returncode = -9
+
+            def wait(self, timeout=None):
+                self.waited = True
+                return self.returncode
+
+        proc = FakeProc()
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch.object(metrics.subprocess, "Popen", return_value=proc),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            path = Path(tmp) / "trace"
+            self.assertEqual(bench.main(["sample", "--live", "--bundle", str(path)]), 1)
+            self.assertTrue(proc.terminated and proc.killed and proc.waited)
+            manifest = json.loads((path / "manifest.json").read_text())
+            self.assertTrue(manifest["ssh_closed"])
+            self.assertEqual(manifest["outcome"], "incomplete_preserved")
+            self.assertEqual(manifest["error"], "SystemExit: 9")

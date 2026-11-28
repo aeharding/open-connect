@@ -226,10 +226,10 @@ def main(argv=None):
                     process.terminate()
                     try:
                         process.communicate(timeout=3)
-                    except (subprocess.TimeoutExpired, KeyboardInterrupt) as exc:
+                    except (subprocess.TimeoutExpired, KeyboardInterrupt, SystemExit) as exc:
                         process.kill()
                         process.wait(timeout=3)
-                        if isinstance(exc, KeyboardInterrupt):
+                        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
                             bundle.meta["ssh_closed"] = process.poll() is not None
                             raise
                 bundle.meta["ssh_closed"] = process.poll() is not None

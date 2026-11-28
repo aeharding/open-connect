@@ -32,11 +32,32 @@
         guard("_StatusMenuMsgHandler","StatusMenu");
     }
     /* OPEN_CONNECT_AA_END */
+    /* OPEN_CONNECT_SO_BEGIN */
+    function reorderSources(app){
+        var original=app._buildEntertainmentDataList;
+        if(typeof original!=="function"){return;}
+        var rank={CarPlayWifi:1,CarPlay:2,AndroidAuto:3,USB_A:4,USB_B:5,BTAudio:6};
+        app._buildEntertainmentDataList=function(){
+            var list=original.apply(this,arguments),items,head,tail,i,r;
+            if(!list||!list.items||list.items.length < 2){return list;}
+            items=list.items;head=[];tail=[];
+            for(i=0;i < items.length;i++){
+                r=items[i]&&items[i].appData&&rank[items[i].appData.audioSourceId];
+                if(r){head.push({r:r,i:i,item:items[i]});}else{tail.push(items[i]);}
+            }
+            head.sort(function(a,b){return a.r-b.r||a.i-b.i;});
+            list.items=head.map(function(x){return x.item;}).concat(tail);
+            list.itemCount=list.items.length;
+            return list;
+        };
+    }
+    /* OPEN_CONNECT_SO_END */
     function conceal(rows){
         var i,data;
+        if(!applied[1]){return;}
         for(i=0;i < rows.length;i++){
             data=rows[i].appData;
-            if(hidden.indexOf(","+data.appName+",")!==-1){
+            if(data&&data.appName&&hidden.indexOf(","+data.appName+",")!==-1){
                 Object.defineProperty(data,"isVisible",{
                     enumerable: true,get: invisible,set: keepHidden
                 });
@@ -81,6 +102,7 @@
             disableAndroidAuto(app);/* OPEN_CONNECT_AA_CALL */
             conceal(app._masterEntertainmentDataList.items);
             conceal(app._masterApplicationDataList.items);
+            if(applied[2]){ reorderSources(app);}/* OPEN_CONNECT_SO_CALL */
             if(applied[0]){ app._contextTable.IntroAnimation.contextInFunction=introEntry.bind(app);}
         }
         return result;

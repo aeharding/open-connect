@@ -136,6 +136,30 @@ class InstallerPreferences(unittest.TestCase):
                 0,
             )
 
+    def test_source_order_defaults_upgrade_and_validation(self):
+        current = self.fresh()
+        self.assertIn(b"source-order=0\n", current)
+        old = current.replace(b"source-order=0\n", b"")
+        for config in (old, current):
+            decoded = self.run_preferences("decode", config)
+            self.assertEqual(decoded.returncode, 0, decoded.stderr)
+            self.assertEqual(len(decoded.stdout.strip().split(b"|")), 9)
+        upgraded = self.run_preferences(
+            "write", old, package_id="b" * 64, nvram_value="disable", metadata_value="775:1000:1000"
+        )
+        self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
+        self.assertIn(b"source-order=0\n", upgraded.stdout)
+        enabled = self.run_preferences("set", current, key="source-order", value="1")
+        self.assertEqual(enabled.returncode, 0, enabled.stderr)
+        self.assertEqual(enabled.stdout.replace(b"source-order=1", b"source-order=0"), current)
+        for bad in (b"2", b"01", b"1\0", b"1\nsource-order=1"):
+            self.assertNotEqual(
+                self.run_preferences(
+                    "decode", current.replace(b"source-order=0", b"source-order=" + bad)
+                ).returncode,
+                0,
+            )
+
     def test_missing_new_choice_defaults_only_during_upgrade_write(self):
         original = self.fresh()
         older = original.replace(b"service.android-auto=1\n", b"").replace(

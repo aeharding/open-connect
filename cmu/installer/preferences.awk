@@ -13,7 +13,7 @@ function touch_mode(value) { return bit(value) || value=="2" }
 function input_service(id) { return id in service_default || (operation=="write" && id=="dvd") }
 function service_id(value) {
   return length(value)<=32 && value~/^[a-z][a-z0-9-]*$/ &&
-    value!~/^(touch|warning|base|wireless|uart|ssh|carplay-autoshow)$/
+    value!~/^(touch|warning|base|wireless|uart|ssh|carplay-autoshow|source-order)$/
 }
 function load_catalog(path, line, columns, fields, id, members, count, i, member, joined, bytes) {
   while ((catalog_read=getline line < path)>0) {
@@ -55,7 +55,7 @@ function metadata(value, fields, n, i) {
   return 1
 }
 function known_key(key, id) {
-  if(key~/^(package|touch|warning|nvram|metadata|base|wireless|service-ids|carplay-autoshow)$/) return 1
+  if(key~/^(package|touch|warning|nvram|metadata|base|wireless|service-ids|carplay-autoshow|source-order)$/) return 1
   if(index(key,"service.")!=1) return 0
   id=substr(key,9)
   return input_service(id)
@@ -126,7 +126,7 @@ BEGIN {
   if(legacy!="" || operation!~/^(decode|write|set|compose|rows)$/) refuse()
   load_catalog(catalog)
   prefs["base"]="0";prefs["wireless"]="0";prefs["touch"]="1";prefs["warning"]="1"
-  prefs["carplay-autoshow"]="0"
+  prefs["carplay-autoshow"]="0";prefs["source-order"]="0"
   for(id in service_default) prefs["service." id]=service_default[id]
   service_keys=""
   for(i=1;i<=service_count;i++) {
@@ -142,7 +142,7 @@ BEGIN {
     prefs["package"]=package_id;prefs["nvram"]=nvram_value;prefs["metadata"]=metadata_value
   }
   if(operation=="set") {
-    if(!(key=="touch" ? touch_mode(value) : bit(value)) || (key!~/^(touch|warning|base|wireless|carplay-autoshow)$/ && index(key,"service.")!=1) ||
+    if(!(key=="touch" ? touch_mode(value) : bit(value)) || (key!~/^(touch|warning|base|wireless|carplay-autoshow|source-order)$/ && index(key,"service.")!=1) ||
       !known_key(key)) refuse()
     prefs[key]=value
   }

@@ -104,7 +104,7 @@ function changed(a){
  var old=job.before;
  if(job.op==="uninstall")return!a.installed&&!a.retained&&a.revision==="-";
  if(job.op==="set"){
- var key=job.args[0],wanted=Number(job.args[2]),value=a[key==="carplay-autoshow"?"carplayAutoshow":key];
+ var key=job.args[0],wanted=Number(job.args[2]),value=a[key==="carplay-autoshow"?"carplayAutoshow":key==="source-order"?"sourceOrder":key];
  (a.services||[]).forEach(function(row){if(row.id===key){value=row.saved;}});
  return a.installed&&a.revision!==old.revision&&value===wanted;
 }
@@ -346,8 +346,8 @@ a.loaded|=1;a.pump();
 "use strict";
 var notice=document.querySelector('meta[name="open-connect-notice"]');
 if(notice&&notice.getAttribute("content")==="installed"){
- var token=document.querySelector('meta[name="open-connect-token"]').getAttribute("content");
- var version=document.querySelector('meta[name="open-connect-version"]').getAttribute("content");
+ var tm=document.querySelector('meta[name="open-connect-token"]');
+ var token=tm.getAttribute("content"),version=document.querySelector('meta[name="open-connect-version"]').getAttribute("content");
  var state={},node,stopped=false;
  window.__ocCompletionLoading=state;
  window.__ocCompletionGeneration=state;
@@ -363,8 +363,7 @@ if(notice&&notice.getAttribute("content")==="installed"){
  utility.loadScript("file:///tmp/open-connect/feature/maintenance.js",{id:"oc-completion"},function(){
   if(!stopped&&window.__ocCompletionLoading===state&&typeof window.OpenConnectMaintenanceStart==="function"){
    OpenConnectMaintenanceStart({token:token,port:15555,role:"completion",boot:{notice:"installed",version:version,
-    id:document.querySelector('meta[name="open-connect-token"]').getAttribute("data-boot")},
-    current:function(){return window.__ocCompletionGeneration===state;}});
+    id:tm.getAttribute("data-boot")},current:function(){return window.__ocCompletionGeneration===state;}});
   }
   finish();
  });

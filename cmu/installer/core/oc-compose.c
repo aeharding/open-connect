@@ -889,6 +889,7 @@ static int oc_build_install_prefs(int data_fd, const char *pkg_id, const char *n
         out_prefs->nvram=(char *)nvram;
         out_prefs->metadata=(char *)meta;
         if (!out_prefs->has_autoshow) { out_prefs->autoshow="0"; out_prefs->has_autoshow=1; }
+        if (!out_prefs->has_source_order) { out_prefs->source_order="0"; out_prefs->has_source_order=1; }
         out_prefs->svc_count=cat.count;
         for (unsigned i=0; i<cat.count; ++i) {
             char *val=cat.rows[i].def;
@@ -905,6 +906,7 @@ static int oc_build_install_prefs(int data_fd, const char *pkg_id, const char *n
         out_prefs->metadata=(char *)meta;
         out_prefs->touch="1"; out_prefs->warning="1"; out_prefs->base="0";
         out_prefs->wireless="0"; out_prefs->autoshow="0"; out_prefs->has_autoshow=1;
+        out_prefs->source_order="0"; out_prefs->has_source_order=1;
         out_prefs->pandora="1"; out_prefs->svc_count=cat.count;
         for (unsigned i=0; i<cat.count; ++i) {
             out_prefs->svc_ids[i]=cat.rows[i].id;

@@ -123,12 +123,47 @@ int oc_version_ok(int root, char *scratch, unsigned cap) {
     return v==1 && pa==1 && fl==1;
 }
 
+OcDiag oc_diag;
+
+void oc_diag_clear(void) {
+    unsigned char *p=(unsigned char *)&oc_diag;
+    for (unsigned i=0; i<sizeof oc_diag; ++i) p[i]=0;
+}
+
+static void oc_diag_cp(char *dst, unsigned cap, const char *s) {
+    unsigned i=0;
+    if (s) {
+        for (; s[i] && i+1<cap; ++i) {
+            unsigned char c=(unsigned char)s[i];
+            dst[i]=(c>=32 && c<127 && c!='|') ? (char)c : '?';
+        }
+    }
+    dst[i]=0;
+}
+
+void oc_diag_set(const char *step, const char *path, const char *reason,
+                 const char *expected, const char *actual) {
+    if (oc_diag.step[0]) return;
+    oc_diag_cp(oc_diag.step,sizeof oc_diag.step,step);
+    oc_diag_cp(oc_diag.path,sizeof oc_diag.path,path);
+    oc_diag_cp(oc_diag.reason,sizeof oc_diag.reason,reason);
+    oc_diag_cp(oc_diag.expected,sizeof oc_diag.expected,expected);
+    oc_diag_cp(oc_diag.actual,sizeof oc_diag.actual,actual);
+}
+
 static int oc_check_sha_file(int root, const char *rel, const char *expected) {
     long fd=oc_beneath(root,rel,OC_READ,0);
-    if (fd<0) return 0;
+    char full[128]; full[0]=0; (void)oc_join(full,sizeof full,"/",rel);
+    if (fd<0) {
+        oc_diag_set("firmware_guard",full,fd==-2?"missing":"unreadable",expected,0);
+        return 0;
+    }
     char digest[65]; OcMeta m;
-    int ok=oc_hash_copy((int)fd,-1,33554432,digest,&m)==OC_COPY_OK && oc_equal(digest,expected);
+    int hr=oc_hash_copy((int)fd,-1,33554432,digest,&m);
+    int ok=hr==OC_COPY_OK && oc_equal(digest,expected);
     if (oc_close((int)fd)<0) ok=0;
+    if (!ok) oc_diag_set("firmware_guard",full,hr==OC_COPY_OK?"sha256_mismatch":"unreadable",
+                         expected,hr==OC_COPY_OK?digest:0);
     return ok;
 }
 
@@ -146,7 +181,10 @@ int oc_firmware_guard(int root, const char *op_tag, char *scratch, unsigned cap,
     if (getenv("OC_HOST_SKIP_FW_GUARD")) return 1;
 #endif
     if (!oc_nonroot_allowed() && oc_owner()!=0) { *err_out="root_required"; return 0; }
-    if (!oc_version_ok(root,scratch,cap)) { *err_out="unsupported_firmware"; return 0; }
+    if (!oc_version_ok(root,scratch,cap)) {
+        oc_diag_set("firmware_guard","/jci/version.ini","version_mismatch",0,0);
+        *err_out="unsupported_firmware"; return 0;
+    }
     if (!op_tag || !oc_equal(op_tag,"settings:status:completion")) {
         if (!oc_check_sha_file(root,"jci/gui/framework/js/GuiFramework.js",
             oc_pin_digest("root/framework.js","ca2889f7cb0361610e57b43004572fdd53c00d1d3003409bb92c744fcb253f70"))) {
@@ -157,10 +195,17 @@ int oc_firmware_guard(int root, const char *op_tag, char *scratch, unsigned cap,
             *err_out="unsupported_display"; return 0;
         }
     }
-    if (!oc_mounts_scan(root,scratch,cap,1,1)) { *err_out="persistence_unavailable"; return 0; }
+    if (!oc_mounts_scan(root,scratch,cap,1,1)) {
+        oc_diag_set("firmware_guard","/proc/self/mounts","persistence_mount",0,0);
+        *err_out="persistence_unavailable"; return 0;
+    }
     if (!oc_check_dir(root,"tmp") || !oc_check_dir(root,"tmp/mnt") || !oc_check_dir(root,"tmp/mnt/data_persist")) {
+        oc_diag_set("firmware_guard","/tmp/mnt/data_persist","invalid_directory",0,0);
         *err_out="invalid_persistence_path"; return 0;
     }
-    if (!oc_mounts_scan(root,scratch,cap,1,0)) { *err_out="invalid_boot_mounts"; return 0; }
+    if (!oc_mounts_scan(root,scratch,cap,1,0)) {
+        oc_diag_set("firmware_guard","/proc/self/mounts","boot_mounts",0,0);
+        *err_out="invalid_boot_mounts"; return 0;
+    }
     return 1;
 }

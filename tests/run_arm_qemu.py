@@ -578,11 +578,13 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
                 )
             finally:
                 data_bak.rename(data)
-            assert r_inst2.returncode == 1 and r_inst2.stdout.strip() == "unsupported_original", (
-                r_inst2.returncode,
-                r_inst2.stdout,
-                r_inst2.stderr,
-            )
+            inst2_lines = r_inst2.stdout.splitlines()
+            assert (
+                r_inst2.returncode == 1
+                and len(inst2_lines) >= 2
+                and inst2_lines[0] == "unsupported_original"
+                and inst2_lines[1].startswith("DIAG|stock_dependencies|/jci/sm/sm.conf|missing|")
+            ), (r_inst2.returncode, r_inst2.stdout, r_inst2.stderr)
             print(
                 "  [ARMv7 api+tcpsvd] 400 GET+CORS, 403 bad token, 200 status|session, exact fail-closed guards verified"
             )

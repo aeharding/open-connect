@@ -209,6 +209,17 @@ int oc_nvram(OcBoot *b, char value[16]);
 int oc_lookup_vui_pin(const char *modules, const char *plugin, char out[65]);
 
 /* oc-guard.c */
+typedef struct {
+    char step[32];
+    char path[128];
+    char reason[32];
+    char expected[65];
+    char actual[65];
+} OcDiag;
+extern OcDiag oc_diag;
+void oc_diag_clear(void);
+void oc_diag_set(const char *step, const char *path, const char *reason,
+                 const char *expected, const char *actual);
 extern const char *const oc_root_names[19];
 extern const char *const oc_root_paths[19];
 extern const char *const oc_root_digests[19];
@@ -336,6 +347,7 @@ int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg
                    const char **err_out);
 int oc_install_run(int root, const char *root_path, const char *session_dir,
                    long owner, long group, const char **err_out);
+void oc_usb_log_failure(int root, const char *session_dir, const char *op, const char *err);
 
 /* oc-api.c */
 enum { OC_API_DONE=0, OC_API_ERR=1, OC_API_FALLBACK=2 };

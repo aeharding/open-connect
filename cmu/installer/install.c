@@ -16,6 +16,15 @@ static int run(int argc, char **argv) {
         (void)oc_close(root);
         return ok?0:1;
     }
+    if (argc==10 && oc_equal(argv[1],"--log-failure") && argv[2][0]=='/') {
+        oc_diag_clear();
+        if (!oc_equal(argv[5],"-"))
+            oc_diag_set(argv[5],oc_equal(argv[6],"-")?0:argv[6],oc_equal(argv[7],"-")?0:argv[7],
+                        oc_equal(argv[8],"-")?0:argv[8],oc_equal(argv[9],"-")?0:argv[9]);
+        oc_usb_log_failure(root,argv[2],argv[3],argv[4]);
+        (void)oc_close(root);
+        return 0;
+    }
 #ifdef OC_HOST
     if (argc==3 && oc_equal(argv[1],"--test-compose")) {
         int data=oc_open_data_dir(root);
@@ -36,6 +45,15 @@ static int run(int argc, char **argv) {
     if (!ok) {
         (void)oc_write_all(1,err,oc_length(err));
         (void)oc_write_all(1,"\n",1);
+        if (oc_diag.step[0]) {
+            char dln[448];
+            if (oc_join4(dln,sizeof dln,"DIAG|",oc_diag.step,"|",oc_diag.path[0]?oc_diag.path:"-") &&
+                oc_join4(dln,sizeof dln,dln,"|",oc_diag.reason[0]?oc_diag.reason:"-","|") &&
+                oc_join4(dln,sizeof dln,dln,oc_diag.expected[0]?oc_diag.expected:"-","|",oc_diag.actual[0]?oc_diag.actual:"-") &&
+                oc_join(dln,sizeof dln,dln,"\n")) {
+                (void)oc_write_all(1,dln,oc_length(dln));
+            }
+        }
         return 1;
     }
     return 0;

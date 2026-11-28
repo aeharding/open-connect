@@ -1063,3 +1063,197 @@ class InstallerService(unittest.TestCase):
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             probe.bind(("127.0.0.1", 15557))
+
+
+class Eth1DhcpRetry(unittest.TestCase):
+    """Issue #126: SSH-only bounded eth1 DHCP retry preserving 192.168.42.1 fallback."""
+
+    def _build_env(
+        self,
+        root: Path,
+        has_eth1: bool,
+        initial_ips: list[str],
+        dhcp_on_attempt: int,
+        default_flushes_fb: bool = True,
+        busy_ticks: int = 0,
+    ):
+        sys_net = root / "sys/class/net"
+        sys_net.mkdir(parents=True)
+        if has_eth1:
+            (sys_net / "eth1").mkdir()
+        proc_dir = root / "proc"
+        proc_dir.mkdir()
+        ram = root / "ram"
+        ram.mkdir(mode=0o700)
+        tools = root / "tools"
+        tools.mkdir()
+        state = root / "state"
+        state.mkdir()
+        ips_file = state / "ips"
+        ips_file.write_text("\n".join(initial_ips) + ("\n" if initial_ips else ""))
+        log_file = state / "log"
+        attempts_file = state / "attempts"
+        attempts_file.write_text("0\n")
+        busy_file = state / "busy"
+        busy_file.write_text(f"{busy_ticks}\n")
+        if busy_ticks > 0:
+            (proc_dir / "999").mkdir()
+            (proc_dir / "999/cmdline").write_bytes(b"udhcpc\x00-i\x00eth1\x00-n\x00")
+
+        default_script = root / "default.script"
+        default_script.write_text(
+            "#!/bin/sh\n"
+            f'printf "default:%s:%s:%s\\n" "$1" "$interface" "${{ip:-}}" >> {shlex.quote(str(log_file))}\n'
+            + (
+                f'if [ "$1" = bound ] || [ "$1" = renew ]; then printf "    inet %s/24 scope global eth1\\n" "$ip" > {shlex.quote(str(ips_file))}; fi\n'
+                if default_flushes_fb
+                else f'if [ "$1" = bound ] || [ "$1" = renew ]; then printf "    inet %s/24 scope global eth1\\n" "$ip" >> {shlex.quote(str(ips_file))}; fi\n'
+            )
+            + f'if [ "$1" = deconfig ]; then : > {shlex.quote(str(ips_file))}; fi\n'
+        )
+        default_script.chmod(0o700)
+
+        fake_ip = tools / "ip"
+        fake_ip.write_text(
+            "#!/bin/sh\n"
+            f'if [ "$1" = -4 ] && [ "$2" = addr ] && [ "$3" = show ]; then cat {shlex.quote(str(ips_file))}; exit 0; fi\n'
+            f'if [ "$1" = addr ] && [ "$2" = add ]; then printf "ip-add:%s\\n" "$5" >> {shlex.quote(str(log_file))}; '
+            f'printf "    inet %s scope global eth1\\n" "$5" >> {shlex.quote(str(ips_file))}; exit 0; fi\n'
+            "exit 1\n"
+        )
+        fake_ip.chmod(0o700)
+
+        fake_udhcpc = tools / "udhcpc"
+        fake_udhcpc.write_text(
+            "#!/bin/sh\n"
+            'hook=; while [ "$#" -gt 0 ]; do case "$1" in -s) hook=$2; shift 2;; *) shift;; esac; done\n'
+            f'n=$(cat {shlex.quote(str(attempts_file))}); n=$((n+1)); printf "%s\\n" "$n" > {shlex.quote(str(attempts_file))}\n'
+            f'printf "udhcpc:%s\\n" "$n" >> {shlex.quote(str(log_file))}\n'
+            'interface=eth1 "$hook" deconfig\n'
+            f'if [ "{dhcp_on_attempt}" -gt 0 ] && [ "$n" -eq "{dhcp_on_attempt}" ]; then\n'
+            '  interface=eth1 ip=10.0.0.77 "$hook" bound\n'
+            "  exit 0\n"
+            "fi\n"
+            "exit 1\n"
+        )
+        fake_udhcpc.chmod(0o700)
+
+        fake_sleep = tools / "sleep"
+        fake_sleep.write_text(
+            "#!/bin/sh\n"
+            f"b=$(cat {shlex.quote(str(busy_file))})\n"
+            'if [ "$b" -gt 0 ]; then\n'
+            "  b=$((b-1))\n"
+            f'  printf "%s\\n" "$b" > {shlex.quote(str(busy_file))}\n'
+            f'  if [ "$b" -eq 0 ]; then rm -rf {shlex.quote(str(proc_dir / "999"))}; fi\n'
+            "fi\n"
+            "exit 0\n"
+        )
+        fake_sleep.chmod(0o700)
+
+        svc = (ASSETS / "service.sh").read_text()
+        svc = svc.replace("/sys/class/net/eth1", str(sys_net / "eth1"))
+        svc = svc.replace("/proc/[0-9]*/cmdline", str(proc_dir / "[0-9]*/cmdline"))
+        svc = svc.replace("/usr/share/udhcpc/default.script", str(default_script))
+        svc_path = root / "service.sh"
+        svc_path.write_text(svc)
+        env = {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
+        return svc_path, ram, ips_file, log_file, env
+
+    def _run_retry(self, svc_path: Path, ram: Path, env: dict[str, str]):
+        return subprocess.run(
+            ["sh", "-c", 'set -eu; R=$1; . "$2"; service_eth1_dhcp', "t", ram, svc_path],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
+        )
+
+    def test_late_dhcp_recovers_on_retry_and_preserves_direct_fallback(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td).resolve()
+            svc, ram, ips, log, env = self._build_env(
+                root,
+                has_eth1=True,
+                initial_ips=["    inet 192.168.42.1/24 scope global eth1"],
+                dhcp_on_attempt=2,
+                default_flushes_fb=True,
+                busy_ticks=2,
+            )
+            res = self._run_retry(svc, ram, env)
+            self.assertEqual(res.returncode, 0, res.stderr)
+            lines = log.read_text().splitlines()
+            self.assertEqual(
+                lines,
+                ["udhcpc:1", "udhcpc:2", "default:bound:eth1:10.0.0.77", "ip-add:192.168.42.1/24"],
+            )
+            final_ips = ips.read_text()
+            self.assertIn("inet 10.0.0.77/24", final_ips)
+            self.assertIn("inet 192.168.42.1/24", final_ips)
+            self.assertEqual(list(ram.iterdir()), [])
+
+    def test_direct_laptop_without_dhcp_preserves_192_168_42_1_and_exits_bounded(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td).resolve()
+            svc, ram, ips, log, env = self._build_env(
+                root,
+                has_eth1=True,
+                initial_ips=["    inet 192.168.42.1/24 scope global eth1"],
+                dhcp_on_attempt=0,
+            )
+            res = self._run_retry(svc, ram, env)
+            self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertEqual(log.read_text().splitlines(), ["udhcpc:1", "udhcpc:2", "udhcpc:3"])
+            self.assertIn("inet 192.168.42.1/24", ips.read_text())
+            self.assertEqual(list(ram.iterdir()), [])
+
+    def test_already_leased_or_missing_eth1_skips_udhcpc(self):
+        for has_eth1, init in (
+            (False, []),
+            (
+                True,
+                [
+                    "    inet 10.1.2.3/24 scope global eth1",
+                    "    inet 192.168.42.1/24 scope global eth1",
+                ],
+            ),
+        ):
+            with self.subTest(has_eth1=has_eth1), tempfile.TemporaryDirectory() as td:
+                root = Path(td).resolve()
+                svc, ram, _, log, env = self._build_env(
+                    root, has_eth1=has_eth1, initial_ips=init, dhcp_on_attempt=0
+                )
+                res = self._run_retry(svc, ram, env)
+                self.assertEqual(res.returncode, 0, res.stderr)
+                self.assertFalse(log.exists())
+                self.assertEqual(list(ram.iterdir()), [])
+
+    def test_boot_gating_only_triggers_when_ssh_enabled(self):
+        for ssh_bit, expect_spawn in (("0", False), ("1", True)):
+            with self.subTest(ssh=ssh_bit), tempfile.TemporaryDirectory() as td:
+                root = Path(td).resolve()
+                d_dir = root / "data"
+                r_dir = root / "ram"
+                snap = "d" * 64
+                (d_dir / "snapshots" / snap).mkdir(parents=True, mode=0o700)
+                (d_dir / "snapshots" / snap / "access").write_text(
+                    f"0|{ssh_bit}|{'e' * 64}|755:0:0|644:0:0|-\n"
+                )
+                r_dir.mkdir(mode=0o700)
+                (r_dir / "access-selected").write_text(snap + "\n")
+                marker = root / "spawned"
+                script = (
+                    f"set -eu; D={shlex.quote(str(d_dir))}; R={shlex.quote(str(r_dir))}; "
+                    f". {shlex.quote(str(ASSETS / 'service.sh'))}; "
+                    'rf() { test -f "$1" && test ! -L "$1"; }; '
+                    f'service_eth1_dhcp() {{ printf "ok\\n" > {shlex.quote(str(marker))}; }}; '
+                    'if rf "$R/access-selected" && IFS= read -r acc < "$R/access-selected" && '
+                    'hex "$acc" 64 && rf "$D/snapshots/$acc/access" && '
+                    'IFS="|" read -r _ ssh _ < "$D/snapshots/$acc/access" && test "$ssh" = 1; then '
+                    "service_eth1_dhcp; fi"
+                )
+                res = subprocess.run(
+                    ["sh", "-c", script], capture_output=True, text=True, timeout=5
+                )
+                self.assertEqual(res.returncode, 0, res.stderr)
+                self.assertEqual(marker.exists(), expect_spawn)

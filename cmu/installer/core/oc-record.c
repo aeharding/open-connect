@@ -4,7 +4,7 @@
  */
 #include "oc-core.h"
 
-int oc_record_parse_any(char *buf, char *f[13]) {
+static int oc_record_parse_any(char *buf, char *f[13]) {
     if (!oc_fields_line(buf,f,13)) return 0;
     if (!oc_equal(f[0],"OC1")||!oc_hex(f[2],32)||!oc_hex(f[3],64)||!oc_hex(f[4],64)||!oc_hex(f[5],64)) return 0;
     int settled=oc_equal(f[1],"active")||oc_equal(f[1],"removed")||oc_equal(f[1],"purge");

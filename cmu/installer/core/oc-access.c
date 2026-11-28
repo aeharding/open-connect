@@ -248,7 +248,7 @@ int oc_access_hold_verify(int root, int data_fd, const char *base_snap) {
     return ok;
 }
 
-int oc_access_login_check(int root, int data_fd, const char *base_snap) {
+static int oc_access_login_check(int root, int data_fd, const char *base_snap) {
     OcTxnSnap *base=&oc_snap_pool[5];
     if (!oc_txn_read_snap(data_fd,base_snap,base)) return 0;
     if (!base->has_access || oc_equal(base->acc_f[5],"-")) return 1;
@@ -291,7 +291,7 @@ int oc_access_hold_cleanup(int root, const char *root_path, int data_fd, const c
     return ok;
 }
 
-int oc_access_files_match(int root, int data_fd, const char *snap_id, long owner, long group) {
+static int oc_access_files_match(int root, int data_fd, const char *snap_id, long owner, long group) {
     OcTxnSnap *s=&oc_snap_pool[4];
     if (!oc_txn_read_snap(data_fd,snap_id,s)) return 0;
     if (!s->has_access) return 1;

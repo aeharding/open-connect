@@ -214,7 +214,7 @@ static int oc_deps_equal(int data_fd, const char *a_id, const char *b_id) {
     return da && db && oc_equal(da,db);
 }
 
-int oc_dependencies_pair_match(int root, int data_fd, const char *before_id, const char *after_id) {
+static int oc_dependencies_pair_match(int root, int data_fd, const char *before_id, const char *after_id) {
     if (!oc_dependencies_match(root,data_fd,before_id)) return 0;
     if (oc_deps_equal(data_fd,before_id,after_id)) {
         return oc_txn_read_snap(data_fd,after_id,&oc_snap_pool[2]);
@@ -280,7 +280,7 @@ void oc_rm_subdir(int parent, const char *leaf) {
     }
 }
 
-int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_match) {
+static int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_match) {
     if (oc_text(root,"proc/self/mounts",oc_mscratch,sizeof oc_mscratch,1)<0) return -1;
     char pref[324];
     if (prefix_match && !oc_join(pref,sizeof pref,target,"/")) return -1;
@@ -573,7 +573,7 @@ static int oc_read_first_line(int fd, char *out, unsigned cap) {
     return 1;
 }
 
-int oc_seal_after_snap(int root, const char *root_path, int data_fd,
+static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
                        const char *snap_id, const char *base_id, const char *pkg_id,
                        int force_reseal, long owner, long group, char out_id[65]) {
     if (!oc_join(out_id,65,"",snap_id)) return 0;

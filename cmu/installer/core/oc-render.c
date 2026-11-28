@@ -81,7 +81,7 @@ int oc_open_composed_verified(int data_fd, const char *pkg_id, const char *snap_
     return cdir;
 }
 
-int oc_run_awk_profile(const char *dbase, const char *pkg_id, const char *cfg_path,
+static int oc_run_awk_profile(const char *dbase, const char *pkg_id, const char *cfg_path,
                        const char *cfg_bytes, const char *cat_bytes,
                        const char *script_name, const char *ui_mode, const char *in_path,
                        int out_dir, const char *out_name) {

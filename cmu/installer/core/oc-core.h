@@ -81,7 +81,6 @@ void oc_hash_finish(OcHash *h, char output[65]);
 /* oc-io.c */
 long oc_openat(int parent, const char *path, unsigned options, unsigned mode);
 long oc_read(int fd, void *p, unsigned n);
-long oc_write(int fd, const void *p, unsigned n);
 long oc_seek_set(int fd, unsigned off);
 long oc_close(int fd);
 long oc_sync(int fd);
@@ -107,12 +106,9 @@ static inline int oc_nonroot_allowed(void) { return 0; }
 #endif
 void oc_sleep_ms(unsigned ms);
 long oc_fork(void);
-long oc_waitpid(int pid, int *status);
-long oc_pipe(int fds[2]);
 long oc_dup2(int oldfd, int newfd);
 long oc_execve(const char *path, char *const argv[], char *const envp[]);
 void oc_exit(int code);
-long oc_set_cloexec(int fd, int on);
 int oc_split_parent_leaf(const char *path, char *parent, unsigned cap, const char **leaf_out);
 long oc_mkdir(int fd, const char *name, unsigned mode);
 long oc_unlink(int fd, const char *name);
@@ -184,11 +180,9 @@ int oc_load_manifest(int folder, const char *digest, char *text, unsigned capaci
 int oc_saved_text(int folder, OcManifest *manifest, const char *name, char *text, unsigned capacity);
 
 /* oc-record.c */
-int oc_record_parse_any(char *buf, char *fields[13]);
 int oc_record_read_any(int data_fd, long owner, long group, char *buf, unsigned cap, char *fields[13]);
 int oc_record_write_atomic(int root_fd, int data_fd, char *fields[13], char nonce_out[33]);
 int oc_record_file(OcBoot *b, const char *expected_before, const char *expected_after);
-int oc_record_commit(OcBoot *b);
 int oc_read_boot_id(int ram, long owner, long group, char out[37]);
 int oc_boot_id_ensure(int root, int ram, char *const rec[13], long owner, long group, char out[37]);
 
@@ -215,8 +209,6 @@ int oc_bit(const char *p);
 int oc_nvram_value(const char *p);
 int oc_metadata_mode(const char *text, unsigned *mode, unsigned *uid, unsigned *gid);
 int oc_order(const char *a, const char *b);
-int oc_service_id(const char *p);
-int oc_service_keys(char *text, char **ids, unsigned *count);
 int oc_no_cntrl(const char *p);
 int oc_append(char *out, unsigned cap, unsigned *at, const char *s);
 int oc_catalog_load(char *text, unsigned bytes, OcCatalog *cat);
@@ -286,9 +278,7 @@ int oc_access_compose(int root, const char *root_path, int data_fd, const char *
                       const char *work_leaf, const char *uart, const char *ssh, const char *key,
                       long owner, long group);
 int oc_access_hold_verify(int root, int data_fd, const char *base_snap);
-int oc_access_login_check(int root, int data_fd, const char *base_snap);
 int oc_access_hold_cleanup(int root, const char *root_path, int data_fd, const char *base_snap);
-int oc_access_files_match(int root, int data_fd, const char *snap_id, long owner, long group);
 int oc_access_targets_match(int root, int data_fd, const char *snap_id, const char *base_snap,
                             long owner, long group);
 int oc_access_pair_check(int root, int data_fd, const char *before_id, const char *after_id,
@@ -318,12 +308,8 @@ int oc_open_sub(int parent, const char *dir, const char *id);
 int oc_copy_opt(int src, int dst, unsigned mask, int flags);
 int oc_pkg_boot_select(int data_fd, const char *root_path, const char *pkg_id,
                        long owner, long group, char bs_path[512]);
-int oc_seal_after_snap(int root, const char *root_path, int data_fd,
-                       const char *snap_id, const char *base_id, const char *pkg_id,
-                       int force_reseal, long owner, long group, char out_id[65]);
 int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
                     const char *ram_exec_dir, long owner, long group);
-int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_match);
 void oc_rm_subdir(int parent, const char *leaf);
 int oc_check_active_pins(int root, int data_fd, const char *pkg_id, const char *snap_id,
                          const char *base_val, const char *touch_val, const char **err_out);
@@ -331,7 +317,6 @@ int oc_check_preset_pins(int root, int sess_fd, const OcPrefs *chk, const char *
 int oc_targets_match(int root, int data_fd, const char *snap_id, const char *base_snap,
                      long owner, long group);
 int oc_dependencies_match(int root, int data_fd, const char *snap_id);
-int oc_dependencies_pair_match(int root, int data_fd, const char *before_id, const char *after_id);
 int oc_uninstall_owned(int data_fd, const char *snap_id, const char *base_snap);
 int oc_snapshot_create(int root, int data_fd, const char *autostart_snap, const char *pkg_id,
                        const char *nvram, const char *mode_str, const char *deps_snap,
@@ -353,10 +338,6 @@ int oc_verify_file_sha(int dir, const char *name, const char *expected, oc_u64 l
 int oc_open_pkg_verified(int data, const char *pkg_id, char *mf_buf, unsigned mf_cap, OcManifest *mf);
 int oc_open_composed_verified(int data_fd, const char *pkg_id, const char *snap_id,
                               char cmf_buf[4096], OcManifest *cmf);
-int oc_run_awk_profile(const char *dbase, const char *pkg_id, const char *cfg_path,
-                       const char *cfg_bytes, const char *cat_bytes,
-                       const char *script_name, const char *ui_mode, const char *in_path,
-                       int out_dir, const char *out_name);
 int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf,
                            int comp_fd, OcManifest *comp_mf,
                            int work_fd, const OcPrefs *p);
@@ -371,7 +352,6 @@ int oc_render_all_profiles(int data_fd, const char *root_path, const char *pkg_i
                            const OcPrefs *p, int out_dir);
 
 /* oc-compose.c */
-int oc_originals_verify(int data_fd);
 int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg_id,
                    const char **err_out);
 int oc_install_run(int root, const char *root_path, const char *session_dir,
@@ -402,30 +382,22 @@ static inline int oc_data_base(const char *root_path, char *out, unsigned cap) {
 extern const char *const oc_snap_names[13];
 int oc_write_plan_hdr(int fd, const char *base_id, const char *pkg_id);
 unsigned oc_meta_text(char *p, const OcMeta *m);
-int oc_meta_parse(char **fields, OcMeta *m);
-int oc_line(OcLines *r, char output[OC_LINE_SIZE]);
 int oc_plan_rows(int root, int snapshot, int input, int output, int mode);
 static inline int oc_mounts(OcBoot *b) { return oc_mounts_mode(b->root,b->scratch,sizeof b->scratch,0); }
-int oc_input_mode(OcInput *input, const char *text);
 OcInput *oc_find(OcBoot *b, const char *key);
-OcInput *oc_expect(OcBoot *b, const char *key, const char *path, const char *digest);
 int oc_plan(OcBoot *b);
-int oc_expected_members(OcBoot *b, OcManifest *manifest, const char *key_prefix, const char *path_prefix);
 int oc_dependency_coverage(OcBoot *b);
 int oc_snapshot_coverage(OcBoot *b);
 int oc_access_coverage(OcBoot *b);
 int oc_identity_coverage(OcBoot *b);
 
 /* oc-store.c */
-int oc_audit_load(OcBoot *b, const char *root_path, const char *expected_current, const char *candidate, int allow_touch_drift);
 int oc_audit(const char *root_path, const char *expected_current, const char *candidate);
 int oc_seal_publish(const char *root_path, const char *expected_current, const char *work_rel, const char *expected_nvram);
 int oc_gc_snapshots(const char *root_path, int lock_fd);
 
 /* oc-boot.c */
 extern OcBoot oc_boot;
-void oc_stamp(OcBoot *b, const char *phase);
-int oc_ui_stage(OcBoot *b);
 int oc_policy_load(OcBoot *b);
 int oc_load(OcBoot *b);
 void oc_close_boot(OcBoot *b);

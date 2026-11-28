@@ -30,7 +30,7 @@ static const char *oc_orig_pin(int idx) {
 static const char *oc_orig_name(int idx) { return idx==0 ? "autostart" : oc_root_names[idx-1]; }
 static const char *oc_orig_path(int idx) { return idx==0 ? "/usr/bin/autostart" : oc_root_paths[idx-1]; }
 
-int oc_originals_verify(int data_fd) {
+static int oc_originals_verify(int data_fd) {
     int orig=oc_open_private(data_fd,"originals");
     if (orig<0) return 0;
     int ok=1;

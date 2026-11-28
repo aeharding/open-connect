@@ -26,7 +26,7 @@ int oc_order(const char *a, const char *b) {
     return (unsigned char)*a-(unsigned char)*b;
 }
 
-int oc_service_id(const char *p) {
+static int oc_service_id(const char *p) {
     unsigned n=0;
     if (*p<'a'||*p>'z') return 0;
     static const char *const reserved[]={"touch","warning","base","wireless","uart","ssh","carplay-autoshow","source-order","menu-loop","hold-scroll"};
@@ -38,7 +38,7 @@ int oc_service_id(const char *p) {
     return n>0;
 }
 
-int oc_service_keys(char *text, char **ids, unsigned *count) {
+static int oc_service_keys(char *text, char **ids, unsigned *count) {
     *count=0;
     while (*text) {
         char *id=text;

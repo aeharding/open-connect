@@ -34,7 +34,7 @@ long oc_openat(int parent, const char *path, unsigned options, unsigned mode) {
     return fd<0?-errno:fd;
 }
 long oc_read(int fd, void *p, unsigned n) { long r=read(fd,p,n); return r<0?-errno:r; }
-long oc_write(int fd, const void *p, unsigned n) { long r=write(fd,p,n); return r<0?-errno:r; }
+static long oc_write(int fd, const void *p, unsigned n) { long r=write(fd,p,n); return r<0?-errno:r; }
 long oc_seek_set(int fd, unsigned off) { off_t r=lseek(fd,(off_t)off,SEEK_SET); return r<0?-errno:(long)r; }
 long oc_close(int fd) { return close(fd)<0?-errno:0; }
 long oc_sync(int fd) { return fsync(fd)<0?-errno:0; }
@@ -89,14 +89,14 @@ void oc_sleep_ms(unsigned ms) {
     (void)nanosleep(&ts,0);
 }
 long oc_fork(void) { pid_t p=fork(); return p<0?-errno:(long)p; }
-long oc_waitpid(int pid, int *status) {
+static long oc_waitpid(int pid, int *status) {
     for (;;) {
         pid_t r=waitpid(pid,status,0);
         if (r<0 && errno==EINTR) continue;
         return r<0?-errno:(long)r;
     }
 }
-long oc_pipe(int fds[2]) {
+static long oc_pipe(int fds[2]) {
     if (pipe(fds)<0) return -errno;
     (void)fcntl(fds[0],F_SETFD,FD_CLOEXEC);
     (void)fcntl(fds[1],F_SETFD,FD_CLOEXEC);
@@ -108,7 +108,7 @@ long oc_execve(const char *path, char *const argv[], char *const envp[]) {
     execve(path,argv,envp); return -errno;
 }
 void oc_exit(int code) { _exit(code); }
-long oc_set_cloexec(int fd, int on) { return fcntl(fd,F_SETFD,on?FD_CLOEXEC:0)<0?-errno:0; }
+static long oc_set_cloexec(int fd, int on) { return fcntl(fd,F_SETFD,on?FD_CLOEXEC:0)<0?-errno:0; }
 const char *oc_root_path(void) {
     const char *r=getenv("OC_HOST_ROOT");
     return (r && *r=='/') ? r : "/";
@@ -252,7 +252,7 @@ long oc_openat(int parent, const char *path, unsigned options, unsigned mode) {
     return oc_syscall4(322,parent,(long)path,flags,mode);
 }
 long oc_read(int fd, void *p, unsigned n) { return oc_syscall4(3,fd,(long)p,n,0); }
-long oc_write(int fd, const void *p, unsigned n) { return oc_syscall4(4,fd,(long)p,n,0); }
+static long oc_write(int fd, const void *p, unsigned n) { return oc_syscall4(4,fd,(long)p,n,0); }
 long oc_seek_set(int fd, unsigned off) { return oc_syscall4(19,fd,(long)off,0,0); }
 long oc_close(int fd) { return oc_syscall4(6,fd,0,0,0); }
 long oc_sync(int fd) { return oc_syscall4(118,fd,0,0,0); }
@@ -302,14 +302,14 @@ void oc_sleep_ms(unsigned ms) {
     (void)oc_syscall4(162,(long)&ts,0,0,0);
 }
 long oc_fork(void) { return oc_syscall4(2,0,0,0,0); }
-long oc_waitpid(int pid, int *status) {
+static long oc_waitpid(int pid, int *status) {
     for (;;) {
         long r=oc_syscall4(114,pid,(long)status,0,0);
         if (r==-4) continue;
         return r;
     }
 }
-long oc_pipe(int fds[2]) {
+static long oc_pipe(int fds[2]) {
     long r=oc_syscall4(42,(long)fds,0,0,0);
     if (r>=0) { (void)oc_syscall4(55,fds[0],2,1,0); (void)oc_syscall4(55,fds[1],2,1,0); }
     return r;
@@ -320,7 +320,7 @@ long oc_execve(const char *path, char *const argv[], char *const envp[]) {
     return oc_syscall4(11,(long)path,(long)argv,(long)envp,0);
 }
 void oc_exit(int code) { (void)oc_syscall4(1,code,0,0,0); for(;;){} }
-long oc_set_cloexec(int fd, int on) { return oc_syscall4(55,fd,2,on?1:0,0); }
+static long oc_set_cloexec(int fd, int on) { return oc_syscall4(55,fd,2,on?1:0,0); }
 long oc_mkdir(int fd, const char *name, unsigned mode) { return oc_syscall4(323,fd,(long)name,mode,0); }
 long oc_unlink(int fd, const char *name) { return oc_syscall4(328,fd,(long)name,0,0); }
 long oc_rmdirat(int fd, const char *name) { return oc_syscall4(328,fd,(long)name,0x200,0); }

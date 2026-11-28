@@ -8,7 +8,7 @@ OcBoot oc_boot;
 
 static const char *const oc_ui_alias_names[3]={"v.xml","vui-hold.so","vui-plugins"};
 
-void oc_stamp(OcBoot *b, const char *phase) {
+static void oc_stamp(OcBoot *b, const char *phase) {
     char tick[96], line[160];
     if (b->time_count>=12 || oc_text(b->root,"proc/uptime",tick,sizeof tick,1)<0) return;
     unsigned n=0;
@@ -112,7 +112,7 @@ static int oc_composed_link(OcBoot *b, const char *name) {
         oc_symlink(target,b->stage,name)>=0;
 }
 
-int oc_ui_stage(OcBoot *b) {
+static int oc_ui_stage(OcBoot *b) {
     int base=oc_equal(b->flags[6],"1"), warning=oc_equal(b->flags[2],"1");
     if (warning&&!oc_composed_link(b,"uia.so")) return 0;
     if ((base||warning)&&(!oc_composed_copy(b,"mmui.so",b->stage,0600)||
@@ -365,6 +365,8 @@ int oc_load(OcBoot *b) {
     return oc_dependency_coverage(b)&&oc_snapshot_coverage(b)&&oc_access_coverage(b)&&oc_identity_coverage(b);
 }
 
+static int oc_record_commit(OcBoot *b);
+
 static int oc_select(OcBoot *b, int root) {
     b->root=root; b->data=b->ram=b->lock=b->snapshot=b->baseline=b->package=b->composed=b->stage=b->observer=b->log=-1;
     b->owner=oc_owner(); b->group=oc_group();
@@ -425,7 +427,7 @@ static int oc_select(OcBoot *b, int root) {
     return b->selected?0:OC_STOCK;
 }
 
-int oc_record_commit(OcBoot *b) {
+static int oc_record_commit(OcBoot *b) {
     if (!oc_random(b->root,b->nonce)) return 0;
     b->record_fields[2]=b->nonce; b->record_fields[8]="-";
     b->next[0]=0;

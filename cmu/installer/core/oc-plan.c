@@ -41,7 +41,7 @@ unsigned oc_meta_text(char *p, const OcMeta *m) {
     return n;
 }
 
-int oc_meta_parse(char **fields, OcMeta *m) {
+static int oc_meta_parse(char **fields, OcMeta *m) {
     oc_u64 values[10];
     for (unsigned i=0; i<10; ++i) {
         unsigned width=(i<3||i==6||i==8)?16:8;
@@ -55,7 +55,7 @@ int oc_meta_parse(char **fields, OcMeta *m) {
     return (m->mode&OC_TYPE)==OC_REGULAR && m->modified_ns<1000000000 && m->changed_ns<1000000000;
 }
 
-int oc_line(OcLines *r, char output[OC_LINE_SIZE]) {
+static int oc_line(OcLines *r, char output[OC_LINE_SIZE]) {
     unsigned n=0;
     for (;;) {
         if (r->at==r->filled) {
@@ -131,7 +131,7 @@ int oc_plan_rows(int root, int snapshot, int input, int output, int mode) {
     return status==0 && count>0;
 }
 
-int oc_input_mode(OcInput *input, const char *text) {
+static int oc_input_mode(OcInput *input, const char *text) {
     unsigned mode, uid, gid;
     return !input->absent && oc_metadata_mode(text,&mode,&uid,&gid) &&
         input->meta.mode==(OC_REGULAR|mode) && input->meta.uid==uid && input->meta.gid==gid;
@@ -142,7 +142,7 @@ OcInput *oc_find(OcBoot *b, const char *key) {
     return 0;
 }
 
-OcInput *oc_expect(OcBoot *b, const char *key, const char *path, const char *digest) {
+static OcInput *oc_expect(OcBoot *b, const char *key, const char *path, const char *digest) {
     OcInput *row=oc_find(b,key);
     if (!row||row->used||!oc_equal(row->path,path)||!oc_equal(row->digest,digest)) return 0;
     row->used=1;
@@ -192,7 +192,7 @@ int oc_plan(OcBoot *b) {
     return rows>1;
 }
 
-int oc_expected_members(OcBoot *b, OcManifest *manifest, const char *key_prefix, const char *path_prefix) {
+static int oc_expected_members(OcBoot *b, OcManifest *manifest, const char *key_prefix, const char *path_prefix) {
     char key[192], path[192];
     for (unsigned i=0; i<manifest->count; ++i) {
         OcMember *m=&manifest->rows[i];

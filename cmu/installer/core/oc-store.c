@@ -6,7 +6,7 @@
 
 static OcPub oc_pub;
 
-int oc_audit_load(OcBoot *b, const char *root_path, const char *expected_current, const char *candidate, int allow_touch_drift) {
+static int oc_audit_load(OcBoot *b, const char *root_path, const char *expected_current, const char *candidate, int allow_touch_drift) {
     b->root=b->data=b->ram=b->lock=b->snapshot=b->baseline=b->package=b->composed=b->stage=b->observer=b->log=-1;
     b->gated=0; b->metadata_drift=0; b->touch_drift=allow_touch_drift?1:0; b->input_count=0;
     b->owner=oc_owner(); b->group=oc_group();

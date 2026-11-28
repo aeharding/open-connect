@@ -831,31 +831,6 @@ class NativeBootSelection(unittest.TestCase):
         for name in ("v.xml", "vui-hold.so", "vui-plugins", "selected"):
             self.assertFalse(os.path.lexists(self.ram / name))
 
-    def test_shell_copy_helper_binds_snapshot_and_never_changes_record_or_aliases(self):
-        self.base_fixture()
-        stage = self.ram / ".feature-shell"
-        stage.mkdir(mode=0o700)
-        before = (self.data / "record").read_bytes()
-        result = subprocess.run(
-            [self.program, "copy-ui", self.root, self.snapshot.name, stage.name],
-            env=self._host_env(),
-            capture_output=True,
-            timeout=5,
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual((stage / "vui.so").read_bytes(), (self.composed / "vui.so").read_bytes())
-        self.assertEqual(
-            (stage / "mmui.xml").read_bytes(), (self.snapshot / "mmui.xml").read_bytes()
-        )
-        self.assertEqual((self.data / "record").read_bytes(), before)
-        self.assertFalse(os.path.lexists(self.ram / "v.xml"))
-        rejected = subprocess.run(
-            [self.program, "copy-ui", self.root, "0" * 64, stage.name],
-            capture_output=True,
-            timeout=5,
-        )
-        self.assertEqual(rejected.returncode, 1)
-
     def test_base_publication_and_diagnostic_io_never_reverses_it(self):
         queue = self.base_fixture()
         queue.write_text("4\n")

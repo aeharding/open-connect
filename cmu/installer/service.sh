@@ -331,7 +331,7 @@ eth1_busy() {
 local p
 for p in /proc/[0-9]*/cmdline; do
 test -r "$p" || continue
-case "$(tr '\0' ' ' < "$p" 2>/dev/null)" in *udhcpc*eth1*) return 0;; esac
+case "$(tr '\0' ' ' 2>/dev/null < "$p")" in *udhcpc*eth1*) return 0;; esac
 done
 return 1
 }

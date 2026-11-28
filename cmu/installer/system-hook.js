@@ -67,7 +67,8 @@ if(i!==cur){this._setFocus(i);this._setHighlight(i);}
 function wrapList(C){
 if(!C||!C.prototype||C.prototype._ocListLoop)return;
 var cw=C.prototype._handleMCCW,ccw=C.prototype._handleMCCCW;
-if(typeof cw!=="function"||typeof ccw!=="function")return;
+if(typeof cw!=="function"||typeof ccw!=="function"||
+typeof C.prototype._getFocussedIndex!=="function"||typeof C.prototype._showFocus!=="function")return;
 C.prototype._ocListLoop=true;
 function step(ctrl,dir,orig,args){
 var dl=ctrl.dataList,n,cur,j,t,it;

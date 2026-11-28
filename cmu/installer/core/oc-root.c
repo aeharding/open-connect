@@ -622,19 +622,6 @@ int oc_factory_wireless(int root, const char *root_path) {
     return wrc<0 ? 2 : (wrc==2 ? 0 : 1);
 }
 
-static int oc_p_no_cntrl(const char *p) {
-    for (; *p; ++p) if ((unsigned char)*p<32 || (unsigned char)*p==127) return 0;
-    return 1;
-}
-
-static int oc_p_append(char *out, unsigned cap, unsigned *at, const char *s) {
-    unsigned n=oc_length(s);
-    if (*at+n>=cap) return 0;
-    for (unsigned i=0; i<n; ++i) out[(*at)++]=s[i];
-    out[*at]=0;
-    return 1;
-}
-
 static char *oc_static_val(const char *v, int allow_two) {
     if (oc_equal(v,"0")) return "0";
     if (oc_equal(v,"1")) return "1";
@@ -671,7 +658,7 @@ int oc_prefs_preset_apply(char *text, unsigned bytes, const OcCatalog *cat, OcPr
         if (*p=='\n') *p++=0;
         unsigned llen=oc_length(ln);
         if (llen && ln[llen-1]=='\r') ln[--llen]=0;
-        if (!oc_p_no_cntrl(ln)) return 0;
+        if (!oc_no_cntrl(ln)) return 0;
         if (!llen || ln[0]=='#') continue;
         char *eq=0;
         for (char *q=ln; *q; ++q) if (*q=='=') { if (eq) return 0; eq=q; }
@@ -714,18 +701,18 @@ int oc_prefs_preset_apply(char *text, unsigned bytes, const OcCatalog *cat, OcPr
 int oc_prefs_preset_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned cap) {
     unsigned at=0;
     if (!cat || !cat->count || cat->count>16 || cat->count!=p->svc_count) return 0;
-    if (!oc_p_append(out,cap,&at,"OCPREFS1\nbase=") || !oc_p_append(out,cap,&at,p->base) ||
-        !oc_p_append(out,cap,&at,"\ncarplay-autoshow=") || !oc_p_append(out,cap,&at,p->autoshow) ||
-        !oc_p_append(out,cap,&at,"\nhold-scroll=") || !oc_p_append(out,cap,&at,p->hold_scroll) ||
-        !oc_p_append(out,cap,&at,"\nmenu-loop=") || !oc_p_append(out,cap,&at,p->menu_loop)) return 0;
+    if (!oc_append(out,cap,&at,"OCPREFS1\nbase=") || !oc_append(out,cap,&at,p->base) ||
+        !oc_append(out,cap,&at,"\ncarplay-autoshow=") || !oc_append(out,cap,&at,p->autoshow) ||
+        !oc_append(out,cap,&at,"\nhold-scroll=") || !oc_append(out,cap,&at,p->hold_scroll) ||
+        !oc_append(out,cap,&at,"\nmenu-loop=") || !oc_append(out,cap,&at,p->menu_loop)) return 0;
     for (unsigned i=0; i<cat->count; ++i) {
-        if (!oc_p_append(out,cap,&at,"\nservice.") || !oc_p_append(out,cap,&at,cat->rows[i].id) ||
-            !oc_p_append(out,cap,&at,"=") || !oc_p_append(out,cap,&at,p->svc_vals[i])) return 0;
+        if (!oc_append(out,cap,&at,"\nservice.") || !oc_append(out,cap,&at,cat->rows[i].id) ||
+            !oc_append(out,cap,&at,"=") || !oc_append(out,cap,&at,p->svc_vals[i])) return 0;
     }
-    if (!oc_p_append(out,cap,&at,"\nsource-order=") || !oc_p_append(out,cap,&at,p->source_order) ||
-        !oc_p_append(out,cap,&at,"\ntouch=") || !oc_p_append(out,cap,&at,p->touch) ||
-        !oc_p_append(out,cap,&at,"\nwarning=") || !oc_p_append(out,cap,&at,p->warning) ||
-        !oc_p_append(out,cap,&at,"\nwireless=") || !oc_p_append(out,cap,&at,p->wireless) ||
-        !oc_p_append(out,cap,&at,"\n")) return 0;
+    if (!oc_append(out,cap,&at,"\nsource-order=") || !oc_append(out,cap,&at,p->source_order) ||
+        !oc_append(out,cap,&at,"\ntouch=") || !oc_append(out,cap,&at,p->touch) ||
+        !oc_append(out,cap,&at,"\nwarning=") || !oc_append(out,cap,&at,p->warning) ||
+        !oc_append(out,cap,&at,"\nwireless=") || !oc_append(out,cap,&at,p->wireless) ||
+        !oc_append(out,cap,&at,"\n")) return 0;
     return at<=1023;
 }

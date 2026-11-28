@@ -841,6 +841,10 @@ static __attribute__((noinline)) int oc_apply_prefs_change(
 
     int w_chg=!oc_equal(old_w,api_snap_a.prefs.warning), b_chg=!oc_equal(old_b,api_snap_a.prefs.base);
     int wl_chg=!oc_equal(old_wl,api_snap_a.prefs.wireless), as_chg=!oc_equal(old_as,api_snap_a.prefs.autoshow);
+    if (wl_chg && oc_equal(api_snap_a.prefs.wireless,"1")) {
+        int fw=oc_factory_wireless(c->root,c->root_path);
+        if (fw!=1) return api_err(c,fw==0?"wireless_factory_enabled":"wireless_unavailable");
+    }
     int so_chg=!oc_equal(old_so,api_snap_a.prefs.source_order);
     int ml_chg=!oc_equal(old_ml,api_snap_a.prefs.menu_loop), hs_chg=!oc_equal(old_hs,api_snap_a.prefs.hold_scroll);
     int need_mmui=w_chg||b_chg||svc_changed, need_plugins=b_chg||svc_changed;
@@ -999,17 +1003,30 @@ static __attribute__((noinline)) int oc_handle_export_prefs(OcApiCtx *c) {
     }
     (void)oc_close((int)mnt);
     if (found<0) return api_err(c,"usb_not_found");
+    {
+        static const char *const enames[2]={"open-connect.prefs","open-connect.prefs.tmp"};
+        for (unsigned i=0; i<2; ++i) {
+            OcMeta em={0};
+            if (!oc_absent_at(found,enames[i]) &&
+                (oc_metadata(found,enames[i],&em)<0 || (em.mode&OC_TYPE)!=OC_REGULAR)) {
+                (void)oc_close(found);
+                return api_err(c,"export_failed");
+            }
+        }
+    }
 
     int remounted=0;
     if (was_ro) {
         if (!oc_usb_remount(c->root,mnt_path,1)) { (void)oc_close(found); return api_err(c,"export_failed"); }
         remounted=1;
     }
-    long pfd=oc_openat(found,"open-connect.prefs",OC_WRITE|OC_CREATE|OC_TRUNC,0600);
+    long pfd=oc_openat(found,"open-connect.prefs.tmp",OC_WRITE|OC_CREATE|OC_TRUNC,0600);
     OcMeta pm={0};
     int ok=pfd>=0 && oc_stat((int)pfd,&pm)>=0 && (pm.mode&OC_TYPE)==OC_REGULAR &&
         oc_write_all((int)pfd,out,oc_length(out)) && oc_sync((int)pfd)>=0;
     if (pfd>=0 && oc_close((int)pfd)<0) ok=0;
+    if (ok && oc_rename(found,"open-connect.prefs.tmp","open-connect.prefs")<0) ok=0;
+    if (!ok && pfd>=0) (void)oc_unlink(found,"open-connect.prefs.tmp");
     if (ok && oc_sync(found)<0) ok=0;
     (void)oc_close(found);
     if (remounted && !oc_usb_remount(c->root,mnt_path,0)) ok=0;
@@ -1056,10 +1073,6 @@ static __attribute__((noinline)) int oc_handle_import_prefs(OcApiCtx *c) {
     unsigned chg=0;
     if (!oc_prefs_preset_apply(raw,(unsigned)n,&cat,&api_snap_a.prefs,&chg))
         return api_err(c,"invalid_preferences");
-    if ((chg&(1u<<7)) && oc_equal(api_snap_a.prefs.wireless,"1")) {
-        int fw=oc_factory_wireless(c->root,c->root_path);
-        if (fw!=1) return api_err(c,fw==0?"wireless_factory_enabled":"wireless_unavailable");
-    }
     if (!chg) {
         char *a_argv[]={bs_path,"audit",(char *)c->root_path,c->rec[5],0};
         if (oc_run_prog(bs_path,a_argv,-1,0,0,-1)!=0) return api_err(c,"state_changed");

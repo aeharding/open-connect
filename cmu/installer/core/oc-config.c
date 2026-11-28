@@ -189,7 +189,7 @@ int oc_lookup_vui_pin(const char *modules, const char *plugin, char out[65]) {
     return hits==1;
 }
 
-static int oc_no_cntrl(const char *p) {
+int oc_no_cntrl(const char *p) {
     for (; *p; ++p) if ((unsigned char)*p<32 || (unsigned char)*p==127) return 0;
     return 1;
 }
@@ -316,7 +316,7 @@ int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out) {
     return 1;
 }
 
-static int oc_append(char *out, unsigned cap, unsigned *at, const char *s) {
+int oc_append(char *out, unsigned cap, unsigned *at, const char *s) {
     unsigned n=oc_length(s);
     if (*at+n>=cap) return 0;
     for (unsigned i=0; i<n; ++i) out[(*at)++]=s[i];

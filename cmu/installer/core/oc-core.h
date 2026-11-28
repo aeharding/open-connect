@@ -203,6 +203,8 @@ int oc_metadata_mode(const char *text, unsigned *mode, unsigned *uid, unsigned *
 int oc_order(const char *a, const char *b);
 int oc_service_id(const char *p);
 int oc_service_keys(char *text, char **ids, unsigned *count);
+int oc_no_cntrl(const char *p);
+int oc_append(char *out, unsigned cap, unsigned *at, const char *s);
 int oc_catalog_load(char *text, unsigned bytes, OcCatalog *cat);
 int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out);
 int oc_prefs_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned cap);
@@ -309,6 +311,7 @@ int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_m
 void oc_rm_subdir(int parent, const char *leaf);
 int oc_check_active_pins(int root, int data_fd, const char *pkg_id, const char *snap_id,
                          const char *base_val, const char *touch_val, const char **err_out);
+int oc_check_preset_pins(int root, int sess_fd, const OcPrefs *chk, const char **err_out);
 int oc_targets_match(int root, int data_fd, const char *snap_id, const char *base_snap,
                      long owner, long group);
 int oc_dependencies_match(int root, int data_fd, const char *snap_id, long owner, long group);

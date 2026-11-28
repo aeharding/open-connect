@@ -502,6 +502,63 @@ int oc_check_active_pins(int root, int data_fd, const char *pkg_id, const char *
     return 1;
 }
 
+int oc_check_preset_pins(int root, int sess_fd, const OcPrefs *chk, const char **err_out) {
+    if (oc_equal(chk->touch,"2") && !oc_touch_pins_ok(root))
+        return txn_err(err_out,"touch_inputs_changed");
+    if (!oc_equal(chk->base,"1")) return 1;
+    OcMeta stock={0};
+    if (!oc_stock_meta(root,&stock)) return txn_err(err_out,"base_inputs_changed");
+    for (unsigned i=0; i<5; ++i) {
+        if (!oc_stock_pin_ok(root,stock.device,oc_base_pins[i].stock,oc_base_pins[i].path,
+                             oc_pin_digest(oc_base_pins[i].key,oc_base_pins[i].digest)))
+            return txn_err(err_out,"base_inputs_changed");
+    }
+    if (oc_text(sess_fd,"ui-modules.tsv",oc_big_buf,16384,0)<=0)
+        return txn_err(err_out,"base_inputs_changed");
+    OcVuiChkCtx vc={root,stock.device};
+    char *p=oc_big_buf; unsigned uia_n=0, vui_n=0, hits=0;
+    while (*p) {
+        char *ln=p; while (*p && *p!='\n') ++p;
+        if (*p!='\n') return txn_err(err_out,"base_inputs_changed");
+        *p++=0;
+        if (*ln=='#') continue;
+        char *f[4]; unsigned nf=0; char *q=ln;
+        for (;;) {
+            if (nf==4) return txn_err(err_out,"base_inputs_changed");
+            f[nf++]=q;
+            while (*q && *q!='\t') ++q;
+            if (!*q) break;
+            *q++=0;
+        }
+        if (nf!=4 || !f[0][0] || !f[1][0] || !f[2][0] || !f[3][0] || !oc_key(f[1]))
+            return txn_err(err_out,"base_inputs_changed");
+        int grp_ok=oc_equal(f[2],"keep")||oc_equal(f[2],"base"), en=oc_equal(f[2],"keep");
+        if (!grp_ok) {
+            for (unsigned k=0; k<chk->svc_count; ++k) {
+                if (oc_equal(chk->svc_ids[k],f[2])) {
+                    grp_ok=1;
+                    if (oc_equal(chk->svc_vals[k],"1")) en=1;
+                    break;
+                }
+            }
+        }
+        if (!grp_ok) return txn_err(err_out,"base_inputs_changed");
+        if (oc_equal(f[0],"uia")) {
+            oc_u64 uid=0;
+            if (!oc_decimal(f[3],&uid)) return txn_err(err_out,"base_inputs_changed");
+            ++uia_n;
+        } else if (oc_equal(f[0],"vui")) {
+            if (!oc_hex(f[3],64)) return txn_err(err_out,"base_inputs_changed");
+            ++vui_n;
+            if (en) {
+                if (!oc_vui_chk_cb(f[1],f[3],&vc)) return txn_err(err_out,"base_inputs_changed");
+                ++hits;
+            }
+        } else return txn_err(err_out,"base_inputs_changed");
+    }
+    return (uia_n==43 && vui_n==56 && hits>=36) ? 1 : txn_err(err_out,"base_inputs_changed");
+}
+
 static int oc_write_in_row(int fd, const char *k, const char *p, const char *d) {
     char line[384];
     return oc_join4(line,sizeof line,k,"|",p,"|") && oc_join4(line,sizeof line,line,d,"\n",0) &&

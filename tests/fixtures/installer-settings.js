@@ -516,4 +516,30 @@ assert.equal(pages.at(-1).ctrl.focussedItem, 0);
 assert.equal(pages.at(-1).ctrl.dataList.items[0].label1, "Phone first");
 back(); assert.equal(pages.at(-1).ctrl.focussedItem, 4); back();
 assert.equal(settings.open(fw,{read:()=>({...values,sourceOrderCurrent:2})}),false);
+
+// Issue #213: Commander Dial submenu exposes independent menuLoop & holdScroll toggles,
+// writes wire keys menu-loop & hold-scroll, drives restart state, and preserves Back focus.
+values={...values,sourceOrder:0,sourceOrderCurrent:0,menuLoop:0,menuLoopCurrent:0,holdScroll:0,holdScrollCurrent:0,restart:false};
+settings.open(fw,store); choose("dial");
+assert.equal(pages.at(-1).ctrl.title.text1, "Commander Dial");
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items,r=>r.text1),["Wrap-around menus & lists","Faster hold-scroll"]);
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items,r=>r.value),[2,2]);
+let dialCtrl=pages.at(-1).ctrl;
+dialCtrl.selectCallback(dialCtrl,"menuLoop",{additionalData:1});
+assert.equal(modal.props.title,"Enable Wrap-around menus & lists?");
+confirm("cancel"); assert.equal(pages.at(-1).ctrl.dataList.items[0].value,2);
+dialCtrl=pages.at(-1).ctrl;
+dialCtrl.selectCallback(dialCtrl,"menuLoop",{additionalData:1});
+confirm("apply"); idle();
+assert.deepEqual(writes.at(-1),["menu-loop",0,1]);
+values={...values,menuLoop:1,restart:true}; reply(values);
+dialCtrl=pages.at(-1).ctrl;
+dialCtrl.selectCallback(dialCtrl,"holdScroll",{additionalData:1});
+assert.equal(modal.props.title,"Enable Faster hold-scroll?");
+confirm("apply"); idle();
+assert.deepEqual(writes.at(-1),["hold-scroll",0,1]);
+values={...values,holdScroll:1,restart:true}; reply(values);
+back(); assert.equal(pages.at(-1).ctrl.focussedItem, 5); back();
+assert.equal(settings.open(fw,{read:()=>({...values,menuLoopCurrent:2})}),false);
+assert.equal(settings.open(fw,{read:()=>({...values,holdScrollCurrent:2})}),false);
 console.log("Reorganized native menus preserve defaults, confirmations, wire keys, restart state and Back focus");

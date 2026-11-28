@@ -10,7 +10,7 @@
 
 static struct {
     char mf_buf[8192];
-    char hook_buf[8192];
+    char hook_buf[16384];
     char log_buf[1024];
     char line_buf[4096];
     char out_buf[8192];
@@ -127,7 +127,9 @@ int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf,
     if (!tpl_dig) return 0;
 
     int is_base=oc_equal(p->base,"1"), is_warn=oc_equal(p->warning,"1"),
-        is_as=oc_equal(p->autoshow,"1"), is_so=oc_equal(p->source_order,"1");
+        is_as=oc_equal(p->autoshow,"1"), is_so=oc_equal(p->source_order,"1"),
+        is_ml=oc_equal(p->menu_loop,"1"), is_hs=oc_equal(p->hold_scroll,"1");
+    int is_nav=is_ml||is_hs;
     int aa_off=0, pandora_off=0, sxm_off=0;
     for (unsigned i=0; i<p->svc_count; ++i) {
         if (oc_equal(p->svc_ids[i],"android-auto") && oc_equal(p->svc_vals[i],"0")) aa_off=1;
@@ -142,7 +144,7 @@ int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf,
     if (ag) (void)oc_join(h,sizeof h,h,"androidauto,");
     unsigned hlen=oc_length(h);
     if (hlen && h[hlen-1]==',') h[--hlen]=0;
-    int nd=is_warn || hlen>0 || is_so;
+    int nd=is_warn || hlen>0 || is_so || is_nav;
 
     if (nd && !oc_verified_text(pkg_fd,"system-hook.js",oc_digest(pkg_mf,"system-hook.js"),oc_rmem.hook_buf,sizeof oc_rmem.hook_buf)) return 0;
     if (is_base && !oc_verified_text(pkg_fd,"base-logging.js",oc_digest(pkg_mf,"base-logging.js"),oc_rmem.log_buf,sizeof oc_rmem.log_buf)) return 0;
@@ -172,7 +174,7 @@ int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf,
         }
         if (oc_rfind(line,"framework.init();")) {
             if (nd) {
-                int ab=0, sb=0;
+                int ab=0, sb=0, nb=0;
                 char *hp=oc_rmem.hook_buf;
                 while (ok && *hp) {
                     char *hl=hp;
@@ -182,20 +184,33 @@ int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf,
                     if (oc_rfind(hl,"/* OPEN_CONNECT_AA_END */")) { ab=0; continue; }
                     if (oc_rfind(hl,"/* OPEN_CONNECT_SO_BEGIN */")) { sb=1; continue; }
                     if (oc_rfind(hl,"/* OPEN_CONNECT_SO_END */")) { sb=0; continue; }
+                    if (oc_rfind(hl,"/* OPEN_CONNECT_NAV_BEGIN */")) { nb=1; continue; }
+                    if (oc_rfind(hl,"/* OPEN_CONNECT_NAV_END */")) { nb=0; continue; }
                     char *call_pos=oc_rfind(hl," /* OPEN_CONNECT_AA_CALL */");
                     int has_call=call_pos!=0 || oc_rfind(hl,"/* OPEN_CONNECT_AA_CALL */")!=0;
                     if (!ag && (ab || has_call)) continue;
                     char *so_pos=oc_rfind(hl," /* OPEN_CONNECT_SO_CALL */");
                     int has_so=so_pos!=0 || oc_rfind(hl,"/* OPEN_CONNECT_SO_CALL */")!=0;
                     if (!is_so && (sb || has_so)) continue;
+                    char *nav_pos=oc_rfind(hl,"/* OPEN_CONNECT_NAV_CALL */");
+                    if (!is_nav && (nb || nav_pos!=0)) continue;
                     char *ap_pos=oc_rfind(hl,"/*OPEN_CONNECT_APPLIED*/");
                     while (*hl==' '||*hl=='\t') ++hl;
                     unsigned at=0;
                     for (char *s=hl; ok && *s; ) {
                         if (call_pos && s==call_pos) { s+=27; call_pos=0; continue; }
                         if (so_pos && s==so_pos) { s+=27; so_pos=0; continue; }
+                        if (nav_pos && s==nav_pos) { s+=27; nav_pos=0; continue; }
                         if (ap_pos && s==ap_pos) {
-                            const char *parts[5]={p->warning,",\"",h,"\"",is_so?",1":""};
+                            char tail[12]; tail[0]=0;
+                            if (is_nav) {
+                                tail[0]=','; tail[1]=is_so?'1':'0';
+                                tail[2]=','; tail[3]=is_ml?'1':'0';
+                                tail[4]=','; tail[5]=is_hs?'1':'0'; tail[6]=0;
+                            } else if (is_so) {
+                                tail[0]=','; tail[1]='1'; tail[2]=0;
+                            }
+                            const char *parts[5]={p->warning,",\"",h,"\"",tail};
                             for (unsigned k=0; k<5; ++k) {
                                 unsigned pl=oc_length(parts[k]);
                                 if (at+pl+2>=sizeof oc_rmem.out_buf) { ok=0; break; }

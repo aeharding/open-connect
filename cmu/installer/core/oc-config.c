@@ -29,7 +29,7 @@ int oc_order(const char *a, const char *b) {
 int oc_service_id(const char *p) {
     unsigned n=0;
     if (*p<'a'||*p>'z') return 0;
-    const char *reserved[]={"touch","warning","base","wireless","uart","ssh","carplay-autoshow","source-order"};
+    static const char *const reserved[]={"touch","warning","base","wireless","uart","ssh","carplay-autoshow","source-order","menu-loop","hold-scroll"};
     for (unsigned i=0; i<sizeof reserved/sizeof *reserved; ++i) if (oc_equal(p,reserved[i])) return 0;
     while (*p) {
         unsigned c=(unsigned char)*p++;
@@ -52,7 +52,7 @@ int oc_service_keys(char *text, char **ids, unsigned *count) {
 
 int oc_config(OcBoot *b, char *text, char **f, int active, char svc_digest[65]) {
     unsigned mode, uid, gid;
-    f[8]="0"; f[9]="0";
+    for (unsigned i=8; i<12; ++i) f[i]="0";
     if (svc_digest) svc_digest[0]=0;
     if (!oc_prefix(text,"OC2\n")) {
         if (active||!oc_one_line(text)||oc_fields(text,f,5)!=5||!oc_equal(f[0],"-")) return 0;
@@ -62,8 +62,9 @@ int oc_config(OcBoot *b, char *text, char **f, int active, char svc_digest[65]) 
     (void)b;
     if (!active) return 0;
     char *ids[16]; unsigned count=0, seen=0, service_seen=0;
-    const char *keys[]={"package","touch","warning","nvram","metadata","base","wireless"};
-    const unsigned slots[]={0,1,2,3,4,6,7};
+    static const char *const keys[]={"package","touch","warning","nvram","metadata","base","wireless"};
+    static const unsigned char slots[]={0,1,2,3,4,6,7};
+    static const char *const opt_keys[]={"carplay-autoshow","source-order","menu-loop","hold-scroll"};
     char *previous="", *p=text+4;
     f[5]="1";
     OcHash sh;
@@ -79,20 +80,17 @@ int oc_config(OcBoot *b, char *text, char **f, int active, char svc_digest[65]) 
         *p++=0;
         if (oc_order(key,previous)<=0) return 0;
         previous=key;
-        if (oc_equal(key,"carplay-autoshow")) {
+        unsigned found=0;
+        for (unsigned i=0; i<4; ++i) if (oc_equal(key,opt_keys[i])) {
             if (!oc_bit(value)) return 0;
-            f[8]=value; continue;
+            f[8+i]=value; found=1; break;
         }
-        if (oc_equal(key,"source-order")) {
-            if (!oc_bit(value)) return 0;
-            f[9]=value; continue;
-        }
+        if (found) continue;
         if (oc_equal(key,"service-ids")) {
             if (svc_digest) { oc_hash_add(&sh,value,oc_length(value)); oc_hash_add(&sh,"\n",1); }
             if (!oc_service_keys(value,ids,&count)) return 0;
             seen|=128; continue;
         }
-        unsigned found=0;
         for (unsigned i=0; i<sizeof keys/sizeof *keys; ++i) if (oc_equal(key,keys[i])) {
             f[slots[i]]=value; seen|=1u<<i; found=1; break;
         }
@@ -244,9 +242,10 @@ int oc_catalog_load(char *text, unsigned bytes, OcCatalog *cat) {
 
 int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out) {
     unsigned mode, uid, gid;
-    out->is_oc2=0; out->has_autoshow=0; out->has_source_order=0; out->svc_count=0;
+    out->is_oc2=0; out->has_autoshow=0; out->has_source_order=0; out->has_menu_loop=0; out->has_hold_scroll=0; out->svc_count=0;
     out->package="-"; out->touch="0"; out->warning="0"; out->nvram="absent";
-    out->metadata=""; out->base="0"; out->wireless="0"; out->autoshow="0"; out->source_order="0"; out->pandora="1";
+    out->metadata=""; out->base="0"; out->wireless="0"; out->autoshow="0"; out->source_order="0";
+    out->menu_loop="0"; out->hold_scroll="0"; out->pandora="1";
     if (!oc_prefix(text,"OC2\n")) {
         char *f[5];
         if (active || !oc_one_line(text) || oc_fields(text,f,5)!=5 || !oc_equal(f[0],"-")) return 0;
@@ -258,6 +257,9 @@ int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out) {
     out->is_oc2=1;
     char *ids[16]; unsigned count=0, seen=0, service_seen=0;
     const char *keys[]={"package","touch","warning","nvram","metadata","base","wireless"};
+    const char *opt_keys[]={"carplay-autoshow","source-order","menu-loop","hold-scroll"};
+    char **opt_vals[]={&out->autoshow,&out->source_order,&out->menu_loop,&out->hold_scroll};
+    int *opt_has[]={&out->has_autoshow,&out->has_source_order,&out->has_menu_loop,&out->has_hold_scroll};
     char *previous="", *p=text+4;
     while (*p) {
         char *key=p, *value=0;
@@ -270,19 +272,16 @@ int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out) {
         *p++=0;
         if (oc_order(key,previous)<=0) return 0;
         previous=key;
-        if (oc_equal(key,"carplay-autoshow")) {
+        unsigned found=0;
+        for (unsigned i=0; i<4; ++i) if (oc_equal(key,opt_keys[i])) {
             if (!oc_bit(value)) return 0;
-            out->autoshow=value; out->has_autoshow=1; continue;
+            *opt_vals[i]=value; *opt_has[i]=1; found=1; break;
         }
-        if (oc_equal(key,"source-order")) {
-            if (!oc_bit(value)) return 0;
-            out->source_order=value; out->has_source_order=1; continue;
-        }
+        if (found) continue;
         if (oc_equal(key,"service-ids")) {
             if (!oc_service_keys(value,ids,&count)) return 0;
             seen|=128; continue;
         }
-        unsigned found=0;
         for (unsigned i=0; i<7; ++i) if (oc_equal(key,keys[i])) {
             switch (i) {
                 case 0: out->package=value; break;
@@ -330,6 +329,8 @@ int oc_prefs_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned c
     if (!cat || !cat->count || cat->count!=p->svc_count) return 0;
     if (!oc_append(out,cap,&at,"OC2\nbase=") || !oc_append(out,cap,&at,p->base) ||
         !oc_append(out,cap,&at,"\ncarplay-autoshow=") || !oc_append(out,cap,&at,p->autoshow) ||
+        !oc_append(out,cap,&at,"\nhold-scroll=") || !oc_append(out,cap,&at,p->hold_scroll) ||
+        !oc_append(out,cap,&at,"\nmenu-loop=") || !oc_append(out,cap,&at,p->menu_loop) ||
         !oc_append(out,cap,&at,"\nmetadata=") || !oc_append(out,cap,&at,p->metadata) ||
         !oc_append(out,cap,&at,"\nnvram=") || !oc_append(out,cap,&at,p->nvram) ||
         !oc_append(out,cap,&at,"\npackage=") || !oc_append(out,cap,&at,p->package) ||

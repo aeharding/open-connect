@@ -104,7 +104,7 @@ function changed(a){
  var old=job.before;
  if(job.op==="uninstall")return!a.installed&&!a.retained&&a.revision==="-";
  if(job.op==="set"){
- var key=job.args[0],wanted=Number(job.args[2]),value=a[key==="carplay-autoshow"?"carplayAutoshow":key==="source-order"?"sourceOrder":key];
+ var key=job.args[0],wanted=Number(job.args[2]),value=a[key.replace(/-([a-z])/g,function(_,c){return c.toUpperCase();})];
  (a.services||[]).forEach(function(row){if(row.id===key){value=row.saved;}});
  return a.installed&&a.revision!==old.revision&&value===wanted;
 }

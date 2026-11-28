@@ -253,10 +253,10 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
                                    const char *settings_pkg, const char *sel_snap,
                                    int conflict, int removed_now) {
     int installed=0, retained=0, restart=removed_now, pending=empty_state, restart_fixed=0;
-    int developer=0, uart_cur=0, ssh_cur=0, wl_cur=0, as_cur=0, has_as=0, so_cur=0, has_so=0, has_oc2=0;
+    int developer=0, uart_cur=0, ssh_cur=0, wl_cur=0, as_cur=0, has_as=0, so_cur=0, has_so=0, ml_cur=0, has_ml=0, hs_cur=0, has_hs=0, has_oc2=0;
     int has_touch_cur=0, has_base_cur=0, has_pandora=0, has_base=0, has_wl=0;
     const char *rev="-", *notice="-", *touch="0", *warning="0", *uart="0", *owner_ssh="0";
-    const char *key="-", *pandora="", *base="", *wireless="", *autoshow="", *source_order="";
+    const char *key="-", *pandora="", *base="", *wireless="", *autoshow="", *source_order="", *menu_loop="", *hold_scroll="";
     const char *touch_cur="", *warning_cur="", *base_cur="", *sel_key="-";
     char inst_ver[64], run_ver[64], fp[128], acc_sel[65];
     int has_acc_sel=oc_read_hex64_file(ram,"access-selected",acc_sel);
@@ -290,6 +290,8 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
                 base=v_snap.prefs.base; has_base=1; wireless=v_snap.prefs.wireless; has_wl=1;
                 if (v_snap.prefs.has_autoshow) { autoshow=v_snap.prefs.autoshow; has_as=1; }
                 if (v_snap.prefs.has_source_order) { source_order=v_snap.prefs.source_order; has_so=1; }
+                if (v_snap.prefs.has_menu_loop) { menu_loop=v_snap.prefs.menu_loop; has_ml=1; }
+                if (v_snap.prefs.has_hold_scroll) { hold_scroll=v_snap.prefs.hold_scroll; has_hs=1; }
             }
             if (v_snap.has_access) {
                 developer=1; uart=v_snap.acc_fields[0]; owner_ssh=v_snap.acc_fields[1]; key=v_snap.acc_fields[2];
@@ -309,10 +311,12 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
             if (sel_snap && *sel_snap && oc_equal(sel_snap,view_id)) {
                 s_snap_loaded=1; sel_wl=oc_equal(v_snap.prefs.wireless,"1");
                 as_cur=oc_equal(v_snap.prefs.autoshow,"1"); so_cur=oc_equal(v_snap.prefs.source_order,"1");
+                ml_cur=oc_equal(v_snap.prefs.menu_loop,"1"); hs_cur=oc_equal(v_snap.prefs.hold_scroll,"1");
                 touch_cur=touch; warning_cur=warning; base_cur=base; has_touch_cur=1; if (has_base) has_base_cur=1;
             } else if (sel_snap && *sel_snap && oc_snap_read(data,sel_snap,s_snap,0,0,0,1,settings_pkg)) {
                 s_snap_loaded=2; sel_wl=oc_equal(s_snap->prefs.wireless,"1");
                 as_cur=oc_equal(s_snap->prefs.autoshow,"1"); so_cur=oc_equal(s_snap->prefs.source_order,"1");
+                ml_cur=oc_equal(s_snap->prefs.menu_loop,"1"); hs_cur=oc_equal(s_snap->prefs.hold_scroll,"1");
                 touch_cur=s_snap->prefs.touch; warning_cur=s_snap->prefs.warning; has_touch_cur=1;
                 if (s_snap->prefs.is_oc2) { base_cur=s_snap->prefs.base; has_base_cur=1; }
                 if (has_acc_sel && oc_equal(acc_sel,sel_snap) && s_snap->has_access) {
@@ -342,6 +346,8 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
     }
     if (has_as && (oc_equal(autoshow,"1")?1:0)!=as_cur) restart=1;
     if (has_so && (oc_equal(source_order,"1")?1:0)!=so_cur) restart=1;
+    if (has_ml && (oc_equal(menu_loop,"1")?1:0)!=ml_cur) restart=1;
+    if (has_hs && (oc_equal(hold_scroll,"1")?1:0)!=hs_cur) restart=1;
 
     long sdir=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
     int vok=sdir>=0 && oc_read_version_file((int)sdir,0,run_ver);
@@ -397,6 +403,14 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
     if (has_so) {
         j_kv_raw(&j,"sourceOrder",source_order);
         j_kv_raw(&j,"sourceOrderCurrent",so_cur?"1":"0");
+    }
+    if (has_ml) {
+        j_kv_raw(&j,"menuLoop",menu_loop);
+        j_kv_raw(&j,"menuLoopCurrent",ml_cur?"1":"0");
+    }
+    if (has_hs) {
+        j_kv_raw(&j,"holdScroll",hold_scroll);
+        j_kv_raw(&j,"holdScrollCurrent",hs_cur?"1":"0");
     }
     j_kv_bool(&j,"completionReady",0);
     j_raw(&j,"}\n");
@@ -843,6 +857,8 @@ static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
     else if (oc_equal(c->arg,"wireless")) slot=&api_snap_a.prefs.wireless;
     else if (oc_equal(c->arg,"carplay-autoshow")) { slot=&api_snap_a.prefs.autoshow; api_snap_a.prefs.has_autoshow=1; }
     else if (oc_equal(c->arg,"source-order")) { slot=&api_snap_a.prefs.source_order; api_snap_a.prefs.has_source_order=1; }
+    else if (oc_equal(c->arg,"menu-loop")) { slot=&api_snap_a.prefs.menu_loop; api_snap_a.prefs.has_menu_loop=1; }
+    else if (oc_equal(c->arg,"hold-scroll")) { slot=&api_snap_a.prefs.hold_scroll; api_snap_a.prefs.has_hold_scroll=1; }
     else {
         for (unsigned i=0; i<api_snap_a.prefs.svc_count; ++i)
             if (oc_equal(api_snap_a.prefs.svc_ids[i],c->arg)) { slot=&api_snap_a.prefs.svc_vals[i]; break; }
@@ -860,9 +876,11 @@ static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
     if (!oc_snap_read(c->data,c->rec[4],&api_snap_b,0,0,0,0,0)) return api_err(c,"originals_changed");
     const char *old_t=api_snap_a.prefs.touch, *old_w=api_snap_a.prefs.warning, *old_b=api_snap_a.prefs.base;
     const char *old_wl=api_snap_a.prefs.wireless, *old_as=api_snap_a.prefs.autoshow;
-    const char *old_so=api_snap_a.prefs.source_order, *cur_nvram=api_snap_a.prefs.nvram;
+    const char *old_so=api_snap_a.prefs.source_order, *old_ml=api_snap_a.prefs.menu_loop;
+    const char *old_hs=api_snap_a.prefs.hold_scroll, *cur_nvram=api_snap_a.prefs.nvram;
     int svc_changed = !is_touch && !oc_equal(c->arg,"warning") && !oc_equal(c->arg,"base") &&
-        !oc_equal(c->arg,"wireless") && !oc_equal(c->arg,"carplay-autoshow") && !oc_equal(c->arg,"source-order");
+        !oc_equal(c->arg,"wireless") && !oc_equal(c->arg,"carplay-autoshow") && !oc_equal(c->arg,"source-order") &&
+        !oc_equal(c->arg,"menu-loop") && !oc_equal(c->arg,"hold-scroll");
     *slot=(char *)c->des;
     const char *new_nvram=oc_equal(api_snap_a.prefs.touch,"1")?"disable":api_snap_b.prefs.nvram;
     api_snap_a.prefs.nvram=(char *)new_nvram;
@@ -870,9 +888,10 @@ static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
     int w_chg=!oc_equal(old_w,api_snap_a.prefs.warning), b_chg=!oc_equal(old_b,api_snap_a.prefs.base);
     int wl_chg=!oc_equal(old_wl,api_snap_a.prefs.wireless), as_chg=!oc_equal(old_as,api_snap_a.prefs.autoshow);
     int so_chg=!oc_equal(old_so,api_snap_a.prefs.source_order);
+    int ml_chg=!oc_equal(old_ml,api_snap_a.prefs.menu_loop), hs_chg=!oc_equal(old_hs,api_snap_a.prefs.hold_scroll);
     int need_mmui=w_chg||b_chg||svc_changed, need_plugins=b_chg||svc_changed;
     int need_sm=(oc_equal(old_t,"2")!=oc_equal(api_snap_a.prefs.touch,"2"))||w_chg||b_chg||wl_chg||svc_changed;
-    int need_index=w_chg||b_chg||svc_changed||as_chg||so_chg;
+    int need_index=w_chg||b_chg||svc_changed||as_chg||so_chg||ml_chg||hs_chg;
 
     char new_cfg[1024], wnonce[33], work_leaf[48];
     if (!oc_prefs_write(&cat,&api_snap_a.prefs,new_cfg,sizeof new_cfg) ||

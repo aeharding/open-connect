@@ -523,8 +523,11 @@ class InstallerApiNative(unittest.TestCase):
                     "OPEN_CONNECT_SO_CALL",
                     "OPEN_CONNECT_NAV_CALL",
                     "OPEN_CONNECT_AA_BEGIN",
+                    "OPEN_CONNECT_AA_END",
                     "OPEN_CONNECT_SO_BEGIN",
+                    "OPEN_CONNECT_SO_END",
                     "OPEN_CONNECT_NAV_BEGIN",
+                    "OPEN_CONNECT_NAV_END",
                 ):
                     self.assertNotIn(marker, rendered)
 
@@ -551,6 +554,8 @@ class InstallerApiNative(unittest.TestCase):
                     "OPEN_CONNECT_NAV_CALL",
                 ):
                     self.assertNotIn(marker, rendered)
+                self.assertEqual("reorderSources(app);" in rendered, so == "1")
+                self.assertEqual("installNav();" in rendered, ml == "1" or hs == "1")
                 if ml == "1" or hs == "1":
                     self.assertIn(f",{so},{ml},{hs}]", rendered)
                 else:

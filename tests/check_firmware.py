@@ -50,12 +50,14 @@ def private_output(path):
     runs_real = root_real / "runs"
     path = path.absolute()
     rel = None
-    for base in (ROOT.absolute(), root_real):
+    for base in (Path(__file__).absolute().parents[1], root_real):
         if path.is_relative_to(base):
             rel = path.relative_to(base)
             break
     if rel is None:
         raise ValueError("private output must be below the checkout's runs directory")
+    if ".." in rel.parts:
+        raise ValueError("private output must not contain '..' segments")
     cur = root_real
     for part in rel.parts:
         cur = cur / part
@@ -130,7 +132,7 @@ def run(command, output, name, **kwargs):
     return result
 
 
-def build(output, paths, host_cc):
+def build(output, paths):
     run(["make", "release", "OUT=" + str(output / "build")], output, "make", cwd=ROOT)
     version = (ROOT / "cmu/installer/VERSION").read_text().strip()
     source = output / f"build/usb/open-connect-{version}-usb/open-connect"
@@ -335,7 +337,7 @@ def host_contract(output, paths, host_cc, node):
             node,
             ROOT / "tests/fixtures/carplay.js",
             ASSETS,
-            paths["framework"].parent / "Websockets.js",
+            paths["websockets.js"],
         ],
         output,
         "carplay-stock-routing",
@@ -394,7 +396,7 @@ def main(argv=None):
         "passed": False,
     }
     try:
-        composed = build(output, paths, host_cc)
+        composed = build(output, paths)
         base_logging_contract(output, paths, host_cc, node, composed)
         host_contract(output, paths, host_cc, node)
         env = {

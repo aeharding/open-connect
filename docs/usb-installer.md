@@ -2,7 +2,7 @@
 
 Open Connect installs from a USB drive. After installation, change preferences or uninstall directly from Mazda Settings.
 
-**0.3.0-dev.24** is a development prerelease for North American version **74.00.324 NA N**. Real-car and physical-control qualification remain pending.
+**0.3.0-dev.26** is a development prerelease for North American version **74.00.324 NA N**. Real-car and physical-control qualification remain pending.
 
 ## 1. Check your firmware version
 

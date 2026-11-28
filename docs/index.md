@@ -8,7 +8,7 @@ Plug-and-play USB install.
 [Browse settings →](settings.md)
 { .oc-actions }
 
-<p class="oc-availability"><strong>0.3.0-dev.24</strong> is a development prerelease for North American Mazda Connect <strong>74.00.324</strong> only. Real-car qualification remains pending, and startup speed varies by setting.</p>
+<p class="oc-availability"><strong>0.3.0-dev.26</strong> is a development prerelease for North American Mazda Connect <strong>74.00.324</strong> only. Real-car qualification remains pending, and startup speed varies by setting.</p>
 
 <figure class="oc-screen oc-screen--lead">
   <div class="oc-screen-frame"><img src="assets/guide/setting-touchscreen.png" alt="Open Connect settings showing Touchscreen set to Always enabled, Startup disclaimer, Startup optimizations, CarPlay and Android Auto, and Audio sources." width="800" height="480"></div>

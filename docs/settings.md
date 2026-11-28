@@ -32,7 +32,7 @@ Change your preferences in Mazda’s own menus. Choices save automatically; use 
 
 <p>Choices save automatically. Use <a href="apply-changes.md">Apply changes</a> to restart Mazda Connect and activate them, or let them take effect on the next full startup.</p>
 
-<p><strong>0.3.0-dev.24</strong> is a development prerelease for North American version <strong>74.00.324A</strong>. Bench checks cover installation, Settings, Apply changes and Uninstall; real-car qualification remains pending.</p>
+<p><strong>0.3.0-dev.26</strong> is a development prerelease for North American version <strong>74.00.324A</strong>. Bench checks cover installation, Settings, Apply changes and Uninstall; real-car qualification remains pending.</p>
 
 <span id="change-a-preference"></span>
 

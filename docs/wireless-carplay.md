@@ -34,7 +34,7 @@ Connect your iPhone to CarPlay without plugging in a USB cable. Open Connect ena
 
 <p>Uses Wi-Fi for CarPlay and requires compatible hardware and phone pairing. Wired CarPlay remains available when off. Turning on both <a href="startup-optimizations.md">Startup optimizations</a> and this override delays Mazda Navigation startup by about <strong>20 s</strong> (factory-enabled units are not affected).</p>
 
-<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. Real-car audio, physical controls and long-parked reliability remain unqualified on <strong>0.3.0-dev.24</strong> (<strong>74.00.324A NA</strong>).</p>
+<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. Real-car audio, physical controls and long-parked reliability remain unqualified on <strong>0.3.0-dev.26</strong> (<strong>74.00.324A NA</strong>).</p>
 
 <span id="connect-an-iphone"></span>
 

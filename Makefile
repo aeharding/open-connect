@@ -34,7 +34,8 @@ IGNITION_SRCS = cmu/installer/ignition.c cmu/installer/core/oc-hash.c cmu/instal
 CORE_HDR = cmu/installer/core/oc-core.h
 NATIVE_FLAGS = --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard \
     -mfpu=vfpv3 -Oz -ffreestanding -fPIC -fvisibility=hidden \
-    -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector
+    -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector \
+    -Wall -Wextra -Werror
 
 .PHONY: release native check-ui
 release: native $(OUT)/touch-disable.so $(OUT)/api $(OUT)/install $(OUT)/flush $(OUT)/boot-select $(OUT)/ignition $(OUT)/vui-path.bin $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin count-pointer.bin)
@@ -130,7 +131,7 @@ $(OUT)/touch-stubs/svc-com-jci-cpp-devices.so $(OUT)/touch-stubs/libdl.so.2: $(O
 
 # Unwind tables are required: OEM getDevice can throw through this C frame.
 $(OUT)/touch-disable.o: cmu/features/touch/disable.c | $(OUT)
-	$(CLANG) $(filter-out -fno-unwind-tables -fno-asynchronous-unwind-tables,$(NATIVE_FLAGS)) -funwind-tables -Wall -Wextra -Werror -c "$<" -o "$@"
+	$(CLANG) $(filter-out -fno-unwind-tables -fno-asynchronous-unwind-tables,$(NATIVE_FLAGS)) -funwind-tables -c "$<" -o "$@"
 
 $(OUT)/touch-disable.so: $(OUT)/touch-disable.o $(OUT)/touch-stubs/svc-com-jci-cpp-devices.so $(OUT)/touch-stubs/libdl.so.2
 	set -eu; trap 'rm -f "$@.tmp"' EXIT; \

@@ -5,9 +5,11 @@ set -eu
 export LC_ALL=C
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 
+test "$#" -ge 3 || exit 64
 seconds=$1 interval=$2 token=$3
 shift 3
-case "$seconds:$interval" in *[!0-9:]*) exit 64;; esac
+case "$seconds" in ''|*[!0-9]*) exit 64;; esac
+case "$interval" in ''|*[!0-9]*) exit 64;; esac
 case "$token" in ''|*[!0-9a-f]*) exit 64;; esac
 test "$seconds" -ge 1
 test "$seconds" -le 600

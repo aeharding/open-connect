@@ -219,3 +219,23 @@ class MetricsTests(unittest.TestCase):
             self.assertTrue(manifest["ssh_closed"])
         self.assertEqual(len(children), 1)
         self.assertIsNotNone(children[0].poll())
+
+    def test_collector_script_rejects_missing_empty_and_colon_args(self):
+        script = metrics.ROOT / "cmu/bench/metrics.sh"
+        for argv in (
+            [],
+            ["10", "1"],
+            ["", "1", TOKEN],
+            ["10", "", TOKEN],
+            ["1:2", "1", TOKEN],
+            ["10", "1:2", TOKEN],
+        ):
+            with self.subTest(argv=argv):
+                res = subprocess.run(
+                    ["/bin/sh", str(script), *argv],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                self.assertEqual(res.returncode, 64, res.stderr)
+                self.assertEqual(res.stderr, "")

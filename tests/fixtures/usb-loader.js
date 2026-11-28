@@ -59,4 +59,12 @@ f.advance(65000);assert.equal(f.ctx.__ocUSBLoading,undefined);assert.equal(disco
 assert.equal(f.ctx.OpenConnectMaintenance,null);assert.ok(metadata.aborted);
 f.reply(metadata,f.metadata({installed:false,installedVersion:'-'}));f.advance(1000);
 assert.equal(f.dialog,undefined);assert.equal(f.timers.size,0,'late metadata cannot renew abandoned discovery');
+// Malformed token/port on a legacy discovery entry immediately cancels discovery and removes the node.
+f=fixture(folder,{installed:false});
+const bad=f.legacyUSB(0,'not-a-valid-token','session-BAD123');
+assert.ok(f.ctx.__ocUSBLoading);
+f.deliver(bad);
+assert.equal(f.ctx.__ocUSBLoading,undefined,'invalid token must release discovery hold immediately');
+assert.equal(bad.parentNode,null,'invalid token must remove loader node');
+assert.equal(f.scripts.filter(n=>n.src.endsWith('/maintenance.js')).length,0);
 console.log('Legacy Navigate: bounded pre-delivery ownership, replacement, paired late callbacks and helper timeout passed');

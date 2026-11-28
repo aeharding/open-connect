@@ -73,6 +73,7 @@ omit_service {
     if(sm_name=="stage_wifi") wifi_stage++
     if(sm_name=="jciVBS") vbs++
     if(sm_name=="jciMMUI" && prefs["base"]=="1" && prefs["warning"]!="1") {
+        mmui_path++
         if(attribute("path")!="/jci/mmui/svcjcimmui.so") refuse()
         put_attribute("path","/tmp/open-connect/feature/mmui.so")
     }
@@ -199,6 +200,7 @@ END {
     for(name in service_owner) if(service_hits[name]!=1) exit 1
     if(prefs["base"]=="1") {
         if(vui!=1) exit 1
+        if(prefs["warning"]!="1" && mmui_path!=1) exit 1
         for(name in base_hits) if(base_hits[name]!=1) exit 1
         for(name in base_affinity) if(base_affinity[name]!=1) exit 1
         if(aha_edges["stage_vr"]!=1 || aha_edges["stage_gap2"]!=1 || aha_edges["stage_wifi"]!=1) exit 1

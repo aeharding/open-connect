@@ -1729,18 +1729,7 @@ class NativeInstall(unittest.TestCase):
             self.assertEqual(r_kv["error"], "base_inputs_changed")
             self.assertFalse(data.exists())
 
-            pan_vui = vui_dir / "vui_plugin_pandora.so"
-            saved_pan_vui = pan_vui.read_bytes()
-            pan_vui.write_bytes(b"drifted pandora vui\n")
-            (vol / "open-connect.prefs").write_text("OCPREFS1\nbase=1\nservice.pandora=1\n")
-            p_pv, r_pv = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
-            self.assertNotEqual(p_pv.returncode, 0)
-            self.assertEqual(r_pv["error"], "base_inputs_changed")
-            self.assertFalse(data.exists())
-            # Keep pan_vui drifted across step 3 (base=1 + service.pandora=0) to prove disabled-service
-            # VUI plugins do not block oc_check_preset_pins(), then restore before service.pandora=1 import.
-
-            # Malformed/truncated ui-modules.tsv fails closed with zero flash writes!
+            # Malformed/truncated ui-modules.tsv fails closed on an undrifted VUI tree with zero flash writes!
             saved_uimod = (usb_sess / "ui-modules.tsv").read_bytes()
             saved_mf0 = (usb_sess / "files.sha256").read_bytes()
             for bad_case, bad_ui in (
@@ -1770,6 +1759,17 @@ class NativeInstall(unittest.TestCase):
             (usb_sess / "files.sha256").write_bytes(saved_mf0)
             (usb_sess / "files.sha256").chmod(0o600)
             shutil.copyfile(usb_sess / "files.sha256", vol / "open-connect/files.sha256")
+
+            pan_vui = vui_dir / "vui_plugin_pandora.so"
+            saved_pan_vui = pan_vui.read_bytes()
+            pan_vui.write_bytes(b"drifted pandora vui\n")
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nbase=1\nservice.pandora=1\n")
+            p_pv, r_pv = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
+            self.assertNotEqual(p_pv.returncode, 0)
+            self.assertEqual(r_pv["error"], "base_inputs_changed")
+            self.assertFalse(data.exists())
+            # Keep pan_vui drifted across step 3 (base=1 + service.pandora=0) to prove disabled-service
+            # VUI plugins do not block oc_check_preset_pins(), then restore before service.pandora=1 import.
 
             # 3) Valid fresh-install preset (comments + CRLF + touch=2 + base=1 + all toggles)
             (vol / "open-connect.prefs").write_bytes(

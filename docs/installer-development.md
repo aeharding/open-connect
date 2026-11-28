@@ -202,14 +202,17 @@ until restart. Settings uninstall has no USB-specific warning.
 The additive read-only `completionReady` status field is returned as `true` only
 by `status|completion|-|-` (`oc_handle_completion` in `cmu/installer/core/oc-api.c`);
 `status|settings|-|-` and default `status|-|-|-` always return `completionReady: false`.
-`status|completion` requires settled, conflict-free installed state, the installed
-notice, no restart requirement, `selected == current`, and the volatile
-`/tmp/open-connect/boot-id` symlink matching the recorded boot identity (a missing
-or malformed marker fails closed, with no kernel-UUID fallback). It skips re-hashing
-`GuiFramework.js` and `lvds_service` (which stay audited by default `status|-|-|-`
-and every mutation). The client additionally matches the boot page's
-token/version/notice to fresh installed-version evidence, including when
-maintenance USB remains inserted. Normal notice-free startup adds no status request.
+`status|completion` verifies a settled `active` record, `selected == current`,
+the volatile `/tmp/open-connect/boot-id` symlink matching the recorded boot
+identity (a missing or malformed marker fails closed, with no kernel-UUID fallback),
+and snapshot/package/session manifest and version metadata (`verify_all=0`),
+returning `completionReady: true` only when `notice == "installed"`. It skips
+`oc_api_match_cur` conflict/target/dependency auditing, restart computation, and
+re-hashing `GuiFramework.js` / `lvds_service` (those hashes are still checked by
+`status|settings|-|-`, default `status|-|-|-`, and every mutation). The client
+additionally matches the boot page's token/version/notice to fresh installed-version
+evidence, including when maintenance USB remains inserted. Normal notice-free
+startup adds no status request.
 
 ### Settings follow-up (offline)
 
@@ -344,17 +347,17 @@ regional/hardware findings are recorded in
 [DVD gating](reverse-engineering.md#dvd-hardware-and-regional-gating-offline-v74-na-analysis).
 
 Upgrade reads prior `OC2` snapshots natively in C (`oc_prefs_parse` in
-`cmu/installer/core/oc-compose.c` / `oc-config.c`). During migration from
-dev.15–dev.20 snapshots, the parser accepts the retired `service.dvd=0` or `1`
-entry and older sorted `service-ids` list, validates them, and drops DVD from
-the newly written snapshot while preserving `base` and all remaining choices.
-New decodes, commands and profiles require the reduced catalog; there is no DVD
-toggle. Original baselines remain unchanged.
+`cmu/installer/core/oc-config.c`). During migration from dev.15–dev.20
+snapshots, `oc_build_install_prefs` (`cmu/installer/core/oc-compose.c`) accepts
+the retired `service.dvd=0` or `1` entry and older sorted `service-ids` list,
+validates them, and drops DVD from the newly written snapshot while preserving
+`base` and all remaining choices. New decodes, commands and profiles require
+the reduced catalog; there is no DVD toggle. Original baselines remain unchanged.
 
 The stock 5-field baseline (`package=-`, emitted on fresh install and uninstall)
-remains admitted; active 8-field dev.9 records and older 5–7-field active
-installs were retired and are refused by `oc-config.c` (`OC2` required). Native
-selection tests check a single durable debit rather than treating plan
+remains admitted; active 8-field dev.9 snapshot configs and older 5–7-field
+active configs were retired and are refused by `oc-config.c` (`OC2` required).
+Native selection tests check a single durable debit rather than treating plan
 validation as selection.
 
 ## Qualification

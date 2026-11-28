@@ -35,6 +35,6 @@ Open **<span class="oc-nav-path" data-walkthrough="audio-sources">Mazda Settings
 
 ## Testing
 
-These are development controls for **74.00.324A NA/cmu150_NA**. Published **0.3.0-dev.20** has [matched cold ACC-off Stock/Base cohorts and a separate n=1 toggle sweep](performance.md#published-dev20-cold-acc-off-comparison-2026-11-25). Later bench checks covered same-version Reinstall, DVD policy/migration, Source order, and Settings Uninstall without adding a new performance cohort. Real-car checks, Android-phone use and equipped SiriusXM playback remain unqualified.
+These are development controls for **74.00.324A NA/cmu150_NA**. Published **0.3.0-dev.20** has [matched cold ACC-off Stock/Base cohorts and a separate n=1 toggle sweep](performance.md#published-dev20-cold-acc-off-comparison-2026-11-25), and **0.3.0-dev.26** adds a separate [matched software-reboot Stock/Base cohort](performance.md#published-dev26-software-reboot-resource-comparison-2026-11-28). Later bench checks covered same-version Reinstall, DVD policy/migration, Source order, and Settings Uninstall without a new cold ACC-off toggle sweep. Real-car checks, Android-phone use and equipped SiriusXM playback remain unqualified.
 
 Each setting page links its evidence and limits. Total Home gains versus Stock Show include disclaimer Skip; they do not establish zero boot/CPU/RAM overhead.

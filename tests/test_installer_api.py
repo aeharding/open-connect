@@ -741,3 +741,76 @@ class InstallerApiNative(unittest.TestCase):
             proc, res = call()
             self.assertNotEqual(proc.returncode, 0)
             self.assertEqual(res, {"ok": False, "error": "session_replaced"})
+
+    def test_oc_run_cmd_io_closed_stdio_and_fd_swap(self):
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            src = d / "probe.c"
+            exe = d / "probe"
+            src.write_text(
+                '#include "oc-core.h"\n'
+                "#include <fcntl.h>\n"
+                "#include <stdio.h>\n"
+                "#include <string.h>\n"
+                "#include <unistd.h>\n"
+                "int main(int argc, char **argv) {\n"
+                '    const char *mode = argc > 1 ? argv[1] : "";\n'
+                "    char cap[64] = {0};\n"
+                '    if (strcmp(mode, "pfd01") == 0) {\n'
+                "        int fd = open(argv[2], O_RDONLY | O_CLOEXEC);\n"
+                "        int hi = fcntl(fd, F_DUPFD_CLOEXEC, 10);\n"
+                "        close(fd); close(0); close(1);\n"
+                '        char *av[] = {"/bin/cat", 0};\n'
+                '        int rc = oc_run_cmd_io("/bin/cat", av, hi, -1, cap, sizeof cap, -1);\n'
+                '        return (rc == 0 && strcmp(cap, "hello\\n") == 0) ? 0 : 1;\n'
+                "    }\n"
+                '    if (strcmp(mode, "devnull0") == 0) {\n'
+                "        close(0); close(1); close(2);\n"
+                '        char *av[] = {"/bin/sh", "-c", "exec 3<&0 4>&1 5>&2", 0};\n'
+                '        return oc_run_cmd_io("/bin/sh", av, -1, -1, 0, 0, -1) == 0 ? 0 : 1;\n'
+                "    }\n"
+                '    if (strcmp(mode, "pfd02") == 0) {\n'
+                "        int fd = open(argv[2], O_RDONLY | O_CLOEXEC);\n"
+                "        int hi = fcntl(fd, F_DUPFD_CLOEXEC, 10);\n"
+                "        close(fd); close(0); close(2);\n"
+                '        char *av[] = {"/bin/sh", "-c", "cat; exec 5>&2", 0};\n'
+                '        int rc = oc_run_cmd_io("/bin/sh", av, hi, -1, cap, sizeof cap, -1);\n'
+                '        return (rc == 0 && strcmp(cap, "hello\\n") == 0) ? 0 : 1;\n'
+                "    }\n"
+                '    if (strcmp(mode, "swap01") == 0) {\n'
+                "        int in_f = open(argv[2], O_RDONLY | O_CLOEXEC);\n"
+                "        int out_f = open(argv[3], O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);\n"
+                "        dup2(out_f, 0); dup2(in_f, 1); close(in_f); close(out_f);\n"
+                '        char *av[] = {"/bin/cat", 0};\n'
+                '        return oc_run_cmd_io("/bin/cat", av, 1, 0, 0, 0, -1) == 0 ? 0 : 1;\n'
+                "    }\n"
+                "    return 2;\n"
+                "}\n"
+            )
+            subprocess.run(
+                [
+                    "clang",
+                    "-DOC_HOST",
+                    "-O2",
+                    "-Wall",
+                    "-Wextra",
+                    "-Werror",
+                    f"-I{ASSETS / 'core'}",
+                    str(src),
+                    str(ASSETS / "core/oc-io.c"),
+                    str(ASSETS / "core/oc-hash.c"),
+                    str(ASSETS / "core/oc-manifest.c"),
+                    "-o",
+                    str(exe),
+                ],
+                check=True,
+                timeout=20,
+            )
+            inp = d / "in.txt"
+            out = d / "out.txt"
+            inp.write_text("hello\n")
+            for mode in ("pfd01", "devnull0", "pfd02", "swap01"):
+                with self.subTest(mode=mode):
+                    r = subprocess.run([str(exe), mode, str(inp), str(out)], timeout=10)
+                    self.assertEqual(r.returncode, 0)
+            self.assertEqual(out.read_text(), "hello\n")

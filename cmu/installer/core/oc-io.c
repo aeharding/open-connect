@@ -103,6 +103,7 @@ long oc_pipe(int fds[2]) {
     return 0;
 }
 long oc_dup2(int oldfd, int newfd) { return dup2(oldfd,newfd)<0?-errno:0; }
+static long oc_dup(int fd) { int r=dup(fd); return r<0?-errno:r; }
 long oc_execve(const char *path, char *const argv[], char *const envp[]) {
     execve(path,argv,envp); return -errno;
 }
@@ -315,6 +316,7 @@ long oc_pipe(int fds[2]) {
     return r;
 }
 long oc_dup2(int oldfd, int newfd) { return oc_syscall4(63,oldfd,newfd,0,0); }
+static long oc_dup(int fd) { return oc_syscall4(41,fd,0,0,0); }
 long oc_execve(const char *path, char *const argv[], char *const envp[]) {
     return oc_syscall4(11,(long)path,(long)argv,(long)envp,0);
 }
@@ -522,19 +524,15 @@ int oc_absent_at(int root, const char *path) {
 
 int oc_text_fd(int fd, char *out, unsigned capacity) {
     unsigned total=0;
-    while (total<capacity-1) {
-        long n=oc_read(fd,out+total,capacity-1-total);
+    while (total<capacity) {
+        long n=oc_read(fd,out+total,capacity-total);
         if (n==-4) continue;
         if (n<0) return -1;
         if (!n) { out[total]=0; return (int)total; }
         for (long i=0; i<n; ++i) if (!out[total+i]) return -1;
         total+=(unsigned)n;
     }
-    char extra; long eof;
-    do { eof=oc_read(fd,&extra,1); } while (eof==-4);
-    if (eof!=0) return -1;
-    out[total]=0;
-    return (int)total;
+    return -1;
 }
 
 int oc_text(int root, const char *path, char *out, unsigned capacity, int virtual_file) {
@@ -659,6 +657,10 @@ int oc_copy_file_at(int src_dir, const char *src_name, int dst_dir, const char *
     return ok;
 }
 
+static void oc_wire_fd(int src, int dst) {
+    if (src==dst) (void)oc_set_cloexec(dst,0);
+    else (void)oc_dup2(src,dst);
+}
 #ifdef OC_HOST
 extern char **environ;
 #endif
@@ -673,25 +675,29 @@ int oc_run_cmd_io(const char *path, char *const argv[], int in_fd, int out_fd,
     }
     if (pid==0) {
         if (keep_fd>=0) (void)oc_set_cloexec(keep_fd,0);
+        if (pfd[0]>=0) (void)oc_close(pfd[0]);
+        int wfd=cap_buf ? pfd[1] : out_fd;
+        if (wfd==0 && in_fd==1) {
+            long tmp=oc_dup(in_fd);
+            if (tmp<0) oc_exit(127);
+            (void)oc_set_cloexec((int)tmp,1);
+            in_fd=(int)tmp;
+        }
+        if (wfd==0) {
+            oc_wire_fd(wfd,1);
+            if (in_fd>=0) oc_wire_fd(in_fd,0);
+        } else {
+            if (in_fd>=0) oc_wire_fd(in_fd,0);
+            if (wfd>=0) oc_wire_fd(wfd,1);
+        }
+        if (in_fd>=2 && in_fd!=keep_fd) (void)oc_close(in_fd);
+        if (wfd>=2 && wfd!=in_fd && wfd!=keep_fd) (void)oc_close(wfd);
         long devnull=oc_openat(OC_CWD,"/dev/null",OC_RW,0);
         if (devnull>=0) {
-            if (in_fd<0) (void)oc_dup2((int)devnull,0);
-            (void)oc_dup2((int)devnull,2);
-            if (!cap_buf && out_fd<0) (void)oc_dup2((int)devnull,1);
+            if (in_fd<0) oc_wire_fd((int)devnull,0);
+            if (wfd<0) oc_wire_fd((int)devnull,1);
+            oc_wire_fd((int)devnull,2);
             if (devnull>2) (void)oc_close((int)devnull);
-        }
-        if (in_fd>=0) {
-            if (in_fd==0) (void)oc_set_cloexec(0,0);
-            else { (void)oc_dup2(in_fd,0); if (in_fd>2) (void)oc_close(in_fd); }
-        }
-        if (cap_buf) {
-            if (pfd[1]==1) (void)oc_set_cloexec(1,0);
-            else (void)oc_dup2(pfd[1],1);
-            if (pfd[0]!=1) (void)oc_close(pfd[0]);
-            if (pfd[1]!=1) (void)oc_close(pfd[1]);
-        } else if (out_fd>=0) {
-            if (out_fd==1) (void)oc_set_cloexec(1,0);
-            else { (void)oc_dup2(out_fd,1); if (out_fd>2) (void)oc_close(out_fd); }
         }
 #ifdef OC_HOST
         (void)oc_execve(path,argv,environ);

@@ -49,26 +49,21 @@ static int oc_ignition_main(int argc, char **argv) {
         if (oc_decimal(ms_env,&v) && v>=1 && v<=5000) sleep_ms=(unsigned)v;
     }
 #endif
-    int root=(int)oc_openat(OC_CWD,root_path,OC_DIRECTORY,0);
+    int root=(int)oc_openat(OC_CWD,root_path,OC_DIRECTORY,0), ram=-1, rc=1;
+    long ig_lock=-1;
     if (root<0) return 1;
-    int ram=oc_open_ram_dir(root);
-    if (ram<0) { (void)oc_close(root); return 1; }
-
+    ram=oc_open_ram_dir(root);
     char boot[37];
-    if (!oc_ig_boot_id(ram,owner,group,boot) || (argc==2 && !oc_equal(argv[1],boot))) {
-        (void)oc_close(ram); (void)oc_close(root); return 1;
-    }
+    if (ram<0 || !oc_ig_boot_id(ram,owner,group,boot) || (argc==2 && !oc_equal(argv[1],boot))) goto out;
 
     /* One observer per kernel, independent of USB or listener readiness. */
-    long ig_lock=oc_ig_open_lock(ram,"ignition.lock",OC_RW|OC_CREATE,owner,group);
-    if (ig_lock<0) { (void)oc_close(ram); (void)oc_close(root); return 1; }
+    ig_lock=oc_ig_open_lock(ram,"ignition.lock",OC_RW|OC_CREATE,owner,group);
+    if (ig_lock<0) goto out;
     long lr=oc_lock((int)ig_lock);
-    if (lr<0) {
-        (void)oc_close((int)ig_lock); (void)oc_close(ram); (void)oc_close(root);
-        return oc_is_wouldblock(lr) ? 0 : 1;
-    }
+    if (lr<0) { rc=oc_is_wouldblock(lr)?0:1; goto out; }
 
-    int seen_on=0, off_samples=0, rc=0;
+    int seen_on=0, off_samples=0;
+    rc=0;
     const char *recorded="-";
     for (;;) {
         OcMeta bm;
@@ -108,8 +103,9 @@ static int oc_ignition_main(int argc, char **argv) {
         recorded=wanted;
         oc_sleep_ms(sleep_ms);
     }
-    (void)oc_close((int)ig_lock);
-    (void)oc_close(ram);
+out:
+    if (ig_lock>=0) (void)oc_close((int)ig_lock);
+    if (ram>=0) (void)oc_close(ram);
     (void)oc_close(root);
     return rc;
 }

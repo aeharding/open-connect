@@ -405,3 +405,64 @@ f.reply(f.operation('recover')[0],f.state({pending:false,restart:false,notice:'-
 assert.equal(f.ctx.OpenConnectCompletion,null);
 const reqsAfterRecover=f.requests.length;f.advance(5000);
 assert.equal(f.requests.length,reqsAfterRecover);
+
+// Rejected USB replacement via loader.js during an active write must not clobber
+// __ocMaintenanceGeneration or kill the active owner's error/unresolved modal.
+for(const unresolved of [true,false]){
+ f=fresh();metadata(f);f.pick('install');
+ const ownerA=f.ctx.OpenConnectMaintenance,genA=f.ctx.__ocMaintenanceGeneration;
+ const writeA=f.operation('install')[0];
+ f.usb(Infinity,'e'.repeat(32));
+ assert.equal(f.ctx.OpenConnectMaintenance,ownerA);
+ assert.equal(f.ctx.__ocMaintenanceGeneration,genA,'rejected USB must not clobber active generation');
+ if(unresolved){
+  f.reply(writeA,null);f.advance(12000);
+  assert.equal(f.ctx.OpenConnectMaintenance,ownerA);
+  assert.equal(ownerA.protected(),true);
+  assert.equal(ownerA.busy(),false,'unresolved write permits later USB recovery replacement');
+  assert.match(f.dialog.props.title,/Unable to confirm/);
+ }else{
+  f.reply(writeA,{ok:false,error:'stale_state'});
+  f.reply(f.requests.at(-1),f.state({installed:false,installedVersion:'-',revision:'-'}));
+  assert.equal(f.ctx.OpenConnectMaintenance,ownerA);
+  assert.match(f.dialog.props.title,/Unable to finish/);
+ }
+}
+
+// Definite refusal during boot-completion recovery closes OpenConnectCompletion on OK
+// and unblocks subsequent USB maintenance.
+f=fixture(folder,{notice:'installed'});f.install();
+f.reply(f.requests[0],{ok:false,error:'operation_pending'});
+f.reply(f.requests.at(-1),f.state({pending:true,revision:'e'.repeat(32)}));
+f.reply(f.operation('recover')[0],{ok:false,error:'stale_state'});
+f.reply(f.requests.at(-1),f.state({pending:false,restart:false,notice:'-'}));
+assert.match(f.dialog.props.title,/Unable to finish/);
+f.pick('done');
+assert.equal(f.ctx.OpenConnectCompletion,null);
+assert.equal(f.timers.size,0);
+f.usb();metadata(f);assert.match(f.dialog.props.title,/Install/);
+
+// Boot-completion recovery hitting unresolved state stops idle 1s polling once modal is dismissed.
+f=fixture(folder,{notice:'installed'});f.install();
+f.reply(f.requests[0],{ok:false,error:'operation_pending'});
+f.reply(f.requests.at(-1),f.state({pending:true,revision:'e'.repeat(32)}));
+f.reply(f.operation('recover')[0],null);f.advance(12000);
+assert.match(f.dialog.props.title,/Unable to confirm/);
+f.pick('done');assert.equal(f.timers.size,0);
+
+// Dismissing USB "Unable to finish" via Commander goBack closes the USB session cleanly.
+f=fresh();f.advance(65000);
+assert.match(f.dialog.props.title,/Unable to finish/);
+f.fw.common.handleControllerEvent('goBack',false);
+assert.equal(f.operation('dismiss').length,1);
+f.reply(f.operation('dismiss')[0],{ok:true});
+assert.equal(f.ctx.OpenConnectMaintenance,null);
+
+// Commander *Hold events during USB progress are swallowed without cancelling progress.
+f=fresh();metadata(f);f.pick('install');
+for(const key of ['selectHold','leftHold','rightHold','upHold','downHold','goBackHold']){
+ assert.equal(f.fw.common.handleControllerEvent(key,false),undefined,key+' swallowed during progress');
+}
+assert.equal(f.dialog.props.contentStyle,'style27');
+assert.equal(f.fw.common.handleControllerEvent('home',false),'Mazda input');
+assert.equal(f.dialog,undefined);

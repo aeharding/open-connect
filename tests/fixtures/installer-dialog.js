@@ -18,7 +18,7 @@ for(const event of ['Global.StartHelp','Global.StartExamples']){
  const x=fixture(path.dirname(process.argv[2]));x.install();const helper=x.ctx.OpenConnectInstaller,home=x.armHome();
  assert.equal(helper.claim(x.fw),true);const progress=helper.progress(x.fw,'Applying','Keep power on',()=>{});
  assert.ok(progress);assert.equal(home.button._holdTimeoutId,null);assert.equal(home.button._isEnabled,false);
- for(const key of ['select','selectStart','goBack','cw','ccw','left','right','up','down'])assert.equal(x.fw.common.handleControllerEvent(key,false),undefined);
+ for(const key of ['select','selectStart','selectHold','goBack','goBackHold','cw','ccw','left','leftHold','right','rightHold','up','upHold','down','downHold'])assert.equal(x.fw.common.handleControllerEvent(key,false),undefined);
  for(const type of ['mousedown','mouseup','click']){const e=x.touch(type);assert.equal(e.stopped,true);assert.equal(e.defaultPrevented,true);}
  x.advance(600);assert.deepEqual(home.fired,[],'prearmed hold is released without firing any callback');
  assert.equal(x.fw.common._messageTable[event](),'native voice');assert.equal(x.dialog,undefined);
@@ -28,3 +28,16 @@ for(const event of ['Global.StartHelp','Global.StartExamples']){
  assert.equal(x.touch('click').stopped,undefined);helper.release(x.fw);
 }
 console.log('Installed native progress: touch/commander suppression, Home hold cleanup and exact Help/Examples restoration passed');
+// Re-entrant destroyControl cannot drive ocCarPlay.dialogs negative.
+{
+ const x=fixture(path.dirname(process.argv[2]));
+ x.ctx.ocCarPlay={loaded:0,early:[],cancel(){},pump(){},wrap(){}};
+ const origDestroy=x.fw.destroyControl;
+ let reenter=true;
+ x.fw.destroyControl=function(c){if(reenter){reenter=false;return x.fw.destroyControl(c);}return origDestroy.call(this,c);};
+ x.install();
+ const d=x.fw.instantiateControl('system',x.ctx.document.body,'Dialog3Ctrl',{buttonConfig:{button1:{appData:'done'}}});
+ assert.equal(x.ctx.ocCarPlay.dialogs,1);
+ x.fw.destroyControl(d);
+ assert.equal(x.ctx.ocCarPlay.dialogs,0);
+}

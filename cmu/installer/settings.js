@@ -169,7 +169,8 @@ if(active||!inTab(fw)||!host||!host.list2Ctrl)return false;
 var prefs=preferences(store);if(!prefs)return false;
 var page,choice,dismiss=null,wait=null,moving=null,closed=false,leaving=false,ns=false,undo=[];
 var parent=host.divElt.parentNode,oldD=host.divElt.style.display,tab=fw.getCurrCtxtId();
-var R="after restarting Mazda Connect.",T="Try again in a moment.";
+var R="after restarting Mazda Connect.",CA="Changes apply "+R,T="Try again in a moment.";
+function okMsg(t,x,d){return dialogs.message(fw,t,x,{button1:{label:"OK",appData:"done"}},d);}
 function current(){return!closed&&!leaving&&fw._currTmpltInstance===host&&inTab(fw)&&fw.getCurrCtxtId()===tab;}
 function endWait(w){if(w&&wait!==w)return;w=wait;wait=null;if(w)w.close();}
 function discard(p){if(p){p.cleanUp();if(p.divElt.parentNode)p.divElt.parentNode.removeChild(p.divElt);}}
@@ -189,6 +190,7 @@ var v=prefs.failure?null:prefs.values();
 if(!v){index="unknown";focus=0;}
 var rows=[],title="Open Connect",i,row;
 function action(t,k,c,d){rows.push({text1:t,itemStyle:"style01",hasCaret:!!c,appData:k,disabled:!!d});}
+function addToggle(t,k){if(has(v,k))rows.push(toggle(t,v[k],k));}
 function entry(i){
 var e=entries[i];
 if(has(v,e.key))rows.push({text1:e.title,label1:i===2?["Factory","Auto"][v.carplayAutoshow]:i===3?["Factory","Phone first"][v.sourceOrder]:e.choices[v[e.key]],
@@ -198,11 +200,11 @@ function integrations(phone){
 if(v.services)v.services.forEach(function(s){
 if((s.id==="android-auto")===phone)rows.push(toggle(s.label+(s.current===null?" (startup unknown)":s.current!==s.saved?" (restart needed)":""),s.saved,s.id));
 });
-else if(!phone&&has(v,"pandora"))rows.push(toggle("Pandora",v.pandora,"pandora"));
+else if(!phone)addToggle("Pandora","pandora");
 }
 if(index===null){
 entry(0);entry(1);
-if(has(v,"base"))rows.push(toggle("Startup optimizations",v.base,"base"));
+addToggle("Startup optimizations","base");
 if(has(v,"wireless")||has(v,"carplayAutoshow")||service(v,"android-auto"))action("CarPlay & Android Auto","phone",true);
 if(v.services||has(v,"pandora")||has(v,"sourceOrder"))action("Audio sources","sources",true);
 if(has(v,"menuLoop")||has(v,"holdScroll"))action("Commander Dial","dial",true);
@@ -222,8 +224,8 @@ action("Return to Mazda Settings",0);
 }else if(index==="sources"){title="Audio sources";entry(3);integrations(false);
 }else if(index==="dial"){
 title="Commander Dial";
-if(has(v,"menuLoop"))rows.push(toggle("Wrap-around menus & lists",v.menuLoop,"menuLoop"));
-if(has(v,"holdScroll"))rows.push(toggle("Faster hold-scroll",v.holdScroll,"holdScroll"));
+addToggle("Wrap-around menus & lists","menuLoop");
+addToggle("Faster hold-scroll","holdScroll");
 }else if(index==="backup"){
 title="Backup & restore";
 action("Export preferences","exportPrefs",true,!isFn(store.exportPrefs));
@@ -266,7 +268,7 @@ function showWait(t){endWait();wait=dialogs.progress(fw,t,"Do not turn off the c
 function runAction(a){
 if(a==="restart"&&!canRestart()){prefs.changed(false);return;}
 if(store[a](close))return;
-dismiss=dialogs.message(fw,T,"Another action is finishing.",{button1:{label:"OK",appData:"done"}},function(a){dismiss=null;if(a!=="closed"&&current())prefs.changed(false);});
+dismiss=okMsg(T,"Another action is finishing.",function(a){dismiss=null;if(a!=="closed"&&current())prefs.changed(false);});
 }
 function maintain(a){
 dismiss=null;if(!current()||(a!=="restart"&&a!=="uninstall"))return;
@@ -295,7 +297,7 @@ if(dismiss)dismiss();
 render(origin,item);
 if(choice!==origin)return true;
 var m=doneMsg(act);
-dismiss=dialogs.message(fw,m[0],m[1],{button1:{label:"OK",appData:"done"}},function(){dismiss=null;});
+dismiss=okMsg(m[0],m[1],function(){dismiss=null;});
 return true;
 });});});
 }
@@ -308,7 +310,7 @@ if(choice==="phone"&&item===2||choice==="sources"&&item===3){v=prefs.values();if
 if(choice==="backup"){
 var pf="open-connect.prefs",ud=" on the USB drive.";
 if(item==="exportPrefs"&&isFn(store.exportPrefs))usbTask("backup",item,store.exportPrefs,"Export preferences?","Save your settings to "+pf+ud,"Export","export","Exporting preferences",function(act){return act?["Preferences exported","Saved to "+pf+ud]:["Export failed","Insert one FAT32 USB drive and try again."];});
-else if(item==="importPrefs"&&isFn(store.importPrefs))usbTask("backup",item,store.importPrefs,"Import preferences?","Load settings from "+pf+ud+" Changes apply "+R,"Import","import","Importing preferences",function(act){return act?["Preferences imported",act.restart?"Changes apply "+R:"Preferences already match."]:["Import failed","Use one FAT32 USB drive with a valid "+pf+" file."];});
+else if(item==="importPrefs"&&isFn(store.importPrefs))usbTask("backup",item,store.importPrefs,"Import preferences?","Load settings from "+pf+ud+" "+CA,"Import","import","Importing preferences",function(act){return act?["Preferences imported",act.restart?CA:"Preferences already match."]:["Import failed","Use one FAT32 USB drive with a valid "+pf+" file."];});
 return;
 }
 if(choice==="phone"&&item==="wireless"||choice==="dial"&&(item==="menuLoop"||item==="holdScroll")||choice===null&&item==="base"||choice==="phone"||choice==="sources"){
@@ -318,7 +320,7 @@ if(!v){render("unknown",0);return;}
 if(item==="wireless"){
 if(v.wirelessFactory===true||v.wireless===undefined||v.wireless===desired)return;
 label="Wireless CarPlay";
-text=on?"Changes apply "+R+" Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth."+(v.base?" Delays Mazda Navigation about 20 s.":""):"Restores the original CarPlay behavior "+R;
+text=on?CA+" Then select Apple CarPlay in Mazda's Wi-Fi settings and pair your iPhone over Bluetooth."+(v.base?" Delays Mazda Navigation about 20 s.":""):"Restores the original CarPlay behavior "+R;
 }else if(choice==="dial"){
 if(v[item]===undefined||v[item]===desired)return;
 label=item==="menuLoop"?"Wrap-around menus & lists":"Faster hold-scroll";
@@ -330,7 +332,7 @@ if(item!=="base"&&!row&&!(item==="pandora"&&!v.services))return;
 if(preference(v,item)===undefined||preference(v,item)===desired)return;
 label=item==="base"?"Startup optimizations":row?row.label:"Pandora";
 text=item==="base"?(on?(v.services?"Reduces background logging and unused services. Applies after restart.":"Reduces native diagnostic logging. Applies after restart."):
-(v.services?"Restores original logging and startup behavior "+R:"Restores original native logging "+R)):row?(on?row.enable:row.disable):"Changes apply "+R;
+(v.services?"Restores original logging and startup behavior "+R:"Restores original native logging "+R)):row?(on?row.enable:row.disable):CA;
 if(item==="base"&&on&&v.wireless)text+=" Wireless CarPlay delays Mazda Navigation about 20 s.";
 }
 confirmToggle(choice,item,label,text,on,desired);return;
@@ -340,7 +342,7 @@ if((item==="uart"||item==="ssh")&&(d===1||d===2)){
 v=prefs.values();if(!v){render("unknown",0);return;}
 if(item==="ssh"&&v.key==="-")return;
 if(d===1&&v[item]===0){
-confirmToggle("developer",item,item==="uart"?"UART":"SSH",item==="uart"?"Passwordless root access over UART. Changes apply after restart.":"Changes apply "+R,true,1,"enable");return;
+confirmToggle("developer",item,item==="uart"?"UART":"SSH",item==="uart"?"Passwordless root access over UART. Changes apply after restart.":CA,true,1,"enable");return;
 }
 prefs.select(item,d===1?1:0);
 }else if(item==="import"&&isFn(store.importKey)){
@@ -400,7 +402,7 @@ undo.push(replace(fw,"sendEventToMmui",function(app,ev){
 if(leaving||/^(Global.Intent|SelectHome|SelectNavigation)/.test(ev))close();
 if(current()&&app==="common"&&(ev==="Global.GoBack"||ev==="Global.MenuUp")){
 if(wait)return;
-if(dismiss)dismiss();
+if(dismiss)dismiss("cancel");
 else if(choice!==null&&choice!=="unknown")render(choice===2?"phone":choice===3?"sources":null,choice,true);
 else{
 if(choice==="unknown")prefs.failure=null;
@@ -454,17 +456,19 @@ rel=function(vis){
 if(cp){cp();cp=null;}
 uS();uD();
 if(!vis)return;
-var d=ct.dataList,rw=d.items.filter(function(r){return r.appData!==id;});
+var d=ct.dataList,it=d&&d.items;
+if(!it)return;
+var rw=it.filter(function(r){return r.appData!==id;});
 if(rw.length!==d.itemCount){
 set.call(ct,{itemCountKnown:true,itemCount:rw.length,items:rw,vuiSupport:d.vuiSupport});
 if(rw.length)ct.updateItems(0,rw.length-1);
 }
 };
 }
-function rep(){if(ls&&ls.dataList.itemCount)ls.updateItems(0,ls.dataList.itemCount-1);}
+function rep(){var d=ls&&ls.dataList;if(d&&d.itemCount)ls.updateItems(0,d.itemCount-1);}
 if(fw.getCurrCtxtId()==="SystemTab"&&fw._currTmpltInstance===tmpl()){
 bind();
-if(ls){if(!ls.dataList.items.some(function(r){return r.appData===id;}))ls.setDataList(ls.dataList);rep();}
+var dl=ls&&ls.dataList;if(dl&&dl.items){if(!dl.items.some(function(r){return r.appData===id;}))ls.setDataList(dl);rep();}
 }
 var uR=replace(en,"readyFunction",function(){bind();var r=orig.apply(this,arguments);rep();return r;});
 return function detach(){uR();if(rel)rel(tmpl()&&tmpl().list2Ctrl===ls);ls=rel=null;};
@@ -491,15 +495,15 @@ return{open:open,fromHome:fromHome,attach:attach,validStatus:validStatus,
 blocked:function(){return active||waiting||session&&session.pending();}};
 }());
 
-(function(a,f){
+(function(a,f,w){
 if(!a||a.loaded&4)return;
 var cam,camS,dOff;
-function own(c){return c&&c.autoshowState();}
+function own(c){return c&&c.autoshowState()||0;}
 a.owner=function(){
-if(f.common._openConnectOperation||window.__ocCompletionLoading||window.__ocMaintenanceLoading||
+if(f.common&&f.common._openConnectOperation||w.__ocCompletionLoading||w.__ocMaintenanceLoading||
 document.getElementById("oc-maintenance-loader"))return 2;
-return own(window.OpenConnectCompletion)||own(window.OpenConnectMaintenance)||
-(window.OpenConnect?own(window.OpenConnect):1);
+return Math.max(own(w.OpenConnectCompletion),own(w.OpenConnectMaintenance),
+w.OpenConnect?own(w.OpenConnect):1);
 };
 function ctxKind(id,ctx){
 if(id==="backupparking"||/^(IntroAnimation|QuickStartLoop|Disclaimer)$/.test(ctx))return 1;
@@ -509,15 +513,13 @@ return id==="system"?(/^(HomeScreen|Entertainment)$/.test(ctx)?0:2):
 }
 a.check=function(focus,next){
 var g=a.owner(),h=f._currTmpltInstance,id=f.getCurrentApp(),c=f.common,s=OpenConnectSettings,e=a.edge(),ci=h&&h.contextInfo;
-if(g)return g;
-if(a.dialogs||s.blocked&&s.blocked()||dOff)return 2;
-if(cam||!h||!ci||!c||!focus||f._focusStack!==focus||!focus[0]||focus[0].id!==id||
+if(g===2||a.dialogs||s.blocked&&s.blocked()||dOff||c&&a.voice(c._cachedVuiState,c))return 2;
+if(g||cam||!h||!ci||!c||!focus||f._focusStack!==focus||!focus[0]||focus[0].id!==id||
 ci.uiaId!==id||f._frameworkState!==f._FWK_STATE_IDLE||!f._browserShown)return 1;
 var ctx=ci.ctxtId,app=f.getAppInstance(id);
 if(!app||!app._currentContext||app._currentContext.ctxtId!==ctx||
 next&&e&&next._cp.seq>Math.max(e.seq,a.focus||0)&&next._cp.ctx&&
 (next.uiaId!==id||next.contextSeq!==ci.contextSeq))return 1;
-if(a.voice(c._cachedVuiState,c))return 2;
 var k=ctxKind(id,ctx),old=e&&e.origin;
 if(e&&!k&&old&&ctxKind(old[0],old[1])!==1&&
 (old[0]!==id||old[1]!==ctx||!e.reverse&&old[2]!==ci.contextSeq))return 2;
@@ -557,6 +559,7 @@ if(cam&&(camS||String(c)!==String(cam.base))){cam=null;camS=false;}
 dOff=false;
 }
 if(c[1]==="DisplayOff")dOff=true;
+else if(c[0]==="system"&&c[1]!=="Idle")dOff=false;
 if(c[0]==="phone"&&!p.focus&&/^(ActiveCall|IncomingCall|CallWaiting|MultipleCallWaiting|BTMultipleCall|OutgoingCall|Connecting)/.test(c[1]))a.busy|=2;
 }
 }
@@ -592,4 +595,4 @@ a.cancel();f.sendEventToMmui("system","SelectCarPlay");
 };
 a.wrap(f,"_processNewFwkState",null,a.pump);
 a.loaded|=4;a.pump();
-}(typeof ocCarPlay==="undefined"?null:ocCarPlay,typeof framework==="undefined"?null:framework));
+}(typeof ocCarPlay==="undefined"?null:ocCarPlay,typeof framework==="undefined"?null:framework,window));

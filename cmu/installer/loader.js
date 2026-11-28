@@ -5,12 +5,14 @@ var OpenConnectUSBStart=function(entry){
 if(!entry||document.getElementById("oc-maintenance-loader")!==entry||
  window.__ocMaintenanceLoading&&window.__ocMaintenanceLoading.entry===entry)return;
 var token=entry.ocToken,base=entry.src.slice(0,entry.src.lastIndexOf("/")+1),discovery=entry.ocDiscovery;
-if(!/^[a-f0-9]{32}$/.test(token)||entry.ocPort!==15557){
+if(!/^[a-f0-9]{32}$/.test(token)||entry.ocPort!==15557||
+ window.OpenConnectMaintenance&&window.OpenConnectMaintenance.busy&&window.OpenConnectMaintenance.busy()){
  if(discovery)discovery.cancel();
  if(entry.parentNode)entry.parentNode.removeChild(entry);
  return;
 }
 if(window.__ocMaintenanceLoading)window.__ocMaintenanceLoading.finish();
+var prev=window.__ocMaintenanceGeneration;
 var state={token:token,entry:entry,finish:finish},node,stopped=false;
 window.__ocMaintenanceGeneration=state;
 window.__ocMaintenanceLoading=state;
@@ -27,7 +29,10 @@ utility.loadScript(base+"maintenance.js",{id:"oc-maintenance-popup"},function(){
  if(!stopped&&current()&&document.getElementById("oc-maintenance-loader")===entry&&
    typeof window.OpenConnectMaintenanceStart==="function"){
   var client=OpenConnectMaintenanceStart({token:token,port:15557,role:"usb",current:current,discovery:discovery});
-  if(discovery&&!client)discovery.cancel();
+  if(!client){
+   if(window.__ocMaintenanceGeneration===state)window.__ocMaintenanceGeneration=prev;
+   if(discovery)discovery.cancel();
+  }
  }else if(discovery)discovery.cancel();
  finish();
 });

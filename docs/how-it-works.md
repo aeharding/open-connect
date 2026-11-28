@@ -30,4 +30,4 @@ Startup and memory measurements live in [Performance evidence](performance.md); 
 
 This restores the state found before installation. It is not a factory reset.
 
-**0.3.0-dev.24** is a development prerelease for North American version **74.00.324**. Real-car qualification remains pending.
+**0.3.0-dev.26** is a development prerelease for North American version **74.00.324**. Real-car qualification remains pending.

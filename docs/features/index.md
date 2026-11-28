@@ -4,7 +4,7 @@
 
 Choose your preferences in **<span class="oc-nav-path" data-walkthrough="open-connect">Mazda Settings → System → Open Connect</span>**.
 
-These settings are in the **0.3.0-dev.24 development prerelease** for North American Mazda Connect **74.00.324**. Real-car qualification remains pending.
+These settings are in the **0.3.0-dev.26 development prerelease** for North American Mazda Connect **74.00.324**. Real-car qualification remains pending.
 
 | Setting | What changes | Fresh-install default |
 | --- | --- | --- |

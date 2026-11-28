@@ -32,7 +32,7 @@ Control Mazda’s built-in Pandora integration.
 
 <p>Turning it off hides Mazda’s built-in Pandora app from <strong>Sources</strong>. Streaming Pandora through CarPlay or Bluetooth, as well as audio CDs, still work.</p>
 
-<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. <strong>0.3.0-dev.24</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
+<p>Choices save automatically and apply on the <strong>next full Mazda Connect startup</strong>. Use <a href="apply-changes.md">Apply changes</a> to restart right away. <strong>0.3.0-dev.26</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 ## Change the setting
 

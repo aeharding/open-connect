@@ -7,7 +7,7 @@
 
 Make your Mazda Connect infotainment screen faster, more capable, and customizable. Plug-and-play USB install.
 
-Supports North American Mazda Connect **74.00.324 NA N** (**[0.3.0-dev.24](https://github.com/aeharding/open-connect/releases)** development prerelease; real-car qualification pending).
+Supports North American Mazda Connect **74.00.324 NA N** (**[0.3.0-dev.26](https://github.com/aeharding/open-connect/releases/tag/v0.3.0-dev.26)** development prerelease; real-car qualification pending).
 
 [Owner guide](https://aeharding.github.io/open-connect/) · [Quick start](https://aeharding.github.io/open-connect/usb-installer/) · [Settings](https://aeharding.github.io/open-connect/settings/) · [How it works](https://aeharding.github.io/open-connect/how-it-works/) · [Releases](https://github.com/aeharding/open-connect/releases)
 

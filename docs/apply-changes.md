@@ -30,7 +30,7 @@ Restart Mazda Connect to activate your saved choices. You don’t need a USB dri
 
 <p>Choices save automatically as you toggle them, so you can adjust several settings and apply them all in one restart. <strong>restart needed</strong> means a choice is saved but not active yet.</p>
 
-<p><strong>Apply changes</strong> is disabled when there are no pending changes; the Commander knob skips disabled rows. <strong>0.3.0-dev.24</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
+<p><strong>Apply changes</strong> is disabled when there are no pending changes; the Commander knob skips disabled rows. <strong>0.3.0-dev.26</strong> is a development prerelease for <strong>74.00.324A NA</strong>; real-car qualification remains pending.</p>
 
 ## Restart now
 

@@ -275,7 +275,11 @@ class InstallerPrivateStaging(unittest.TestCase):
                 (old / "closed").touch()
                 (old / "admitted").symlink_to("OCUSB1|0|-")
                 (runtime / "usb-runtime").symlink_to(old)
-                env = {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
+                env = {
+                    **os.environ,
+                    "LC_ALL": "C",
+                    "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+                }
                 script = old if action == "stop" else source
                 result = subprocess.run(
                     ["sh", script / "usb-service.sh", action],
@@ -826,7 +830,11 @@ class InstallerService(unittest.TestCase):
                     f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> {shlex.quote(str(sleeps))}\nexit 0\n"
                 )
                 fake_sleep.chmod(0o700)
-                env = {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
+                env = {
+                    **os.environ,
+                    "LC_ALL": "C",
+                    "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+                }
                 result = subprocess.run(
                     ["sh", worker, "boot"], capture_output=True, text=True, timeout=10, env=env
                 )
@@ -1169,7 +1177,7 @@ class Eth1DhcpRetry(unittest.TestCase):
             env=env,
         )
 
-    def test_late_dhcp_recovers_on_retry_and_preserves_direct_fallback(self):
+    def test_late_dhcp_recovers_after_stock_31s_udhcpc_and_preserves_direct_fallback(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td).resolve()
             svc, ram, ips, log, env = self._build_env(
@@ -1178,7 +1186,7 @@ class Eth1DhcpRetry(unittest.TestCase):
                 initial_ips=["    inet 192.168.42.1/24 scope global eth1"],
                 dhcp_on_attempt=2,
                 default_flushes_fb=True,
-                busy_ticks=2,
+                busy_ticks=35,
             )
             res = self._run_retry(svc, ram, env)
             self.assertEqual(res.returncode, 0, res.stderr)
@@ -1207,53 +1215,195 @@ class Eth1DhcpRetry(unittest.TestCase):
             self.assertIn("inet 192.168.42.1/24", ips.read_text())
             self.assertEqual(list(ram.iterdir()), [])
 
-    def test_already_leased_or_missing_eth1_skips_udhcpc(self):
-        for has_eth1, init in (
-            (False, []),
+    def test_ipv4_lease_filtering_and_missing_eth1(self):
+        for label, has_eth1, init, expect_probe in (
+            ("missing_eth1", False, [], False),
             (
+                "non_fallback_10",
                 True,
                 [
                     "    inet 10.1.2.3/24 scope global eth1",
                     "    inet 192.168.42.1/24 scope global eth1",
                 ],
+                False,
+            ),
+            (
+                "same_subnet_dhcp_192_168_42_10",
+                True,
+                [
+                    "    inet 192.168.42.10/24 scope global eth1",
+                    "    inet 192.168.42.1/24 scope global eth1",
+                ],
+                False,
+            ),
+            (
+                "fallback_loopback_linklocal_only",
+                True,
+                [
+                    "    inet 127.0.0.1/8 scope host eth1",
+                    "    inet 169.254.10.20/16 scope link eth1",
+                    "    inet 192.168.42.1/24 scope global eth1",
+                ],
+                True,
             ),
         ):
-            with self.subTest(has_eth1=has_eth1), tempfile.TemporaryDirectory() as td:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as td:
                 root = Path(td).resolve()
                 svc, ram, _, log, env = self._build_env(
                     root, has_eth1=has_eth1, initial_ips=init, dhcp_on_attempt=0
                 )
                 res = self._run_retry(svc, ram, env)
                 self.assertEqual(res.returncode, 0, res.stderr)
-                self.assertFalse(log.exists())
+                self.assertEqual(log.exists(), expect_probe)
                 self.assertEqual(list(ram.iterdir()), [])
 
-    def test_boot_gating_only_triggers_when_ssh_enabled(self):
-        for ssh_bit, expect_spawn in (("0", False), ("1", True)):
-            with self.subTest(ssh=ssh_bit), tempfile.TemporaryDirectory() as td:
+    def test_sigterm_terminates_worker_and_cleans_hook(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td).resolve()
+            svc, ram, _, _, env = self._build_env(
+                root,
+                has_eth1=True,
+                initial_ips=["    inet 192.168.42.1/24 scope global eth1"],
+                dhcp_on_attempt=0,
+            )
+            ready = root / "state/ready"
+            # Pause briefly inside sleep right after hook creation so SIGTERM hits live worker;
+            # POSIX sh delivers trapped SIGTERM as soon as the foreground sleep exits.
+            (root / "tools/udhcpc").write_text(
+                f"#!/bin/sh\n: > {shlex.quote(str(ready))}\nprintf 'probe\\n' >> {shlex.quote(str(root / 'state/log'))}\nexit 1\n"
+            )
+            (root / "tools/udhcpc").chmod(0o700)
+            (root / "tools/sleep").write_text(
+                f"#!/bin/sh\nif [ -f {shlex.quote(str(ready))} ]; then /bin/sleep 0.4; fi\nexit 0\n"
+            )
+            (root / "tools/sleep").chmod(0o700)
+            proc = subprocess.Popen(
+                ["sh", "-c", 'set -eu; R=$1; . "$2"; service_eth1_dhcp', "t", ram, svc],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
+            )
+            deadline = time.monotonic() + 5
+            while not ready.exists() and time.monotonic() < deadline:
+                time.sleep(0.02)
+            self.assertTrue(ready.exists())
+            hooks = [p for p in ram.iterdir() if p.name.startswith(".eth1-dhcp-")]
+            self.assertEqual(len(hooks), 1)
+            proc.send_signal(signal.SIGTERM)
+            proc.communicate(timeout=5)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertEqual((root / "state/log").read_text().splitlines(), ["probe"])
+            self.assertEqual(list(ram.iterdir()), [])
+
+    def test_real_service_boot_gating_and_lock_release(self):
+        """Exercise actual service_boot() across absent/symlink/malformed/ssh=0/ssh=1."""
+        for case, acc_mode, ssh_bit, expect_spawn in (
+            ("absent", "absent", "0", False),
+            ("symlink", "symlink", "1", False),
+            ("malformed_short", "short", "1", False),
+            ("malformed_upper", "upper", "1", False),
+            ("ssh_off", "valid", "0", False),
+            ("ssh_on", "valid", "1", True),
+        ):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as td:
                 root = Path(td).resolve()
-                d_dir = root / "data"
-                r_dir = root / "ram"
-                snap = "d" * 64
-                (d_dir / "snapshots" / snap).mkdir(parents=True, mode=0o700)
-                (d_dir / "snapshots" / snap / "access").write_text(
+                data = root / "data"
+                ram = root / "ram"
+                tools = root / "tools"
+                tools.mkdir()
+                if shutil.which("gstat"):
+                    (tools / "stat").symlink_to(shutil.which("gstat"))
+                if not shutil.which("flock"):
+                    fake_flock = tools / "flock"
+                    fake_flock.write_text("#!/bin/sh\nexit 0\n")
+                    fake_flock.chmod(0o700)
+                data.mkdir(mode=0o700)
+                ram.mkdir(mode=0o700)
+                (ram / "lock").touch(mode=0o600)
+                snap = "c" * 64
+                boot = "12345678-1234-1234-1234-123456789abc"
+                (ram / "selected").write_text(snap + "\n")
+                (ram / "boot-id").symlink_to(boot)
+                (data / "snapshots" / snap).mkdir(parents=True, mode=0o700)
+                (data / "snapshots" / snap / "access").write_text(
                     f"0|{ssh_bit}|{'e' * 64}|755:0:0|644:0:0|-\n"
                 )
-                r_dir.mkdir(mode=0o700)
-                (r_dir / "access-selected").write_text(snap + "\n")
-                marker = root / "spawned"
-                script = (
-                    f"set -eu; D={shlex.quote(str(d_dir))}; R={shlex.quote(str(r_dir))}; "
-                    f". {shlex.quote(str(ASSETS / 'service.sh'))}; "
-                    'rf() { test -f "$1" && test ! -L "$1"; }; '
-                    f'service_eth1_dhcp() {{ printf "ok\\n" > {shlex.quote(str(marker))}; }}; '
-                    'if rf "$R/access-selected" && IFS= read -r acc < "$R/access-selected" && '
-                    'hex "$acc" 64 && rf "$D/snapshots/$acc/access" && '
-                    'IFS="|" read -r _ ssh _ < "$D/snapshots/$acc/access" && test "$ssh" = 1; then '
-                    "service_eth1_dhcp; fi"
+                if acc_mode == "valid":
+                    (ram / "access-selected").write_text(snap + "\n")
+                elif acc_mode == "symlink":
+                    (ram / "access-selected").symlink_to(ram / "selected")
+                elif acc_mode == "short":
+                    (ram / "access-selected").write_text("abc\n")
+                elif acc_mode == "upper":
+                    (ram / "access-selected").write_text("C" * 64 + "\n")
+
+                # Build a valid verified package directory with patched service.sh paths.
+                svc = (ASSETS / "service.sh").read_text()
+                svc = svc.replace("/tmp/mnt/data_persist/open-connect", str(data))
+                svc = svc.replace("/tmp/open-connect", str(ram))
+                svc = svc.replace('test "$(id -u)" = 0', f'test "$(id -u)" = {os.getuid()}')
+                svc = svc.replace("700:0:0", f"700:{os.getuid()}:{os.getgid()}")
+                svc = svc.replace(" = 36:0:0", f" = 36:{os.getuid()}:{os.getgid()}")
+                pkg_stage = root / "pkg-stage"
+                pkg_stage.mkdir(mode=0o700)
+                (pkg_stage / "service.sh").write_text(svc)
+                (pkg_stage / "api").write_text("api\n")
+                (pkg_stage / "flush").write_text("flush\n")
+                (pkg_stage / "flush").chmod(0o700)
+                (pkg_stage / "api").chmod(0o700)
+                (pkg_stage / "service.sh").chmod(0o600)
+                mf = "".join(
+                    hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                    for p in sorted(pkg_stage.iterdir())
                 )
+                (pkg_stage / "files.sha256").write_text(mf)
+                (pkg_stage / "files.sha256").chmod(0o600)
+                pkg_id = hashlib.sha256(mf.encode()).hexdigest()
+                pkg_dir = data / "packages" / pkg_id
+                (data / "packages").mkdir(mode=0o700)
+                shutil.copytree(pkg_stage, pkg_dir)
+                pkg_dir.chmod(0o700)
+                (data / "record").write_text(
+                    f"OC1|active|{'a' * 32}|{pkg_id}|{'b' * 64}|{snap}|-|-|-|2|-|{boot}|installed\n"
+                )
+                (data / "record").chmod(0o600)
+
+                marker = root / "eth1-spawned"
+                hold_flag = root / "eth1-hold"
+                hold_flag.write_text("1\n")
+                # Source actual service.sh, stub only service_stage and service_eth1_dhcp,
+                # then invoke real service_boot().
+                wrapper = root / "run_boot.sh"
+                wrapper.write_text(
+                    "set -eu\n"
+                    f". {shlex.quote(str(pkg_dir / 'service.sh'))}\n"
+                    "service_stage() { :; }\n"
+                    "service_eth1_dhcp() {\n"
+                    f"  printf 'spawned\\n' > {shlex.quote(str(marker))}\n"
+                    f"  while [ -f {shlex.quote(str(hold_flag))} ]; do sleep 0.05; done\n"
+                    "}\n"
+                    "service_boot\n"
+                )
+                env = {
+                    **os.environ,
+                    "LC_ALL": "C",
+                    "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+                }
                 res = subprocess.run(
-                    ["sh", "-c", script], capture_output=True, text=True, timeout=5
+                    ["sh", str(wrapper)], capture_output=True, text=True, timeout=10, env=env
                 )
                 self.assertEqual(res.returncode, 0, res.stderr)
-                self.assertEqual(marker.exists(), expect_spawn)
+                if expect_spawn:
+                    deadline = time.monotonic() + 3
+                    while not marker.exists() and time.monotonic() < deadline:
+                        time.sleep(0.02)
+                    self.assertTrue(marker.exists(), "expected service_eth1_dhcp spawn for ssh=1")
+                    # Verify fd 9 lock is NOT held by the running background worker!
+                    with open(ram / "lock", "r+b") as lf:
+                        fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+                    hold_flag.unlink()
+                else:
+                    time.sleep(0.15)
+                    self.assertFalse(marker.exists(), f"unexpected spawn for case={case}")
+                    hold_flag.unlink()

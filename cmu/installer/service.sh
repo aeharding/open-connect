@@ -88,7 +88,7 @@ return 1
 }
 
 service_lock() {
-local count=0
+local c=0
 if absent "$R"; then mkdir -m 700 "$R"; fi
 private_dir "$R" || fail invalid_runtime
 if absent "$R/lock"; then (set -C; : > "$R/lock") || fail invalid_lock; fi
@@ -96,7 +96,7 @@ file "$R/lock" || fail invalid_lock
 exec 9<>"$R/lock"
 until flock -n -x 9; do
 test "$1" != boot || fail busy
-count=$((count+1)); test "$count" -le 5 || fail busy
+c=$((c+1)); test "$c" -le 5 || fail busy
 sleep 1
 done
 }
@@ -138,48 +138,45 @@ tr '\0' '\n' < "/proc/$1/cmdline" | awk -v api="$3/api" '$0==api{n++}END{exit n!
 }
 
 service_owns_listener() {
-local inode fd address
+local ino fd a
 case "${4:-15555}" in
-15555) address=0100007F:3CC3;;
-35555) address=0100007F:8AE3;;
-15557) address=0100007F:3CC5;;
+15555) a=0100007F:3CC3;;
+35555) a=0100007F:8AE3;;
+15557) a=0100007F:3CC5;;
 *) return 1;;
 esac
 service_child_matches "$1" "$2" "$3" || return 1
-inode=$(awk -v address="$address" '$2==address&&$4=="0A"{n++;i=$10}END{if(n!=1)exit 1;print i}' /proc/net/tcp) || return 1
+ino=$(awk -v address="$a" '$2==address&&$4=="0A"{n++;i=$10}END{if(n!=1)exit 1;print i}' /proc/net/tcp) || return 1
 for fd in /proc/"$1"/fd/*; do
-if test "$(readlink "$fd")" = "socket:[$inode]"; then
-service_child_matches "$1" "$2" "$3"
-return
-fi
+if test "$(readlink "$fd")" = "socket:[$ino]"; then service_child_matches "$1" "$2" "$3"; return; fi
 done
 return 1
 }
 
 service_tick() {
-local tick idle
-read -r tick idle < /proc/uptime
-service_now=$((${tick%.*} * 100 + 1${tick#*.} - 100))
+local t _
+read -r t _ < /proc/uptime
+service_now=$((${t%.*} * 100 + 1${t#*.} - 100))
 }
 
 service_usb_retained() (
-local format deadline revision lease current=-
-test -L "$1/admitted" && lease=$(readlink "$1/admitted") || return 1
-test "$(stat -c %s "$1/admitted")" -eq "${#lease}" || return 1
-IFS='|' read -r format deadline revision <<LEASE
-$lease
+local f dl rv l c=-
+test -L "$1/admitted" && l=$(readlink "$1/admitted") || return 1
+test "$(stat -c %s "$1/admitted")" -eq "${#l}" || return 1
+IFS='|' read -r f dl rv <<LEASE
+$l
 LEASE
-test "$format" = OCUSB1 && test "$lease" = "$format|$deadline|$revision" || return 1
-case "$deadline" in ''|*[!0-9]*) return 1;; esac
-test "${#deadline}" -le 12 || return 1
+test "$f" = OCUSB1 && test "$l" = "$f|$dl|$rv" || return 1
+case "$dl" in ''|*[!0-9]*) return 1;; esac
+test "${#dl}" -le 12 || return 1
 service_tick
-test "$deadline" -gt "$service_now" && test "$deadline" -le "$((service_now+12000))" || return 1
+test "$dl" -gt "$service_now" && test "$dl" -le "$((service_now+12000))" || return 1
 if ! absent "$D/record"; then
 record_read || return 1
-case "$R_PHASE" in active|removed) current=$R_CURRENT;; *) return 1;; esac
+case "$R_PHASE" in active|removed) c=$R_CURRENT;; *) return 1;; esac
 elif ! absent "$D"; then return 1
 fi
-test "$revision" = "$current"
+test "$rv" = "$c"
 )
 
 service_discard_child() {
@@ -338,17 +335,22 @@ case "$(tr '\0' ' ' < "$p" 2>/dev/null)" in *udhcpc*eth1*) return 0;; esac
 done
 return 1
 }
-service_eth1_dhcp() (
+eth1_wait_free() {
+local w=0
+while eth1_busy; do w=$((w+1)); test "$w" -le 45 || return 1; sleep 1; done
+}
+service_eth1_dhcp() {
 set +e
-local i=0 h=
-while test ! -d /sys/class/net/eth1; do i=$((i+1)); test "$i" -le 10 || exit 0; sleep 1; done
-i=0
-while eth1_busy; do i=$((i+1)); test "$i" -le 15 || exit 0; sleep 1; done
-if eth1_dhcp; then eth1_fb; exit 0; fi
-h=$(mktemp "$R/.eth1-dhcp-XXXXXX") || exit 0
-eh=$h
-trap 'rm -f "$eh"' EXIT HUP INT TERM
-cat > "$h" <<'EOF'
+local i=0 eh=
+while test ! -d /sys/class/net/eth1; do i=$((i+1)); test "$i" -le 20 || return 0; sleep 1; done
+sleep 2
+eth1_wait_free || return 0
+if eth1_dhcp; then eth1_fb; return 0; fi
+eh=$(mktemp "$R/.eth1-dhcp-XXXXXX") || return 0
+oc_eh=$eh
+trap 'rm -f "$oc_eh"' EXIT
+trap 'exit 1' HUP INT TERM
+cat > "$eh" <<'EOF'
 #!/bin/sh
 test "$interface" = eth1 || exit 0
 case "$1" in
@@ -356,17 +358,20 @@ deconfig) exit 0;;
 bound|renew) /usr/share/udhcpc/default.script "$1"; ip -4 addr show dev eth1 2>/dev/null | grep -Fq 'inet 192.168.42.1/' || ip addr add dev eth1 192.168.42.1/24 2>/dev/null || :;;
 esac
 EOF
-chmod 700 "$h" || exit 0
+chmod 700 "$eh" || { rm -f "$eh"; trap - EXIT HUP INT TERM; return 0; }
 for i in 1 2 3; do
 test -d /sys/class/net/eth1 || break
-if eth1_busy; then sleep 2; continue; fi
-udhcpc -i eth1 -q -f -t 5 -T 2 -n -s "$h"
+eth1_wait_free || break
+eth1_dhcp && { eth1_fb; break; }
+udhcpc -i eth1 -q -f -t 5 -T 2 -n -s "$eh"
 eth1_fb
 eth1_dhcp && break
 test "$i" -lt 3 && sleep 4
 done
-exit 0
-)
+rm -f "$eh"
+trap - EXIT HUP INT TERM
+return 0
+}
 
 service_boot() {
 set -eu

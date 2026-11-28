@@ -511,7 +511,7 @@ a.check=function(focus,next){
 var g=a.owner(),h=f._currTmpltInstance,id=f.getCurrentApp(),c=f.common,s=OpenConnectSettings,e=a.edge(),ci=h&&h.contextInfo;
 if(g)return g;
 if(a.dialogs||s.blocked&&s.blocked()||dOff)return 2;
-if(cam||!h||!c||!focus||f._focusStack!==focus||focus[0].id!==id||
+if(cam||!h||!ci||!c||!focus||f._focusStack!==focus||!focus[0]||focus[0].id!==id||
 ci.uiaId!==id||f._frameworkState!==f._FWK_STATE_IDLE||!f._browserShown)return 1;
 var ctx=ci.ctxtId,app=f.getAppInstance(id);
 if(!app||!app._currentContext||app._currentContext.ctxtId!==ctx||

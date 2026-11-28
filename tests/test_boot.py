@@ -59,3 +59,18 @@ class VideoTests(unittest.TestCase):
                     v.proc.terminate()
                     v.proc.wait(timeout=3)
                 b.finish("synthetic_test_finished")
+
+    def test_video_progress_ignores_non_numeric_frame_and_signals_ready(self):
+        import io
+        from types import SimpleNamespace
+
+        with tempfile.TemporaryDirectory() as tmp:
+            b = Bundle(Path(tmp) / "bundle", "progress parser unit test", "unittest")
+            v = m.Video(b, 0)
+            v.proc = SimpleNamespace(
+                stdout=io.BytesIO(b"frame=N/A\nframe=bad\nframe=0\nframe=2\nprogress=end\n")
+            )
+            v._progress()
+            self.assertTrue(v.ready.is_set())
+            self.assertEqual(len(v.rows), 5)
+            b.finish("synthetic_test_finished")

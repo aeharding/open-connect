@@ -279,6 +279,57 @@ class Tests(unittest.TestCase):
         self.assertFalse(output["opens_port"])
         self.assertFalse(self.store.path.exists())
 
+    def test_adapter_lock_held_through_bundle_finish_and_close_failure_escalates(self):
+        events = []
+
+        @contextlib.contextmanager
+        def tracking_lock(*_args, **_kwargs):
+            events.append("lock_enter")
+            try:
+                yield
+            finally:
+                events.append("lock_exit")
+
+        class FailingClosePort:
+            def close(self):
+                events.append("port_close")
+                raise OSError("usb disconnect on close")
+
+        real_finish = p.Bundle.finish
+
+        def tracking_finish(bundle_self, outcome, error=None):
+            events.append(("bundle_finish", outcome, error))
+            return real_finish(bundle_self, outcome, error)
+
+        with (
+            patch.object(p, "open_adapter", return_value=FailingClosePort()),
+            patch.object(p, "Session", return_value=ShellSession(self.root)),
+            patch.object(p, "AdapterLock", side_effect=tracking_lock),
+            patch.object(p.Bundle, "finish", tracking_finish),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            code = p.main(
+                [
+                    "setup",
+                    "--live",
+                    "--bundle",
+                    str(self.root / "close-fail"),
+                    "--state",
+                    str(self.store.path),
+                    "--solicit-prompt",
+                ]
+            )
+        self.assertEqual(code, 2)
+        self.assertEqual(events[0], "lock_enter")
+        self.assertEqual(events[-1], "lock_exit")
+        finish_ev = [e for e in events if isinstance(e, tuple) and e[0] == "bundle_finish"]
+        self.assertEqual(len(finish_ev), 1)
+        self.assertEqual(finish_ev[0][1], "unknown")
+        self.assertIn("close failed", finish_ev[0][2])
+        manifest = json.loads((self.root / "close-fail/manifest.json").read_text())
+        self.assertEqual(manifest["outcome"], "unknown")
+        self.assertFalse(manifest["port_closed"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -371,3 +371,37 @@ for(const answer of [null,{ok:false,error:'state_changed'},{ok:true}]){
  assert.equal(f.ctx.OpenConnectMaintenance.protected(),!(answer&&answer.ok===false));
 }
 console.log('USB restart owns a fresh send deadline after late write proof/VUI; completed readback cannot prove reboot');
+
+// Protected owner refuses replacement without clobbering window[slot].
+f=fresh();metadata(f);f.pick('install');
+const activeInstall=f.ctx.OpenConnectMaintenance;
+assert.equal(activeInstall.protected(),true);
+assert.equal(f.ctx.OpenConnectMaintenanceStart({token:'e'.repeat(32),port:15557,role:'usb',current:()=>true}),null);
+assert.equal(f.ctx.OpenConnectMaintenance,activeInstall);
+assert.equal(f.dialog.props.contentStyle,'style27');
+
+// Mid-probe advance() resets probing so subsequent USB removal still closes cleanly.
+f=fresh({autoSession:false});
+f.reply(f.allRequests.at(-1),{ok:true,closed:false});
+f.reply(f.requests.at(-1),f.metadata({installed:false,installedVersion:'-',revision:'-'}));
+f.reply(f.allRequests.at(-1),{ok:true,closed:false});
+const midProbe=f.allRequests.at(-1);
+assert.equal(midProbe.body.split('|')[3],'session','wake() started periodic session probe');
+f.pick('install');
+const afterAdvanceProbe=f.allRequests.findLast(r=>r.body.split('|')[3]==='session');
+assert.notEqual(afterAdvanceProbe,midProbe,'advance() cleared stale probing latch');
+f.reply(f.operation('install')[0],{ok:false,error:'stale_state'});
+f.reply(f.requests.at(-1),f.state({installed:false,installedVersion:'-',revision:'-'}));
+assert.equal(f.ctx.OpenConnectMaintenance.protected(),false);
+f.reply(afterAdvanceProbe,{ok:true,closed:true});
+assert.equal(f.ctx.OpenConnectMaintenance,null,'USB removal still probed and closed after mid-probe advance');
+
+// Boot completion recovery settling with restart:false closes cleanly instead of idling forever.
+f=fixture(folder,{notice:'installed'});f.install();
+f.reply(f.requests[0],{ok:false,error:'operation_pending'});
+f.reply(f.requests.at(-1),f.state({pending:true,revision:'e'.repeat(32)}));
+assert.equal(f.operation('recover').length,1);
+f.reply(f.operation('recover')[0],f.state({pending:false,restart:false,notice:'-'}));
+assert.equal(f.ctx.OpenConnectCompletion,null);
+const reqsAfterRecover=f.requests.length;f.advance(5000);
+assert.equal(f.requests.length,reqsAfterRecover);

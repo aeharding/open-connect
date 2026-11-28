@@ -139,15 +139,15 @@ a.dialogs=0;
 f.instantiateControl=function (id, parent, kind, props) {
   var c=create.apply(this, arguments);
   if (c&&id==="system"&&parent===document.body&&kind==="Dialog3Ctrl") {
-    if (a.owner) a.owner(); a.cancel(); a.dialogs++;
-    var b=props.buttonConfig||{}, ids=Object.keys(b).map(function (k) { return b[k].appData; }).join();
+    a.cancel(); a.dialogs++;
+    var b=(props&&props.buttonConfig)||{}, ids=Object.keys(b).map(function (k) { return b[k].appData; }).join();
     c._oc107=/^(cancel,install(,uninstall)?|done(,settings)?)$/.test(ids) ? 2 : 1;
   }
   return c;
 };
 f.destroyControl=function (c) {
   var tag=c&&c._oc107, result=destroy.apply(this, arguments);
-  if (tag) { delete c._oc107; a.dialogs--; setTimeout(function () { if (tag===2&&a.closed) a.closed(); a.pump(); }, 0); }
+  if (tag) { delete c._oc107; a.dialogs--; setTimeout(function () { a.pump(); }, 0); }
   return result;
 };
 a.loaded |= 2; a.pump();

@@ -34,7 +34,7 @@ Object.defineProperty(m,"_cp",{value:{end:s.t+15000,k:s.k,seq:++n}});
 var p=m.params&&m.params.payload,id=m.msgId;
 if(m.msgType==="focusStack")ids=m.appIdList;
 if(m.msgType==="ctxtChg"){
-var fg=m.uiaId===f.getCurrentApp()||ids&&ids[0].id===m.uiaId;
+var fg=m.uiaId===f.getCurrentApp()||ids&&ids[0]&&ids[0].id===m.uiaId;
 if(fg&&m.ctxtId!=="Idle")to=m;
 if(fg||/^(backupparking|phone)$/.test(m.uiaId)||m.ctxtId==="DisplayOff")m._cp.ctx=a.copy(m);
 if(m.uiaId==="backupparking")m._cp.base=a.copy(f._currTmpltInstance&&f._currTmpltInstance.contextInfo);
@@ -74,7 +74,8 @@ at=null;soon();
 wrap(f,"routeMmuiMsg",note,soon);
 wrap(f,"_focusStackChange",null,function(){
 if(ids===f._focusStack)safe=true;
-var id=f._focusStack[0].id,c=f.getAppInstance(id);
+var id=f._focusStack&&f._focusStack[0]&&f._focusStack[0].id,c=id&&f.getAppInstance(id);
+if(!id)return;
 c=a.copy(c&&c._currentContext)||[id,"",0];
 a.focus=++n;
 if(String(c)!==String(last))tap({msgType:"ctxtChg",_cp:{seq:n,ctx:c,focus:1}});

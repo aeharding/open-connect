@@ -151,8 +151,7 @@ static int oc_read_version_file(int dir, const char *expect_digest, char out[64]
 }
 
 static int oc_open_pkg_verified(int data, const char *pkg_id, OcManifest *mf) {
-    char rel[96];
-    int pdir=(oc_hex(pkg_id,64) && oc_join(rel,sizeof rel,"packages/",pkg_id)) ? oc_open_private(data,rel) : -1;
+    int pdir=oc_open_sub(data,"packages",pkg_id);
     if (pdir<0) return -1;
     if (!oc_verified_text(pdir,"files.sha256",pkg_id,api_mem.mf_buf,sizeof api_mem.mf_buf) ||
         !oc_manifest(api_mem.mf_buf,mf,0)) { (void)oc_close(pdir); return -1; }
@@ -197,8 +196,7 @@ static int oc_snap_read(int data, const char *snap_id, OcSnapInfo *out,
                         OcCatalog *cat_opt, char *cat_buf, unsigned cat_cap,
                         int verify_all, const char *cat_pkg_override) {
     out->valid=0; out->has_access=0;
-    char rel[96];
-    int sdir=(oc_hex(snap_id,64) && oc_join(rel,sizeof rel,"snapshots/",snap_id)) ? oc_open_private(data,rel) : -1;
+    int sdir=oc_open_sub(data,"snapshots",snap_id);
     if (sdir<0) return 0;
     char mf_buf[4096]; OcManifest mf;
     int ok=oc_verified_text(sdir,"files.sha256",snap_id,mf_buf,sizeof mf_buf) && oc_manifest(mf_buf,&mf,0);
@@ -422,12 +420,9 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
                 for (unsigned k=0; k<sp->svc_count; ++k)
                     if (oc_equal(sp->svc_ids[k],cat.rows[i].id)) { cur_val=sp->svc_vals[k]; break; }
             }
-            j_kv_str(&j,"id",cat.rows[i].id);
-            j_kv_str(&j,"label",cat.rows[i].label);
-            j_kv_raw(&j,"saved",v_snap.prefs.svc_vals[i]);
-            j_kv_raw(&j,"current",cur_val);
-            j_kv_str(&j,"enable",cat.rows[i].enable);
-            j_kv_str(&j,"disable",cat.rows[i].disable);
+            const char *sv[6]={cat.rows[i].id,cat.rows[i].label,v_snap.prefs.svc_vals[i],
+                cur_val,cat.rows[i].enable,cat.rows[i].disable};
+            j_kvs(&j,"ssrrss","id\0label\0saved\0current\0enable\0disable",sv);
             j_raw(&j,"}");
         }
         j_raw(&j,"]");
@@ -610,9 +605,9 @@ static int oc_run_awk_profile(const char *dbase, const char *pkg_id, const char 
 
 static int oc_open_composed_verified(int data_fd, const char *pkg_id, const char *snap_id,
                                      char cmf_buf[4096], OcManifest *cmf) {
-    char crel[96], spath[128], dep_key[96]; OcManifest dmf, smf;
-    int cdir=oc_join(crel,sizeof crel,"composed/",pkg_id)?oc_open_private(data_fd,crel):-1;
-    int cs_fd=oc_join(spath,sizeof spath,"snapshots/",snap_id)?oc_open_private(data_fd,spath):-1;
+    char dep_key[96]; OcManifest dmf, smf;
+    int cdir=oc_open_sub(data_fd,"composed",pkg_id);
+    int cs_fd=oc_open_sub(data_fd,"snapshots",snap_id);
     int cok=cdir>=0 && cs_fd>=0 &&
         oc_verified_text(cs_fd,"files.sha256",snap_id,oc_mscratch,sizeof oc_mscratch) && oc_manifest(oc_mscratch,&smf,0) &&
         oc_saved_text(cs_fd,&smf,"dependencies",oc_big_buf,sizeof oc_big_buf) && oc_manifest(oc_big_buf,&dmf,1) &&
@@ -916,10 +911,8 @@ static __attribute__((noinline)) int oc_handle_uninstall(OcApiCtx *c) {
     if (!oc_snap_read(c->data,c->rec[4],&api_snap_b,0,0,0,0,0)) return api_err(c,"originals_changed");
     int bdir=-1, rtmp_fd=-1; char rtmp_leaf[48]; rtmp_leaf[0]=0;
     {
-        char bp[128], cp[128];
-        if (!oc_join(bp,sizeof bp,"snapshots/",c->rec[4]) || !oc_join(cp,sizeof cp,"snapshots/",c->rec[5])) return api_err(c,"plan_failed");
-        bdir=oc_open_private(c->data,bp);
-        int cdir=oc_open_private(c->data,cp);
+        bdir=oc_open_sub(c->data,"snapshots",c->rec[4]);
+        int cdir=oc_open_sub(c->data,"snapshots",c->rec[5]);
         int cur_has_sel = cdir>=0 && !oc_absent_at(cdir,"selector");
         int base_has_sel = bdir>=0 && !oc_absent_at(bdir,"selector");
         if (cdir>=0) (void)oc_close(cdir);
@@ -930,10 +923,7 @@ static __attribute__((noinline)) int oc_handle_uninstall(OcApiCtx *c) {
                 oc_mkdir(c->data,rtmp_leaf,0700)<0) { (void)oc_close(bdir); return api_err(c,"selector_plan_failed"); }
             rtmp_fd=oc_open_private(c->data,rtmp_leaf);
             int rok=rtmp_fd>=0 && oc_new_text(rtmp_fd,"selector","-\n",0600);
-            if (rok && api_snap_b.has_access) {
-                const char *an[3]={"access","runlogin","sshd.conf"};
-                for (unsigned i=0; rok && i<3; ++i) rok=oc_copy_file_at(bdir,an[i],rtmp_fd,an[i],0600,1,0,0);
-            }
+            if (rok && api_snap_b.has_access) rok=oc_copy_opt(bdir,rtmp_fd,0x007,2);
             if (!rok) {
                 if (rtmp_fd>=0) (void)oc_close(rtmp_fd);
                 oc_cleanup_work(c->data,rtmp_leaf); (void)oc_close(bdir);
@@ -1013,14 +1003,9 @@ static __attribute__((noinline)) int oc_handle_access(OcApiCtx *c, int is_import
                                          new_uart,new_ssh,new_key,c->owner,c->group);
     int cfg_ok=0;
     if (aok) {
-        char cp[128];
-        int cdir=oc_join(cp,sizeof cp,"snapshots/",c->rec[5]) ? oc_open_private(c->data,cp) : -1;
-        const char *copy_names[6]={"selector","sm-normal.conf","sm-wcp.conf","index.html","mmui.xml","vui-plugins.list"};
-        for (unsigned i=0; aok && cdir>=0 && i<6; ++i) {
-            if (oc_absent_at(cdir,copy_names[i])) continue;
-            aok=oc_copy_file_at(cdir,copy_names[i],awfd,copy_names[i],0600,1,0,0);
-        }
-        cfg_ok=aok && cdir>=0 && oc_text(cdir,"config",orig_cfg,sizeof orig_cfg,0)>0;
+        int cdir=oc_open_sub(c->data,"snapshots",c->rec[5]);
+        aok=cdir>=0 && oc_copy_opt(cdir,awfd,0x1f8,0);
+        cfg_ok=aok && oc_text(cdir,"config",orig_cfg,sizeof orig_cfg,0)>0;
         if (cdir>=0) (void)oc_close(cdir);
     }
     if (!aok) {
@@ -1183,13 +1168,8 @@ static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
         int cdir=ok?oc_open_private(c->snaps_fd,c->rec[5]):-1;
         if (ok) ok=wfd>=0 && cdir>=0 && oc_api_match_cur(c) &&
             oc_check_active_pins(c->root,c->data,c->rec[3],c->rec[5],
-                                 api_snap_a.prefs.base,api_snap_a.prefs.touch,&c->err);
-        const char *mems[9]={"access","runlogin","sshd.conf","selector",
-            "sm-normal.conf","sm-wcp.conf","index.html","mmui.xml","vui-plugins.list"};
-        for (unsigned i=0; ok && i<9; ++i) {
-            if (!oc_absent_at(wfd,mems[i]) || oc_absent_at(cdir,mems[i])) continue;
-            ok=oc_copy_file_at(cdir,mems[i],wfd,mems[i],0600,1,0,0);
-        }
+                                 api_snap_a.prefs.base,api_snap_a.prefs.touch,&c->err) &&
+            oc_copy_opt(cdir,wfd,0x1ff,1);
         if (cdir>=0) (void)oc_close(cdir);
         char after_id[65], before_id[65];
         if (ok) ok=oc_join(before_id,sizeof before_id,"",c->rec[5]) &&
@@ -1241,26 +1221,164 @@ static int oc_session_has_file(const char *session_dir, const char *name) {
     return has;
 }
 
+enum {
+    OP_DM_USB=1, OP_DM_DONE=2, OP_ST_SET=3, OP_ST_COMP=4, OP_ST_FULL=5,
+    OP_RESTART=6, OP_UNINSTALL=7, OP_RECOVER=8, OP_IMPORT=9, OP_ACC_SET=10, OP_FAST_SET=11
+};
+
+static int oc_api_dispatch(OcApiCtx *c, int kind) {
+    const char *session_dir=c->session_dir, *rev=c->rev, *op=c->op, *arg=c->arg;
+    int has_backend=c->allow_fallback;
+    int op_st=(kind==OP_ST_SET || kind==OP_ST_COMP || kind==OP_ST_FULL);
+    c->root=(int)oc_openat(OC_CWD,c->root_path,OC_DIRECTORY,0);
+    if (c->root<0) return has_backend ? OC_API_FALLBACK : api_err(c,"runtime_unavailable");
+    c->ram=oc_open_ram_dir(c->root);
+    if (c->ram<0) return has_backend ? OC_API_FALLBACK : api_err(c,"runtime_unavailable");
+
+    if (!oc_check_session_pointer(c->ram,session_dir,"runtime")) {
+        if (!oc_check_session_pointer(c->ram,session_dir,"usb-runtime")) return api_err(c,"session_replaced");
+        c->is_usb=1; c->ptr_name="usb-runtime";
+    }
+    if (c->is_usb && !op_st && kind!=OP_DM_USB && kind!=OP_UNINSTALL && kind!=OP_RECOVER && kind!=OP_RESTART)
+        return api_err(c,"invalid_request");
+
+    char op_tag[96];
+    if (!oc_join4(op_tag,sizeof op_tag,c->is_usb?"usb:":"settings:",op,":",arg)) return api_err(c,"invalid_request");
+    if (!oc_firmware_guard(c->root,op_tag,oc_big_buf,sizeof oc_big_buf,&c->err)) return OC_API_ERR;
+
+    {
+        OcMeta lm;
+        long lfd=oc_openat(c->ram,"lock",OC_RW,0);
+        if (lfd<0 || oc_stat((int)lfd,&lm)<0 || (lm.mode&OC_TYPE)!=OC_REGULAR ||
+            lm.uid!=(unsigned)c->owner || lm.gid!=(unsigned)c->group) {
+            if (lfd>=0) (void)oc_close((int)lfd);
+            return api_err(c,"invalid_lock");
+        }
+        if (kind==OP_DM_USB) {
+            (void)oc_close((int)lfd);
+            if (!c->is_usb) return api_err(c,"invalid_request");
+            if (!oc_mark_closed(session_dir)) return api_err(c,"state_changed");
+            return oc_write_all(1,"{\"ok\":true}\n",12) ? OC_API_DONE : OC_API_ERR;
+        }
+        if ((kind==OP_ST_SET ? oc_lock_sh((int)lfd) : oc_lock((int)lfd)) < 0) {
+            (void)oc_close((int)lfd); return api_err(c,"busy");
+        }
+        c->lock_fd=(int)lfd;
+    }
+    if (!oc_check_session_pointer(c->ram,session_dir,c->ptr_name)) return api_err(c,"session_replaced");
+
+    if (!oc_load_state(c->root,c->owner,c->group,&c->data,&c->exists,&c->empty_state,c->rec_buf,c->rec,&c->err))
+        return OC_API_ERR;
+    (void)oc_read_hex64_file(c->ram,"selected",c->sel_snap);
+
+    /* Under-lock USB closed/retained/fence checks (eliminates pre-lock TOCTOU). */
+    if (c->is_usb && !op_st && kind!=OP_DM_USB) {
+        if (oc_session_is_closed(session_dir)) {
+            const char *expect_rev=0;
+            if (c->exists && oc_rec_settled(c->rec)) expect_rev=c->rec[5];
+            else if (!c->exists && !c->empty_state) expect_rev="-";
+            if (!(kind==OP_RESTART && oc_usb_retained(c->root,session_dir,expect_rev))) return api_err(c,"session_closed");
+        }
+        if ((kind==OP_UNINSTALL || kind==OP_RECOVER) && !oc_absent_at(c->ram,"runtime")) {
+            if (has_backend) { (void)oc_unlock(c->lock_fd); return OC_API_FALLBACK; }
+            return api_err(c,"session_replaced");
+        }
+    }
+
+    if (kind==OP_ST_COMP || kind==OP_DM_DONE) return oc_handle_completion(c,kind==OP_DM_DONE);
+    if (c->is_usb && kind==OP_ST_SET) return oc_handle_usb_meta(c);
+
+    if (!c->is_usb && c->exists && !oc_equal(c->rec[1],"purge") && !oc_equal(c->rec[1],"removed")) {
+        if (!c->sel_snap[0] || !oc_snap_package_only(c->data,c->sel_snap,c->settings_pkg) || oc_equal(c->settings_pkg,"-"))
+            return api_err(c,"invalid_selected_snapshot");
+    }
+    if (kind==OP_ST_SET) return oc_api_emit_ctx(c,0,0);
+
+    if (kind==OP_ST_FULL) {
+        int conflict=0;
+        if (c->exists && !oc_equal(c->rec[1],"purge")) {
+            char id_before[384], id_after[384];
+            if (!oc_status_identity(c->data,c->ram,id_before)) return api_err(c,"state_changed");
+            if (oc_unlock(c->lock_fd)<0) return api_err(c,"invalid_lock");
+            conflict=!oc_api_match_cur(c);
+            if (oc_lock(c->lock_fd)<0) return api_err(c,"busy");
+            if (!oc_check_session_pointer(c->ram,session_dir,c->ptr_name)) return api_err(c,"session_replaced");
+            if (!oc_status_identity(c->data,c->ram,id_after)) return api_err(c,"state_changed");
+            if (!oc_equal(id_before,id_after)) return api_err(c,"busy");
+        }
+        return oc_api_emit_ctx(c,conflict,0);
+    }
+
+    if (c->is_usb) oc_usb_retain_clear(session_dir);
+
+    int settled=c->exists && oc_rec_settled(c->rec);
+    if (c->exists) {
+        if (!oc_equal(rev,settled?c->rec[5]:c->rec[2])) return api_err(c,"stale_state");
+        if (!settled) {
+            if (kind!=OP_RECOVER) return api_err(c,"operation_pending");
+            int removed_now=0;
+            if (!oc_equal(c->rec[1],"purge")) {
+                if (!oc_transaction_reconcile(c->root,c->root_path,c->data,c->rec,session_dir,0,c->owner,c->group,&c->err))
+                    return OC_API_ERR;
+                if (!oc_record_read_any(c->data,c->owner,c->group,c->rec_buf,sizeof c->rec_buf,c->rec))
+                    return api_err(c,"invalid_record");
+            }
+            if (oc_equal(c->rec[1],"removed") || oc_equal(c->rec[1],"purge")) {
+                if (!oc_uninstall_cleanup(c->root,c->root_path,c->data,session_dir,c->owner,c->group,&c->err))
+                    return OC_API_ERR;
+                (void)oc_close(c->data); c->data=-1; c->exists=0; c->empty_state=0; removed_now=1;
+            }
+            int conflict=c->exists && !oc_equal(c->rec[1],"purge") && !oc_api_match_cur(c);
+            if (c->is_usb) oc_usb_retain_set(c->root,session_dir,c->exists,c->exists?c->rec[5]:"-");
+            return oc_api_emit_ctx(c,conflict,removed_now);
+        }
+    } else if (!oc_equal(rev,"-")) return api_err(c,"stale_state");
+
+    if (kind==OP_RESTART) {
+        if (c->exists) { if (!oc_api_match_cur(c)) return api_err(c,"state_changed"); }
+        else if (!oc_data_absent(c->root)) return api_err(c,"operation_pending");
+        if (!oc_mounts_mode(c->root,oc_mscratch,sizeof oc_mscratch,0)) return api_err(c,"root_mount_changed");
+        if (c->is_usb) oc_usb_retain_set(c->root,session_dir,c->exists,c->exists?c->rec[5]:"-");
+        if (!oc_spawn_reboot(c)) return api_err(c,"restart_failed");
+        return oc_write_all(1,"{\"ok\":true,\"restarting\":true}\n",30) ? OC_API_DONE : OC_API_ERR;
+    }
+    if (kind==OP_RECOVER) {
+        int removed_now=0;
+        if (!c->exists && c->empty_state) {
+            if (!oc_uninstall_cleanup(c->root,c->root_path,c->data,session_dir,c->owner,c->group,&c->err))
+                return OC_API_ERR;
+            (void)oc_close(c->data); c->data=-1; c->empty_state=0; removed_now=1;
+        }
+        int conflict=c->exists && !oc_equal(c->rec[1],"purge") && !oc_api_match_cur(c);
+        if (c->is_usb) oc_usb_retain_set(c->root,session_dir,c->exists,c->exists?c->rec[5]:"-");
+        return oc_api_emit_ctx(c,conflict,removed_now);
+    }
+    if (!oc_mounts_mode(c->root,oc_mscratch,sizeof oc_mscratch,0)) return api_err(c,"root_mount_changed");
+    if (kind==OP_UNINSTALL) return oc_handle_uninstall(c);
+    if (kind==OP_IMPORT || kind==OP_ACC_SET) return oc_handle_access(c,kind==OP_IMPORT);
+    return oc_handle_fast_set(c);
+}
+
 static int oc_api_handle_dir(const char *session_dir, const char *rev, const char *op,
                              const char *arg, const char *exp, const char *des, int allow_fallback) {
     int has_backend = allow_fallback && oc_session_has_file(session_dir,"backend.sh");
-    int op_dm = oc_equal(op,"dismiss"), op_st = oc_equal(op,"status"), op_set = oc_equal(op,"set");
-    int arg_dash = oc_equal(arg,"-");
-    int is_dismiss_usb = op_dm && oc_equal(arg,"usb");
-    int is_dismiss_done = op_dm && arg_dash;
-    int is_status_settings = op_st && oc_equal(arg,"settings");
-    int is_status_comp = op_st && oc_equal(arg,"completion");
-    int is_status_full = op_st && arg_dash;
-    int is_restart = arg_dash && oc_equal(op,"restart");
-    int is_uninstall = arg_dash && oc_equal(op,"uninstall");
-    int is_recover = arg_dash && oc_equal(op,"recover");
-    int is_import = arg_dash && oc_equal(op,"import");
-    int is_access_set = op_set && (oc_equal(arg,"uart") || oc_equal(arg,"ssh"));
-    int is_fast_set = op_set && !is_access_set;
-    if (!is_dismiss_usb && !is_dismiss_done && !is_status_settings && !is_status_comp &&
-        !is_status_full && !is_restart && !is_uninstall && !is_recover &&
-        !is_import && !is_access_set && !is_fast_set)
-        return has_backend ? OC_API_FALLBACK : emit_fail("invalid_request");
+    int arg_dash = oc_equal(arg,"-"), kind = 0;
+    if (oc_equal(op,"status")) {
+        if (oc_equal(arg,"settings")) kind=OP_ST_SET;
+        else if (oc_equal(arg,"completion")) kind=OP_ST_COMP;
+        else if (arg_dash) kind=OP_ST_FULL;
+    } else if (oc_equal(op,"dismiss")) {
+        if (oc_equal(arg,"usb")) kind=OP_DM_USB;
+        else if (arg_dash) kind=OP_DM_DONE;
+    } else if (oc_equal(op,"set")) {
+        kind=(oc_equal(arg,"uart")||oc_equal(arg,"ssh")) ? OP_ACC_SET : OP_FAST_SET;
+    } else if (arg_dash) {
+        if (oc_equal(op,"restart")) kind=OP_RESTART;
+        else if (oc_equal(op,"uninstall")) kind=OP_UNINSTALL;
+        else if (oc_equal(op,"recover")) kind=OP_RECOVER;
+        else if (oc_equal(op,"import")) kind=OP_IMPORT;
+    }
+    if (!kind) return has_backend ? OC_API_FALLBACK : emit_fail("invalid_request");
 
     static OcApiCtx ctx;
     OcApiCtx *c=&ctx;
@@ -1270,140 +1388,8 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
     c->is_usb=0; c->exists=0; c->empty_state=0; c->allow_fallback=has_backend;
     c->owner=oc_owner(); c->group=oc_group();
     c->sel_snap[0]=0; c->settings_pkg[0]=0; c->err=0;
-    int res=has_backend ? OC_API_FALLBACK : OC_API_ERR;
 
-    c->root=(int)oc_openat(OC_CWD,c->root_path,OC_DIRECTORY,0);
-    if (c->root<0) { if (!has_backend) c->err="runtime_unavailable"; goto out; }
-    c->ram=oc_open_ram_dir(c->root);
-    if (c->ram<0) { if (!has_backend) c->err="runtime_unavailable"; goto out; }
-
-    if (!oc_check_session_pointer(c->ram,session_dir,"runtime")) {
-        if (!oc_check_session_pointer(c->ram,session_dir,"usb-runtime")) { c->err="session_replaced"; goto out; }
-        c->is_usb=1; c->ptr_name="usb-runtime";
-    }
-    if (c->is_usb && !op_st && !is_dismiss_usb && !is_uninstall && !is_recover && !is_restart) {
-        c->err="invalid_request"; goto out;
-    }
-
-    char op_tag[96];
-    if (!oc_join4(op_tag,sizeof op_tag,c->is_usb?"usb:":"settings:",op,":",arg)) { c->err="invalid_request"; goto out; }
-    if (!oc_firmware_guard(c->root,op_tag,oc_big_buf,sizeof oc_big_buf,&c->err)) goto out;
-
-    {
-        OcMeta lm;
-        long lfd=oc_openat(c->ram,"lock",OC_RW,0);
-        if (lfd<0 || oc_stat((int)lfd,&lm)<0 || (lm.mode&OC_TYPE)!=OC_REGULAR ||
-            lm.uid!=(unsigned)c->owner || lm.gid!=(unsigned)c->group) {
-            if (lfd>=0) (void)oc_close((int)lfd);
-            c->err="invalid_lock"; goto out;
-        }
-        if (is_dismiss_usb) {
-            (void)oc_close((int)lfd);
-            if (!c->is_usb) { c->err="invalid_request"; goto out; }
-            if (!oc_mark_closed(session_dir)) { c->err="state_changed"; goto out; }
-            res=oc_write_all(1,"{\"ok\":true}\n",12) ? OC_API_DONE : OC_API_ERR;
-            goto out;
-        }
-        if ((is_status_settings ? oc_lock_sh((int)lfd) : oc_lock((int)lfd)) < 0) {
-            (void)oc_close((int)lfd); c->err="busy"; goto out;
-        }
-        c->lock_fd=(int)lfd;
-    }
-    if (!oc_check_session_pointer(c->ram,session_dir,c->ptr_name)) { c->err="session_replaced"; goto out; }
-
-    if (!oc_load_state(c->root,c->owner,c->group,&c->data,&c->exists,&c->empty_state,c->rec_buf,c->rec,&c->err)) goto out;
-    (void)oc_read_hex64_file(c->ram,"selected",c->sel_snap);
-
-    /* Under-lock USB closed/retained/fence checks (eliminates pre-lock TOCTOU). */
-    if (c->is_usb && !op_st && !is_dismiss_usb) {
-        if (oc_session_is_closed(session_dir)) {
-            const char *expect_rev=0;
-            if (c->exists && oc_rec_settled(c->rec)) expect_rev=c->rec[5];
-            else if (!c->exists && !c->empty_state) expect_rev="-";
-            if (!(is_restart && oc_usb_retained(c->root,session_dir,expect_rev))) {
-                c->err="session_closed"; goto out;
-            }
-        }
-        if ((is_uninstall || is_recover) && !oc_absent_at(c->ram,"runtime")) {
-            if (has_backend) { (void)oc_unlock(c->lock_fd); res=OC_API_FALLBACK; goto out; }
-            c->err="session_replaced"; goto out;
-        }
-    }
-
-    if (is_status_comp || is_dismiss_done) { res=oc_handle_completion(c,is_dismiss_done); goto out; }
-    if (c->is_usb && is_status_settings) { res=oc_handle_usb_meta(c); goto out; }
-
-    if (!c->is_usb && c->exists && !oc_equal(c->rec[1],"purge") && !oc_equal(c->rec[1],"removed")) {
-        if (!c->sel_snap[0] || !oc_snap_package_only(c->data,c->sel_snap,c->settings_pkg) || oc_equal(c->settings_pkg,"-")) {
-            c->err="invalid_selected_snapshot"; goto out;
-        }
-    }
-    if (is_status_settings) { res=oc_api_emit_ctx(c,0,0); goto out; }
-
-    if (is_status_full) {
-        int conflict=0;
-        if (c->exists && !oc_equal(c->rec[1],"purge")) {
-            char id_before[384], id_after[384];
-            if (!oc_status_identity(c->data,c->ram,id_before)) { c->err="state_changed"; goto out; }
-            if (oc_unlock(c->lock_fd)<0) { c->err="invalid_lock"; goto out; }
-            conflict=!oc_api_match_cur(c);
-            if (oc_lock(c->lock_fd)<0) { c->err="busy"; goto out; }
-            if (!oc_check_session_pointer(c->ram,session_dir,c->ptr_name)) { c->err="session_replaced"; goto out; }
-            if (!oc_status_identity(c->data,c->ram,id_after)) { c->err="state_changed"; goto out; }
-            if (!oc_equal(id_before,id_after)) { c->err="busy"; goto out; }
-        }
-        res=oc_api_emit_ctx(c,conflict,0); goto out;
-    }
-
-    if (c->is_usb) oc_usb_retain_clear(session_dir);
-
-    int settled=c->exists && oc_rec_settled(c->rec);
-    if (c->exists) {
-        if (!oc_equal(rev,settled?c->rec[5]:c->rec[2])) { c->err="stale_state"; goto out; }
-        if (!settled) {
-            if (!is_recover) { c->err="operation_pending"; goto out; }
-            int removed_now=0;
-            if (!oc_equal(c->rec[1],"purge")) {
-                if (!oc_transaction_reconcile(c->root,c->root_path,c->data,c->rec,session_dir,0,c->owner,c->group,&c->err)) goto out;
-                if (!oc_record_read_any(c->data,c->owner,c->group,c->rec_buf,sizeof c->rec_buf,c->rec)) { c->err="invalid_record"; goto out; }
-            }
-            if (oc_equal(c->rec[1],"removed") || oc_equal(c->rec[1],"purge")) {
-                if (!oc_uninstall_cleanup(c->root,c->root_path,c->data,session_dir,c->owner,c->group,&c->err)) goto out;
-                (void)oc_close(c->data); c->data=-1; c->exists=0; c->empty_state=0; removed_now=1;
-            }
-            int conflict=c->exists && !oc_equal(c->rec[1],"purge") && !oc_api_match_cur(c);
-            if (c->is_usb) oc_usb_retain_set(c->root,session_dir,c->exists,c->exists?c->rec[5]:"-");
-            res=oc_api_emit_ctx(c,conflict,removed_now); goto out;
-        }
-    } else if (!oc_equal(rev,"-")) {
-        c->err="stale_state"; goto out;
-    }
-
-    if (is_restart) {
-        if (c->exists) { if (!oc_api_match_cur(c)) { c->err="state_changed"; goto out; } }
-        else if (!oc_data_absent(c->root)) { c->err="operation_pending"; goto out; }
-        if (!oc_mounts_mode(c->root,oc_mscratch,sizeof oc_mscratch,0)) { c->err="root_mount_changed"; goto out; }
-        if (c->is_usb) oc_usb_retain_set(c->root,session_dir,c->exists,c->exists?c->rec[5]:"-");
-        if (!oc_spawn_reboot(c)) { c->err="restart_failed"; goto out; }
-        res=oc_write_all(1,"{\"ok\":true,\"restarting\":true}\n",30) ? OC_API_DONE : OC_API_ERR;
-        goto out;
-    }
-    if (is_recover) {
-        int removed_now=0;
-        if (!c->exists && c->empty_state) {
-            if (!oc_uninstall_cleanup(c->root,c->root_path,c->data,session_dir,c->owner,c->group,&c->err)) goto out;
-            (void)oc_close(c->data); c->data=-1; c->empty_state=0; removed_now=1;
-        }
-        int conflict=c->exists && !oc_equal(c->rec[1],"purge") && !oc_api_match_cur(c);
-        if (c->is_usb) oc_usb_retain_set(c->root,session_dir,c->exists,c->exists?c->rec[5]:"-");
-        res=oc_api_emit_ctx(c,conflict,removed_now); goto out;
-    }
-    if (!oc_mounts_mode(c->root,oc_mscratch,sizeof oc_mscratch,0)) { c->err="root_mount_changed"; goto out; }
-    if (is_uninstall) { res=oc_handle_uninstall(c); goto out; }
-    if (is_import || is_access_set) { res=oc_handle_access(c,is_import); goto out; }
-    res=oc_handle_fast_set(c);
-
-out:
+    int res=oc_api_dispatch(c,kind);
     if (c->snaps_fd>=0) (void)oc_close(c->snaps_fd);
     if (c->data>=0) (void)oc_close(c->data);
     if (c->lock_fd>=0) (void)oc_close(c->lock_fd);

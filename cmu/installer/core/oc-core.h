@@ -273,6 +273,8 @@ extern OcTxnSnap oc_snap_pool[7];
 extern char oc_mscratch[8192];
 extern char oc_big_buf[32768];
 int oc_txn_read_snap(int data_fd, const char *snap_id, OcTxnSnap *s);
+int oc_open_sub(int parent, const char *dir, const char *id);
+int oc_copy_opt(int src, int dst, unsigned mask, int skip_exist);
 int oc_pkg_boot_select(int data_fd, const char *root_path, const char *pkg_id,
                        long owner, long group, char bs_path[512]);
 int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_match);

@@ -96,62 +96,46 @@ int oc_access_key_import(int root, const char *root_path, int data_fd, long owne
         !oc_new_text(kdir,wname,clean,0600)) {
         (void)oc_close(kdir); *err_out="key_create_failed"; return 0;
     }
+    const char *kerr=0; int keep_w=0;
+    char id[65], fname[80], info[256];
     if (!oc_data_base(root_path,dbase,sizeof dbase) ||
-        !oc_join4(wabs,sizeof wabs,dbase,"/keys/",wname,0)) {
-        (void)oc_unlink(kdir,wname); (void)oc_close(kdir);
-        *err_out="key_create_failed"; return 0;
-    }
+        !oc_join4(wabs,sizeof wabs,dbase,"/keys/",wname,0)) { kerr="key_create_failed"; goto kdone; }
 
     const char *keygen="/usr/bin/ssh-keygen";
 #ifdef OC_HOST
     const char *kg_env=getenv("OC_HOST_SSH_KEYGEN");
     if (kg_env && *kg_env) keygen=kg_env;
 #endif
-    char info[256];
     char *kargv[]={(char *)keygen,"-l","-f",wabs,0};
-    int krc=oc_run_cmd(keygen,kargv,-1,info,sizeof info,-1);
-    if (krc!=0) {
-        (void)oc_unlink(kdir,wname); (void)oc_close(kdir);
-        *err_out="invalid_public_key"; return 0;
-    }
+    if (oc_run_cmd(keygen,kargv,-1,info,sizeof info,-1)!=0) { kerr="invalid_public_key"; goto kdone; }
     char *sp=info; while (*sp && *sp!=' ' && *sp!='\t' && *sp!='\n') ++sp;
     *sp=0;
     oc_u64 bits=0;
-    if (!oc_decimal(info,&bits)) {
-        (void)oc_unlink(kdir,wname); (void)oc_close(kdir);
-        *err_out="invalid_public_key"; return 0;
-    }
-    if (oc_equal(type,"ssh-rsa") && bits<2048) {
-        (void)oc_unlink(kdir,wname); (void)oc_close(kdir);
-        *err_out="weak_public_key"; return 0;
-    }
+    if (!oc_decimal(info,&bits)) { kerr="invalid_public_key"; goto kdone; }
+    if (oc_equal(type,"ssh-rsa") && bits<2048) { kerr="weak_public_key"; goto kdone; }
 
-    char id[65], fname[80]; OcMeta wm={0};
+    OcMeta wm={0};
     long wfd=oc_openat(kdir,wname,OC_READ,0);
     int ok=wfd>=0 && oc_hash_copy((int)wfd,-1,8192,id,&wm)==OC_COPY_OK &&
         oc_mode((int)wfd,0600)>=0 && oc_sync((int)wfd)>=0;
     if (wfd>=0 && oc_close((int)wfd)<0) ok=0;
-    if (!ok || !oc_join(fname,sizeof fname,id,".cmu")) {
-        (void)oc_unlink(kdir,wname); (void)oc_close(kdir);
-        *err_out="key_hash_failed"; return 0;
-    }
+    if (!ok || !oc_join(fname,sizeof fname,id,".cmu")) { kerr="key_hash_failed"; goto kdone; }
     if (oc_absent_at(kdir,fname)) {
-        if (oc_rename(kdir,wname,fname)<0) {
-            (void)oc_unlink(kdir,wname); (void)oc_close(kdir);
-            *err_out="key_publish_failed"; return 0;
-        }
+        if (oc_rename(kdir,wname,fname)<0) { kerr="key_publish_failed"; goto kdone; }
+        keep_w=1;
     } else {
-        (void)oc_unlink(kdir,wname);
-        if (!oc_access_key_verify(data_fd,id,owner,group)) {
-            (void)oc_close(kdir); *err_out="key_changed"; return 0;
-        }
+        (void)oc_unlink(kdir,wname); keep_w=1;
+        if (!oc_access_key_verify(data_fd,id,owner,group)) { kerr="key_changed"; goto kdone; }
     }
     long ffd=oc_openat(kdir,fname,OC_READ,0);
     ok=ffd>=0 && oc_sync((int)ffd)>=0;
     if (ffd>=0 && oc_close((int)ffd)<0) ok=0;
     if (ok) ok=oc_sync(kdir)>=0;
-    if (oc_close(kdir)<0) ok=0;
-    if (!ok) { *err_out="key_publish_failed"; return 0; }
+    if (!ok) kerr="key_publish_failed";
+kdone:
+    if (!keep_w) (void)oc_unlink(kdir,wname);
+    if (oc_close(kdir)<0 && !kerr) kerr="key_publish_failed";
+    if (kerr) { *err_out=kerr; return 0; }
     return oc_join(out_id,65,"",id);
 }
 
@@ -194,9 +178,7 @@ int oc_access_compose(int root, const char *root_path, int data_fd, const char *
     if (!oc_txn_read_snap(data_fd,base_snap,base) || !base->has_access) return 0;
     if (!oc_bit(uart) || !oc_bit(ssh)) return 0;
     if (!oc_equal(key,"-") && !oc_access_key_verify(data_fd,key,owner,group)) return 0;
-    char bpath[128];
-    if (!oc_join(bpath,sizeof bpath,"snapshots/",base_snap)) return 0;
-    int bdir=oc_open_private(data_fd,bpath);
+    int bdir=oc_open_sub(data_fd,"snapshots",base_snap);
     if (bdir<0) return 0;
 
     int ok=1;

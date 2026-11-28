@@ -239,11 +239,18 @@ def stock_sm(wcp: bool) -> bytes:
     sys.path.insert(0, str(ROOT))
     from tests.test_installer_preferences import InstallerPreferences
 
-    txt = InstallerPreferences().profile(wcp)
+    txt = (
+        InstallerPreferences()
+        .profile(wcp)
+        .replace(
+            'name="jciMMUI" autorun="yes" reset_board="yes" path="/tmp/open-connect/feature/mmui.so"',
+            'name="jciMMUI" path="/jci/mmui/svcjcimmui.so" autorun="yes" reset_board="yes"',
+            1,
+        )
+    )
     inject = (
         '  <service type="process" name="jciGUI" '
         'path="/jci/opera/opera_dir/userjs/opera" args="-u /jci/gui/index.html" autorun="yes"/>\n'
-        '  <service type="process" name="jciMMUI" path="/jci/mmui/svcjcimmui.so" autorun="yes"/>\n'
     )
     return txt.replace("<services>\n", "<services>\n" + inject, 1).encode()
 
@@ -692,6 +699,11 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
             while time.monotonic() < lock_deadline and not (ram / "ignition.lock").exists():
                 time.sleep(0.05)
             assert (ram / "ignition.lock").exists(), "ignition did not create ignition.lock"
+            # Single-instance guard: second ignition observer exits 0 immediately while first holds lock.
+            r_dup_ig = chroot_run(
+                chroot, ["/tmp/open-connect/sessions/session-usb1/ignition", BOOT1]
+            )
+            assert r_dup_ig.returncode == 0, f"duplicate ignition exited {r_dup_ig.returncode}"
             time.sleep(1.2)
             assert ig_proc.poll() is None, "ignition exited prematurely while ACC=1"
             rec_mid = (data / "record").read_text().strip().split("|")
@@ -715,7 +727,21 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
             (ram / "boot-id").unlink()
             ig_proc.wait(timeout=5)
             assert ig_proc.returncode == 0, f"ignition exited {ig_proc.returncode}"
-            print("  [ARMv7 ignition] 1-page Thumb-2 ACC_Sense 1->0->1 & clean exit verified")
+            # Fail-closed failure modes: mismatched boot-id arg and invalid ACC_Sense value exit 1.
+            (ram / "boot-id").symlink_to(BOOT1)
+            r_bad_boot = chroot_run(
+                chroot, ["/tmp/open-connect/sessions/session-usb1/ignition", BOOT2]
+            )
+            assert r_bad_boot.returncode == 1, r_bad_boot.returncode
+            (chroot / "sys/class/gpio/ACC_Sense/value").write_text("2\n")
+            r_bad_acc = chroot_run(
+                chroot, ["/tmp/open-connect/sessions/session-usb1/ignition", BOOT1]
+            )
+            assert r_bad_acc.returncode == 1, r_bad_acc.returncode
+            (ram / "boot-id").unlink()
+            print(
+                "  [ARMv7 ignition] 1-page Thumb-2 ACC_Sense 1->0->1, single-instance lock & fail-closed guards verified"
+            )
         finally:
             stop_proc(ig_proc)
     finally:
@@ -746,6 +772,7 @@ def part_b_full_lifecycle(
             chroot / "proc/sys/kernel/random",
             chroot / "sys/class/gpio/ACC_Sense",
             chroot / "sys/class/nvram/nv-config/keys",
+            chroot / "sys/devices/virtual/block/ffx01/queue",
             chroot / "dev",
             chroot / "etc/ssh",
             chroot / "jci/sm",
@@ -778,6 +805,9 @@ def part_b_full_lifecycle(
         )
         (chroot / "proc/mounts").symlink_to("self/mounts")
         (chroot / "sys/class/gpio/ACC_Sense/value").write_text("1\n")
+        (chroot / "sys/devices/virtual/block/ffx01/dev").write_text("253:16\n")
+        (chroot / "sys/devices/virtual/block/ffx01/queue/read_ahead_kb").write_text("128\n")
+        (chroot / "sys/devices/virtual/block/ffx01/queue/read_ahead_kb").chmod(0o644)
         for ctl in ("add", "remove", "commit"):
             (chroot / "sys/class/nvram/nv-config" / ctl).write_text("")
         (chroot / "jci/version.ini").write_text(
@@ -841,7 +871,11 @@ def part_b_full_lifecycle(
             "root/device-manager.so": ("jci/devicemanager/libdevicemanager.so", b"devmgr\n", 0o755),
             "root/rungetty": ("usr/bin/rungetty", b"rungetty\n", 0o755),
             "root/sshd": ("usr/sbin/sshd", b"#!/bin/sh\nexit 0\n", 0o755),
-            "root/ssh-keygen": ("usr/bin/ssh-keygen", b"ssh-keygen\n", 0o755),
+            "root/ssh-keygen": (
+                "usr/bin/ssh-keygen",
+                b'#!/bin/sh\necho "2048 aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99 test (RSA)"\n',
+                0o755,
+            ),
             "root/framework.js": ("jci/gui/framework/js/GuiFramework.js", b"// fw\n", 0o644),
             "root/lvds-service": ("jci/lvds/lvds_service", b"lvds\n", 0o755),
             "root/runlogin": ("usr/bin/runlogin", b"stock runlogin\n", 0o755),
@@ -883,6 +917,22 @@ def part_b_full_lifecycle(
         (chroot / "etc/oc-test-pins").chmod(0o644)
         orig_runlogin_ino = (chroot / "usr/bin/runlogin").stat().st_ino
 
+        # Populate synthetic /jci/vui/plugins/* matching ui-modules.tsv so base=1 Wave C
+        # (ui-profile.awk, oc_ui_stage, 5-arg ARM SYS_linkat oc_ui_alias) executes end-to-end.
+        ui_mod_lines = []
+        for raw_line in (ASSETS / "ui-modules.tsv").read_text().splitlines():
+            if raw_line.startswith("vui\t"):
+                parts = raw_line.split("\t")
+                plug_bytes = f"synthetic {parts[1]}\n".encode()
+                plug_path = chroot / "jci/vui/plugins" / parts[1]
+                plug_path.write_bytes(plug_bytes)
+                plug_path.chmod(0o644)
+                parts[3] = sha(plug_bytes)
+                ui_mod_lines.append("\t".join(parts))
+            else:
+                ui_mod_lines.append(raw_line)
+        synth_ui_modules = ("\n".join(ui_mod_lines) + "\n").encode()
+
         # Populate USB session from real release bundle, swapping in ARMv7 OC_TEST_PINFILE binaries.
         version = (ASSETS / "VERSION").read_text().strip()
         usb_src = release_dir / f"usb/open-connect-{version}-usb/open-connect"
@@ -893,6 +943,9 @@ def part_b_full_lifecycle(
             if p.name in test_bins:
                 shutil.copyfile(test_bins[p.name], dst)
                 dst.chmod(0o700)
+            elif p.name == "ui-modules.tsv":
+                dst.write_bytes(synth_ui_modules)
+                dst.chmod(0o600)
             else:
                 shutil.copyfile(p, dst)
                 dst.chmod(0o700 if p.name in ("flush", "ignition") else 0o600)
@@ -1001,6 +1054,36 @@ def part_b_full_lifecycle(
         )
         try:
             wait_port(set_port, proc=set_srv)
+            # Boot-completion protocol: status|completion -> dismiss|- -> full status|- & status|media.
+            st, _, raw = http_control(set_port, TOKEN_SET, "-|status|completion|-|-")
+            r_comp = json.loads(raw)
+            assert (
+                st == 200
+                and r_comp["ok"] is True
+                and r_comp["completionReady"] is True
+                and r_comp["notice"] == "installed"
+            ), r_comp
+            (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+            st, _, raw = http_control(set_port, TOKEN_SET, f"{snap1}|dismiss|-|-|-")
+            assert st == 200 and json.loads(raw) == {"ok": True}, (st, raw)
+            st, _, raw = http_control(set_port, TOKEN_SET, "-|status|session|-|-")
+            r_sess = json.loads(raw)
+            assert st == 200 and r_sess["ok"] is True and r_sess["closed"] is False, r_sess
+            st, _, raw = http_control(set_port, TOKEN_SET, "-|status|completion|-|-")
+            r_comp2 = json.loads(raw)
+            assert (
+                st == 200
+                and r_comp2["ok"] is True
+                and r_comp2["completionReady"] is False
+                and r_comp2["notice"] == "-"
+            ), r_comp2
+            st, _, raw = http_control(set_port, TOKEN_SET, "-|status|-|-|-")
+            r_full = json.loads(raw)
+            assert st == 200 and r_full["ok"] is True and r_full["conflict"] is False, r_full
+            st, _, raw = http_control(set_port, TOKEN_SET, "-|status|media|-|-")
+            r_med = json.loads(raw)
+            assert st == 200 and r_med["ok"] is True and r_med["media"] is None, r_med
+
             st, _, raw = http_control(set_port, TOKEN_SET, "-|status|settings|-|-")
             assert st == 200 and json.loads(raw)["ok"] is True, (st, raw)
             rev = json.loads(raw)["revision"]
@@ -1114,6 +1197,52 @@ def part_b_full_lifecycle(
                 rev = r_imp["revision"]
                 idx_off = (data / "snapshots" / rev / "index.html").read_text()
                 assert "reorderSources" not in idx_off and "wrapList" not in idx_off
+
+                # SSH key import|- + set|ssh|0|1 -> 1|0 + set|wireless|0|1 -> 1|0 on real ARMv7
+                (usb_vol / "open-connect.pub").write_text(
+                    "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQTestKeyDataForArmQemu test@host\n"
+                )
+                try:
+                    (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+                    st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|import|-|-|-")
+                    r_key = json.loads(raw)
+                    assert (
+                        st == 200
+                        and r_key["ok"] is True
+                        and len(r_key["key"]) == 64
+                        and r_key["fingerprint"]
+                        == "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+                    ), r_key
+                    rev = r_key["revision"]
+                finally:
+                    (usb_vol / "open-connect.pub").unlink()
+
+                (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+                st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|set|ssh|0|1")
+                r_s1 = json.loads(raw)
+                assert st == 200 and r_s1["ok"] is True and r_s1["ssh"] == 1, r_s1
+                assert (
+                    "/data_persist/open-connect/keys/"
+                    in (chroot / "etc/ssh/sshd_config").read_text()
+                )
+                rev = r_s1["revision"]
+
+                (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+                st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|set|ssh|1|0")
+                r_s0 = json.loads(raw)
+                assert st == 200 and r_s0["ok"] is True and r_s0["ssh"] == 0, r_s0
+                rev = r_s0["revision"]
+
+                (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+                st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|set|wireless|0|1")
+                r_w1 = json.loads(raw)
+                assert st == 200 and r_w1["ok"] is True and r_w1["wireless"] == 1, r_w1
+                rev = r_w1["revision"]
+                (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+                st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|set|wireless|1|0")
+                r_w0 = json.loads(raw)
+                assert st == 200 and r_w0["ok"] is True and r_w0["wireless"] == 0, r_w0
+                rev = r_w0["revision"]
             finally:
                 if (usb_vol / "open-connect.prefs").exists():
                     (usb_vol / "open-connect.prefs").unlink()
@@ -1160,24 +1289,155 @@ def part_b_full_lifecycle(
             assert st == 200 and r_u0["ok"] is True and r_u0["uart"] == 0, r_u0
             assert (chroot / "usr/bin/runlogin").stat().st_ino == orig_runlogin_ino
             rev = r_u0["revision"]
+
+            # Enable base=1 and touch=2 so the next boot exercises Wave C (oc_ui_stage,
+            # 5-arg ARM SYS_linkat oc_ui_alias, oc_log_stage, oc_base_read_ahead) + touch-disable.so.
+            (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+            st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|set|base|0|1")
+            r_b1 = json.loads(raw)
+            assert st == 200 and r_b1["ok"] is True and r_b1["base"] == 1, r_b1
+            rev = r_b1["revision"]
+            (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+            st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|set|touch|1|2")
+            r_t2 = json.loads(raw)
+            assert st == 200 and r_t2["ok"] is True and r_t2["touch"] == 2, r_t2
+            rev = r_t2["revision"]
+
+            # HTTP OP_RECOVER on a simulated pending OC1|set transaction reconciles forward to rev.
+            rec_pend = (data / "record").read_text().strip().split("|")
+            pend_nonce = "9" * 32
+            rec_pend[1] = "set"
+            rec_pend[2] = pend_nonce
+            rec_pend[5] = snap1
+            rec_pend[6] = snap1
+            rec_pend[7] = rev
+            (data / "record").write_text("|".join(rec_pend) + "\n")
+            (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+            st, _, raw = http_control(set_port, TOKEN_SET, f"{pend_nonce}|recover|-|-|-")
+            r_rec = json.loads(raw)
+            assert (
+                st == 200
+                and r_rec["ok"] is True
+                and r_rec["pending"] is False
+                and r_rec["revision"] == rev
+                and r_rec["touch"] == 2
+                and r_rec["base"] == 1
+            ), r_rec
+            rev = r_rec["revision"]
             assert (
                 "/dev/ffx01p1 / relfs ro,noatime 0 0" in (chroot / "proc/self/mounts").read_text()
             )
             print(
-                "  [B3] Live Settings HTTP /control OK (status, touch, autoshow, source-order, menu-loop, hold-scroll, #130 export/import, #214 multi-USB, #185 flock busy, uart)"
+                "  [B3] Live Settings HTTP /control OK (completion+dismiss, full status, media, touch=2, base=1, autoshow, source-order, menu-loop, hold-scroll, #130 export/import, #214 multi-USB, #185 flock busy, ssh+wireless, uart, HTTP recover)"
             )
         finally:
             stop_proc(set_srv)
 
-        # B4. Slow-path ARMv7 `install --boot-recover` (budget=0 NVRAM revert + D/reseal).
+        # B3b. Boot with base=1 & touch=2 via real ARMv7 `boot-select select-gated`, verifying
+        #      Wave C 5-arg SYS_linkat VUI aliases, touch-disable.so, log staging & read_ahead_kb=4!
         def clean_ram_for_boot(boot_uuid: str) -> None:
             for child in list(ram.iterdir()):
                 if child.is_dir() and not child.is_symlink():
                     shutil.rmtree(child)
                 else:
                     child.unlink()
+            log_cfg = chroot / "tmp/common/log/settings.txt"
+            if log_cfg.exists() or log_cfg.is_symlink():
+                log_cfg.unlink()
             (chroot / "proc/sys/kernel/random/boot_id").write_text(boot_uuid + "\n")
             (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+
+        clean_ram_for_boot("22345678-1234-1234-1234-123456789abc")
+        r_wavec = chroot_run(
+            chroot,
+            ["/bin/sh", "-c", "/usr/bin/open-connect-boot-select select-gated; rc=$?; exit $rc"],
+        )
+        assert r_wavec.returncode == 0, (
+            f"base=1+touch=2 select-gated failed (rc={r_wavec.returncode}): {r_wavec.stdout!r} {r_wavec.stderr!r}"
+        )
+        assert r_wavec.stdout.strip() == "G", r_wavec.stdout
+        assert (ram / "feature/touch-disable.so").is_file()
+        assert "/tmp/open-connect/feature/touch-disable.so" in (ram / "feature/sm.conf").read_text()
+        assert (ram / "v.xml").is_file() and (ram / "vui-hold.so").is_file()
+        assert (ram / "vui-plugins").is_symlink()
+        assert (ram / "feature/vui-plugins/vui_plugin_system.so").is_symlink()
+        assert not (ram / "feature/vui-plugins/vui_plugin_dvd.so").exists()
+        assert (chroot / "tmp/common/log/settings.txt").read_text() == "COMMON_LOG_LEVEL=Warn\n"
+        # On a regular file (unlike kernel sysfs), O_WRONLY without O_TRUNC overwrites "128\n"[:2] -> "4\n8\n".
+        assert (
+            chroot / "sys/devices/virtual/block/ffx01/queue/read_ahead_kb"
+        ).read_text() == "4\n8\n"
+        print(
+            "  [B3b] Wave C base=1 + touch=2 ARMv7 select-gated OK (SYS_linkat VUI aliases, touch-disable.so, log stage, read_ahead_kb=4)"
+        )
+
+        # B3c. Simulated crash-cut mid-OC1|set (rw,noatime root + leftover staging file) ->
+        #      select-gated returns 'J' + OC_SLOW (95) -> install --boot-recover reconciles &
+        #      restores ro,noatime -> next select-gated succeeds with 'G' + rc=0!
+        clean_ram_for_boot("2b345678-1234-1234-1234-123456789abc")
+        rec_cut = (data / "record").read_text().strip().split("|")
+        cut_nonce = "8" * 32
+        rec_cut[1] = "set"
+        rec_cut[2] = cut_nonce
+        rec_cut[6] = rec_cut[5]
+        rec_cut[7] = (
+            snap1  # pinned original active snapshot; live NVRAM matches rec_cut[5] (touch=2)
+        )
+        (data / "record").write_text("|".join(rec_cut) + "\n")
+        stg_file = chroot / f"usr/bin/.open-connect-{cut_nonce}"
+        stg_file.write_bytes((chroot / "usr/bin/autostart").read_bytes()[:16])
+        stg_file.chmod(0o600)
+        (chroot / "proc/self/mounts").write_text(
+            "rootfs / rootfs rw 0 0\n"
+            "/dev/ffx01p1 / relfs rw,noatime 0 0\n"
+            "/dev/mmcblk0p2 /tmp/mnt/data_persist relfs rw,noatime 0 0\n"
+        )
+        r_slow = chroot_run(
+            chroot,
+            ["/bin/sh", "-c", "/usr/bin/open-connect-boot-select select-gated; rc=$?; exit $rc"],
+        )
+        assert r_slow.returncode == 95 and r_slow.stdout.strip() == "J", (
+            r_slow.returncode,
+            r_slow.stdout,
+            r_slow.stderr,
+        )
+        (chroot / "proc/self/mounts").write_text(
+            "rootfs / rootfs rw 0 0\n"
+            "/dev/ffx01p1 / relfs ro,noatime 0 0\n"
+            "/dev/mmcblk0p2 /tmp/mnt/data_persist relfs rw,noatime 0 0\n"
+        )
+        clean_ram_for_boot("2c345678-1234-1234-1234-123456789abc")
+        rec_exec_cut = ram / ".recover-cut"
+        rec_exec_cut.mkdir(mode=0o700)
+        shutil.copyfile(data / "packages" / pkg1 / "install", rec_exec_cut / "install")
+        (rec_exec_cut / "install").chmod(0o700)
+        r_cut = chroot_run(
+            chroot,
+            [
+                "/tmp/open-connect/.recover-cut/install",
+                "--boot-recover",
+                f"/tmp/mnt/data_persist/open-connect/packages/{pkg1}",
+                "/tmp/open-connect/.recover-cut",
+            ],
+        )
+        assert r_cut.returncode == 0, f"crash-cut boot-recover failed: {r_cut.stdout}{r_cut.stderr}"
+        assert not stg_file.exists(), "leftover staging file was not retired by --boot-recover"
+        assert (
+            chroot / "sys/class/nvram/nv-config/keys/lvds_speed_restriction"
+        ).read_text().strip() == "disable"
+        r_post_cut = chroot_run(
+            chroot,
+            ["/bin/sh", "-c", "/usr/bin/open-connect-boot-select select-gated; rc=$?; exit $rc"],
+        )
+        assert r_post_cut.returncode == 0 and r_post_cut.stdout.strip() == "G", (
+            r_post_cut.returncode,
+            r_post_cut.stdout,
+        )
+        print(
+            "  [B3c] Crash-cut mid-OC1|set ARMv7 recovery OK (select-gated 'J'/95 -> --boot-recover retires staging -> 'G'/0)"
+        )
+
+        # B4. Slow-path ARMv7 `install --boot-recover` (budget=0 NVRAM revert + D/reseal).
 
         clean_ram_for_boot(BOOT3)
         rec_b4 = (data / "record").read_text().strip().split("|")
@@ -1328,6 +1588,9 @@ def part_b_full_lifecycle(
                 if p.name in test_bins:
                     shutil.copyfile(test_bins[p.name], dst)
                     dst.chmod(0o700)
+                elif p.name == "ui-modules.tsv":
+                    dst.write_bytes(synth_ui_modules)
+                    dst.chmod(0o600)
                 else:
                     shutil.copyfile(p, dst)
                     dst.chmod(0o700 if p.name in ("flush", "ignition") else 0o600)

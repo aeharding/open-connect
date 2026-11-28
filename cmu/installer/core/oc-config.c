@@ -67,10 +67,15 @@ static int oc_oc2_decode(char *text, int active, OcPrefs *out, char svc_digest[6
     if (!active) return 0;
     out->is_oc2=1;
     char *ids[16]; unsigned count=0, seen=0, service_seen=0;
-    static const char *const keys[]={"package","touch","warning","nvram","metadata","base","wireless"};
-    static const char *const opt_keys[]={"carplay-autoshow","source-order","menu-loop","hold-scroll"};
-    char **opt_vals[]={&out->autoshow,&out->source_order,&out->menu_loop,&out->hold_scroll};
-    int *opt_has[]={&out->has_autoshow,&out->has_source_order,&out->has_menu_loop,&out->has_hold_scroll};
+    static const char *const keys[11]={
+        "carplay-autoshow","source-order","menu-loop","hold-scroll",
+        "package","touch","warning","nvram","metadata","base","wireless"
+    };
+    char **vals[11]={
+        &out->autoshow,&out->source_order,&out->menu_loop,&out->hold_scroll,
+        &out->package,&out->touch,&out->warning,&out->nvram,&out->metadata,&out->base,&out->wireless
+    };
+    int *opt_has[4]={&out->has_autoshow,&out->has_source_order,&out->has_menu_loop,&out->has_hold_scroll};
     char *previous="", *p=text+4;
     OcHash sh;
     if (svc_digest) oc_hash_init(&sh);
@@ -85,28 +90,16 @@ static int oc_oc2_decode(char *text, int active, OcPrefs *out, char svc_digest[6
         *p++=0;
         if (oc_order(key,previous)<=0) return 0;
         previous=key;
-        unsigned found=0;
-        for (unsigned i=0; i<4; ++i) if (oc_equal(key,opt_keys[i])) {
-            if (!oc_bit(value)) return 0;
-            *opt_vals[i]=value; *opt_has[i]=1; found=1; break;
-        }
-        if (found) continue;
         if (oc_equal(key,"service-ids")) {
             if (svc_digest) { oc_hash_add(&sh,value,oc_length(value)); oc_hash_add(&sh,"\n",1); }
             if (!oc_service_keys(value,ids,&count)) return 0;
             seen|=128; continue;
         }
-        for (unsigned i=0; i<7; ++i) if (oc_equal(key,keys[i])) {
-            switch (i) {
-                case 0: out->package=value; break;
-                case 1: out->touch=value; break;
-                case 2: out->warning=value; break;
-                case 3: out->nvram=value; break;
-                case 4: out->metadata=value; break;
-                case 5: out->base=value; break;
-                case 6: out->wireless=value; break;
-            }
-            seen|=1u<<i; found=1; break;
+        unsigned found=0;
+        for (unsigned i=0; i<11; ++i) if (oc_equal(key,keys[i])) {
+            if (i<4) { if (!oc_bit(value)) return 0; *opt_has[i]=1; }
+            else seen|=1u<<(i-4);
+            *vals[i]=value; found=1; break;
         }
         if (found) continue;
         if (!oc_prefix(key,"service.") || !oc_bit(value)) return 0;
@@ -127,8 +120,7 @@ static int oc_oc2_decode(char *text, int active, OcPrefs *out, char svc_digest[6
         oc_bit(out->base) && oc_bit(out->wireless);
 }
 
-int oc_config(OcBoot *b, char *text, char **f, int active, char svc_digest[65]) {
-    (void)b;
+int oc_config(char *text, char **f, int active, char svc_digest[65]) {
     for (unsigned i=8; i<12; ++i) f[i]="0";
     OcPrefs p;
     if (!oc_oc2_decode(text,active,&p,svc_digest)) return 0;
@@ -184,8 +176,6 @@ int oc_nvram_at(int root, char value[16]) {
     if (oc_close((int)parent)<0) ok=0;
     return ok;
 }
-
-int oc_nvram(OcBoot *b, char value[16]) { return oc_nvram_at(b->root,value); }
 
 int oc_lookup_vui_pin(const char *modules, const char *plugin, char out[65]) {
     unsigned hits=0;

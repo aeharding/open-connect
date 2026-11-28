@@ -52,7 +52,7 @@ typedef struct {
     char boot[40], token[34], nonce[33], stage_name[64], observer_name[64], log_name[64], times[1024], svc_digest[65];
     unsigned time_count;
     long owner, group, parent;
-    int selected, access_present, base_access_present, debited, input_failure;
+    int selected, access_present, base_access_present, input_failure;
     int gated, gate_sent, released, metadata_drift, touch_drift;
     unsigned ui_aliases; /* Low three bits: attempted; next three: linked. */
     OcMeta ui_identity[3];
@@ -132,7 +132,13 @@ void oc_cut(const char *phase);
 static inline void oc_cut(const char *phase) { (void)phase; }
 #endif
 int oc_stock_meta(int root, OcMeta *stock);
+#if defined(OC_HOST) || defined(OC_TEST_PINFILE)
 const char *oc_pin_digest(const char *key, const char *prod);
+#else
+static inline const char *oc_pin_digest(const char *key, const char *prod) { (void)key; return prod; }
+#endif
+long oc_readlink_owned(int dir, const char *name, long owner, long group, char *out, unsigned cap);
+int oc_read_owned_hex64(int dir, const char *name, long owner, long group, int req_0600, char out[65]);
 int oc_dir_iter(int folder, int (*cb)(const char *name, void *ctx), void *ctx);
 long oc_beneath(int root, const char *path, unsigned options, unsigned mode);
 int oc_meta_row_equal(const char *key, const OcMeta *a, const OcMeta *b);
@@ -155,6 +161,7 @@ int oc_equal(const char *a, const char *b);
 int oc_prefix(const char *p, const char *prefix);
 int oc_hex(const char *p, unsigned n);
 int oc_key(const char *p);
+int oc_leaf(const char *p);
 int oc_one_line(char *p);
 unsigned oc_fields(char *line, char **fields, unsigned capacity);
 int oc_fields_line(char *text, char **fields, unsigned count);
@@ -208,10 +215,10 @@ int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out);
 int oc_prefs_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned cap);
 int oc_prefs_preset_apply(char *text, unsigned bytes, const OcCatalog *cat, OcPrefs *prefs, unsigned *changed);
 int oc_prefs_preset_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned cap);
-int oc_config(OcBoot *b, char *text, char **f, int active, char svc_digest[65]);
+int oc_config(char *text, char **f, int active, char svc_digest[65]);
 int oc_access(char *text, char **fields);
 int oc_nvram_at(int root, char value[16]);
-int oc_nvram(OcBoot *b, char value[16]);
+static inline int oc_nvram(OcBoot *b, char value[16]) { return oc_nvram_at(b->root,value); }
 int oc_lookup_vui_pin(const char *modules, const char *plugin, char out[65]);
 
 /* oc-guard.c */
@@ -389,11 +396,13 @@ static inline int oc_data_base(const char *root_path, char *out, unsigned cap) {
 #endif
 
 /* oc-plan.c */
+extern const char *const oc_snap_names[13];
+int oc_write_plan_hdr(int fd, const char *base_id, const char *pkg_id);
 unsigned oc_meta_text(char *p, const OcMeta *m);
 int oc_meta_parse(char **fields, OcMeta *m);
 int oc_line(OcLines *r, char output[OC_LINE_SIZE]);
 int oc_plan_rows(int root, int snapshot, int input, int output, int mode);
-int oc_mounts(OcBoot *b);
+static inline int oc_mounts(OcBoot *b) { return oc_mounts_mode(b->root,b->scratch,sizeof b->scratch,0); }
 int oc_input_mode(OcInput *input, const char *text);
 OcInput *oc_find(OcBoot *b, const char *key);
 OcInput *oc_expect(OcBoot *b, const char *key, const char *path, const char *digest);

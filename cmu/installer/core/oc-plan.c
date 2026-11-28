@@ -3,6 +3,32 @@
  */
 #include "oc-core.h"
 
+const char *const oc_snap_names[13]={
+    "autostart","config","dependencies","selector",
+    "sm-normal.conf","sm-wcp.conf","index.html","mmui.xml","vui-plugins.list",
+    "boot.plan","access","runlogin","sshd.conf"
+};
+
+int oc_write_plan_hdr(int fd, const char *base_id, const char *pkg_id) {
+    char hdr[160];
+    return oc_join4(hdr,sizeof hdr,"OCBP1|",base_id,"|",pkg_id) &&
+        oc_join(hdr,sizeof hdr,hdr,"\n") && oc_write_all(fd,hdr,oc_length(hdr));
+}
+
+static int oc_plan_parent(int root, int snap, const char *path, int *parent_out, const char **rel_out) {
+    if (path[0]=='@' && path[1]=='/') { *parent_out=snap; path+=2; }
+    else if (path[0]=='/') { *parent_out=root; ++path; }
+    else return 0;
+    if (!oc_key(path)) return 0;
+    *rel_out=path;
+    return 1;
+}
+
+static int oc_plan_absent_fields(char **fields) {
+    for (unsigned i=3; i<13; ++i) if (!oc_equal(fields[i],"-")) return 0;
+    return 1;
+}
+
 unsigned oc_meta_text(char *p, const OcMeta *m) {
     oc_u64 values[10]={m->device,m->inode,m->size,m->mode,m->uid,m->gid,
                        m->modified,m->modified_ns,m->changed,m->changed_ns};
@@ -58,30 +84,22 @@ int oc_plan_rows(int root, int snapshot, int input, int output, int mode) {
     if (status!=1) return 0;
     n=oc_fields(line,fields,13);
     if (n!=3 || !oc_equal(fields[0],"OCBP1") || !oc_hex(fields[1],64) || !oc_hex(fields[2],64)) return 0;
-    if (sealing) {
-        char hdr[160];
-        if (!oc_join4(hdr,sizeof hdr,"OCBP1|",fields[1],"|",fields[2]) ||
-            !oc_join(hdr,sizeof hdr,hdr,"\n") || !oc_write_all(output,hdr,oc_length(hdr))) return 0;
-    }
+    if (sealing && !oc_write_plan_hdr(output,fields[1],fields[2])) return 0;
     while ((status=oc_line(&reader,line))==1) {
         unsigned length=oc_length(line);
         for (unsigned i=0; i<=length; ++i) original[i]=line[i];
         n=oc_fields(line,fields,13);
         if (n!=(sealing?3u:13u) || !oc_key(fields[0]) ||
             (!oc_equal(fields[2],"-")&&!oc_hex(fields[2],64)) || count==OC_PLAN_ROWS) return 0;
-        const char *path=fields[1];
-        int parent=root;
-        if (path[0]=='@'&&path[1]=='/') { parent=snapshot; path+=2; }
-        else if (path[0]=='/') ++path;
-        else return 0;
-        if (!oc_key(path)) return 0;
+        const char *path; int parent;
+        if (!oc_plan_parent(root,snapshot,fields[1],&parent,&path)) return 0;
         for (unsigned i=0; i<count; ++i) if (oc_equal(seen[i],fields[0])) return 0;
         for (unsigned i=0;; ++i) { seen[count][i]=fields[0][i]; if (!fields[0][i]) break; }
         ++count;
         if (oc_equal(fields[2],"-")) {
             if (!oc_absent_at(parent,path)) return 0;
             if (!sealing) {
-                for (unsigned i=3; i<13; ++i) if (!oc_equal(fields[i],"-")) return 0;
+                if (!oc_plan_absent_fields(fields)) return 0;
             } else if (!oc_write_all(output,original,length) || !oc_write_all(output,"|-|-|-|-|-|-|-|-|-|-\n",21)) return 0;
             continue;
         }
@@ -112,8 +130,6 @@ int oc_plan_rows(int root, int snapshot, int input, int output, int mode) {
     }
     return status==0 && count>0;
 }
-
-int oc_mounts(OcBoot *b) { return oc_mounts_mode(b->root,b->scratch,sizeof b->scratch,0); }
 
 int oc_input_mode(OcInput *input, const char *text) {
     unsigned mode, uid, gid;
@@ -151,15 +167,10 @@ int oc_plan(OcBoot *b) {
         OcInput *row=&b->inputs[b->input_count++];
         row->key=fields[0]; row->path=fields[1]; row->digest=fields[2]; row->used=0;
         row->absent=oc_equal(fields[2],"-");
-        int parent=b->root;
-        const char *path=fields[1];
-        if (oc_prefix(path,"@/")) { parent=b->snapshot; path+=2; }
-        else if (*path=='/') ++path;
-        else return 0;
-        if (!oc_key(path)) return 0;
+        int parent; const char *path;
+        if (!oc_plan_parent(b->root,b->snapshot,fields[1],&parent,&path)) return 0;
         if (row->absent) {
-            for (unsigned i=3; i<13; ++i) if (!oc_equal(fields[i],"-")) return 0;
-            if (!oc_absent_at(parent,path)) return 0;
+            if (!oc_plan_absent_fields(fields) || !oc_absent_at(parent,path)) return 0;
         } else {
             if (!oc_hex(fields[2],64)||!oc_meta_parse(fields+3,&row->meta)) return 0;
             long fd=oc_beneath(parent,path,OC_READ,0);
@@ -208,7 +219,7 @@ int oc_dependency_coverage(OcBoot *b) {
     for (unsigned kind=0; kind<2; ++kind) {
         OcManifest *m=kind?&b->composition:&b->pkg;
         if (!oc_join4(scope,sizeof scope,kind?"composed-":"package-",b->record_fields[3],"/",0)||
-            !oc_join4(prefix,sizeof prefix,kind?"/" OC_DATA "/composed/":"/" OC_DATA "/packages/",b->record_fields[3],"/",0)) return 0;
+            !oc_join4(prefix,sizeof prefix,"/" OC_DATA,kind?"/composed/":"/packages/",b->record_fields[3],"/")) return 0;
         for (unsigned i=0; i<=m->count; ++i) {
             const char *leaf=i==m->count?"files.sha256":m->rows[i].name;
             const char *digest=i==m->count?(kind?b->composed_digest:b->record_fields[3]):m->rows[i].digest;
@@ -222,16 +233,15 @@ int oc_dependency_coverage(OcBoot *b) {
 
 int oc_snapshot_coverage(OcBoot *b) {
     char key[192], path[192];
-    static const char *const required[]={"autostart","config","dependencies","selector","sm-normal.conf","sm-wcp.conf","index.html","boot.plan","mmui.xml","vui-plugins.list"};
     if (b->current.count!=(b->access_present?13u:10u)) return 0;
-    for (unsigned i=0; i<sizeof required/sizeof *required; ++i) if (!oc_digest(&b->current,required[i])) return 0;
+    for (unsigned i=0; i<10; ++i) if (!oc_digest(&b->current,oc_snap_names[i])) return 0;
     for (unsigned i=0; i<b->current.count; ++i) {
         OcMember *m=&b->current.rows[i];
         if (oc_equal(m->name,"boot.plan")) continue;
         if (!oc_join(key,sizeof key,"current/",m->name)||!oc_join(path,sizeof path,"@/",m->name)||
             !oc_expect(b,key,path,m->digest)) return 0;
     }
-    if (!oc_join4(path,sizeof path,"/" OC_DATA "/snapshots/",b->record_fields[4],"/",0)) return 0;
+    if (!oc_join4(path,sizeof path,"/" OC_DATA,"/snapshots/",b->record_fields[4],"/")) return 0;
     if (!oc_expected_members(b,&b->base,"baseline/",path)) return 0;
     if (!oc_join(path,sizeof path,path,"files.sha256")||
         !oc_expect(b,"baseline/files.sha256",path,b->record_fields[4])) return 0;
@@ -275,7 +285,7 @@ int oc_access_coverage(OcBoot *b) {
     if (!oc_equal(f[2],"-")) {
         long keys=oc_open_private(b->data,"keys");
         if (keys<0||oc_close((int)keys)<0) return 0;
-        if (!oc_join4(path,sizeof path,"/" OC_DATA "/keys/",f[2],".cmu",0)) return 0;
+        if (!oc_join4(path,sizeof path,"/" OC_DATA,"/keys/",f[2],".cmu")) return 0;
         OcInput *key=oc_expect(b,"key/owner",path,f[2]);
         if (!key||key->absent||key->meta.mode!=(OC_REGULAR|0600)||
             key->meta.uid!=(unsigned)b->owner||key->meta.gid!=(unsigned)b->group) return 0;
@@ -324,8 +334,7 @@ int oc_identity_coverage(OcBoot *b) {
         while (*plugin&&*plugin!='\n') ++plugin;
         if (!*plugin) return 0;
         *plugin++=0;
-        if (!oc_equal(b->flags[6],"1")||!oc_key(name)||++count>48) return 0;
-        for (const char *q=name; *q; ++q) if (*q=='/') return 0;
+        if (!oc_equal(b->flags[6],"1")||!oc_leaf(name)||++count>48) return 0;
         char key[192], path[192];
         if (!oc_join(key,sizeof key,"base/vui/",name)||!oc_join(path,sizeof path,"/jci/vui/plugins/",name)) return 0;
         OcInput *row=oc_find(b,key);

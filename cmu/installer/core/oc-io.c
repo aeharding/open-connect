@@ -387,8 +387,6 @@ const char *oc_pin_digest(const char *key, const char *prod) {
     }
     return prod;
 }
-#else
-const char *oc_pin_digest(const char *key, const char *prod) { (void)key; return prod; }
 #endif
 int oc_dir_iter(int folder, int (*cb)(const char *name, void *ctx), void *ctx) {
     unsigned char buffer[4096];
@@ -418,6 +416,32 @@ int oc_dir_iter(int folder, int (*cb)(const char *name, void *ctx), void *ctx) {
     return 1;
 }
 #endif
+
+long oc_readlink_owned(int dir, const char *name, long owner, long group, char *out, unsigned cap) {
+    OcMeta m;
+    if (oc_metadata(dir,name,&m)<0 || (m.mode&OC_TYPE)!=0120000 ||
+        m.uid!=(unsigned)owner || m.gid!=(unsigned)group || m.size==0 || m.size>=cap) return -1;
+    long n=oc_readlink(dir,name,out,cap-1);
+    if (n<=0 || (oc_u64)n!=m.size) return -1;
+    out[n]=0;
+    return n;
+}
+
+int oc_read_owned_hex64(int dir, const char *name, long owner, long group, int req_0600, char out[65]) {
+    long fd=oc_openat(dir,name,OC_READ,0);
+    if (fd==-2) return 0;
+    if (fd<0) return -1;
+    OcMeta before, after; char buf[66];
+    int ok=oc_stat((int)fd,&before)>=0 &&
+        (req_0600 ? before.mode==(OC_REGULAR|0600) : (before.mode&OC_TYPE)==OC_REGULAR) &&
+        before.size==65 && before.uid==(unsigned)owner && before.gid==(unsigned)group;
+    if (ok) ok=oc_text_fd((int)fd,buf,sizeof buf)==65 && oc_one_line(buf) && oc_hex(buf,64) &&
+        oc_stat((int)fd,&after)>=0 && oc_meta_equal(&before,&after);
+    if (oc_close((int)fd)<0) ok=0;
+    if (!ok) return -1;
+    for (unsigned i=0; i<65; ++i) out[i]=buf[i];
+    return 1;
+}
 
 long oc_beneath(int root, const char *path, unsigned options, unsigned mode) {
     char leaf[192];

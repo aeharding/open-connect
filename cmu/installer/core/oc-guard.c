@@ -77,12 +77,20 @@ int oc_mounts_next(char **cursor, char *f[6]) {
     return 1;
 }
 
-static int oc_mounts_scan(int root, char *scratch, unsigned cap, int allow_rw, int persist_only) {
+static int oc_persist_rw_opts(const char *opts) {
+    char options[256];
+    if (!oc_join(options,sizeof options,",",opts)||!oc_join(options,sizeof options,options,",")) return 0;
+    int rw=0;
+    for (char *q=options; *q; ++q) if (oc_prefix(q,",rw,")) ++rw;
+    return rw==1;
+}
+
+int oc_mounts_mode(int root, char *scratch, unsigned cap, int allow_rw) {
     if (oc_text(root,"proc/self/mounts",scratch,cap,1)<0) return 0;
     unsigned rcount=0, data=0, rootfs=0;
     char *p=scratch, *f[6]; int mr;
     while ((mr=oc_mounts_next(&p,f))>0) {
-        if (!persist_only && oc_equal(f[1],"/")) {
+        if (oc_equal(f[1],"/")) {
             if (oc_equal(f[0],"rootfs")&&oc_equal(f[2],"rootfs")&&oc_equal(f[3],"rw")&&!rcount&&!rootfs) ++rootfs;
             else {
                 int want_ok = allow_rw==2 ? oc_equal(f[3],"rw,noatime")
@@ -92,27 +100,24 @@ static int oc_mounts_scan(int root, char *scratch, unsigned cap, int allow_rw, i
             }
         }
         if (oc_equal(f[1],"/tmp/mnt/data_persist")) {
-            if (!oc_equal(f[0],"/dev/mmcblk0p2")||!oc_equal(f[2],"relfs")) {
-                if (persist_only) continue;
-                return 0;
-            }
-            char options[256];
-            if (!oc_join(options,sizeof options,",",f[3])||!oc_join(options,sizeof options,options,",")) return 0;
-            int rw=0;
-            for (char *q=options; *q; ++q) if (oc_prefix(q,",rw,")) ++rw;
-            if (rw!=1) { if (persist_only) continue; return 0; }
+            if (!oc_equal(f[0],"/dev/mmcblk0p2")||!oc_equal(f[2],"relfs")||!oc_persist_rw_opts(f[3])) return 0;
             ++data;
         }
-        if (!persist_only &&
-            (oc_equal(f[1],"/" OC_DATA)||oc_prefix(f[1],"/" OC_DATA "/")||
-             oc_equal(f[1],"/" OC_RAM)||oc_prefix(f[1],"/" OC_RAM "/"))) return 0;
+        if (oc_equal(f[1],"/" OC_DATA)||oc_prefix(f[1],"/" OC_DATA "/")||
+            oc_equal(f[1],"/" OC_RAM)||oc_prefix(f[1],"/" OC_RAM "/")) return 0;
     }
-    if (mr<0) return 0;
-    return persist_only ? (data==1) : (rcount==1 && data==1);
+    return mr==0 && rcount==1 && data==1;
 }
 
-int oc_mounts_mode(int root, char *scratch, unsigned cap, int allow_rw) {
-    return oc_mounts_scan(root,scratch,cap,allow_rw,0);
+static int oc_mounts_persist_ok(int root, char *scratch, unsigned cap) {
+    if (oc_text(root,"proc/self/mounts",scratch,cap,1)<0) return 0;
+    unsigned data=0;
+    char *p=scratch, *f[6]; int mr;
+    while ((mr=oc_mounts_next(&p,f))>0) {
+        if (oc_equal(f[1],"/tmp/mnt/data_persist") && oc_equal(f[0],"/dev/mmcblk0p2") &&
+            oc_equal(f[2],"relfs") && oc_persist_rw_opts(f[3])) ++data;
+    }
+    return mr==0 && data==1;
 }
 
 int oc_version_ok(int root, char *scratch, unsigned cap) {
@@ -203,7 +208,7 @@ int oc_firmware_guard(int root, const char *op_tag, char *scratch, unsigned cap,
             *err_out="unsupported_display"; return 0;
         }
     }
-    if (!oc_mounts_scan(root,scratch,cap,1,1)) {
+    if (!oc_mounts_persist_ok(root,scratch,cap)) {
         oc_diag_set("firmware_guard","/proc/self/mounts","persistence_mount",0,0);
         *err_out="persistence_unavailable"; return 0;
     }
@@ -211,7 +216,7 @@ int oc_firmware_guard(int root, const char *op_tag, char *scratch, unsigned cap,
         oc_diag_set("firmware_guard","/tmp/mnt/data_persist","invalid_directory",0,0);
         *err_out="invalid_persistence_path"; return 0;
     }
-    if (!oc_mounts_scan(root,scratch,cap,1,0)) {
+    if (!oc_mounts_mode(root,scratch,cap,1)) {
         oc_diag_set("firmware_guard","/proc/self/mounts","boot_mounts",0,0);
         *err_out="invalid_boot_mounts"; return 0;
     }

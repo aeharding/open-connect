@@ -22,14 +22,14 @@ int oc_hex(const char *p, unsigned n) {
     return !p[n];
 }
 
-int oc_key(const char *p) {
+static int oc_key_ex(const char *p, int allow_slash) {
     unsigned n=0, part=0;
     const char *start=p;
     while (*p) {
         char c=*p++;
         if (++n>=192) return 0;
         if (c=='/') {
-            if (!part || (part==1&&start[0]=='.') || (part==2&&start[0]=='.'&&start[1]=='.')) return 0;
+            if (!allow_slash || !part || (part==1&&start[0]=='.') || (part==2&&start[0]=='.'&&start[1]=='.')) return 0;
             start=p; part=0;
         } else {
             if (!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='.'||c=='_'||c=='-')) return 0;
@@ -38,6 +38,8 @@ int oc_key(const char *p) {
     }
     return part && !(part==1&&start[0]=='.') && !(part==2&&start[0]=='.'&&start[1]=='.');
 }
+int oc_key(const char *p) { return oc_key_ex(p,1); }
+int oc_leaf(const char *p) { return oc_key_ex(p,0); }
 
 int oc_one_line(char *p) {
     unsigned n=oc_length(p);
@@ -115,8 +117,7 @@ int oc_manifest(char *text, OcManifest *manifest, int dependencies) {
         while (*text && *text!='\n') { ++text; ++n; }
         if (!*text || n<67 || start[64]!=' ' || start[65]!=' ') return 0;
         *text++=0; start[64]=0; name=start+66;
-        if (!oc_hex(start,64) || !oc_key(name) || (!dependencies && oc_equal(name,"files.sha256"))) return 0;
-        if (!dependencies) for (char *p=name; *p; ++p) if (*p=='/') return 0;
+        if (!oc_hex(start,64) || !(dependencies?oc_key(name):oc_leaf(name)) || (!dependencies && oc_equal(name,"files.sha256"))) return 0;
         if (oc_digest(manifest,name)) return 0;
         manifest->rows[manifest->count].name=name;
         manifest->rows[manifest->count++].digest=start;

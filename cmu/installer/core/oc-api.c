@@ -784,10 +784,12 @@ static __attribute__((noinline)) int oc_handle_access(OcApiCtx *c, int is_import
         if (!oc_equal(c->arg,"-") || !oc_equal(c->exp,"-") || !oc_equal(c->des,"-")) return api_err(c,"invalid_request");
         const char *kerr="public_key_import_failed";
         if (!oc_access_key_import(c->root,c->root_path,c->data,c->owner,c->group,new_key,&kerr)) return api_err(c,kerr);
+        if (oc_equal(new_key,api_snap_a.acc_fields[2])) return oc_api_emit_ctx(c,0,0);
     } else {
         if (!oc_bit(c->exp) || !oc_bit(c->des)) return api_err(c,"invalid_setting");
         char *dst=oc_equal(c->arg,"uart")?new_uart:new_ssh;
         if (!oc_equal(dst,c->exp)) return api_err(c,"stale_setting");
+        if (oc_equal(c->exp,c->des)) return oc_api_emit_ctx(c,0,0);
         (void)oc_join(dst,4,"",c->des);
     }
     char anonce[33], aleaf[48], orig_cfg[1024];
@@ -806,10 +808,6 @@ static __attribute__((noinline)) int oc_handle_access(OcApiCtx *c, int is_import
     if (!aok) {
         if (awfd>=0) (void)oc_close(awfd);
         oc_cleanup_work(c->data,aleaf); return api_err(c,"access_plan_failed");
-    }
-    if (!is_import && oc_equal(c->exp,c->des)) {
-        (void)oc_close(awfd); oc_cleanup_work(c->data,aleaf);
-        return oc_api_emit_ctx(c,0,0);
     }
     char after_id[65], before_id[65];
     int cok=cfg_ok && oc_join(before_id,sizeof before_id,"",c->rec[5]) &&
@@ -1106,8 +1104,22 @@ static int oc_api_dispatch(OcApiCtx *c, int kind) {
     if (c->ram<0) return api_err(c,"runtime_unavailable");
 
     if (!oc_check_session_pointer(c->ram,session_dir,"runtime")) {
-        if (!oc_check_session_pointer(c->ram,session_dir,"usb-runtime")) return api_err(c,"session_replaced");
-        c->is_usb=1; c->ptr_name="usb-runtime";
+        if (oc_check_session_pointer(c->ram,session_dir,"usb-runtime")) {
+            c->is_usb=1; c->ptr_name="usb-runtime";
+        } else {
+            int held=0;
+            if (!oc_session_is_closed(session_dir)) {
+                OcMeta lm;
+                long lfd=oc_openat(c->ram,"lock",OC_RW,0);
+                if (lfd>=0) {
+                    if (oc_stat((int)lfd,&lm)>=0 && (lm.mode&OC_TYPE)==OC_REGULAR &&
+                        lm.uid==(unsigned)c->owner && lm.gid==(unsigned)c->group)
+                        held=oc_lock_held_ex((int)lfd);
+                    (void)oc_close((int)lfd);
+                }
+            }
+            return api_err(c, held ? "busy" : "session_replaced");
+        }
     }
     if (c->is_usb && !op_st && kind!=OP_DM_USB && kind!=OP_INSTALL &&
         kind!=OP_UNINSTALL && kind!=OP_RECOVER && kind!=OP_RESTART)

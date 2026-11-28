@@ -248,7 +248,7 @@ static int oc_stage(OcBoot *b) {
     for (const char *p=version; *p; ++p) if (!((*p>='0'&&*p<='9')||(*p>='a'&&*p<='z')||(*p>='A'&&*p<='Z')||*p=='.'||*p=='-')) return 0;
     if (!oc_saved_text(b->snapshot,&b->current,"index.html",b->scratch,sizeof b->scratch)) { b->input_failure=1; return 0; }
     char output[32768]; unsigned used=0, slots[4]={0,0,0,0};
-    const char *needles[]={"@TOKEN@","@VERSION@","@NOTICE@","@BOOT@"};
+    static const char *const needles[]={"@TOKEN@","@VERSION@","@NOTICE@","@BOOT@"};
     const char *values[]={b->token,version,b->record_fields[12],b->boot};
     for (const char *p=b->scratch; *p;) {
         unsigned i=0;
@@ -269,7 +269,7 @@ static int oc_stage(OcBoot *b) {
 
 static int oc_log_stage(OcBoot *b) {
     if (!b->selected||!oc_equal(b->flags[6],"1")) return 1;
-    const char *paths[]={"tmp/common","tmp/common/log"};
+    static const char *const paths[]={"tmp/common","tmp/common/log"};
     for (unsigned i=0; i<2; ++i) {
         long fd=oc_beneath(b->root,paths[i],OC_DIRECTORY,0);
         if (fd==-2) {
@@ -292,7 +292,7 @@ static int oc_publish(OcBoot *b) {
     if (!oc_absent_at(b->ram,"selected")||!oc_absent_at(b->ram,"feature")||!oc_absent_at(b->ram,"ignition")) return 0;
     char selected[66];
     if (!oc_join(selected,sizeof selected,b->record_fields[5],"\n")||
-        !oc_new_text(b->ram,".native-selected",selected,0600)) return 0;
+        (b->selected && !oc_new_text(b->ram,".native-selected",selected,0600))) return 0;
     if (b->access_present && !oc_new_text(b->ram,"access-selected",selected,0600)) return 0;
     oc_cut("before_publication");
     if (oc_block()<0) return 0;
@@ -363,7 +363,7 @@ int oc_load(OcBoot *b) {
     b->composed=oc_open_private(b->data,path);
     if (b->package<0||b->composed<0||
         !oc_load_manifest(b->package,b->record_fields[3],b->package_manifest,sizeof b->package_manifest,&b->pkg)||b->pkg.count>64) return 0;
-    const char *mandatory[]={"boot-select","service.sh",
+    static const char *const mandatory[]={"boot-select","service.sh",
         "ignition","flush","api","install","runtime.js","dialog.js","settings.js","VERSION","INSTANCE",
         "preferences.awk","services.tsv","sm-profile.awk"};
     for (unsigned i=0; i<sizeof mandatory/sizeof *mandatory; ++i) if (!oc_digest(&b->pkg,mandatory[i])) return 0;
@@ -456,8 +456,7 @@ int oc_record_commit(OcBoot *b) {
     if (ok) ok=oc_sync((int)fd)>=0;
     oc_stamp(b,"record_synced"); oc_cut("record_synced");
     if (oc_close((int)fd)<0) ok=0;
-    if (!ok) return 0;
-    if (oc_rename(b->data,name,"record")<0) return 0;
+    if (!ok || oc_rename(b->data,name,"record")<0) { (void)oc_unlink(b->data,name); return 0; }
     b->debited=1;
     oc_stamp(b,"record_renamed"); oc_cut("record_renamed");
     if (oc_sync(b->data)<0) return 0;

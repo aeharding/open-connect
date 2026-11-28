@@ -82,6 +82,16 @@ static int oc_emit_external_pin(int plan_fd, OcBoot *b, const char *key, const c
     return oc_emit_plan_row(plan_fd,key,path,digest,&cur,0)?0:2;
 }
 
+static int oc_hash_sync_owned(int dir, const char *name, long owner, long group, char digest[65], OcMeta *meta) {
+    long fd=oc_openat(dir,name,OC_READ,0);
+    if (fd<0) return 0;
+    int ok=oc_hash_copy((int)fd,-1,33554432,digest,meta)==OC_COPY_OK &&
+        meta->mode==(OC_REGULAR|0600) && meta->uid==(unsigned)owner &&
+        meta->gid==(unsigned)group && oc_sync((int)fd)>=0;
+    if (oc_close((int)fd)<0) ok=0;
+    return ok;
+}
+
 int oc_seal_publish(const char *root_path, const char *expected_current, const char *work_rel, const char *expected_nvram) {
     OcBoot *b=&oc_boot;
     const char *prefix=OC_DATA "/snapshots/.new-";
@@ -113,17 +123,11 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
     members[mcount++]="index.html"; members[mcount++]="mmui.xml";
     unsigned vui_idx=mcount; members[mcount++]="vui-plugins.list";
     OcManifest work_allowed; work_allowed.count=6;
-    const char *allowed_names[6]={"config","sm-normal.conf","sm-wcp.conf","index.html","mmui.xml","vui-plugins.list"};
+    static const char *const allowed_names[6]={"config","sm-normal.conf","sm-wcp.conf","index.html","mmui.xml","vui-plugins.list"};
     for (unsigned i=0; i<6; ++i) { work_allowed.rows[i].name=(char *)allowed_names[i]; work_allowed.rows[i].digest=(char *)""; }
     if (ok) ok=oc_members((int)work,&work_allowed,2);
     char *new_flags[12], new_svc[65];
-    if (ok) {
-        long cfd=oc_openat((int)work,"config",OC_READ,0);
-        ok=cfd>=0 && oc_hash_copy((int)cfd,-1,33554432,oc_pub.m_digest[1],&oc_pub.m_meta[1])==OC_COPY_OK &&
-            oc_pub.m_meta[1].mode==(OC_REGULAR|0600) && oc_pub.m_meta[1].uid==(unsigned)b->owner &&
-            oc_pub.m_meta[1].gid==(unsigned)b->group && oc_sync((int)cfd)>=0;
-        if (cfd>=0 && oc_close((int)cfd)<0) ok=0;
-    }
+    if (ok) ok=oc_hash_sync_owned((int)work,"config",b->owner,b->group,oc_pub.m_digest[1],&oc_pub.m_meta[1]);
     if (ok) {
         ok=oc_verified_text((int)work,"config",oc_pub.m_digest[1],oc_pub.new_cfg,sizeof oc_pub.new_cfg) &&
             oc_prefix(oc_pub.new_cfg,"OC2\n") && oc_config(b,oc_pub.new_cfg,new_flags,1,new_svc) &&
@@ -158,11 +162,8 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
             w_on?"sm-wcp-on.conf":"sm-wcp-off.conf",
             w_on?"index-on.html":"index-off.html"};
         for (unsigned i=0; ok&&i<3; ++i) if (!oc_absent_at((int)work,members[prof_idx+i])) {
-            long tfd=oc_openat(b->composed,tpl[i],OC_READ,0);
-            char td[65]; OcMeta tm;
-            const char *exp=oc_digest(&b->composition,tpl[i]);
-            ok=tfd>=0 && exp && oc_hash_copy((int)tfd,-1,33554432,td,&tm)==OC_COPY_OK && oc_equal(td,exp);
-            if (tfd>=0 && oc_close((int)tfd)<0) ok=0;
+            char td[65]; const char *exp=oc_digest(&b->composition,tpl[i]);
+            ok=exp && oc_hash_file_at(b->composed,tpl[i],td,0) && oc_equal(td,exp);
         }
     }
     for (unsigned i=0; ok&&i<mcount; ++i) {
@@ -173,12 +174,7 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
             ok=reuse[i-prof_idx] &&
                 oc_copy_verified_member(b,(int)work,members[i],oc_digest(&b->current,members[i]),oc_pub.m_digest[i],&oc_pub.m_meta[i]);
         } else {
-            long fd=oc_openat((int)work,members[i],OC_READ,0);
-            if (fd<0) { ok=0; break; }
-            ok=oc_hash_copy((int)fd,-1,33554432,oc_pub.m_digest[i],&oc_pub.m_meta[i])==OC_COPY_OK &&
-                oc_pub.m_meta[i].mode==(OC_REGULAR|0600) && oc_pub.m_meta[i].uid==(unsigned)b->owner &&
-                oc_pub.m_meta[i].gid==(unsigned)b->group && oc_sync((int)fd)>=0;
-            if (oc_close((int)fd)<0) ok=0;
+            ok=oc_hash_sync_owned((int)work,members[i],b->owner,b->group,oc_pub.m_digest[i],&oc_pub.m_meta[i]);
             if (ok && reuse[i-prof_idx]) {
                 const char *prev_d=oc_digest(&b->current,members[i]);
                 if (!prev_d||!oc_equal(oc_pub.m_digest[i],prev_d)) ok=0;
@@ -247,11 +243,7 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
         if (oc_close((int)plan_fd)<0) ok=0;
     }
     char plan_digest[65]; OcMeta plan_meta;
-    if (ok) {
-        long pfd=oc_openat((int)work,"boot.plan",OC_READ,0);
-        ok=pfd>=0 && oc_hash_copy((int)pfd,-1,OC_PLAN_LIMIT,plan_digest,&plan_meta)==OC_COPY_OK;
-        if (pfd>=0 && oc_close((int)pfd)<0) ok=0;
-    }
+    if (ok) ok=oc_hash_file_at((int)work,"boot.plan",plan_digest,&plan_meta) && plan_meta.size<=OC_PLAN_LIMIT;
     if (ok) {
         mf_fd=oc_openat((int)work,"files.sha256",OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
         ok=mf_fd>=0;
@@ -412,14 +404,10 @@ static int oc_gc_candidate_owned(int store, oc_u64 store_dev, const char *cname,
         for (unsigned i=0; ok && i<oc_gc_work.lctx.count; ++i) {
             const char *leaf=oc_gc_work.lctx.leaves[i];
             const char *exp=oc_digest(&oc_gc_work.mf,leaf);
-            long fd=oc_openat(cdir,leaf,OC_READ,0);
             char got[65]; OcMeta lm;
-            ok=fd>=0 && exp &&
-                oc_hash_copy((int)fd,-1,33554432,got,&lm)==OC_COPY_OK &&
+            ok=exp && oc_hash_file_at(cdir,leaf,got,&lm) &&
                 lm.mode==(OC_REGULAR|0600) && lm.device==store_dev &&
-                lm.uid==(unsigned)owner && lm.gid==(unsigned)group &&
-                oc_equal(got,exp);
-            if (fd>=0 && oc_close((int)fd)<0) ok=0;
+                lm.uid==(unsigned)owner && lm.gid==(unsigned)group && oc_equal(got,exp);
         }
     }
     if (oc_close(cdir)<0) ok=0;
@@ -619,12 +607,10 @@ static int oc_gc_pin_session(int ram, oc_u64 ram_dev, const char *root_path, lon
     }
     if (oc_close(sess)<0) ok=0;
     if (!ok) { if (sdir>=0) (void)oc_close(sdir); return 0; }
-    long mfd=oc_openat(sdir,"files.sha256",OC_READ,0);
     char digest[65]; OcMeta mm;
-    ok=mfd>=0 && oc_hash_copy((int)mfd,-1,65536,digest,&mm)==OC_COPY_OK &&
+    ok=oc_hash_file_at(sdir,"files.sha256",digest,&mm) && mm.size<=65536 &&
         mm.device==ram_dev && mm.uid==(unsigned)owner && mm.gid==(unsigned)group &&
         oc_gc_add_pin(&oc_gc_scan,digest);
-    if (mfd>=0 && oc_close((int)mfd)<0) ok=0;
     if (oc_close(sdir)<0) ok=0;
     return ok;
 }
@@ -695,7 +681,7 @@ int oc_gc_snapshots(const char *root_path, int lock_fd) {
         if (sdir>=0 && oc_close(sdir)<0) exist=0;
         if (!exist || !oc_gc_add_pin(&oc_gc_scan,b->record_fields[i])) { ok=0; goto out; }
     }
-    const char *markers[2]={"selected","access-selected"};
+    static const char *const markers[2]={"selected","access-selected"};
     for (unsigned i=0; i<2; ++i) {
         char id[65]; int present=0;
         if (!oc_gc_check_marker(b->ram,snaps,snaps_meta.device,b->owner,b->group,markers[i],id,&present)) {

@@ -514,6 +514,23 @@ static int oc_vui_emit_cb(const char *nm, const char *pin, void *raw) {
         oc_write_in_row(*(int *)raw,k,tp,pin);
 }
 
+static int oc_read_first_line(int fd, char *out, unsigned cap) {
+    unsigned at=0;
+    while (at+1<cap) {
+        long n=oc_read(fd,out+at,cap-1-at);
+        if (n==-4) continue;
+        if (n<0) return 0;
+        if (!n) break;
+        for (long i=0; i<n; ++i) {
+            if (out[at+(unsigned)i]=='\n') { out[at+(unsigned)i]=0; return 1; }
+        }
+        at+=(unsigned)n;
+    }
+    if (!at) return 0;
+    out[at]=0;
+    return 1;
+}
+
 int oc_seal_after_snap(int root, const char *root_path, int data_fd,
                        const char *snap_id, const char *base_id, const char *pkg_id,
                        int force_reseal, long owner, long group, char out_id[65]) {
@@ -539,18 +556,13 @@ int oc_seal_after_snap(int root, const char *root_path, int data_fd,
         if (pfd>=0 && oc_join(srel,sizeof srel,OC_DATA "/snapshots/",snap_id) &&
             oc_join4(expect_hdr,sizeof expect_hdr,"OCBP1|",base_id,"|",pkg_id)) {
             char *cargv[]={bs_path,"check",(char *)root_path,srel,0};
-            long n=oc_read((int)pfd,hdr,sizeof hdr-1);
+            int hok=oc_read_first_line((int)pfd,hdr,sizeof hdr);
             (void)oc_close((int)pfd);
-            if (n>0) {
-                hdr[n]=0;
-                char *nl=hdr; while (*nl && *nl!='\n') ++nl;
-                if (*nl=='\n') *nl=0;
-                if (oc_equal(hdr,expect_hdr)) {
-                    pfd=oc_openat(sdir,"boot.plan",OC_READ,0);
-                    if (pfd>=0) {
-                        chk_ok=oc_run_cmd_io(bs_path,cargv,(int)pfd,-1,0,0,-1)==0;
-                        (void)oc_close((int)pfd);
-                    }
+            if (hok && oc_equal(hdr,expect_hdr)) {
+                pfd=oc_openat(sdir,"boot.plan",OC_READ,0);
+                if (pfd>=0) {
+                    chk_ok=oc_run_cmd_io(bs_path,cargv,(int)pfd,-1,0,0,-1)==0;
+                    (void)oc_close((int)pfd);
                 }
             }
         } else if (pfd>=0) (void)oc_close((int)pfd);
@@ -1011,15 +1023,8 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
                 oc_join(srel,sizeof srel,OC_DATA "/snapshots/",rec[5]) &&
                 oc_join4(expect_hdr,sizeof expect_hdr,"OCBP1|",rec[4],"|",rec[3]);
             if (chk) {
-                long n=oc_read((int)pfd,hdr,sizeof hdr-1);
+                chk=oc_read_first_line((int)pfd,hdr,sizeof hdr) && oc_equal(hdr,expect_hdr);
                 (void)oc_close((int)pfd); pfd=-1;
-                chk=n>0;
-                if (chk) {
-                    hdr[n]=0;
-                    char *nl=hdr; while (*nl && *nl!='\n') ++nl;
-                    if (*nl=='\n') *nl=0;
-                    chk=oc_equal(hdr,expect_hdr);
-                }
                 if (chk) {
                     pfd=oc_openat(sdir,"boot.plan",OC_READ,0);
                     char *rargv[]={bs_path,"recheck",(char *)root_path,srel,0};

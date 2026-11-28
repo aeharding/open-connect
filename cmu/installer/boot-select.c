@@ -49,7 +49,7 @@ static int run(int argc, char **argv) {
     }
     if (argc!=4 || argv[2][0]!='/') return 64;
     int sealing=oc_equal(argv[1],"seal");
-    int mode=sealing?1:oc_equal(argv[1],"recheck")?2:oc_equal(argv[1],"verify")?3:0;
+    int mode=sealing?1:oc_equal(argv[1],"recheck")?2:0;
     if (!mode && !oc_equal(argv[1],"check")) return 64;
     long fd=oc_openat(OC_CWD,argv[2],OC_DIRECTORY,0);
     if (fd<0) return 1;

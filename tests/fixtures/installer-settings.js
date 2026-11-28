@@ -542,4 +542,18 @@ values={...values,holdScroll:1,restart:true}; reply(values);
 back(); assert.equal(pages.at(-1).ctrl.focussedItem, 5); back();
 assert.equal(settings.open(fw,{read:()=>({...values,menuLoopCurrent:2})}),false);
 assert.equal(settings.open(fw,{read:()=>({...values,holdScrollCurrent:2})}),false);
+
+// Null prefs.values() while inside Developer options or CarPlay autoshow renders unknown state safely without throwing.
+let allowRead = true;
+const flakyStore = {...store, read: () => (allowRead ? values : null)};
+settings.open(fw, flakyStore); choose("developer");
+allowRead = false;
+pages.at(-1).ctrl.selectCallback(pages.at(-1).ctrl, "uart", {additionalData: 1});
+assert.equal(pages.at(-1).ctrl.dataList.items[0].text1, "Return to Mazda Settings");
+allowRead = true; back();
+settings.open(fw, flakyStore); choose("phone"); choose(2);
+allowRead = false;
+pick(1);
+assert.equal(pages.at(-1).ctrl.dataList.items[0].text1, "Return to Mazda Settings");
+allowRead = true; back();
 console.log("Reorganized native menus preserve defaults, confirmations, wire keys, restart state and Back focus");

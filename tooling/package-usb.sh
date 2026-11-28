@@ -6,13 +6,13 @@ out=$1
 case "$out" in /*) ;; *) out=$PWD/$out;; esac
 test -f "$out/api" || { echo 'Build with make release.' >&2; exit 1; }
 # Each staged inode has its own tmpfs page budget; spare space is not transferable.
-for limit in dialog.js:8192 runtime.js:16384 maintenance.js:20480 settings.js:28672 carplay.js:4096 loader.js:4096 backend.sh:16384 state.sh:20480 firmware.sh:45056 transaction.sh:16384 service.sh:16384 access.sh:12288 preferences.awk:8192 boot.sh:16384; do
+for limit in dialog.js:8192 runtime.js:16384 maintenance.js:20480 settings.js:28672 carplay.js:4096 loader.js:4096 service.sh:16384 preferences.awk:8192; do
     name=${limit%:*}; bytes=${limit#*:}
     test "$(wc -c < "cmu/installer/$name")" -le "$bytes" || {
         echo "$name exceeds its RAM page budget ($bytes bytes)." >&2; exit 1;
     }
 done
-for limit in touch-disable.so:4096 flush:4096 api:65536 boot-select:36864 ignition:4096; do
+for limit in touch-disable.so:4096 flush:4096 api:65536 install:65536 boot-select:36864 ignition:4096; do
     name=${limit%:*}; bytes=${limit#*:}
     test "$(wc -c < "$out/$name")" -le "$bytes" || {
         echo "$name exceeds its RAM page budget ($bytes bytes)." >&2; exit 1;
@@ -26,12 +26,12 @@ cp "$1" cmu/installer/usb-root/jci-autoupdate "$out/usb/"
 package=$out/usb/open-connect
 mkdir "$package"
 for file in run.sh session.sh service.sh usb-service.sh loader.js runtime.js maintenance.js dialog.js settings.js carplay.js \
-    backend.sh state.sh transaction.sh firmware.sh access.sh console.sh boot.sh startup-hook.sh startup-join.sh \
+    console.sh startup-hook.sh startup-join.sh \
     system-hook.js base-logging.js defer-gap2.sh defer-nav.sh ui-profile.awk ui-modules.tsv wireless.sh wireless-device.awk preferences.awk services.tsv sm-profile.awk VERSION KENATIA-LICENSE; do
     cp "cmu/installer/$file" "$package/$file"
 done
 cp cmu/features/disclaimer/layout.txt "$package/layout.txt"
-for file in api flush boot-select ignition touch-disable.so native.bin branch.bin sizes.bin layout.bin vui-path.bin mmui-path.bin mmui-sizes.bin mmui-length.bin mmui-pointer.bin mmui-count-pointer.bin; do
+for file in api install flush boot-select ignition touch-disable.so native.bin branch.bin sizes.bin layout.bin vui-path.bin mmui-path.bin mmui-sizes.bin mmui-length.bin mmui-pointer.bin mmui-count-pointer.bin; do
     cp "$out/$file" "$package/$file"
 done
 cp LICENSE "$package/LICENSE"

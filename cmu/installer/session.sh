@@ -9,7 +9,7 @@ post_restart() (
     trap - EXIT HUP INT TERM
     R=/tmp/open-connect; D=/tmp/mnt/data_persist/open-connect; P=$work
     test -f "$R/selected" && test -f "$R/feature/index.html" || exit 1
-    . "$work/state.sh"; . "$work/service.sh"
+    . "$work/service.sh"
     if test "${1:-}" != locked; then service_lock usb; fi
     private_dir "$D" && record_read && test "$R_PHASE" = active || exit 1
     test "$(current_boot_id)" = "$R_BOOT" && test "$(cat "$R/selected")" = "$R_CURRENT" || exit 1
@@ -63,7 +63,7 @@ logger -t open-connect "OCUSB|$token|start"
 if test -f /tmp/open-connect/feature/runtime.js &&
     grep -F -q 'OC_USB_OFFER_V1:' /tmp/open-connect/feature/runtime.js; then
     R=/tmp/open-connect
-    . "$work/state.sh"
+    . "$work/service.sh"
     service_lock usb
     if post_restart locked; then exit 0; fi
     entry_live || exit 0

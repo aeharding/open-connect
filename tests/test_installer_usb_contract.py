@@ -1,51 +1,79 @@
-"""Feed real backend metadata to the USB popup without reshaping its reply."""
+"""Feed real native api USB metadata to the USB popup without reshaping its reply."""
 
+import json
+import os
 import shutil
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
-from tests import test_installer_transaction as transaction
+from tests.host_bins import host_api
+
+ROOT = Path(__file__).resolve().parents[1]
+ASSETS = ROOT / "cmu/installer"
 
 
 @unittest.skipUnless(shutil.which("clang") and shutil.which("node"), "Clang and Node.js required")
 class USBMetadataContract(unittest.TestCase):
-    def fixture(self):
-        fixture = transaction.InstallerTransaction()
-        fixture.setUp()
-        self.addCleanup(fixture.doCleanups)
-        return fixture
-
-    def check_popup(self, fixture, data, expected):
-        fixture.backend_fixture(data)
-        runtime = fixture.root / "runtime"
-        (runtime / "runtime").unlink()
-        (runtime / "usb-runtime").symlink_to(fixture.tools)
-        result, metadata = fixture.api("status", argument="settings")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertNotIn("conflict", metadata)
-        reply = subprocess.run(
-            [
-                "node",
-                transaction.ROOT / "tests/fixtures/usb-metadata.js",
-                transaction.ROOT / "cmu/installer",
-                expected,
-            ],
-            input=result.stdout,
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        self.assertEqual(reply.returncode, 0, reply.stdout + reply.stderr)
+    def check_popup(self, expected):
+        api_bin = host_api()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            ram = root / "tmp/open-connect"
+            data = root / "tmp/mnt/data_persist/open-connect"
+            sess = ram / "sessions/session-usb001"
+            for d in (ram, sess, root / "tmp/mnt/data_persist", root / "proc/self", root / "dev"):
+                d.mkdir(parents=True, exist_ok=True)
+            for d in (ram, ram / "sessions", sess):
+                d.chmod(0o700)
+            (ram / "lock").write_bytes(b"")
+            (ram / "lock").chmod(0o600)
+            (ram / "usb-runtime").symlink_to(sess)
+            (sess / "VERSION").write_bytes((ASSETS / "VERSION").read_bytes())
+            (sess / "VERSION").chmod(0o600)
+            if expected == "pending":
+                data.mkdir(parents=True, mode=0o700)
+                pkg = "a" * 64
+                snap = "b" * 64
+                base = "c" * 64
+                (data / "record").write_text(
+                    f"OC1|uninstall|{'1' * 32}|{pkg}|{base}|{snap}|{snap}|{base}|-|3|-|-|-\n"
+                )
+                (data / "record").chmod(0o600)
+            env = {
+                **os.environ,
+                "OC_HOST_ROOT": str(root),
+                "OC_HOST_NONROOT": "1",
+                "OC_HOST_SKIP_FW_GUARD": "1",
+                "OC_HOST_WIRELESS_FILE": str(root / "no-wireless"),
+            }
+            result = subprocess.run(
+                [str(api_bin), "--handle", str(sess), "-", "status", "settings", "-", "-"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            metadata = json.loads(result.stdout)
+            self.assertNotIn("conflict", metadata)
+            reply = subprocess.run(
+                [
+                    "node",
+                    ROOT / "tests/fixtures/usb-metadata.js",
+                    ASSETS,
+                    expected,
+                ],
+                input=result.stdout,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertEqual(reply.returncode, 0, reply.stdout + reply.stderr)
 
     def test_fresh_usb_chooser_accepts_actual_metadata(self):
-        fixture = self.fixture()
-        self.check_popup(fixture, fixture.root / "absent", "fresh")
+        self.check_popup("fresh")
 
     def test_pending_usb_recovery_accepts_actual_metadata(self):
-        fixture = self.fixture()
-        data = fixture.create("pending")
-        fixture.run_ok(data, "install")
-        cut = fixture.run_command(data, "uninstall", "prepared")
-        self.assertNotEqual(cut.returncode, 0)
-        self.assertEqual((data / "record").read_text().split("|")[1], "uninstall")
-        self.check_popup(fixture, data, "pending")
+        self.check_popup("pending")

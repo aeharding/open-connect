@@ -1166,36 +1166,41 @@ class NativeMaintenance(unittest.TestCase):
         (f.data / "record").write_text(rec_orig)
 
     def test_usb_fence_accepts_native_only_pinned_settings_session(self):
-        from tests.host_bins import copy_host_flush
-
+        # Native C oc_usb_fence() in api validates active Settings session on USB mutating ops.
         with tempfile.TemporaryDirectory() as td:
             root = Path(td).resolve()
-            ram = root / "ram"
-            data = root / "data"
-            tools = root / "tools"
-            sess = ram / "sessions/session-nat002"
-            for d in (ram, data / "packages", data / "snapshots", tools, sess):
+            ram = root / "tmp/open-connect"
+            data = root / "tmp/mnt/data_persist/open-connect"
+            settings_sess = ram / "sessions/session-nat002"
+            usb_sess = ram / "sessions/session-usb002"
+            for d in (ram, data / "packages", data / "snapshots", settings_sess, usb_sess):
                 d.mkdir(parents=True, mode=0o700)
-            copy_host_flush(tools / "flush")
-            if shutil.which("gstat"):
-                (tools / "stat").symlink_to(shutil.which("gstat"))
-            # Package dir with flush + api (no backend.sh needed in target session)
+            for d in (ram, ram / "sessions", data, settings_sess, usb_sess):
+                d.chmod(0o700)
+            (ram / "lock").write_bytes(b"")
+            (ram / "lock").chmod(0o600)
             pkg_tmp = data / "packages/.pkg"
             pkg_tmp.mkdir(mode=0o700)
-            shutil.copyfile(tools / "flush", pkg_tmp / "flush")
-            (pkg_tmp / "flush").chmod(0o700)
             (pkg_tmp / "api").write_bytes(b"native-api-bytes\n")
             (pkg_tmp / "api").chmod(0o700)
+            (pkg_tmp / "VERSION").write_bytes((ASSETS / "VERSION").read_bytes())
+            (pkg_tmp / "VERSION").chmod(0o600)
+            (pkg_tmp / "services.tsv").write_bytes((ASSETS / "services.tsv").read_bytes())
+            (pkg_tmp / "services.tsv").chmod(0o600)
             pmf = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(pkg_tmp.iterdir()))
             (pkg_tmp / "files.sha256").write_text(pmf)
             (pkg_tmp / "files.sha256").chmod(0o600)
             pkg_id = sha(pmf.encode())
             pkg_tmp.rename(data / "packages" / pkg_id)
 
-            # Snapshot dir referencing pkg_id
             snap_tmp = data / "snapshots/.s"
             snap_tmp.mkdir(mode=0o700)
-            cfg = f"OC2\npackage={pkg_id}\n"
+            cfg = (
+                f"OC2\nbase=0\ncarplay-autoshow=0\nmetadata=755:{os.getuid()}:{os.getgid()}\n"
+                f"nvram=absent\npackage={pkg_id}\nservice-ids=android-auto,pandora,siriusxm\n"
+                "service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\n"
+                "touch=0\nwarning=0\nwireless=0\n"
+            )
             (snap_tmp / "config").write_text(cfg)
             (snap_tmp / "config").chmod(0o600)
             smf = f"{sha(cfg.encode())}  config\n"
@@ -1204,67 +1209,68 @@ class NativeMaintenance(unittest.TestCase):
             snap_id = sha(smf.encode())
             snap_tmp.rename(data / "snapshots" / snap_id)
 
-            # Native-only Settings session (has api + files.sha256, NO backend.sh)
-            shutil.copyfile(data / "packages" / pkg_id / "files.sha256", sess / "files.sha256")
-            shutil.copyfile(data / "packages" / pkg_id / "api", sess / "api")
-            (sess / "api").chmod(0o700)
-            (ram / "selected").write_text(snap_id + "\n")
-            (ram / "runtime").symlink_to(sess)
-
-            usb_svc = (ASSETS / "usb-service.sh").read_text().replace("/tmp/open-connect", str(ram))
-            (tools / "usb-service.sh").write_text(usb_svc)
-            (tools / "state.sh").write_text((ASSETS / "state.sh").read_text())
-
-            env = {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]}
-            cmd = [
-                "sh",
-                "-c",
-                'set -eu; P=$1; D=$2; usb_helpers=true; . "$P/state.sh"; '
-                'selection_id() { cat "$1"; }; . "$P/usb-service.sh"; usb_fence',
-                "fence",
-                str(tools),
-                str(data),
-            ]
-            ok = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=10)
-            self.assertEqual(ok.returncode, 0, ok.stderr)
-            self.assertTrue((ram / "runtime").is_symlink())
-
-            # Tampered api in native-only session must be refused!
-            (sess / "api").write_bytes(b"tampered-api\n")
-            bad = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=10)
-            self.assertNotEqual(bad.returncode, 0)
-            self.assertIn("invalid_legacy_source", bad.stderr)
-
-            # Finding #14: package with unpinned backend.sh must be refused even if session lacks backend.sh!
-            pkg2_tmp = data / "packages/.pkg2"
-            pkg2_tmp.mkdir(mode=0o700)
-            shutil.copyfile(tools / "flush", pkg2_tmp / "flush")
-            (pkg2_tmp / "flush").chmod(0o700)
-            (pkg2_tmp / "api").write_bytes(b"legacy-api-bytes\n")
-            (pkg2_tmp / "api").chmod(0o700)
-            (pkg2_tmp / "backend.sh").write_text(
-                "#!/bin/sh\n# legacy dev.22 without pinned marker\n"
+            shutil.copyfile(
+                data / "packages" / pkg_id / "files.sha256", settings_sess / "files.sha256"
             )
-            (pkg2_tmp / "backend.sh").chmod(0o600)
-            pmf2 = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(pkg2_tmp.iterdir()))
-            (pkg2_tmp / "files.sha256").write_text(pmf2)
-            (pkg2_tmp / "files.sha256").chmod(0o600)
-            pkg2_id = sha(pmf2.encode())
-            pkg2_tmp.rename(data / "packages" / pkg2_id)
-            snap2_tmp = data / "snapshots/.s2"
-            snap2_tmp.mkdir(mode=0o700)
-            cfg2 = f"OC2\npackage={pkg2_id}\n"
-            (snap2_tmp / "config").write_text(cfg2)
-            (snap2_tmp / "config").chmod(0o600)
-            smf2 = f"{sha(cfg2.encode())}  config\n"
-            (snap2_tmp / "files.sha256").write_text(smf2)
-            (snap2_tmp / "files.sha256").chmod(0o600)
-            snap2_id = sha(smf2.encode())
-            snap2_tmp.rename(data / "snapshots" / snap2_id)
-            shutil.copyfile(data / "packages" / pkg2_id / "files.sha256", sess / "files.sha256")
-            shutil.copyfile(data / "packages" / pkg2_id / "api", sess / "api")
-            (sess / "api").chmod(0o700)
-            (ram / "selected").write_text(snap2_id + "\n")
-            bad2 = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=10)
-            self.assertNotEqual(bad2.returncode, 0)
-            self.assertIn("unsupported_legacy_runtime", bad2.stderr)
+            shutil.copyfile(data / "packages" / pkg_id / "api", settings_sess / "api")
+            (settings_sess / "api").chmod(0o700)
+            (usb_sess / "VERSION").write_bytes((ASSETS / "VERSION").read_bytes())
+            (ram / "selected").write_text(snap_id + "\n")
+            (ram / "selected").chmod(0o600)
+            (ram / "runtime").symlink_to(settings_sess)
+            (ram / "usb-runtime").symlink_to(usb_sess)
+            (data / "record").write_text(
+                f"OC1|active|{'1' * 32}|{pkg_id}|{snap_id}|{snap_id}|-|-|-|3|-|-|-\n"
+            )
+            (data / "record").chmod(0o600)
+
+            fence_env = {
+                **os.environ,
+                "OC_HOST_ROOT": str(root),
+                "OC_HOST_NONROOT": "1",
+                "OC_HOST_SKIP_FW_GUARD": "1",
+                "OC_HOST_WIRELESS_FILE": str(root / "no-wireless"),
+            }
+
+            def run_fence_op():
+                proc = subprocess.run(
+                    [
+                        str(self.api_bin),
+                        "--handle",
+                        str(usb_sess),
+                        snap_id,
+                        "recover",
+                        "-",
+                        "-",
+                        "-",
+                    ],
+                    env=fence_env,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                return proc.returncode, json.loads(proc.stdout)
+
+            # 1) Valid pinned native Settings session passes oc_usb_fence().
+            rc, ans = run_fence_op()
+            self.assertEqual(rc, 0, ans)
+            self.assertTrue(ans["ok"], ans)
+
+            # 2) Tampered api in Settings session is refused with invalid_legacy_runtime.
+            (settings_sess / "api").write_bytes(b"tampered-api\n")
+            rc, bad = run_fence_op()
+            self.assertNotEqual(rc, 0)
+            self.assertEqual(bad["error"], "invalid_legacy_runtime")
+            shutil.copyfile(data / "packages" / pkg_id / "api", settings_sess / "api")
+            (settings_sess / "api").chmod(0o700)
+
+            # 3) Symlink pointing outside ram/sessions/session-* is refused with invalid_legacy_runtime.
+            outside = root / "outside-session"
+            outside.mkdir(mode=0o700)
+            shutil.copyfile(settings_sess / "files.sha256", outside / "files.sha256")
+            shutil.copyfile(settings_sess / "api", outside / "api")
+            (ram / "runtime").unlink()
+            (ram / "runtime").symlink_to(outside)
+            rc, bad2 = run_fence_op()
+            self.assertNotEqual(rc, 0)
+            self.assertEqual(bad2["error"], "invalid_legacy_runtime")

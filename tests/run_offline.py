@@ -25,27 +25,12 @@ ROOT = Path(__file__).resolve().parents[1]
 # Note: InstallerService binds fixed localhost ports 15555/15557, so it intentionally stays
 # out of HEAVY_CLASSES and executes inside a single unsplit shard.
 HEAVY_CLASSES = {
-    "tests.test_installer_boot_native.NativeBootPlan",
-    "tests.test_installer_transaction.InstallerTransaction",
-    "tests.test_installer_boot.InstallerBoot",
     "tests.test_installer_boot_selection.NativeBootSelection",
-    "tests.test_installer_dvd_upgrade.DVDUpgrade",
-    "tests.test_installer_initial.InitialInstall",
+    "tests.test_installer_native_maintenance.NativeMaintenance",
+    "tests.test_installer_native_install.NativeInstall",
 }
 
-# Longest individual tests scheduled first (LPT) so workers never hit a late single-test tail.
-LONGEST_FIRST = (
-    "tests.test_installer_boot_native.NativeBootPlan.test_retained_touch_changed_pin_recovers_and_usb_uninstalls_across_cuts",
-    "tests.test_installer_boot_native.NativeBootPlan.test_touch_recovery_retires_real_publisher_stages_across_policy_cuts",
-    "tests.test_installer_boot_native.NativeBootPlan.test_interrupted_touch_disable_changed_pin_recovers_then_uninstalls",
-    "tests.test_installer_dvd_upgrade.DVDUpgrade.test_dev19_dev20_install_downgrade_and_uninstall_preserve_originals",
-    "tests.test_installer_boot_native.NativeBootPlan.test_retained_touch_changed_pin_recovery_refuses_every_third_target",
-    "tests.test_installer_boot_native.NativeBootPlan.test_touch_stage_retirement_flush_failure_keeps_old_oc1_across_retries",
-    "tests.test_installer_boot_native.NativeBootPlan.test_touch_recovery_checks_restore_stage_inode_identity",
-    "tests.test_installer_initial.InitialInstall.test_initial_cuts_retry_with_replacement_media",
-    "tests.test_installer_transaction.InstallerTransaction.test_failed_legacy_record_rename_restores_only_definite_unchanged_authority",
-    "tests.test_installer_transaction.InstallerTransaction.test_all_six_touch_transitions_for_each_baseline_nvram",
-)
+LONGEST_FIRST = ()
 
 
 def _iter_cases(suite):
@@ -175,11 +160,18 @@ def main(argv: list[str] | None = None) -> int:
     try:
         # Pre-warm shared host binaries once before fanning out across workers.
         if shutil.which("clang"):
-            from tests.host_bins import host_api, host_boot_select, host_flush, host_ignition
+            from tests.host_bins import (
+                host_api,
+                host_boot_select,
+                host_flush,
+                host_ignition,
+                host_install,
+            )
 
             host_flush()
             host_boot_select()
             host_api()
+            host_install()
             host_ignition()
 
         failed_cases, shards = _build_shards(

@@ -49,20 +49,34 @@ def private_output(path):
 
 
 def inputs(firmware):
-    """The maintained target guard is the authority for original-file hashes."""
-    rows = subprocess.check_output(
-        [
-            "sh",
-            "-c",
-            '. "$1"; firmware_dependencies; base_ui_files; vui_source_files',
-            "check",
-            ASSETS / "firmware.sh",
-        ],
-        text=True,
+    """The maintained native C guard is the authority for original-file hashes."""
+    guard_c = (ASSETS / "core/oc-guard.c").read_text()
+    names = re.findall(
+        r'"([^"]+)"', re.search(r"oc_root_names\[19\]=\{([^}]+)\}", guard_c, re.S)[1]
     )
+    rpaths = re.findall(
+        r'"([^"]+)"', re.search(r"oc_root_paths\[19\]=\{([^}]+)\}", guard_c, re.S)[1]
+    )
+    rdigests = re.findall(
+        r'"([a-f0-9]{64})"', re.search(r"oc_root_digests\[19\]=\{([^}]+)\}", guard_c, re.S)[1]
+    )
+    auto_dig = re.search(r'oc_orig_autostart_digest="([a-f0-9]{64})"', guard_c)[1]
+    base_rows = re.findall(
+        r'\{"([^"]+)","([^"]+)","([a-f0-9]{64})"',
+        re.search(r"oc_base_pins\[5\]=\{([^;]+)\};", guard_c, re.S)[1],
+    )
+    entries = [("autostart", "/usr/bin/autostart", auto_dig), *zip(names, rpaths, rdigests)]
+    for key, rel, dig in base_rows:
+        leaf = (
+            "vui.so"
+            if key == "base/vui/vui.so"
+            else "vui.xml"
+            if key == "base/vui/vui.xml"
+            else key.split("/")[-1]
+        )
+        entries.append((leaf, "/" + rel.lstrip("/"), dig))
     paths = {}
-    for line in rows.splitlines():
-        digest, name, target = line.split()
+    for name, target, digest in entries:
         source = firmware / target.removeprefix("/")
         if sha(source) != digest:
             raise ValueError("unsupported exact original: " + target)
@@ -74,17 +88,8 @@ def inputs(firmware):
             if sha(source) != digest:
                 raise ValueError("unsupported plugin " + name)
             paths[name] = source
-    guard = (ASSETS / "firmware.sh").read_text()
-    for name, target in (
-        ("framework", "/jci/gui/framework/js/GuiFramework.js"),
-        ("display", "/jci/lvds/lvds_service"),
-    ):
-        pattern = r"md5sum < " + re.escape(target) + r"""\)" = '([a-f0-9]{32})  -'"""
-        expected = re.findall(pattern, guard)
-        source = firmware / target.removeprefix("/")
-        if len(expected) != 1 or hashlib.md5(source.read_bytes()).hexdigest() != expected[0]:
-            raise ValueError("unsupported exact original: " + target)
-        paths[name] = source
+    paths["framework"] = paths["framework.js"]
+    paths["display"] = paths["lvds-service"]
     return paths
 
 
@@ -104,69 +109,45 @@ def build(output, paths, host_cc):
     run(["make", "release", "OUT=" + str(output / "build")], output, "make", cwd=ROOT)
     source = output / "build/usb/open-connect"
     package = sha(source / "files.sha256")
-    data = output / "compose"
-    for name in ("originals", "packages", "composed", "tools"):
+    root_dir = output / "root"
+    data = root_dir / "tmp/mnt/data_persist/open-connect"
+    for name in ("originals", "packages", "composed"):
         (data / name).mkdir(mode=0o700, parents=True)
-    # The manager is a dependency, not an original needed for composition.
-    for name, path in paths.items():
-        if name not in ("manager.so", "framework", "display"):
-            shutil.copyfile(path, data / "originals" / name)
-            (data / "originals" / name).chmod(0o600)
+    data.chmod(0o700)
+    (root_dir / "jci/vui").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(paths["vui.so"], root_dir / "jci/vui/svcjcivui.so")
+    shutil.copyfile(paths["vui.xml"], root_dir / "jci/vui/vui_config.xml")
+    (root_dir / "dev").mkdir(parents=True, exist_ok=True)
+    (root_dir / "dev/urandom").write_bytes(os.urandom(4096))
+    for name in (
+        "autostart",
+        "sm.conf",
+        "sm_WCP.conf",
+        "board.sh",
+        "mmui.so",
+        "mmui.xml",
+        "uia.so",
+        "index.html",
+        "system-app.js",
+        "settings-app.js",
+        "base-app.js",
+        "vui.so",
+        "vui.xml",
+    ):
+        shutil.copyfile(paths[name], data / "originals" / name)
+        (data / "originals" / name).chmod(0o600)
     shutil.copytree(source, data / "packages" / package)
     (data / "packages" / package).chmod(0o700)
-    for name in ("stat", "readlink"):
-        if shutil.which("g" + name):
-            (data / "tools" / name).symlink_to(shutil.which("g" + name))
-    env = {**os.environ, "PATH": str(data / "tools") + os.pathsep + os.environ["PATH"]}
-    # Remap only the physical input path for host composition. Their names
-    # and exact digests still come from the maintained firmware adapter.
-    base_inputs = subprocess.check_output(
-        ["sh", "-c", '. "$1"; base_ui_files', "check", ASSETS / "firmware.sh"],
-        text=True,
-    )
-    (output / "base-ui-inputs").write_text(
-        "".join(
-            f"{digest} {name} {paths[name]}\n"
-            for digest, name, _ in (row.split() for row in base_inputs.splitlines())
-        )
-    )
-    # Host-only physical-path adapter. Public package bytes remain unchanged.
+    from tests.host_bins import host_install
+
+    inst_bin = host_install()
     run(
-        [host_cc, "-DOC_HOST", ROOT / "cmu/startup/flush.c", "-o", output / "flush-host"],
-        output,
-        "host-flush",
-    )
-    adapter = output / "firmware-adapter.sh"
-    adapter.write_text(
-        'sha() { "$base_fixture/flush-host" h "$1"; }\n'
-        + (ASSETS / "firmware.sh")
-        .read_text()
-        .replace("/jci/vui/svcjcivui.so", str(paths["vui.so"]))
-        .replace("/jci/vui/vui_config.xml", str(paths["vui.xml"]))
-        .replace(" /jci/vui/plugins/%s", " " + str(paths["vui.so"].parent / "plugins") + "/%s")
-        .replace(
-            "vui_stock_device() { stat -c %d /; }",
-            'vui_stock_device() { stat -c %d "' + str(paths["manager.so"]) + '"; }',
-        )
-    )
-    run(
-        [
-            "sh",
-            "-c",
-            'set -eu; D=$1; P=$2; . "$3/state.sh"; . "$3/firmware.sh"; '
-            'base_fixture=$5; . "$base_fixture/firmware-adapter.sh"; base_ui_files() { cat "$base_fixture/base-ui-inputs"; }; '
-            'flush() { :; }; compose "$4"',
-            "check",
-            data,
-            source,
-            ASSETS,
-            package,
-            output,
-        ],
+        [str(inst_bin), "--test-compose", package],
         output,
         "compose",
-        env=env,
+        env={**os.environ, "OC_HOST_ROOT": str(root_dir), "OC_HOST_NONROOT": "1"},
     )
+    (output / "compose").symlink_to(data)
     (output / "inputs.json").write_text(
         json.dumps(
             {name: {"path": str(path), "sha256": sha(path)} for name, path in paths.items()},
@@ -181,34 +162,76 @@ def build(output, paths, host_cc):
 def base_logging_contract(output, paths, node, composed):
     data = output / "compose"
     package = data / "packages" / composed.name
+    harness = output / "idx_harness.c"
+    harness.write_text(
+        '#include "oc-core.h"\n'
+        "#include <stdlib.h>\n"
+        "int main(int argc, char **argv) {\n"
+        "  if (argc != 9) return 64;\n"
+        "  int pdir = (int)oc_openat(OC_CWD, argv[1], OC_DIRECTORY, 0);\n"
+        "  int cdir = (int)oc_openat(OC_CWD, argv[2], OC_DIRECTORY, 0);\n"
+        "  int wdir = (int)oc_openat(OC_CWD, argv[3], OC_DIRECTORY, 0);\n"
+        "  char pmf_buf[8192], cmf_buf[4096]; OcManifest pmf, cmf;\n"
+        '  if (oc_text(pdir, "files.sha256", pmf_buf, sizeof pmf_buf, 0) <= 0 || !oc_manifest(pmf_buf, &pmf, 0)) return 2;\n'
+        '  if (oc_text(cdir, "files.sha256", cmf_buf, sizeof cmf_buf, 0) <= 0 || !oc_manifest(cmf_buf, &cmf, 0)) return 3;\n'
+        "  OcPrefs p = {0};\n"
+        "  p.warning = argv[4]; p.base = argv[5]; p.autoshow = argv[6];\n"
+        '  p.svc_ids[0] = "android-auto"; p.svc_vals[0] = argv[7];\n'
+        '  p.svc_ids[1] = "pandora"; p.svc_vals[1] = argv[8];\n'
+        '  p.svc_ids[2] = "siriusxm"; p.svc_vals[2] = getenv("OC_SXM");\n'
+        "  p.svc_count = 3;\n"
+        "  return oc_render_index_native(pdir, &pmf, cdir, &cmf, wdir, &p) ? 0 : 1;\n"
+        "}\n"
+    )
+    core = ROOT / "cmu/installer/core"
+    idx_bin = output / "idx_harness"
+    run(
+        [
+            "clang",
+            "-DOC_HOST",
+            "-I",
+            str(core),
+            str(harness),
+            *(
+                str(core / c)
+                for c in (
+                    "oc-hash.c",
+                    "oc-io.c",
+                    "oc-manifest.c",
+                    "oc-record.c",
+                    "oc-config.c",
+                    "oc-guard.c",
+                    "oc-root.c",
+                    "oc-access.c",
+                    "oc-txn.c",
+                    "oc-render.c",
+                )
+            ),
+            "-o",
+            str(idx_bin),
+        ],
+        output,
+        "build-idx-harness",
+    )
     for base in (0, 1):
         for warning in (0, 1):
             destination = output / f"base-{base}-warning-{warning}"
             destination.mkdir(mode=0o700)
-            config = destination / "config"
-            config.write_text(
-                f"OC2\nbase={base}\nmetadata=755:{os.getuid()}:{os.getgid()}\n"
-                f"nvram=disable\npackage={composed.name}\nservice-ids=android-auto,pandora,siriusxm\n"
-                f"service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\ntouch=1\nwarning={warning}\nwireless=1\n"
-            )
             run(
                 [
-                    "sh",
-                    "-c",
-                    "set -eu; D=$1; P=$2; base_fixture=$3; "
-                    '. "$P/state.sh"; . "$base_fixture/firmware-adapter.sh"; '
-                    'base_ui_files() { cat "$base_fixture/base-ui-inputs"; }; '
-                    'boot_render_profiles "$4" "$5"',
-                    "logging",
-                    data,
-                    package,
-                    output,
-                    destination,
-                    config,
+                    str(idx_bin),
+                    str(package),
+                    str(composed),
+                    str(destination),
+                    str(warning),
+                    str(base),
+                    "0",
+                    "1",
+                    "1",
                 ],
                 output,
                 f"render-base-{base}-warning-{warning}",
-                env={**os.environ, "PATH": str(data / "tools") + os.pathsep + os.environ["PATH"]},
+                env={**os.environ, "OC_SXM": "1"},
             )
             run(
                 [
@@ -332,7 +355,6 @@ def main(argv=None):
         ROOT / "tests/fixtures/carplay.js",
         *sorted((ROOT / "cmu/installer").rglob("*")),
         *sorted((ROOT / "cmu/features/disclaimer").glob("*.*")),
-        ROOT / "cmu/features/touch/setting.sh",
         ROOT / "cmu/startup/flush.c",
     ]
     pins = {}

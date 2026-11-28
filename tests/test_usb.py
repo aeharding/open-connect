@@ -27,13 +27,7 @@ STATIC = (
     "dialog.js",
     "settings.js",
     "carplay.js",
-    "backend.sh",
-    "state.sh",
-    "transaction.sh",
-    "firmware.sh",
-    "access.sh",
     "console.sh",
-    "boot.sh",
     "startup-hook.sh",
     "startup-join.sh",
     "system-hook.js",
@@ -52,6 +46,7 @@ STATIC = (
 )
 COMPILED = (
     "api",
+    "install",
     "flush",
     "boot-select",
     "ignition",
@@ -96,13 +91,6 @@ class UsbBuild(unittest.TestCase):
             (destination / "files.sha256").write_text(installed)
             # Record validation and lock acquisition are tested by their own
             # maintained suites; substitute only those upstream platform facts.
-            (work / "state.sh").write_text(
-                (ASSETS / "state.sh").read_text() + '\nfile() { test -f "$1" && test ! -L "$1"; }; '
-                'stat() { printf "%s 8\\n" "$(wc -c < "$3")"; }; '
-                'private_dir() { test -d "$1"; }; '
-                'current_boot_id() { cat "$R/boot"; }; '
-                'record_read() { . "$D/facts"; };\n'
-            )
             from tests.host_bins import copy_host_flush
 
             copy_host_flush(work / "flush")
@@ -134,7 +122,14 @@ class UsbBuild(unittest.TestCase):
             module = module.replace("/sys/", str(sysroot) + "/").replace(
                 "/proc/mounts", str(mounts)
             )
-            (work / "service.sh").write_text(module + "\nservice_lock() { :; }\n")
+            (work / "service.sh").write_text(
+                module + '\nfile() { test -f "$1" && test ! -L "$1"; }; '
+                'stat() { printf "%s 8\\n" "$(wc -c < "$3")"; }; '
+                'private_dir() { test -d "$1"; }; '
+                'current_boot_id() { cat "$R/boot"; }; '
+                'record_read() { . "$D/facts"; }; '
+                "service_lock() { :; }\n"
+            )
             source = (ASSETS / "session.sh").read_text().split("navigate()", 1)[0]
             source = source.replace("/tmp/open-connect", str(registry)).replace(
                 "/tmp/mnt/data_persist/open-connect", str(durable)
@@ -289,7 +284,6 @@ class UsbBuild(unittest.TestCase):
                     feature = registry / "feature"
                     feature.mkdir()
                     (feature / "runtime.js").write_text("/* OC_USB_OFFER_V1: receiver */\n")
-                (work / "state.sh").write_text("")
                 (registry / "usb-runtime").symlink_to(runtime)
                 (registry / "usb-listener").write_text(f"1 2 {runtime}\n")
                 (runtime / "token").write_text("a" * 32 + "\n")
@@ -442,7 +436,7 @@ class UsbBuild(unittest.TestCase):
                         (len(z.read("open-connect/" + name)) + 4095) // 4096
                         for name in (*PAYLOAD, "files.sha256")
                     ),
-                    131,
+                    115,
                 )
                 for name in STATIC:
                     self.assertEqual(z.read("open-connect/" + name), (ASSETS / name).read_bytes())
@@ -508,7 +502,7 @@ class UsbBuild(unittest.TestCase):
                 script = script.replace(old, new)
             (package / "run.sh").write_text(script)
             marker = root / "executed"
-            payload = ("loader.js", "session.sh", "api", "flush")
+            payload = ("loader.js", "session.sh", "api", "flush", "install")
             for name in payload:
                 (package / name).write_text("fixture\n")
             (package / "session.sh").write_text(

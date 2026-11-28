@@ -349,9 +349,9 @@ int oc_snapshot_create(int root, int data_fd, const char *autostart_snap, const 
     const char *mnames[13]; char mdigs[13][65]; unsigned mc=0;
     int ok=1;
     {
-        int adir=oc_open_private(snaps,autostart_snap);
+        int adir=autostart_snap ? oc_open_private(snaps,autostart_snap) : res_dir;
         ok=adir>=0 && oc_txn_copy_sync(adir,"autostart",wfd,"autostart",mdigs[mc]);
-        if (adir>=0 && oc_close(adir)<0) ok=0;
+        if (autostart_snap && adir>=0 && oc_close(adir)<0) ok=0;
         if (ok) mnames[mc++]="autostart";
     }
     if (ok) {
@@ -370,9 +370,9 @@ int oc_snapshot_create(int root, int data_fd, const char *autostart_snap, const 
         }
     }
     if (ok) {
-        int ddir=oc_open_private(snaps,deps_snap);
+        int ddir=deps_snap ? oc_open_private(snaps,deps_snap) : res_dir;
         ok=ddir>=0 && oc_txn_copy_sync(ddir,"dependencies",wfd,"dependencies",mdigs[mc]);
-        if (ddir>=0 && oc_close(ddir)<0) ok=0;
+        if (deps_snap && ddir>=0 && oc_close(ddir)<0) ok=0;
         if (ok) mnames[mc++]="dependencies";
     }
     if (ok && res_dir>=0) {
@@ -484,9 +484,9 @@ static int oc_vui_emit_cb(const char *nm, const char *pin, void *raw) {
         oc_write_in_row(*(int *)raw,k,tp,pin);
 }
 
-static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
-                              const char *snap_id, const char *base_id, const char *pkg_id,
-                              long owner, long group, char out_id[65]) {
+int oc_seal_after_snap(int root, const char *root_path, int data_fd,
+                       const char *snap_id, const char *base_id, const char *pkg_id,
+                       int force_reseal, long owner, long group, char out_id[65]) {
     if (!oc_join(out_id,65,"",snap_id)) return 0;
     if (oc_equal(pkg_id,"-")) return 1;
     char bs_path[512];
@@ -501,7 +501,7 @@ static int oc_seal_after_snap(int root, const char *root_path, int data_fd,
     if (snaps<0) return 0;
 
     /* If boot.plan already exists (SHA already verified by oc_txn_read_snap) and validates via boot-select check, keep snap_id. */
-    if (oc_digest(&a->mf,"boot.plan")) {
+    if (!force_reseal && oc_digest(&a->mf,"boot.plan")) {
         int sdir=oc_open_private(snaps,snap_id);
         char srel[128], hdr[160], expect_hdr[160];
         long pfd=sdir>=0?oc_openat(sdir,"boot.plan",OC_READ,0):-1;
@@ -771,7 +771,7 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
     char sealed_id[65];
     if (!is_uninstall && !oc_equal(a->pkg,"-")) {
         if (!oc_equal(a->pkg,rec[3]) ||
-            !oc_seal_after_snap(root,root_path,data_fd,after_id,base_id,rec[3],owner,group,sealed_id))
+            !oc_seal_after_snap(root,root_path,data_fd,after_id,base_id,rec[3],0,owner,group,sealed_id))
             return txn_err(err_out,"boot_snapshot_failed");
     } else {
         (void)oc_join(sealed_id,sizeof sealed_id,"",after_id);
@@ -830,4 +830,193 @@ int oc_uninstall_cleanup(int root, const char *root_path, int data_fd, const cha
 done:
     (void)oc_close((int)pdir);
     return ferr ? txn_err(err_out,ferr) : 1;
+}
+
+static int oc_boot_id_ensure(int root, int ram, char *rec[13], long owner, long group, char out[37]) {
+    if (oc_absent_at(ram,"boot-id")) {
+        char kboot[40], dig[65];
+        if (oc_text(root,"proc/sys/kernel/random/boot_id",kboot,sizeof kboot,1)<0 ||
+            !oc_one_line(kboot) || !oc_uuid(kboot)) return 0;
+        OcHash h; oc_hash_init(&h);
+        const char *parts[5]={"OCBOOT1",kboot,rec[2],rec[11],rec[10]};
+        for (unsigned i=0; i<5; ++i) {
+            oc_hash_add(&h,parts[i],oc_length(parts[i]));
+            oc_hash_add(&h,i==4?"\n":"|",1);
+        }
+        oc_hash_finish(&h,dig);
+        unsigned at=0;
+        for (unsigned i=0; i<36; ++i) out[i]=(i==8||i==13||i==18||i==23)?'-':dig[at++];
+        out[36]=0;
+        for (unsigned i=0; i<16; ++i) {
+            if (!oc_equal(out,rec[11]) && !oc_equal(out,rec[10])) break;
+            out[0]="0123456789abcdef"[i];
+        }
+        if (oc_symlink(out,ram,"boot-id")<0) return 0;
+    }
+    OcMeta m={0};
+    if (oc_metadata(ram,"boot-id",&m)<0 || (m.mode&OC_TYPE)!=0120000 ||
+        m.size!=36 || m.uid!=(unsigned)owner || m.gid!=(unsigned)group ||
+        oc_readlink(ram,"boot-id",out,36)!=36) return 0;
+    out[36]=0;
+    return oc_uuid(out);
+}
+
+int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
+                    const char *ram_exec_dir, long owner, long group) {
+    const char *err=0;
+    if (!oc_firmware_guard(root,"boot:recover",oc_big_buf,sizeof oc_big_buf,&err)) return 0;
+    if (!oc_mounts_mode(root,oc_mscratch,sizeof oc_mscratch,0)) return 0;
+    int data=oc_open_data_dir(root);
+    if (data<0) return 0;
+    int ram=oc_open_ram_dir(root);
+    if (ram<0) {
+        if (oc_absent_at(root,OC_RAM) && oc_mkdir(root,OC_RAM,0700)>=0) ram=oc_open_ram_dir(root);
+    }
+    if (ram<0 || !oc_absent_at(ram,"selected") || !oc_absent_at(ram,"feature")) {
+        if (ram>=0) (void)oc_close(ram);
+        (void)oc_close(data); return 0;
+    }
+    long lfd=oc_openat(ram,"lock",OC_RW|OC_CREATE,0600);
+    OcMeta lm={0};
+    if (lfd<0 || oc_stat((int)lfd,&lm)<0 || lm.mode!=(OC_REGULAR|0600) ||
+        lm.uid!=(unsigned)owner || lm.gid!=(unsigned)group || oc_lock((int)lfd)<0) {
+        if (lfd>=0) (void)oc_close((int)lfd);
+        (void)oc_close(ram); (void)oc_close(data); return 0;
+    }
+
+    int ok=0;
+    char rec_buf[1024], *rec[13], dbase[320], expect_pkg[420];
+    if (!oc_record_read_any(data,owner,group,rec_buf,sizeof rec_buf,rec) ||
+        !oc_data_base(root_path,dbase,sizeof dbase) ||
+        !oc_join4(expect_pkg,sizeof expect_pkg,dbase,"/packages/",rec[3],0) ||
+        !oc_equal(pkg_dir,expect_pkg)) goto done;
+
+    /* 1. Reconcile any pending transaction, or purge removed/purge state. */
+    if (!(oc_equal(rec[6],"-") && oc_equal(rec[7],"-") &&
+          (oc_equal(rec[1],"active") || oc_equal(rec[1],"removed")))) {
+        if (!oc_equal(rec[1],"purge")) {
+            if (!oc_transaction_reconcile(root,root_path,data,rec,ram_exec_dir,0,owner,group,&err) ||
+                !oc_record_read_any(data,owner,group,rec_buf,sizeof rec_buf,rec)) goto done;
+        }
+    }
+    if (oc_equal(rec[1],"removed") || oc_equal(rec[1],"purge")) {
+        (void)oc_uninstall_cleanup(root,root_path,data,ram_exec_dir,owner,group,&err);
+        goto done;
+    }
+    if (!oc_equal(rec[1],"active")) goto done;
+
+    /* 2. Verify active targets, dependencies, and native UIA manager pin. */
+    {
+        char mdig[65]; OcMeta mm={0};
+        long mfd=oc_beneath(root,"jci/lib/libjciuiamgr.so",OC_READ,0);
+        int mok=mfd>=0 && oc_hash_copy((int)mfd,-1,33554432,mdig,&mm)==OC_COPY_OK &&
+            oc_equal(mdig,oc_pin_digest("root/manager.so",oc_root_digests[10]));
+        if (mfd>=0 && oc_close((int)mfd)<0) mok=0;
+        if (!mok || !oc_targets_match(root,data,rec[5],rec[4],owner,group) ||
+            !oc_dependencies_match(root,data,rec[5],owner,group)) goto done;
+    }
+
+    OcTxnSnap *cur=&oc_snap_pool[0], *base=&oc_snap_pool[1];
+    if (!oc_txn_read_snap(data,rec[5],cur) || !oc_txn_read_snap(data,rec[4],base) ||
+        !oc_equal(cur->pkg,rec[3])) goto done;
+
+    char boot[37], pre_step3_snap[65];
+    if (!oc_boot_id_ensure(root,ram,rec,owner,group,boot) || oc_equal(rec[11],boot) ||
+        !oc_join(pre_step3_snap,sizeof pre_step3_snap,"",rec[5])) goto done;
+
+    /* 3. Reconcile touch=1 NVRAM policy against current boot budget (revert on 0, re-apply on >0). */
+    int bud=rec[9][0]-'0';
+    if (!oc_equal(rec[10],"-") && !oc_equal(rec[10],boot)) {
+        char acc[8];
+        if (oc_text(root,"sys/class/gpio/ACC_Sense/value",acc,sizeof acc,1)>0 &&
+            oc_one_line(acc) && oc_equal(acc,"1")) bud=3;
+    }
+    const char *want_nv=(bud>0 && oc_equal(cur->touch,"1")) ? "disable" : base->nvram;
+    if (!oc_equal(cur->nvram,want_nv)) {
+        int cdir=oc_open_sub(data,"snapshots",rec[5]);
+        char cfg[1024], new_cfg[1024], after_id[65], prep_nonce[33];
+        int cok=cdir>=0 && oc_text(cdir,"config",cfg,sizeof cfg,0)>0;
+        if (cok) {
+            char *p=cfg, *nvp=0;
+            while (*p) { if (oc_prefix(p,"\nnvram=")) { nvp=p+7; break; } ++p; }
+            if (!nvp) cok=0;
+            else {
+                char *nve=nvp; while (*nve && *nve!='\n') ++nve;
+                unsigned pre=(unsigned)(nvp-cfg), nl=oc_length(want_nv), tail=oc_length(nve);
+                if (pre+nl+tail+1>=sizeof new_cfg) cok=0;
+                else {
+                    for (unsigned i=0; i<pre; ++i) new_cfg[i]=cfg[i];
+                    for (unsigned i=0; i<nl; ++i) new_cfg[pre+i]=want_nv[i];
+                    for (unsigned i=0; i<=tail; ++i) new_cfg[pre+nl+i]=nve[i];
+                }
+            }
+        }
+        if (cok) cok=oc_snapshot_create(root,data,rec[5],cur->pkg,want_nv,cur->meta,rec[5],
+                                        cdir,new_cfg,ram_exec_dir,root_path,owner,group,after_id);
+        if (cdir>=0) (void)oc_close(cdir);
+        if (!cok || !oc_transaction_prepare(root,data,rec,"apply",rec[5],after_id,rec[4],1,owner,group,prep_nonce))
+            goto done;
+        rec[2]=prep_nonce;
+        if (!oc_transaction_reconcile(root,root_path,data,rec,ram_exec_dir,prep_nonce,owner,group,&err) ||
+            !oc_record_read_any(data,owner,group,rec_buf,sizeof rec_buf,rec) ||
+            !oc_txn_read_snap(data,rec[5],cur)) goto done;
+    }
+
+    /* 4. Handle D/reseal hint (inode drift) or unsealed boot.plan. */
+    int hinted=0, unlink_reseal=0;
+    if (!oc_absent_at(data,"reseal")) {
+        OcMeta rm={0}; char rtxt[66];
+        long rfd=oc_openat(data,"reseal",OC_READ,0);
+        int valid_file=rfd>=0 && oc_stat((int)rfd,&rm)>=0 && rm.mode==(OC_REGULAR|0600) &&
+            rm.size==65 && rm.uid==(unsigned)owner && rm.gid==(unsigned)group &&
+            oc_text_fd((int)rfd,rtxt,sizeof rtxt)==65 && oc_one_line(rtxt) && oc_hex(rtxt,64);
+        if (rfd>=0) (void)oc_close((int)rfd);
+        if (!valid_file) goto done;
+        if (oc_equal(rtxt,rec[5])) {
+            char bs_path[512], srel[128], hdr[160], expect_hdr[160];
+            int sdir=oc_open_sub(data,"snapshots",rec[5]);
+            long pfd=sdir>=0 ? oc_openat(sdir,"boot.plan",OC_READ,0) : -1;
+            int chk=pfd>=0 && oc_pkg_boot_select(data,root_path,rec[3],owner,group,bs_path)==1 &&
+                oc_join(srel,sizeof srel,OC_DATA "/snapshots/",rec[5]) &&
+                oc_join4(expect_hdr,sizeof expect_hdr,"OCBP1|",rec[4],"|",rec[3]);
+            if (chk) {
+                long n=oc_read((int)pfd,hdr,sizeof hdr-1);
+                (void)oc_close((int)pfd); pfd=-1;
+                chk=n>0;
+                if (chk) {
+                    hdr[n]=0;
+                    char *nl=hdr; while (*nl && *nl!='\n') ++nl;
+                    if (*nl=='\n') *nl=0;
+                    chk=oc_equal(hdr,expect_hdr);
+                }
+                if (chk) {
+                    pfd=oc_openat(sdir,"boot.plan",OC_READ,0);
+                    char *rargv[]={bs_path,"recheck",(char *)root_path,srel,0};
+                    chk=pfd>=0 && oc_run_cmd_io(bs_path,rargv,(int)pfd,-1,0,0,-1)==0;
+                }
+            }
+            if (pfd>=0) (void)oc_close((int)pfd);
+            if (sdir>=0) (void)oc_close(sdir);
+            if (!chk) goto done;
+            hinted=1; unlink_reseal=1;
+        } else if (!oc_equal(pre_step3_snap,rec[5]) && oc_equal(rtxt,pre_step3_snap)) {
+            /* Step 3 NVRAM apply already rotated and sealed rec[5]; retire the superseded hint. */
+            unlink_reseal=1;
+        }
+    }
+
+    char sealed_id[65];
+    if (!oc_seal_after_snap(root,root_path,data,rec[5],rec[4],rec[3],hinted,owner,group,sealed_id)) goto done;
+    if (!oc_equal(sealed_id,rec[5])) {
+        rec[5]=sealed_id;
+        if (!oc_record_write_atomic(root,data,rec,0)) goto done;
+    }
+    if (unlink_reseal && (oc_unlink(data,"reseal")<0 || oc_sync(data)<0)) goto done;
+    ok=1;
+
+done:
+    (void)oc_close((int)lfd);
+    (void)oc_close(ram);
+    (void)oc_close(data);
+    return ok;
 }

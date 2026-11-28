@@ -1,5 +1,46 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
+request_owner=$(id -u) && request_owner=$request_owner:$(id -g) || exit 1
+case "$request_owner" in :*|*:|*:*:*|*[!0-9:]*) exit 1;; esac
+fail() { printf '%s\n' "$1" >&2; exit 1; }
+sha() { "$P/flush" h "$1"; }
+hex() { test "${#1}" -eq "$2" && case "$1" in *[!a-f0-9]*) false;; *) true;; esac; }
+sha_is() { local d; d=$(sha "$1") && hex "$d" 64 && test "$d" = "$2"; }
+uuid() { tr -d '-' < /proc/sys/kernel/random/uuid; }
+absent() { test ! -e "$1" && test ! -L "$1"; }
+file() { test -f "$1" && test ! -L "$1" && test "$(readlink -f "$1")" = "$1"; }
+directory() { test -d "$1" && test ! -L "$1" && test "$(readlink -f "$1")" = "$1"; }
+one_line() { file "$1" && IFS= read -r line < "$1" && test "$(wc -c < "$1")" -eq "$((${#line}+1))"; }
+private_dir() { directory "$1" && test "$(stat -c '%a:%u:%g' "$1")" = "700:$request_owner"; }
+boot_id() {
+  local v=$1 d
+  case "$1" in ????????-????-????-????-????????????) ;; *) return 1;; esac
+  for d in 1 2 3 4; do v=${v%%-*}${v#*-}; done
+  hex "$v" 32
+}
+current_boot_id() {
+  local m=${R:-/tmp/open-connect}/boot-id v
+  test -L "$m" && test "$(stat -c '%s:%u:%g' "$m")" = "36:$request_owner" || return 1
+  v=$(readlink "$m") && boot_id "$v" || return 1
+  printf '%s\n' "$v"
+}
+record_read() {
+  local line fmt ex lu
+  one_line "$D/record" || return 1
+  IFS='|' read -r fmt R_PHASE R_REV R_BACKEND R_BASE R_CURRENT R_BEFORE R_AFTER lu R_BUDGET R_OFF R_BOOT R_NOTICE ex < "$D/record" || return 1
+  test "$line" = "OC1|$R_PHASE|$R_REV|$R_BACKEND|$R_BASE|$R_CURRENT|$R_BEFORE|$R_AFTER|$lu|$R_BUDGET|$R_OFF|$R_BOOT|$R_NOTICE" || return 1
+  test "$fmt" = OC1 && hex "$R_REV" 32 && hex "$R_BACKEND" 64 && hex "$R_BASE" 64 && hex "$R_CURRENT" 64 || return 1
+  for ex in "$R_BEFORE" "$R_AFTER" "$lu"; do test "$ex" = - || hex "$ex" 64 || return 1; done
+  case "$R_PHASE" in
+    active|removed|purge) test "$R_BEFORE:$R_AFTER" = -:- || return 1;;
+    install|set|uninstall|apply) hex "$R_BEFORE" 64 && hex "$R_AFTER" 64 || return 1;;
+    *) return 1;;
+  esac
+  case "$R_BUDGET" in 0|1|2|3) ;; *) return 1;; esac
+  test "$R_OFF" = - || boot_id "$R_OFF" || return 1
+  test "$R_BOOT" = - || boot_id "$R_BOOT" || return 1
+  case "$R_NOTICE" in -|installed|removed|undone|restart) ;; *) return 1;; esac
+}
 
 service_usb_observe() {
   local index=${R:-/tmp/open-connect}/feature/index.html boot saved ids= usb name number line
@@ -145,23 +186,22 @@ LEASE
 
 service_discard_child() {
   if test -n "$2" && test "$(awk '{print $4 ":" $22}' "/proc/$1/stat" 2>/dev/null)" = "$$:$2"; then
-    kill -TERM "$1" || :
-    /bin/busybox usleep 10000
+    kill -TERM "$1" || :; /bin/busybox usleep 10000
     if test "$(awk '{print $4 ":" $22}' "/proc/$1/stat" 2>/dev/null)" = "$$:$2"; then kill -KILL "$1" || :; fi
     wait "$1" 2>/dev/null || :
   fi
   if test "$(readlink "$service_runtime" 2>/dev/null || :)" = "$3"; then rm "$service_runtime"; fi
-  local pointer value
-  for pointer in "$service_listener" "$service_listener.next"; do
-    if test -f "$pointer" && test ! -L "$pointer"; then
-      value=$(cat "$pointer")
-      if test "$value" = "$1 $2 $3"; then rm "$pointer"; fi
+  local ptr val
+  for ptr in "$service_listener" "$service_listener.next"; do
+    if test -f "$ptr" && test ! -L "$ptr"; then
+      val=$(cat "$ptr")
+      if test "$val" = "$1 $2 $3"; then rm "$ptr"; fi
     fi
   done
   if test "${service_role:-}" = usb && test -d "$3"; then
     : > "$3/closed"
     (exec 8>&- 9>&-; sh "$3/usb-service.sh" retire) </dev/null >/dev/null 2>&1 &
-  elif test -n "$3" && test "${pending_published:-false}" != true; then
+  elif test -n "$3" && test "${p_pub:-false}" != true; then
     service_discard_private "$3"
   fi
 }
@@ -184,8 +224,8 @@ _service_files() (
 if absent "$R/sessions"; then mkdir -m 700 "$R/sessions"; fi
 private_dir "$R/sessions" || fail invalid_sessions
 work=$(mktemp -d "$R/sessions/session-XXXXXX")
-service_staging_work=$work
-trap 'service_discard_private "$service_staging_work"' EXIT
+sw=$work
+trap 'service_discard_private "$sw"' EXIT
 trap 'exit 1' HUP INT TERM
 directory "$P" || fail invalid_source
 if test "$kind" = usb; then file "$P/files.sha256" || fail invalid_source; fi
@@ -243,7 +283,7 @@ $copied
 COPIED
 chmod 600 "$@"
 chmod 700 "$work/api" "$work/flush"
-if test -f "$work/ignition" && test ! -L "$work/ignition"; then chmod 700 "$work/ignition"; fi
+for b in ignition install; do if test -f "$work/$b" && test ! -L "$work/$b"; then chmod 700 "$work/$b"; fi; done
 set --
 while read -r digest name extra; do
   if test -f "$work/$name" && test ! -L "$work/$name"; then set -- "$@" "$work/$name"; fi
@@ -268,34 +308,34 @@ local work=$1 pid start deadline
 service_config "${2:-settings}"
 stop_listener
 if ! absent "$service_runtime"; then test -L "$service_runtime" || fail invalid_runtime_pointer; fi
-pending_pid=; pending_start=; pending_work=$work; pending_cancel=false; pending_published=false
-trap 'service_discard_child "$pending_pid" "$pending_start" "$pending_work"' EXIT
-trap 'pending_cancel=true' HUP INT TERM
+p_pid=; p_st=; p_wk=$work; p_can=false; p_pub=false
+trap 'service_discard_child "$p_pid" "$p_st" "$p_wk"' EXIT
+trap 'p_can=true' HUP INT TERM
 ( exec 8>&- 9>&-; exec /bin/busybox tcpsvd -E -c 4 127.0.0.1 "$service_port" \
-  /bin/busybox timeout -t 180 "$work/api" "$work/token" "$work/backend.sh" ) </dev/null >"$work/service.log" 2>&1 &
+  /bin/busybox timeout -t 180 "$work/api" "$work/token" ) </dev/null >"$work/service.log" 2>&1 &
 pid=$!
 start=$(awk '{print $22}' "/proc/$pid/stat" 2>/dev/null) || start=
-pending_pid=$pid; pending_start=$start
-if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
+p_pid=$pid; p_st=$start
+if test "$p_can" = true; then fail listener_start_cancelled; fi
 service_tick; deadline=$((service_now+100))
 until test -n "$start" && service_owns_listener "$pid" "$start" "$work" "$service_port"; do
-  if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
+  if test "$p_can" = true; then fail listener_start_cancelled; fi
   service_tick
   if test "$service_now" -ge "$deadline" || ! test -d "/proc/$pid"; then
     fail listener_start_failed
   fi
   /bin/busybox usleep 10000
 done
-if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
+if test "$p_can" = true; then fail listener_start_cancelled; fi
 printf '%s %s %s\n' "$pid" "$start" "$work" > "$service_listener.next"
 ln -sfn "$work" "$service_runtime"
-pending_published=true
+p_pub=true
 mv -f "$service_listener.next" "$service_listener"
 runtime=$work
 trap 'exit 1' HUP INT TERM
-if test "$pending_cancel" = true; then fail listener_start_cancelled; fi
+if test "$p_can" = true; then fail listener_start_cancelled; fi
 trap - EXIT HUP INT TERM
-unset pending_pid pending_start pending_work pending_cancel pending_published
+unset p_pid p_st p_wk p_can p_pub
 }
 
 service_stage() {
@@ -351,14 +391,14 @@ service_boot() {
     case "$name" in .|..|*[!a-zA-Z0-9.-]*) exit 1;; esac
     case "$seen" in *"|$name|"*) exit 1;; esac
     seen="$seen$name|"
-    case "$name" in state.sh|backend.sh|service.sh|api|flush) mn=$((mn+1));; esac
+    case "$name" in service.sh|api|flush) mn=$((mn+1));; esac
     rf "$P/$name" || exit 1
     set -- "$@" "$P/$name"
     expected="$expected$digest *$P/$name
 "
     count=$((count+1)); test "$count" -le 64
   done < "$P/files.sha256"
-  test "$mn" = 5 && test -x "$P/flush" || exit 1
+  test "$mn" = 3 && test -x "$P/flush" || exit 1
   ac=0
   for item in "$P"/* "$P"/.[!.]* "$P"/..?*; do
     if test ! -e "$item" && test ! -L "$item"; then continue; fi
@@ -368,7 +408,6 @@ service_boot() {
   test "$ac" -eq "$((count+1))"
   if test -n "$hasher"; then actual=$("$hasher" H "$@"); else actual=$(openssl dgst -sha256 -r "$@"); fi
   test "$actual" = "${expected%?}"
-  . "$P/state.sh"
   record_read && test "$R_PHASE:$R_BACKEND:$R_CURRENT:$R_BOOT" = "active:$package:$current:$boot" || fail state_changed
   service_stage boot "$package"
 }

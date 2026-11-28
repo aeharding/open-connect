@@ -12,13 +12,13 @@ CMU. It is bench instrumentation and is excluded from the release bundle. See th
 | Files in `installer/` | Responsibility |
 | --- | --- |
 | `run.sh`, `session.sh`, `loader.js`, `usb-service.sh` | Stage verified USB bytes and own one transient maintenance session |
-| `api.c`, `service.sh` | A bounded local POST parser under BusyBox `tcpsvd`; separate installed and USB listener ownership |
+| `api.c`, `core/oc-api.c`, `service.sh` | Native local POST server and Settings/USB maintenance engine under BusyBox `tcpsvd`; separate installed and USB listener ownership |
 | `runtime.js`, `dialog.js`, `settings.js` | Boot-selected installed Settings and its native input/page lifecycle |
 | `maintenance.js` | Independent USB choices, progress and installed completion; no Settings replacement |
-| `backend.sh`, `transaction.sh`, `state.sh` | Install, preferences, complete uninstall and interrupted-operation reconciliation |
-| `firmware.sh`, `mmui.S`, `intro.js`, `system-route.js` | Exact v74 guards and composition from this unit's saved originals |
-| `startup-hook.sh`, `boot.sh`, `ignition.c` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
-| `boot-select.c`, `core/*.c`, `core/oc-core.h` | Modular freestanding C core: seal verified boot inputs, select unchanged snapshots, and safely prune unreachable snapshots |
+| `install.c`, `core/oc-compose.c`, `core/oc-txn.c` | Cold USB installer, exact v74 firmware composer, transactional state engine and slow-path `--boot-recover` |
+| `core/oc-guard.c`, `core/oc-root.c`, `core/oc-access.c`, `core/oc-render.c`, `mmui.S` | Exact v74 guards, rootfs/NVRAM publisher, console/SSH composition and native profile rendering |
+| `startup-hook.sh`, `startup-join.sh`, `ignition.c` | Select a complete RAM configuration before Mazda's normal services and bound repeated attempts |
+| `boot-select.c`, `core/oc-boot.c`, `core/oc-plan.c`, `core/oc-store.c` | Modular freestanding C core: seal verified boot inputs, select unchanged snapshots, and safely prune unreachable generations |
 | `services.tsv`, `preferences.awk`, `sm-profile.awk` | Built-in Services catalog, canonical preferences and one RAM Service Manager composer |
 | `wireless.sh`, `wireless-device.awk` | A finite pre-Device-Manager RAM configuration step and narrow native wireless service arguments |
 
@@ -105,7 +105,7 @@ Failure preserves the generated XML and releases ordinary initialization; an
 ephemeral applied value contributes to the existing status response. Preferences
 remain in the same immutable snapshot and authoritative durable record.
 
-`features/touch/setting.sh` compares the expected NVRAM value before changing and
+`core/oc-root.c` (`oc_nvram_change`) compares the expected NVRAM value before changing and
 committing it. It preserves the distinction between absent, enable and disable.
 `features/disclaimer/` contains the independently authored native bypass.
 `startup/flush.c` provides checked file/directory durability. Its generic

@@ -16,16 +16,14 @@ static struct {
     char out_buf[8192];
 } oc_rmem;
 
-static char *oc_rfind(char *s, const char *sub) {
+char *oc_rfind(char *s, const char *sub) {
     for (; *s; ++s) if (oc_prefix(s,sub)) return s;
     return 0;
 }
 
 static int oc_rwrite_str(int fd, const char *s) { return oc_write_all(fd,s,oc_length(s)); }
 
-typedef struct { int fd; char buf[4096]; unsigned at, filled, total, limit; OcHash *hash; } OcRStream;
-
-static int oc_rstream_line(OcRStream *s, char *out, unsigned cap, int *had_nl) {
+int oc_rstream_line(OcRStream *s, char *out, unsigned cap, int *had_nl) {
     unsigned n=0; *had_nl=0;
     for (;;) {
         if (s->at==s->filled) {

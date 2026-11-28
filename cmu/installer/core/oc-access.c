@@ -20,10 +20,6 @@ int oc_access_key_verify(int data_fd, const char *key_id, long owner, long group
     return ok;
 }
 
-static int oc_vfat_mount_ok(int root, const char *vol_abs) {
-    return oc_mounts_has(root,vol_abs,"vfat",0)==1;
-}
-
 static int oc_b64_ok(const char *s) {
     if (!*s) return 0;
     for (const char *p=s; *p; ++p) {
@@ -35,29 +31,9 @@ static int oc_b64_ok(const char *s) {
 
 int oc_access_key_import(int root, const char *root_path, int data_fd, long owner, long group,
                          char out_id[65], const char **err_out) {
-    const char *vnames[4]={"sda1","sdb1","sdc1","sdd1"};
-    int pub_fd=-1;
-    long mnt=oc_beneath(root,"tmp/mnt",OC_DIRECTORY,0);
-    if (mnt<0) { *err_out="public_key_not_found"; return 0; }
-    for (unsigned i=0; i<4; ++i) {
-        if (oc_absent_at((int)mnt,vnames[i])) continue;
-        long vd=oc_openat((int)mnt,vnames[i],OC_DIRECTORY,0);
-        if (vd<0) { if (pub_fd>=0) (void)oc_close(pub_fd); (void)oc_close((int)mnt); *err_out="invalid_public_key"; return 0; }
-        if (oc_absent_at((int)vd,"open-connect.pub")) { (void)oc_close((int)vd); continue; }
-        if (pub_fd>=0) { (void)oc_close((int)vd); (void)oc_close(pub_fd); (void)oc_close((int)mnt); *err_out="multiple_public_keys"; return 0; }
-        long pfd=oc_openat((int)vd,"open-connect.pub",OC_READ,0);
-        OcMeta fm={0};
-        int fok=pfd>=0 && oc_stat((int)pfd,&fm)>=0 && (fm.mode&OC_TYPE)==OC_REGULAR && fm.size<=8192;
-        (void)oc_close((int)vd);
-        if (!fok) { if (pfd>=0) (void)oc_close((int)pfd); (void)oc_close((int)mnt); *err_out="invalid_public_key"; return 0; }
-        char vabs[64];
-        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i]) || !oc_vfat_mount_ok(root,vabs)) {
-            (void)oc_close((int)pfd); (void)oc_close((int)mnt); *err_out="invalid_key_volume"; return 0;
-        }
-        pub_fd=(int)pfd;
-    }
-    (void)oc_close((int)mnt);
-    if (pub_fd<0) { *err_out="public_key_not_found"; return 0; }
+    int pub_fd=oc_open_single_usb_file(root,"open-connect.pub",8192,"public_key_not_found",
+                                       "multiple_public_keys","invalid_public_key","invalid_key_volume",err_out);
+    if (pub_fd<0) return 0;
     char *raw=oc_big_buf, *clean=oc_big_buf+16384;
     int n=oc_text_fd(pub_fd,raw,8193);
     if (oc_close(pub_fd)<0 || n<=0) { *err_out="unsupported_public_key"; return 0; }

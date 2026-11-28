@@ -287,22 +287,12 @@ int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_m
     if (oc_text(root,"proc/self/mounts",oc_mscratch,sizeof oc_mscratch,1)<0) return -1;
     char pref[324];
     if (prefix_match && !oc_join(pref,sizeof pref,target,"/")) return -1;
-    int hits=0; char *p=oc_mscratch;
-    while (*p) {
-        char *f[6]; unsigned n=0;
-        while (*p && *p!='\n') {
-            if (*p==' '||*p=='\t') { ++p; continue; }
-            if (n==6) return -1;
-            f[n++]=p;
-            while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
-            if (*p==' '||*p=='\t') *p++=0;
-        }
-        if (!*p || n!=6) return -1;
-        *p++=0;
+    int hits=0, mr; char *p=oc_mscratch, *f[6];
+    while ((mr=oc_mounts_next(&p,f))>0) {
         int match = oc_equal(f[1],target) || (prefix_match && oc_prefix(f[1],pref));
         if (match && (!fstype || oc_equal(f[2],fstype))) ++hits;
     }
-    return hits;
+    return mr==0 ? hits : -1;
 }
 
 int oc_pkg_boot_select(int data_fd, const char *root_path, const char *pkg_id,
@@ -932,6 +922,15 @@ done:
     return ferr ? txn_err(err_out,ferr) : 1;
 }
 
+int oc_read_boot_id(int ram, long owner, long group, char out[37]) {
+    OcMeta m={0};
+    if (oc_metadata(ram,"boot-id",&m)<0 || (m.mode&OC_TYPE)!=0120000 ||
+        m.size!=36 || m.uid!=(unsigned)owner || m.gid!=(unsigned)group ||
+        oc_readlink(ram,"boot-id",out,36)!=36) return 0;
+    out[36]=0;
+    return oc_uuid(out);
+}
+
 static int oc_boot_id_ensure(int root, int ram, char *rec[13], long owner, long group, char out[37]) {
     if (oc_absent_at(ram,"boot-id")) {
         char kboot[40], dig[65];
@@ -953,12 +952,7 @@ static int oc_boot_id_ensure(int root, int ram, char *rec[13], long owner, long 
         }
         if (oc_symlink(out,ram,"boot-id")<0) return 0;
     }
-    OcMeta m={0};
-    if (oc_metadata(ram,"boot-id",&m)<0 || (m.mode&OC_TYPE)!=0120000 ||
-        m.size!=36 || m.uid!=(unsigned)owner || m.gid!=(unsigned)group ||
-        oc_readlink(ram,"boot-id",out,36)!=36) return 0;
-    out[36]=0;
-    return oc_uuid(out);
+    return oc_read_boot_id(ram,owner,group,out);
 }
 
 int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,

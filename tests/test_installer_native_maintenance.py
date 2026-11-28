@@ -1179,6 +1179,138 @@ class NativeMaintenance(unittest.TestCase):
         self.assertTrue(r_bs["ok"] and r_bs["conflict"])
         (f.data / "record").write_text(rec_orig)
 
+        # (I) stale_setting compare-and-swap refusals on both access (uart) and prefs (warning)
+        p_su, r_su = call(cur_id, "set", "uart", "1", "0")
+        self.assertNotEqual(p_su.returncode, 0)
+        self.assertEqual(r_su["error"], "stale_setting")
+        cur_warn = (
+            "1"
+            if "\nwarning=1\n" in (f.data / "snapshots" / cur_id / "config").read_text()
+            else "0"
+        )
+        stale_warn = "0" if cur_warn == "1" else "1"
+        p_sw, r_sw = call(cur_id, "set", "warning", stale_warn, cur_warn)
+        self.assertNotEqual(p_sw.returncode, 0)
+        self.assertEqual(r_sw["error"], "stale_setting")
+
+        # (J) completion_unavailable on USB session and on Settings session with mismatched boot ID
+        p_cu1, r_cu1 = call("-", "status", "completion", sdir=usb_sess)
+        self.assertNotEqual(p_cu1.returncode, 0)
+        self.assertEqual(r_cu1["error"], "completion_unavailable")
+        (f.ram / "boot-id").write_text(BOOT + "\n")
+        (f.ram / "boot-id").chmod(0o600)
+        p_cu2, r_cu2 = call("-", "status", "completion")
+        self.assertNotEqual(p_cu2.returncode, 0)
+        self.assertEqual(r_cu2["error"], "completion_unavailable")
+
+        # (K) oc_transaction_reconcile drift refusals: dependencies_changed, nvram_changed,
+        #     access_changed, selector_changed, and startup_stage_changed
+        p_cut3 = subprocess.run(
+            [str(self.api_bin), "--handle", str(session), cur_id, "set", "uart", "0", "1"],
+            env={**env, "OC_BOOT_CUT": "root_publish_staged"},
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        self.assertNotEqual(p_cut3.returncode, 0)
+        rec_p3 = (f.data / "record").read_text().strip().split("|")
+        self.assertEqual(rec_p3[1], "set")
+
+        root_idx = f.root / "jci/gui/index.html"
+        saved_root_idx = root_idx.read_bytes()
+        root_idx.write_bytes(b"drifted-root-index\n")
+        p_dc, r_dc = call(rec_p3[2], "recover")
+        root_idx.write_bytes(saved_root_idx)
+        self.assertNotEqual(p_dc.returncode, 0)
+        self.assertEqual(r_dc["error"], "dependencies_changed")
+
+        nv_key = nv_store / "keys/lvds_speed_restriction"
+        nv_key.write_text("enable\n")
+        p_nc, r_nc = call(rec_p3[2], "recover")
+        nv_key.unlink()
+        self.assertNotEqual(p_nc.returncode, 0)
+        self.assertEqual(r_nc["error"], "nvram_changed")
+
+        saved_login = runlogin.read_bytes()
+        runlogin.write_bytes(b"#!/bin/sh\n# third unknown login\n")
+        p_ac, r_ac = call(rec_p3[2], "recover")
+        runlogin.write_bytes(saved_login)
+        self.assertNotEqual(p_ac.returncode, 0)
+        self.assertEqual(r_ac["error"], "access_changed")
+
+        saved_sel_bin = sel_bin.read_bytes()
+        sel_bin.write_bytes(b"drifted-boot-select\n")
+        p_sc, r_sc = call(rec_p3[2], "recover")
+        sel_bin.write_bytes(saved_sel_bin)
+        self.assertNotEqual(p_sc.returncode, 0)
+        self.assertEqual(r_sc["error"], "selector_changed")
+
+        p_rc3, r_rc3 = call(rec_p3[2], "recover")
+        self.assertEqual(p_rc3.returncode, 0, (r_rc3, p_rc3.stderr))
+        cur_id = r_rc3["revision"]
+        (f.ram / "selected").write_text(cur_id + "\n")
+
+        # startup_stage_changed on touch=2 drift rollback inside oc_transaction_reconcile
+        p_t2c, r_t2c = call(cur_id, "set", "touch", "0", "2")
+        self.assertEqual(p_t2c.returncode, 0, (r_t2c, p_t2c.stderr))
+        t2c_id = r_t2c["revision"]
+        p_cut4 = subprocess.run(
+            [str(self.api_bin), "--handle", str(session), t2c_id, "set", "uart", "1", "0"],
+            env={**env, "OC_BOOT_CUT": "root_publish_staged"},
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        self.assertNotEqual(p_cut4.returncode, 0)
+        rec_p4 = (f.data / "record").read_text().strip().split("|")
+        touch_pin.write_bytes(b"drifted-devices-so\n")
+        cur_stage = f.root / f"usr/bin/.open-connect-{rec_p4[2]}"
+        saved_stage = cur_stage.read_bytes() if cur_stage.exists() else None
+        cur_stage.write_bytes(b"tampered-stage\n")
+        p_ss, r_ss = call(rec_p4[2], "recover")
+        if saved_stage is None:
+            cur_stage.unlink()
+        else:
+            cur_stage.write_bytes(saved_stage)
+        touch_pin.write_bytes(orig_tp)
+        self.assertNotEqual(p_ss.returncode, 0)
+        self.assertEqual(r_ss["error"], "startup_stage_changed")
+        p_rc4, r_rc4 = call(rec_p4[2], "recover")
+        self.assertEqual(p_rc4.returncode, 0, (r_rc4, p_rc4.stderr))
+        cur_id = r_rc4["revision"]
+        (f.ram / "selected").write_text(cur_id + "\n")
+
+        # (L) oc_mounts_mode rejects /tmp/mnt/data_persist/open-connect/* before uninstall,
+        #     and oc_uninstall_cleanup refuses cleanup_mount_present and startup_stage_changed.
+        mounts_path = f.root / "proc/self/mounts"
+        orig_mounts = mounts_path.read_text()
+        mounts_path.write_text(
+            orig_mounts + "tmpfs /tmp/mnt/data_persist/open-connect/packages tmpfs rw 0 0\n"
+        )
+        p_rm, r_rm = call(cur_id, "uninstall")
+        self.assertNotEqual(p_rm.returncode, 0)
+        self.assertEqual(r_rm["error"], "root_mount_changed")
+
+        mounts_path.write_text(orig_mounts + f"tmpfs {f.data}/packages tmpfs rw 0 0\n")
+        p_um, r_um = call(cur_id, "uninstall")
+        mounts_path.write_text(orig_mounts)
+        self.assertNotEqual(p_um.returncode, 0)
+        self.assertEqual(r_um["error"], "cleanup_mount_present")
+        rec_rem = (f.data / "record").read_text().strip().split("|")
+        self.assertEqual(rec_rem[1], "removed")
+
+        stray_stage = f.root / "usr/bin/.open-connect-foreign"
+        stray_stage.write_bytes(b"stray\n")
+        p_us, r_us = call(rec_rem[5], "uninstall")
+        stray_stage.unlink()
+        self.assertNotEqual(p_us.returncode, 0)
+        self.assertEqual(r_us["error"], "startup_stage_changed")
+
+        p_fin, r_fin = call(rec_rem[5], "uninstall")
+        self.assertEqual(p_fin.returncode, 0, (r_fin, p_fin.stderr))
+        self.assertTrue(r_fin["ok"] and not r_fin["installed"], r_fin)
+        self.assertFalse(f.data.exists())
+
     def test_usb_fence_accepts_native_only_pinned_settings_session(self):
         # Native C oc_usb_fence() in api validates active Settings session on USB mutating ops.
         with tempfile.TemporaryDirectory() as td:

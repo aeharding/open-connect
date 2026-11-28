@@ -33,7 +33,7 @@ BEGIN {
 }
 /[ \t](name|value)[ \t]*=[ \t]*["']open_connect_(settings|wireless|gap2|nav)["']/ {refuse()}
 omit_service {
-    if(/^[ \t]*<\/service>[ \t]*$/) omit_service=0
+    if(/^[ \t]*<\/service>[ \t]*$/) {omit_service=0;sm_name=""}
     else if(/<service[ \t]|<\/services>/) refuse()
     next
 }

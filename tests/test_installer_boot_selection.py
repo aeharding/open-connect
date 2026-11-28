@@ -104,7 +104,7 @@ class NativeBootSelection(unittest.TestCase):
             pin_lines.append(f"touch/devices/{name}={sha(data.encode())}\n")
         mgr_sha = sha(b"stock manager.so\n")
         mmui_sha = sha(b"stock original mmui.xml\n")
-        pin_lines.append(f"manager.so={mgr_sha}\n")
+        pin_lines.append(f"root/manager.so={mgr_sha}\n")
         pin_lines.append(f"originals/mmui.xml={mmui_sha}\n")
         cls.pins_file.write_text("".join(pin_lines))
         from tests.host_bins import copy_host_boot_select, copy_host_flush

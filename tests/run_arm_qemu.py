@@ -921,9 +921,7 @@ def part_b_full_lifecycle(
             "PasswordAuthentication no\n"
         )
         (chroot / "etc/ssh/sshd_config").chmod(0o644)
-        mgr_sha = sha(b"stock manager\n")
         pin_lines.append(f"originals/mmui.xml={sha(mmui_xml)}\n")
-        pin_lines.append(f"manager.so={mgr_sha}\n")
         pin_lines.append(f"composed/vui.so={sha(bytes(vui_expected))}\n")
         (chroot / "etc/oc-test-pins").write_text("".join(pin_lines))
         (chroot / "etc/oc-test-pins").chmod(0o644)

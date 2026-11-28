@@ -556,4 +556,37 @@ allowRead = false;
 pick(1);
 assert.equal(pages.at(-1).ctrl.dataList.items[0].text1, "Return to Mazda Settings");
 allowRead = true; back();
+
+// Issue #130: Backup & restore submenu is gated on store.exportPrefs/importPrefs,
+// prompts cancel-first, runs queued tasks, shows result dialogs, and returns Back focus.
+let exportReply = null, importPrefsReply = null;
+const backupStore = {...store, exportPrefs: cb => { exportReply = cb; }, importPrefs: cb => { importPrefsReply = cb; }};
+settings.open(fw, backupStore);
+choose("backup");
+assert.equal(pages.at(-1).ctrl.title.text1, "Backup & restore");
+assert.deepEqual(Array.from(pages.at(-1).ctrl.dataList.items, r => r.appData), ["exportPrefs", "importPrefs"]);
+pick(0);
+assert.equal(modal.props.title, "Export preferences?");
+assert.equal(modal.props.initialFocus, 0);
+confirm("cancel"); assert.equal(exportReply, null);
+pick(0); confirm("export"); idle();
+assert.ok(exportReply);
+exportReply(values);
+assert.equal(modal.props.title, "Preferences exported");
+confirm("done");
+pick(1);
+assert.equal(modal.props.title, "Import preferences?");
+confirm("import"); idle();
+assert.ok(importPrefsReply);
+importPrefsReply(null, true);
+assert.equal(modal.props.title, "Import failed");
+confirm("done");
+pick(1); confirm("import"); idle();
+values = {...values, touch: 2, restart: true};
+importPrefsReply(values);
+assert.equal(modal.props.title, "Preferences imported");
+confirm("done");
+back();
+assert.equal(pages.at(-1).ctrl.dataList.items[pages.at(-1).ctrl.focussedItem].appData, "backup");
+back();
 console.log("Reorganized native menus preserve defaults, confirmations, wire keys, restart state and Back focus");

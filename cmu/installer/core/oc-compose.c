@@ -860,33 +860,36 @@ static int oc_ensure_subdir(int dir, const char *name) {
     return 1;
 }
 
-static int oc_build_install_prefs(int data_fd, const char *pkg_id, const char *nvram,
+static int oc_open_verified_usb_vol(int root, const char *sess_mf_sha,
+                                    char mnt_out[32], int *was_ro);
+
+static int oc_build_install_prefs(int data_fd, const char *pkg_id, const char *base_nvram,
                                   const char *meta, const char *old_cfg_text,
-                                  char out_cfg[1024], OcPrefs *out_prefs) {
+                                  char *preset_text, unsigned preset_len,
+                                  char out_cfg[1024], OcPrefs *out_prefs, const char **err_out) {
     OcManifest pmf; OcCatalog cat; cat.count=0;
     int pdir=oc_open_pkg_verified(data_fd,pkg_id,cm.mf,sizeof cm.mf,&pmf);
-    if (pdir<0) return 0;
+    if (pdir<0) return cerr(err_out,"plan_failed");
     const char *sd=oc_digest(&pmf,"services.tsv");
     int ok=sd && oc_verified_text(pdir,"services.tsv",sd,cm.cat,sizeof cm.cat) &&
         oc_catalog_load(cm.cat,oc_length(cm.cat),&cat);
     (void)oc_close(pdir);
-    if (!ok) return 0;
+    if (!ok) return cerr(err_out,"plan_failed");
 
     static char parse_buf[1024];
     if (old_cfg_text && *old_cfg_text) {
         OcPrefs old_p;
         if (!oc_join(parse_buf,sizeof parse_buf,"",old_cfg_text) ||
-            !oc_prefs_parse(parse_buf,0,1,&old_p)) return 0;
+            !oc_prefs_parse(parse_buf,0,1,&old_p)) return cerr(err_out,"plan_failed");
         /* Every prior service must exist in the new catalog or be the retired "dvd" service. */
         for (unsigned j=0; j<old_p.svc_count; ++j) {
             int known=oc_equal(old_p.svc_ids[j],"dvd");
             for (unsigned i=0; !known && i<cat.count; ++i)
                 if (oc_equal(old_p.svc_ids[j],cat.rows[i].id)) known=1;
-            if (!known) return 0;
+            if (!known) return cerr(err_out,"plan_failed");
         }
         *out_prefs=old_p;
         out_prefs->package=(char *)pkg_id;
-        out_prefs->nvram=(char *)nvram;
         out_prefs->metadata=(char *)meta;
         if (!out_prefs->has_autoshow) { out_prefs->autoshow="0"; out_prefs->has_autoshow=1; }
         if (!out_prefs->has_source_order) { out_prefs->source_order="0"; out_prefs->has_source_order=1; }
@@ -904,7 +907,6 @@ static int oc_build_install_prefs(int data_fd, const char *pkg_id, const char *n
     } else {
         out_prefs->is_oc2=1;
         out_prefs->package=(char *)pkg_id;
-        out_prefs->nvram=(char *)nvram;
         out_prefs->metadata=(char *)meta;
         out_prefs->touch="1"; out_prefs->warning="1"; out_prefs->base="0";
         out_prefs->wireless="0"; out_prefs->autoshow="0"; out_prefs->has_autoshow=1;
@@ -917,8 +919,13 @@ static int oc_build_install_prefs(int data_fd, const char *pkg_id, const char *n
             out_prefs->svc_vals[i]=cat.rows[i].def;
             if (oc_equal(cat.rows[i].id,"pandora")) out_prefs->pandora=cat.rows[i].def;
         }
+        if (preset_text && preset_len) {
+            if (!oc_prefs_preset_apply(preset_text,preset_len,&cat,out_prefs,0))
+                return cerr(err_out,"invalid_preferences_preset");
+        }
     }
-    return oc_prefs_write(&cat,out_prefs,out_cfg,1024);
+    out_prefs->nvram=oc_equal(out_prefs->touch,"1") ? "disable" : (char *)base_nvram;
+    return oc_prefs_write(&cat,out_prefs,out_cfg,1024) ? 1 : cerr(err_out,"plan_failed");
 }
 
 /* ---------- Full transactional install/upgrade/reinstall ---------- */
@@ -984,6 +991,54 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
             if (data_fd>=0) (void)oc_close(data_fd);
             oc_diag_set("compose","/jci/vui","vui_inputs_changed",0,0);
             return cerr(err_out,"vui_inputs_changed");
+        }
+    }
+
+    /* Pre-validate optional fresh-install USB open-connect.prefs BEFORE touching flash. */
+    char preset_raw[1024]; unsigned preset_len=0;
+    preset_raw[0]=0;
+    if (!exists || oc_equal(rec[1],"removed")) {
+        char sess_sha[65], mnt_path[32]; OcMeta sm={0}; int was_ro=0;
+        long sfd=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
+        int sh_ok=sfd>=0 && oc_hash_file_at((int)sfd,"files.sha256",sess_sha,&sm);
+        OcCatalog pre_cat; pre_cat.count=0;
+        int cat_ok=sh_ok && oc_text((int)sfd,"services.tsv",cm.cat,sizeof cm.cat,0)>0 &&
+            oc_catalog_load(cm.cat,oc_length(cm.cat),&pre_cat);
+        if (sfd>=0) (void)oc_close((int)sfd);
+        int vfd=cat_ok ? oc_open_verified_usb_vol(root,sess_sha,mnt_path,&was_ro) : -1;
+        if (vfd>=0) {
+            if (!oc_absent_at(vfd,"open-connect.prefs")) {
+                long pfd=oc_openat(vfd,"open-connect.prefs",OC_READ,0);
+                OcMeta pm={0};
+                int pn=(pfd>=0 && oc_stat((int)pfd,&pm)>=0 && (pm.mode&OC_TYPE)==OC_REGULAR && pm.size<=1023)
+                    ? oc_text_fd((int)pfd,preset_raw,sizeof preset_raw) : -1;
+                if (pfd>=0 && oc_close((int)pfd)<0) pn=-1;
+                (void)oc_close(vfd);
+                if (pn<=0) {
+                    if (data_fd>=0) (void)oc_close(data_fd);
+                    return cerr(err_out,"invalid_preferences_preset");
+                }
+                preset_len=(unsigned)pn;
+                char pcopy[1024]; OcPrefs chk={0};
+                chk.touch="1"; chk.warning="1"; chk.base="0"; chk.wireless="0";
+                chk.autoshow="0"; chk.source_order="0"; chk.menu_loop="0"; chk.hold_scroll="0";
+                chk.svc_count=pre_cat.count;
+                for (unsigned i=0; i<pre_cat.count; ++i) {
+                    chk.svc_ids[i]=pre_cat.rows[i].id; chk.svc_vals[i]=pre_cat.rows[i].def;
+                }
+                if (!oc_join(pcopy,sizeof pcopy,"",preset_raw) ||
+                    !oc_prefs_preset_apply(pcopy,preset_len,&pre_cat,&chk,0)) {
+                    if (data_fd>=0) (void)oc_close(data_fd);
+                    return cerr(err_out,"invalid_preferences_preset");
+                }
+                if (oc_equal(chk.wireless,"1")) {
+                    int fw=oc_factory_wireless(root,root_path);
+                    if (fw!=1) {
+                        if (data_fd>=0) (void)oc_close(data_fd);
+                        return cerr(err_out,fw==0?"wireless_factory_enabled":"wireless_unavailable");
+                    }
+                }
+            } else (void)oc_close(vfd);
         }
     }
 
@@ -1185,16 +1240,9 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
     OcTxnSnap *bs=&oc_snap_pool[0];
     if (!oc_txn_read_snap(data_fd,base_id,bs)) { ferr="originals_changed"; goto fail; }
     char new_cfg[1024]; OcPrefs new_prefs;
-    const char *want_nvram=bs->nvram;
-    if (!oc_build_install_prefs(data_fd,pkg_id,want_nvram,bs->meta,old_cfg,new_cfg,&new_prefs)) {
-        ferr="plan_failed"; goto fail;
-    }
-    if (!old_cfg[0] || oc_equal(new_prefs.touch,"1")) {
-        want_nvram="disable";
-        if (!oc_build_install_prefs(data_fd,pkg_id,want_nvram,bs->meta,old_cfg,new_cfg,&new_prefs)) {
-            ferr="plan_failed"; goto fail;
-        }
-    }
+    if (!oc_build_install_prefs(data_fd,pkg_id,bs->nvram,bs->meta,old_cfg,
+                                preset_raw,preset_len,new_cfg,&new_prefs,&ferr)) goto fail;
+    const char *want_nvram=new_prefs.nvram;
 
     char cfg_abs[400];
     if (!oc_new_text(awfd,"config",new_cfg,0600) ||
@@ -1262,111 +1310,6 @@ static void oc_log_kv(OcLogBuf *b, const char *k, const char *v) {
     }
     if (b->used+1<b->cap) b->buf[b->used++]='\n';
     b->buf[b->used]=0;
-}
-
-static int oc_vfat_mount_mode(int root, const char *target) {
-    if (oc_text(root,"proc/self/mounts",oc_mscratch,sizeof oc_mscratch,1)<0) return 0;
-    unsigned hits=0; int mode=0;
-    char *p=oc_mscratch;
-    while (*p) {
-        char *f[6]; unsigned n=0;
-        while (*p && *p!='\n') {
-            if (*p==' '||*p=='\t') { ++p; continue; }
-            if (n==6) return 0;
-            f[n++]=p;
-            while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
-            if (*p==' '||*p=='\t') *p++=0;
-        }
-        if (!*p || n!=6) return 0;
-        *p++=0;
-        if (!oc_equal(f[1],target)) continue;
-        if (!oc_equal(f[2],"vfat")) return 0;
-        char opts[256];
-        if (!oc_join(opts,sizeof opts,",",f[3]) || !oc_join(opts,sizeof opts,opts,",")) return 0;
-        int rw=0, ro=0;
-        for (char *q=opts; *q; ++q) {
-            if (oc_prefix(q,",rw,")) ++rw;
-            if (oc_prefix(q,",ro,")) ++ro;
-        }
-        if (rw+ro!=1) return 0;
-        mode=rw?1:2;
-        ++hits;
-    }
-    return hits==1 ? mode : 0;
-}
-
-static int oc_usb_remount(int root, const char *target, int rw) {
-#if defined(OC_HOST) || defined(OC_TEST_PINFILE)
-#ifdef OC_HOST
-    if (getenv("OC_HOST_USB_REMOUNT_FAIL")) return 0;
-#endif
-    char *buf=oc_big_buf, *out=oc_big_buf+16384;
-    int n=oc_text(root,"proc/self/mounts",buf,16384,0);
-    if (n<=0) return 0;
-    const char *from=rw?"ro":"rw", *to=rw?"rw":"ro";
-    unsigned used=0; char *p=buf;
-    while (*p) {
-        char *line=p;
-        while (*p && *p!='\n') ++p;
-        int has_nl=(*p=='\n');
-        if (has_nl) *p++=0;
-        char *f[6]; unsigned nf=0;
-        char lcopy[512];
-        if (oc_length(line)>=sizeof lcopy) return 0;
-        for (unsigned i=0; (lcopy[i]=line[i])!=0; ++i) {}
-        char *lp=lcopy;
-        while (*lp) {
-            while (*lp==' '||*lp=='\t') ++lp;
-            if (!*lp) break;
-            if (nf<6) f[nf++]=lp;
-            while (*lp && *lp!=' ' && *lp!='\t') ++lp;
-            if (*lp) *lp++=0;
-        }
-        if (nf==6 && oc_equal(f[1],target) && oc_equal(f[2],"vfat")) {
-            char nopts[256]; unsigned nu=0;
-            char *q=f[3];
-            while (*q) {
-                char *tok=q; while (*q && *q!=',') ++q;
-                int has_c=(*q==','); if (has_c) *q++=0;
-                const char *emit=oc_equal(tok,from)?to:tok;
-                unsigned el=oc_length(emit);
-                if (nu+el+(has_c?1:0)>=sizeof nopts) return 0;
-                for (unsigned j=0; j<el; ++j) nopts[nu++]=emit[j];
-                if (has_c) nopts[nu++]=',';
-            }
-            nopts[nu]=0;
-            char nline[512];
-            if (!oc_join4(nline,sizeof nline,f[0]," ",f[1]," ") ||
-                !oc_join4(nline,sizeof nline,nline,f[2]," ",nopts) ||
-                !oc_join4(nline,sizeof nline,nline," ",f[4]," ") ||
-                !oc_join(nline,sizeof nline,nline,f[5])) return 0;
-            unsigned ll=oc_length(nline);
-            if (used+ll>=16384) return 0;
-            for (unsigned j=0; j<ll; ++j) out[used++]=nline[j];
-        } else {
-            unsigned ll=oc_length(line);
-            if (used+ll>=16384) return 0;
-            for (unsigned j=0; j<ll; ++j) out[used++]=line[j];
-        }
-        if (has_nl) { if (used+1>=16384) return 0; out[used++]='\n'; }
-    }
-    out[used]=0;
-    long fd=oc_beneath(root,"proc/self/mounts",OC_WRITE|OC_TRUNC,0600);
-    if (fd<0) return 0;
-    int ok=oc_write_all((int)fd,out,used);
-    if (oc_close((int)fd)<0) ok=0;
-    return ok && oc_vfat_mount_mode(root,target)==(rw?1:2);
-#else
-    char tbuf[32];
-    if (!oc_join(tbuf,sizeof tbuf,target,"")) return 0;
-    char *argv[]={
-        "/bin/busybox","timeout","-t","8","-s","TERM",
-        "/bin/busybox","mount","-i","-n","-o",
-        rw?"remount,rw":"remount,ro",tbuf,0
-    };
-    if (oc_run_cmd("/bin/busybox",argv,-1,0,0,-1)!=0) return 0;
-    return oc_vfat_mount_mode(root,target)==(rw?1:2);
-#endif
 }
 
 static int oc_open_verified_usb_vol(int root, const char *sess_mf_sha,

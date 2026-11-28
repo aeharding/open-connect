@@ -49,26 +49,26 @@ optional(v.wireless)&&(v.wirelessFactory===undefined||typeof v.wirelessFactory==
 function bitPair(s,k){return s[k]===undefined||(bit(s[k])&&bit(s[k+"Current"]));}
 function toggle(t,on,k){return{text1:t,itemStyle:"styleOnOff",value:on?1:2,hasCaret:false,appData:k};}
 
-function slide(from,to,back,done,reveal,parent){
-var a=from.divElt,b=to.divElt,timer,fin=false,p="Transitions_",s="TmpltWithStatusLeftBtn_0_400";
-var init=p+"Init_Offscreen"+(back?"Left":"Right");
-var out=p+"slideOut"+(back?"Right":"Left")+s;
-var into=p+"slideIn"+(back?"Left":"Right")+s;
-function finish(ev){
-if(fin||ev&&ev!==true&&ev.target!==b)return;
-fin=true;clearTimeout(timer);
-b.removeEventListener("animationend",finish,false);
-a.classList.remove(out);b.classList.remove(into);b.classList.remove(init);
-if(to.endTransitionTo)to.endTransitionTo();
-done(ev===true);
+function slide(f,t,b,d,r,par){
+var a=f.divElt,e=t.divElt,tm,fn=false,p="Transitions_",s="TmpltWithStatusLeftBtn_0_400";
+var init=p+"Init_Offscreen"+(b?"Left":"Right");
+var out=p+"slideOut"+(b?"Right":"Left")+s;
+var into=p+"slideIn"+(b?"Left":"Right")+s;
+function fin(ev){
+if(fn||ev&&ev!==true&&ev.target!==e)return;
+fn=true;clearTimeout(tm);
+e.removeEventListener("animationend",fin,false);
+a.classList.remove(out);e.classList.remove(into);e.classList.remove(init);
+if(t.endTransitionTo)t.endTransitionTo();
+d(ev===true);
 }
-b.addEventListener("animationend",finish,false);
-b.classList.add(init);parent.appendChild(b);
-if(reveal!==undefined)b.style.display=reveal;
-if(from.startTransitionFrom)from.startTransitionFrom();
-a.classList.add(out);b.classList.add(into);
-timer=setTimeout(finish,900);
-return finish;
+e.addEventListener("animationend",fin,false);
+e.classList.add(init);par.appendChild(e);
+if(r!==undefined)e.style.display=r;
+if(f.startTransitionFrom)f.startTransitionFrom();
+a.classList.add(out);e.classList.add(into);
+tm=setTimeout(fin,900);
+return fin;
 }
 
 function replace(obj,k,fn){
@@ -87,80 +87,80 @@ return settingsApp(fw.getCurrentApp())&&/Tab$/.test(fw.getCurrCtxtId())&&
 fw._frameworkState===fw._FWK_STATE_IDLE&&!voice(fw)&&!dialogs.foreign(fw);
 }
 
-function preferences(store){
-function read(){try{return store.read();}catch(e){return null;}}
-var saved=read();
-if(!valid(saved)||saved.pending||saved.conflict)return null;
-if(session&&session.owner===store)return session;
-var wanted={},busy=false,queued=null,qd=false,prefs={owner:store,failure:null,changed:null};
-function pending(v){return!store.pending||store.pending(v);}
-function diff(v,k){var c=k+"Current";return has(saved,c)&&v[k]!==saved[c];}
-function needsRestart(v){
-if(!has(saved,"touchCurrent"))return!!(saved.restart||Object.keys(wanted).some(function(k){return preference(saved,k)!==wanted[k];}));
-if(saved.restartFixed||v.touch!==saved.touchCurrent||diff(v,"warning")||
-(has(v,"base")&&diff(v,"base"))||
-(has(v,"wireless")&&!v.wirelessFactory&&diff(v,"wireless"))||
-optKeys.some(function(k){return has(v,k)&&diff(v,k);})||
-(v.developer&&(diff(v,"uart")||diff(v,"ssh"))))return true;
+function preferences(st){
+function rd(){try{return st.read();}catch(e){return null;}}
+var sv=rd(),ks=Object.keys;
+if(!valid(sv)||sv.pending||sv.conflict)return null;
+if(session&&session.owner===st)return session;
+var wn={},bs=false,qu=null,qd=false,pr={owner:st,failure:null,changed:null};
+function pd(v){return!st.pending||st.pending(v);}
+function df(v,k){var c=k+"Current";return has(sv,c)&&v[k]!==sv[c];}
+function needR(v){
+if(!has(sv,"touchCurrent"))return!!(sv.restart||ks(wn).some(function(k){return preference(sv,k)!==wn[k];}));
+if(sv.restartFixed||v.touch!==sv.touchCurrent||df(v,"warning")||
+(has(v,"base")&&df(v,"base"))||
+(has(v,"wireless")&&!v.wirelessFactory&&df(v,"wireless"))||
+optKeys.some(function(k){return has(v,k)&&df(v,k);})||
+(v.developer&&(df(v,"uart")||df(v,"ssh"))))return true;
 return!!(v.services&&v.services.some(function(r){return r.current!==null&&r.saved!==r.current;}));
 }
-prefs.values=function(){
-if(!busy&&!Object.keys(wanted).length){var c=read();if(!valid(c))return null;saved=c;}
+pr.values=function(){
+if(!bs&&!ks(wn).length){var c=rd();if(!valid(c))return null;sv=c;}
 var v={};
-Object.keys(saved).forEach(function(k){v[k]=own.call(wanted,k)?wanted[k]:saved[k];});
-if(saved.services)v.services=saved.services.map(function(r){
-return{id:r.id,label:r.label,saved:own.call(wanted,r.id)?wanted[r.id]:r.saved,current:r.current,enable:r.enable,disable:r.disable};
+ks(sv).forEach(function(k){v[k]=own.call(wn,k)?wn[k]:sv[k];});
+if(sv.services)v.services=sv.services.map(function(r){
+return{id:r.id,label:r.label,saved:own.call(wn,r.id)?wn[r.id]:r.saved,current:r.current,enable:r.enable,disable:r.disable};
 });
-v.restart=needsRestart(v);
+v.restart=needR(v);
 return v;
 };
-function drain(ok){var n=queued;queued=null;qd=false;if(n)n(ok);}
-function flush(){
-var keys=Object.keys(wanted);if(busy)return;
-if(!keys.length){pending(false);drain(!prefs.failure);return;}
-var key=keys[0],req=wanted[key];
-if(preference(saved,key)===req){delete wanted[key];flush();if(prefs.changed)prefs.changed(false);return;}
-busy=true;var ans=false;
-function finish(actual,out){
-if(ans)return;ans=true;busy=false;
-if(out==="restart")wanted={};else if(!valid(actual))actual=read();
-if(valid(actual))saved=actual;
-var rec=out==="reconciled",failed=(!!out&&!rec)||!valid(actual)||preference(actual,key)!==req;
-if(failed){wanted={};prefs.failure=out==="restart"?"restart":key;pending(false);if(prefs.changed)prefs.changed(true);drain(false);return;}
-if(rec&&qd)drain(false);
-if(wanted[key]===req)delete wanted[key];
-flush();if(prefs.changed)prefs.changed(rec?"sync":false);
+function dr(ok){var n=qu;qu=null;qd=false;if(n)n(ok);}
+function fl(){
+var k2=ks(wn);if(bs)return;
+if(!k2.length){pd(false);dr(!pr.failure);return;}
+var k=k2[0],req=wn[k];
+if(preference(sv,k)===req){delete wn[k];fl();if(pr.changed)pr.changed(false);return;}
+bs=true;var ans=false;
+function fn(ac,out){
+if(ans)return;ans=true;bs=false;
+if(out==="restart")wn={};else if(!valid(ac))ac=rd();
+if(valid(ac))sv=ac;
+var rec=out==="reconciled",fa=(!!out&&!rec)||!valid(ac)||preference(ac,k)!==req;
+if(fa){wn={};pr.failure=out==="restart"?"restart":k;pd(false);if(pr.changed)pr.changed(true);dr(false);return;}
+if(rec&&qd)dr(false);
+if(wn[k]===req)delete wn[k];
+fl();if(pr.changed)pr.changed(rec?"sync":false);
 }
-try{store.write(key.replace(/[A-Z]/g,function(c){return"-"+c.toLowerCase();}),preference(saved,key),req,finish);}
-catch(e){finish(null);}
+try{st.write(k.replace(/[A-Z]/g,function(c){return"-"+c.toLowerCase();}),preference(sv,k),req,fn);}
+catch(e){fn(null);}
 }
-prefs.pending=function(){return busy||Object.keys(wanted).length>0;};
-prefs.select=function(k,v){
-if(!pending(true)){if(prefs.revert)prefs.revert();return;}
-prefs.failure=null;wanted[k]=v;if(prefs.changed)prefs.changed(false);flush();
+pr.pending=function(){return bs||ks(wn).length>0;};
+pr.select=function(k,v){
+if(!pd(true)){if(pr.revert)pr.revert();return;}
+pr.failure=null;wn[k]=v;if(pr.changed)pr.changed(false);fl();
 };
-prefs.queue=function(fn,drop){if(drop)wanted={};if(!prefs.pending()){fn(!prefs.failure);return;}queued=fn;qd=!!drop;flush();};
-prefs.cancelQueue=function(){queued=null;qd=false;};
-prefs.importKey=function(done){
-if(prefs.pending()||!isFn(store.importKey)||!pending(true)){done(null);return;}
-busy=true;var ans=false;
-function finish(act,fail){
-if(ans)return;ans=true;busy=false;
-var rec=fail==="reconciled",ok=valid(act)&&(!fail||rec);
-if(valid(act))saved=act;
+pr.queue=function(fn,drop){if(drop)wn={};if(!pr.pending()){fn(!pr.failure);return;}qu=fn;qd=!!drop;fl();};
+pr.cancelQueue=function(){qu=null;qd=false;};
+pr.task=function(call,done){
+if(pr.pending()||!isFn(call)||!pd(true)){done(null);return;}
+bs=true;var ans=false;
+function fn(ac,fa){
+if(ans)return;ans=true;bs=false;
+var rec=fa==="reconciled",ok=valid(ac)&&(!fa||rec);
+if(valid(ac))sv=ac;
 if(!ok){
-wanted={};pending(false);
-if(fail==="restart"){prefs.failure=fail;if(prefs.changed)prefs.changed(true);drain(false);}
-else{drain(false);if(!done(null,fail)&&prefs.changed)prefs.changed("sync");}
+wn={};pd(false);
+if(fa==="restart"){pr.failure=fa;if(pr.changed)pr.changed(true);dr(false);}
+else{dr(false);if(!done(null,fa)&&pr.changed)pr.changed("sync");}
 return;
 }
-if(rec&&qd)drain(false);
-if(!done(act)&&prefs.changed)prefs.changed("sync");
-flush();
+if(rec&&qd)dr(false);
+if(!done(ac)&&pr.changed)pr.changed("sync");
+fl();
 }
-try{store.importKey(finish);}catch(e){finish(null);}
+try{call.call(st,fn);}catch(e){fn(null);}
 };
-return(session=prefs);
+return(session=pr);
 }
 
 function open(fw,store){
@@ -206,6 +206,7 @@ if(has(v,"base"))rows.push(toggle("Startup optimizations",v.base,"base"));
 if(has(v,"wireless")||has(v,"carplayAutoshow")||service(v,"android-auto"))action("CarPlay & Android Auto","phone",true);
 if(v.services||has(v,"pandora")||has(v,"sourceOrder"))action("Audio sources","sources",true);
 if(has(v,"menuLoop")||has(v,"holdScroll"))action("Commander Dial","dial",true);
+if(isFn(store.exportPrefs)||isFn(store.importPrefs))action("Backup & restore","backup",true);
 if(v.developer)action("Developer options","developer",true);
 action("Apply changes","restart",false,!canRestart());
 action("Uninstall","uninstall",false,!isFn(store.uninstall));
@@ -223,6 +224,10 @@ action("Return to Mazda Settings",0);
 title="Commander Dial";
 if(has(v,"menuLoop"))rows.push(toggle("Wrap-around menus & lists",v.menuLoop,"menuLoop"));
 if(has(v,"holdScroll"))rows.push(toggle("Faster hold-scroll",v.holdScroll,"holdScroll"));
+}else if(index==="backup"){
+title="Backup & restore";
+action("Export preferences","exportPrefs",true,!isFn(store.exportPrefs));
+action("Import preferences","importPrefs",true,!isFn(store.importPrefs));
 }else if(index==="developer"){
 title="Developer options";
 rows.push(toggle("UART",v.uart,"uart"));
@@ -277,12 +282,34 @@ dismiss=null;if(a===act&&current())prefs.select(item,desired);
 if(a!=="closed"&&current()&&choice===origin)render(origin,item);
 });
 }
+function usbTask(origin,item,call,qt,qx,ql,qa,wt,doneMsg){
+dismiss=ask(qt,qx,ql,qa,function(a){
+dismiss=null;if(a!==qa||!current())return;
+var w=showWait(wt);if(!w)return;
+prefs.queue(function(ok){
+if(!ok||!current()){if(!ok)ns=false;endWait(w);return;}
+prefs.task(call,function(act){
+if(current()&&choice===origin&&(!wait||wait===w))ns=false;
+endWait(w);if(!current()||choice!==origin||wait)return false;
+if(dismiss)dismiss();
+render(origin,item);
+if(choice!==origin)return true;
+var m=doneMsg(act);
+dismiss=dialogs.message(fw,m[0],m[1],{button1:{label:"OK",appData:"done"}},function(){dismiss=null;});
+return true;
+});});});
+}
 function select(control,item,params){
 if(!current()||dismiss||wait||!page||control!==page.list2Ctrl)return;
 if(moving)moving(false);
 var d=params&&params.additionalData,v,on,desired,row,label,text;
-if(choice===null&&/^(developer|phone|sources|dial)$/.test(item)){render(item,0);return;}
+if(choice===null&&/^(developer|phone|sources|dial|backup)$/.test(item)){render(item,0);return;}
 if(choice==="phone"&&item===2||choice==="sources"&&item===3){v=prefs.values();if(v)render(item,v[entries[item].key]);return;}
+if(choice==="backup"){
+if(item==="exportPrefs"&&isFn(store.exportPrefs))usbTask("backup",item,store.exportPrefs,"Export preferences?","Save your settings to open-connect.prefs on the USB drive.","Export","export","Exporting preferences",function(act){return act?["Preferences exported","Saved to open-connect.prefs on the USB drive."]:["Export failed","Insert one FAT32 USB drive and try again."];});
+else if(item==="importPrefs"&&isFn(store.importPrefs))usbTask("backup",item,store.importPrefs,"Import preferences?","Load settings from open-connect.prefs on the USB drive. Changes apply "+R,"Import","import","Importing preferences",function(act){return act?["Preferences imported","Changes apply "+R]:["Import failed","Use one FAT32 USB drive with a valid open-connect.prefs file."];});
+return;
+}
 if(choice==="phone"&&item==="wireless"||choice==="dial"&&(item==="menuLoop"||item==="holdScroll")||choice===null&&item==="base"||choice==="phone"||choice==="sources"){
 if(d!==1&&d!==2)return;
 on=d===1;desired=on?1:0;v=prefs.values();
@@ -316,23 +343,10 @@ confirmToggle("developer",item,item==="uart"?"UART":"SSH",item==="uart"?"Passwor
 }
 prefs.select(item,d===1?1:0);
 }else if(item==="import"&&isFn(store.importKey)){
-dismiss=ask("Import public key?","Put open-connect.pub on the USB drive. RSA and ECDSA public keys are supported. The imported key will be replaced.","Import","import",function(a){
-dismiss=null;if(a!=="import"||!current())return;
-var w=showWait("Importing public key");if(!w)return;
-prefs.queue(function(ok){
-if(!ok||!current()){if(!ok)ns=false;endWait(w);return;}
-prefs.importKey(function(act){
-if(current()&&choice==="developer"&&(!wait||wait===w))ns=false;
-endWait(w);if(!current()||choice!=="developer"||wait)return false;
-if(dismiss)dismiss();
-render("developer","import");
-if(choice!=="developer")return true;
-dismiss=dialogs.message(fw,act?"Public key imported":"Key could not be imported",
-act?"Fingerprint (MD5):\n"+act.fingerprint.slice(0,23)+"\n"+act.fingerprint.slice(24)+"\nEnable SSH when ready.":
-"Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported.",
-{button1:{label:"OK",appData:"done"}},function(){dismiss=null;});
-return true;
-});});});}
+usbTask("developer","import",store.importKey,"Import public key?","Put open-connect.pub on the USB drive. RSA and ECDSA public keys are supported. The imported key will be replaced.","Import","import","Importing public key",function(act){
+return act?["Public key imported","Fingerprint (MD5):\n"+act.fingerprint.slice(0,23)+"\n"+act.fingerprint.slice(24)+"\nEnable SSH when ready."]:
+["Key could not be imported","Use one USB drive with open-connect.pub: an RSA key of at least 2048 bits or an ECDSA public key. Private keys and Ed25519 are not supported."];
+});}
 return;
 }
 if(choice===null&&item==="about"){dismiss=dialogs.about(fw,store.version,function(a){dismiss=null;if(a!=="closed"&&current())prefs.changed(false);});return;}
@@ -398,96 +412,78 @@ return send.apply(this,arguments);
 return close;
 }
 
-function attach(fw,app,store){
+function attach(fw,app,st){
 function tmpl(){return app._currentContextTemplate;}
-var entry=app._contextTable.SystemTab;
-var orig=entry.readyFunction;
-var list=null,release=null,closePage=null;
-var id="open-connect-settings";
+var en=app._contextTable.SystemTab,orig=en.readyFunction,ls=null,rel=null,cp=null,id="open-connect-settings";
 function bind(){
-var host=tmpl();
-if(!host||!host.list2Ctrl||host.list2Ctrl===list)return;
-if(release)release(false);
-list=host.list2Ctrl;
-var ctrl=list,set=ctrl.setDataList,sel=ctrl.properties.selectCallback;
-var undoSelect=replace(ctrl.properties,"selectCallback",function(c,v){
-if(c===ctrl&&v===id){
 var h=tmpl();
-var show=function(fresh){
-if(list!==ctrl||fw._currTmpltInstance!==h||tmpl()!==h)return;
-if(!fresh){if(store.unavailable)store.unavailable();return;}
-var o=open(fw,store);if(o)closePage=o;
+if(!h||!h.list2Ctrl||h.list2Ctrl===ls)return;
+if(rel)rel(false);
+ls=h.list2Ctrl;
+var ct=ls,set=ct.setDataList,sel=ct.properties.selectCallback;
+var uS=replace(ct.properties,"selectCallback",function(c,v){
+if(c===ct&&v===id){
+var h2=tmpl();
+var sh=function(fr){
+if(ls!==ct||fw._currTmpltInstance!==h2||tmpl()!==h2)return;
+if(!fr){if(st.unavailable)st.unavailable();return;}
+var o=open(fw,st);if(o)cp=o;
 };
-var cached;
-try{cached=store.read();}catch(e){}
-if(valid(cached)&&!cached.pending&&!cached.conflict)show(true);
-else if(store.refresh)store.refresh(show);
+var ca;
+try{ca=st.read();}catch(e){}
+if(valid(ca)&&!ca.pending&&!ca.conflict)sh(true);
+else if(st.refresh)st.refresh(sh);
 return;
 }
 return sel.apply(this,arguments);
 });
-function withEntry(data){
-var count=data&&data.itemCount,items=data&&data.items;
-if(!items||!count||items.length<count||items[count-1].appData!=="SelectAbout"||
-items.some(function(r){return r&&r.appData===id;}))return set.apply(this,arguments);
-var copy={},k;
-for(k in data)if(own.call(data,k))copy[k]=data[k];
-copy.items=items.slice(0,count);
-copy.items.splice(count-1,0,{text1:"Open Connect",itemStyle:"style01",hasCaret:true,appData:id});
-copy.itemCount=count+1;
-return set.call(ctrl,copy);
+function withE(d){
+var n=d&&d.itemCount,it=d&&d.items;
+if(!it||!n||it.length<n||it[n-1].appData!=="SelectAbout"||
+it.some(function(r){return r&&r.appData===id;}))return set.apply(this,arguments);
+var c={},k;
+for(k in d)if(own.call(d,k))c[k]=d[k];
+c.items=it.slice(0,n);
+c.items.splice(n-1,0,{text1:"Open Connect",itemStyle:"style01",hasCaret:true,appData:id});
+c.itemCount=n+1;
+return set.call(ct,c);
 }
-var undoSet=replace(ctrl,"setDataList",withEntry);
-release=function(visible){
-if(closePage){closePage();closePage=null;}
-undoSelect();undoSet();
-if(!visible)return;
-var data=ctrl.dataList,rows=data.items.filter(function(r){return r.appData!==id;});
-if(rows.length!==data.itemCount){
-set.call(ctrl,{itemCountKnown:true,itemCount:rows.length,items:rows,vuiSupport:data.vuiSupport});
-if(rows.length)ctrl.updateItems(0,rows.length-1);
+var uD=replace(ct,"setDataList",withE);
+rel=function(vis){
+if(cp){cp();cp=null;}
+uS();uD();
+if(!vis)return;
+var d=ct.dataList,rw=d.items.filter(function(r){return r.appData!==id;});
+if(rw.length!==d.itemCount){
+set.call(ct,{itemCountKnown:true,itemCount:rw.length,items:rw,vuiSupport:d.vuiSupport});
+if(rw.length)ct.updateItems(0,rw.length-1);
 }
 };
 }
-function repaint(){
-if(list&&list.dataList.itemCount){list.updateItems(0,list.dataList.itemCount-1);}
-}
+function rep(){if(ls&&ls.dataList.itemCount)ls.updateItems(0,ls.dataList.itemCount-1);}
 if(fw.getCurrCtxtId()==="SystemTab"&&fw._currTmpltInstance===tmpl()){
 bind();
-if(list){
-if(!list.dataList.items.some(function(r){return r.appData===id;}))list.setDataList(list.dataList);
-repaint();
+if(ls){if(!ls.dataList.items.some(function(r){return r.appData===id;}))ls.setDataList(ls.dataList);rep();}
 }
+var uR=replace(en,"readyFunction",function(){bind();var r=orig.apply(this,arguments);rep();return r;});
+return function detach(){uR();if(rel)rel(tmpl()&&tmpl().list2Ctrl===ls);ls=rel=null;};
 }
-var undoReady=replace(entry,"readyFunction",function(){
-bind();
-var res=orig.apply(this,arguments);
-repaint();
-return res;
-});
-return function detach(){
-undoReady();
-if(release)release(tmpl()&&tmpl().list2Ctrl===list);
-list=release=null;
-};
-}
-function fromHome(fw,store,result){
+function fromHome(fw,st,res){
 if(active||waiting||fw._frameworkState!==fw._FWK_STATE_IDLE||voice(fw)||
 fw.common._openConnectDialog||dialogs.foreign(fw)||
 fw.getCurrentApp()!=="system"||fw.getCurrCtxtId()!=="HomeScreen")return false;
-var attempts=0;
-var timer=setInterval(function(){
-var app=fw.getCurrentApp();
-if(inTab(fw)&&open(fw,store)){cancel();result(true);}
-else if(++attempts>=40||(app!=="system"&&!settingsApp(app))||
-(app==="system"&&fw.getCurrCtxtId()!=="HomeScreen")||
-(settingsApp(app)&&fw._frameworkState===fw._FWK_STATE_IDLE&&!inTab(fw))){cancel();result(false);}
+var at=0,tm=setInterval(function(){
+var a=fw.getCurrentApp();
+if(inTab(fw)&&open(fw,st)){cn();res(true);}
+else if(++at>=40||(a!=="system"&&!settingsApp(a))||
+(a==="system"&&fw.getCurrCtxtId()!=="HomeScreen")||
+(settingsApp(a)&&fw._frameworkState===fw._FWK_STATE_IDLE&&!inTab(fw))){cn();res(false);}
 },200);
-function cancel(){clearInterval(timer);if(waiting===cancel)waiting=null;}
-waiting=cancel;
+function cn(){clearInterval(tm);if(waiting===cn)waiting=null;}
+waiting=cn;
 try{fw.sendEventToMmui("system","SelectSettings");}
-catch(e){cancel();throw e;}
-return cancel;
+catch(e){cn();throw e;}
+return cn;
 }
 
 return{open:open,fromHome:fromHome,attach:attach,validStatus:validStatus,

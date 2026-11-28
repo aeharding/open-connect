@@ -724,4 +724,21 @@ assert.equal(f.pages.length,devPages+1);
 assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Change could not be confirmed');
 assert.equal(f.dialog,undefined,'conflict guidance on Developer options must not show invalid-key dialog');
 f.endAnimations();
+
+// Issue #130: exportPrefs and importPrefs wire framing and lost-ACK reconciliation.
+f=warm({...developer,touch:1,touchCurrent:1,restart:false});
+select(f,'backup');select(f,'exportPrefs');f.pick('export');
+assert.equal(f.operation('export')[0].body,`${f.token}|${'b'.repeat(64)}|export|prefs|-|-`);
+// Lost ACK on export never falsely reconciles as success.
+f.reply(f.operation('export')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,touch:1,touchCurrent:1,restart:false}));
+assert.equal(f.pages.at(-1).list2Ctrl.title.text1,'Restart Mazda Connect');
+f=warm({...developer,touch:1,touchCurrent:1,restart:false});
+select(f,'backup');select(f,'importPrefs');f.pick('import');
+assert.equal(f.operation('import')[0].body,`${f.token}|${'b'.repeat(64)}|import|prefs|-|-`);
+// Lost ACK on import|prefs reconciles when revision changes.
+const nextRev='d'.repeat(64);
+f.reply(f.operation('import')[0],null);
+f.reply(f.requests.at(-1),f.state({...developer,revision:nextRev,touch:2,touchCurrent:1,restart:true}));
+assert.equal(f.dialog.props.title,'Preferences imported');
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');

@@ -497,3 +497,235 @@ int oc_startup_staging_retire(int root, const char *root_path, int data_fd, cons
     }
     return 1;
 }
+
+int oc_vfat_mount_mode(int root, const char *target) {
+    if (oc_text(root,"proc/self/mounts",oc_mscratch,sizeof oc_mscratch,1)<0) return 0;
+    unsigned hits=0; int mode=0;
+    char *p=oc_mscratch;
+    while (*p) {
+        char *f[6]; unsigned n=0;
+        while (*p && *p!='\n') {
+            if (*p==' '||*p=='\t') { ++p; continue; }
+            if (n==6) return 0;
+            f[n++]=p;
+            while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
+            if (*p==' '||*p=='\t') *p++=0;
+        }
+        if (!*p || n!=6) return 0;
+        *p++=0;
+        if (!oc_equal(f[1],target)) continue;
+        if (!oc_equal(f[2],"vfat")) return 0;
+        char opts[256];
+        if (!oc_join(opts,sizeof opts,",",f[3]) || !oc_join(opts,sizeof opts,opts,",")) return 0;
+        int rw=0, ro=0;
+        for (char *q=opts; *q; ++q) {
+            if (oc_prefix(q,",rw,")) ++rw;
+            if (oc_prefix(q,",ro,")) ++ro;
+        }
+        if (rw+ro!=1) return 0;
+        mode=rw?1:2;
+        ++hits;
+    }
+    return hits==1 ? mode : 0;
+}
+
+int oc_usb_remount(int root, const char *target, int rw) {
+#if defined(OC_HOST) || defined(OC_TEST_PINFILE)
+#ifdef OC_HOST
+    if (getenv("OC_HOST_USB_REMOUNT_FAIL")) return 0;
+#endif
+    char *buf=oc_big_buf, *out=oc_big_buf+16384;
+    int n=oc_text(root,"proc/self/mounts",buf,16384,0);
+    if (n<=0) return 0;
+    const char *from=rw?"ro":"rw", *to=rw?"rw":"ro";
+    unsigned used=0; char *p=buf;
+    while (*p) {
+        char *line=p;
+        while (*p && *p!='\n') ++p;
+        int has_nl=(*p=='\n');
+        if (has_nl) *p++=0;
+        char *f[6]; unsigned nf=0;
+        char lcopy[512];
+        if (oc_length(line)>=sizeof lcopy) return 0;
+        for (unsigned i=0; (lcopy[i]=line[i])!=0; ++i) {}
+        char *lp=lcopy;
+        while (*lp) {
+            while (*lp==' '||*lp=='\t') ++lp;
+            if (!*lp) break;
+            if (nf<6) f[nf++]=lp;
+            while (*lp && *lp!=' ' && *lp!='\t') ++lp;
+            if (*lp) *lp++=0;
+        }
+        if (nf==6 && oc_equal(f[1],target) && oc_equal(f[2],"vfat")) {
+            char nopts[256]; unsigned nu=0;
+            char *q=f[3];
+            while (*q) {
+                char *tok=q; while (*q && *q!=',') ++q;
+                int has_c=(*q==','); if (has_c) *q++=0;
+                const char *emit=oc_equal(tok,from)?to:tok;
+                unsigned el=oc_length(emit);
+                if (nu+el+(has_c?1:0)>=sizeof nopts) return 0;
+                for (unsigned j=0; j<el; ++j) nopts[nu++]=emit[j];
+                if (has_c) nopts[nu++]=',';
+            }
+            nopts[nu]=0;
+            char nline[512];
+            if (!oc_join4(nline,sizeof nline,f[0]," ",f[1]," ") ||
+                !oc_join4(nline,sizeof nline,nline,f[2]," ",nopts) ||
+                !oc_join4(nline,sizeof nline,nline," ",f[4]," ") ||
+                !oc_join(nline,sizeof nline,nline,f[5])) return 0;
+            unsigned ll=oc_length(nline);
+            if (used+ll>=16384) return 0;
+            for (unsigned j=0; j<ll; ++j) out[used++]=nline[j];
+        } else {
+            unsigned ll=oc_length(line);
+            if (used+ll>=16384) return 0;
+            for (unsigned j=0; j<ll; ++j) out[used++]=line[j];
+        }
+        if (has_nl) { if (used+1>=16384) return 0; out[used++]='\n'; }
+    }
+    out[used]=0;
+    long fd=oc_beneath(root,"proc/self/mounts",OC_WRITE|OC_TRUNC,0600);
+    if (fd<0) return 0;
+    int ok=oc_write_all((int)fd,out,used);
+    if (oc_close((int)fd)<0) ok=0;
+    return ok && oc_vfat_mount_mode(root,target)==(rw?1:2);
+#else
+    char tbuf[32];
+    if (!oc_join(tbuf,sizeof tbuf,target,"")) return 0;
+    char *argv[]={
+        "/bin/busybox","timeout","-t","8","-s","TERM",
+        "/bin/busybox","mount","-i","-n","-o",
+        rw?"remount,rw":"remount,ro",tbuf,0
+    };
+    if (oc_run_cmd("/bin/busybox",argv,-1,0,0,-1)!=0) return 0;
+    return oc_vfat_mount_mode(root,target)==(rw?1:2);
+#endif
+}
+
+int oc_factory_wireless(int root, const char *root_path) {
+#ifdef OC_HOST
+    const char *wf=getenv("OC_HOST_WIRELESS_FILE");
+    if (wf && *wf) { OcMeta wm; return oc_metadata(OC_CWD,wf,&wm)<0 ? 1 : 0; }
+#endif
+    long fd=oc_beneath(root,"jci/scripts/get_board_type.sh",OC_READ,0);
+    if (fd<0) return 2;
+    char dig[65]; OcMeta m;
+    int ok=oc_hash_copy((int)fd,-1,65536,dig,&m)==OC_COPY_OK &&
+        oc_equal(dig,oc_pin_digest("root/board.sh","2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da"));
+    if (oc_close((int)fd)<0) ok=0;
+    if (!ok) return 2;
+    char spath[512];
+    if (!oc_join(spath,sizeof spath,oc_equal(root_path,"/")?"":root_path,"/jci/scripts/get_board_type.sh")) return 2;
+    char *argv[]={"sh",spath,0};
+    int wrc=oc_run_cmd("/bin/sh",argv,-1,0,0,-1);
+    return wrc<0 ? 2 : (wrc==2 ? 0 : 1);
+}
+
+static int oc_p_no_cntrl(const char *p) {
+    for (; *p; ++p) if ((unsigned char)*p<32 || (unsigned char)*p==127) return 0;
+    return 1;
+}
+
+static int oc_p_append(char *out, unsigned cap, unsigned *at, const char *s) {
+    unsigned n=oc_length(s);
+    if (*at+n>=cap) return 0;
+    for (unsigned i=0; i<n; ++i) out[(*at)++]=s[i];
+    out[*at]=0;
+    return 1;
+}
+
+static char *oc_static_val(const char *v, int allow_two) {
+    if (oc_equal(v,"0")) return "0";
+    if (oc_equal(v,"1")) return "1";
+    if (allow_two && oc_equal(v,"2")) return "2";
+    return 0;
+}
+
+/* Strict allowlisted OCPREFS1 user-toggle parser (never touches package/nvram/metadata/access). */
+int oc_prefs_preset_apply(char *text, unsigned bytes, const OcCatalog *cat, OcPrefs *prefs, unsigned *changed) {
+    if (!cat || !cat->count || cat->count>16 || !prefs || prefs->svc_count!=cat->count || bytes<9 || bytes>1023) return 0;
+    if (oc_length(text)!=bytes) return 0;
+    char *p=text;
+    char *hdr=p;
+    while (*p && *p!='\n') ++p;
+    if (*p!='\n') return 0;
+    *p++=0;
+    unsigned hlen=oc_length(hdr);
+    if (hlen && hdr[hlen-1]=='\r') hdr[--hlen]=0;
+    if (!oc_equal(hdr,"OCPREFS1")) return 0;
+
+    unsigned seen_scalar=0, seen_svc=0, applied=0, chg=0;
+    static const char *const skeys[8]={
+        "base","carplay-autoshow","hold-scroll","menu-loop","source-order","touch","warning","wireless"
+    };
+    char **slots[8]={
+        &prefs->base,&prefs->autoshow,&prefs->hold_scroll,&prefs->menu_loop,
+        &prefs->source_order,&prefs->touch,&prefs->warning,&prefs->wireless
+    };
+    int *has_opt[8]={0,&prefs->has_autoshow,&prefs->has_hold_scroll,&prefs->has_menu_loop,&prefs->has_source_order,0,0,0};
+
+    while (*p) {
+        char *ln=p;
+        while (*p && *p!='\n') ++p;
+        if (*p=='\n') *p++=0;
+        unsigned llen=oc_length(ln);
+        if (llen && ln[llen-1]=='\r') ln[--llen]=0;
+        if (!oc_p_no_cntrl(ln)) return 0;
+        if (!llen || ln[0]=='#') continue;
+        char *eq=0;
+        for (char *q=ln; *q; ++q) if (*q=='=') { if (eq) return 0; eq=q; }
+        if (!eq || eq==ln || !eq[1]) return 0;
+        *eq=0;
+        const char *k=ln, *v=eq+1;
+        int matched=0;
+        for (unsigned i=0; i<8; ++i) {
+            if (!oc_equal(k,skeys[i])) continue;
+            if (seen_scalar&(1u<<i)) return 0;
+            char *sv=oc_static_val(v,i==5);
+            if (!sv) return 0;
+            seen_scalar|=1u<<i;
+            if (!oc_equal(*slots[i],sv)) chg|=1u<<i;
+            *slots[i]=sv;
+            if (has_opt[i]) *has_opt[i]=1;
+            ++applied; matched=1; break;
+        }
+        if (matched) continue;
+        if (!oc_prefix(k,"service.")) return 0;
+        const char *sid=k+8;
+        char *sv=oc_static_val(v,0);
+        if (!sv) return 0;
+        for (unsigned i=0; i<cat->count; ++i) {
+            if (!oc_equal(sid,cat->rows[i].id)) continue;
+            if (seen_svc&(1u<<i)) return 0;
+            seen_svc|=1u<<i;
+            if (!oc_equal(prefs->svc_vals[i],sv)) chg|=256u;
+            prefs->svc_vals[i]=sv;
+            if (oc_equal(sid,"pandora")) prefs->pandora=sv;
+            ++applied; matched=1; break;
+        }
+        if (!matched) return 0;
+    }
+    if (!applied) return 0;
+    if (changed) *changed=chg;
+    return 1;
+}
+
+int oc_prefs_preset_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned cap) {
+    unsigned at=0;
+    if (!cat || !cat->count || cat->count>16 || cat->count!=p->svc_count) return 0;
+    if (!oc_p_append(out,cap,&at,"OCPREFS1\nbase=") || !oc_p_append(out,cap,&at,p->base) ||
+        !oc_p_append(out,cap,&at,"\ncarplay-autoshow=") || !oc_p_append(out,cap,&at,p->autoshow) ||
+        !oc_p_append(out,cap,&at,"\nhold-scroll=") || !oc_p_append(out,cap,&at,p->hold_scroll) ||
+        !oc_p_append(out,cap,&at,"\nmenu-loop=") || !oc_p_append(out,cap,&at,p->menu_loop)) return 0;
+    for (unsigned i=0; i<cat->count; ++i) {
+        if (!oc_p_append(out,cap,&at,"\nservice.") || !oc_p_append(out,cap,&at,cat->rows[i].id) ||
+            !oc_p_append(out,cap,&at,"=") || !oc_p_append(out,cap,&at,p->svc_vals[i])) return 0;
+    }
+    if (!oc_p_append(out,cap,&at,"\nsource-order=") || !oc_p_append(out,cap,&at,p->source_order) ||
+        !oc_p_append(out,cap,&at,"\ntouch=") || !oc_p_append(out,cap,&at,p->touch) ||
+        !oc_p_append(out,cap,&at,"\nwarning=") || !oc_p_append(out,cap,&at,p->warning) ||
+        !oc_p_append(out,cap,&at,"\nwireless=") || !oc_p_append(out,cap,&at,p->wireless) ||
+        !oc_p_append(out,cap,&at,"\n")) return 0;
+    return at<=1023;
+}

@@ -100,11 +100,16 @@ class NativeInstall(unittest.TestCase):
         from tests.test_installer_preferences import InstallerPreferences
 
         def stock_sm(wcp: bool) -> bytes:
-            txt = InstallerPreferences().profile(wcp)
-            inject = (
-                '  <service type="process" name="jciGUI" path="/jci/opera/opera_dir/userjs/opera" args="-u /jci/gui/index.html" autorun="yes"/>\n'
-                '  <service type="process" name="jciMMUI" path="/jci/mmui/svcjcimmui.so" autorun="yes"/>\n'
+            txt = (
+                InstallerPreferences()
+                .profile(wcp)
+                .replace(
+                    'name="jciMMUI" autorun="yes" reset_board="yes" path="/tmp/open-connect/feature/mmui.so"',
+                    'name="jciMMUI" path="/jci/mmui/svcjcimmui.so" autorun="yes" reset_board="yes"',
+                    1,
+                )
             )
+            inject = '  <service type="process" name="jciGUI" path="/jci/opera/opera_dir/userjs/opera" args="-u /jci/gui/index.html" autorun="yes"/>\n'
             return txt.replace("<services>\n", "<services>\n" + inject, 1).encode()
 
         sm_normal = stock_sm(False)
@@ -1601,3 +1606,320 @@ class NativeInstall(unittest.TestCase):
             self.assertEqual(p_sg8.returncode, 0, p_sg8.stderr)
             self.assertEqual(p_sg8.stdout, b"G")
             self.assertFalse((data / "reseal").exists())
+
+    def test_usb_preferences_preset_and_settings_export_import_130(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            ram, data, usb_sess, env = self._build_fixture(root)
+            api_bin = usb_sess / "api"
+            bs_bin = root / "usr/bin/open-connect-boot-select"
+            # Populate synthetic VUI plugins matching ui-modules.tsv so base=1 preset validates cleanly.
+            vui_dir = root / "jci/vui/plugins"
+            patched_ui = []
+            for ln in (usb_sess / "ui-modules.tsv").read_text().splitlines():
+                if ln.startswith("vui\t"):
+                    parts = ln.split("\t")
+                    blob = b"vui-plugin-" + parts[1].encode() + b"\n"
+                    (vui_dir / parts[1]).write_bytes(blob)
+                    (vui_dir / parts[1]).chmod(0o755)
+                    parts[3] = sha(blob)
+                    patched_ui.append("\t".join(parts))
+                else:
+                    patched_ui.append(ln)
+            (usb_sess / "ui-modules.tsv").write_text("\n".join(patched_ui) + "\n")
+            (usb_sess / "ui-modules.tsv").chmod(0o600)
+            (usb_sess / "files.sha256").unlink()
+            (usb_sess / "token").unlink()
+            mf0 = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(usb_sess.iterdir()))
+            (usb_sess / "files.sha256").write_text(mf0)
+            (usb_sess / "files.sha256").chmod(0o600)
+            (usb_sess / "token").write_text(TOKEN + "\n")
+            (usb_sess / "token").chmod(0o600)
+            # Mount verified USB drive at /tmp/mnt/sda1 with matching open-connect/files.sha256 + run.sh
+            vol = root / "tmp/mnt/sda1"
+            (vol / "open-connect").mkdir(parents=True, mode=0o700)
+            shutil.copyfile(usb_sess / "files.sha256", vol / "open-connect/files.sha256")
+            (vol / "open-connect/run.sh").write_text("#!/bin/sh\n")
+            base_mounts = (root / "proc/self/mounts").read_text()
+            (root / "proc/self/mounts").write_text(
+                base_mounts + "/dev/sda1 /tmp/mnt/sda1 vfat ro,noatime 0 0\n"
+            )
+            # OC_HOST_WIRELESS_FILE polarity (oc_factory_wireless in oc-root.c):
+            #   absent path  -> returns 1 (NOT factory-wireless; wirelessFactory=False)
+            #   existing file -> returns 0 (factory-wireless ENABLED; wirelessFactory=True)
+            #   unset + bad board.sh -> returns 2 (wireless_unavailable)
+            wf_factory = root / "factory-wireless-present"
+            wf_factory.write_text("1\n")
+            env_wl = {**env, "OC_HOST_WIRELESS_FILE": str(root / "no-wireless")}
+            env_fw_enabled = {**env, "OC_HOST_WIRELESS_FILE": str(wf_factory)}
+            env_fw_unavail = {k: v for k, v in env.items() if k != "OC_HOST_WIRELESS_FILE"}
+
+            # 1) Invalid presets on fresh install fail closed without publishing state
+            for label, payload in (
+                ("bad_header", b"OC2\ntouch=1\n"),
+                ("empty", b"OCPREFS1\n# only comment\n"),
+                ("cntrl_in_comment", b"OCPREFS1\n# bad\x07comment\ntouch=1\n"),
+                ("bare_cr_in_comment", b"OCPREFS1\n# bad\rcomment\ntouch=1\n"),
+                ("forbidden_pkg", b"OCPREFS1\npackage=" + b"a" * 64 + b"\n"),
+                ("forbidden_nvram", b"OCPREFS1\nnvram=disable\n"),
+                ("forbidden_uart", b"OCPREFS1\nuart=1\n"),
+                ("forbidden_ssh", b"OCPREFS1\nssh=1\n"),
+                ("unknown_svc", b"OCPREFS1\nservice.bogus=0\n"),
+                ("dup_key", b"OCPREFS1\ntouch=0\ntouch=1\n"),
+                ("bad_val", b"OCPREFS1\nwarning=2\n"),
+                ("oversized", b"OCPREFS1\n# " + b"x" * 1020 + b"\ntouch=1\n"),
+            ):
+                with self.subTest(bad_preset=label):
+                    (vol / "open-connect.prefs").write_bytes(payload)
+                    p, r = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
+                    self.assertNotEqual(p.returncode, 0)
+                    self.assertEqual(r["error"], "invalid_preferences_preset")
+                    self.assertFalse(data.exists())
+            # Symlink preset refused
+            target = root / "real.prefs"
+            target.write_text("OCPREFS1\ntouch=0\n")
+            (vol / "open-connect.prefs").unlink()
+            (vol / "open-connect.prefs").symlink_to(target)
+            p, r = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
+            self.assertNotEqual(p.returncode, 0)
+            self.assertEqual(r["error"], "invalid_preferences_preset")
+            self.assertFalse(data.exists())
+            (vol / "open-connect.prefs").unlink()
+
+            # 2) Factory-wireless CMU (fw==0) refuses wireless=1 preset with zero flash writes
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nwireless=1\n")
+            p, r = self._call_api(api_bin, usb_sess, "-", "install", env=env_fw_enabled)
+            self.assertNotEqual(p.returncode, 0)
+            self.assertEqual(r["error"], "wireless_factory_enabled")
+            self.assertFalse(data.exists())
+            board_sh = root / "jci/scripts/get_board_type.sh"
+            saved_board_sh = board_sh.read_bytes()
+
+            # 3) Valid fresh-install preset (comments + CRLF + touch=2 + base=1 + all toggles)
+            (vol / "open-connect.prefs").write_bytes(
+                b"OCPREFS1\r\n"
+                b"# Owner preset\r\n"
+                b"\r\n"
+                b"base=1\r\n"
+                b"carplay-autoshow=1\r\n"
+                b"hold-scroll=1\r\n"
+                b"menu-loop=1\r\n"
+                b"source-order=1\r\n"
+                b"touch=2\r\n"
+                b"warning=0\r\n"
+                b"wireless=1\r\n"
+                b"service.android-auto=0\r\n"
+                b"service.pandora=0\r\n"
+                b"service.siriusxm=1\r\n"
+            )
+            p, r = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
+            self.assertEqual(p.returncode, 0, (r, p.stderr))
+            self.assertTrue(r["ok"] and r["installed"])
+            self.assertIs(r["wirelessFactory"], False)
+            rec = (data / "record").read_text().strip().split("|")
+            snap1 = rec[5]
+            cfg1 = (data / "snapshots" / snap1 / "config").read_text()
+            for expected_line in (
+                "base=1",
+                "carplay-autoshow=1",
+                "hold-scroll=1",
+                "menu-loop=1",
+                "nvram=absent",
+                "service.android-auto=0",
+                "service.pandora=0",
+                "service.siriusxm=1",
+                "source-order=1",
+                "touch=2",
+                "warning=0",
+                "wireless=1",
+            ):
+                self.assertIn(expected_line + "\n", cfg1)
+            self.assertFalse(
+                (root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction").exists()
+            )
+            self.assertEqual(
+                subprocess.run(
+                    [str(bs_bin), "audit", str(root), snap1], env=env_wl, capture_output=True
+                ).returncode,
+                0,
+            )
+
+            # 4) Upgrade with different preset on USB preserves existing OC2 prefs (never clobbers!)
+            (vol / "open-connect.prefs").write_text("OCPREFS1\ntouch=0\nbase=0\n")
+            p_up, r_up = self._call_api(api_bin, usb_sess, snap1, "install", env=env_wl)
+            self.assertEqual(p_up.returncode, 0, (r_up, p_up.stderr))
+            rec2 = (data / "record").read_text().strip().split("|")
+            snap2, pkg2 = rec2[5], rec2[3]
+            cfg2 = (data / "snapshots" / snap2 / "config").read_text()
+            self.assertIn("touch=2\n", cfg2)
+            self.assertIn("base=1\n", cfg2)
+
+            # 5) Settings session export|prefs and import|prefs (USB session refused!)
+            p_usb_ex, r_usb_ex = self._call_api(
+                api_bin, usb_sess, snap2, "export", "prefs", env=env_wl
+            )
+            self.assertNotEqual(p_usb_ex.returncode, 0)
+            self.assertEqual(r_usb_ex["error"], "invalid_request")
+            p_usb_im, r_usb_im = self._call_api(
+                api_bin, usb_sess, snap2, "import", "prefs", env=env_wl
+            )
+            self.assertNotEqual(p_usb_im.returncode, 0)
+            self.assertEqual(r_usb_im["error"], "invalid_request")
+
+            set_sess = ram / "sessions/session-set130"
+            set_sess.mkdir(mode=0o700)
+            shutil.copyfile(data / "packages" / pkg2 / "files.sha256", set_sess / "files.sha256")
+            shutil.copyfile(data / "packages" / pkg2 / "VERSION", set_sess / "VERSION")
+            (ram / "selected").write_text(snap2 + "\n")
+            (ram / "selected").chmod(0o600)
+            (ram / "runtime").symlink_to(set_sess)
+
+            # Export on RO vfat -> remounts RW, writes canonical OCPREFS1, restores RO
+            (vol / "open-connect.prefs").unlink()
+            p_ex, r_ex = self._call_api(api_bin, set_sess, snap2, "export", "prefs", env=env_wl)
+            self.assertEqual(p_ex.returncode, 0, (r_ex, p_ex.stderr))
+            self.assertTrue(r_ex["ok"] and r_ex["revision"] == snap2)
+            exported = (vol / "open-connect.prefs").read_text()
+            self.assertEqual(
+                exported,
+                "OCPREFS1\n"
+                "base=1\n"
+                "carplay-autoshow=1\n"
+                "hold-scroll=1\n"
+                "menu-loop=1\n"
+                "service.android-auto=0\n"
+                "service.pandora=0\n"
+                "service.siriusxm=1\n"
+                "source-order=1\n"
+                "touch=2\n"
+                "warning=0\n"
+                "wireless=1\n",
+            )
+            self.assertIn("/tmp/mnt/sda1 vfat ro,noatime", (root / "proc/self/mounts").read_text())
+
+            # Export with symlink open-connect.prefs refused
+            (vol / "open-connect.prefs").unlink()
+            (vol / "open-connect.prefs").symlink_to(target)
+            p_ex_sym, r_ex_sym = self._call_api(
+                api_bin, set_sess, snap2, "export", "prefs", env=env_wl
+            )
+            self.assertNotEqual(p_ex_sym.returncode, 0)
+            self.assertEqual(r_ex_sym["error"], "export_failed")
+            (vol / "open-connect.prefs").unlink()
+            (vol / "open-connect.prefs").write_text(exported)
+
+            # Export with 2 vfat volumes -> multiple_usb_volumes; 0 -> usb_not_found
+            vol2 = root / "tmp/mnt/sdb1"
+            vol2.mkdir(mode=0o700)
+            (root / "proc/self/mounts").write_text(
+                base_mounts
+                + "/dev/sda1 /tmp/mnt/sda1 vfat ro,noatime 0 0\n"
+                + "/dev/sdb1 /tmp/mnt/sdb1 vfat ro,noatime 0 0\n"
+            )
+            _, r_m = self._call_api(api_bin, set_sess, snap2, "export", "prefs", env=env_wl)
+            self.assertEqual(r_m["error"], "multiple_usb_volumes")
+            # Import with 2 files -> multiple_preferences_files
+            (vol2 / "open-connect.prefs").write_text(exported)
+            _, r_mi = self._call_api(api_bin, set_sess, snap2, "import", "prefs", env=env_wl)
+            self.assertEqual(r_mi["error"], "multiple_preferences_files")
+            (vol2 / "open-connect.prefs").unlink()
+            (root / "proc/self/mounts").write_text(base_mounts)
+            _, r_none = self._call_api(api_bin, set_sess, snap2, "export", "prefs", env=env_wl)
+            self.assertEqual(r_none["error"], "usb_not_found")
+            _, r_nv = self._call_api(api_bin, set_sess, snap2, "import", "prefs", env=env_wl)
+            self.assertEqual(r_nv["error"], "invalid_preferences_volume")
+            (root / "proc/self/mounts").write_text(
+                base_mounts + "/dev/sda1 /tmp/mnt/sda1 vfat ro,noatime 0 0\n"
+            )
+
+            # Re-importing identical exported prefs is a zero-transaction no-op
+            p_noop, r_noop = self._call_api(api_bin, set_sess, snap2, "import", "prefs", env=env_wl)
+            self.assertEqual(p_noop.returncode, 0, (r_noop, p_noop.stderr))
+            self.assertEqual(r_noop["revision"], snap2)
+
+            # Multi-toggle import: changes touch 2->1 (NVRAM absent->disable), warning 0->1,
+            # source-order 1->0, menu-loop 1->0, service.pandora 0->1 in one transaction!
+            (vol / "open-connect.prefs").write_text(
+                "OCPREFS1\ntouch=1\nwarning=1\nsource-order=0\nmenu-loop=0\nservice.pandora=1\n"
+            )
+            p_im, r_im = self._call_api(api_bin, set_sess, snap2, "import", "prefs", env=env_wl)
+            self.assertEqual(p_im.returncode, 0, (r_im, p_im.stderr))
+            self.assertTrue(r_im["ok"] and r_im["revision"] != snap2)
+            self.assertEqual(r_im["touch"], 1)
+            self.assertEqual(r_im["warning"], 1)
+            self.assertEqual(r_im["sourceOrder"], 0)
+            self.assertEqual(r_im["menuLoop"], 0)
+            self.assertEqual(r_im["holdScroll"], 1)
+            self.assertEqual(
+                (root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction")
+                .read_text()
+                .strip(),
+                "disable",
+            )
+            snap3 = r_im["revision"]
+            self.assertEqual(
+                subprocess.run(
+                    [str(bs_bin), "audit", str(root), snap3], env=env_wl, capture_output=True
+                ).returncode,
+                0,
+            )
+
+            # Round-trip import of original exported file restores exact original state + NVRAM!
+            (vol / "open-connect.prefs").write_text(exported)
+            p_rt, r_rt = self._call_api(api_bin, set_sess, snap3, "import", "prefs", env=env_wl)
+            self.assertEqual(p_rt.returncode, 0, (r_rt, p_rt.stderr))
+            self.assertEqual(r_rt["touch"], 2)
+            self.assertEqual(r_rt["warning"], 0)
+            self.assertEqual(r_rt["sourceOrder"], 1)
+            self.assertEqual(r_rt["menuLoop"], 1)
+            self.assertIs(r_rt["wirelessFactory"], False)
+            self.assertFalse(
+                (root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction").exists()
+            )
+            snap4 = r_rt["revision"]
+
+            # Settings import|prefs: wireless=0->1 must refuse when fw==0 (factory enabled) or fw==2 (unavailable)
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nwireless=0\nbase=0\n")
+            p_w0, r_w0 = self._call_api(api_bin, set_sess, snap4, "import", "prefs", env=env_wl)
+            self.assertEqual(p_w0.returncode, 0, (r_w0, p_w0.stderr))
+            snap5 = r_w0["revision"]
+            _, r_st_fw = self._call_api(
+                api_bin, set_sess, "-", "status", "settings", env=env_fw_enabled
+            )
+            self.assertIs(r_st_fw["wirelessFactory"], True)
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nwireless=1\n")
+            p_fw_im, r_fw_im = self._call_api(
+                api_bin, set_sess, snap5, "import", "prefs", env=env_fw_enabled
+            )
+            self.assertNotEqual(p_fw_im.returncode, 0)
+            self.assertEqual(r_fw_im["error"], "wireless_factory_enabled")
+
+            # Blocker 2 regression: touch=2, base=0 with drifted touch pin -> simultaneous import of
+            # touch=1 + base=1 triggers the touch=2->1 fallback and MUST validate active pins on
+            # after_id (non-empty vui-plugins.list), NOT stale snap5 (empty vui-plugins.list)!
+            dev_svc = root / "jci/devices/svc-com-jci-cpp-devices.so"
+            saved_dev_svc = dev_svc.read_bytes()
+            dev_svc.write_bytes(b"drifted devices svc\n")
+            (vol / "open-connect.prefs").write_text("OCPREFS1\ntouch=1\nbase=1\n")
+            p_fb, r_fb = self._call_api(api_bin, set_sess, snap5, "import", "prefs", env=env_wl)
+            dev_svc.write_bytes(saved_dev_svc)
+            self.assertEqual(p_fb.returncode, 0, (r_fb, p_fb.stderr))
+            self.assertEqual(r_fb["touch"], 1)
+            self.assertEqual(r_fb["base"], 1)
+            self.assertEqual(
+                (root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction")
+                .read_text()
+                .strip(),
+                "disable",
+            )
+            snap6 = r_fb["revision"]
+
+            # Settings import|prefs: wireless=0->1 refuses with wireless_unavailable when board.sh fails check (fw==2)
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nwireless=1\n")
+            board_sh.write_bytes(b"#!/bin/sh\n# tampered\nexit 1\n")
+            p_fu_im, r_fu_im = self._call_api(
+                api_bin, set_sess, snap6, "import", "prefs", env=env_fw_unavail
+            )
+            board_sh.write_bytes(saved_board_sh)
+            self.assertNotEqual(p_fu_im.returncode, 0)
+            self.assertEqual(r_fu_im["error"], "wireless_unavailable")

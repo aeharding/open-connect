@@ -4,6 +4,9 @@
  * transactional install/upgrade/reinstall.
  */
 #include "oc-core.h"
+#ifdef OC_HOST
+#include <stdlib.h>
+#endif
 
 static struct {
     char io[32768];
@@ -83,11 +86,15 @@ static int oc_originals_save(int root, int data_fd, const char **err_out) {
         long sfd=oc_beneath(root,rp,OC_READ,0);
         long dfd=sfd>=0 ? oc_openat(wfd,oc_orig_name(i),OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600) : -1;
         char dig[65]; OcMeta sm={0};
-        ok=sfd>=0 && dfd>=0 && oc_hash_copy((int)sfd,(int)dfd,33554432,dig,&sm)==OC_COPY_OK &&
+        int hr=(sfd>=0 && dfd>=0) ? oc_hash_copy((int)sfd,(int)dfd,33554432,dig,&sm) : OC_COPY_SOURCE;
+        ok=sfd>=0 && dfd>=0 && hr==OC_COPY_OK &&
             oc_equal(dig,pin) && oc_mode((int)dfd,0600)>=0 && oc_sync((int)dfd)>=0;
         if (sfd>=0 && oc_close((int)sfd)<0) ok=0;
         if (dfd>=0 && oc_close((int)dfd)<0) ok=0;
         if (ok) ok=oc_verify_file_sha(wfd,oc_orig_name(i),pin,33554432);
+        if (!ok) oc_diag_set("originals_save",oc_orig_path(i),
+                             sfd==-2?"missing":(hr==OC_COPY_OK?"sha256_mismatch":"copy_failed"),
+                             pin,hr==OC_COPY_OK?dig:0);
     }
     if (ok) ok=oc_sync(wfd)>=0;
     if (oc_close(wfd)<0) ok=0;
@@ -104,9 +111,15 @@ static int oc_stock_dependencies_ok(int root) {
         if (!oc_join(k,sizeof k,"root/",oc_root_names[i])) return 0;
         const char *pin=oc_pin_digest(k,oc_root_digests[i]);
         long fd=oc_beneath(root,oc_root_paths[i]+1,OC_READ,0);
-        int ok=fd>=0 && oc_hash_copy((int)fd,-1,33554432,dig,&m)==OC_COPY_OK && oc_equal(dig,pin);
+        int hr=fd>=0 ? oc_hash_copy((int)fd,-1,33554432,dig,&m) : OC_COPY_SOURCE;
+        int ok=fd>=0 && hr==OC_COPY_OK && oc_equal(dig,pin);
         if (fd>=0 && oc_close((int)fd)<0) ok=0;
-        if (!ok) return 0;
+        if (!ok) {
+            oc_diag_set("stock_dependencies",oc_root_paths[i],
+                        fd==-2?"missing":(hr==OC_COPY_OK?"sha256_mismatch":"unreadable"),
+                        pin,hr==OC_COPY_OK?dig:0);
+            return 0;
+        }
     }
     return 1;
 }
@@ -486,8 +499,8 @@ int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg
     const char *ferr=0;
     if (wfd<0 || orig<0) { ferr="compose_create_failed"; goto out; }
 
-    if (!oc_compose_uia(pdir,orig,wfd)) { ferr="compose_patch_failed"; goto out; }
-    if (!oc_compose_mmui(pdir,orig,wfd)) { ferr="compose_patch_failed"; goto out; }
+    if (!oc_compose_uia(pdir,orig,wfd)) { oc_diag_set("compose","uia.so","patch_failed",0,0); ferr="compose_patch_failed"; goto out; }
+    if (!oc_compose_mmui(pdir,orig,wfd)) { oc_diag_set("compose","mmui.so","patch_failed",0,0); ferr="compose_patch_failed"; goto out; }
 
     /* VUI: verify stock svcjcivui.so + vui_config.xml, patch vui.so, rewrite vui.xml */
     {
@@ -497,6 +510,7 @@ int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg
         if (vdir<0 || !oc_verify_file_sha((int)vdir,"svcjcivui.so",vso_pin,33554432) ||
             !oc_verify_file_sha((int)vdir,"vui_config.xml",vxml_pin,262144)) {
             if (vdir>=0) (void)oc_close((int)vdir);
+            oc_diag_set("compose","/jci/vui","vui_inputs_changed",0,0);
             ferr="vui_inputs_changed"; goto out;
         }
         long vsfd=oc_openat((int)vdir,"svcjcivui.so",OC_READ,0);
@@ -513,19 +527,20 @@ int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg
                 "6cc31cd92167624093f95924a15a27536aec2e40cecc170b47cce72d703ba18f");
             vok=oc_verify_file_sha(wfd,"vui.so",vout_pin,33554432);
         }
-        if (!vok) { (void)oc_close((int)vdir); ferr="compose_patch_failed"; goto out; }
+        if (!vok) { (void)oc_close((int)vdir); oc_diag_set("compose","vui.so","patch_failed",0,0); ferr="compose_patch_failed"; goto out; }
         vok=oc_replace_file((int)vdir,"vui_config.xml",wfd,"vui.xml",
             "value=\"/jci/vui/plugins\"","value=\"/tmp/open-connect/vui-plugins/\"",0,0);
         (void)oc_close((int)vdir);
-        if (!vok) { ferr="compose_xml_failed"; goto out; }
+        if (!vok) { oc_diag_set("compose","vui.xml","xml_failed",0,0); ferr="compose_xml_failed"; goto out; }
     }
 
     if (!oc_replace_file(orig,"mmui.xml",wfd,"mmui.xml",
         "name=\"system\" libpath=\"/jci/mmui/uia/\" lib=\"libjciuiasystem.so\"",
         "name=\"system\" libpath=\"/tmp/open-connect/feature/\" lib=\"uia.so\"",0,0)) {
+        oc_diag_set("compose","mmui.xml","xml_failed",0,0);
         ferr="compose_xml_failed"; goto out;
     }
-    if (!oc_compose_index_tpl(orig,wfd)) { ferr="compose_index_failed"; goto out; }
+    if (!oc_compose_index_tpl(orig,wfd)) { oc_diag_set("compose","index.html","index_failed",0,0); ferr="compose_index_failed"; goto out; }
     if (!oc_replace_file(orig,"sm.conf",wfd,"sm-normal-off.conf",
         "args=\"-u /jci/gui/index.html\"","args=\"-u /tmp/open-connect/feature/index.html\"",0,0) ||
         !oc_replace_file(orig,"sm.conf",wfd,"sm-normal-on.conf",
@@ -536,9 +551,13 @@ int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg
         !oc_replace_file(orig,"sm_WCP.conf",wfd,"sm-wcp-on.conf",
         "args=\"-u /jci/gui/index.html\"","args=\"-u /tmp/open-connect/feature/index.html\"",
         "name=\"jciMMUI\" path=\"/jci/mmui/svcjcimmui.so\"","name=\"jciMMUI\" path=\"/tmp/open-connect/feature/mmui.so\"")) {
+        oc_diag_set("compose","sm.conf","config_failed",0,0);
         ferr="compose_config_failed"; goto out;
     }
-    if (!oc_compose_autostart(pdir,orig,wfd,root_path,wleaf)) { ferr="startup_anchor_missing"; goto out; }
+    if (!oc_compose_autostart(pdir,orig,wfd,root_path,wleaf)) {
+        oc_diag_set("compose","/usr/bin/autostart","anchor_missing",0,0);
+        ferr="startup_anchor_missing"; goto out;
+    }
 
     /* Write files.sha256 for all 12 composed members in exact oc_composed_names order. */
     {
@@ -786,6 +805,7 @@ static int oc_build_install_prefs(int data_fd, const char *pkg_id, const char *n
 /* ---------- Full transactional install/upgrade/reinstall ---------- */
 int oc_install_run(int root, const char *root_path, const char *session_dir,
                    long owner, long group, const char **err_out) {
+    oc_diag_clear();
     /* 1. Verify maintenance bundle manifest + root ro,noatime. */
     {
         long sdir=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
@@ -1084,4 +1104,264 @@ fail:
     if (init_leaf[0] && parent_fd>=0) oc_rm_subdir(parent_fd,init_leaf);
     if (parent_fd>=0) (void)oc_close(parent_fd);
     return ferr ? cerr(err_out,ferr) : 1;
+}
+
+/* ---------- Best-effort sanitized USB failure diagnostic log (#220) ---------- */
+typedef struct { char *buf; unsigned cap, used; } OcLogBuf;
+
+static void oc_log_str(OcLogBuf *b, const char *s) {
+    if (!s) return;
+    while (*s && b->used+1<b->cap) {
+        unsigned char c=(unsigned char)*s++;
+        b->buf[b->used++]=(c=='\n' || (c>=32 && c<127)) ? (char)c : '?';
+    }
+    b->buf[b->used]=0;
+}
+
+static void oc_log_kv(OcLogBuf *b, const char *k, const char *v) {
+    if (!v || !*v || oc_equal(v,"-")) return;
+    oc_log_str(b,k); oc_log_str(b,"=");
+    while (*v && b->used+2<b->cap) {
+        unsigned char c=(unsigned char)*v++;
+        b->buf[b->used++]=(c>=32 && c<127) ? (char)c : '?';
+    }
+    if (b->used+1<b->cap) b->buf[b->used++]='\n';
+    b->buf[b->used]=0;
+}
+
+static int oc_vfat_mount_mode(int root, const char *target) {
+    if (oc_text(root,"proc/self/mounts",oc_mscratch,sizeof oc_mscratch,1)<0) return 0;
+    unsigned hits=0; int mode=0;
+    char *p=oc_mscratch;
+    while (*p) {
+        char *f[6]; unsigned n=0;
+        while (*p && *p!='\n') {
+            if (*p==' '||*p=='\t') { ++p; continue; }
+            if (n==6) return 0;
+            f[n++]=p;
+            while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
+            if (*p==' '||*p=='\t') *p++=0;
+        }
+        if (!*p || n!=6) return 0;
+        *p++=0;
+        if (!oc_equal(f[1],target)) continue;
+        if (!oc_equal(f[2],"vfat")) return 0;
+        char opts[256];
+        if (!oc_join(opts,sizeof opts,",",f[3]) || !oc_join(opts,sizeof opts,opts,",")) return 0;
+        int rw=0, ro=0;
+        for (char *q=opts; *q; ++q) {
+            if (oc_prefix(q,",rw,")) ++rw;
+            if (oc_prefix(q,",ro,")) ++ro;
+        }
+        if (rw+ro!=1) return 0;
+        mode=rw?1:2;
+        ++hits;
+    }
+    return hits==1 ? mode : 0;
+}
+
+static int oc_usb_remount(int root, const char *target, int rw) {
+#if defined(OC_HOST) || defined(OC_TEST_PINFILE)
+#ifdef OC_HOST
+    if (getenv("OC_HOST_USB_REMOUNT_FAIL")) return 0;
+#endif
+    char *buf=oc_big_buf, *out=oc_big_buf+16384;
+    int n=oc_text(root,"proc/self/mounts",buf,16384,0);
+    if (n<=0) return 0;
+    const char *from=rw?"ro":"rw", *to=rw?"rw":"ro";
+    unsigned used=0; char *p=buf;
+    while (*p) {
+        char *line=p;
+        while (*p && *p!='\n') ++p;
+        int has_nl=(*p=='\n');
+        if (has_nl) *p++=0;
+        char *f[6]; unsigned nf=0;
+        char lcopy[512];
+        if (oc_length(line)>=sizeof lcopy) return 0;
+        for (unsigned i=0; (lcopy[i]=line[i])!=0; ++i) {}
+        char *lp=lcopy;
+        while (*lp) {
+            while (*lp==' '||*lp=='\t') ++lp;
+            if (!*lp) break;
+            if (nf<6) f[nf++]=lp;
+            while (*lp && *lp!=' ' && *lp!='\t') ++lp;
+            if (*lp) *lp++=0;
+        }
+        if (nf==6 && oc_equal(f[1],target) && oc_equal(f[2],"vfat")) {
+            char nopts[256]; unsigned nu=0;
+            char *q=f[3];
+            while (*q) {
+                char *tok=q; while (*q && *q!=',') ++q;
+                int has_c=(*q==','); if (has_c) *q++=0;
+                const char *emit=oc_equal(tok,from)?to:tok;
+                unsigned el=oc_length(emit);
+                if (nu+el+(has_c?1:0)>=sizeof nopts) return 0;
+                for (unsigned j=0; j<el; ++j) nopts[nu++]=emit[j];
+                if (has_c) nopts[nu++]=',';
+            }
+            nopts[nu]=0;
+            char nline[512];
+            if (!oc_join4(nline,sizeof nline,f[0]," ",f[1]," ") ||
+                !oc_join4(nline,sizeof nline,nline,f[2]," ",nopts) ||
+                !oc_join4(nline,sizeof nline,nline," ",f[4]," ") ||
+                !oc_join(nline,sizeof nline,nline,f[5])) return 0;
+            unsigned ll=oc_length(nline);
+            if (used+ll>=16384) return 0;
+            for (unsigned j=0; j<ll; ++j) out[used++]=nline[j];
+        } else {
+            unsigned ll=oc_length(line);
+            if (used+ll>=16384) return 0;
+            for (unsigned j=0; j<ll; ++j) out[used++]=line[j];
+        }
+        if (has_nl) { if (used+1>=16384) return 0; out[used++]='\n'; }
+    }
+    out[used]=0;
+    long fd=oc_beneath(root,"proc/self/mounts",OC_WRITE|OC_TRUNC,0600);
+    if (fd<0) return 0;
+    int ok=oc_write_all((int)fd,out,used);
+    if (oc_close((int)fd)<0) ok=0;
+    return ok && oc_vfat_mount_mode(root,target)==(rw?1:2);
+#else
+    char tbuf[32];
+    if (!oc_join(tbuf,sizeof tbuf,target,"")) return 0;
+    char *argv[]={
+        "/bin/busybox","timeout","-t","8","-s","TERM",
+        "/bin/busybox","mount","-i","-n","-o",
+        rw?"remount,rw":"remount,ro",tbuf,0
+    };
+    if (oc_run_cmd("/bin/busybox",argv,-1,0,0,-1)!=0) return 0;
+    return oc_vfat_mount_mode(root,target)==(rw?1:2);
+#endif
+}
+
+static int oc_open_verified_usb_vol(int root, const char *sess_mf_sha,
+                                    char mnt_out[32], int *was_ro) {
+    const char *vnames[4]={"sda1","sdb1","sdc1","sdd1"};
+    long mnt=oc_beneath(root,"tmp/mnt",OC_DIRECTORY,0);
+    if (mnt<0) return -1;
+    int found=-1; *was_ro=0; mnt_out[0]=0;
+    for (unsigned i=0; i<4; ++i) {
+        if (oc_absent_at((int)mnt,vnames[i])) continue;
+        char vabs[32];
+        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i])) continue;
+        int mode=oc_vfat_mount_mode(root,vabs);
+        if (!mode) continue;
+        long vd=oc_openat((int)mnt,vnames[i],OC_DIRECTORY,0);
+        if (vd<0) continue;
+        long ocd=oc_openat((int)vd,"open-connect",OC_DIRECTORY,0);
+        int match=0;
+        if (ocd>=0) {
+            OcMeta rm={0}, fm={0}; char fdig[65];
+            match=oc_metadata((int)ocd,"run.sh",&rm)>=0 && (rm.mode&OC_TYPE)==OC_REGULAR &&
+                oc_hash_file_at((int)ocd,"files.sha256",fdig,&fm) && oc_equal(fdig,sess_mf_sha);
+            (void)oc_close((int)ocd);
+        }
+        if (!match) { (void)oc_close((int)vd); continue; }
+        if (found>=0) { (void)oc_close((int)vd); (void)oc_close(found); (void)oc_close((int)mnt); return -1; }
+        found=(int)vd;
+        *was_ro=(mode==2);
+        (void)oc_join(mnt_out,32,vabs,"");
+    }
+    (void)oc_close((int)mnt);
+    return found;
+}
+
+void oc_usb_log_failure(int root, const char *session_dir, const char *op, const char *err) {
+    if (root<0 || !session_dir || !op || !err) return;
+    char sess_sha[65], ver[65]; OcMeta sm={0};
+    sess_sha[0]=0; ver[0]=0;
+    {
+        long sfd=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
+        int ok=sfd>=0 && oc_hash_file_at((int)sfd,"files.sha256",sess_sha,&sm);
+        if (ok && oc_text((int)sfd,"VERSION",ver,sizeof ver,0)>0 && oc_one_line(ver)) { /* ok */ }
+        else ver[0]=0;
+        if (sfd>=0) (void)oc_close((int)sfd);
+        if (!ok) return;
+    }
+    char mnt_path[32]; int was_ro=0;
+    int vfd=oc_open_verified_usb_vol(root,sess_sha,mnt_path,&was_ro);
+    if (vfd<0) return;
+
+    OcLogBuf lb={cm.out, 4096, 0};
+    lb.buf[0]=0;
+    oc_log_str(&lb,"Open Connect diagnostic failure log\n");
+    oc_log_kv(&lb,"version",ver[0]?ver:"unknown");
+    oc_log_kv(&lb,"operation",op);
+    oc_log_kv(&lb,"error",err);
+    oc_log_kv(&lb,"step",oc_diag.step);
+    oc_log_kv(&lb,"path",oc_diag.path);
+    oc_log_kv(&lb,"reason",oc_diag.reason);
+    oc_log_kv(&lb,"expected",oc_diag.expected);
+    oc_log_kv(&lb,"actual",oc_diag.actual);
+
+    /* Non-secret uptime (first token). */
+    {
+        char up[64];
+        if (oc_text(root,"proc/uptime",up,sizeof up,1)>0) {
+            char *sp=up; while (*sp && *sp!=' ' && *sp!='\n') ++sp;
+            *sp=0;
+            oc_log_kv(&lb,"uptime",up);
+        }
+    }
+    /* Allowlisted version.ini identity lines only (real v74 version.ini is ~15 KiB). */
+    if (oc_text(root,"jci/version.ini",oc_big_buf,sizeof oc_big_buf,0)>0) {
+        oc_log_str(&lb,"version_ini:\n");
+        char *p=oc_big_buf;
+        while (*p) {
+            char *ln=p; while (*p && *p!='\n') ++p;
+            if (*p=='\n') *p++=0;
+            if (oc_prefix(ln,"JCI_SW_VER=") || oc_prefix(ln,"JCI_SW_VER_PATCH=") ||
+                oc_prefix(ln,"JCI_SW_FLAVOR=")) {
+                oc_log_str(&lb,"  "); oc_log_str(&lb,ln); oc_log_str(&lb,"\n");
+            }
+        }
+    }
+    /* Allowlisted mount lines (root, data_persist, USB sd[a-d]1). */
+    if (oc_text(root,"proc/self/mounts",oc_mscratch,sizeof oc_mscratch,1)>0) {
+        oc_log_str(&lb,"mounts:\n");
+        char *p=oc_mscratch;
+        while (*p) {
+            char *ln=p; while (*p && *p!='\n') ++p;
+            if (*p=='\n') *p++=0;
+            char *sp=ln; while (*sp && *sp!=' ') ++sp;
+            if (*sp==' ') ++sp;
+            if (oc_prefix(sp,"/ ") || oc_prefix(sp,"/tmp/mnt/data_persist ") ||
+                (oc_prefix(sp,"/tmp/mnt/sd") && sp[11]>='a' && sp[11]<='d' &&
+                 sp[12]=='1' && sp[13]==' ')) {
+                oc_log_str(&lb,"  "); oc_log_str(&lb,ln); oc_log_str(&lb,"\n");
+            }
+        }
+    }
+    /* Sanitized record summary (phase, budget, notice only — never nonces/tokens/keys). */
+    {
+        int dfd=oc_open_data_dir(root);
+        if (dfd>=0) {
+            char rbuf[1024], *rf[13];
+            if (oc_record_read_any(dfd,oc_owner(),oc_group(),rbuf,sizeof rbuf,rf)) {
+                oc_log_str(&lb,"record:\n");
+                oc_log_kv(&lb,"  phase",rf[1]);
+                oc_log_kv(&lb,"  budget",rf[9]);
+                oc_log_kv(&lb,"  notice",rf[12]);
+            }
+            (void)oc_close(dfd);
+        }
+    }
+
+    int remounted=0;
+    if (was_ro) {
+        if (!oc_usb_remount(root,mnt_path,1)) { (void)oc_close(vfd); return; }
+        remounted=1;
+    }
+    long lfd=oc_openat(vfd,"open-connect-error.log",OC_WRITE|OC_CREATE|OC_TRUNC,0600);
+    if (lfd>=0) {
+        OcMeta lm={0};
+        if (oc_stat((int)lfd,&lm)>=0 && (lm.mode&OC_TYPE)==OC_REGULAR) {
+            (void)oc_write_all((int)lfd,lb.buf,lb.used);
+            (void)oc_sync((int)lfd);
+        }
+        (void)oc_close((int)lfd);
+        (void)oc_sync(vfd);
+    }
+    (void)oc_close(vfd);
+    if (remounted) (void)oc_usb_remount(root,mnt_path,0);
 }

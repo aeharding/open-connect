@@ -431,12 +431,12 @@ class UsbBuild(unittest.TestCase):
                 self.assertEqual({n for n in z.namelist() if not n.endswith("/")}, expected)
                 self.assertEqual(z.read(TRIGGER), b"")
                 self.assertLessEqual(len(z.read("open-connect/settings.js")), 28672)
-                self.assertEqual(
+                self.assertLessEqual(
                     sum(
                         (len(z.read("open-connect/" + name)) + 4095) // 4096
                         for name in (*PAYLOAD, "files.sha256")
                     ),
-                    115,
+                    123,
                 )
                 for name in STATIC:
                     self.assertEqual(z.read("open-connect/" + name), (ASSETS / name).read_bytes())

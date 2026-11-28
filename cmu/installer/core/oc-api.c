@@ -14,7 +14,7 @@ static struct {
     char json[16384];
     char cat_buf[16384];
     char mf_buf[8192];
-    char inst_err[64];
+    char inst_err[512];
 } api_mem;
 
 /* ---------- JSON output ---------- */
@@ -997,31 +997,59 @@ static int oc_usb_fence(OcApiCtx *c) {
     return ok;
 }
 
+static int oc_session_install_path(const char *session_dir, char inst_path[560]) {
+    long sfd=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
+    OcManifest smf; OcMeta im={0};
+    int ok=sfd>=0 && oc_text((int)sfd,"files.sha256",api_mem.mf_buf,sizeof api_mem.mf_buf,0)>0 &&
+        oc_manifest(api_mem.mf_buf,&smf,0);
+    const char *idig=ok?oc_digest(&smf,"install"):0;
+    ok=ok && idig && oc_verify_file_sha((int)sfd,"install",idig,4194304) &&
+        oc_metadata((int)sfd,"install",&im)>=0 && im.mode==(OC_REGULAR|0700) &&
+        oc_join(inst_path,560,session_dir,"/install");
+    if (sfd>=0) (void)oc_close((int)sfd);
+    return ok;
+}
+
+static __attribute__((noinline)) void oc_api_log_usb_failure(const char *session_dir, const char *op, const char *err) {
+    char inst_path[560];
+    if (!oc_session_install_path(session_dir,inst_path)) return;
+    char *argv[]={
+        inst_path,"--log-failure",(char *)session_dir,(char *)op,(char *)err,
+        oc_diag.step[0]?oc_diag.step:"-",
+        oc_diag.path[0]?oc_diag.path:"-",
+        oc_diag.reason[0]?oc_diag.reason:"-",
+        oc_diag.expected[0]?oc_diag.expected:"-",
+        oc_diag.actual[0]?oc_diag.actual:"-",
+        0
+    };
+    (void)oc_run_prog(inst_path,argv,-1,0,0,-1);
+}
+
 static __attribute__((noinline)) int oc_handle_install(OcApiCtx *c) {
     if (!c->is_usb) return api_err(c,"invalid_request");
     char inst_path[560];
-    {
-        long sfd=oc_openat(OC_CWD,c->session_dir,OC_DIRECTORY,0);
-        OcManifest smf; OcMeta im={0};
-        int ok=sfd>=0 && oc_text((int)sfd,"files.sha256",api_mem.mf_buf,sizeof api_mem.mf_buf,0)>0 &&
-            oc_manifest(api_mem.mf_buf,&smf,0);
-        const char *idig=ok?oc_digest(&smf,"install"):0;
-        ok=ok && idig && oc_verify_file_sha((int)sfd,"install",idig,4194304) &&
-            oc_metadata((int)sfd,"install",&im)>=0 && im.mode==(OC_REGULAR|0700) &&
-            oc_join(inst_path,sizeof inst_path,c->session_dir,"/install");
-        if (sfd>=0) (void)oc_close((int)sfd);
-        if (!ok) return api_err(c,"incomplete_maintenance_bundle");
-    }
+    if (!oc_session_install_path(c->session_dir,inst_path))
+        return api_err(c,"incomplete_maintenance_bundle");
     char *argv[]={inst_path,(char *)c->session_dir,0};
     api_mem.inst_err[0]=0;
     int rc=oc_run_prog(inst_path,argv,-1,api_mem.inst_err,sizeof api_mem.inst_err,-1);
     if (rc!=0) {
         const char *tok="install_failed";
-        if (api_mem.inst_err[0] && oc_one_line(api_mem.inst_err)) {
+        char *nl=0;
+        for (char *p=api_mem.inst_err; *p; ++p) if (*p=='\n') { nl=p; break; }
+        if (nl) *nl++=0;
+        if (api_mem.inst_err[0]) {
             int valid=1;
             for (const char *p=api_mem.inst_err; *p; ++p)
                 if (!((*p>='a'&&*p<='z')||(*p>='0'&&*p<='9')||*p=='_')) { valid=0; break; }
             if (valid) tok=api_mem.inst_err;
+        }
+        if (nl && oc_prefix(nl,"DIAG|")) {
+            char *d=nl+5, *df[5];
+            for (char *p=d; *p; ++p) if (*p=='\n') { *p=0; break; }
+            if (oc_fields(d,df,5)==5 && !oc_equal(df[0],"-"))
+                oc_diag_set(df[0],oc_equal(df[1],"-")?0:df[1],oc_equal(df[2],"-")?0:df[2],
+                            oc_equal(df[3],"-")?0:df[3],oc_equal(df[4],"-")?0:df[4]);
         }
         return api_err(c,tok);
     }
@@ -1203,6 +1231,7 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
     c->is_usb=0; c->exists=0; c->empty_state=0;
     c->owner=oc_owner(); c->group=oc_group();
     c->sel_snap[0]=0; c->settings_pkg[0]=0; c->err=0;
+    oc_diag_clear();
 
     int res=oc_api_dispatch(c,kind);
     if (c->snaps_fd>=0) (void)oc_close(c->snaps_fd);
@@ -1210,6 +1239,12 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
     if (c->lock_fd>=0) (void)oc_close(c->lock_fd);
     if (c->ram>=0) (void)oc_close(c->ram);
     if (c->root>=0) (void)oc_close(c->root);
+    if (c->is_usb && c->err &&
+        (kind==OP_INSTALL || kind==OP_UNINSTALL || kind==OP_RECOVER) &&
+        !oc_equal(c->err,"busy") && !oc_equal(c->err,"session_closed") &&
+        !oc_equal(c->err,"session_replaced")) {
+        oc_api_log_usb_failure(session_dir,op,c->err);
+    }
     return c->err ? emit_fail(c->err) : res;
 }
 

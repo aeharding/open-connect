@@ -1,5 +1,6 @@
 """Exercise native cold USB install, composition, upgrade, and --boot-recover under ASan+UBSan."""
 
+import fcntl
 import hashlib
 import json
 import os
@@ -936,3 +937,241 @@ class NativeInstall(unittest.TestCase):
             rec_up = (data / "record").read_text().strip().split("|")
             self.assertEqual(rec_up[1], "active")
             self.assertNotEqual(rec_up[3], rec0[3])
+
+    def test_usb_failure_diagnostic_log_and_safety_guards(self):
+        """Issue #220: sanitized USB diagnostic log on install/uninstall/recover failures & strict safety guards."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            ram, data, usb_sess, env = self._build_fixture(root)
+            api_bin = usb_sess / "api"
+
+            # Add an extra non-allowlisted line in version.ini to verify strict allowlist filtering.
+            # Add an unallowlisted line + realistic ~15 KiB padding (real v74 version.ini is
+            # 14,625 B > 8 KiB oc_mscratch) to verify version_ini: is captured without secret leak.
+            (root / "jci/version.ini").write_text(
+                (root / "jci/version.ini").read_text()
+                + "SECRET_OEM_LINE=DO_NOT_LOG\n"
+                + ("# padding line to exceed 8 KiB scratch buffer on real v74 CMU\n" * 240)
+            )
+
+            # Mount a verified rw vfat USB volume + real Mazda /tmp/mnt/sd_nav (must NOT be logged).
+            vol = root / "tmp/mnt/sda1"
+            (vol / "open-connect").mkdir(parents=True)
+            shutil.copyfile(usb_sess / "run.sh", vol / "open-connect/run.sh")
+            shutil.copyfile(usb_sess / "files.sha256", vol / "open-connect/files.sha256")
+            base_mounts = (
+                root / "proc/self/mounts"
+            ).read_text() + "/dev/mmcblk1p1 /tmp/mnt/sd_nav vfat ro,fmask=0022 0 0\n"
+            (root / "proc/self/mounts").write_text(
+                base_mounts + "/dev/sda1 /tmp/mnt/sda1 vfat rw,fmask=0022 0 0\n"
+            )
+            log_file = vol / "open-connect-error.log"
+
+            # 1) Cold USB install failure (tampered OEM file -> unsupported_original) writes detailed log
+            #    after api releases LOCK_EX (via DIAG| stdout forwarding -> install --log-failure).
+            idx = root / "jci/gui/index.html"
+            orig_idx = idx.read_bytes()
+            tampered_idx = b"tampered index\n"
+            idx.write_bytes(tampered_idx)
+            p_fail, r_fail = self._call_api(api_bin, usb_sess, "-", "install", env=env)
+            self.assertNotEqual(p_fail.returncode, 0)
+            self.assertEqual(r_fail["error"], "unsupported_original")
+            self.assertTrue(log_file.is_file())
+            txt = log_file.read_text()
+            self.assertLessEqual(len(txt.encode()), 4096)
+            self.assertIn("operation=install\n", txt)
+            self.assertIn("error=unsupported_original\n", txt)
+            self.assertIn("step=stock_dependencies\n", txt)
+            self.assertIn("path=/jci/gui/index.html\n", txt)
+            self.assertIn("reason=sha256_mismatch\n", txt)
+            self.assertIn(f"expected={sha(orig_idx)}\n", txt)
+            self.assertIn(f"actual={sha(tampered_idx)}\n", txt)
+            self.assertIn('JCI_SW_VER="MAZ_CMU-150_74.00.324"', txt)
+            self.assertNotIn("SECRET_OEM_LINE", txt)
+            self.assertNotIn("/tmp/mnt/sd_nav", txt)
+            self.assertNotIn(TOKEN, txt)
+
+            # 1b) Transient/lifecycle rejections (`busy` and `session_closed`) must NOT clobber
+            #     an existing open-connect-error.log!
+            sentinel_log = txt
+            with (ram / "lock").open("r+b") as lf:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                try:
+                    p_busy, r_busy = self._call_api(api_bin, usb_sess, "-", "install", env=env)
+                    self.assertNotEqual(p_busy.returncode, 0)
+                    self.assertEqual(r_busy["error"], "busy")
+                    self.assertEqual(log_file.read_text(), sentinel_log)
+                finally:
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+            (usb_sess / "closed").write_text("1\n")
+            (usb_sess / "closed").chmod(0o600)
+            p_cl, r_cl = self._call_api(api_bin, usb_sess, "-", "install", env=env)
+            self.assertNotEqual(p_cl.returncode, 0)
+            self.assertEqual(r_cl["error"], "session_closed")
+            self.assertEqual(log_file.read_text(), sentinel_log)
+            (usb_sess / "closed").unlink()
+
+            idx.write_bytes(orig_idx)
+            log_file.unlink()
+
+            # 2) Pre-install api firmware_guard failure writes log + enforces <=4095 B & printable ASCII.
+            orig_ver = (root / "jci/version.ini").read_text()
+            (root / "jci/version.ini").write_text(
+                'JCI_SW_VER="MAZ_CMU-150_70.00.100\x01\x7f' + ("X" * 5000) + '"\n'
+            )
+            p_fw, r_fw = self._call_api(api_bin, usb_sess, "-", "install", env=env)
+            self.assertNotEqual(p_fw.returncode, 0)
+            self.assertEqual(r_fw["error"], "unsupported_firmware")
+            raw_fw = log_file.read_bytes()
+            self.assertLessEqual(len(raw_fw), 4095)
+            self.assertTrue(all(b == 10 or (32 <= b < 127) for b in raw_fw))
+            txt_fw = raw_fw.decode()
+            self.assertIn("operation=install\n", txt_fw)
+            self.assertIn("error=unsupported_firmware\n", txt_fw)
+            self.assertIn("step=firmware_guard\n", txt_fw)
+            self.assertIn("path=/jci/version.ini\n", txt_fw)
+            self.assertIn("reason=version_mismatch\n", txt_fw)
+            (root / "jci/version.ini").write_text(orig_ver)
+            log_file.unlink()
+
+            # 3) Clean install succeeds and writes NO error log; boot once so Settings session is ready.
+            p_ok, r_ok = self._call_api(api_bin, usb_sess, "-", "install", env=env)
+            self.assertEqual(p_ok.returncode, 0, (r_ok, p_ok.stderr))
+            self.assertFalse(log_file.exists())
+            rec = (data / "record").read_text().strip().split("|")
+            nonce_secret = rec[2]
+            bs_bin = root / "usr/bin/open-connect-boot-select"
+            self.assertEqual(
+                subprocess.run(
+                    [str(bs_bin), "select", str(root)], env=env, capture_output=True
+                ).returncode,
+                0,
+            )
+            set_sess = ram / "sessions/session-setlog"
+            set_sess.mkdir(mode=0o700)
+            for nm in ("files.sha256", "api", "console.sh", "VERSION"):
+                shutil.copyfile(data / "packages" / rec[3] / nm, set_sess / nm)
+                (set_sess / nm).chmod(0o700 if nm == "api" else 0o600)
+            (ram / "runtime").symlink_to(set_sess)
+
+            # 4) USB uninstall failure (tampered autostart -> state_changed) writes sanitized log with
+            #    record phase/budget/notice and NEVER leaks record nonce or token!
+            auto = root / "usr/bin/autostart"
+            orig_auto = auto.read_bytes()
+            auto.write_bytes(b"#!/bin/sh\n# drifted\n")
+            p_un, r_un = self._call_api(api_bin, usb_sess, rec[5], "uninstall", env=env)
+            self.assertNotEqual(p_un.returncode, 0)
+            self.assertEqual(r_un["error"], "state_changed")
+            txt_un = log_file.read_text()
+            self.assertIn("operation=uninstall\n", txt_un)
+            self.assertIn("error=state_changed\n", txt_un)
+            self.assertIn("step=targets_match\n", txt_un)
+            self.assertIn("path=/usr/bin/autostart\n", txt_un)
+            self.assertIn("reason=sha256_mismatch\n", txt_un)
+            self.assertIn("  phase=active\n", txt_un)
+            self.assertIn("  budget=2\n", txt_un)
+            self.assertIn("  notice=installed\n", txt_un)
+            self.assertNotIn(nonce_secret, txt_un)
+            self.assertNotIn(TOKEN, txt_un)
+            self.assertNotIn("/tmp/mnt/sd_nav", txt_un)
+            log_file.unlink()
+
+            # 5) RO vfat remount lifecycle + safety guards (remount fail, non-vfat, mismatched USB,
+            #    2 matching sticks, symlinked log, non-USB session).
+            # 5a. RO vfat mount (default on real Mazda CMU v74!) temporarily remounts rw, writes
+            #     open-connect-error.log (recording original ro mount), and restores ro!
+            (root / "proc/self/mounts").write_text(
+                base_mounts + "/dev/sda1 /tmp/mnt/sda1 vfat ro,fmask=0022 0 0\n"
+            )
+            p_ro, r_ro = self._call_api(api_bin, usb_sess, rec[5], "uninstall", env=env)
+            self.assertNotEqual(p_ro.returncode, 0)
+            self.assertEqual(r_ro["error"], "state_changed")
+            self.assertTrue(log_file.is_file())
+            txt_ro = log_file.read_text()
+            self.assertIn("/dev/sda1 /tmp/mnt/sda1 vfat ro,fmask=0022 0 0\n", txt_ro)
+            self.assertIn(
+                "/dev/sda1 /tmp/mnt/sda1 vfat ro,fmask=0022 0 0\n",
+                (root / "proc/self/mounts").read_text(),
+            )
+            log_file.unlink()
+
+            # 5a2. RO vfat mount where remount,rw fails (e.g. write-protected USB): refuses cleanly.
+            env_ro_fail = dict(env, OC_HOST_USB_REMOUNT_FAIL="1")
+            p_rof, r_rof = self._call_api(api_bin, usb_sess, rec[5], "uninstall", env=env_ro_fail)
+            self.assertNotEqual(p_rof.returncode, 0)
+            self.assertEqual(r_rof["error"], "state_changed")
+            self.assertFalse(log_file.exists())
+            self.assertIn(
+                "/dev/sda1 /tmp/mnt/sda1 vfat ro,fmask=0022 0 0\n",
+                (root / "proc/self/mounts").read_text(),
+            )
+
+            # 5b. Non-vfat mount
+            (root / "proc/self/mounts").write_text(
+                base_mounts + "/dev/sda1 /tmp/mnt/sda1 ext4 rw 0 0\n"
+            )
+            p_ext, r_ext = self._call_api(api_bin, usb_sess, rec[5], "uninstall", env=env)
+            self.assertEqual(r_ext["error"], "state_changed")
+            self.assertFalse(log_file.exists())
+
+            # 5c. Mismatched USB manifest
+            (root / "proc/self/mounts").write_text(
+                base_mounts + "/dev/sda1 /tmp/mnt/sda1 vfat rw 0 0\n"
+            )
+            (vol / "open-connect/files.sha256").write_text("other stick\n")
+            p_mis, r_mis = self._call_api(api_bin, usb_sess, rec[5], "uninstall", env=env)
+            self.assertEqual(r_mis["error"], "state_changed")
+            self.assertFalse(log_file.exists())
+            shutil.copyfile(usb_sess / "files.sha256", vol / "open-connect/files.sha256")
+
+            # 5d. Ambiguous two matching USB volumes
+            vol2 = root / "tmp/mnt/sdb1"
+            (vol2 / "open-connect").mkdir(parents=True)
+            shutil.copyfile(usb_sess / "run.sh", vol2 / "open-connect/run.sh")
+            shutil.copyfile(usb_sess / "files.sha256", vol2 / "open-connect/files.sha256")
+            (root / "proc/self/mounts").write_text(
+                base_mounts
+                + "/dev/sda1 /tmp/mnt/sda1 vfat rw 0 0\n"
+                + "/dev/sdb1 /tmp/mnt/sdb1 vfat rw 0 0\n"
+            )
+            p_amb, r_amb = self._call_api(api_bin, usb_sess, rec[5], "uninstall", env=env)
+            self.assertEqual(r_amb["error"], "state_changed")
+            self.assertFalse(log_file.exists())
+            self.assertFalse((vol2 / "open-connect-error.log").exists())
+            shutil.rmtree(vol2)
+            (root / "proc/self/mounts").write_text(
+                base_mounts + "/dev/sda1 /tmp/mnt/sda1 vfat rw 0 0\n"
+            )
+
+            # 5e. Symlinked open-connect-error.log refused via O_NOFOLLOW; target untouched!
+            victim = root / "victim.txt"
+            victim.write_text("untouched\n")
+            log_file.symlink_to(victim)
+            p_sym, r_sym = self._call_api(api_bin, usb_sess, rec[5], "uninstall", env=env)
+            self.assertEqual(r_sym["error"], "state_changed")
+            self.assertEqual(victim.read_text(), "untouched\n")
+            log_file.unlink()
+
+            # 5f. Non-USB Settings session failure must NEVER write a USB error log!
+            p_set, r_set = self._call_api(api_bin, set_sess, rec[5], "uninstall", env=env)
+            self.assertNotEqual(p_set.returncode, 0)
+            self.assertEqual(r_set["error"], "state_changed")
+            self.assertFalse(log_file.exists())
+
+            # 6) USB recover failure (pending install with drifted autostart) writes operation=recover log.
+            rec_pend = list(rec)
+            rec_pend[1] = "install"
+            rec_pend[6] = rec[4]
+            rec_pend[7] = rec[5]
+            (data / "record").write_text("|".join(rec_pend) + "\n")
+            p_rec, r_rec = self._call_api(api_bin, usb_sess, rec[2], "recover", env=env)
+            self.assertNotEqual(p_rec.returncode, 0)
+            self.assertEqual(r_rec["error"], "startup_changed")
+            self.assertTrue(log_file.is_file())
+            txt_rec = log_file.read_text()
+            self.assertIn("operation=recover\n", txt_rec)
+            self.assertIn("error=startup_changed\n", txt_rec)
+            self.assertIn("  phase=install\n", txt_rec)
+            self.assertNotIn(nonce_secret, txt_rec)
+            self.assertNotIn(TOKEN, txt_rec)
+            auto.write_bytes(orig_auto)

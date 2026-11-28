@@ -12,7 +12,7 @@ for limit in dialog.js:8192 runtime.js:16384 maintenance.js:20480 settings.js:28
         echo "$name exceeds its RAM page budget ($bytes bytes)." >&2; exit 1;
     }
 done
-for limit in touch-disable.so:4096 flush:4096 api:65536 install:65536 boot-select:36864 ignition:4096; do
+for limit in touch-disable.so:4096 flush:4096 api:81920 install:81920 boot-select:36864 ignition:4096; do
     name=${limit%:*}; bytes=${limit#*:}
     test "$(wc -c < "$out/$name")" -le "$bytes" || {
         echo "$name exceeds its RAM page budget ($bytes bytes)." >&2; exit 1;

@@ -400,21 +400,46 @@ class UsbBuild(unittest.TestCase):
             )
 
     def test_trigger_only_selects_our_package(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            for name, body in [
+        self.assertLessEqual(len(TRIGGER), 255)
+        self.assertFalse(set(TRIGGER) & set(r'\/:*?"<>|'))
+        self.assertTrue(all(32 <= ord(c) < 127 for c in TRIGGER))
+
+        def run_trigger(files):
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                for name, body in files:
+                    target = root / "tmp/mnt" / name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(body + "\n")
+                command = TRIGGER[2:-4].replace("S=${HOME%root}", "S=/")
+                command = command.replace("P=${S}tmp", "P=" + shlex.quote(temp) + "${S}tmp")
+                return subprocess.run(["sh", "-c", command], text=True, capture_output=True)
+
+        # Single matching Open Connect USB alongside an unrelated run.sh executes our package.
+        single = run_trigger(
+            [
                 ("sda1/run.sh", "echo WRONG"),
                 ("sdb1/open-connect/run.sh", "echo OPEN_CONNECT"),
-                ("sdc1/open-connect/run.sh", "echo DUPLICATE"),
-            ]:
-                target = root / "tmp/mnt" / name
-                target.parent.mkdir(parents=True)
-                target.write_text(body + "\n")
-            command = TRIGGER[2:-4].replace("S=${HOME%root}", "S=/")
-            command = command.replace("P=${S}tmp", "P=" + shlex.quote(temp) + "${S}tmp")
-            result = subprocess.run(["sh", "-c", command], text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(result.stdout, "OPEN_CONNECT\n")
+            ]
+        )
+        self.assertEqual(single.returncode, 0, single.stderr)
+        self.assertEqual(single.stdout, "OPEN_CONNECT\n")
+
+        # Ambiguous multi-USB (two Open Connect drives inserted at once) must refuse both.
+        ambiguous = run_trigger(
+            [
+                ("sda1/run.sh", "echo WRONG"),
+                ("sdb1/open-connect/run.sh", "echo FIRST"),
+                ("sdc1/open-connect/run.sh", "echo SECOND"),
+            ]
+        )
+        self.assertNotEqual(ambiguous.returncode, 0)
+        self.assertEqual(ambiguous.stdout, "")
+
+        # Zero matching Open Connect drives runs nothing.
+        none_found = run_trigger([("sda1/run.sh", "echo WRONG")])
+        self.assertNotEqual(none_found.returncode, 0)
+        self.assertEqual(none_found.stdout, "")
 
     def test_release_is_static_files_and_standard_native_outputs(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -131,8 +131,21 @@ static int oc_verify_dir_manifest(int dir, OcManifest *mf, char *buf, unsigned c
     return 1;
 }
 
+static int oc_open_pkg_reuse_verified(int data_fd, const char *old_pkg,
+                                      char *buf, unsigned cap, OcManifest *mf) {
+    int pdir=oc_open_pkg_verified(data_fd,old_pkg,buf,cap,mf);
+    if (pdir<0) return -1;
+    if (!oc_members(pdir,mf,1)) { (void)oc_close(pdir); return -1; }
+    for (unsigned i=0; i<mf->count; ++i) {
+        if (!oc_verify_file_sha(pdir,mf->rows[i].name,mf->rows[i].digest,33554432)) {
+            (void)oc_close(pdir); return -1;
+        }
+    }
+    return pdir;
+}
+
 /* ---------- Package save ---------- */
-static int oc_package_save(int root, int data_fd, const char *session_dir,
+static int oc_package_save(int root, int data_fd, const char *session_dir, const char *old_pkg,
                            char pkg_out[65], const char **err_out) {
     long sdir=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
     if (sdir<0) return cerr(err_out,"damaged_source_package");
@@ -142,14 +155,27 @@ static int oc_package_save(int root, int data_fd, const char *session_dir,
     }
     int pkgs=oc_open_private(data_fd,"packages");
     if (pkgs<0) { (void)oc_close((int)sdir); return cerr(err_out,"package_create_failed"); }
+    int old_pdir=-1;
+    OcManifest old_pmf;
+    if (old_pkg && oc_hex(old_pkg,64)) {
+        old_pdir=oc_open_pkg_reuse_verified(data_fd,old_pkg,cm.cat,sizeof cm.cat,&old_pmf);
+        /* Pre-fix boot-select compatibility: only link against old_pkg when boot-select matches. */
+        const char *new_bs=oc_digest(&smf,"boot-select");
+        const char *old_bs=old_pdir>=0 ? oc_digest(&old_pmf,"boot-select") : 0;
+        if (old_pdir>=0 && (!new_bs || !old_bs || !oc_equal(new_bs,old_bs))) {
+            (void)oc_close(old_pdir); old_pdir=-1;
+        }
+    }
     char nonce[33], wleaf[48];
     if (!oc_random(root,nonce) || !oc_join(wleaf,sizeof wleaf,".new-",nonce) ||
         oc_mkdir(pkgs,wleaf,0700)<0) {
+        if (old_pdir>=0) (void)oc_close(old_pdir);
         (void)oc_close(pkgs); (void)oc_close((int)sdir); return cerr(err_out,"package_create_failed");
     }
     int wfd=oc_open_private(pkgs,wleaf);
     long mfd=wfd>=0 ? oc_openat(wfd,"files.sha256",OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600) : -1;
     int ok=wfd>=0 && mfd>=0;
+    long owner=oc_owner(), group=oc_group();
     OcHash mh; oc_hash_init(&mh);
     for (unsigned i=0; ok && i<smf.count; ++i) {
         const char *nm=smf.rows[i].name;
@@ -157,10 +183,27 @@ static int oc_package_save(int root, int data_fd, const char *session_dir,
         unsigned mode=(oc_equal(nm,"api")||oc_equal(nm,"flush")||oc_equal(nm,"boot-select")||
                        oc_equal(nm,"ignition")||oc_equal(nm,"install")) ? 0700 : 0600;
         char dig[65], row[160];
-        ok=oc_copy_file_at((int)sdir,nm,wfd,nm,mode,1,1,dig) && oc_equal(dig,smf.rows[i].digest) &&
-            oc_join4(row,sizeof row,dig,"  ",nm,"\n") && oc_write_all((int)mfd,row,oc_length(row));
+        int linked=0;
+        if (old_pdir>=0) {
+            const char *od=oc_digest(&old_pmf,nm);
+            OcMeta om={0};
+            if (od && oc_equal(od,smf.rows[i].digest) &&
+                oc_metadata(old_pdir,nm,&om)>=0 && (om.mode&OC_TYPE)==OC_REGULAR &&
+                (om.mode&07777u)==mode && om.uid==(unsigned)owner && om.gid==(unsigned)group &&
+                oc_link(old_pdir,nm,wfd,nm)==0) {
+                linked=1;
+            }
+        }
+        if (linked) {
+            ok=oc_join4(row,sizeof row,smf.rows[i].digest,"  ",nm,"\n") &&
+                oc_write_all((int)mfd,row,oc_length(row));
+        } else {
+            ok=oc_copy_file_at((int)sdir,nm,wfd,nm,mode,1,1,dig) && oc_equal(dig,smf.rows[i].digest) &&
+                oc_join4(row,sizeof row,dig,"  ",nm,"\n") && oc_write_all((int)mfd,row,oc_length(row));
+        }
         if (ok) oc_hash_add(&mh,row,oc_length(row));
     }
+    if (old_pdir>=0) (void)oc_close(old_pdir);
     (void)oc_close((int)sdir);
     if (ok) {
         char inst[33], inst_ln[35], idig[65], row[160]; OcMeta im={0};
@@ -436,6 +479,14 @@ static int oc_append_file_all(int src_dir, const char *name, int dst_fd, unsigne
     return ok && tot>0;
 }
 
+static int oc_autostart_syntax_ok(const char *root_path, const char *wleaf) {
+    char dbase[320], apath[448];
+    if (!oc_data_base(root_path,dbase,sizeof dbase) ||
+        !oc_join4(apath,sizeof apath,dbase,"/composed/",wleaf,"/autostart")) return 0;
+    char *argv[]={"sh","-n",apath,0};
+    return oc_run_cmd("/bin/sh",argv,-1,0,0,-1)==0;
+}
+
 static int oc_compose_autostart(int pkg_fd, int orig_fd, int work_fd,
                                 const char *root_path, const char *wleaf) {
     long sfd=oc_openat(orig_fd,"autostart",OC_READ,0);
@@ -463,15 +514,66 @@ static int oc_compose_autostart(int pkg_fd, int orig_fd, int work_fd,
     if (oc_close((int)sfd)<0) ok=0;
     if (oc_close((int)dfd)<0) ok=0;
     if (!ok) return 0;
-    char dbase[320], apath[448];
-    if (!oc_data_base(root_path,dbase,sizeof dbase) ||
-        !oc_join4(apath,sizeof apath,dbase,"/composed/",wleaf,"/autostart")) return 0;
-    char *argv[]={"sh","-n",apath,0};
-    return oc_run_cmd("/bin/sh",argv,-1,0,0,-1)==0;
+    return oc_autostart_syntax_ok(root_path,wleaf);
 }
 
-int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg_id,
-                   const char **err_out) {
+static int oc_try_reuse_composed(int data_fd, const char *root_path,
+                                 const char *wleaf, int wfd, const OcManifest *pmf,
+                                 const char *pkg_id, const char *old_pkg,
+                                 const char *old_snap, const char *vout_pin,
+                                 OcManifest *reused_mf) {
+    if (!old_pkg || !old_snap || !oc_hex(old_pkg,64) || !oc_hex(old_snap,64) || oc_equal(old_pkg,pkg_id))
+        return 0;
+    /* Composer binary, boot-select (link-safe), and all 13 compose inputs must match. */
+    static const char *const inputs[15]={
+        "install","boot-select","native.bin","branch.bin","sizes.bin","layout.bin","layout.txt",
+        "mmui-path.bin","mmui-sizes.bin","mmui-length.bin",
+        "mmui-count-pointer.bin","mmui-pointer.bin",
+        "vui-path.bin","startup-hook.sh","startup-join.sh"
+    };
+    int old_pdir=oc_open_pkg_reuse_verified(data_fd,old_pkg,cm.cat,sizeof cm.cat,reused_mf);
+    if (old_pdir<0) return 0;
+    int inp_ok=1;
+    for (unsigned i=0; inp_ok && i<15; ++i) {
+        const char *nd=oc_digest((OcManifest *)pmf,inputs[i]);
+        const char *od=oc_digest(reused_mf,inputs[i]);
+        if (!nd || !od || !oc_equal(nd,od)) inp_ok=0;
+    }
+    (void)oc_close(old_pdir);
+    if (!inp_ok) return 0;
+
+    /* Anchor composed/<old_pkg>/files.sha256 to SHA-256-verified snapshots/<old_snap>/dependencies. */
+    int old_cdir=oc_open_composed_verified(data_fd,old_pkg,old_snap,cm.cat,reused_mf);
+    if (old_cdir<0) return 0;
+    int ok=reused_mf->count==12 && oc_members(old_cdir,reused_mf,1);
+    long owner=oc_owner(), group=oc_group();
+    if (ok) {
+        const char *vd=oc_digest(reused_mf,"vui.so");
+        if (!vd || !oc_equal(vd,vout_pin)) ok=0;
+    }
+    unsigned linked=0;
+    for (unsigned i=0; ok && i<12; ++i) {
+        const char *nm=oc_composed_names[i];
+        const char *dig=oc_digest(reused_mf,nm);
+        OcMeta om={0};
+        if (!dig || !oc_verify_file_sha(old_cdir,nm,dig,33554432) ||
+            oc_metadata(old_cdir,nm,&om)<0 ||
+            (om.mode&OC_TYPE)!=OC_REGULAR || (om.mode&07777u)!=0600 ||
+            om.uid!=(unsigned)owner || om.gid!=(unsigned)group ||
+            oc_link(old_cdir,nm,wfd,nm)<0) { ok=0; break; }
+        ++linked;
+    }
+    (void)oc_close(old_cdir);
+    if (ok && !oc_autostart_syntax_ok(root_path,wleaf)) ok=0;
+    if (!ok) {
+        for (unsigned i=0; i<linked; ++i) (void)oc_unlink(wfd,oc_composed_names[i]);
+        return 0;
+    }
+    return 1;
+}
+
+static int oc_compose_pkg_from(int root, int data_fd, const char *root_path, const char *pkg_id,
+                               const char *old_pkg, const char *old_snap, const char **err_out) {
     if (!oc_hex(pkg_id,64) || !oc_originals_verify(data_fd)) return cerr(err_out,"compose_inputs_invalid");
     int pdir=oc_open_sub(data_fd,"packages",pkg_id);
     OcManifest pmf;
@@ -496,23 +598,29 @@ int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg
     }
     int wfd=oc_open_private(comp_root,wleaf);
     int orig=oc_open_private(data_fd,"originals");
+    long vdir=-1;
     const char *ferr=0;
     if (wfd<0 || orig<0) { ferr="compose_create_failed"; goto out; }
 
-    if (!oc_compose_uia(pdir,orig,wfd)) { oc_diag_set("compose","uia.so","patch_failed",0,0); ferr="compose_patch_failed"; goto out; }
-    if (!oc_compose_mmui(pdir,orig,wfd)) { oc_diag_set("compose","mmui.so","patch_failed",0,0); ferr="compose_patch_failed"; goto out; }
+    /* Always verify live OEM /jci/vui inputs before composing or reusing composed outputs. */
+    vdir=oc_beneath(root,"jci/vui",OC_DIRECTORY,0);
+    const char *vso_pin=oc_pin_digest(oc_base_pins[3].key,oc_base_pins[3].digest);
+    const char *vxml_pin=oc_pin_digest(oc_base_pins[4].key,oc_base_pins[4].digest);
+    const char *vout_pin=oc_pin_digest("composed/vui.so",
+        "6cc31cd92167624093f95924a15a27536aec2e40cecc170b47cce72d703ba18f");
+    if (vdir<0 || !oc_verify_file_sha((int)vdir,"svcjcivui.so",vso_pin,33554432) ||
+        !oc_verify_file_sha((int)vdir,"vui_config.xml",vxml_pin,262144)) {
+        oc_diag_set("compose","/jci/vui","vui_inputs_changed",0,0);
+        ferr="vui_inputs_changed"; goto out;
+    }
 
-    /* VUI: verify stock svcjcivui.so + vui_config.xml, patch vui.so, rewrite vui.xml */
-    {
-        long vdir=oc_beneath(root,"jci/vui",OC_DIRECTORY,0);
-        const char *vso_pin=oc_pin_digest(oc_base_pins[3].key,oc_base_pins[3].digest);
-        const char *vxml_pin=oc_pin_digest(oc_base_pins[4].key,oc_base_pins[4].digest);
-        if (vdir<0 || !oc_verify_file_sha((int)vdir,"svcjcivui.so",vso_pin,33554432) ||
-            !oc_verify_file_sha((int)vdir,"vui_config.xml",vxml_pin,262144)) {
-            if (vdir>=0) (void)oc_close((int)vdir);
-            oc_diag_set("compose","/jci/vui","vui_inputs_changed",0,0);
-            ferr="vui_inputs_changed"; goto out;
-        }
+    OcManifest reused_mf;
+    int reused=oc_try_reuse_composed(data_fd,root_path,wleaf,wfd,&pmf,
+                                     pkg_id,old_pkg,old_snap,vout_pin,&reused_mf);
+    if (!reused) {
+        if (!oc_compose_uia(pdir,orig,wfd)) { oc_diag_set("compose","uia.so","patch_failed",0,0); ferr="compose_patch_failed"; goto out; }
+        if (!oc_compose_mmui(pdir,orig,wfd)) { oc_diag_set("compose","mmui.so","patch_failed",0,0); ferr="compose_patch_failed"; goto out; }
+
         long vsfd=oc_openat((int)vdir,"svcjcivui.so",OC_READ,0);
         OcMeta vsm={0};
         long vdfd=vsfd>=0 ? oc_openat(wfd,"vui.so",OC_RW|OC_CREATE|OC_EXCLUSIVE,0600) : -1;
@@ -522,41 +630,36 @@ int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg
             oc_mode((int)vdfd,0600)>=0 && oc_sync((int)vdfd)>=0;
         if (vsfd>=0 && oc_close((int)vsfd)<0) vok=0;
         if (vdfd>=0 && oc_close((int)vdfd)<0) vok=0;
-        if (vok) {
-            const char *vout_pin=oc_pin_digest("composed/vui.so",
-                "6cc31cd92167624093f95924a15a27536aec2e40cecc170b47cce72d703ba18f");
-            vok=oc_verify_file_sha(wfd,"vui.so",vout_pin,33554432);
-        }
-        if (!vok) { (void)oc_close((int)vdir); oc_diag_set("compose","vui.so","patch_failed",0,0); ferr="compose_patch_failed"; goto out; }
+        if (vok) vok=oc_verify_file_sha(wfd,"vui.so",vout_pin,33554432);
+        if (!vok) { oc_diag_set("compose","vui.so","patch_failed",0,0); ferr="compose_patch_failed"; goto out; }
         vok=oc_replace_file((int)vdir,"vui_config.xml",wfd,"vui.xml",
             "value=\"/jci/vui/plugins\"","value=\"/tmp/open-connect/vui-plugins/\"",0,0);
-        (void)oc_close((int)vdir);
         if (!vok) { oc_diag_set("compose","vui.xml","xml_failed",0,0); ferr="compose_xml_failed"; goto out; }
-    }
 
-    if (!oc_replace_file(orig,"mmui.xml",wfd,"mmui.xml",
-        "name=\"system\" libpath=\"/jci/mmui/uia/\" lib=\"libjciuiasystem.so\"",
-        "name=\"system\" libpath=\"/tmp/open-connect/feature/\" lib=\"uia.so\"",0,0)) {
-        oc_diag_set("compose","mmui.xml","xml_failed",0,0);
-        ferr="compose_xml_failed"; goto out;
-    }
-    if (!oc_compose_index_tpl(orig,wfd)) { oc_diag_set("compose","index.html","index_failed",0,0); ferr="compose_index_failed"; goto out; }
-    if (!oc_replace_file(orig,"sm.conf",wfd,"sm-normal-off.conf",
-        "args=\"-u /jci/gui/index.html\"","args=\"-u /tmp/open-connect/feature/index.html\"",0,0) ||
-        !oc_replace_file(orig,"sm.conf",wfd,"sm-normal-on.conf",
-        "args=\"-u /jci/gui/index.html\"","args=\"-u /tmp/open-connect/feature/index.html\"",
-        "name=\"jciMMUI\" path=\"/jci/mmui/svcjcimmui.so\"","name=\"jciMMUI\" path=\"/tmp/open-connect/feature/mmui.so\"") ||
-        !oc_replace_file(orig,"sm_WCP.conf",wfd,"sm-wcp-off.conf",
-        "args=\"-u /jci/gui/index.html\"","args=\"-u /tmp/open-connect/feature/index.html\"",0,0) ||
-        !oc_replace_file(orig,"sm_WCP.conf",wfd,"sm-wcp-on.conf",
-        "args=\"-u /jci/gui/index.html\"","args=\"-u /tmp/open-connect/feature/index.html\"",
-        "name=\"jciMMUI\" path=\"/jci/mmui/svcjcimmui.so\"","name=\"jciMMUI\" path=\"/tmp/open-connect/feature/mmui.so\"")) {
-        oc_diag_set("compose","sm.conf","config_failed",0,0);
-        ferr="compose_config_failed"; goto out;
-    }
-    if (!oc_compose_autostart(pdir,orig,wfd,root_path,wleaf)) {
-        oc_diag_set("compose","/usr/bin/autostart","anchor_missing",0,0);
-        ferr="startup_anchor_missing"; goto out;
+        if (!oc_replace_file(orig,"mmui.xml",wfd,"mmui.xml",
+            "name=\"system\" libpath=\"/jci/mmui/uia/\" lib=\"libjciuiasystem.so\"",
+            "name=\"system\" libpath=\"/tmp/open-connect/feature/\" lib=\"uia.so\"",0,0)) {
+            oc_diag_set("compose","mmui.xml","xml_failed",0,0);
+            ferr="compose_xml_failed"; goto out;
+        }
+        if (!oc_compose_index_tpl(orig,wfd)) { oc_diag_set("compose","index.html","index_failed",0,0); ferr="compose_index_failed"; goto out; }
+        if (!oc_replace_file(orig,"sm.conf",wfd,"sm-normal-off.conf",
+            "args=\"-u /jci/gui/index.html\"","args=\"-u /tmp/open-connect/feature/index.html\"",0,0) ||
+            !oc_replace_file(orig,"sm.conf",wfd,"sm-normal-on.conf",
+            "args=\"-u /jci/gui/index.html\"","args=\"-u /tmp/open-connect/feature/index.html\"",
+            "name=\"jciMMUI\" path=\"/jci/mmui/svcjcimmui.so\"","name=\"jciMMUI\" path=\"/tmp/open-connect/feature/mmui.so\"") ||
+            !oc_replace_file(orig,"sm_WCP.conf",wfd,"sm-wcp-off.conf",
+            "args=\"-u /jci/gui/index.html\"","args=\"-u /tmp/open-connect/feature/index.html\"",0,0) ||
+            !oc_replace_file(orig,"sm_WCP.conf",wfd,"sm-wcp-on.conf",
+            "args=\"-u /jci/gui/index.html\"","args=\"-u /tmp/open-connect/feature/index.html\"",
+            "name=\"jciMMUI\" path=\"/jci/mmui/svcjcimmui.so\"","name=\"jciMMUI\" path=\"/tmp/open-connect/feature/mmui.so\"")) {
+            oc_diag_set("compose","sm.conf","config_failed",0,0);
+            ferr="compose_config_failed"; goto out;
+        }
+        if (!oc_compose_autostart(pdir,orig,wfd,root_path,wleaf)) {
+            oc_diag_set("compose","/usr/bin/autostart","anchor_missing",0,0);
+            ferr="startup_anchor_missing"; goto out;
+        }
     }
 
     /* Write files.sha256 for all 12 composed members in exact oc_composed_names order. */
@@ -565,8 +668,12 @@ int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg
         int mok=mfd>=0;
         for (unsigned i=0; mok && i<12; ++i) {
             char dig[65], row[160]; OcMeta mm={0};
-            mok=oc_hash_file_at(wfd,oc_composed_names[i],dig,&mm) &&
-                oc_join4(row,sizeof row,dig,"  ",oc_composed_names[i],"\n") &&
+            const char *d=reused ? oc_digest(&reused_mf,oc_composed_names[i]) : 0;
+            if (!reused) {
+                mok=oc_hash_file_at(wfd,oc_composed_names[i],dig,&mm);
+                d=dig;
+            }
+            if (mok) mok=d!=0 && oc_join4(row,sizeof row,d,"  ",oc_composed_names[i],"\n") &&
                 oc_write_all((int)mfd,row,oc_length(row));
         }
         if (mok) mok=oc_mode((int)mfd,0600)>=0 && oc_sync((int)mfd)>=0;
@@ -578,12 +685,18 @@ int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg
     if (oc_rename(comp_root,wleaf,pkg_id)<0 || oc_sync(comp_root)<0) ferr="compose_publish_failed";
 
 out:
+    if (vdir>=0) (void)oc_close((int)vdir);
     if (orig>=0) (void)oc_close(orig);
     if (wfd>=0) (void)oc_close(wfd);
     if (ferr) oc_rm_subdir(comp_root,wleaf);
     (void)oc_close(comp_root);
     (void)oc_close(pdir);
     return ferr ? cerr(err_out,ferr) : 1;
+}
+
+int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg_id,
+                   const char **err_out) {
+    return oc_compose_pkg_from(root,data_fd,root_path,pkg_id,0,0,err_out);
 }
 
 /* ---------- Dependencies capture & access/selector capture ---------- */
@@ -853,6 +966,20 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
         if (data_fd>=0) (void)oc_close(data_fd);
         return cerr(err_out,"unsupported_original");
     }
+    /* Verify live OEM /jci/vui inputs BEFORE mutating packages/ or hardlinking old_pkg. */
+    {
+        long vdir=oc_beneath(root,"jci/vui",OC_DIRECTORY,0);
+        const char *vso_pin=oc_pin_digest(oc_base_pins[3].key,oc_base_pins[3].digest);
+        const char *vxml_pin=oc_pin_digest(oc_base_pins[4].key,oc_base_pins[4].digest);
+        int vok=vdir>=0 && oc_verify_file_sha((int)vdir,"svcjcivui.so",vso_pin,33554432) &&
+            oc_verify_file_sha((int)vdir,"vui_config.xml",vxml_pin,262144);
+        if (vdir>=0) (void)oc_close((int)vdir);
+        if (!vok) {
+            if (data_fd>=0) (void)oc_close(data_fd);
+            oc_diag_set("compose","/jci/vui","vui_inputs_changed",0,0);
+            return cerr(err_out,"vui_inputs_changed");
+        }
+    }
 
     /* 2. initial_begin: stage fresh state in hidden sibling directory until initial_publish. */
     int parent_fd=-1;
@@ -989,9 +1116,11 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
         }
     }
 
-    /* 5. Save package from verified RAM session. */
+    /* 5. Save package from verified RAM session (reusing verified active immutable files via hardlinks). */
+    const char *reuse_pkg=(exists && oc_equal(rec[1],"active") && oc_hex(old_pkg,64) && oc_equal(old_pkg,rec[3])) ? old_pkg : 0;
+    const char *reuse_snap=reuse_pkg ? rec[5] : 0;
     char pkg_id[65];
-    if (!oc_package_save(root,data_fd,session_dir,pkg_id,&ferr)) goto fail;
+    if (!oc_package_save(root,data_fd,session_dir,reuse_pkg,pkg_id,&ferr)) goto fail;
 
     /* 6. initial_publish: atomically publish fresh state directory with settled removed record. */
     char *work_rec[13];
@@ -1018,8 +1147,8 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
         if (oc_equal(rec[1],"removed")) (void)oc_sync(parent_fd);
     }
 
-    /* 7. Compose firmware artifacts for pkg_id. */
-    if (!oc_compose_pkg(root,data_fd,root_path,pkg_id,&ferr)) goto fail;
+    /* 7. Compose firmware artifacts for pkg_id (reusing verified composed/<reuse_pkg> when inputs match). */
+    if (!oc_compose_pkg_from(root,data_fd,root_path,pkg_id,reuse_pkg,reuse_snap,&ferr)) goto fail;
 
     /* 8. Compose new access, selector, preferences, rendered profiles, and dependencies into fresh staging dir. */
     (void)oc_close(awfd); awfd=-1;

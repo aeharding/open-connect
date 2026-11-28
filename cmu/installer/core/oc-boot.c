@@ -81,7 +81,7 @@ static int oc_copy_input(OcBoot *b, const char *key, int output, const char *nam
     int copied=oc_hash_copy((int)input,(int)target,33554432,digest,&actual);
     int ok=copied==OC_COPY_OK;
     if (copied==OC_COPY_SOURCE) b->input_failure=1;
-    if (ok && (!oc_equal(digest,row->digest)||!oc_meta_equal(&row->meta,&actual))) {
+    if (ok && (!oc_equal(digest,row->digest)||!oc_meta_row_equal(row->key,&row->meta,&actual))) {
         b->input_failure=1; ok=0;
     }
     if (ok && target>=0) ok=oc_mode((int)target,mode)>=0;

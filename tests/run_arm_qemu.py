@@ -16,6 +16,7 @@ static busybox (with tcpsvd/awk/sh) available.
 from __future__ import annotations
 
 import contextlib
+import fcntl
 import hashlib
 import http.client
 import json
@@ -426,6 +427,28 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
         assert ig_bin.stat().st_size <= 4096 and ig_kb <= 4, (
             f"ignition exceeded 1-page (4 KiB) budget: {ig_kb} KiB"
         )
+
+        # 1d. Exact per-binary tmpfs page budgets for all 6 compiled ARMv7 ELF artifacts.
+        bin_budgets = (
+            ("boot-select", 36864, 36),
+            ("api", 81920, 80),
+            ("install", 81920, 80),
+            ("flush", 4096, 4),
+            ("ignition", 4096, 4),
+            ("touch-disable.so", 4096, 4),
+        )
+        for name, max_bytes, max_kb in bin_budgets:
+            src = release_dir / name
+            d = tmpfs_mnt / f"bin-{name}"
+            d.mkdir(mode=0o700)
+            dst = d / name
+            shutil.copyfile(src, dst)
+            sz = src.stat().st_size
+            kb = int(run(["du", "-sk", str(dst)]).stdout.split()[0])
+            print(f"  [tmpfs] {name}: {sz} B ({kb} KiB / {max_kb} KiB)")
+            assert sz <= max_bytes and kb <= max_kb, (
+                f"{name} exceeded budget: {sz} B / {kb} KiB (max {max_bytes} B / {max_kb} KiB)"
+            )
     finally:
         umount_quiet(tmpfs_mnt)
 
@@ -991,6 +1014,121 @@ def part_b_full_lifecycle(
             assert st == 200 and r_cp["ok"] is True and r_cp["carplayAutoshow"] == 1, r_cp
             rev = r_cp["revision"]
 
+            # Fast paths: #216 source-order 0 -> 1, #213 menu-loop 0 -> 1 & hold-scroll 0 -> 1
+            (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+            st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|set|source-order|0|1")
+            r_so = json.loads(raw)
+            assert st == 200 and r_so["ok"] is True and r_so["sourceOrder"] == 1, r_so
+            rev = r_so["revision"]
+
+            (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+            st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|set|menu-loop|0|1")
+            r_ml = json.loads(raw)
+            assert st == 200 and r_ml["ok"] is True and r_ml["menuLoop"] == 1, r_ml
+            rev = r_ml["revision"]
+
+            (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+            st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|set|hold-scroll|0|1")
+            r_hs = json.loads(raw)
+            assert st == 200 and r_hs["ok"] is True and r_hs["holdScroll"] == 1, r_hs
+            rev = r_hs["revision"]
+            idx_on = (data / "snapshots" / rev / "index.html").read_text()
+            assert "reorderSources" in idx_on and "wrapList" in idx_on and "installNav" in idx_on
+
+            # #130 USB export|prefs + #214 multi-USB guard + no-op & multi-toggle import|prefs
+            usb_vol = chroot / "tmp/mnt/sda1"
+            usb_vol2 = chroot / "tmp/mnt/sdb1"
+            usb_vol.mkdir(parents=True, exist_ok=True)
+            base_mounts = (chroot / "proc/self/mounts").read_text()
+            vfat_sda = "/dev/sda1 /tmp/mnt/sda1 vfat ro,noatime 0 0\n"
+            vfat_sdb = "/dev/sdb1 /tmp/mnt/sdb1 vfat ro,noatime 0 0\n"
+            (chroot / "proc/self/mounts").write_text(base_mounts + vfat_sda)
+            try:
+                # Export on RO vfat -> remounts rw->write->fsync->ro and writes canonical OCPREFS1
+                st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|export|prefs|-|-")
+                r_ex = json.loads(raw)
+                assert st == 200 and r_ex["ok"] is True and r_ex["revision"] == rev, r_ex
+                assert vfat_sda.strip() in (chroot / "proc/self/mounts").read_text()
+                exported = (usb_vol / "open-connect.prefs").read_text()
+                assert exported.startswith("OCPREFS1\n"), exported
+                assert "source-order=1\n" in exported and "menu-loop=1\n" in exported
+                assert "hold-scroll=1\n" in exported and "uart=" not in exported
+
+                # #214 multi-USB guard: export refuses multiple_usb_volumes; import refuses
+                # multiple_preferences_files when both volumes carry open-connect.prefs.
+                usb_vol2.mkdir(parents=True, exist_ok=True)
+                (chroot / "proc/self/mounts").write_text(base_mounts + vfat_sda + vfat_sdb)
+                st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|export|prefs|-|-")
+                r_mu = json.loads(raw)
+                assert (
+                    st == 200 and r_mu["ok"] is False and r_mu["error"] == "multiple_usb_volumes"
+                ), r_mu
+                (usb_vol2 / "open-connect.prefs").write_text("OCPREFS1\nbase=1\n")
+                try:
+                    st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|import|prefs|-|-")
+                    r_mp = json.loads(raw)
+                    assert (
+                        st == 200
+                        and r_mp["ok"] is False
+                        and r_mp["error"] == "multiple_preferences_files"
+                    ), r_mp
+                finally:
+                    (usb_vol2 / "open-connect.prefs").unlink()
+                (chroot / "proc/self/mounts").write_text(base_mounts + vfat_sda)
+                usb_vol2.rmdir()
+
+                # No-op import preserves exact revision without creating a transaction
+                st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|import|prefs|-|-")
+                r_noop = json.loads(raw)
+                assert st == 200 and r_noop["ok"] is True and r_noop["revision"] == rev, r_noop
+
+                # Multi-toggle import flips source-order, menu-loop, hold-scroll back to 0 atomically
+                (usb_vol / "open-connect.prefs").write_text(
+                    "OCPREFS1\n# restore defaults\nsource-order=0\nmenu-loop=0\nhold-scroll=0\n"
+                )
+                (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+                st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|import|prefs|-|-")
+                r_imp = json.loads(raw)
+                assert st == 200 and r_imp["ok"] is True and r_imp["revision"] != rev, r_imp
+                assert (
+                    r_imp["sourceOrder"] == 0
+                    and r_imp["menuLoop"] == 0
+                    and r_imp["holdScroll"] == 0
+                ), r_imp
+                rev = r_imp["revision"]
+                idx_off = (data / "snapshots" / rev / "index.html").read_text()
+                assert "reorderSources" not in idx_off and "wrapList" not in idx_off
+            finally:
+                if (usb_vol / "open-connect.prefs").exists():
+                    (usb_vol / "open-connect.prefs").unlink()
+                if usb_vol2.exists():
+                    usb_vol2.rmdir()
+                (chroot / "proc/self/mounts").write_text(base_mounts)
+
+            # #185 ARMv7 SYS_flock startup race: missing runtime symlink + held lock -> "busy",
+            # unlocked -> "session_replaced".
+            rt_link = ram / "runtime"
+            rt_target = os.readlink(rt_link)
+            rt_link.unlink()
+            try:
+                with (ram / "lock").open("r+b") as lf:
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    try:
+                        st, _, raw = http_control(set_port, TOKEN_SET, "-|status|settings|-|-")
+                        r_busy = json.loads(raw)
+                        assert st == 200 and r_busy["ok"] is False and r_busy["error"] == "busy", (
+                            r_busy
+                        )
+                    finally:
+                        fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+                st, _, raw = http_control(set_port, TOKEN_SET, "-|status|settings|-|-")
+                r_rep = json.loads(raw)
+                assert (
+                    st == 200 and r_rep["ok"] is False and r_rep["error"] == "session_replaced"
+                ), r_rep
+            finally:
+                rt_link.symlink_to(rt_target)
+
             # Root-publish path: uart 0 -> 1 -> 0 (verifying hardlink hold & stock inode preserved!)
             (chroot / "dev/urandom").write_bytes(os.urandom(8192))
             st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|set|uart|0|1")
@@ -1010,7 +1148,7 @@ def part_b_full_lifecycle(
                 "/dev/ffx01p1 / relfs ro,noatime 0 0" in (chroot / "proc/self/mounts").read_text()
             )
             print(
-                "  [B3] Live Settings HTTP /control OK (status, touch 1->0->1, autoshow, uart 0->1->0, inode preserved)"
+                "  [B3] Live Settings HTTP /control OK (status, touch, autoshow, source-order, menu-loop, hold-scroll, #130 export/import, #214 multi-USB, #185 flock busy, uart)"
             )
         finally:
             stop_proc(set_srv)
@@ -1150,6 +1288,181 @@ def part_b_full_lifecycle(
             )
         finally:
             stop_proc(un_srv)
+
+        # B6. Fresh boot after uninstall -> cold ARMv7 USB install WITH #130 open-connect.prefs
+        #     preset -> real `boot-select select-gated` -> #167 hardlink-reuse reinstall (preset
+        #     ignored on upgrade) -> reboot `select-gated` -> cross-gen `boot-select gc`!
+        clean_ram_for_boot("62345678-1234-1234-1234-123456789abc")
+        (ram / "lock").write_bytes(b"")
+        (ram / "lock").chmod(0o600)
+        usb_vol = chroot / "tmp/mnt/sda1"
+        usb_vol.mkdir(parents=True, exist_ok=True)
+        base_mounts = (chroot / "proc/self/mounts").read_text()
+        vfat_sda = "/dev/sda1 /tmp/mnt/sda1 vfat ro,noatime 0 0\n"
+        (chroot / "proc/self/mounts").write_text(base_mounts + vfat_sda)
+
+        def make_usb_session(name: str) -> Path:
+            sess = ram / f"sessions/{name}"
+            sess.mkdir(parents=True, mode=0o700)
+            (ram / "sessions").chmod(0o700)
+            for p in usb_src.iterdir():
+                if p.name == "files.sha256":
+                    continue
+                dst = sess / p.name
+                if p.name in test_bins:
+                    shutil.copyfile(test_bins[p.name], dst)
+                    dst.chmod(0o700)
+                else:
+                    shutil.copyfile(p, dst)
+                    dst.chmod(0o700 if p.name in ("flush", "ignition") else 0o600)
+            mf_s = "".join(f"{sha(p.read_bytes())}  {p.name}\n" for p in sorted(sess.iterdir()))
+            (sess / "files.sha256").write_text(mf_s)
+            (sess / "files.sha256").chmod(0o600)
+            (usb_vol / "open-connect").mkdir(parents=True, exist_ok=True)
+            (usb_vol / "open-connect/run.sh").write_text("#!/bin/sh\n")
+            (usb_vol / "open-connect/files.sha256").write_text(mf_s)
+            (sess / "token").write_text(TOKEN_USB + "\n")
+            (sess / "token").chmod(0o600)
+            if (ram / "usb-runtime").is_symlink():
+                (ram / "usb-runtime").unlink()
+            (ram / "usb-runtime").symlink_to(f"/tmp/open-connect/sessions/{name}")
+            return sess
+
+        make_usb_session("session-usb300")
+        b6_port = pick_port()
+        b6_srv = subprocess.Popen(
+            [
+                "chroot",
+                str(chroot),
+                "/bin/busybox",
+                "tcpsvd",
+                "127.0.0.1",
+                str(b6_port),
+                "/tmp/open-connect/sessions/session-usb300/api",
+                "/tmp/open-connect/sessions/session-usb300/token",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            wait_port(b6_port)
+            # B6a-neg: Forbidden key (uart=1) in open-connect.prefs fails BEFORE touching flash!
+            (usb_vol / "open-connect.prefs").write_text("OCPREFS1\nuart=1\n")
+            st, _, raw = http_control(b6_port, TOKEN_USB, "-|install|-|-|-")
+            r_bad = json.loads(raw)
+            assert (
+                st == 200
+                and r_bad["ok"] is False
+                and r_bad["error"] == "invalid_preferences_preset"
+            ), r_bad
+            assert not data.exists(), "invalid preset must fail closed before touching flash"
+            # #220 failure log must be written to RO vfat USB and remounted back RO!
+            err_log = usb_vol / "open-connect-error.log"
+            assert err_log.is_file(), "expected open-connect-error.log on invalid preset failure"
+            assert "error=invalid_preferences_preset\n" in err_log.read_text()
+            assert vfat_sda.strip() in (chroot / "proc/self/mounts").read_text()
+            err_log.unlink()
+
+            # B6a: Cold install consumes valid open-connect.prefs preset!
+            (usb_vol / "open-connect.prefs").write_text(
+                "OCPREFS1\nsource-order=1\nmenu-loop=1\nhold-scroll=1\nservice.pandora=0\n"
+            )
+            (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+            st, _, raw = http_control(b6_port, TOKEN_USB, "-|install|-|-|-")
+            r_pre = json.loads(raw)
+            assert st == 200 and r_pre["ok"] is True and r_pre["installed"] is True, r_pre
+            assert (
+                r_pre["sourceOrder"] == 1 and r_pre["menuLoop"] == 1 and r_pre["holdScroll"] == 1
+            ), r_pre
+            pandora_row = next(s for s in r_pre["services"] if s["id"] == "pandora")
+            assert pandora_row["saved"] == 0, pandora_row
+            rec_a = (data / "record").read_text().strip().split("|")
+            pkg_a, snap_a = rec_a[3], rec_a[5]
+            comp_a = data / "composed" / pkg_a
+            mmui_ino = (comp_a / "mmui.so").stat().st_ino
+            vui_ino = (comp_a / "vui.so").stat().st_ino
+            uia_ino = (comp_a / "uia.so").stat().st_ino
+        finally:
+            stop_proc(b6_srv)
+
+        # Boot #1 of preset install via real production `boot-select select-gated` (pins pkg_a).
+        # Run through `/bin/sh -c` so ppid > 1 even when run_arm_qemu.py is PID 1 in a container.
+        clean_ram_for_boot("72345678-1234-1234-1234-123456789abc")
+        r_gated1 = chroot_run(
+            chroot,
+            ["/bin/sh", "-c", "/usr/bin/open-connect-boot-select select-gated; rc=$?; exit $rc"],
+        )
+        assert r_gated1.returncode == 0, (
+            f"select-gated 1 failed (rc={r_gated1.returncode}): {r_gated1.stdout!r} {r_gated1.stderr!r}"
+        )
+        assert r_gated1.stdout.strip() == "G", f"expected gate 'G', got {r_gated1.stdout!r}"
+        assert (ram / "selected").read_text().strip() == snap_a
+        idx_live = (ram / "feature/index.html").read_text()
+        assert "reorderSources" in idx_live and "wrapList" in idx_live
+
+        # B6b: Reinstall over live booted pkg_a ignores open-connect.prefs and reuses unchanged
+        #      composed inodes via hardlinks (#167)!
+        (ram / "lock").write_bytes(b"")
+        (ram / "lock").chmod(0o600)
+        make_usb_session("session-usb301")
+        b6b_port = pick_port()
+        b6b_srv = subprocess.Popen(
+            [
+                "chroot",
+                str(chroot),
+                "/bin/busybox",
+                "tcpsvd",
+                "127.0.0.1",
+                str(b6b_port),
+                "/tmp/open-connect/sessions/session-usb301/api",
+                "/tmp/open-connect/sessions/session-usb301/token",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            wait_port(b6b_port)
+            (usb_vol / "open-connect.prefs").write_text("OCPREFS1\nsource-order=0\n")
+            (chroot / "dev/urandom").write_bytes(os.urandom(8192))
+            st, _, raw = http_control(b6b_port, TOKEN_USB, f"{snap_a}|install|-|-|-")
+            r_re = json.loads(raw)
+            assert st == 200 and r_re["ok"] is True and r_re["sourceOrder"] == 1, r_re
+            rec_b = (data / "record").read_text().strip().split("|")
+            pkg_b, snap_b = rec_b[3], rec_b[5]
+            assert pkg_b != pkg_a, "reinstall must create a distinct package generation"
+            comp_b = data / "composed" / pkg_b
+            for name, orig_ino in (("mmui.so", mmui_ino), ("vui.so", vui_ino), ("uia.so", uia_ino)):
+                st_b = (comp_b / name).stat()
+                assert st_b.st_ino == orig_ino, (name, st_b.st_ino, orig_ino)
+                assert st_b.st_nlink >= 2, (name, st_b.st_nlink)
+        finally:
+            stop_proc(b6b_srv)
+            shutil.rmtree(usb_vol / "open-connect", ignore_errors=True)
+            for fn in ("open-connect.prefs", "open-connect-error.log"):
+                if (usb_vol / fn).exists():
+                    (usb_vol / fn).unlink()
+            (chroot / "proc/self/mounts").write_text(base_mounts)
+
+        # B6c: Reboot via `select-gated` activates pkg_b/snap_b, then cross-gen `boot-select gc`
+        #      prunes retired pkg_a cleanly (dropping st_nlink 2->1)!
+        clean_ram_for_boot("82345678-1234-1234-1234-123456789abc")
+        r_gated2 = chroot_run(
+            chroot,
+            ["/bin/sh", "-c", "/usr/bin/open-connect-boot-select select-gated; rc=$?; exit $rc"],
+        )
+        assert r_gated2.returncode == 0, (
+            f"select-gated 2 failed (rc={r_gated2.returncode}): {r_gated2.stdout!r} {r_gated2.stderr!r}"
+        )
+        assert r_gated2.stdout.strip() == "G", f"expected gate 'G', got {r_gated2.stdout!r}"
+        assert (ram / "selected").read_text().strip() == snap_b
+        r_gc2 = chroot_run(chroot, ["/usr/bin/open-connect-boot-select", "gc", "/"])
+        assert r_gc2.returncode == 0, r_gc2.stdout + r_gc2.stderr
+        assert not (data / "packages" / pkg_a).exists(), "retired pkg_a was not pruned by gc"
+        assert not (data / "composed" / pkg_a).exists(), "retired composed/pkg_a was not pruned"
+        assert (comp_b / "mmui.so").stat().st_nlink == 1
+        print(
+            "  [B6] Cold #130 preset install (fail-closed + valid) + #167 hardlink-reuse reinstall + select-gated + cross-gen GC OK"
+        )
     finally:
         umount_quiet(chroot_tmp)
 

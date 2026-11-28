@@ -92,10 +92,13 @@ Host code lives in tooling/open_connect/, with tests in tests/.
 The offline runner includes the CLI and bench profile and opens no physical device.
 The installed entry point is oc; python -m open_connect is equivalent.
 
-CI runs those host checks on Linux with Python 3.13 for every PR and main push,
-then checks the installed CLI from outside the checkout. Require the Host checks
-job to pass alongside adversarial review before merging. To apply formatting
-locally, run .venv/bin/ruff format tooling tests.
+CI runs those host checks on Linux with Python 3.13 for every PR and main push:
+`Host checks` (lint, format, `make check-ui`, `make release`, and the installed CLI
+dry-run outside the checkout), three sharded `Offline tests (1/3..3/3)` jobs, and
+`ARMv7 QEMU userspace tests` (running the unmodified `make release` ARMv7 binaries
+and synthetic ARMv7 lifecycle binaries under `qemu-arm` with BusyBox on tmpfs). Require the CI jobs to pass alongside
+adversarial review before merging. To apply formatting
+locally, run `.venv/bin/ruff format tooling tests`.
 
 Ruff covers tooling/ and tests/. The offline suite includes the public CLI,
 publication/undo with real local files and mappings, generated video,

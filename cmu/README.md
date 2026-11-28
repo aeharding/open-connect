@@ -29,7 +29,7 @@ are `-`. Responses are JSON. The 32-character session token is data supplied by
 the loader or a meta element in the privately composed index. The revision binds
 the current snapshot; pending recovery uses its unique transaction revision.
 Allowed operations are `status`, `install`, `set`, `uninstall`, `recover`,
-`restart`, `dismiss` and `import`. No shell commands or paths come from browser input.
+`restart`, `dismiss`, `import` and `export`. No shell commands or paths come from browser input.
 
 The installed client, menu row, program and catalog belong to the boot-selected
 package. USB insertion never replaces them. Across a package update, the running
@@ -42,8 +42,10 @@ one native modal surface, including suspended progress and pending saves.
 metadata. `status|completion` alone requests the full current-boot completion
 proof. Default full status reconciles uncertain mutations. Native `status|session`
 checks the caller's own close marker; installed-only `status|media` discovers a
-runner's final eligible USB offer. These native reads do not execute the shell
-backend or take the transaction lock. Every changing command still validates its
+runner's final eligible USB offer. `status|session` and `status|media` skip the
+transaction lock; `status|settings` acquires a shared lock, while
+`status|completion` and default `status|-` take the exclusive lock. Every
+changing command still validates its
 revision and physical prerequisites under the writer lock. Maintenance shows
 native progress before requesting its change or restart.
 
@@ -83,8 +85,8 @@ checks complete member coverage and metadata, and checks selected executable/UI
 bytes while copying them to RAM. It checks firmware identity, physical mounts,
 NVRAM, login holds and the actual boot ID. Metadata reuse detects ordinary drift;
 it cannot prove uncopied bytes against silent corruption or privileged changes.
-Mismatches before debit use the embedded full shell verifier. Lock contention,
-duplicate selection and ambiguous durable writes select factory behavior.
+Mismatches before debit fall back to the native slow-path `install --boot-recover`
+verifier. Lock contention, duplicate selection and ambiguous durable writes select factory behavior.
 
 Both record flushes precede feature publication. The sole durable record retains
 the same attempt budget and ignition rules. A Service Manager one-shot after

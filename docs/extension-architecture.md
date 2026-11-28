@@ -37,9 +37,11 @@ boundary. See [the actual CI identities and limits](reverse-engineering.md#devel
 The maintainability limit is coupling: snapshot fields, API values, target checks,
 boot paths and UI code know individual feature names. There is no independently
 removable package unit. Every new feature should not need another special branch
-through each layer. The [existing transaction](https://github.com/aeharding/open-connect/blob/84471d2/cmu/installer/transaction.sh)
-and [resource lifetime handling](https://github.com/aeharding/open-connect/blob/84471d2/cmu/installer/access.sh)
-are worth retaining while reducing that coupling.
+through each layer. The transaction and resource-lifetime design (originating in
+[transaction.sh](https://github.com/aeharding/open-connect/blob/84471d2/cmu/installer/transaction.sh)
+and [access.sh](https://github.com/aeharding/open-connect/blob/84471d2/cmu/installer/access.sh),
+now implemented in native C under `cmu/installer/core/oc-txn.c` and `oc-access.c`)
+is worth retaining while reducing that coupling.
 
 ## Hooks instead of independent wrappers
 

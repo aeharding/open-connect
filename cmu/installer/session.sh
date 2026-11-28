@@ -32,6 +32,7 @@ entry_live() {
         test "$(readlink -f /tmp/open-connect/usb-runtime)" = "$runtime"
 }
 cleanup() {
+    trap - EXIT HUP INT TERM
     # Native liveness polling closes this popup. Teardown never navigates Opera.
     exec 9>&-
     if test -n "$runtime" && test -d "$runtime"; then

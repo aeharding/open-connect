@@ -24,6 +24,9 @@ cleanup() { rm -f "$work"/* "$work"/.[!.]* "$work"/..?*; rmdir "$work"; }
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 test -f "$source/files.sha256" && test ! -L "$source/files.sha256" || refuse manifest
+msize=$(stat -c %s "$source/files.sha256") || refuse manifest
+case "$msize" in ''|*[!0-9]*) refuse manifest;; esac
+test "$msize" -le 65536 || refuse manifest
 cp "$source/files.sha256" "$work/files.sha256"
 count=0
 seen='|files.sha256|'

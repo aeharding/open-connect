@@ -135,7 +135,7 @@ else{end(null);}
 }
 function run(op,args,reply,leave){
 if(busy||!s||!claim()){if(reply){reply(null);}return false;}
-busy=true;saving=!!reply;advance();
+busy=true;saving=!!reply;openIntent=null;clearTimeout(openTimer);advance();
 job={op:op,args:args,before:s,target:s.version,reply:reply,phase:"waiting",restartSent:false};
 queued=null;closeUI();if(leave)leave();drive();wake();return true;
 }
@@ -171,7 +171,7 @@ openWhenReady();return true;
 function homeAvailable(){
 var c=framework.common;
 return framework._browserShown&&framework._frameworkState===framework._FWK_STATE_IDLE&&
-framework.getCurrentApp()==="system"&&framework.getCurrCtxtId()==="HomeScreen"&&
+framework._currTmpltInstance&&framework.getCurrentApp()==="system"&&framework.getCurrCtxtId()==="HomeScreen"&&
 c&&!c._openConnectDialog&&!c._openConnectPage&&!c._openConnectOperation&&
 !c._vuiHelpDialog&&!c._vuiExamplesDialog&&
 !/^(Playing Prompt|Listening|Processing|Playing Terminating Prompt)$/.test(c._cachedVuiState)&&
@@ -238,19 +238,18 @@ stop();generation++;retry=500;until=wait?Date.now()+65000:0;read(generation);
 function launch(media){
 if(media.token===last)return false;
 last=media.token;
-if(loading&&loading.parentNode)loading.parentNode.removeChild(loading);
-var old=document.getElementById("oc-maintenance-loader");
-if(old&&old.parentNode)old.parentNode.removeChild(old);
+var L="oc-maintenance-loader",rm=function(n){if(n&&n.parentNode)n.parentNode.removeChild(n);};
+rm(loading);rm(document.getElementById(L));
 var node,done=false;
-var deadline=setTimeout(function(){done=true;if(node&&node.parentNode)node.parentNode.removeChild(node);},65000);
+var deadline=setTimeout(function(){done=true;rm(node);},65000);
 utility.loadScript("file:///tmp/open-connect/sessions/"+media.session+"/loader.js",
-{id:"oc-maintenance-loader",ocToken:media.token,ocPort:15557},function(){
+{id:L,ocToken:media.token,ocPort:15557},function(){
 clearTimeout(deadline);
-if(!done&&loading===node&&node===document.getElementById("oc-maintenance-loader")&&
+if(!done&&loading===node&&node===document.getElementById(L)&&
 typeof window.OpenConnectUSBStart==="function")OpenConnectUSBStart(node);
-else if(node&&node.parentNode)node.parentNode.removeChild(node);
+else rm(node);
 });
-node=document.getElementById("oc-maintenance-loader");loading=node;return true;
+node=document.getElementById(L);loading=node;return true;
 }
 function read(intent){
 var left=until?until-Date.now():3000;if(left<=0)return;
@@ -307,13 +306,13 @@ a.voice=function(s,c){return c&&(c._vuiHelpDialog||c._vuiExamplesDialog)||/^(Pla
 var gesture,confirmed;
 function button(){
 var h=f._currTmpltInstance;
-return h&&h.contextInfo.uiaId==="system"&&h.contextInfo.ctxtId==="Disclaimer"&&
+return h&&h.contextInfo&&h.contextInfo.uiaId==="system"&&h.contextInfo.ctxtId==="Disclaimer"&&
 h.dialog3Ctrl&&h.dialog3Ctrl.buttonCtrl_0;
 }
 a.agree=function(event){
 var b=button(),type=typeof event==="string"?event:event.type;
 if(!b||!b._isEnabled){a.holding=false;gesture=null;return false;}
-if(type==="mousedown"&&b.divElt.contains(event.target)||type==="selectStart"&&b._hasFocus||
+if(type==="mousedown"&&b.divElt&&b.divElt.contains(event.target)||type==="selectStart"&&b._hasFocus||
 type==="keydown"&&event.keyCode===13&&b._hasFocus){
 gesture=b;confirmed=false;a.holding=true;return true;
 }
@@ -327,9 +326,11 @@ return false;
 };
 function bind(id){
 if(id!=="system"){return;}
-var props=f.getAppInstance(id)._contextTable.Disclaimer.controlProperties.Dialog3Ctrl;
+var inst=f.getAppInstance(id),disc=inst&&inst._contextTable&&inst._contextTable.Disclaimer;
+var props=disc&&disc.controlProperties&&disc.controlProperties.Dialog3Ctrl;
+if(!props){return;}
 function agree(control,action){
-if(action==="Global.Yes"&&f._currTmpltInstance.dialog3Ctrl===control&&gesture===button()){confirmed=true;}
+if(action==="Global.Yes"&&f._currTmpltInstance&&f._currTmpltInstance.dialog3Ctrl===control&&gesture===button()){confirmed=true;}
 }
 a.wrap(props,"defaultSelectCallback",agree);
 var h=f._currTmpltInstance,live=button()&&h.dialog3Ctrl.properties;
@@ -343,10 +344,12 @@ a.loaded|=1;a.pump();
 /* Independent boot completion entry. */
 (function(){
 "use strict";
-var notice=document.querySelector('meta[name="open-connect-notice"]');
+function m(n){return document.querySelector('meta[name="open-connect-'+n+'"]');}
+var notice=m("notice");
 if(notice&&notice.getAttribute("content")==="installed"){
-var tm=document.querySelector('meta[name="open-connect-token"]');
-var token=tm.getAttribute("content"),version=document.querySelector('meta[name="open-connect-version"]').getAttribute("content");
+var tm=m("token"),vm=m("version");
+var token=tm&&tm.getAttribute("content"),version=vm&&vm.getAttribute("content"),bootId=tm&&tm.getAttribute("data-boot");
+if(!/^[a-f0-9]{32}$/.test(token)||!/^[0-9]+(?:\.[0-9]+){1,3}(?:[-.][a-zA-Z0-9.-]+)?$/.test(version)||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(bootId))return;
 var state={},node,stopped=false;
 window.__ocCompletionLoading=state;
 window.__ocCompletionGeneration=state;
@@ -362,7 +365,7 @@ finish();if(window.ocCarPlay){ocCarPlay.cancel();ocCarPlay.pump();}
 utility.loadScript("file:///tmp/open-connect/feature/maintenance.js",{id:"oc-completion"},function(){
 if(!stopped&&window.__ocCompletionLoading===state&&typeof window.OpenConnectMaintenanceStart==="function"){
 OpenConnectMaintenanceStart({token:token,port:15555,role:"completion",boot:{notice:"installed",version:version,
-id:tm.getAttribute("data-boot")},current:function(){return window.__ocCompletionGeneration===state;}});
+id:bootId},current:function(){return window.__ocCompletionGeneration===state;}});
 }
 finish();
 });

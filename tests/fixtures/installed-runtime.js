@@ -742,3 +742,38 @@ f.reply(f.operation('import')[0],null);
 f.reply(f.requests.at(-1),f.state({...developer,revision:nextRev,touch:2,touchCurrent:1,restart:true}));
 assert.equal(f.dialog.props.title,'Preferences imported');
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');
+
+// openSettings() must return false cleanly when _currTmpltInstance is null.
+f=fixture(folder);f.install();
+f.fw._currTmpltInstance=null;
+assert.equal(f.ctx.OpenConnect.openSettings(),false);
+assert.equal(f.ctx.OpenConnect.autoshowState(),0);
+
+// openSettings() clears openIntent cleanly when its cold refresh fails.
+f=fixture(folder);f.install();
+assert.equal(f.ctx.OpenConnect.openSettings(),true);
+assert.equal(f.ctx.OpenConnect.autoshowState(),2);
+f.reply(f.requests.at(-1),{ok:false,error:'state_changed'});
+assert.match(f.dialog.props.title,/Settings unavailable/);
+f.pick('done');
+assert.equal(f.ctx.OpenConnect.autoshowState(),0);
+
+// Boot completion IIFE ignores missing/malformed meta tags without throwing.
+f=fixture(folder,{installed:false,notice:'installed'});
+const origQS=f.ctx.document.querySelector;
+f.ctx.document.querySelector=q=>q.includes('open-connect-notice')?{getAttribute:()=>'installed'}:origQS(q);
+f.evaluate('runtime.js');
+assert.equal(f.ctx.__ocCompletionLoading,undefined);
+
+// ocCarPlay Disclaimer bridge tolerates missing _currTmpltInstance, contextInfo, divElt, and _contextTable.
+f=fixture(folder);
+const cpHooks=[];
+f.ctx.ocCarPlay={loaded:0,holding:false,early:[],signal(){},wrap(o,k,pre,post){cpHooks.push([o,k,pre,post]);},user(){},pump(){}};
+f.fw._appInstances.system={};
+f.install();
+f.fw._currTmpltInstance={};
+assert.equal(f.ctx.ocCarPlay.agree({type:'mousedown',target:{}}),false);
+f.fw._currTmpltInstance={contextInfo:{uiaId:'system',ctxtId:'Disclaimer'},dialog3Ctrl:{buttonCtrl_0:{_isEnabled:true}}};
+assert.equal(f.ctx.ocCarPlay.agree({type:'mousedown',target:{}}),false);
+f.fw._currTmpltInstance=null;
+assert.equal(f.ctx.ocCarPlay.agree('select'),false);

@@ -229,6 +229,49 @@ class SessionTests(unittest.TestCase):
         with self.assertRaises(BenchError):
             s.execute("true")
 
+    def test_receive_and_observe_prompt_invalidate_stale_identity(self):
+        t = FakeTransport(chunks=[b"login: "])
+        s = self.session(t, timeout=0.05)
+        s.state, s.identity = "shell", {"uid": 0}
+        s.receive(0.02)
+        self.assertEqual(s.state, "login")
+        self.assertIsNone(s.identity)
+
+        t2 = FakeTransport(chunks=[b"/tmp/root # "])
+        s2 = self.session(t2, timeout=0.05)
+        s2.state, s2.identity = "shell", {"uid": 0}
+        s2.receive(0.02)
+        self.assertEqual(s2.state, "shell")
+        self.assertIsNone(s2.identity)
+        with self.assertRaises(BenchError):
+            s2.execute("true")
+
+        t3 = FakeTransport(chunks=[b"/tmp/root # "])
+        s3 = self.session(t3, timeout=0.05)
+        s3.state, s3.identity = "shell", {"uid": 0}
+        s3.observe_prompt()
+        self.assertEqual(s3.state, "shell")
+        self.assertIsNone(s3.identity)
+        with self.assertRaises(BenchError):
+            s3.execute("true")
+
+    def test_empty_oc_workspace_falls_back_to_repo_root(self):
+        with tempfile.TemporaryDirectory() as other_cwd:
+            env = {
+                **os.environ,
+                "OC_WORKSPACE": "",
+                "PYTHONPATH": str(ROOT / "tooling"),
+            }
+            child = subprocess.run(
+                [sys.executable, "-c", "from open_connect.paths import ROOT; print(ROOT)"],
+                cwd=other_cwd,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertEqual(Path(child.stdout.strip()), ROOT)
+
     def test_tx_bound_includes_quoting_overhead(self):
         with self.assertRaises(ValueError):
             wrap_command("x" * 600, TOKEN)

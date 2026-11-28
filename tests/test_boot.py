@@ -78,7 +78,6 @@ class VideoTests(unittest.TestCase):
 
     def test_video_stop_rejects_zero_and_nan_duration_or_pts(self):
         from types import SimpleNamespace
-        from unittest.mock import patch
 
         for label, payload in (
             (

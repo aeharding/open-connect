@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parent
-ROOT = Path(os.environ.get("OC_WORKSPACE", PACKAGE.parents[1])).resolve()
+ROOT = Path(os.environ.get("OC_WORKSPACE") or PACKAGE.parents[1]).resolve()
 
 
 def verify_package(workspace):

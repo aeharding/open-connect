@@ -554,6 +554,7 @@ class Session:
     def receive(self, seconds):
         if not 0 < seconds <= 60:
             raise ValueError("receive duration must be >0 and <=60 seconds")
+        self.identity = None
         received = bytearray()
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
@@ -567,6 +568,7 @@ class Session:
     def observe_prompt(self, solicit=False):
         if self.state == "uncertain":
             raise UnknownOutcome("uncertain session requires separate operator reconciliation")
+        self.identity = None
         received = bytearray()
         # Inspect fresh available RX before considering an explicitly requested CR.
         passive_deadline = time.monotonic() + min(0.2, self.timeout / 4)

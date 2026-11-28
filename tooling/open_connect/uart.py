@@ -81,6 +81,7 @@ def main(argv=None):
     port = None
     session = None
     outcome, error, result = "failed", None, 1
+    finished = False
     # Keep lock held through port close and evidence flush, including failed open.
     try:
         with AdapterLock(owner=args.owner, purpose=args.action) as lock:
@@ -119,21 +120,36 @@ def main(argv=None):
                 try:
                     if port is not None:
                         port.close()
-                    bundle.meta["port_closed"] = True
-                except Exception as exc:
-                    error = (error or "") + "; close failed: " + str(exc)
+                        bundle.meta["port_closed"] = True
+                    elif not bundle.meta["serial_port_opened"]:
+                        bundle.meta["port_closed"] = True
+                except (Exception, KeyboardInterrupt, SystemExit) as exc:
+                    close_msg = str(exc) or type(exc).__name__
+                    error = (error + "; " if error else "") + "close failed: " + close_msg
+                    outcome, result = "unknown", 2
+                if bundle.meta["serial_port_opened"] and not bundle.meta["port_closed"]:
                     outcome, result = "unknown", 2
                 bundle.finish(outcome, error)
+                finished = True
     except (Exception, KeyboardInterrupt, SystemExit) as exc:
-        error = str(exc) or type(exc).__name__
-        uncertain = session is not None and session.state == "uncertain"
-        bundle.finish("unknown" if uncertain else "failed", error)
-        result = 2 if uncertain else 1
-    print(
-        json.dumps(
-            dict(bundle=str(bundle.path), outcome=bundle.meta["outcome"], error=error), indent=2
+        msg = str(exc) or type(exc).__name__
+        error = (error + "; " if error else "") + msg
+        if not bundle.meta["serial_port_opened"]:
+            bundle.meta["port_closed"] = True
+        uncertain = (
+            isinstance(exc, UnknownOutcome)
+            or (session is not None and session.state == "uncertain")
+            or finished
+            or outcome
+            in ("completed", "verified_file", "identity_verified", "remote_nonzero", "unknown")
+            or (bundle.meta["serial_port_opened"] and not bundle.meta["port_closed"])
         )
-    )
+        outcome, result = ("unknown", 2) if uncertain else ("failed", 1)
+        try:
+            bundle.finish(outcome, error, force=True)
+        except OSError:
+            pass
+    print(json.dumps(dict(bundle=str(bundle.path), outcome=outcome, error=error), indent=2))
     return result
 
 

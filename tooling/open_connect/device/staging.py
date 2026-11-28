@@ -95,6 +95,8 @@ def identity(value, directory=False):
 
 
 def descriptor(value):
+    if not isinstance(value, dict):
+        raise ValueError("not a staged-delivery descriptor")
     required = {
         "schema",
         "kind",
@@ -288,7 +290,23 @@ def main(argv=None):
         else:
             if not args.descriptor or args.source:
                 raise ValueError("cleanup requires --descriptor only")
-            stage = descriptor(json.loads(args.descriptor.read_text()))
+            dpath = Path(args.descriptor).absolute()
+            dfd = os.open(dpath, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            try:
+                st = os.fstat(dfd)
+                if not stat.S_ISREG(st.st_mode) or st.st_size > LIMIT:
+                    raise ValueError("descriptor must be a regular file <=16 KiB")
+                raw_desc = b""
+                while len(raw_desc) <= LIMIT:
+                    chunk = os.read(dfd, LIMIT + 1 - len(raw_desc))
+                    if not chunk:
+                        break
+                    raw_desc += chunk
+                if len(raw_desc) > LIMIT:
+                    raise ValueError("descriptor must be a regular file <=16 KiB")
+            finally:
+                os.close(dfd)
+            stage = descriptor(json.loads(raw_desc.decode("utf-8")))
             run = stage["nonce"]
             command = cleanup_command(stage)
         if args.live and not args.bundle:
@@ -317,6 +335,7 @@ def main(argv=None):
     port = session = None
     outcome, error, code = "failed", None, 1
     sent = False
+    finished = False
     try:
         with AdapterLock(owner=args.owner, purpose="data_" + args.action):
             try:
@@ -350,22 +369,40 @@ def main(argv=None):
                     if port is not None:
                         port.close()
                         bundle.meta["port_closed"] = True
-                except Exception as exc:
-                    outcome, code, error = "unknown_preserved", 2, str(exc)
+                    elif not bundle.meta["serial_port_opened"]:
+                        bundle.meta["port_closed"] = True
+                except (Exception, KeyboardInterrupt, SystemExit) as exc:
+                    close_msg = str(exc) or type(exc).__name__
+                    error = (error + "; " if error else "") + "close failed: " + close_msg
+                    outcome, code = "unknown_preserved", 2
+                if bundle.meta["serial_port_opened"] and not bundle.meta["port_closed"]:
+                    outcome, code = "unknown_preserved", 2
                 bundle.finish(outcome, error)
+                finished = True
     except (Exception, KeyboardInterrupt, SystemExit) as exc:
-        outcome = (
-            "unknown_preserved"
-            if sent or (session is not None and session.state == "uncertain")
-            else "failed"
+        msg = str(exc) or type(exc).__name__
+        error = (error + "; " if error else "") + msg
+        if not bundle.meta["serial_port_opened"]:
+            bundle.meta["port_closed"] = True
+        uncertain = (
+            sent
+            or (session is not None and session.state == "uncertain")
+            or finished
+            or outcome
+            in (
+                "staged_data_verified",
+                "owned_stage_removed",
+                "remote_refused_preserved",
+                "unknown_preserved",
+            )
+            or (bundle.meta["serial_port_opened"] and not bundle.meta["port_closed"])
         )
-        error, code = str(exc) or type(exc).__name__, 2 if outcome == "unknown_preserved" else 1
-        bundle.finish(outcome, error)
-    print(
-        json.dumps(
-            dict(bundle=str(bundle.path), outcome=bundle.meta["outcome"], error=error), indent=2
-        )
-    )
+        outcome, code = ("unknown_preserved", 2) if uncertain else ("failed", 1)
+        try:
+            bundle.finish(outcome, error, force=True)
+        except OSError:
+            pass
+    print(json.dumps(dict(bundle=str(bundle.path), outcome=outcome, error=error), indent=2))
     return code
 
 

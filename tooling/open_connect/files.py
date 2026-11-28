@@ -8,27 +8,34 @@ import hashlib
 import re
 import shlex
 
-from .session import ProtocolError, check_nonce, digest, nonce, wrap_command
+from .session import ProtocolError, UnknownOutcome, check_nonce, digest, nonce, wrap_command
 
 ALLOWLIST = ("/jci/version.ini", "/etc/version")
 MAX_BYTES = 16384
 CHUNK_BYTES = 1024
 
 
-def posix_cksum(data):
-    """POSIX cksum polynomial, byte-length suffix and final complement (not zlib)."""
+def _build_cksum_table():
     table = []
     for byte in range(256):
         value = byte << 24
         for _ in range(8):
             value = ((value << 1) ^ (0x04C11DB7 if value & 0x80000000 else 0)) & 0xFFFFFFFF
         table.append(value)
+    return tuple(table)
+
+
+_CKSUM_TABLE = _build_cksum_table()
+
+
+def posix_cksum(data):
+    """POSIX cksum polynomial, byte-length suffix and final complement (not zlib)."""
     crc = 0
     for byte in data:
-        crc = ((crc << 8) & 0xFFFFFFFF) ^ table[((crc >> 24) ^ byte) & 255]
+        crc = ((crc << 8) & 0xFFFFFFFF) ^ _CKSUM_TABLE[((crc >> 24) ^ byte) & 255]
     length = len(data)
     while length:
-        crc = ((crc << 8) & 0xFFFFFFFF) ^ table[((crc >> 24) ^ length) & 255]
+        crc = ((crc << 8) & 0xFFFFFFFF) ^ _CKSUM_TABLE[((crc >> 24) ^ length) & 255]
         length >>= 8
     return (~crc) & 0xFFFFFFFF
 
@@ -218,6 +225,10 @@ def capture_file(session, path, encoder="base64", checksum="md5"):
         session.bundle.event("file_verified", **attempt)
         return data, metadata
     except BaseException as exc:
-        attempt.update(outcome="rejected", error=str(exc))
-        session.bundle.event("file_rejected", **attempt)
+        uncertain = isinstance(exc, UnknownOutcome) or session.state == "uncertain"
+        attempt.update(
+            outcome="unknown" if uncertain else "rejected",
+            error=str(exc) or type(exc).__name__,
+        )
+        session.bundle.event("file_unknown" if uncertain else "file_rejected", **attempt)
         raise

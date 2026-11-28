@@ -12,6 +12,8 @@ class Video:
     def __init__(self, bundle, index):
         self.bundle, self.index = bundle, index
         self.proc = None
+        self.worker = None
+        self.stderr = None
         self._stopped = False
         self.ready = threading.Event()
         self.rows = []
@@ -63,22 +65,37 @@ class Video:
             "signal.signal(signal.SIGTERM,signal.SIG_DFL); os.execvp(sys.argv[1],sys.argv[1:])",
             *self.argv,
         ]
-        self.proc = subprocess.Popen(self.launch_argv, stdout=subprocess.PIPE, stderr=self.stderr)
-        self.bundle.event(
-            "camera_started",
-            pid=self.proc.pid,
-            argv=self.argv,
-            launch_argv=self.launch_argv,
-            child_signal_defaults=["SIGINT", "SIGTERM"],
-        )
-        self.worker = threading.Thread(target=self._progress, daemon=True)
-        self.worker.start()
-        deadline = time.monotonic() + 12
-        while time.monotonic() < deadline:
-            if self.ready.wait(0.05):
-                return
-            if self.proc.poll() is not None:
-                break
+        try:
+            self.proc = subprocess.Popen(
+                self.launch_argv, stdout=subprocess.PIPE, stderr=self.stderr
+            )
+        except BaseException:
+            if self.stderr is not None:
+                self.stderr.close()
+                self.stderr = None
+            raise
+        try:
+            self.bundle.event(
+                "camera_started",
+                pid=self.proc.pid,
+                argv=self.argv,
+                launch_argv=self.launch_argv,
+                child_signal_defaults=["SIGINT", "SIGTERM"],
+            )
+            self.worker = threading.Thread(target=self._progress, daemon=True)
+            self.worker.start()
+            deadline = time.monotonic() + 12
+            while time.monotonic() < deadline:
+                if self.ready.wait(0.05):
+                    return
+                if self.proc.poll() is not None:
+                    break
+        except BaseException:
+            try:
+                self.stop()
+            except Exception:
+                pass
+            raise
         try:
             self.stop()
         except Exception:
@@ -121,11 +138,24 @@ class Video:
                         )
                         self.proc.kill()
                         self.proc.wait(timeout=3)
+        except BaseException:
+            if self.proc.poll() is None:
+                self.stop_requests.append(dict(signal="SIGKILL", monotonic_ns=time.monotonic_ns()))
+                self.proc.kill()
+                try:
+                    self.proc.wait(timeout=3)
+                except Exception:
+                    pass
+            raise
         finally:
-            self.worker.join(timeout=2)
-            if self.proc.stdout:
-                self.proc.stdout.close()
-            self.stderr.close()
+            if self.worker is not None:
+                self.worker.join(timeout=2)
+            try:
+                if self.proc.stdout:
+                    self.proc.stdout.close()
+            finally:
+                if self.stderr is not None:
+                    self.stderr.close()
         self.bundle.save("camera-progress.json", (json.dumps(self.rows, indent=2) + "\n").encode())
         report = dict(
             pid=self.proc.pid,

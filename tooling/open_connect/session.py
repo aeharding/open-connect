@@ -11,6 +11,7 @@ import re
 import secrets
 import shlex
 import stat
+import sys
 import time
 from pathlib import Path
 
@@ -162,6 +163,7 @@ def open_adapter(bundle):
         return port
     except BaseException:
         port.close()
+        bundle.meta["port_closed"] = True
         raise
 
 
@@ -170,17 +172,23 @@ class Bundle:
         self.path = Path(path)
         self.path.mkdir(mode=0o700, parents=True, exist_ok=False)
         self.streams = {}
-        for name in ("rx.bin", "tx.bin", "events.jsonl"):
-            fd = os.open(self.path / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            self.streams[name] = os.fdopen(fd, "wb")
-        self.started = time.monotonic_ns()
-        self.closed = False
-        code = {}
-        for p in sorted(Path(__file__).parent.rglob("*.py")):
-            code[str(p)] = digest(p.read_bytes())
-        cli = Path(__file__).with_name("uart.py")
-        if cli.exists():
-            code[str(cli)] = digest(cli.read_bytes())
+        try:
+            for name in ("rx.bin", "tx.bin", "events.jsonl"):
+                fd = os.open(self.path / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                self.streams[name] = os.fdopen(fd, "wb")
+            self.started = time.monotonic_ns()
+            self.closed = False
+            self._streams_closed = False
+            code = {}
+            for p in sorted(Path(__file__).parent.rglob("*.py")):
+                code[str(p)] = digest(p.read_bytes())
+        except BaseException:
+            for f in self.streams.values():
+                try:
+                    f.close()
+                except Exception:
+                    pass
+            raise
         self.meta = dict(
             schema=1,
             run_id=nonce(),
@@ -188,7 +196,7 @@ class Bundle:
             owner=owner,
             mode=mode,
             started_at=utcnow(),
-            python=os.sys.version,
+            python=sys.version,
             code_sha256=code,
             settings=SETTINGS,
             operations=[],
@@ -226,8 +234,8 @@ class Bundle:
         with os.fdopen(fd, "wb") as f:
             f.write(data)
 
-    def finish(self, outcome, error=None):
-        if self.closed:
+    def finish(self, outcome, error=None, *, force=False):
+        if self.closed and not force:
             return
         self.meta.update(
             outcome=outcome,
@@ -235,20 +243,60 @@ class Bundle:
             ended_at=utcnow(),
             elapsed_ns=time.monotonic_ns() - self.started,
         )
-        self.event("finish", outcome=outcome, error=error)
-        for f in self.streams.values():
-            f.flush()
-            os.fsync(f.fileno())
-            f.close()
+        close_err = None
+        if not self._streams_closed:
+            try:
+                self.event("finish", outcome=outcome, error=error)
+            except BaseException as exc:
+                close_err = exc
+            for f in self.streams.values():
+                if f.closed:
+                    continue
+                try:
+                    f.flush()
+                    os.fsync(f.fileno())
+                except BaseException as exc:
+                    if close_err is None:
+                        close_err = exc
+                finally:
+                    try:
+                        f.close()
+                    except BaseException as exc:
+                        if close_err is None:
+                            close_err = exc
+            self._streams_closed = True
+        if close_err is not None:
+            close_msg = str(close_err) or type(close_err).__name__
+            prior = self.meta.get("error")
+            self.meta["error"] = (
+                (prior + "; " if prior else "") + "bundle close failed: " + close_msg
+            )
         files = {}
         for p in sorted(self.path.iterdir()):
-            if p.is_file():
+            if p.is_file() and p.name not in ("manifest.json", ".manifest.json.tmp"):
                 data = p.read_bytes()
                 files[p.name] = dict(bytes=len(data), sha256=digest(data))
         self.meta["artifacts"] = files
-        self.save(
-            "manifest.json", (json.dumps(self.meta, indent=2, sort_keys=True) + "\n").encode()
-        )
+        tmp = self.path / ".manifest.json.tmp"
+        mfd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            with os.fdopen(mfd, "wb") as mf:
+                mf.write((json.dumps(self.meta, indent=2, sort_keys=True) + "\n").encode())
+                mf.flush()
+                try:
+                    os.fsync(mf.fileno())
+                except OSError as exc:
+                    if close_err is None:
+                        close_err = exc
+            os.replace(tmp, self.path / "manifest.json")
+        except BaseException:
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+            raise
+        if close_err is not None:
+            raise close_err
         self.closed = True
 
 
@@ -462,9 +510,9 @@ class Session:
                     write_calls=calls,
                     acknowledged_total=sent,
                 )
-                if time.monotonic() >= deadline:
-                    raise TimeoutError("operation deadline during TX")
                 if sent < len(data):
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("operation deadline during TX")
                     started = time.monotonic()
                     gap_end = started + TX_GAP_SECONDS
                     rx_before = len(received)
@@ -509,7 +557,7 @@ class Session:
         received = bytearray()
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
-            self._read(received)
+            self._read(received, until=deadline)
         observed = prompt_state(bytes(received))
         if self.state != "uncertain":
             self.state = observed
@@ -523,18 +571,21 @@ class Session:
         # Inspect fresh available RX before considering an explicitly requested CR.
         passive_deadline = time.monotonic() + min(0.2, self.timeout / 4)
         while time.monotonic() < passive_deadline:
-            self._read(received)
+            self._read(received, until=passive_deadline)
         self.state = prompt_state(bytes(received))
         if self.state in ("login", "password", "continuation"):
             raise BenchError("unexpected " + self.state + "; no probe or automatic recovery")
-        probe_attempted = solicit and self.state != "shell"
+        if self.state == "shell":
+            self.bundle.event("state", state="shell", identity_verified=False)
+            return
+        probe_attempted = solicit
         deadline = time.monotonic() + self.timeout
         try:
             if probe_attempted:
                 # Caller explicitly asserts a known idle shell; never an automatic probe.
                 self._send(b"\r", deadline=deadline, received=received)
             while time.monotonic() < deadline:
-                self._read(received)
+                self._read(received, until=deadline)
                 self.state = prompt_state(bytes(received))
                 if self.state in ("login", "password", "continuation"):
                     raise BenchError("unexpected " + self.state + "; no automatic login/recovery")
@@ -553,6 +604,7 @@ class Session:
         if not identity_probe and self.identity is None:
             raise BenchError("fresh root/firmware identity required before task command")
         token = nonce()
+        wire = wrap_command(command, token)
         operation = dict(
             nonce=token,
             command=command,
@@ -564,7 +616,6 @@ class Session:
         )
         self.bundle.meta["operations"].append(operation)
         self.bundle.save(token + ".command.txt", command.encode())
-        wire = wrap_command(command, token)
         self.bundle.save(token + ".wire.bin", wire)
         decoder = CommandDecoder(token)
         received = bytearray()

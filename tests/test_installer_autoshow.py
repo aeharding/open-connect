@@ -42,9 +42,10 @@ class PageBudgets(unittest.TestCase):
             "runtime.js": 16384,
             "maintenance.js": 20480,
             "dialog.js": 8192,
-            "preferences.awk": 8192,
+            "preferences.awk": 4096,
             "loader.js": 4096,
             "service.sh": 16384,
+            "wireless.sh": 8192,
         }
         for name, cap in caps.items():
             with self.subTest(name=name):
@@ -87,9 +88,10 @@ class ArchivedMaintenance(unittest.TestCase):
 
             old = write(CI17)
             self.assertEqual(old.returncode, 0, old.stderr)
-            upgraded = write(ASSETS, old.stdout)
-            self.assertEqual(upgraded.returncode, 0, upgraded.stderr)
-            self.assertIn(b"carplay-autoshow=0\n", upgraded.stdout)
-            refused = write(CI17, upgraded.stdout)
-            self.assertNotEqual(refused.returncode, 0)
-            self.assertEqual(refused.stdout, b"")
+            refused_new = write(ASSETS, old.stdout)
+            self.assertNotEqual(refused_new.returncode, 0)
+            self.assertEqual(refused_new.stdout, b"")
+            upgraded = old.stdout.replace(b"base=0\n", b"base=0\ncarplay-autoshow=0\n", 1)
+            refused_old = write(CI17, upgraded)
+            self.assertNotEqual(refused_old.returncode, 0)
+            self.assertEqual(refused_old.stdout, b"")

@@ -263,7 +263,7 @@ and missing/late animation events; they do not establish native timing or RAM.
 Packaging refuses page-budget overflow (enforced in `tooling/package-usb.sh`):
 `dialog.js` 8,192 B, `runtime.js` 16,384 B, `maintenance.js` 20,480 B,
 `settings.js` 28,672 B, `carplay.js` 4,096 B, `loader.js` 4,096 B,
-`service.sh` 16,384 B, `preferences.awk` 8,192 B, `touch-disable.so` 4,096 B,
+`service.sh` 16,384 B, `wireless.sh` 8,192 B, `preferences.awk` 4,096 B, `touch-disable.so` 4,096 B,
 `flush` 4,096 B, `ignition` 4,096 B, `boot-select` 36,864 B, `api` 81,920 B,
 and `install` 81,920 B. These are per-file bounds,
 not proof of unchanged Opera memory or timings. The

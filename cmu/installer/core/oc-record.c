@@ -59,3 +59,31 @@ int oc_record_file(OcBoot *b, const char *expected_before, const char *expected_
         return oc_equal(f[1],"set")&&oc_equal(f[5],expected_before)&&oc_equal(f[6],expected_before)&&oc_equal(f[7],expected_after);
     return oc_equal(f[1],"active")&&oc_equal(f[6],"-")&&oc_equal(f[7],"-")&&(!expected_before||oc_equal(f[5],expected_before));
 }
+
+int oc_read_boot_id(int ram, long owner, long group, char out[37]) {
+    return oc_readlink_owned(ram,"boot-id",owner,group,out,37)==36 && oc_uuid(out);
+}
+
+int oc_boot_id_ensure(int root, int ram, char *const rec[13], long owner, long group, char out[37]) {
+    if (oc_absent_at(ram,"boot-id")) {
+        char kboot[40], dig[65];
+        if (oc_text(root,"proc/sys/kernel/random/boot_id",kboot,sizeof kboot,1)<0 ||
+            !oc_one_line(kboot) || !oc_uuid(kboot)) return 0;
+        OcHash h; oc_hash_init(&h);
+        const char *parts[5]={"OCBOOT1",kboot,rec[2],rec[11],rec[10]};
+        for (unsigned i=0; i<5; ++i) {
+            oc_hash_add(&h,parts[i],oc_length(parts[i]));
+            oc_hash_add(&h,i==4?"\n":"|",1);
+        }
+        oc_hash_finish(&h,dig);
+        unsigned at=0;
+        for (unsigned i=0; i<36; ++i) out[i]=(i==8||i==13||i==18||i==23)?'-':dig[at++];
+        out[36]=0;
+        for (unsigned i=0; i<16; ++i) {
+            if (!oc_equal(out,rec[11]) && !oc_equal(out,rec[10])) break;
+            out[0]="0123456789abcdef"[i];
+        }
+        if (oc_symlink(out,ram,"boot-id")<0) return 0;
+    }
+    return oc_read_boot_id(ram,owner,group,out);
+}

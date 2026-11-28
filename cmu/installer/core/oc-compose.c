@@ -548,6 +548,18 @@ static int oc_try_reuse_composed(int data_fd, const char *root_path,
     return 1;
 }
 
+static int oc_open_verified_vui(int root) {
+    long vdir=oc_beneath(root,"jci/vui",OC_DIRECTORY,0);
+    const char *vso_pin=oc_pin_digest(oc_base_pins[3].key,oc_base_pins[3].digest);
+    const char *vxml_pin=oc_pin_digest(oc_base_pins[4].key,oc_base_pins[4].digest);
+    if (vdir>=0 && oc_verify_file_sha((int)vdir,"svcjcivui.so",vso_pin,33554432) &&
+        oc_verify_file_sha((int)vdir,"vui_config.xml",vxml_pin,262144))
+        return (int)vdir;
+    if (vdir>=0) (void)oc_close((int)vdir);
+    oc_diag_set("compose","/jci/vui","vui_inputs_changed",0,0);
+    return -1;
+}
+
 static int oc_compose_pkg_from(int root, int data_fd, const char *root_path, const char *pkg_id,
                                const char *old_pkg, const char *old_snap, const char **err_out) {
     if (!oc_hex(pkg_id,64) || !oc_originals_verify(data_fd)) return cerr(err_out,"compose_inputs_invalid");
@@ -579,16 +591,10 @@ static int oc_compose_pkg_from(int root, int data_fd, const char *root_path, con
     if (wfd<0 || orig<0) { ferr="compose_create_failed"; goto out; }
 
     /* Always verify live OEM /jci/vui inputs before composing or reusing composed outputs. */
-    vdir=oc_beneath(root,"jci/vui",OC_DIRECTORY,0);
-    const char *vso_pin=oc_pin_digest(oc_base_pins[3].key,oc_base_pins[3].digest);
-    const char *vxml_pin=oc_pin_digest(oc_base_pins[4].key,oc_base_pins[4].digest);
+    vdir=oc_open_verified_vui(root);
     const char *vout_pin=oc_pin_digest("composed/vui.so",
         "6cc31cd92167624093f95924a15a27536aec2e40cecc170b47cce72d703ba18f");
-    if (vdir<0 || !oc_verify_file_sha((int)vdir,"svcjcivui.so",vso_pin,33554432) ||
-        !oc_verify_file_sha((int)vdir,"vui_config.xml",vxml_pin,262144)) {
-        oc_diag_set("compose","/jci/vui","vui_inputs_changed",0,0);
-        ferr="vui_inputs_changed"; goto out;
-    }
+    if (vdir<0) { ferr="vui_inputs_changed"; goto out; }
 
     OcManifest reused_mf;
     int reused=oc_try_reuse_composed(data_fd,root_path,wleaf,wfd,&pmf,
@@ -955,17 +961,12 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
     }
     /* Verify live OEM /jci/vui inputs BEFORE mutating packages/ or hardlinking old_pkg. */
     {
-        long vdir=oc_beneath(root,"jci/vui",OC_DIRECTORY,0);
-        const char *vso_pin=oc_pin_digest(oc_base_pins[3].key,oc_base_pins[3].digest);
-        const char *vxml_pin=oc_pin_digest(oc_base_pins[4].key,oc_base_pins[4].digest);
-        int vok=vdir>=0 && oc_verify_file_sha((int)vdir,"svcjcivui.so",vso_pin,33554432) &&
-            oc_verify_file_sha((int)vdir,"vui_config.xml",vxml_pin,262144);
-        if (vdir>=0) (void)oc_close((int)vdir);
-        if (!vok) {
+        int vdir=oc_open_verified_vui(root);
+        if (vdir<0) {
             if (data_fd>=0) (void)oc_close(data_fd);
-            oc_diag_set("compose","/jci/vui","vui_inputs_changed",0,0);
             return cerr(err_out,"vui_inputs_changed");
         }
+        (void)oc_close(vdir);
     }
 
     /* Pre-validate optional fresh-install USB open-connect.prefs BEFORE touching flash. */
@@ -1033,20 +1034,14 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
     /* 2. initial_begin: stage fresh state in hidden sibling directory until initial_publish. */
     int parent_fd=-1;
     char dbase[320], parent_abs[320], dleaf[128], init_leaf[64];
+    const char *dleaf_p=0;
     init_leaf[0]=0;
-    if (!oc_data_base(root_path,dbase,sizeof dbase)) {
+    if (!oc_data_base(root_path,dbase,sizeof dbase) ||
+        !oc_split_parent_leaf(dbase,parent_abs,sizeof parent_abs,&dleaf_p) ||
+        !oc_join(dleaf,sizeof dleaf,"",dleaf_p)) {
         if (data_fd>=0) (void)oc_close(data_fd);
         return cerr(err_out,"state_create_failed");
     }
-    unsigned dlen=oc_length(dbase), sl=0;
-    for (unsigned i=0; i<dlen; ++i) if (dbase[i]=='/') sl=i;
-    if (!sl || sl+1>=dlen || dlen-sl-1>=sizeof dleaf) {
-        if (data_fd>=0) (void)oc_close(data_fd);
-        return cerr(err_out,"state_create_failed");
-    }
-    for (unsigned i=0; i<sl; ++i) parent_abs[i]=dbase[i];
-    parent_abs[sl]=0;
-    (void)oc_join(dleaf,sizeof dleaf,"",dbase+sl+1);
     parent_fd=(int)oc_openat(OC_CWD,parent_abs,OC_DIRECTORY,0);
     if (parent_fd<0) {
         if (data_fd>=0) (void)oc_close(data_fd);

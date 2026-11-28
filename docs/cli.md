@@ -136,9 +136,17 @@ Receive is read-only and never solicits a prompt.
 
 Exit 0 means the reported operation completed—including a dry run or local build,
 which does not prove device state. For any nonzero exit, read `outcome` and the
-saved bundle: `refused` with `device_operations=false` means nothing was launched;
-`incomplete_preserved` means device work may have happened. UART exit 2 means
-uncertain execution. Never infer “nothing changed” from an error or blindly retry.
+saved bundle:
+
+- `oc uart` and `oc bench setup`/`status`/`teardown` report `failed` (exit 1)
+  when an operation fails before uncertain device execution, or `unknown`
+  (exit 2) when UART execution or port/lock cleanup is uncertain; `oc uart`
+  also reports `remote_nonzero` (exit 3) when a framed remote command returns a
+  nonzero status.
+- `oc bench sample` reports `incomplete_preserved` (exit 1) when SSH sampling
+  fails, is interrupted, or returns an incomplete trace while retaining raw output.
+
+Never infer “nothing changed” from an error or blindly retry.
 
 For active bench setup, require outcome=verified and bench_profile.active=true.
 A verified status may correctly report inactive or expired ownership.

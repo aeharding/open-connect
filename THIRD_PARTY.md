@@ -22,6 +22,23 @@ its received SHA-256 and was reviewed for personal data, credentials and
 diagnostic overlays. The separately authored `cmu-frame.svg` is a decorative
 bezel displayed around the captures by the website; it is not part of the screen.
 
+### Touchscreen captures 2026-11-26
+
+`setting-touchscreen.png` and `touchscreen-choices.png` are unedited native
+**800×480** `/dev/fb0` BGRA Commander-highlighted captures from PR #205, source
+`ba4e6ee6`, [CI 45881169287](https://github.com/aeharding/open-connect/actions/runs/45881169287),
+merged as `8094911b` (package reported `VERSION=0.3.0-dev.23`). Both complete
+images were visually reviewed for zero PII, VIN/unit serials, phone names,
+credentials or diagnostic overlays.
+
+| Asset | SHA-256 |
+| --- | --- |
+| `setting-touchscreen.png` | `747f9c6123c3071d445a936f20f368d90ff4d0f32e72508c94d9f9684faf8f29` |
+| `touchscreen-choices.png` | `31212b0fa8024a21d3b374cfe214825da5c2a47964dc0587fdba25c9ad0f65e2` |
+
+Exact private source paths and qualification limits are in the
+[guide asset notes](docs/assets/guide/README.md#touchscreen-pr-205-captures-2026-11-26).
+
 ### Refreshed Audio sources captures 2026-11-25
 
 `setting-pandora.png` and `setting-siriusxm.png` are unedited native **800×480**

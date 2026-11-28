@@ -19,9 +19,10 @@ host checks. Qualify that CI artifact on the bench before publishing.
 
 Dev.21 reproduced the post-install Settings failure in [#157](https://github.com/aeharding/open-connect/issues/157).
 The published dev.22 bundle passed the affected bench checks for USB teardown,
-retained first taps and native Back initialization. Dev.23 separates installed
-Settings from the transient maintenance popup; its own CI artifact and affected
-native checks remain pending. Earlier evidence does not qualify this new path.
+retained first taps and native Back initialization. Dev.23 separated installed
+Settings from the transient maintenance popup; current `cmu/installer/VERSION`
+is `0.3.0-dev.27` (bench-qualified development prerelease, with real-car checks
+still pending). Earlier evidence does not qualify newer builds.
 
 Build scripts copy authored files and compile native assets; OEM files are read
 and composed privately on the CMU. The installer and its backend run on the CMU;
@@ -47,17 +48,16 @@ retains the measured CI candidate and its complete maintenance checks. The earli
 optimization and original artifact identity. Deferred physical-input/audio and
 matching-car checks still prevent a qualified v74 release.
 
-The dev.9 candidate adds a native settled-boot selector and stages Settings after
-Service Manager starts. Its [implementation and restoration contract](https://github.com/aeharding/open-connect/blob/main/cmu/README.md#standalone-installer)
-describe the root helper, sealed snapshot, full-verifier fallback and metadata
-limits. Earlier dev.8 lifecycle and timing evidence does not qualify this new
-path. The [dev.9 pilot and restoration result](startup-overhead.md#native-selector-pilot-dev9)
+Dev.9 introduced the native settled-boot selector and staged Settings after
+Service Manager starts. The [implementation and restoration contract](https://github.com/aeharding/open-connect/blob/main/cmu/README.md#standalone-installer)
+describes the root helper, sealed snapshot, full-verifier fallback and metadata
+limits. The historical [dev.9 pilot and restoration result](startup-overhead.md#native-selector-pilot-dev9)
 records the exact CI bundle, installed completion/Settings checks, one passive
 startup and compatible dev.9 Uninstall into a fresh as-found stock kernel.
 All 20 pinned originals and the saved access/NVRAM state matched, with the root
 helper and product state removed. There is no unpublished dev.8 downgrade bridge.
 Repeated gains, stock parity and the deferred physical-input/audio/car checks
-remain unqualified.
+remained unqualified in that pilot.
 
 ## Private firmware checks
 
@@ -189,9 +189,9 @@ readiness from offline JS replay.
 The maintenance client uses Mazda's buttonless `Dialog3Ctrl` style27 with the
 stock indeterminate APNG. A full-screen shield acquires local mouse/commander
 input before a write. The view yields to native transitions and both VUI overlays;
-operation ownership continues while it is suspended. A queued Settings preference
-claims ownership before its existing 250 ms debounce. The exclusion is also
-honored by unmodified dev.14–16 USB loaders.
+operation ownership continues while it is suspended. Queued Settings preference
+selections claim ownership and flush immediately (zero debounce in `settings.js`).
+The exclusion is also honored by unmodified dev.14–16 USB loaders.
 
 Install, Update and Reinstall show the verified version relationship. Accepted
 installation/removal requests restart once; lost acknowledgements reconcile
@@ -199,16 +199,17 @@ within one twelve-second budget and never replay the mutation. An unchanged
 same-version status is not reinstall proof. Unknown outcomes remain guarded
 until restart. Settings uninstall has no USB-specific warning.
 
-The additive read-only `completionReady` status field requires settled,
-conflict-free installed state, the installed notice, no restart requirement,
-`selected == current`, and the recorded boot identity matching the current boot.
-The volatile identity takes precedence over the kernel UUID; only absence of
-the marker permits legacy kernel-UUID proof. A malformed marker fails closed.
-One checked identity read admits the audit and supplies its final proof;
-`completionReady` also requires that the full audit actually passed.
-The client additionally matches the boot page's token/version/notice to fresh
-installed-version evidence, including when maintenance USB remains inserted.
-Normal notice-free startup adds no status request.
+The additive read-only `completionReady` status field is returned as `true` only
+by `status|completion|-|-` (`oc_handle_completion` in `cmu/installer/core/oc-api.c`);
+`status|settings|-|-` and default `status|-|-|-` always return `completionReady: false`.
+`status|completion` requires settled, conflict-free installed state, the installed
+notice, no restart requirement, `selected == current`, and the volatile
+`/tmp/open-connect/boot-id` symlink matching the recorded boot identity (a missing
+or malformed marker fails closed, with no kernel-UUID fallback). It skips re-hashing
+`GuiFramework.js` and `lvds_service` (which stay audited by default `status|-|-|-`
+and every mutation). The client additionally matches the boot page's
+token/version/notice to fresh installed-version evidence, including when
+maintenance USB remains inserted. Normal notice-free startup adds no status request.
 
 ### Settings follow-up (offline)
 
@@ -218,8 +219,9 @@ Concurrent cold-entry taps share their in-flight request.
 This read verifies snapshot/catalog integrity and installed-version evidence;
 its `conflict: false` does not establish unchanged OEM flash. Default
 `status|-|-|-` remains the full USB/reconciliation audit, and every feature
-mutation retains its strict checks. Any response that could authorize
-`completionReady` also performs the full audit. Status reuses each distinct
+mutation retains its strict checks. `status|completion|-|-` gates the post-install
+completion dialog separately with the volatile boot-id and settled-state checks above.
+Status reuses each distinct
 current/selected/access-selected snapshot decode within its held lock. Selection
 markers must be exactly one 64-digit lowercase hex line plus its newline to be
 reused. Failed readback invalidates the client cache. Older listeners that reject the new
@@ -334,33 +336,26 @@ The native selector validates choices against this list in the already
 authenticated config, avoiding a separate catalog read before Service Manager.
 The existing OCBP1 package row still guards the catalog metadata.
 
-On the supported NA baseline, Audio sources contains Pandora and SiriusXM.
-Startup optimizations controls `jcidvd` alongside the Aha/Stitcher/DAB/TV leaves:
-Off retains stock DVD autorun and native loading; On disables autorun, hides DVD
-and omits its MMUI/voice modules. The regional/hardware findings are recorded in
+On the supported NA baseline, Audio sources contains **Source order**, **Pandora**
+and **SiriusXM**. Startup optimizations controls `jcidvd` alongside the
+Aha/Stitcher/DAB/TV leaves: Off retains stock DVD autorun and native loading;
+On disables autorun, hides DVD and omits its MMUI/voice modules. The
+regional/hardware findings are recorded in
 [DVD gating](reverse-engineering.md#dvd-hardware-and-regional-gating-offline-v74-na-analysis).
 
-Upgrade reads dev.15-dev.20 OC2 snapshots with their authenticated package's
-interpreter/catalog. The new writer alone accepts the retired `service.dvd=0`
-or `1` plus the old sorted `service-ids` list, validates them, then drops DVD
-from the new snapshot. `base` and all remaining choices are preserved. New
-decodes, commands and profiles require the reduced catalog; there is no DVD
-toggle. The native selector already admits either authenticated key list.
-Before/after snapshots keep their own readers during pending recovery, and
-original baselines remain unchanged. A downgrade to the dev.19/dev.20 writer
-reintroduces its DVD default of Off; it does not recover the discarded choice.
-Dedicated host fixtures cover those installs, interrupted recovery, target-owned
-downgrade and Uninstall; they do not establish a live upgrade qualification.
+Upgrade reads prior `OC2` snapshots natively in C (`oc_prefs_parse` in
+`cmu/installer/core/oc-compose.c` / `oc-config.c`). During migration from
+dev.15–dev.20 snapshots, the parser accepts the retired `service.dvd=0` or `1`
+entry and older sorted `service-ids` list, validates them, and drops DVD from
+the newly written snapshot while preserving `base` and all remaining choices.
+New decodes, commands and profiles require the reduced catalog; there is no DVD
+toggle. Original baselines remain unchanged.
 
-Maintenance supports the actual dev.9 predecessor: its stock baseline and
-Uninstall output have five fields with package `-`; its active policy has eight.
-A newer client executes the verified target package's serializer and renderer for
-Set/import/recovery. Upgrade first emits `OC2` in its after-snapshot, retaining
-the original baseline and access/selector journals. Older five-, six- and
-seven-field active installs and arbitrary downgrades are outside this scope.
-The frozen original dev.9 test inputs exercise that handoff without requiring
-Git history at test time. Native selection tests use its actual stock writer and
-check a single durable debit, rather than treating plan validation as selection.
+The stock 5-field baseline (`package=-`, emitted on fresh install and uninstall)
+remains admitted; active 8-field dev.9 records and older 5–7-field active
+installs were retired and are refused by `oc-config.c` (`OC2` required). Native
+selection tests check a single durable debit rather than treating plan
+validation as selection.
 
 ## Qualification
 

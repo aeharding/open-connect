@@ -1,6 +1,6 @@
 # Services
 
-The former Services controls now have individual pages. Start with [Settings](settings.md) for all fresh-install defaults and restart guidance. The [Pandora](pandora.md) and [SiriusXM](siriusxm.md) screenshots show the current Audio sources menu (no DVD row); earlier retained dev.19 screenshots and dev.20 walkthroughs predate that change.
+The former Services controls now have individual pages. Start with [Settings](settings.md) for all fresh-install defaults and restart guidance. The [Pandora](pandora.md) and [SiriusXM](siriusxm.md) screenshots show the earlier Audio sources menu without a DVD row (predating [Source order](source-order.md) in **0.3.0-dev.27**); earlier retained dev.19 screenshots and dev.20 walkthroughs predate both changes.
 
 <span id="base-optimizations"></span>
 

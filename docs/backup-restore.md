@@ -25,7 +25,7 @@ Export your Open Connect preferences to a plain-text file on a USB drive, restor
 
 <p>Preferences are stored in a plain-text file named <code>open-connect.prefs</code> at the root of a single FAT32 USB drive. Insert only one USB drive while exporting or importing.</p>
 
-<p>For safety, <code>open-connect.prefs</code> only includes normal Open Connect feature toggles — it never exports or imports Developer options (UART, SSH, or SSH public keys). Choices imported in Settings apply on the <strong>next full Mazda Connect startup</strong> (use <a href="apply-changes.md">Apply changes</a> to restart right away). Verified on live v74 bench hardware in <strong>0.3.0-dev.27</strong> (<strong>74.00.324A NA</strong>); real-car qualification remains pending.</p>
+<p>For safety, <code>open-connect.prefs</code> only includes normal Open Connect feature toggles — it never exports or imports Developer options (UART, SSH, or SSH public keys). Choices imported in Settings apply on the <strong>next full Mazda Connect startup</strong> (use <a href="apply-changes.md">Apply changes</a> to restart right away). Settings export and import were verified on live v74 bench hardware for <strong>0.3.0-dev.27</strong> (<strong>74.00.324A NA</strong>); fresh-install preset loading relies on offline host tests, and real-car qualification remains pending.</p>
 
 ## Export preferences
 
@@ -56,7 +56,7 @@ Open Connect validates `open-connect.prefs` before changing system storage and a
 
 ## File format (`OCPREFS1`)
 
-`open-connect.prefs` is plain text (up to 1023 bytes). Blank lines and `#` comments are allowed; keys not listed below or invalid values cause import or fresh install to refuse the file without making changes.
+`open-connect.prefs` is plain text (up to 1023 bytes). Line 1 must be `OCPREFS1`, and the file must contain at least one `key=value` line. Blank lines and `#` comments are allowed; duplicate keys, keys not listed below, or invalid values cause import or fresh install to refuse the file without making changes.
 
 ```ini
 OCPREFS1
@@ -88,6 +88,6 @@ wireless=0
 | `warning` | `0`, `1` | [Startup disclaimer](disclaimer.md) (`0` Show, `1` Skip) |
 | `wireless` | `0`, `1` | [Wireless CarPlay](wireless-carplay.md) (`0` Off, `1` On; refused if factory wireless is enabled) |
 
-Any omitted key keeps its default value on a fresh install or its current saved value during **Import preferences**.
+Any omitted key (as long as at least one valid `key=value` entry is present) keeps its default value on a fresh install or its current saved value during **Import preferences**.
 
 [Back to Settings](settings.md)

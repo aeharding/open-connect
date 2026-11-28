@@ -62,7 +62,7 @@ remain unqualified.
 ## Private firmware checks
 
 The optional checker builds the same public bundle, composes it with exact
-originals using the maintained shell, and validates the result on the host:
+originals using the maintained native installer, and validates the result on the host:
 
 ~~~sh
 .venv/bin/python tests/check_firmware.py --firmware /private/firmware74 \
@@ -70,8 +70,9 @@ originals using the maintained shell, and validates the result on the host:
 ~~~
 
 The input is a private filesystem-shaped tree containing the original paths
-listed by firmware_dependencies and base_ui_files in cmu/installer/firmware.sh,
-plus GuiFramework.js and lvds_service. No credentials are needed. Unknown hashes and public output
+pinned by `oc_root_paths`, `oc_orig_autostart_digest`, and `oc_base_pins` in
+`cmu/installer/core/oc-guard.c`, plus the `vui` plugin rows in
+`cmu/installer/ui-modules.tsv`. No credentials are needed. Unknown hashes and public output
 paths are refused before building; OEM-containing outputs stay under ignored runs/.
 Use a fresh output directory for each run so failures and source snapshots remain.
 
@@ -253,8 +254,12 @@ Animation ownership is local to the elements; framework context, focus and nativ
 transition ownership stay intact. Offline fixtures cover interrupted transitions
 and missing/late animation events; they do not establish native timing or RAM.
 
-Packaging refuses page-budget overflow: dialog 8,192 B, runtime 16,384 B,
-Settings 28,672 B, loader 4,096 B and backend 20,480 B. These are per-file bounds,
+Packaging refuses page-budget overflow (enforced in `tooling/package-usb.sh`):
+`dialog.js` 8,192 B, `runtime.js` 16,384 B, `maintenance.js` 20,480 B,
+`settings.js` 28,672 B, `carplay.js` 4,096 B, `loader.js` 4,096 B,
+`service.sh` 16,384 B, `preferences.awk` 8,192 B, `touch-disable.so` 4,096 B,
+`flush` 4,096 B, `ignition` 4,096 B, `boot-select` 36,864 B, `api` 81,920 B,
+and `install` 81,920 B. These are per-file bounds,
 not proof of unchanged Opera memory or timings. The
 [dev.17 maintenance UI record](maintenance-loading.md) separates native 800×480
 captures, spinner/input checks, lifecycle observations and nearby timing/RAM
@@ -280,9 +285,9 @@ The VUI service hardcodes its configuration path. A size- and SHA-guarded
 24-byte data replacement redirects that string to `/tmp/open-connect/v.xml`.
 Its 95,537-byte ELF is copied once to private tmpfs, with a same-inode hold;
 retained plugin libraries and XML files are symlinks to unchanged stock files.
-Native selection and verified shell recovery consume the same sealed outputs.
-The shell's opened-file copy helper binds staging to the snapshot selected after
-reconciliation. The existing read-only `check` command remains read-only.
+Native selection and slow-path recovery (`install --boot-recover`, which
+replaced the earlier shell recovery path) consume the same sealed outputs.
+The existing read-only `check` command remains read-only.
 
 Compatible dev.15 media can remove dev.16 or reinstall dev.15 from preserved
 stock originals with the same OC2 choices. There is no dev.15 version-based
@@ -299,10 +304,13 @@ demand-start policy are preserved. The [dev.16 bench record](sparse-native-loadi
 reports measured Nav service readiness, own RAM, native mappings and OEM interactions separately from
 voice/audio or licensed guidance qualification. Host checks alone establish none
 of those device outcomes.
-The installed Settings session copies sixteen files, excluding the SM composer;
-active writes execute the verified persistent target package's writer/renderer.
-USB maintenance keeps the complete package. This avoids carrying render-time
-code in RAM solely to serve Settings status and commands.
+The installed Settings boot session stages eight package files (`service.sh`,
+`console.sh`, `VERSION`, `api`, `flush`, `runtime.js`, `dialog.js`, `settings.js`,
+plus `files.sha256`), sharing already-staged RAM assets by hardlink; the native
+`api` binary handles status and settings writes directly from RAM while
+`install` runs cold USB installs and slow-path `--boot-recover`.
+USB maintenance keeps the complete package. This avoids carrying install-time
+assets in RAM solely to serve Settings status and commands.
 
 
 The dev.10 payload stores active preferences as bounded, sorted `OC2` key/value

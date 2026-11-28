@@ -5,17 +5,20 @@ without a CMU or private firmware files.
 
 ## Install and test
 
-Use Python 3.13, matching Linux CI, and Clang for the host C checks:
+Use Python 3.13, matching Linux CI, Clang for the host C checks, and Node.js
+for the ES5/UI fixtures:
 
 ~~~sh
 git clone https://github.com/aeharding/open-connect.git
 cd open-connect
 python3 -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
+npm ci --ignore-scripts
 .venv/bin/oc --help
 .venv/bin/oc bench setup
 .venv/bin/ruff check tooling tests
 .venv/bin/ruff format --check tooling tests
+make check-ui
 .venv/bin/python tests/run_offline.py
 ~~~
 

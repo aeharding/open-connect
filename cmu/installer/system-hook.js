@@ -70,7 +70,7 @@ var cw=C.prototype._handleMCCW,ccw=C.prototype._handleMCCCW;
 if(typeof cw!=="function"||typeof ccw!=="function")return;
 C.prototype._ocListLoop=true;
 function step(ctrl,dir,orig,args){
-var dl=ctrl.dataList,n,cur,j,t;
+var dl=ctrl.dataList,n,cur,j,t,it;
 if(!ctrl._inLetterIndexMulticontroller&&!ctrl._inListReorder&&
 ctrl._hasFocus&&ctrl._inputMode==="controller"&&
 ctrl.hasDataList&&ctrl.hasDataList()&&
@@ -79,11 +79,13 @@ dl&&dl.itemCountKnown&&dl.items&&(n=dl.itemCount)>1&&dl.items.length>=n){
 cur=ctrl._getFocussedIndex();
 if(typeof cur==="number"&&cur>=0&&cur<n){
 for(j=cur+dir;j>=0&&j<n;j+=dir){
-if(!dl.items[j]||!dl.items[j].disabled)return orig.apply(ctrl,args);
+it=dl.items[j];
+if(!it||it.itemStyle==="empty"||!it.disabled)return orig.apply(ctrl,args);
 }
 for(t=dir>0?0:n-1;t!==cur;t+=dir){
-if(!dl.items[t])return orig.apply(ctrl,args);
-if(!dl.items[t].disabled){ctrl._showFocus(t);return "consumed";}
+it=dl.items[t];
+if(!it||it.itemStyle==="empty")return orig.apply(ctrl,args);
+if(!it.disabled){ctrl._showFocus(t);return "consumed";}
 }
 }
 }

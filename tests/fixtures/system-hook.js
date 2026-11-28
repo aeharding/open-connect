@@ -247,6 +247,20 @@ for (const skip of [0, 1]) {
     list._focused = 1; list._handleMCCW(); assert.equal(popCall(), JSON.stringify(["stockCW"]));
     list.dataList = {itemCountKnown: true, itemCount: 2, items: [undefined, {disabled: false}]};
     list._focused = 1; list._handleMCCW(); assert.equal(popCall(), JSON.stringify(["stockCW"]));
+    // Lazy-loaded List2Ctrl placeholder slots ({itemStyle: "empty"}) must fall through to stock.
+    list.dataList = {
+        itemCountKnown: true,
+        itemCount: 3,
+        items: [{disabled: false}, {disabled: false}, {itemStyle: "empty"}]
+    };
+    list._focused = 0; list._handleMCCCW(); assert.equal(popCall(), JSON.stringify(["stockCCW"]));
+    list._focused = 1; list._handleMCCW(); assert.equal(popCall(), JSON.stringify(["stockCW"]));
+    list.dataList = {
+        itemCountKnown: true,
+        itemCount: 3,
+        items: [{itemStyle: "empty"}, {disabled: false}, {disabled: false}]
+    };
+    list._focused = 2; list._handleMCCW(); assert.equal(popCall(), JSON.stringify(["stockCW"]));
 
     // Both menuLoop=1 and holdScroll=1 active together.
     const tBoth = fixture(1, "pandora", 1, 1, 1);

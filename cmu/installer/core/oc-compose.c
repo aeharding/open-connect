@@ -218,12 +218,13 @@ static int oc_copy_exact_bytes(int sfd, int dfd, unsigned count) {
 }
 
 static int oc_patch_blob_at(int out_fd, unsigned out_size, int pkg_fd, const char *blob_name,
-                            unsigned offset, unsigned exact_len) {
+                            unsigned offset, unsigned exact_len, unsigned max_len) {
     long bfd=oc_openat(pkg_fd,blob_name,OC_READ,0);
     if (bfd<0) return 0;
     OcMeta bm={0};
+    unsigned cap=(max_len && max_len<sizeof cm.io) ? max_len : (unsigned)sizeof cm.io;
     int ok=oc_stat((int)bfd,&bm)>=0 && (bm.mode&OC_TYPE)==OC_REGULAR &&
-        bm.size>0 && bm.size<=sizeof cm.io &&
+        bm.size>0 && bm.size<=cap &&
         (!exact_len || bm.size==exact_len) &&
         (oc_u64)offset+bm.size<=(oc_u64)out_size;
     unsigned got=0;
@@ -255,9 +256,9 @@ static int oc_compose_uia(int pkg_fd, int orig_fd, int work_fd) {
         ok=oc_write_all((int)ofd,cm.io,gap_n) && oc_copy_exact_bytes((int)sfd,(int)ofd,tail_n);
     }
     if (oc_close((int)sfd)<0) ok=0;
-    if (ok) ok=oc_patch_blob_at((int)ofd,out_total,pkg_fd,"native.bin",456604u,0) &&
-        oc_patch_blob_at((int)ofd,out_total,pkg_fd,"branch.bin",49076u,0) &&
-        oc_patch_blob_at((int)ofd,out_total,pkg_fd,"sizes.bin",68u,0);
+    if (ok) ok=oc_patch_blob_at((int)ofd,out_total,pkg_fd,"native.bin",456604u,0,2148u) &&
+        oc_patch_blob_at((int)ofd,out_total,pkg_fd,"branch.bin",49076u,4u,0) &&
+        oc_patch_blob_at((int)ofd,out_total,pkg_fd,"sizes.bin",68u,8u,0);
     if (ok) {
         long lbfd=oc_openat(pkg_fd,"layout.bin",OC_READ,0);
         OcMeta lbm={0}; unsigned lb_len=0;
@@ -311,12 +312,12 @@ static int oc_compose_mmui(int pkg_fd, int orig_fd, int work_fd) {
     if (ofd<0) { (void)oc_close((int)sfd); return 0; }
     int ok=oc_copy_exact_bytes((int)sfd,(int)ofd,(unsigned)sm.size);
     if (oc_close((int)sfd)<0) ok=0;
-    static const struct { const char *name; unsigned off; } patches[6]={
-        {"mmui-path.bin",15812u},{"mmui-sizes.bin",68u},{"mmui-length.bin",7112u},
-        {"mmui-count-pointer.bin",7368u},{"mmui-length.bin",10688u},{"mmui-pointer.bin",12540u}
+    static const struct { const char *name; unsigned off; unsigned len; } patches[6]={
+        {"mmui-path.bin",15812u,35u},{"mmui-sizes.bin",68u,8u},{"mmui-length.bin",7112u,4u},
+        {"mmui-count-pointer.bin",7368u,4u},{"mmui-length.bin",10688u,4u},{"mmui-pointer.bin",12540u,4u}
     };
     for (unsigned i=0; ok && i<6; ++i)
-        ok=oc_patch_blob_at((int)ofd,(unsigned)sm.size,pkg_fd,patches[i].name,patches[i].off,0);
+        ok=oc_patch_blob_at((int)ofd,(unsigned)sm.size,pkg_fd,patches[i].name,patches[i].off,patches[i].len,0);
     if (ok) ok=oc_mode((int)ofd,0600)>=0 && oc_sync((int)ofd)>=0;
     if (oc_close((int)ofd)<0) ok=0;
     return ok;
@@ -445,10 +446,7 @@ static int oc_append_file_all(int src_dir, const char *name, int dst_fd, unsigne
         tot+=(unsigned)r;
     }
     if (ok) {
-        ok=(oc_u64)tot==m.size && oc_stat((int)fd,&m2)>=0 &&
-            m2.device==m.device && m2.inode==m.inode && m2.size==m.size &&
-            m2.modified==m.modified && m2.modified_ns==m.modified_ns &&
-            m2.changed==m.changed && m2.changed_ns==m.changed_ns;
+        ok=(oc_u64)tot==m.size && oc_stat((int)fd,&m2)>=0 && oc_meta_equal(&m,&m2);
     }
     if (oc_close((int)fd)<0) ok=0;
     if (ok) *bytes_out=tot;
@@ -574,7 +572,8 @@ static int oc_compose_pkg_from(int root, int data_fd, const char *root_path, con
     if (!oc_absent_at(comp_root,pkg_id)) {
         int existing=oc_open_private(comp_root,pkg_id);
         OcManifest emf;
-        int eok=existing>=0 && oc_verify_dir_manifest(existing,&emf,cm.mf,sizeof cm.mf);
+        int eok=existing>=0 && oc_verify_dir_manifest(existing,&emf,cm.mf,sizeof cm.mf) &&
+            emf.count==12 && oc_members(existing,&emf,1);
         if (existing>=0) (void)oc_close(existing);
         (void)oc_close(comp_root); (void)oc_close(pdir);
         return eok ? 1 : cerr(err_out,"composed_files_changed");
@@ -608,7 +607,7 @@ static int oc_compose_pkg_from(int root, int data_fd, const char *root_path, con
         long vdfd=vsfd>=0 ? oc_openat(wfd,"vui.so",OC_RW|OC_CREATE|OC_EXCLUSIVE,0600) : -1;
         int vok=vsfd>=0 && vdfd>=0 && oc_stat((int)vsfd,&vsm)>=0 && (vsm.mode&OC_TYPE)==OC_REGULAR &&
             vsm.size<=33554432 && oc_copy_exact_bytes((int)vsfd,(int)vdfd,(unsigned)vsm.size) &&
-            oc_patch_blob_at((int)vdfd,(unsigned)vsm.size,pdir,"vui-path.bin",68196u,24u) &&
+            oc_patch_blob_at((int)vdfd,(unsigned)vsm.size,pdir,"vui-path.bin",68196u,24u,0) &&
             oc_mode((int)vdfd,0600)>=0 && oc_sync((int)vdfd)>=0;
         if (vsfd>=0 && oc_close((int)vsfd)<0) vok=0;
         if (vdfd>=0 && oc_close((int)vdfd)<0) vok=0;
@@ -988,9 +987,10 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
         }
         if (vfd>=0) {
             if (!oc_absent_at(vfd,"open-connect.prefs")) {
-                long pfd=oc_openat(vfd,"open-connect.prefs",OC_READ,0);
-                OcMeta pm={0};
-                int pn=(pfd>=0 && oc_stat((int)pfd,&pm)>=0 && (pm.mode&OC_TYPE)==OC_REGULAR && pm.size<=1023)
+                OcMeta vm={0}, pm={0};
+                long pfd=oc_stat(vfd,&vm)>=0 ? oc_openat(vfd,"open-connect.prefs",OC_READ,0) : -1;
+                int pn=(pfd>=0 && oc_stat((int)pfd,&pm)>=0 && (pm.mode&OC_TYPE)==OC_REGULAR &&
+                        pm.device==vm.device && pm.size<=1023)
                     ? oc_text_fd((int)pfd,preset_raw,sizeof preset_raw) : -1;
                 if (pfd>=0 && oc_close((int)pfd)<0) pn=-1;
                 (void)oc_close(vfd);

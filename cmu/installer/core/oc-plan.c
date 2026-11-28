@@ -298,16 +298,7 @@ int oc_identity_coverage(OcBoot *b) {
     if (!version||version->used||!oc_equal(version->path,"/jci/version.ini")||version->absent||
         !oc_verified_text(b->root,"jci/version.ini",version->digest,b->scratch,sizeof b->scratch)) return 0;
     version->used=1;
-    static const char *const values[]={"JCI_SW_VER=\"MAZ_CMU-150_74.00.324\"","JCI_SW_VER_PATCH=\"A\"","JCI_SW_FLAVOR=\"cmu150_NA\""};
-    unsigned found[3]={0,0,0}; char *p=b->scratch;
-    while (*p) {
-        char *line=p;
-        while (*p && *p!='\n') ++p;
-        if (!*p) return 0;
-        *p++=0;
-        for (unsigned i=0; i<3; ++i) if (oc_equal(line,values[i])) ++found[i];
-    }
-    if (found[0]!=1||found[1]!=1||found[2]!=1) return 0;
+    if (!oc_version_text_ok(b->scratch)) return 0;
     if (oc_equal(b->flags[1],"2")) {
         OcMeta stock;
         if (!oc_stock_meta(b->root,&stock)) return 0;

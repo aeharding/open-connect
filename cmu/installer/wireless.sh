@@ -24,7 +24,8 @@ case "${1:-}" in
         test "$#" = 2 && test "$2" = "$$"
         printf '%s\n' "$$" >&3
         IFS= read -r -t 12 permission <&4
-        test "$permission" = go;;
+        test "$permission" = go
+        exec 3<&- 4<&-;;
     '') test "$#" = 0;;
     *) exit 64;;
 esac
@@ -107,7 +108,8 @@ applied_policy() {
     test "$wifi:$oob" = 1:1
 }
 finish() {
-    trap - EXIT HUP INT TERM
+    trap - EXIT
+    trap ':' HUP INT TERM
     stop_worker
     # Cancellation can arrive on either side of the atomic XML rename. Report
     # the actual policy released to Device Manager, rather than worker status.

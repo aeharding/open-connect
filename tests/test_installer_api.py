@@ -980,6 +980,11 @@ class InstallerApiNative(unittest.TestCase):
                 '    if (oc_access_compose(rfd, argv[3], dfd2, argv[6], argv[7], 0, wfd, "work",\n'
                 '                          "0", "1", argv[8], oc_owner(), oc_group()) != 0) return 22;\n'
                 "    close(wfd); close(dfd2); close(rfd);\n"
+                "    /* oc_version_text_ok must require a trailing newline consistently. */\n"
+                '    char vok[] = "JCI_SW_VER=\\"MAZ_CMU-150_74.00.324\\"\\nJCI_SW_VER_PATCH=\\"A\\"\\nJCI_SW_FLAVOR=\\"cmu150_NA\\"\\n";\n'
+                '    char vno_nl[] = "JCI_SW_VER=\\"MAZ_CMU-150_74.00.324\\"\\nJCI_SW_VER_PATCH=\\"A\\"\\nJCI_SW_FLAVOR=\\"cmu150_NA\\"";\n'
+                "    if (!oc_version_text_ok(vok)) return 23;\n"
+                "    if (oc_version_text_ok(vno_nl)) return 24;\n"
                 "    return 0;\n"
                 "}\n"
             )

@@ -1338,15 +1338,28 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
     int res=oc_api_dispatch(c,kind);
     if (c->snaps_fd>=0) (void)oc_close(c->snaps_fd);
     if (c->data>=0) (void)oc_close(c->data);
-    if (c->lock_fd>=0) (void)oc_close(c->lock_fd);
-    if (c->ram>=0) (void)oc_close(c->ram);
-    if (c->root>=0) (void)oc_close(c->root);
     if (c->is_usb && c->err &&
         (kind==OP_INSTALL || kind==OP_UNINSTALL || kind==OP_RECOVER) &&
         !oc_equal(c->err,"busy") && !oc_equal(c->err,"operation_pending") &&
         !oc_equal(c->err,"session_closed") && !oc_equal(c->err,"session_replaced")) {
-        oc_api_log_usb_failure(session_dir,op,c->err);
+        int log_lock=c->lock_fd, temp_lock=-1;
+        if (log_lock<0 && c->ram>=0) {
+            OcMeta lm={0};
+            long lfd=oc_openat(c->ram,"lock",OC_RW,0);
+            if (lfd>=0 && oc_stat((int)lfd,&lm)>=0 && (lm.mode&OC_TYPE)==OC_REGULAR &&
+                !(lm.mode&0077) && lm.uid==(unsigned)c->owner && lm.gid==(unsigned)c->group &&
+                oc_lock((int)lfd)>=0) {
+                temp_lock=(int)lfd;
+                log_lock=temp_lock;
+            } else if (lfd>=0) (void)oc_close((int)lfd);
+        }
+        if (log_lock>=0 || (c->ram>=0 && oc_absent_at(c->ram,"lock")))
+            oc_api_log_usb_failure(session_dir,op,c->err);
+        if (temp_lock>=0) (void)oc_close(temp_lock);
     }
+    if (c->lock_fd>=0) (void)oc_close(c->lock_fd);
+    if (c->ram>=0) (void)oc_close(c->ram);
+    if (c->root>=0) (void)oc_close(c->root);
     return c->err ? emit_fail(c->err) : res;
 }
 

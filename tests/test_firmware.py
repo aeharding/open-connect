@@ -7,6 +7,7 @@ import os
 import re
 import struct
 import subprocess
+import sys
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -66,9 +67,16 @@ class PrivateFirmware(unittest.TestCase):
         )
         core = ROOT / "cmu/installer/core"
         idx_bin = folder / "idx_harness"
+        sdk_flags = []
+        if sys.platform == "darwin":
+            sdk = subprocess.check_output(
+                ["xcrun", "--sdk", "macosx", "--show-sdk-path"], text=True
+            ).strip()
+            sdk_flags = ["-isysroot", sdk]
         subprocess.run(
             [
-                "clang",
+                os.environ.get("OC_HOST_CC", "clang"),
+                *sdk_flags,
                 "-DOC_HOST",
                 "-I",
                 str(core),

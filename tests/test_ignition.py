@@ -17,7 +17,7 @@ PKG = "b" * 64
 BASE = "c" * 64
 CUR = "d" * 64
 AFTER = "e" * 64
-SLEEP_MS = 50
+SLEEP_MS = 80
 
 
 def _make_record(phase="active", before="-", after="-", off="-", boot=BOOT_ID):
@@ -106,7 +106,7 @@ class IgnitionObserverTests(unittest.TestCase):
                 self._wait_locked(ram / "ignition.lock", proc)
                 time.sleep(SLEEP_MS / 1000 * 2.5)
                 self.assertEqual(rec.read_text().strip().split("|")[2], REV)
-                # Brief ACC=0 bounce (<3 samples at 50 ms) must NOT rewrite the record or persist R_OFF.
+                # Brief ACC=0 bounce (<3 samples at 80 ms) must NOT rewrite the record or persist R_OFF.
                 _write_atomic(acc, "0\n", 0o644)
                 time.sleep(SLEEP_MS / 1000 * 0.7)
                 _write_atomic(acc, "1\n", 0o644)
@@ -129,9 +129,14 @@ class IgnitionObserverTests(unittest.TestCase):
                 _, err = proc.communicate(timeout=3)
                 self.assertEqual(proc.returncode, 0, err.decode("utf-8", "replace"))
             finally:
-                if proc.poll() is None:
-                    proc.kill()
-                    proc.wait(timeout=3)
+                try:
+                    if proc.poll() is None:
+                        proc.kill()
+                        proc.wait(timeout=3)
+                finally:
+                    for stream in (proc.stdout, proc.stderr):
+                        if stream is not None:
+                            stream.close()
 
     def test_single_instance_lock_and_ram_lock_contention_retry(self):
         ig = host_ignition()
@@ -163,9 +168,14 @@ class IgnitionObserverTests(unittest.TestCase):
                 _, err = proc.communicate(timeout=3)
                 self.assertEqual(proc.returncode, 0, err.decode("utf-8", "replace"))
             finally:
-                if proc.poll() is None:
-                    proc.kill()
-                    proc.wait(timeout=3)
+                try:
+                    if proc.poll() is None:
+                        proc.kill()
+                        proc.wait(timeout=3)
+                finally:
+                    for stream in (proc.stdout, proc.stderr):
+                        if stream is not None:
+                            stream.close()
 
     def test_survives_transient_pending_record_and_exits_on_removed(self):
         ig = host_ignition()
@@ -193,9 +203,14 @@ class IgnitionObserverTests(unittest.TestCase):
                 _, err = proc.communicate(timeout=3)
                 self.assertEqual(proc.returncode, 1, err.decode("utf-8", "replace"))
             finally:
-                if proc.poll() is None:
-                    proc.kill()
-                    proc.wait(timeout=3)
+                try:
+                    if proc.poll() is None:
+                        proc.kill()
+                        proc.wait(timeout=3)
+                finally:
+                    for stream in (proc.stdout, proc.stderr):
+                        if stream is not None:
+                            stream.close()
 
 
 if __name__ == "__main__":

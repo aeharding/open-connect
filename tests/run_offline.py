@@ -30,8 +30,6 @@ HEAVY_CLASSES = {
     "tests.test_installer_native_install.NativeInstall",
 }
 
-LONGEST_FIRST = ()
-
 
 def _iter_cases(suite):
     for item in suite:
@@ -65,23 +63,13 @@ def _build_shards(
         test_id = case.id()
         cls_key = test_id.rsplit(".", 1)[0]
         by_class[cls_key].append(test_id)
-    lpt_rank = {tid: idx for idx, tid in enumerate(LONGEST_FIRST)}
     all_shards: list[list[str]] = []
-    emitted: set[str] = set()
-    for tid in LONGEST_FIRST:
-        cls_key = tid.rsplit(".", 1)[0]
-        if tid in by_class.get(cls_key, ()):
-            all_shards.append([tid])
-            emitted.add(tid)
     ordered = sorted(
         by_class.items(),
         key=lambda kv: (0 if kv[0] in HEAVY_CLASSES else 1, -len(kv[1]), kv[0]),
     )
     for cls_key, ids in ordered:
-        remaining = [tid for tid in ids if tid not in emitted]
-        if not remaining:
-            continue
-        remaining.sort(key=lambda tid: (lpt_rank.get(tid, 999), tid))
+        remaining = sorted(ids)
         step = 1 if cls_key in HEAVY_CLASSES else len(remaining)
         for i in range(0, len(remaining), step):
             all_shards.append(remaining[i : i + step])

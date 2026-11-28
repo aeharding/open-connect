@@ -19,6 +19,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "cmu/installer"
 
+
+def _cleanup_proc(process):
+    try:
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+            except BaseException:
+                process.kill()
+                process.wait(timeout=3)
+                raise
+    finally:
+        for stream in (process.stdout, process.stderr):
+            if stream is not None:
+                stream.close()
+
+
 # These staging fixtures deliberately use inert bytes for the helper whose
 # inode/mode they inspect. Hash on the host without executing that fake payload.
 STAGING_SHA = '\nsha() { local value; value=$(openssl dgst -sha256 < "$1") || return; printf "%s\\n" "${value##* }"; }\n'
@@ -654,9 +674,7 @@ class InstallerService(unittest.TestCase):
                 (Path(result.stdout.strip()) / "token").read_text(),
             )
         finally:
-            if process.poll() is None:
-                process.terminate()
-                process.communicate(timeout=3)
+            _cleanup_proc(process)
 
     def test_installed_port_collision_does_not_block_usb(self):
         with socket.socket() as occupied:
@@ -1001,14 +1019,17 @@ class InstallerService(unittest.TestCase):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            time.sleep(0.15)
-            self.assertIsNone(process.poll())
-            self.assertFalse((self.runtime / "usb-runtime").exists())
-            fcntl.flock(lock, fcntl.LOCK_UN)
-            out, err = process.communicate(timeout=10)
-            self.assertEqual(process.returncode, 0, err)
-            self.assertTrue(out.strip())
-            self.assertEqual(self.client()["backend"], "backend-one\n")
+            try:
+                time.sleep(0.15)
+                self.assertIsNone(process.poll())
+                self.assertFalse((self.runtime / "usb-runtime").exists())
+                fcntl.flock(lock, fcntl.LOCK_UN)
+                out, err = process.communicate(timeout=10)
+                self.assertEqual(process.returncode, 0, err)
+                self.assertTrue(out.strip())
+                self.assertEqual(self.client()["backend"], "backend-one\n")
+            finally:
+                _cleanup_proc(process)
 
     def assert_interrupted_start(self, needle):
         script = self.source / "service.sh"
@@ -1021,27 +1042,29 @@ class InstallerService(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        deadline = time.monotonic() + 2
-        while time.monotonic() < deadline:
-            if any(
-                fields[1] == "0100007F:3CC5" and fields[3] == "0A"
-                for line in Path("/proc/net/tcp").read_text().splitlines()[1:]
-                if len(fields := line.split()) > 3
-            ):
-                break
-            time.sleep(0.01)
-        else:
-            process.kill()
-            self.fail("new listener did not reach the interrupted-start window")
-        self.assertFalse((self.runtime / "usb-runtime").exists())
-        process.send_signal(signal.SIGTERM)
-        process.communicate(timeout=3)
-        self.assertNotEqual(process.returncode, 0)
-        self.assertFalse((self.runtime / "usb-runtime").exists())
-        self.assertFalse((self.runtime / "usb-listener").exists())
-        with socket.socket() as probe:
-            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            probe.bind(("127.0.0.1", 15557))
+        try:
+            deadline = time.monotonic() + 2
+            while time.monotonic() < deadline:
+                if any(
+                    fields[1] == "0100007F:3CC5" and fields[3] == "0A"
+                    for line in Path("/proc/net/tcp").read_text().splitlines()[1:]
+                    if len(fields := line.split()) > 3
+                ):
+                    break
+                time.sleep(0.01)
+            else:
+                self.fail("new listener did not reach the interrupted-start window")
+            self.assertFalse((self.runtime / "usb-runtime").exists())
+            process.send_signal(signal.SIGTERM)
+            process.communicate(timeout=3)
+            self.assertNotEqual(process.returncode, 0)
+            self.assertFalse((self.runtime / "usb-runtime").exists())
+            self.assertFalse((self.runtime / "usb-listener").exists())
+            with socket.socket() as probe:
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                probe.bind(("127.0.0.1", 15557))
+        finally:
+            _cleanup_proc(process)
 
     def test_signal_during_unpublished_start_reaps_child_and_cannot_publish_later(self):
         self.assert_interrupted_start("service_tick; deadline=")
@@ -1059,18 +1082,21 @@ class InstallerService(unittest.TestCase):
         process = subprocess.Popen(
             ["sh", self.source / "usb-service.sh"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
-        deadline = time.monotonic() + 2
-        while not (self.runtime / "usb-runtime").exists() and time.monotonic() < deadline:
-            time.sleep(0.01)
-        self.assertTrue((self.runtime / "usb-runtime").exists())
-        process.send_signal(signal.SIGTERM)
-        process.communicate(timeout=3)
-        self.assertNotEqual(process.returncode, 0)
-        self.assertFalse((self.runtime / "usb-runtime").exists())
-        self.assertFalse((self.runtime / "usb-listener").exists())
-        with socket.socket() as probe:
-            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            probe.bind(("127.0.0.1", 15557))
+        try:
+            deadline = time.monotonic() + 2
+            while not (self.runtime / "usb-runtime").exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertTrue((self.runtime / "usb-runtime").exists())
+            process.send_signal(signal.SIGTERM)
+            process.communicate(timeout=3)
+            self.assertNotEqual(process.returncode, 0)
+            self.assertFalse((self.runtime / "usb-runtime").exists())
+            self.assertFalse((self.runtime / "usb-listener").exists())
+            with socket.socket() as probe:
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                probe.bind(("127.0.0.1", 15557))
+        finally:
+            _cleanup_proc(process)
 
 
 class Eth1DhcpRetry(unittest.TestCase):
@@ -1283,17 +1309,20 @@ class Eth1DhcpRetry(unittest.TestCase):
                 stderr=subprocess.PIPE,
                 env=env,
             )
-            deadline = time.monotonic() + 5
-            while not ready.exists() and time.monotonic() < deadline:
-                time.sleep(0.02)
-            self.assertTrue(ready.exists())
-            hooks = [p for p in ram.iterdir() if p.name.startswith(".eth1-dhcp-")]
-            self.assertEqual(len(hooks), 1)
-            proc.send_signal(signal.SIGTERM)
-            proc.communicate(timeout=5)
-            self.assertNotEqual(proc.returncode, 0)
-            self.assertEqual((root / "state/log").read_text().splitlines(), ["probe"])
-            self.assertEqual(list(ram.iterdir()), [])
+            try:
+                deadline = time.monotonic() + 5
+                while not ready.exists() and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                self.assertTrue(ready.exists())
+                hooks = [p for p in ram.iterdir() if p.name.startswith(".eth1-dhcp-")]
+                self.assertEqual(len(hooks), 1)
+                proc.send_signal(signal.SIGTERM)
+                proc.communicate(timeout=5)
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertEqual((root / "state/log").read_text().splitlines(), ["probe"])
+                self.assertEqual(list(ram.iterdir()), [])
+            finally:
+                _cleanup_proc(proc)
 
     def test_real_service_boot_gating_and_lock_release(self):
         """Exercise actual service_boot() across absent/symlink/malformed/ssh=0/ssh=1."""

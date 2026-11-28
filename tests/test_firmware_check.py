@@ -44,12 +44,39 @@ class FirmwareCheck(unittest.TestCase):
     def test_public_and_symlink_output_refused(self):
         with self.assertRaisesRegex(ValueError, "below"):
             checker.private_output(ROOT / "should-not-exist")
+        (ROOT / "runs").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir=ROOT / "runs") as directory:
             root = Path(directory)
             (root / "link").symlink_to(root / "destination")
             with self.assertRaisesRegex(ValueError, "symlink"):
                 checker.private_output(root / "link")
+            with self.assertRaisesRegex(ValueError, r"\.\."):
+                checker.private_output(root / "nonexistent" / ".." / "link")
             self.assertFalse((root / "destination").exists())
+            fresh = root / "fresh-output"
+            self.assertEqual(checker.private_output(fresh), fresh.resolve())
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory).resolve()
+            fake_root = base / "repo"
+            (fake_root / "tests").mkdir(parents=True)
+            real_runs = base / "elsewhere"
+            real_runs.mkdir()
+            (fake_root / "runs").symlink_to(real_runs)
+            with patch.object(checker, "ROOT", fake_root):
+                with self.assertRaisesRegex(ValueError, "symlink"):
+                    checker.private_output(fake_root / "runs" / "out")
+            (fake_root / "runs").unlink()
+            (fake_root / "runs").mkdir()
+            alias = base / "repo-link"
+            alias.symlink_to(fake_root)
+            with (
+                patch.object(checker, "ROOT", fake_root),
+                patch.object(checker, "__file__", str(alias / "tests/check_firmware.py")),
+            ):
+                self.assertEqual(
+                    checker.private_output(alias / "runs" / "fresh"),
+                    fake_root / "runs" / "fresh",
+                )
 
     def test_explicit_tools_and_linux_discovery_do_not_require_xcode(self):
         with (

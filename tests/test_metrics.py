@@ -8,6 +8,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -163,6 +164,7 @@ class MetricsTests(unittest.TestCase):
     def test_interrupt_keeps_partial_output_and_terminates_only_owned_ssh(self):
         real_popen = subprocess.Popen
         children = []
+        stdout_path = None
 
         class Interrupted:
             def __init__(self, process):
@@ -173,11 +175,21 @@ class MetricsTests(unittest.TestCase):
 
             def communicate(self, data=None, timeout=None):
                 if data is not None:
-                    try:
-                        self.process.communicate(data, timeout=0.1)
-                    except subprocess.TimeoutExpired:
-                        raise KeyboardInterrupt from None
-                    raise AssertionError("fixture child unexpectedly ended")
+                    self.process.stdin.write(data)
+                    self.process.stdin.close()
+                    self.process.stdin = None
+                    deadline = time.monotonic() + 5.0
+                    while time.monotonic() < deadline:
+                        if stdout_path.exists() and stdout_path.stat().st_size >= len(
+                            b"partial raw evidence"
+                        ):
+                            raise KeyboardInterrupt
+                        if self.process.poll() is not None:
+                            raise AssertionError("fixture child unexpectedly ended")
+                        time.sleep(0.01)
+                    raise AssertionError(
+                        "fixture child did not flush partial output before timeout"
+                    )
                 return self.process.communicate(timeout=timeout)
 
         def fake_ssh(argv, **kwargs):
@@ -199,8 +211,9 @@ class MetricsTests(unittest.TestCase):
             contextlib.redirect_stdout(io.StringIO()),
         ):
             path = Path(tmp) / "trace"
+            stdout_path = path / "ssh.stdout"
             self.assertEqual(bench.main(["sample", "--live", "--bundle", str(path)]), 1)
-            self.assertEqual((path / "ssh.stdout").read_bytes(), b"partial raw evidence")
+            self.assertEqual(stdout_path.read_bytes(), b"partial raw evidence")
             manifest = json.loads((path / "manifest.json").read_text())
             self.assertEqual(manifest["outcome"], "incomplete_preserved")
             self.assertTrue(manifest["ssh_closed"])

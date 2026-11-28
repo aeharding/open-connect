@@ -36,12 +36,35 @@ def tool(name, explicit=None):
     return found
 
 
+def _macos_sdk_flags():
+    if sys.platform != "darwin":
+        return []
+    sdk = subprocess.check_output(
+        ["xcrun", "--sdk", "macosx", "--show-sdk-path"], text=True
+    ).strip()
+    return ["-isysroot", sdk]
+
+
 def private_output(path):
+    root_real = ROOT.resolve()
+    runs_real = root_real / "runs"
     path = path.absolute()
-    if any(p.is_symlink() for p in (path, *path.parents)):
-        raise ValueError("private output must not traverse symlinks")
-    path = path.resolve()
-    if not path.is_relative_to(ROOT / "runs") or path == ROOT / "runs":
+    rel = None
+    for base in (Path(__file__).absolute().parents[1], root_real):
+        if path.is_relative_to(base):
+            rel = path.relative_to(base)
+            break
+    if rel is None:
+        raise ValueError("private output must be below the checkout's runs directory")
+    if ".." in rel.parts:
+        raise ValueError("private output must not contain '..' segments")
+    cur = root_real
+    for part in rel.parts:
+        cur = cur / part
+        if cur.is_symlink():
+            raise ValueError("private output must not traverse symlinks")
+    path = cur.resolve()
+    if not path.is_relative_to(runs_real) or path == runs_real:
         raise ValueError("private output must be below the checkout's runs directory")
     if path.exists():
         raise ValueError("output exists; choose a fresh private directory")
@@ -90,6 +113,10 @@ def inputs(firmware):
             paths[name] = source
     paths["framework"] = paths["framework.js"]
     paths["display"] = paths["lvds-service"]
+    websockets = paths["framework"].parent / "Websockets.js"
+    if not websockets.is_file():
+        raise ValueError("missing required input: /jci/gui/framework/js/Websockets.js")
+    paths["websockets.js"] = websockets
     return paths
 
 
@@ -105,7 +132,7 @@ def run(command, output, name, **kwargs):
     return result
 
 
-def build(output, paths, host_cc):
+def build(output, paths):
     run(["make", "release", "OUT=" + str(output / "build")], output, "make", cwd=ROOT)
     version = (ROOT / "cmu/installer/VERSION").read_text().strip()
     source = output / f"build/usb/open-connect-{version}-usb/open-connect"
@@ -189,6 +216,7 @@ def base_logging_contract(output, paths, host_cc, node, composed):
     run(
         [
             host_cc,
+            *_macos_sdk_flags(),
             "-DOC_HOST",
             "-I",
             str(core),
@@ -247,7 +275,7 @@ def base_logging_contract(output, paths, host_cc, node, composed):
             )
 
 
-def host_contract(output, paths, host_cc, node, composed):
+def host_contract(output, paths, host_cc, node):
     elf = ELF(paths["uia.so"].read_bytes())
     cells = elf.symbols["UIA_SYSTEM_UniqueCells"]["value"]
 
@@ -262,16 +290,10 @@ def host_contract(output, paths, host_cc, node, composed):
     fixture += "static const u32 continuation_rules[13][11]={\n"
     fixture += "".join("{" + ",".join(map(hex, row)) + "},\n" for row in continuation) + "};\n"
     (output / "fixture.h").write_text(fixture)
-    flags = []
-    if sys.platform == "darwin":
-        sdk = subprocess.check_output(
-            ["xcrun", "--sdk", "macosx", "--show-sdk-path"], text=True
-        ).strip()
-        flags = ["-isysroot", sdk]
     run(
         [
             host_cc,
-            *flags,
+            *_macos_sdk_flags(),
             "-std=c11",
             "-O1",
             "-Wall",
@@ -315,7 +337,7 @@ def host_contract(output, paths, host_cc, node, composed):
             node,
             ROOT / "tests/fixtures/carplay.js",
             ASSETS,
-            paths["framework"].parent / "Websockets.js",
+            paths["websockets.js"],
         ],
         output,
         "carplay-stock-routing",
@@ -351,6 +373,7 @@ def main(argv=None):
         ROOT / "LICENSE",
         ROOT / "tests/test_firmware.py",
         ROOT / "tests/fixtures/native-contract.c",
+        ROOT / "tests/fixtures/base-logging.js",
         ROOT / "tests/fixtures/disclaimer-behavior.js",
         ROOT / "tests/fixtures/system-hook-oem.js",
         ROOT / "tests/fixtures/carplay.js",
@@ -373,12 +396,13 @@ def main(argv=None):
         "passed": False,
     }
     try:
-        composed = build(output, paths, host_cc)
+        composed = build(output, paths)
         base_logging_contract(output, paths, host_cc, node, composed)
-        host_contract(output, paths, host_cc, node, composed)
+        host_contract(output, paths, host_cc, node)
         env = {
             **os.environ,
             "OC_FIRMWARE_CHECK_DIR": str(output),
+            "OC_HOST_CC": host_cc,
             "OC_OBJDUMP": objdump,
             "PYTHONDONTWRITEBYTECODE": "1",
         }

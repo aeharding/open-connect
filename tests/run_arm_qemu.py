@@ -22,6 +22,7 @@ import http.client
 import json
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -85,6 +86,7 @@ BUSYBOX_APPLETS = (
     "basename",
     "readlink",
     "mktemp",
+    "mkfifo",
     "dd",
     "od",
     "find",
@@ -417,7 +419,7 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
         print(f"  [tmpfs] USB staged bundle: {usb_kb} KiB ({usb_pages} 4KiB pages)")
         assert usb_kb <= 512, f"USB staged bundle exceeded 512 KiB budget: {usb_kb} KiB"
 
-        # 1b. Exact 8-file (+ files.sha256) Settings boot session (service.sh:241) on real tmpfs.
+        # 1b. Exact 8-file (+ files.sha256) Settings boot session (service.sh:234) on real tmpfs.
         settings_files = (
             "files.sha256",
             "service.sh",
@@ -503,7 +505,16 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
     assert r_einval_dev.returncode == 22, (
         f"expected EINVAL=22 on /dev/null, got {r_einval_dev.returncode}"
     )
-    print("  [ARMv7 flush] SHA-256 parity, fsync modes, ENOENT/EINVAL verified")
+    link_dst = fdir / "hardlinked"
+    run([str(flush_bin), "l", str(fdir / "one"), str(link_dst)])
+    assert link_dst.stat().st_ino == (fdir / "one").stat().st_ino, "flush l did not hardlink"
+    r_eexist = run([str(flush_bin), "l", str(fdir / "one"), str(link_dst)], check=False)
+    assert r_eexist.returncode == 17, f"expected EEXIST=17 on flush l, got {r_eexist.returncode}"
+    sym_path = fdir / "sym"
+    sym_path.symlink_to(fdir / "one")
+    r_eloop = run([str(flush_bin), "h", str(sym_path)], check=False)
+    assert r_eloop.returncode == 40, f"expected ELOOP=40 on symlink, got {r_eloop.returncode}"
+    print("  [ARMv7 flush] SHA-256 parity, fsync/link modes, ENOENT/EEXIST/EINVAL/ELOOP verified")
 
     # 3. Unmodified ARMv7 `api`, `install`, `boot-select gc`, and `ignition` inside a chroot.
     chroot = work / "chroot-a"
@@ -1291,6 +1302,18 @@ def part_b_full_lifecycle(
             assert st == 200 and r_u1["ok"] is True and r_u1["uart"] == 1, r_u1
             assert (chroot / "usr/bin/runlogin").stat().st_ino != orig_runlogin_ino
             assert (chroot / f"usr/bin/.open-connect-runlogin-{orig_runlogin_ino}").exists()
+            r_con = subprocess.run(
+                ["chroot", str(chroot), "/usr/bin/runlogin"],
+                input="echo console-ok\n",
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            assert r_con.returncode == 0 and r_con.stdout.strip() == "console-ok", (
+                r_con.returncode,
+                r_con.stdout,
+                r_con.stderr,
+            )
             rev = r_u1["revision"]
 
             (chroot / "dev/urandom").write_bytes(os.urandom(8192))
@@ -1379,6 +1402,144 @@ def part_b_full_lifecycle(
         ).read_text() == "4\n8\n"
         print(
             "  [B3b] Wave C base=1 + touch=2 ARMv7 select-gated OK (SYS_linkat VUI aliases, touch-disable.so, log stage, read_ahead_kb=4)"
+        )
+
+        # B3b2. Real BusyBox `ash` execution of composed `startup-hook.sh` + `startup-join.sh`,
+        #       `service.sh` `_service_files boot` (hardlink reuse + ARMv7 `flush` SHA-256),
+        #       `wireless-device.awk`, and `defer-gap2.sh`/`defer-nav.sh` fail-closed guards.
+        clean_ram_for_boot("2d345678-1234-1234-1234-123456789abc")
+        (chroot / "proc/uptime").write_text("120.00 60.00\n")
+        (chroot / "proc/sys/kernel/random/uuid").write_text(
+            "11111111-2222-3333-4444-555555555555\n"
+        )
+        # Provide minimal openssl shim backed by BusyBox sha256sum and unmodified ARMv7 `flush H`.
+        shutil.copyfile(release_dir / "flush", chroot / "usr/bin/oc-flush")
+        (chroot / "usr/bin/oc-flush").chmod(0o755)
+        openssl_shim = chroot / "usr/bin/openssl"
+        openssl_shim.write_text(
+            "#!/bin/sh\n"
+            'if [ "${1:-}" = dgst ] && [ "${2:-}" = -sha256 ]; then\n'
+            "  shift 2\n"
+            '  if [ "${1:-}" = -r ]; then shift; exec /usr/bin/oc-flush H "$@"; fi\n'
+            '  set -- $(/bin/busybox sha256sum); printf "%s\\n" "$1"; exit 0\n'
+            "fi\n"
+            "exit 1\n"
+        )
+        openssl_shim.chmod(0o755)
+        # BusyBox 1.20 on v74 takes `timeout -t SEC`, while BusyBox 1.36 in the container takes `timeout SEC`.
+        hook_src = (
+            (data / "packages" / pkg1 / "startup-hook.sh")
+            .read_text()
+            .replace("timeout -t ", "timeout ")
+        )
+        hook_driver = chroot / "tmp/run-startup-hook.sh"
+        hook_driver.write_text(
+            "set -u\n"
+            "SMCFG_NORMALMODE=stock-normal\n"
+            "SMCFG_WCPMODE=stock-wcp\n"
+            + hook_src
+            + "\n"
+            + (data / "packages" / pkg1 / "startup-join.sh").read_text()
+            + "\n"
+            + 'printf "NORMAL=%s\\nWCP=%s\\nRES=%s\\nREL=%s\\n" '
+            '"$SMCFG_NORMALMODE" "$SMCFG_WCPMODE" "$oc_result" "$oc_released"\n'
+        )
+        hook_driver.chmod(0o700)
+        # Run in its own process group so any backgrounded ARMv7 `ignition` is cleanly reaped.
+        hook_proc = subprocess.Popen(
+            ["chroot", str(chroot), "/bin/sh", "/tmp/run-startup-hook.sh"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+        try:
+            h_out, h_err = hook_proc.communicate(timeout=20)
+        finally:
+            try:
+                os.killpg(hook_proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            time.sleep(0.05)
+            try:
+                os.killpg(hook_proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            hook_driver.unlink(missing_ok=True)
+        assert hook_proc.returncode == 0, f"startup-hook.sh failed: {h_out!r} {h_err!r}"
+        h_vals = dict(line.split("=", 1) for line in h_out.strip().splitlines())
+        assert h_vals["REL"] == "true" and h_vals["RES"] == "0", h_vals
+        assert h_vals["NORMAL"] == "/tmp/open-connect/feature/sm.conf", h_vals
+        assert h_vals["WCP"] == "/tmp/open-connect/feature/sm_WCP.conf", h_vals
+        assert list((chroot / "tmp").glob(".open-connect-gate-*")) == []
+
+        # Real BusyBox `service.sh` `_service_files boot`: 8-file staging + hardlink reuse + token.
+        r_sf = chroot_run(
+            chroot,
+            [
+                "/bin/sh",
+                "-c",
+                f"set -eu; umask 077; R=/tmp/open-connect; P=/tmp/mnt/data_persist/open-connect/packages/{pkg1}; "
+                '. "$P/service.sh"; _service_files "$1" boot',
+                "sf",
+                pkg1,
+            ],
+        )
+        assert r_sf.returncode == 0, f"_service_files boot failed: {r_sf.stdout!r} {r_sf.stderr!r}"
+        staged_sess = chroot / r_sf.stdout.strip().lstrip("/")
+        assert staged_sess.is_dir() and (staged_sess / "token").is_file()
+        assert len((staged_sess / "token").read_text().strip()) == 32
+        for shared_js in ("runtime.js", "dialog.js", "settings.js"):
+            assert (staged_sess / shared_js).stat().st_ino == (
+                ram / "feature" / shared_js
+            ).stat().st_ino, f"{shared_js} was not hardlink-reused from feature/"
+
+        # Real BusyBox `wireless-device.awk` (positive transform + fail-closed) & `defer-*` guards.
+        dm_in = chroot / "tmp/dm-test.xml"
+        dm_in.write_text(
+            "<config><name>bWifiSupport</name><value>FALSE</value></config>\n"
+            "<config><name>bOOBSupport</name><value>FALSE</value></config>\n"
+        )
+        r_wa = chroot_run(
+            chroot,
+            [
+                "/bin/busybox",
+                "awk",
+                "-f",
+                f"/tmp/mnt/data_persist/open-connect/packages/{pkg1}/wireless-device.awk",
+                "/tmp/dm-test.xml",
+            ],
+        )
+        dm_in.unlink()
+        assert (
+            r_wa.returncode == 0
+            and "<config><name>bWifiSupport</name><value>TRUE</value></config>" in r_wa.stdout
+            and "<config><name>bOOBSupport</name><value>TRUE</value></config>" in r_wa.stdout
+        ), (r_wa.returncode, r_wa.stdout, r_wa.stderr)
+        r_wa_bad = chroot_run(
+            chroot,
+            [
+                "/bin/busybox",
+                "awk",
+                "-f",
+                f"/tmp/mnt/data_persist/open-connect/packages/{pkg1}/wireless-device.awk",
+                "/etc/devmgr_config_master.xml",
+            ],
+        )
+        assert r_wa_bad.returncode != 0, "wireless-device.awk did not fail closed on stub XML"
+        for defer_nm, flag_nm in (("defer-gap2.sh", "gap2-ready"), ("defer-nav.sh", "nav-ready")):
+            flag_p = ram / "feature" / flag_nm
+            flag_p.write_text("ready\n")
+            r_df = chroot_run(
+                chroot,
+                ["/bin/sh", f"/tmp/mnt/data_persist/open-connect/packages/{pkg1}/{defer_nm}"],
+            )
+            flag_p.unlink()
+            assert r_df.returncode != 0, f"{defer_nm} did not fail closed when {flag_nm} exists"
+        openssl_shim.unlink()
+        (chroot / "usr/bin/oc-flush").unlink()
+        print(
+            "  [B3b2] BusyBox startup-hook+join, service.sh _service_files boot, wireless-device.awk & defer-* OK"
         )
 
         # B3c. Simulated crash-cut mid-OC1|set (rw,noatime root + leftover staging prefix) ->

@@ -116,7 +116,7 @@ Use this order on each setting page:
    context, trade-offs, boot implications, restart guidance and evidence limits.
 5. Setting-specific choices or steps, then a link back to Settings.
 
-The bar is for tidbits, not paragraphs. Use short defaults such as **Allow**,
+The bar is for tidbits, not paragraphs. Use short defaults such as **Always enabled**,
 **Skip**, **Off**, **Factory**, **On**, **UART/SSH Off** or **—**. Use muted neutral
 ink for Off/Factory and subtle green for enabled defaults. Keep Impact on every
 page, using compact, evidence-backed wording such as **+21.2 MiB avail proxy**
@@ -133,8 +133,10 @@ Applies. Keep the exact memory metric, comparison configuration and outstanding
 qualification in Notes.
 
 Keep Menu short: **Open Connect** for top-level settings, **Open Connect →
-CarPlay & Android Auto** for phone settings, and **Open Connect → Audio sources**
-for audio settings. The overview uses **Settings → System → Open Connect**.
+CarPlay & Android Auto** for phone settings, **Open Connect → Audio sources**
+for audio settings, **Open Connect → Commander Dial** for Commander settings,
+and **Open Connect → Backup & restore** for preference export/import. The
+overview uses **Settings → System → Open Connect**.
 Make the location clickable with `.oc-nav-path` and the existing
 `data-walkthrough`; the modal still shows the complete navigation sequence.
 Use medium-weight text and dotted text decoration rather than a border underline.
@@ -153,11 +155,11 @@ HTML containers will not be parsed. For example:
 <dl class="oc-spec">
   <div>
     <dt>Menu</dt>
-    <dd><span class="oc-nav-path" data-walkthrough="dvd">Open Connect → Audio sources</span></dd>
+    <dd><span class="oc-nav-path" data-walkthrough="pandora">Open Connect → Audio sources</span></dd>
   </div>
   <div>
     <dt>Default</dt>
-    <dd><span class="oc-default oc-default--off">Off</span></dd>
+    <dd><span class="oc-default oc-default--on">On</span></dd>
   </div>
   <div>
     <dt>Impact</dt>

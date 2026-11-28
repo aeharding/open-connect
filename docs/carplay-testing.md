@@ -1,21 +1,22 @@
 # Measure CarPlay startup and lag
 
-First qualify **stock wired CarPlay** as an early v74 bench fixture with a
-compatible hub and phone. Use it for release compatibility checks and the
-general [timing and RAM baselines](performance.md). Track setup in
-[#89](https://github.com/aeharding/open-connect/issues/89).
+Use **stock wired CarPlay** with a compatible hub and phone as the baseline
+fixture for release compatibility checks and general
+[timing and RAM baselines](performance.md) (tracked in
+[#89](https://github.com/aeharding/open-connect/issues/89)).
 
 The owner's car already uses a mod enabling Mazda's **native wireless CarPlay**.
 Its long-parked startup can show a black screen and delayed or bunched inputs,
-then settles into reliable operation. Investigating and changing this wireless
-path is the final phase of the
-[roadmap](https://github.com/aeharding/open-connect/blob/main/PLAN.md), after
-Developer options, performance baselines and the Services/base-optimization work.
+then settles into reliable operation. Developer options, Services/Startup
+optimizations, ACC bench control and Open Connect's own native Wireless CarPlay
+toggle are now implemented and bench-tested on v74; systematic wired-vs-wireless
+startup/input-lag characterization and long-parked/real-car qualification remain
+open in the [roadmap](https://github.com/aeharding/open-connect/blob/main/PLAN.md).
 
-Wired projection is the earlier measurement fixture; its results do not establish
-wireless reliability or reproduce Miatafy's wireless timings. In the final phase,
-measure the actual reported wireless symptom before choosing a wireless change.
-A faster Home screen or lower idle RAM is not enough.
+Wired projection is the baseline measurement fixture; its results do not establish
+wireless reliability or reproduce Miatafy's wireless timings. Measure the actual
+reported wireless symptom before choosing a wireless optimization. A faster Home
+screen or lower idle RAM is not enough.
 
 ## Start with comparable runs
 
@@ -30,7 +31,7 @@ Test these separately:
 | --- | --- |
 | Normal software reboot | A repeatable warm baseline |
 | Full supply off/on | Power-loss startup; not automatically equivalent to a parked car |
-| Controlled ACC/resume | Vehicle-like lifecycle once ACC control is available |
+| Controlled ACC/resume | Vehicle-like lifecycle using bench ACC relay control |
 | Real car after a long park | Whether the reported symptom is reproduced |
 
 In the final wireless phase, compare stock **wired** CarPlay with one pinned

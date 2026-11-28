@@ -96,16 +96,6 @@ static int oc_read_hex64_file(int dir, const char *name, char out[65]) {
     return 1;
 }
 
-static int oc_read_boot_id(int ram, long owner, long group, char out[37]) {
-    OcMeta m;
-    if (oc_metadata(ram,"boot-id",&m)<0 || (m.mode&OC_TYPE)!=0120000 ||
-        m.size!=36 || m.uid!=(unsigned)owner || m.gid!=(unsigned)group) return 0;
-    long n=oc_readlink(ram,"boot-id",out,36);
-    if (n!=36) return 0;
-    out[36]=0;
-    return oc_uuid(out);
-}
-
 static int oc_read_version_file(int dir, const char *expect_digest, char out[64]) {
     if (expect_digest) { if (!oc_verified_text(dir,"VERSION",expect_digest,out,64)) return 0; }
     else if (oc_text(dir,"VERSION",out,64,0)<=0) return 0;
@@ -1038,29 +1028,11 @@ static __attribute__((noinline)) int oc_handle_import_prefs(OcApiCtx *c) {
     char bs_path[512]; OcCatalog cat;
     if (oc_prepare_prefs_ctx(c,bs_path,&cat)!=OC_API_DONE) return OC_API_ERR;
 
-    static const char *const vnames[4]={"sda1","sdb1","sdc1","sdd1"};
-    int pfd=-1;
-    long mnt=oc_beneath(c->root,"tmp/mnt",OC_DIRECTORY,0);
-    if (mnt<0) return api_err(c,"preferences_not_found");
-    for (unsigned i=0; i<4; ++i) {
-        if (oc_absent_at((int)mnt,vnames[i])) continue;
-        long vd=oc_openat((int)mnt,vnames[i],OC_DIRECTORY,0);
-        if (vd<0) { if (pfd>=0) (void)oc_close(pfd); (void)oc_close((int)mnt); return api_err(c,"invalid_preferences"); }
-        if (oc_absent_at((int)vd,"open-connect.prefs")) { (void)oc_close((int)vd); continue; }
-        if (pfd>=0) { (void)oc_close((int)vd); (void)oc_close(pfd); (void)oc_close((int)mnt); return api_err(c,"multiple_preferences_files"); }
-        long f=oc_openat((int)vd,"open-connect.prefs",OC_READ,0);
-        OcMeta fm={0};
-        int fok=f>=0 && oc_stat((int)f,&fm)>=0 && (fm.mode&OC_TYPE)==OC_REGULAR && fm.size<=1023;
-        (void)oc_close((int)vd);
-        if (!fok) { if (f>=0) (void)oc_close((int)f); (void)oc_close((int)mnt); return api_err(c,"invalid_preferences"); }
-        char vabs[32];
-        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i]) || !oc_vfat_mount_mode(c->root,vabs)) {
-            (void)oc_close((int)f); (void)oc_close((int)mnt); return api_err(c,"invalid_preferences_volume");
-        }
-        pfd=(int)f;
-    }
-    (void)oc_close((int)mnt);
-    if (pfd<0) return api_err(c,"preferences_not_found");
+    const char *perr=0;
+    int pfd=oc_open_single_usb_file(c->root,"open-connect.prefs",1023,"preferences_not_found",
+                                    "multiple_preferences_files","invalid_preferences",
+                                    "invalid_preferences_volume",&perr);
+    if (pfd<0) return api_err(c,perr);
 
     char raw[1024];
     int n=oc_text_fd(pfd,raw,sizeof raw);

@@ -19,37 +19,6 @@ static struct {
 
 static __attribute__((noinline)) int cerr(const char **out, const char *e) { *out=e; return 0; }
 
-static int oc_cstr_cmp(const char *a, const char *b) {
-    while (*a && *a==*b) { ++a; ++b; }
-    return (int)(unsigned char)*a - (int)(unsigned char)*b;
-}
-
-static char *oc_cfind(char *s, const char *sub) {
-    for (; *s; ++s) if (oc_prefix(s,sub)) return s;
-    return 0;
-}
-
-/* ---------- Streaming line reader ---------- */
-typedef struct { int fd; char buf[4096]; unsigned at, filled, total, limit; } OcCStream;
-
-static int oc_cstream_line(OcCStream *s, char *out, unsigned cap, int *had_nl) {
-    unsigned n=0; *had_nl=0;
-    for (;;) {
-        if (s->at==s->filled) {
-            long r=oc_read(s->fd,s->buf,sizeof s->buf);
-            if (r==-4) continue;
-            if (r<0) return -1;
-            if (!r) { out[n]=0; return n?1:0; }
-            s->at=0; s->filled=(unsigned)r;
-        }
-        char c=s->buf[s->at++];
-        if (++s->total > s->limit) return -1;
-        if (c=='\n') { out[n]=0; *had_nl=1; return 1; }
-        if (n+1>=cap) return -1;
-        out[n++]=c;
-    }
-}
-
 /* ---------- Originals & stock dependency verification ---------- */
 static const char *oc_orig_pin(int idx) {
     if (idx==0) return oc_pin_digest("originals/autostart",oc_orig_autostart_digest);
@@ -357,11 +326,11 @@ static int oc_compose_mmui(int pkg_fd, int orig_fd, int work_fd) {
 static int oc_replace_stream(int sfd, int dfd,
                              const char *old1, const char *new1,
                              const char *old2, const char *new2) {
-    OcCStream st; st.fd=sfd; st.at=st.filled=st.total=0; st.limit=524288;
+    OcRStream st; st.hash=0; st.fd=sfd; st.at=st.filled=st.total=0; st.limit=524288;
     int had_nl=0, r, ok=1;
     unsigned o1=oc_length(old1), n1=oc_length(new1), c1=0, c2=0;
     unsigned o2=old2?oc_length(old2):0, n2=new2?oc_length(new2):0;
-    while (ok && (r=oc_cstream_line(&st,cm.line,sizeof cm.line,&had_nl))==1) {
+    while (ok && (r=oc_rstream_line(&st,cm.line,sizeof cm.line,&had_nl))==1) {
         char *p=cm.line; unsigned at=0;
         while (*p) {
             if (oc_prefix(p,old1)) {
@@ -403,20 +372,20 @@ static int oc_compose_index_tpl(int orig_fd, int work_fd) {
     if (sfd<0) return 0;
     long dfd=oc_openat(work_fd,"index-on.html",OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
     if (dfd<0) { (void)oc_close((int)sfd); return 0; }
-    OcCStream st; st.fd=(int)sfd; st.at=st.filled=st.total=0; st.limit=524288;
+    OcRStream st; st.hash=0; st.fd=(int)sfd; st.at=st.filled=st.total=0; st.limit=524288;
     int in_comment=0, had_nl=0, r, ok=1;
     unsigned head_n=0, body_n=0;
-    while (ok && (r=oc_cstream_line(&st,cm.line,sizeof cm.line,&had_nl))==1) {
+    while (ok && (r=oc_rstream_line(&st,cm.line,sizeof cm.line,&had_nl))==1) {
         char *ln=cm.line;
         if (in_comment) {
-            char *end=oc_cfind(ln,"-->");
+            char *end=oc_rfind(ln,"-->");
             if (!end) continue;
             ln=end+3; in_comment=0;
         }
         for (;;) {
-            char *start=oc_cfind(ln,"<!--");
+            char *start=oc_rfind(ln,"<!--");
             if (!start) break;
-            char *end=oc_cfind(start+4,"-->");
+            char *end=oc_rfind(start+4,"-->");
             if (!end) { *start=0; in_comment=1; break; }
             char *tail=end+3;
             char *dst=start;
@@ -427,7 +396,7 @@ static int oc_compose_index_tpl(int orig_fd, int work_fd) {
         unsigned len=oc_length(ln);
         while (len && (ln[len-1]==' '||ln[len-1]=='\t')) ln[--len]=0;
         if (oc_prefix(ln,"<script ") || oc_prefix(ln,"<script\t")) {
-            char *tp=oc_cfind(ln," type=\"text/javascript\"");
+            char *tp=oc_rfind(ln," type=\"text/javascript\"");
             if (tp) {
                 char *tail=tp+23;
                 while (*tail) *tp++=*tail++;
@@ -436,7 +405,7 @@ static int oc_compose_index_tpl(int orig_fd, int work_fd) {
         }
         if (oc_prefix(ln,"var baseApp = new BaseApp();")) ln[28]=0;
         if (!*ln) continue;
-        if (oc_cfind(ln,"<head>")) {
+        if (oc_rfind(ln,"<head>")) {
             ++head_n;
             const char *hdr="\n<base href=\"file:///jci/gui/\" />\n"
                 "<meta name=\"open-connect-token\" content=\"@TOKEN@\" data-boot=\"@BOOT@\" />\n"
@@ -445,7 +414,7 @@ static int oc_compose_index_tpl(int orig_fd, int work_fd) {
             ok=oc_write_all((int)dfd,ln,oc_length(ln)) && oc_write_all((int)dfd,hdr,oc_length(hdr));
             continue;
         }
-        if (oc_cfind(ln,"</body>")) {
+        if (oc_rfind(ln,"</body>")) {
             ++body_n;
             const char *inj="<script src=\"file:///tmp/open-connect/feature/runtime.js\"></script>\n";
             ok=oc_write_all((int)dfd,inj,oc_length(inj));
@@ -493,10 +462,10 @@ static int oc_compose_autostart(int pkg_fd, int orig_fd, int work_fd,
     if (sfd<0) return 0;
     long dfd=oc_openat(work_fd,"autostart",OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
     if (dfd<0) { (void)oc_close((int)sfd); return 0; }
-    OcCStream st; st.fd=(int)sfd; st.at=st.filled=st.total=0; st.limit=262144;
+    OcRStream st; st.hash=0; st.fd=(int)sfd; st.at=st.filled=st.total=0; st.limit=262144;
     int had_nl=0, r, ok=1, prev_sleep1=0;
     unsigned hook_n=0, join_n=0, hb=0, jb=0;
-    while (ok && (r=oc_cstream_line(&st,cm.line,sizeof cm.line,&had_nl))==1) {
+    while (ok && (r=oc_rstream_line(&st,cm.line,sizeof cm.line,&had_nl))==1) {
         if (prev_sleep1 && oc_equal(cm.line,"                $(/jci/scripts/get_board_type.sh)")) {
             if (hook_n!=1) { ok=0; break; }
             ok=oc_append_file_all(pkg_fd,"startup-join.sh",(int)dfd,&jb);
@@ -715,7 +684,7 @@ static int oc_deps_append_dir(int dir_fd, const char *scope_prefix, const char *
     for (unsigned i=1; i<nl.count; ++i) {
         char tmp[64]; (void)oc_join(tmp,64,"",cm.names[i]);
         unsigned j=i;
-        while (j>0 && oc_cstr_cmp(cm.names[j-1],tmp)>0) {
+        while (j>0 && oc_order(cm.names[j-1],tmp)>0) {
             (void)oc_join(cm.names[j],64,"",cm.names[j-1]);
             --j;
         }

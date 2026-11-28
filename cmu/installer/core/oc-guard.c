@@ -60,21 +60,28 @@ const OcPin oc_base_pins[5]={
     {"base/vui/vui.xml","/jci/vui/vui_config.xml","d2511533b59bc9773f92d8fff9cbcf591d9ff461c33839ff4eaaae6f5d0aaef0",1}
 };
 
+int oc_mounts_next(char **cursor, char *f[6]) {
+    char *p=*cursor;
+    if (!*p) return 0;
+    unsigned n=0;
+    while (*p && *p!='\n') {
+        if (*p==' '||*p=='\t') { ++p; continue; }
+        if (n==6) return -1;
+        f[n++]=p;
+        while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
+        if (*p==' '||*p=='\t') *p++=0;
+    }
+    if (!*p || n!=6) return -1;
+    *p++=0;
+    *cursor=p;
+    return 1;
+}
+
 static int oc_mounts_scan(int root, char *scratch, unsigned cap, int allow_rw, int persist_only) {
     if (oc_text(root,"proc/self/mounts",scratch,cap,1)<0) return 0;
     unsigned rcount=0, data=0, rootfs=0;
-    char *p=scratch;
-    while (*p) {
-        char *f[6]; unsigned n=0;
-        while (*p && *p!='\n') {
-            if (*p==' '||*p=='\t') { ++p; continue; }
-            if (n==6) return 0;
-            f[n++]=p;
-            while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
-            if (*p==' '||*p=='\t') *p++=0;
-        }
-        if (!*p || n!=6) return 0;
-        *p++=0;
+    char *p=scratch, *f[6]; int mr;
+    while ((mr=oc_mounts_next(&p,f))>0) {
         if (!persist_only && oc_equal(f[1],"/")) {
             if (oc_equal(f[0],"rootfs")&&oc_equal(f[2],"rootfs")&&oc_equal(f[3],"rw")&&!rcount&&!rootfs) ++rootfs;
             else {
@@ -100,6 +107,7 @@ static int oc_mounts_scan(int root, char *scratch, unsigned cap, int allow_rw, i
             (oc_equal(f[1],"/" OC_DATA)||oc_prefix(f[1],"/" OC_DATA "/")||
              oc_equal(f[1],"/" OC_RAM)||oc_prefix(f[1],"/" OC_RAM "/"))) return 0;
     }
+    if (mr<0) return 0;
     return persist_only ? (data==1) : (rcount==1 && data==1);
 }
 

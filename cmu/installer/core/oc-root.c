@@ -501,18 +501,8 @@ int oc_startup_staging_retire(int root, const char *root_path, int data_fd, cons
 int oc_vfat_mount_mode(int root, const char *target) {
     if (oc_text(root,"proc/self/mounts",oc_mscratch,sizeof oc_mscratch,1)<0) return 0;
     unsigned hits=0; int mode=0;
-    char *p=oc_mscratch;
-    while (*p) {
-        char *f[6]; unsigned n=0;
-        while (*p && *p!='\n') {
-            if (*p==' '||*p=='\t') { ++p; continue; }
-            if (n==6) return 0;
-            f[n++]=p;
-            while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
-            if (*p==' '||*p=='\t') *p++=0;
-        }
-        if (!*p || n!=6) return 0;
-        *p++=0;
+    char *p=oc_mscratch, *f[6]; int mr;
+    while ((mr=oc_mounts_next(&p,f))>0) {
         if (!oc_equal(f[1],target)) continue;
         if (!oc_equal(f[2],"vfat")) return 0;
         char opts[256];
@@ -526,7 +516,46 @@ int oc_vfat_mount_mode(int root, const char *target) {
         mode=rw?1:2;
         ++hits;
     }
-    return hits==1 ? mode : 0;
+    return (mr==0 && hits==1) ? mode : 0;
+}
+
+int oc_open_single_usb_file(int root, const char *filename, oc_u64 max_size,
+                            const char *not_found_err, const char *dup_err,
+                            const char *bad_file_err, const char *bad_vol_err,
+                            const char **err_out) {
+    static const char *const vnames[4]={"sda1","sdb1","sdc1","sdd1"};
+    int found_fd=-1;
+    long mnt=oc_beneath(root,"tmp/mnt",OC_DIRECTORY,0);
+    if (mnt<0) { *err_out=not_found_err; return -1; }
+    for (unsigned i=0; i<4; ++i) {
+        if (oc_absent_at((int)mnt,vnames[i])) continue;
+        long vd=oc_openat((int)mnt,vnames[i],OC_DIRECTORY,0);
+        if (vd<0) {
+            if (found_fd>=0) (void)oc_close(found_fd);
+            (void)oc_close((int)mnt); *err_out=bad_file_err; return -1;
+        }
+        if (oc_absent_at((int)vd,filename)) { (void)oc_close((int)vd); continue; }
+        if (found_fd>=0) {
+            (void)oc_close((int)vd); (void)oc_close(found_fd);
+            (void)oc_close((int)mnt); *err_out=dup_err; return -1;
+        }
+        long fd=oc_openat((int)vd,filename,OC_READ,0);
+        OcMeta fm={0};
+        int fok=fd>=0 && oc_stat((int)fd,&fm)>=0 && (fm.mode&OC_TYPE)==OC_REGULAR && fm.size<=max_size;
+        (void)oc_close((int)vd);
+        if (!fok) {
+            if (fd>=0) (void)oc_close((int)fd);
+            (void)oc_close((int)mnt); *err_out=bad_file_err; return -1;
+        }
+        char vabs[32];
+        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i]) || !oc_vfat_mount_mode(root,vabs)) {
+            (void)oc_close((int)fd); (void)oc_close((int)mnt); *err_out=bad_vol_err; return -1;
+        }
+        found_fd=(int)fd;
+    }
+    (void)oc_close((int)mnt);
+    if (found_fd<0) { *err_out=not_found_err; return -1; }
+    return found_fd;
 }
 
 int oc_usb_remount(int root, const char *target, int rw) {

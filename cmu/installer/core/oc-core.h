@@ -235,6 +235,7 @@ extern const char *const oc_orig_autostart_digest;
 extern const char *const oc_composed_names[12];
 extern const OcPin oc_touch_pins[2];
 extern const OcPin oc_base_pins[5];
+int oc_mounts_next(char **cursor, char *f[6]);
 int oc_mounts_mode(int root, char *scratch, unsigned cap, int allow_rw);
 int oc_version_ok(int root, char *scratch, unsigned cap);
 int oc_firmware_guard(int root, const char *op_tag, char *scratch, unsigned cap, const char **err_out);
@@ -257,6 +258,10 @@ int oc_startup_staging_guard(int root);
 int oc_startup_staging_retire(int root, const char *root_path, int data_fd, const char *rev,
                               const char *snap_id, const char *base_snap, long owner, long group);
 int oc_vfat_mount_mode(int root, const char *target);
+int oc_open_single_usb_file(int root, const char *filename, oc_u64 max_size,
+                            const char *not_found_err, const char *dup_err,
+                            const char *bad_file_err, const char *bad_vol_err,
+                            const char **err_out);
 int oc_usb_remount(int root, const char *target, int rw);
 int oc_factory_wireless(int root, const char *root_path);
 
@@ -305,6 +310,7 @@ int oc_pkg_boot_select(int data_fd, const char *root_path, const char *pkg_id,
 int oc_seal_after_snap(int root, const char *root_path, int data_fd,
                        const char *snap_id, const char *base_id, const char *pkg_id,
                        int force_reseal, long owner, long group, char out_id[65]);
+int oc_read_boot_id(int ram, long owner, long group, char out[37]);
 int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
                     const char *ram_exec_dir, long owner, long group);
 int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_match);
@@ -332,6 +338,9 @@ int oc_uninstall_cleanup(int root, const char *root_path, int data_fd, const cha
                          long owner, long group, const char **err_out);
 
 /* oc-render.c */
+typedef struct { int fd; char buf[4096]; unsigned at, filled, total, limit; OcHash *hash; } OcRStream;
+char *oc_rfind(char *s, const char *sub);
+int oc_rstream_line(OcRStream *s, char *out, unsigned cap, int *had_nl);
 int oc_verify_file_sha(int dir, const char *name, const char *expected, oc_u64 limit);
 int oc_open_pkg_verified(int data, const char *pkg_id, char *mf_buf, unsigned mf_cap, OcManifest *mf);
 int oc_open_composed_verified(int data_fd, const char *pkg_id, const char *snap_id,

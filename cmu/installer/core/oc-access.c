@@ -231,8 +231,7 @@ int oc_access_compose(int root, const char *root_path, int data_fd, const char *
     return oc_new_text(work_fd,"access",acc_line,0600);
 }
 
-int oc_access_hold_verify(int root, int data_fd, const char *base_snap, long owner, long group) {
-    (void)owner; (void)group;
+int oc_access_hold_verify(int root, int data_fd, const char *base_snap) {
     OcTxnSnap *base=&oc_snap_pool[6];
     if (!oc_txn_read_snap(data_fd,base_snap,base) || !base->has_access || oc_equal(base->acc_f[5],"-")) return 0;
     oc_u64 want_ino=0;
@@ -249,7 +248,7 @@ int oc_access_hold_verify(int root, int data_fd, const char *base_snap, long own
     return ok;
 }
 
-int oc_access_login_check(int root, int data_fd, const char *base_snap, long owner, long group) {
+int oc_access_login_check(int root, int data_fd, const char *base_snap) {
     OcTxnSnap *base=&oc_snap_pool[5];
     if (!oc_txn_read_snap(data_fd,base_snap,base)) return 0;
     if (!base->has_access || oc_equal(base->acc_f[5],"-")) return 1;
@@ -260,17 +259,16 @@ int oc_access_login_check(int root, int data_fd, const char *base_snap, long own
     long ubin=oc_beneath(root,"usr/bin",OC_DIRECTORY,0);
     if (ubin<0) return 0;
     int ok=1;
-    if (!oc_absent_at((int)ubin,hleaf)) ok=oc_access_hold_verify(root,data_fd,base_snap,owner,group);
+    if (!oc_absent_at((int)ubin,hleaf)) ok=oc_access_hold_verify(root,data_fd,base_snap);
     char cur_dig[65]; OcMeta rm={0};
     if (ok) ok=oc_hash_file_at((int)ubin,"runlogin",cur_dig,&rm);
     if (oc_close((int)ubin)<0) ok=0;
     if (!ok) return 0;
     if (oc_equal(cur_dig,base->login_dig)) return rm.inode==want_ino;
-    return oc_access_hold_verify(root,data_fd,base_snap,owner,group);
+    return oc_access_hold_verify(root,data_fd,base_snap);
 }
 
-int oc_access_hold_cleanup(int root, const char *root_path, int data_fd, const char *base_snap,
-                           long owner, long group) {
+int oc_access_hold_cleanup(int root, const char *root_path, int data_fd, const char *base_snap) {
     OcTxnSnap *base=&oc_snap_pool[5];
     if (!oc_txn_read_snap(data_fd,base_snap,base)) return 0;
     if (!base->has_access || oc_equal(base->acc_f[5],"-")) return 1;
@@ -284,7 +282,7 @@ int oc_access_hold_cleanup(int root, const char *root_path, int data_fd, const c
     int ok=oc_metadata((int)ubin,"runlogin",&rm)>=0 && rm.inode==want_ino;
     int remounted=0;
     if (ok && !oc_absent_at((int)ubin,hleaf)) {
-        ok=oc_access_hold_verify(root,data_fd,base_snap,owner,group) && oc_remount(root,root_path,1);
+        ok=oc_access_hold_verify(root,data_fd,base_snap) && oc_remount(root,root_path,1);
         if (ok) { remounted=1; ok=oc_unlink((int)ubin,hleaf)>=0; }
     }
     if (ok) ok=oc_sync((int)ubin)>=0;
@@ -317,7 +315,7 @@ int oc_access_targets_match(int root, int data_fd, const char *snap_id, const ch
     if (!oc_txn_read_snap(data_fd,snap_id,s)) return 0;
     if (!s->has_access) return 1;
     return oc_access_files_match(root,data_fd,snap_id,owner,group) &&
-        oc_access_login_check(root,data_fd,base_snap,owner,group);
+        oc_access_login_check(root,data_fd,base_snap);
 }
 
 int oc_access_pair_check(int root, int data_fd, const char *before_id, const char *after_id,
@@ -327,7 +325,7 @@ int oc_access_pair_check(int root, int data_fd, const char *before_id, const cha
     if (!b->has_access && !a->has_access) return 1;
     if (!b->has_access || !a->has_access) return 0;
     if (!oc_equal(a->acc_f[2],"-") && !oc_access_key_verify(data_fd,a->acc_f[2],owner,group)) return 0;
-    if (!oc_access_login_check(root,data_fd,base_snap,owner,group)) return 0;
+    if (!oc_access_login_check(root,data_fd,base_snap)) return 0;
     long ubin=oc_beneath(root,"usr/bin",OC_DIRECTORY,0);
     long essh=oc_beneath(root,"etc/ssh",OC_DIRECTORY,0);
     char ldig[65], sdig[65], lms[40], sms[40]; OcMeta lm={0}, sm={0};
@@ -382,7 +380,7 @@ int oc_access_pair_apply(int root, const char *root_path, int data_fd, const cha
             } else hold_mode="keep";
         }
         if (!oc_root_publish(root,root_path,data_fd,rev,targets[i],src_rel,amodes[i],
-                             act_h,act_m,hold_rel[0]?hold_rel:0,hold_mode,0,base_snap,owner,group))
+                             act_h,act_m,hold_rel[0]?hold_rel:0,hold_mode,0,base_snap))
             return 0;
     }
     return 1;

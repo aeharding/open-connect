@@ -212,7 +212,7 @@ int oc_root_publish(int root, const char *root_path, int data_fd, const char *re
                     const char *target_rel, const char *src_rel, const char *mode_str,
                     const char *expected_hash, const char *expected_mode,
                     const char *hold_rel, const char *hold_mode, int retire,
-                    const char *base_snap, long owner, long group) {
+                    const char *base_snap) {
     if (!oc_hex(rev,32)) return 0;
     int is_auto=oc_equal(target_rel,"usr/bin/autostart");
     int is_login=oc_equal(target_rel,"usr/bin/runlogin");
@@ -300,7 +300,7 @@ int oc_root_publish(int root, const char *root_path, int data_fd, const char *re
                 if (oc_metadata((int)parent,leaf,&tm)<0 || tm.inode!=held_ino ||
                     oc_link((int)parent,leaf,(int)parent,held_leaf)<0) { ok=0; goto done; }
             }
-            if (!oc_access_hold_verify(root,data_fd,base_snap,owner,group)) { ok=0; goto done; }
+            if (!oc_access_hold_verify(root,data_fd,base_snap)) { ok=0; goto done; }
             long hfd=oc_openat((int)parent,held_leaf,OC_READ,0);
             int hok=hfd>=0 && oc_sync((int)hfd)>=0;
             if (hfd>=0 && oc_close((int)hfd)<0) hok=0;
@@ -309,7 +309,7 @@ int oc_root_publish(int root, const char *root_path, int data_fd, const char *re
         if (oc_absent_at((int)parent,work_leaf)) {
             if (h_restore) {
                 OcMeta hm={0}; char hms[40];
-                if (!oc_access_hold_verify(root,data_fd,base_snap,owner,group) ||
+                if (!oc_access_hold_verify(root,data_fd,base_snap) ||
                     oc_metadata((int)parent,held_leaf,&hm)<0 ||
                     !oc_meta_mode_str(&hm,hms) || !oc_equal(hms,mode_str) ||
                     oc_link((int)parent,held_leaf,(int)parent,work_leaf)<0) { ok=0; goto done; }
@@ -395,9 +395,7 @@ int oc_selector_matches_at(int root, const char *sel_hash, const char *sel_meta)
     return ok;
 }
 
-int oc_selector_pair_check(int root, int data_fd, const char *before_id, const char *after_id,
-                           long owner, long group) {
-    (void)owner; (void)group;
+int oc_selector_pair_check(int root, int data_fd, const char *before_id, const char *after_id) {
     OcTxnSnap *b=&oc_snap_pool[2], *a=&oc_snap_pool[3];
     if (!oc_txn_read_snap(data_fd,before_id,b) || !oc_txn_read_snap(data_fd,after_id,a)) return 0;
     if (oc_absent_at(root,"usr/bin/open-connect-boot-select"))
@@ -406,9 +404,8 @@ int oc_selector_pair_check(int root, int data_fd, const char *before_id, const c
 }
 
 int oc_selector_apply(int root, const char *root_path, int data_fd, const char *rev,
-                      const char *before_id, const char *after_id, const char *base_snap,
-                      long owner, long group) {
-    if (!oc_selector_pair_check(root,data_fd,before_id,after_id,owner,group)) return 0;
+                      const char *before_id, const char *after_id, const char *base_snap) {
+    if (!oc_selector_pair_check(root,data_fd,before_id,after_id)) return 0;
     OcTxnSnap *a=&oc_snap_pool[2]; char src_rel[128];
     if (!oc_txn_read_snap(data_fd,after_id,a)) return 0;
     if (oc_equal(a->sel_hash,"-")) {
@@ -433,7 +430,7 @@ int oc_selector_apply(int root, const char *root_path, int data_fd, const char *
         if (!ok) return 0;
     }
     return oc_root_publish(root,root_path,data_fd,rev,"usr/bin/open-connect-boot-select",
-                           src_rel,a->sel_meta,act_h,act_m,0,0,0,base_snap,owner,group);
+                           src_rel,a->sel_meta,act_h,act_m,0,0,0,base_snap);
 }
 
 static int oc_staging_scan_cb(const char *name, void *raw) {
@@ -455,7 +452,7 @@ int oc_startup_staging_guard(int root) {
 }
 
 int oc_startup_staging_retire(int root, const char *root_path, int data_fd, const char *rev,
-                              const char *snap_id, const char *base_snap, long owner, long group) {
+                              const char *snap_id, const char *base_snap) {
     OcTxnSnap *s=&oc_snap_pool[2], *b=&oc_snap_pool[3];
     if (!oc_txn_read_snap(data_fd,snap_id,s)) return 0;
     const char *names[4]={"autostart","runlogin","sshd.conf","selector"};
@@ -492,7 +489,7 @@ int oc_startup_staging_retire(int root, const char *root_path, int data_fd, cons
             if (!pok) return 0;
         }
         if (!oc_root_publish(root,root_path,data_fd,rev,targets[i],src_rel,"-",
-                             act_h,act_m,hold_rel[0]?hold_rel:0,hold_mode,1,base_snap,owner,group))
+                             act_h,act_m,hold_rel[0]?hold_rel:0,hold_mode,1,base_snap))
             return 0;
     }
     return 1;

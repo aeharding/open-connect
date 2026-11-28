@@ -65,7 +65,7 @@ static int oc_ignition_main(int argc, char **argv) {
     int seen_on=0, off_samples=0;
     rc=0;
     const char *recorded="-";
-    for (;;) {
+    for (;; oc_sleep_ms(sleep_ms)) {
         OcMeta bm;
         if (oc_metadata(ram,"boot-id",&bm)<0 || (bm.mode&OC_TYPE)!=0120000) break;
         int acc=oc_ig_acc(root);
@@ -74,17 +74,17 @@ static int oc_ignition_main(int argc, char **argv) {
         if (acc==1) {
             seen_on=1; off_samples=0; wanted="-";
         } else {
-            if (!seen_on || (off_samples<3 && ++off_samples<3)) { oc_sleep_ms(sleep_ms); continue; }
+            if (!seen_on || (off_samples<3 && ++off_samples<3)) continue;
             wanted=boot;
         }
-        if (oc_equal(wanted,recorded)) { oc_sleep_ms(sleep_ms); continue; }
+        if (oc_equal(wanted,recorded)) continue;
 
         long lfd=oc_ig_open_lock(ram,"lock",OC_RW,owner,group);
         if (lfd<0) { rc=1; break; }
         long tr=oc_lock((int)lfd);
         if (tr<0) {
             (void)oc_close((int)lfd);
-            if (oc_is_wouldblock(tr)) { oc_sleep_ms(sleep_ms); continue; }
+            if (oc_is_wouldblock(tr)) continue;
             rc=1; break;
         }
 
@@ -103,7 +103,6 @@ static int oc_ignition_main(int argc, char **argv) {
         if (oc_close((int)lfd)<0) keep=0;
         if (!keep) { rc=1; break; }
         if (active) recorded=wanted;
-        oc_sleep_ms(sleep_ms);
     }
 out:
     if (ig_lock>=0) (void)oc_close((int)ig_lock);

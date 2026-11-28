@@ -522,7 +522,7 @@ class InstallerService(unittest.TestCase):
             "import json,sys\nfrom pathlib import Path\n"
             "while sys.stdin.buffer.readline().strip(): pass\n"
             "body=json.dumps({'token':Path(sys.argv[1]).read_text().strip(),"
-            "'backend':Path(sys.argv[2]).read_text()}).encode()\n"
+            "'backend':Path(sys.argv[2]).read_text() if Path(sys.argv[2]).exists() else 'native-boot\\n'}).encode()\n"
             "sys.stdout.buffer.write(b'HTTP/1.0 200 OK\\r\\nContent-Length: '+"
             "str(len(body)).encode()+b'\\r\\n\\r\\n'+body)\n"
         )
@@ -633,6 +633,12 @@ class InstallerService(unittest.TestCase):
             "sm-profile.awk",
             "preferences.awk",
             "services.tsv",
+            "backend.sh",
+            "state.sh",
+            "firmware.sh",
+            "access.sh",
+            "transaction.sh",
+            "touch.sh",
         ):
             self.assertFalse((session / name).exists())
         for name in ("runtime.js", "dialog.js", "settings.js", "service.sh", "flush"):
@@ -645,7 +651,7 @@ class InstallerService(unittest.TestCase):
         self.assertEqual(
             (session / "files.sha256").read_bytes(), (self.source / "files.sha256").read_bytes()
         )
-        self.assertEqual(self.client(15555)["backend"], "backend-one\n")
+        self.assertEqual(self.client(15555)["backend"], "native-boot\n")
 
     def legacy_selected_client(self):
         self.runtime.mkdir(mode=0o700)
@@ -664,7 +670,7 @@ class InstallerService(unittest.TestCase):
             self.assertEqual(process.returncode, 0, (out, error))
             self.assertEqual((self.runtime / "usb-listener").read_bytes(), before)
             self.assertEqual(self.client()["backend"], "backend-one\n")
-            self.assertEqual(self.client(15555)["backend"], "backend-one\n")
+            self.assertEqual(self.client(15555)["backend"], "native-boot\n")
             self.assertNotEqual(
                 (self.runtime / "token").read_text(),
                 (Path(result.stdout.strip()) / "token").read_text(),
@@ -713,7 +719,7 @@ class InstallerService(unittest.TestCase):
         self.assertEqual((self.runtime / "runtime").resolve(), installed)
         self.assertEqual((self.runtime / "listener").read_bytes(), record)
         self.assertEqual((self.runtime / "token").read_bytes(), token)
-        self.assertEqual(self.client(15555)["backend"], "backend-one\n")
+        self.assertEqual(self.client(15555)["backend"], "native-boot\n")
 
     def test_ready_usb_shares_verified_packet_and_each_insertion_has_its_own_token(self):
         first = self.invoke()
@@ -744,7 +750,7 @@ class InstallerService(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.runtime / "usb-listener").read_bytes(), before)
         self.assertEqual(self.client()["backend"], "backend-one\n")
-        self.assertEqual(self.client(15555)["backend"], "backend-one\n")
+        self.assertEqual(self.client(15555)["backend"], "native-boot\n")
 
     def test_closed_generation_keeps_bytes_until_request_child_drains(self):
         first = self.invoke()
@@ -826,7 +832,7 @@ class InstallerService(unittest.TestCase):
         worker, _, _ = self.installed_worker()
         result = subprocess.run(["sh", worker, "boot"], capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.client(15555)["backend"], "backend-one\n")
+        self.assertEqual(self.client(15555)["backend"], "native-boot\n")
         self.assertTrue((self.runtime / "selected").is_file())
 
     def test_sm_worker_skips_deferral_sleep_only_for_installed_notice(self):
@@ -893,7 +899,7 @@ class InstallerService(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.runtime / "usb-listener").read_bytes(), before)
         self.assertEqual(self.client()["backend"], "backend-one\n")
-        self.assertEqual(self.client(15555)["backend"], "backend-one\n")
+        self.assertEqual(self.client(15555)["backend"], "native-boot\n")
 
     def test_ash_sm_worker_refuses_missing_or_symlinked_selection(self):
         worker, _, _ = self.installed_worker()

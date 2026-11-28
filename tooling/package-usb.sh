@@ -12,7 +12,7 @@ for limit in dialog.js:8192 runtime.js:16384 maintenance.js:20480 settings.js:28
         echo "$name exceeds its RAM page budget ($bytes bytes)." >&2; exit 1;
     }
 done
-for limit in touch-disable.so:4096 flush:4096 api:32768 boot-select:36864 ignition:4096; do
+for limit in touch-disable.so:4096 flush:4096 api:65536 boot-select:36864 ignition:4096; do
     name=${limit%:*}; bytes=${limit#*:}
     test "$(wc -c < "$out/$name")" -le "$bytes" || {
         echo "$name exceeds its RAM page budget ($bytes bytes)." >&2; exit 1;
@@ -30,7 +30,6 @@ for file in run.sh session.sh service.sh usb-service.sh loader.js runtime.js mai
     system-hook.js base-logging.js defer-gap2.sh defer-nav.sh ui-profile.awk ui-modules.tsv wireless.sh wireless-device.awk preferences.awk services.tsv sm-profile.awk VERSION KENATIA-LICENSE; do
     cp "cmu/installer/$file" "$package/$file"
 done
-cp cmu/features/touch/setting.sh "$package/touch.sh"
 cp cmu/features/disclaimer/layout.txt "$package/layout.txt"
 for file in api flush boot-select ignition touch-disable.so native.bin branch.bin sizes.bin layout.bin vui-path.bin mmui-path.bin mmui-sizes.bin mmui-length.bin mmui-pointer.bin mmui-count-pointer.bin; do
     cp "$out/$file" "$package/$file"

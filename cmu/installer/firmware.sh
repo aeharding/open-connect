@@ -854,8 +854,8 @@ root_publish() (
   flush d "$parent"
 )
 
-nvram_read() { sh "$P/touch.sh" read; }
-nvram_change() { sh "$P/touch.sh" change "$1" "$2" >/dev/null; }
+nvram_read() { "$P/api" --nvram read; }
+nvram_change() { "$P/api" --nvram change "$1" "$2"; }
 
 dependency_path() {
   local scope=${1%%/*} name=${1#*/} id folder

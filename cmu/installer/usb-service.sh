@@ -24,9 +24,15 @@ usb_fence() {
     private_dir "$target" || fail invalid_legacy_runtime
     selected=$(selection_id /tmp/open-connect/selected) || fail invalid_selected_snapshot
     package=$(snapshot_package "$selected") || fail invalid_selected_snapshot
+    file "$target/files.sha256" && sha_is "$target/files.sha256" "$package" || fail invalid_legacy_source
+    if absent "$target/backend.sh"; then
+        # Native-only pinned Settings session (post-PR3b): verify api against package, never dev.22.
+        source=$(package_programs "$package" api) || fail invalid_legacy_source
+        file "$target/api" && sha_same "$target/api" "$source/api" || fail invalid_legacy_source
+        return 0
+    fi
     source=$(package_programs "$package" backend.sh) || fail invalid_legacy_source
-    file "$target/files.sha256" && sha_is "$target/files.sha256" "$package" &&
-        file "$target/backend.sh" || fail invalid_legacy_source
+    file "$target/backend.sh" || fail invalid_legacy_source
     digest=$(sha "$source/backend.sh") && hex "$digest" 64 || fail invalid_legacy_source
     sha_is "$target/backend.sh" "$digest" || fail invalid_legacy_source
     # A verified pinned endpoint keeps its public pointer until normal restart.

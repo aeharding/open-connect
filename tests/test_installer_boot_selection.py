@@ -2155,12 +2155,11 @@ package_save
         # 3) Data-only save (carplay-autoshow 0->1->0) runs 100% natively in `api` (sentinel
         #    backend.sh never executed), matches AWK index.html rendering, preserves unchanged
         #    profiles, passes audit, and runs GC.
-        # 4) NVRAM-changing save (touch 1->0->1) invokes $session/touch.sh, witnesses pending
+        # 4) NVRAM-changing save (touch 1->0->1) uses native oc_nvram_change, witnesses pending
         #    OC1 before NVRAM write, handles pre/post-NVRAM cuts, and commits cleanly.
         # 5) Real backend.sh unsealed OC2 fallback check remains green.
         api_bin = compile_host_api()
         nvram_file = self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction"
-        witness_file = self.ram / "nvram-witness.txt"
         tok = "a" * 32
 
         pkg_dir = self.data / "packages/.new-e2epkg"
@@ -2256,15 +2255,9 @@ package_save
         sentinel_be = session / "backend.sh"
         sentinel_be.write_text('printf \'{"ok":false,"error":"fell_back"}\\n\'\nexit 0\n')
         sentinel_be.chmod(0o700)
-        (session / "touch.sh").write_text(
-            "#!/bin/sh\nset -eu\n"
-            f"cat {shlex.quote(str(self.data / 'record'))} > {shlex.quote(str(witness_file))}\n"
-            'if test "${OC_TEST_NV_CUT:-}" = before_nvram; then exit 99; fi\n'
-            f'if test "$3" = absent; then rm -f {shlex.quote(str(nvram_file))}; '
-            f'else printf "%s\\n" "$3" > {shlex.quote(str(nvram_file))}; fi\n'
-            'if test "${OC_TEST_NV_CUT:-}" = after_nvram; then exit 98; fi\n'
-        )
-        (session / "touch.sh").chmod(0o700)
+        nv_store = nvram_file.parent.parent
+        for ctl in ("add", "remove", "commit"):
+            (nv_store / ctl).write_text("")
         (self.ram / "lock").write_text("")
         (self.ram / "lock").chmod(0o600)
         (self.ram / "selected").write_text(self.snapshot.name + "\n")
@@ -2339,21 +2332,29 @@ package_save
         self.assertEqual(r_en["error"], "state_changed")
         self.assertEqual(r_es["error"], "state_changed")
 
-        # 3) NVRAM-changing save: touch 1 -> 0 -> 1, witnessing pending OC1 before touch.sh.
+        # 3) NVRAM-changing save: touch 1 -> 0 -> 1 via native oc_nvram_change.
+        # Pre-NVRAM cut witnesses pending OC1 written BEFORE NVRAM mutation.
+        _, r_pre0 = call_api(
+            cur1, "set", "touch", "1", "0", extra_env={"OC_HOST_NVRAM_FAIL": "before"}
+        )
+        self.assertEqual(r_pre0["error"], "nvram_commit_failed")
+        witnessed = (self.data / "record").read_text().strip().split("|")
+        self.assertEqual((witnessed[1], witnessed[5], witnessed[6]), ("set", cur1, cur1))
+        self.assertEqual(nvram_file.read_text(), "disable\n")
+        # Restore active cur1 and complete touch 1 -> 0 cleanly.
+        witnessed[1] = "active"
+        witnessed[6:8] = ["-", "-"]
+        (self.data / "record").write_text("|".join(witnessed) + "\n")
         proc, r_off = call_api(cur1, "set", "touch", "1", "0")
         self.assertEqual(proc.returncode, 0, (r_off, proc.stderr))
         self.assertTrue(r_off["ok"], r_off)
         off_cur = r_off["revision"]
-        witnessed = witness_file.read_text().strip().split("|")
-        self.assertEqual(
-            (witnessed[1], witnessed[5], witnessed[6], witnessed[7]), ("set", cur1, cur1, off_cur)
-        )
         self.assertFalse(nvram_file.exists())
         self.assertEqual(self._run_helper("audit", str(self.root), off_cur).returncode, 0)
 
-        # Pre-NVRAM cut: pending OC1 intact, current-only audit refuses, candidate audit requires NVRAM.
+        # Pre-NVRAM cut on 0 -> 1: pending OC1 intact, current-only audit refuses, candidate audit requires NVRAM.
         _, r_pre = call_api(
-            off_cur, "set", "touch", "0", "1", extra_env={"OC_TEST_NV_CUT": "before_nvram"}
+            off_cur, "set", "touch", "0", "1", extra_env={"OC_HOST_NVRAM_FAIL": "before"}
         )
         self.assertEqual(r_pre["error"], "nvram_commit_failed")
         rec = (self.data / "record").read_text().strip().split("|")
@@ -2371,7 +2372,7 @@ package_save
         rec[6:8] = ["-", "-"]
         (self.data / "record").write_text("|".join(rec) + "\n")
         _, r_post = call_api(
-            off_cur, "set", "touch", "0", "1", extra_env={"OC_TEST_NV_CUT": "after_nvram"}
+            off_cur, "set", "touch", "0", "1", extra_env={"OC_HOST_NVRAM_FAIL": "after"}
         )
         self.assertEqual(r_post["error"], "nvram_commit_failed")
         rec2 = (self.data / "record").read_text().strip().split("|")

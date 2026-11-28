@@ -3,36 +3,6 @@
  */
 #include "oc-core.h"
 
-const char *const oc_root_names[19]={
-    "sm.conf","sm_WCP.conf","board.sh","mmui.so","mmui.xml","uia.so","index.html",
-    "system-app.js","settings-app.js","base-app.js","manager.so","device-master.xml",
-    "eem.so","device-manager.so","rungetty","sshd","ssh-keygen","framework.js","lvds-service"
-};
-const char *const oc_root_paths[19]={
-    "/jci/sm/sm.conf","/jci/sm/sm_WCP.conf","/jci/scripts/get_board_type.sh",
-    "/jci/mmui/svcjcimmui.so","/jci/mmui/mmui_config.xml","/jci/mmui/uia/libjciuiasystem.so",
-    "/jci/gui/index.html","/jci/gui/apps/system/js/systemApp.js",
-    "/jci/gui/apps/syssettings/js/syssettingsApp.js","/jci/gui/framework/js/BaseApp.js",
-    "/jci/lib/libjciuiamgr.so","/etc/devmgr_config_master.xml","/jci/vbs/modules/libjcimod_eem.so",
-    "/jci/devicemanager/libdevicemanager.so","/usr/bin/rungetty","/usr/sbin/sshd","/usr/bin/ssh-keygen",
-    "/jci/gui/framework/js/GuiFramework.js","/jci/lvds/lvds_service"
-};
-const char *const oc_composed_names[12]={
-    "autostart","uia.so","mmui.so","mmui.xml","index-on.html","index-off.html",
-    "sm-normal-on.conf","sm-normal-off.conf","sm-wcp-on.conf","sm-wcp-off.conf","vui.so","vui.xml"
-};
-const OcPin oc_touch_pins[2]={
-    {"touch/devices/svc","/jci/devices/svc-com-jci-cpp-devices.so","e438bef5acb59c65c810df905488c7b1230cce88b20a295dc2da182f78da2695",1},
-    {"touch/devices/lib","/jci/lib/libjcidevices.so","4d05f4242ffab8ed2e21c4785b077b7225ea54c3e62c8e02a26eb400eb6a1171",1}
-};
-const OcPin oc_base_pins[5]={
-    {"base/settings.txt","/config/common/log/settings.txt","8c95ceaf213af1086e913fd78b69c9b00869c848375c3b40de3c36166d5d3ea0",0},
-    {"base/libjcicommon.so","/jci/lib/libjcicommon.so","637cc53cd0621ec7fed24be2519b3e208191dd22954d2442d70e854413874b0d",0},
-    {"base/log-defaults.js","/jci/gui/common/js/logDefaults.js","83f5a71617f34427bb903c90ac5df53ed4e0e6437cca8a8bdb509909a324ba3a",0},
-    {"base/vui/vui.so","/jci/vui/svcjcivui.so","ba72171a04dcc264ff5f690ac25ac2b009624158499159cdb6aebb08a9ab34f4",1},
-    {"base/vui/vui.xml","/jci/vui/vui_config.xml","d2511533b59bc9773f92d8fff9cbcf591d9ff461c33839ff4eaaae6f5d0aaef0",1}
-};
-
 unsigned oc_meta_text(char *p, const OcMeta *m) {
     oc_u64 values[10]={m->device,m->inode,m->size,m->mode,m->uid,m->gid,
                        m->modified,m->modified_ns,m->changed,m->changed_ns};

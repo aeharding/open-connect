@@ -139,6 +139,9 @@ def host_api() -> Path:
             "oc-record.c",
             "oc-config.c",
             "oc-guard.c",
+            "oc-root.c",
+            "oc-access.c",
+            "oc-txn.c",
             "oc-api.c",
         )
     ]

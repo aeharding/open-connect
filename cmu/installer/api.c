@@ -8,9 +8,16 @@
 static long token_read(const char *p, char *b, unsigned n) {
     long f=oc_openat(OC_CWD,p,OC_READ|OC_BLOCKING,0);
     if (f<0) return -1;
-    long r=oc_read((int)f,b,n);
+    unsigned used=0;
+    while (used<n) {
+        long r=oc_read((int)f,b+used,n-used);
+        if (r==-4) continue;
+        if (r<0) { (void)oc_close((int)f); return -1; }
+        if (!r) break;
+        used+=(unsigned)r;
+    }
     (void)oc_close((int)f);
-    return r;
+    return (long)used;
 }
 static int lower(int c) { return c>='A'&&c<='Z'?c+32:c; }
 static int header(const char *a,const char *b) {

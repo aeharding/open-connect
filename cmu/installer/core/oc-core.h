@@ -173,8 +173,6 @@ int oc_saved_text(int folder, OcManifest *manifest, const char *name, char *text
 int oc_record_parse_any(char *buf, char *fields[13]);
 int oc_record_read_any(int data_fd, long owner, long group, char *buf, unsigned cap, char *fields[13]);
 int oc_record_write_atomic(int root_fd, int data_fd, char *fields[13], char nonce_out[33]);
-int oc_record_mode(OcBoot *b, const char *expected_before, const char *expected_after);
-int oc_record(OcBoot *b);
 int oc_record_file(OcBoot *b, const char *expected_before, const char *expected_after);
 int oc_record_commit(OcBoot *b);
 

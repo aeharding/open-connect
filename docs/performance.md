@@ -4,6 +4,94 @@ Timings and RAM measurements are release evidence. Publish comparable runs here
 before describing an optimization as faster or lighter. CPU and I/O observations
 help explain the result; they do not replace a user-visible timing measurement.
 
+## Published dev.26 software-reboot resource comparison 2026-11-28
+
+**Matched n=3 cohort: Stock versus published v0.3.0-dev.26 (`Base=0` and `Base=1`).**
+This batch measures the post-consolidation native C architecture (`boot-select`,
+`api`, `install`, `ignition`, `flush`) against clean uninstalled Stock on one
+physical **74.00.324A NA / cmu150_NA** bench unit. **[#9](https://github.com/aeharding/open-connect/issues/9)
+remains open**: these are SSH-started software-reboot traces without camera
+Home-visible timing, ACC-off cold-start intervals, or real-car qualification.
+
+Published build: tag `v0.3.0-dev.26`, source
+`cd7095c2f031cf8cbf1c8de611f19001877429e1`,
+[CI 46111168052](https://github.com/aeharding/open-connect/actions/runs/46111168052),
+ZIP SHA-256 `db001e0c15da64aad04d75cf2dacaea4545093dcd92614eb5bec688e20247063`.
+
+### Fixture, settings and measurement limits
+
+- One **74.00.324A NA** bench unit, physical root verified `/dev/ffx01p1 / relfs ro,noatime`
+  on every trial (`root_ro=1`), with the installer USB trigger held aside during sampling
+  and restored read-only afterward.
+- Acquisition order: `dev26_base0` (n=3) → `dev26_base1` (n=3) → clean USB Uninstall →
+  `stock` (n=3). Because consecutive software `reboot` cycles without an ACC-off
+  ignition cycle intentionally decrement the 3-boot anti-bootloop budget, trial 3 of
+  `dev26_base0` and trial 3 of `dev26_base1` each followed a guarded USB reinstall
+  restoring `budget=3` while preserving identical `OC2` preferences (leaving the 4 KiB
+  `installed` completion-notice link present in `/tmp/open-connect/feature` on those
+  two boots: 336 vs 332 KiB for `Base=0`, 440 vs 436 KiB for `Base=1`).
+- Installed settings held fixed across `Base=0` and `Base=1`: Touchscreen Allow (`1`),
+  Startup disclaimer Skip (`1`), Wireless CarPlay off (`0`), Show CarPlay on connection
+  Factory (`0`), Android Auto/Pandora/SiriusXM on (`1`), UART/SSH off (`0`). Only
+  **Startup optimizations (`base`)** changed between `Base=0` and `Base=1`.
+- Each trial ran `oc bench sample --live --seconds 155 --interval 1` over SSH after
+  boot (first sample at kernel uptime **35.30–43.85 s**, last sample **189.42–198.43 s**).
+  Early RAM before SSH is unobserved. Camera Home-visible bounds were not collected in
+  this software-reboot batch; `/proc/<pid>/stat` process start times (`opera`, `carplayd`)
+  and native `/tmp/open-connect/startup-times` stamps are reported separately and are not
+  substitutes for visible Home or usable CarPlay.
+- Metric definitions follow the dev.20 ACC cohort below: cumulative boot CPU at the sample
+  nearest 60 s (`USER_HZ=100`, two cores = 100%), settled CPU across samples wholly inside
+  uptime **60–170 s**, RAM minima/end over that same **60–170 s** window (all 9 trials
+  reach their observed minimum within 60–170 s because collection starts at 35–44 s), and
+  available-RAM proxy `MemFree + Buffers + Cached + SReclaimable − Shmem`.
+
+### Medians across n=3 software-reboot trials
+
+| Condition | Boot CPU % (~60 s) | Busy CPU-s (~60 s) | Settled CPU % (60–170 s) | Min MemFree MiB | End MemFree MiB | End available proxy MiB | End AnonPages MiB | Own tmpfs KiB | Opera start s | Post-window Opera PSS MiB | Ignition PSS KiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Stock | 72.67 | 86.57 | 12.14 | 115.49 | 124.17 | 372.04 | 273.76 | 0 | 13.02 | 51.93 | — |
+| dev.26 `Base=0` | 72.71 | 87.05 | 12.20 | 116.11 | 124.91 | 374.46 | 271.09 | 332 | 13.11 | 49.99 | 12 |
+| dev.26 `Base=1` | 66.31 | 78.88 | 11.78 | 201.49 | 203.56 | 394.35 | 255.30 | 436 | 13.38 | 50.91 | 12 |
+
+Differences calculated before rounding displayed medians:
+
+- **`dev.26 Base=0` vs Stock:** boot CPU **+0.03 pp** (+0.48 busy CPU-s), settled CPU
+  **+0.06 pp**, ending available-RAM proxy **+2.43 MiB**, `AnonPages` **−2.67 MiB**,
+  `opera` start **+0.09 s** (13.11 vs 13.02 s), `carplayd` start **+0.10 s** (7.87 vs 7.77 s).
+  Native `boot-select` held the gate for **0.02–0.03 s** (`hook_entry` 5.72 s →
+  `gate_released` 5.74 s) and exited **0.71–0.84 s before `join_entered`** on `Base=0`
+  (**0.65–0.79 s** on `Base=1`, **0.00 s join wait** across all six installed boots). Own allocated tmpfs dropped to **332 KiB** (down 64 KiB from
+  396 KiB in `v0.3.0-dev.20`), and the freestanding native `ignition` observer used **12 KiB PSS**
+  across all six installed trials (down from 160 KiB in the `dev.20` shell observer snapshot).
+- **`dev.26 Base=1` vs Stock:** boot CPU **−6.36 pp** (−7.69 busy CPU-s), settled CPU
+  **−0.36 pp**, minimum `MemFree` **+86.00 MiB**, ending available-RAM proxy **+22.31 MiB**,
+  `AnonPages` **−18.45 MiB**, own allocated tmpfs **436 KiB** (down 64 KiB from 500 KiB in
+  `v0.3.0-dev.20`).
+
+Sanitized per-trial export (all 9 trials, no device/boot IDs or raw captures):
+[dev.26 software-reboot trials CSV](assets/performance/dev26-reboot-cohort/trials.csv).
+Recompute all medians and deltas directly from the repository root:
+
+```sh
+python3 - <<'PY'
+import csv
+from pathlib import Path
+from statistics import median
+
+rows = list(csv.DictReader(Path("docs/assets/performance/dev26-reboot-cohort/trials.csv").open()))
+by_c = {c: [r for r in rows if r["condition"] == c] for c in ("stock", "dev26_base0", "dev26_base1")}
+keys = ("boot_cpu_pct", "boot_busy_cpu_s", "settled_cpu_pct", "min_memfree_mib",
+        "end_memfree_mib", "end_avail_proxy_mib", "end_anon_mib", "own_tmpfs_kib",
+        "opera_start_s", "opera_pss_kib", "carplayd_start_s")
+med = {c: {k: median(float(r[k]) for r in rs) for k in keys} for c, rs in by_c.items()}
+for c in ("stock", "dev26_base0", "dev26_base1"):
+    print(c, {k: round(v, 3) for k, v in med[c].items()})
+for c in ("dev26_base0", "dev26_base1"):
+    print(f"delta {c} vs stock", {k: round(med[c][k] - med["stock"][k], 3) for k in keys})
+PY
+```
+
 ## Ordinary-USB discovery: dev.22 and dev.23 candidates
 
 The [dev.22/candidate comparison](usb-discovery-performance.md) retains four

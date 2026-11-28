@@ -742,3 +742,52 @@ f.reply(f.operation('import')[0],null);
 f.reply(f.requests.at(-1),f.state({...developer,revision:nextRev,touch:2,touchCurrent:1,restart:true}));
 assert.equal(f.dialog.props.title,'Preferences imported');
 console.log('Unconfirmed preference/import saves show restart guidance at 12 s and immediately on re-entry; late replies stay inert');
+
+// openSettings() must return false cleanly when _currTmpltInstance is null.
+f=fixture(folder);f.install();
+f.fw._currTmpltInstance=null;
+assert.equal(f.ctx.OpenConnect.openSettings(),false);
+assert.equal(f.ctx.OpenConnect.autoshowState(),0);
+
+// Navigating away during openSettings() cold refresh must clear openIntent immediately
+// (not latch autoshowState()===2 for 12 s or make a later openSettings() a silent no-op).
+f=fixture(folder);f.install();
+assert.equal(f.ctx.OpenConnect.openSettings(),true);
+assert.equal(f.ctx.OpenConnect.autoshowState(),2);
+f.nativeSettings();
+f.reply(f.requests.at(-1),f.state());
+assert.equal(f.ctx.OpenConnect.autoshowState(),0,'away-from-Home refresh clears openIntent immediately');
+assert.equal(f.pages.length,0);
+f.homeScreen();
+assert.equal(f.ctx.OpenConnect.openSettings(),true,'subsequent openSettings() works cleanly');
+f.advance(200);
+assert.equal(f.pages.length,1);
+
+// Boot completion IIFE ignores missing or malformed token/version/data-boot meta tags without throwing.
+for(const bad of [null,{token:'bad',version:'0.3.0',boot:'12345678-1234-1234-1234-123456789abc'},
+ {token:'a'.repeat(32),version:'bad!',boot:'12345678-1234-1234-1234-123456789abc'},
+ {token:'a'.repeat(32),version:'0.3.0',boot:'not-a-uuid'}]){
+ f=fixture(folder,{installed:false,notice:'installed'});
+ f.ctx.document.querySelector=q=>{
+  if(q.includes('open-connect-notice'))return {getAttribute:()=>'installed'};
+  if(!bad)return null;
+  if(q.includes('open-connect-token'))return {getAttribute:k=>k==='data-boot'?bad.boot:bad.token};
+  if(q.includes('open-connect-version'))return {getAttribute:()=>bad.version};
+  return null;
+ };
+ f.evaluate('runtime.js');
+ assert.equal(f.ctx.__ocCompletionLoading,undefined);
+}
+
+// ocCarPlay Disclaimer bridge tolerates missing _currTmpltInstance, contextInfo, divElt, and _contextTable.
+f=fixture(folder);
+const cpHooks=[];
+f.ctx.ocCarPlay={loaded:0,holding:false,early:[],signal(){},wrap(o,k,pre,post){cpHooks.push([o,k,pre,post]);},user(){},pump(){}};
+f.fw._appInstances.system={};
+f.install();
+f.fw._currTmpltInstance={};
+assert.equal(f.ctx.ocCarPlay.agree({type:'mousedown',target:{}}),false);
+f.fw._currTmpltInstance={contextInfo:{uiaId:'system',ctxtId:'Disclaimer'},dialog3Ctrl:{buttonCtrl_0:{_isEnabled:true}}};
+assert.equal(f.ctx.ocCarPlay.agree({type:'mousedown',target:{}}),false);
+f.fw._currTmpltInstance=null;
+assert.equal(f.ctx.ocCarPlay.agree('select'),false);

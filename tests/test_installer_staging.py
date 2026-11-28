@@ -174,7 +174,12 @@ class InstallerUSBEntry(unittest.TestCase):
 
     def test_failed_or_incomplete_size_pass_never_launches(self):
         stat = self.tools / "stat"
-        stat.unlink()
+        real_stat = shlex.quote(
+            str(stat.resolve())
+            if stat.exists()
+            else (shutil.which("gstat") or shutil.which("stat"))
+        )
+        stat.unlink(missing_ok=True)
         for command in (
             "exit 1",
             "printf '1\\n'",
@@ -182,9 +187,17 @@ class InstallerUSBEntry(unittest.TestCase):
             "printf '1\\n1\\n1\\n1\\n'; exit 1",
         ):
             with self.subTest(command=command):
-                stat.write_text("#!/bin/sh\n" + command + "\n")
+                # Allow the initial manifest size guard to succeed so each fault hits payload_size.
+                stat.write_text(
+                    "#!/bin/sh\n"
+                    f'case "$3" in */files.sha256) exec {real_stat} "$@";; esac\n' + command + "\n"
+                )
                 stat.chmod(0o700)
                 self.refused()
+
+    def test_oversized_manifest_is_refused_before_copy(self):
+        (self.source / "files.sha256").write_bytes(b"a" * 65537)
+        self.refused()
 
     def test_failed_or_mismatched_digest_pass_never_launches(self):
         openssl = self.tools / "openssl"

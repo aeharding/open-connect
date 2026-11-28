@@ -6,7 +6,7 @@ umask 077
 export LC_ALL=C PATH=/usr/bin:/bin:/usr/sbin:/sbin
 R=/tmp/open-connect/feature
 T=/tmp/devmgr_config_edit.xml
-sha() { value=$(openssl dgst -sha256 < "$1") || return; printf '%s\n' "${value##* }"; }
+sha() { local value; value=$(openssl dgst -sha256 < "$1") || return; printf '%s\n' "${value##* }"; }
 hex() { test "${#1}" -eq "$2" && case "$1" in *[!a-f0-9]*) false;; *) true;; esac; }
 sha_is() { local digest; digest=$(sha "$1") && hex "$digest" 64 && test "$digest" = "$2"; }
 absent() { test ! -e "$1" && test ! -L "$1"; }
@@ -67,7 +67,7 @@ worker=; worker_done=0; group_ready=0
 stop_worker() {
     test "$worker_done" = 0 || return 0
     # $! also closes the signal window between starting and assigning the PID.
-    worker=${worker:-${!:-}}
+    set +u; worker=${worker:-$!}; set -u
     test -n "$worker" || return 0
     if read -r process_stat 2>/dev/null < "/proc/$worker/stat"; then
         # State, parent, group and session follow the final ')' in proc stat.
@@ -86,6 +86,7 @@ stop_worker() {
     worker_done=1
 }
 applied_policy() {
+    local size wifi oob lines cr line
     test -f "$T" && test ! -L "$T" && test "$(readlink -f "$T")" = "$T" || return 1
     size=$(stat -c %s "$T") || return 1
     case "$size" in ''|*[!0-9]*) return 1;; esac
@@ -120,7 +121,7 @@ finish() {
 }
 trap finish EXIT
 trap 'exit 1' HUP INT TERM
-absent "$R/wireless-ack" && absent "$R/wireless-go"
+absent "$R/wireless-ack" && absent "$R/wireless-go" || exit 1
 mkfifo "$R/wireless-ack" "$R/wireless-go"
 # Linux FIFO read/write opens do not wait for a peer. All later I/O uses the
 # inherited descriptors; an absent worker cannot block an endpoint open.

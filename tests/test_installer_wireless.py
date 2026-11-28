@@ -402,3 +402,12 @@ class InstallerWireless(unittest.TestCase):
         wrapper.chmod(0o700)
         content = self.interrupt_at(marker, 1)
         self.assertEqual(content, XML.replace(b">FALSE<", b">TRUE<"))
+
+    def test_early_failure_before_worker_launch_releases_device_manager_without_unbound_var(self):
+        # Pre-existing wireless-ack triggers EXIT trap before background worker launches ($! unset).
+        (self.feature / "wireless-ack").write_text("stale\n")
+        result = self.run_helper()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, "")
+        self.assert_released(0)
+        self.assertEqual(self.target.read_bytes(), XML)

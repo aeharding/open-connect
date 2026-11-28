@@ -251,9 +251,13 @@ class Audio:
             token,
             {"boot", "bus", "owner", "status", "bus_after", "owner_after"},
         )
+        try:
+            boot_id = fields["boot"].decode("ascii")
+        except UnicodeError as exc:
+            raise Conflict("non-ASCII boot_id") from exc
         instance = binding(
             dict(
-                boot=fields["boot"].decode("ascii"),
+                boot=boot_id,
                 bus=dbus_string(fields["bus"]),
                 owner=dbus_string(fields["owner"]),
             )
@@ -449,13 +453,15 @@ def main(argv=None):
     parser.add_argument("action", choices=("setup", "status", "teardown"))
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--bundle", type=Path)
-    parser.add_argument("--state", type=Path, default=STATE)
+    parser.add_argument("--state", type=Path, default=None)
     parser.add_argument(
         "--owner", default=os.environ.get("HC_TERMINAL_ID") or "oc-" + str(os.getpid())
     )
     parser.add_argument("--solicit-prompt", action="store_true")
     parser.add_argument("--deadline", type=float, default=40)
     args = parser.parse_args(argv)
+    if args.state is None:
+        args.state = Path.cwd() / ".bench-state" / "profile.json"
     if not 0 < args.deadline <= 60:
         parser.error("deadline must be >0 and <=60 seconds")
     if not args.live:
@@ -480,8 +486,9 @@ def main(argv=None):
     if args.bundle is None or not args.owner:
         parser.error("live requires a fresh --bundle and a nonempty owner label")
     bundle = Bundle(args.bundle, "bench profile " + args.action, args.owner, mode="live")
-    bundle.save("profile.py", Path(__file__).read_bytes())
-    bundle.meta["profile_code_sha256"] = digest(Path(__file__).read_bytes())
+    profile_bytes = Path(__file__).read_bytes()
+    bundle.save("profile.py", profile_bytes)
+    bundle.meta["profile_code_sha256"] = digest(profile_bytes)
     port = session = None
     outcome, error, code = "failed", None, 1
     finished = False
@@ -495,7 +502,10 @@ def main(argv=None):
                 deadline = time.monotonic() + args.deadline
                 session = Session(port, bundle, timeout=args.deadline, output_cap=1048576)
                 session.observe_prompt(solicit=args.solicit_prompt)
-                session.timeout = max(0.001, deadline - time.monotonic())
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise Conflict("bench operation deadline exceeded")
+                session.timeout = min(60, remaining)
                 session.identify()
                 result = transition(args.action, Audio(session, deadline), store, bundle.path)
                 bundle.save("profile-result.json", json.dumps(result, indent=2).encode())
@@ -511,9 +521,12 @@ def main(argv=None):
                 try:
                     if port is not None:
                         port.close()
-                    bundle.meta["port_closed"] = True
+                        bundle.meta["port_closed"] = True
+                    elif not bundle.meta["serial_port_opened"]:
+                        bundle.meta["port_closed"] = True
                 except (Exception, KeyboardInterrupt, SystemExit) as exc:
-                    error = (error + "; " if error else "") + "close failed: " + str(exc)
+                    close_msg = str(exc) or type(exc).__name__
+                    error = (error + "; " if error else "") + "close failed: " + close_msg
                     outcome, code = "unknown", 2
                 bundle.finish(outcome, error)
                 finished = True

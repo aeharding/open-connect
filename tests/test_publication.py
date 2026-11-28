@@ -162,6 +162,21 @@ print(fmt)
         b.finish("offline")
         self.assertEqual(json.loads((b.path / "manifest.json").read_text())["outcome"], "offline")
 
+    def test_parent_guards_shell_quote_special_characters(self):
+        rendered = linked.render(
+            str(self.p),
+            str(self.d),
+            str(self.h),
+            str(self.c),
+            str(self.s),
+            self.oid,
+            {"/tmp/dir with spaces/$(id)": "1:2:755:0:0$(id)"},
+            rt.fp(self.o),
+            rt.fp(self.new),
+        )
+        self.assertIn("'/tmp/dir with spaces/$(id)'", rendered)
+        self.assertIn("'1:2:755:0:0$(id)'", rendered)
+
 
 class DifferentSizePublication(LinkedTests):
     original_size = 94058

@@ -135,6 +135,19 @@ class CliTests(unittest.TestCase):
             self.assertEqual(manifest["operations"], [])
             self.assertTrue(port.closed)
 
+    def test_close_interrupt_preserves_error_and_marks_unknown(self):
+        class InterruptCloseTransport(FailingTransport):
+            def close(self):
+                raise KeyboardInterrupt()
+
+        with tempfile.TemporaryDirectory() as temp:
+            port = InterruptCloseTransport(OSError("synthetic write error"), partial=False)
+            rc, manifest, _ = self.invoke(Path(temp) / "run", port)
+            self.assertEqual(rc, 2)
+            self.assertEqual(manifest["outcome"], "unknown")
+            self.assertIn("close failed: KeyboardInterrupt", manifest["error"])
+            self.assertFalse(manifest["port_closed"])
+
 
 if __name__ == "__main__":
     unittest.main()

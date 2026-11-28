@@ -195,6 +195,21 @@ class DeliveryTests(unittest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 d.cleanup_command({**stage, **change})
+        for bad_json in ([], "str", 123, None):
+            with self.assertRaises(ValueError):
+                d.descriptor(bad_json)
+        desc_file = self.root / "stage.json"
+        desc_file.write_text(json.dumps(stage))
+        desc_link = self.root / "stage-link.json"
+        desc_link.symlink_to(desc_file)
+        with contextlib.redirect_stderr(io.StringIO()) as err, self.assertRaises(SystemExit):
+            d.main(["cleanup", "--descriptor", str(desc_link)])
+        self.assertIn("symbolic link", err.getvalue().lower())
+        big_desc = self.root / "big.json"
+        big_desc.write_bytes(b" " * (d.LIMIT + 1))
+        with contextlib.redirect_stderr(io.StringIO()) as err, self.assertRaises(SystemExit):
+            d.main(["cleanup", "--descriptor", str(big_desc)])
+        self.assertIn("regular file", err.getvalue())
 
     def test_live_frontdoor_mocks_failed_open_and_uncertain_TX_preserve_evidence(self):
         # Front door exercised with mocks; production FTDI identity selection remains unchanged.

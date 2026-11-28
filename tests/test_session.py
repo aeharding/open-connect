@@ -235,6 +235,32 @@ class SessionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             wrap_command("'" * 150, TOKEN)
 
+    def test_execute_invalid_command_records_no_operation(self):
+        t = FakeTransport()
+        s = self.session(t)
+        s.state, s.identity = "shell", {"uid": 0}
+        with self.assertRaises(ValueError):
+            s.execute("x" * 600)
+        self.assertEqual(self.bundle.meta["operations"], [])
+        self.assertEqual(t.tx, b"")
+        self.assertFalse(list(self.bundle.path.glob("*.command.txt")))
+
+    def test_bundle_finish_closes_all_streams_on_fault_and_is_idempotent(self):
+        b = Bundle(Path(self.tmp.name) / "fault-bundle", "fault test", "test")
+        b.record("rx", b"abc")
+        with patch.object(module.os, "fsync", side_effect=OSError("synthetic fsync failure")):
+            with self.assertRaises(OSError):
+                b.finish("completed")
+        self.assertTrue(all(f.closed for f in b.streams.values()))
+        self.assertTrue(b.closed)
+        manifest = json.loads((b.path / "manifest.json").read_text())
+        self.assertIn("synthetic fsync failure", manifest["error"])
+        b.finish("unknown", "second call is a no-op")
+        self.assertEqual(
+            json.loads((b.path / "manifest.json").read_text())["outcome"],
+            "completed",
+        )
+
     def test_descriptor_lock_contention_and_release(self):
         directory = Path(self.tmp.name) / "locks"
         with AdapterLock(directory) as first:

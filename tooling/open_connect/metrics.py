@@ -225,9 +225,12 @@ def main(argv=None):
                     process.terminate()
                     try:
                         process.communicate(timeout=3)
-                    except subprocess.TimeoutExpired:
+                    except (subprocess.TimeoutExpired, KeyboardInterrupt) as exc:
                         process.kill()
-                        process.communicate(timeout=3)
+                        process.wait(timeout=3)
+                        if isinstance(exc, KeyboardInterrupt):
+                            bundle.meta["ssh_closed"] = process.poll() is not None
+                            raise
                 bundle.meta["ssh_closed"] = process.poll() is not None
         if process.returncode:
             raise RuntimeError("SSH/collector returned " + str(process.returncode))

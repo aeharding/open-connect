@@ -19,11 +19,3 @@ def verify_package(workspace):
     for name in actual:
         if (PACKAGE / name).read_bytes() != (expected / name).read_bytes():
             raise ValueError("installed host package differs from workspace: " + str(name))
-
-
-def source_name(path):
-    """Use repository names for the executing package's source records."""
-    path = Path(path).resolve()
-    if path.is_relative_to(PACKAGE):
-        return str(Path("tooling/open_connect") / path.relative_to(PACKAGE))
-    return str(path.relative_to(ROOT))

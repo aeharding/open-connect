@@ -24,6 +24,7 @@ class FlushTests(unittest.TestCase):
                 "-Wextra",
                 "-Werror",
                 str(ROOT / "cmu/startup/flush.c"),
+                str(ROOT / "cmu/installer/core/oc-hash.c"),
                 "-o",
                 str(cls.binary),
             ],

@@ -4,7 +4,7 @@
  * Caller owns path/type/identity validation and the operation deadline.
  * ARM build uses the Linux 3.0 ARM EABI directly, without a target libc.
  */
-#include "../installer/boot-hash.h"
+#include "../installer/core/oc-core.h"
 #ifdef OC_HOST
 #include <errno.h>
 #include <fcntl.h>

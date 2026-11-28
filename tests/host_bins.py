@@ -85,9 +85,9 @@ def host_flush() -> Path:
     """Return cached host-compiled flush binary."""
     return _build_cached(
         "flush",
-        [ROOT / "cmu/startup/flush.c"],
+        [ROOT / "cmu/startup/flush.c", ASSETS / "core/oc-hash.c"],
         ["-DOC_HOST", "-O2"],
-        extra_deps=[ASSETS / "boot-hash.h"],
+        extra_deps=[ASSETS / "core/oc-core.h"],
     )
 
 

@@ -66,8 +66,8 @@ $(OUT)/install: $(INSTALL_SRCS) $(CORE_HDR) | $(OUT)
 	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) $(INSTALL_SRCS) -o "$@"
 	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@"
 
-$(OUT)/flush: cmu/startup/flush.c cmu/installer/boot-hash.h | $(OUT)
-	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) "$<" -o "$@"
+$(OUT)/flush: cmu/startup/flush.c cmu/installer/core/oc-hash.c $(CORE_HDR) | $(OUT)
+	$(CLANG) $(ARM_FLAGS) $(LINK_FLAGS) cmu/startup/flush.c cmu/installer/core/oc-hash.c -o "$@"
 
 $(OUT)/boot-select: cmu/installer/boot-select.c $(CORE_SRCS) $(CORE_HDR) | $(OUT)
 	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) cmu/installer/boot-select.c $(CORE_SRCS) -o "$@"

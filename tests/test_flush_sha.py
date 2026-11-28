@@ -27,7 +27,17 @@ class FlushSha(unittest.TestCase):
             (ROOT / "tests/fixtures/flush-sha.c", cls.fault_binary),
         ):
             subprocess.run(
-                ["clang", "-DOC_HOST", "-Wall", "-Wextra", "-Werror", source, "-o", target],
+                [
+                    "clang",
+                    "-DOC_HOST",
+                    "-Wall",
+                    "-Wextra",
+                    "-Werror",
+                    source,
+                    ROOT / "cmu/installer/core/oc-hash.c",
+                    "-o",
+                    target,
+                ],
                 check=True,
                 capture_output=True,
                 timeout=20,

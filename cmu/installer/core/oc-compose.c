@@ -4,6 +4,9 @@
  * transactional install/upgrade/reinstall.
  */
 #include "oc-core.h"
+#ifdef OC_HOST
+#include <stdlib.h>
+#endif
 
 static struct {
     char io[32768];
@@ -1126,9 +1129,9 @@ static void oc_log_kv(OcLogBuf *b, const char *k, const char *v) {
     b->buf[b->used]=0;
 }
 
-static int oc_vfat_rw_mount(int root, const char *target) {
+static int oc_vfat_mount_mode(int root, const char *target) {
     if (oc_text(root,"proc/self/mounts",oc_mscratch,sizeof oc_mscratch,1)<0) return 0;
-    unsigned hits=0;
+    unsigned hits=0; int mode=0;
     char *p=oc_mscratch;
     while (*p) {
         char *f[6]; unsigned n=0;
@@ -1145,23 +1148,104 @@ static int oc_vfat_rw_mount(int root, const char *target) {
         if (!oc_equal(f[2],"vfat")) return 0;
         char opts[256];
         if (!oc_join(opts,sizeof opts,",",f[3]) || !oc_join(opts,sizeof opts,opts,",")) return 0;
-        int rw=0;
-        for (char *q=opts; *q; ++q) if (oc_prefix(q,",rw,")) ++rw;
-        if (rw!=1) return 0;
+        int rw=0, ro=0;
+        for (char *q=opts; *q; ++q) {
+            if (oc_prefix(q,",rw,")) ++rw;
+            if (oc_prefix(q,",ro,")) ++ro;
+        }
+        if (rw+ro!=1) return 0;
+        mode=rw?1:2;
         ++hits;
     }
-    return hits==1;
+    return hits==1 ? mode : 0;
 }
 
-static int oc_open_verified_usb_vol(int root, const char *sess_mf_sha) {
+static int oc_usb_remount(int root, const char *target, int rw) {
+#if defined(OC_HOST) || defined(OC_TEST_PINFILE)
+#ifdef OC_HOST
+    if (getenv("OC_HOST_USB_REMOUNT_FAIL")) return 0;
+#endif
+    char *buf=oc_big_buf, *out=oc_big_buf+16384;
+    int n=oc_text(root,"proc/self/mounts",buf,16384,0);
+    if (n<=0) return 0;
+    const char *from=rw?"ro":"rw", *to=rw?"rw":"ro";
+    unsigned used=0; char *p=buf;
+    while (*p) {
+        char *line=p;
+        while (*p && *p!='\n') ++p;
+        int has_nl=(*p=='\n');
+        if (has_nl) *p++=0;
+        char *f[6]; unsigned nf=0;
+        char lcopy[512];
+        if (oc_length(line)>=sizeof lcopy) return 0;
+        for (unsigned i=0; (lcopy[i]=line[i])!=0; ++i) {}
+        char *lp=lcopy;
+        while (*lp) {
+            while (*lp==' '||*lp=='\t') ++lp;
+            if (!*lp) break;
+            if (nf<6) f[nf++]=lp;
+            while (*lp && *lp!=' ' && *lp!='\t') ++lp;
+            if (*lp) *lp++=0;
+        }
+        if (nf==6 && oc_equal(f[1],target) && oc_equal(f[2],"vfat")) {
+            char nopts[256]; unsigned nu=0;
+            char *q=f[3];
+            while (*q) {
+                char *tok=q; while (*q && *q!=',') ++q;
+                int has_c=(*q==','); if (has_c) *q++=0;
+                const char *emit=oc_equal(tok,from)?to:tok;
+                unsigned el=oc_length(emit);
+                if (nu+el+(has_c?1:0)>=sizeof nopts) return 0;
+                for (unsigned j=0; j<el; ++j) nopts[nu++]=emit[j];
+                if (has_c) nopts[nu++]=',';
+            }
+            nopts[nu]=0;
+            char nline[512];
+            if (!oc_join4(nline,sizeof nline,f[0]," ",f[1]," ") ||
+                !oc_join4(nline,sizeof nline,nline,f[2]," ",nopts) ||
+                !oc_join4(nline,sizeof nline,nline," ",f[4]," ") ||
+                !oc_join(nline,sizeof nline,nline,f[5])) return 0;
+            unsigned ll=oc_length(nline);
+            if (used+ll>=16384) return 0;
+            for (unsigned j=0; j<ll; ++j) out[used++]=nline[j];
+        } else {
+            unsigned ll=oc_length(line);
+            if (used+ll>=16384) return 0;
+            for (unsigned j=0; j<ll; ++j) out[used++]=line[j];
+        }
+        if (has_nl) { if (used+1>=16384) return 0; out[used++]='\n'; }
+    }
+    out[used]=0;
+    long fd=oc_beneath(root,"proc/self/mounts",OC_WRITE|OC_TRUNC,0600);
+    if (fd<0) return 0;
+    int ok=oc_write_all((int)fd,out,used);
+    if (oc_close((int)fd)<0) ok=0;
+    return ok && oc_vfat_mount_mode(root,target)==(rw?1:2);
+#else
+    char tbuf[32];
+    if (!oc_join(tbuf,sizeof tbuf,target,"")) return 0;
+    char *argv[]={
+        "/bin/busybox","timeout","-t","8","-s","TERM",
+        "/bin/busybox","mount","-i","-n","-o",
+        rw?"remount,rw":"remount,ro",tbuf,0
+    };
+    if (oc_run_cmd("/bin/busybox",argv,-1,0,0,-1)!=0) return 0;
+    return oc_vfat_mount_mode(root,target)==(rw?1:2);
+#endif
+}
+
+static int oc_open_verified_usb_vol(int root, const char *sess_mf_sha,
+                                    char mnt_out[32], int *was_ro) {
     const char *vnames[4]={"sda1","sdb1","sdc1","sdd1"};
     long mnt=oc_beneath(root,"tmp/mnt",OC_DIRECTORY,0);
     if (mnt<0) return -1;
-    int found=-1;
+    int found=-1; *was_ro=0; mnt_out[0]=0;
     for (unsigned i=0; i<4; ++i) {
         if (oc_absent_at((int)mnt,vnames[i])) continue;
         char vabs[32];
-        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i]) || !oc_vfat_rw_mount(root,vabs)) continue;
+        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i])) continue;
+        int mode=oc_vfat_mount_mode(root,vabs);
+        if (!mode) continue;
         long vd=oc_openat((int)mnt,vnames[i],OC_DIRECTORY,0);
         if (vd<0) continue;
         long ocd=oc_openat((int)vd,"open-connect",OC_DIRECTORY,0);
@@ -1175,6 +1259,8 @@ static int oc_open_verified_usb_vol(int root, const char *sess_mf_sha) {
         if (!match) { (void)oc_close((int)vd); continue; }
         if (found>=0) { (void)oc_close((int)vd); (void)oc_close(found); (void)oc_close((int)mnt); return -1; }
         found=(int)vd;
+        *was_ro=(mode==2);
+        (void)oc_join(mnt_out,32,vabs,"");
     }
     (void)oc_close((int)mnt);
     return found;
@@ -1192,7 +1278,8 @@ void oc_usb_log_failure(int root, const char *session_dir, const char *op, const
         if (sfd>=0) (void)oc_close((int)sfd);
         if (!ok) return;
     }
-    int vfd=oc_open_verified_usb_vol(root,sess_sha);
+    char mnt_path[32]; int was_ro=0;
+    int vfd=oc_open_verified_usb_vol(root,sess_sha,mnt_path,&was_ro);
     if (vfd<0) return;
 
     OcLogBuf lb={cm.out, 4096, 0};
@@ -1216,10 +1303,10 @@ void oc_usb_log_failure(int root, const char *session_dir, const char *op, const
             oc_log_kv(&lb,"uptime",up);
         }
     }
-    /* Allowlisted version.ini identity lines only. */
-    if (oc_text(root,"jci/version.ini",oc_mscratch,sizeof oc_mscratch,0)>0) {
+    /* Allowlisted version.ini identity lines only (real v74 version.ini is ~15 KiB). */
+    if (oc_text(root,"jci/version.ini",oc_big_buf,sizeof oc_big_buf,0)>0) {
         oc_log_str(&lb,"version_ini:\n");
-        char *p=oc_mscratch;
+        char *p=oc_big_buf;
         while (*p) {
             char *ln=p; while (*p && *p!='\n') ++p;
             if (*p=='\n') *p++=0;
@@ -1260,6 +1347,11 @@ void oc_usb_log_failure(int root, const char *session_dir, const char *op, const
         }
     }
 
+    int remounted=0;
+    if (was_ro) {
+        if (!oc_usb_remount(root,mnt_path,1)) { (void)oc_close(vfd); return; }
+        remounted=1;
+    }
     long lfd=oc_openat(vfd,"open-connect-error.log",OC_WRITE|OC_CREATE|OC_TRUNC,0600);
     if (lfd>=0) {
         OcMeta lm={0};
@@ -1271,4 +1363,5 @@ void oc_usb_log_failure(int root, const char *session_dir, const char *op, const
         (void)oc_sync(vfd);
     }
     (void)oc_close(vfd);
+    if (remounted) (void)oc_usb_remount(root,mnt_path,0);
 }

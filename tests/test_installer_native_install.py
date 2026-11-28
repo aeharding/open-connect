@@ -946,8 +946,12 @@ class NativeInstall(unittest.TestCase):
             api_bin = usb_sess / "api"
 
             # Add an extra non-allowlisted line in version.ini to verify strict allowlist filtering.
+            # Add an unallowlisted line + realistic ~15 KiB padding (real v74 version.ini is
+            # 14,625 B > 8 KiB oc_mscratch) to verify version_ini: is captured without secret leak.
             (root / "jci/version.ini").write_text(
-                (root / "jci/version.ini").read_text() + "SECRET_OEM_LINE=DO_NOT_LOG\n"
+                (root / "jci/version.ini").read_text()
+                + "SECRET_OEM_LINE=DO_NOT_LOG\n"
+                + ("# padding line to exceed 8 KiB scratch buffer on real v74 CMU\n" * 240)
             )
 
             # Mount a verified rw vfat USB volume + real Mazda /tmp/mnt/sd_nav (must NOT be logged).
@@ -1072,16 +1076,35 @@ class NativeInstall(unittest.TestCase):
             self.assertNotIn("/tmp/mnt/sd_nav", txt_un)
             log_file.unlink()
 
-            # 5) Safety guards: RO mount, non-vfat mount, mismatched USB stick, 2 matching sticks,
-            #    and symlinked open-connect-error.log must NEVER write or alter error response.
-            # 5a. RO vfat mount
+            # 5) RO vfat remount lifecycle + safety guards (remount fail, non-vfat, mismatched USB,
+            #    2 matching sticks, symlinked log, non-USB session).
+            # 5a. RO vfat mount (default on real Mazda CMU v74!) temporarily remounts rw, writes
+            #     open-connect-error.log (recording original ro mount), and restores ro!
             (root / "proc/self/mounts").write_text(
                 base_mounts + "/dev/sda1 /tmp/mnt/sda1 vfat ro,fmask=0022 0 0\n"
             )
             p_ro, r_ro = self._call_api(api_bin, usb_sess, rec[5], "uninstall", env=env)
             self.assertNotEqual(p_ro.returncode, 0)
             self.assertEqual(r_ro["error"], "state_changed")
+            self.assertTrue(log_file.is_file())
+            txt_ro = log_file.read_text()
+            self.assertIn("/dev/sda1 /tmp/mnt/sda1 vfat ro,fmask=0022 0 0\n", txt_ro)
+            self.assertIn(
+                "/dev/sda1 /tmp/mnt/sda1 vfat ro,fmask=0022 0 0\n",
+                (root / "proc/self/mounts").read_text(),
+            )
+            log_file.unlink()
+
+            # 5a2. RO vfat mount where remount,rw fails (e.g. write-protected USB): refuses cleanly.
+            env_ro_fail = dict(env, OC_HOST_USB_REMOUNT_FAIL="1")
+            p_rof, r_rof = self._call_api(api_bin, usb_sess, rec[5], "uninstall", env=env_ro_fail)
+            self.assertNotEqual(p_rof.returncode, 0)
+            self.assertEqual(r_rof["error"], "state_changed")
             self.assertFalse(log_file.exists())
+            self.assertIn(
+                "/dev/sda1 /tmp/mnt/sda1 vfat ro,fmask=0022 0 0\n",
+                (root / "proc/self/mounts").read_text(),
+            )
 
             # 5b. Non-vfat mount
             (root / "proc/self/mounts").write_text(

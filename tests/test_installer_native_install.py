@@ -1695,6 +1695,28 @@ class NativeInstall(unittest.TestCase):
             board_sh = root / "jci/scripts/get_board_type.sh"
             saved_board_sh = board_sh.read_bytes()
 
+            # 2b) P1-1 regression: fresh-install preset requesting touch=2 or base=1 with a drifted
+            #     active pin MUST fail BEFORE touching flash (data dir remains completely absent)!
+            dev_svc_pre = root / "jci/devices/svc-com-jci-cpp-devices.so"
+            saved_dev_svc_pre = dev_svc_pre.read_bytes()
+            dev_svc_pre.write_bytes(b"drifted devices svc\n")
+            (vol / "open-connect.prefs").write_text("OCPREFS1\ntouch=2\n")
+            p_tp, r_tp = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
+            dev_svc_pre.write_bytes(saved_dev_svc_pre)
+            self.assertNotEqual(p_tp.returncode, 0)
+            self.assertEqual(r_tp["error"], "touch_inputs_changed")
+            self.assertFalse(data.exists())
+
+            log_def_pre = root / "jci/gui/common/js/logDefaults.js"
+            saved_log_def_pre = log_def_pre.read_bytes()
+            log_def_pre.write_bytes(b"// drifted logDefaults\n")
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nbase=1\n")
+            p_bp, r_bp = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
+            log_def_pre.write_bytes(saved_log_def_pre)
+            self.assertNotEqual(p_bp.returncode, 0)
+            self.assertEqual(r_bp["error"], "base_inputs_changed")
+            self.assertFalse(data.exists())
+
             # 3) Valid fresh-install preset (comments + CRLF + touch=2 + base=1 + all toggles)
             (vol / "open-connect.prefs").write_bytes(
                 b"OCPREFS1\r\n"
@@ -1923,3 +1945,20 @@ class NativeInstall(unittest.TestCase):
             board_sh.write_bytes(saved_board_sh)
             self.assertNotEqual(p_fu_im.returncode, 0)
             self.assertEqual(r_fu_im["error"], "wireless_unavailable")
+
+            # P1-2 regression: direct set|wireless|0|1 also enforces oc_factory_wireless() (fw==0 and fw==2)!
+            p_fw_set, r_fw_set = self._call_api(
+                api_bin, set_sess, snap6, "set", "wireless", "0", "1", env=env_fw_enabled
+            )
+            self.assertNotEqual(p_fw_set.returncode, 0)
+            self.assertEqual(r_fw_set["error"], "wireless_factory_enabled")
+            board_sh.write_bytes(b"#!/bin/sh\n# tampered\nexit 1\n")
+            p_fu_set, r_fu_set = self._call_api(
+                api_bin, set_sess, snap6, "set", "wireless", "0", "1", env=env_fw_unavail
+            )
+            board_sh.write_bytes(saved_board_sh)
+            self.assertNotEqual(p_fu_set.returncode, 0)
+            self.assertEqual(r_fu_set["error"], "wireless_unavailable")
+
+            # P2-1 regression: atomic export leaves no .tmp sibling behind
+            self.assertFalse((vol / "open-connect.prefs.tmp").exists())

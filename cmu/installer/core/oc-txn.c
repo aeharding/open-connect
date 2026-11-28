@@ -502,6 +502,45 @@ int oc_check_active_pins(int root, int data_fd, const char *pkg_id, const char *
     return 1;
 }
 
+int oc_check_preset_pins(int root, int sess_fd, const OcPrefs *chk, const char **err_out) {
+    if (oc_equal(chk->touch,"2") && !oc_touch_pins_ok(root))
+        return txn_err(err_out,"touch_inputs_changed");
+    if (!oc_equal(chk->base,"1")) return 1;
+    OcMeta stock={0};
+    if (!oc_stock_meta(root,&stock)) return txn_err(err_out,"base_inputs_changed");
+    for (unsigned i=0; i<5; ++i) {
+        if (!oc_stock_pin_ok(root,stock.device,oc_base_pins[i].stock,oc_base_pins[i].path,
+                             oc_pin_digest(oc_base_pins[i].key,oc_base_pins[i].digest)))
+            return txn_err(err_out,"base_inputs_changed");
+    }
+    if (oc_text(sess_fd,"ui-modules.tsv",oc_big_buf,16384,0)<=0)
+        return txn_err(err_out,"base_inputs_changed");
+    OcVuiChkCtx vc={root,stock.device};
+    char *p=oc_big_buf; unsigned hits=0;
+    while (*p) {
+        char *ln=p; while (*p && *p!='\n') ++p;
+        if (*p=='\n') *p++=0;
+        if (!*ln || *ln=='#') continue;
+        char *f[4]; unsigned nf=0;
+        for (char *q=ln; *q && nf<4; ) {
+            f[nf++]=q;
+            while (*q && *q!='\t') ++q;
+            if (*q=='\t') *q++=0;
+        }
+        if (nf!=4 || !oc_equal(f[0],"vui")) continue;
+        int en=oc_equal(f[2],"keep");
+        if (!en && !oc_equal(f[2],"base")) {
+            for (unsigned k=0; k<chk->svc_count; ++k)
+                if (oc_equal(chk->svc_ids[k],f[2]) && oc_equal(chk->svc_vals[k],"1")) { en=1; break; }
+        }
+        if (!en) continue;
+        if (!oc_hex(f[3],64) || !oc_vui_chk_cb(f[1],f[3],&vc))
+            return txn_err(err_out,"base_inputs_changed");
+        ++hits;
+    }
+    return hits ? 1 : txn_err(err_out,"base_inputs_changed");
+}
+
 static int oc_write_in_row(int fd, const char *k, const char *p, const char *d) {
     char line[384];
     return oc_join4(line,sizeof line,k,"|",p,"|") && oc_join4(line,sizeof line,line,d,"\n",0) &&

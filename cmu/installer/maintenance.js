@@ -238,7 +238,6 @@ function read(done,until,attempts,intent,purpose){
  if(intent!==epoch||dead)return;
  var left=until?until-Date.now():185000;
  if(left<=0){done(null);return;}
- var end=until||Date.now()+left;
  post("status",purpose?[purpose,"-","-"]:null,function(a,code){
  
  if((a&&a.error==="busy"||(!a&&until))&&(until||(attempts||0)<8)){

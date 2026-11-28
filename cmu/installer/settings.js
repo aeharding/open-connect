@@ -306,8 +306,9 @@ var d=params&&params.additionalData,v,on,desired,row,label,text;
 if(choice===null&&/^(developer|phone|sources|dial|backup)$/.test(item)){render(item,0);return;}
 if(choice==="phone"&&item===2||choice==="sources"&&item===3){v=prefs.values();if(v)render(item,v[entries[item].key]);return;}
 if(choice==="backup"){
-if(item==="exportPrefs"&&isFn(store.exportPrefs))usbTask("backup",item,store.exportPrefs,"Export preferences?","Save your settings to open-connect.prefs on the USB drive.","Export","export","Exporting preferences",function(act){return act?["Preferences exported","Saved to open-connect.prefs on the USB drive."]:["Export failed","Insert one FAT32 USB drive and try again."];});
-else if(item==="importPrefs"&&isFn(store.importPrefs))usbTask("backup",item,store.importPrefs,"Import preferences?","Load settings from open-connect.prefs on the USB drive. Changes apply "+R,"Import","import","Importing preferences",function(act){return act?["Preferences imported","Changes apply "+R]:["Import failed","Use one FAT32 USB drive with a valid open-connect.prefs file."];});
+var pf="open-connect.prefs",ud=" on the USB drive.";
+if(item==="exportPrefs"&&isFn(store.exportPrefs))usbTask("backup",item,store.exportPrefs,"Export preferences?","Save your settings to "+pf+ud,"Export","export","Exporting preferences",function(act){return act?["Preferences exported","Saved to "+pf+ud]:["Export failed","Insert one FAT32 USB drive and try again."];});
+else if(item==="importPrefs"&&isFn(store.importPrefs))usbTask("backup",item,store.importPrefs,"Import preferences?","Load settings from "+pf+ud+" Changes apply "+R,"Import","import","Importing preferences",function(act){return act?["Preferences imported",act.restart?"Changes apply "+R:"Preferences already match."]:["Import failed","Use one FAT32 USB drive with a valid "+pf+" file."];});
 return;
 }
 if(choice==="phone"&&item==="wireless"||choice==="dial"&&(item==="menuLoop"||item==="holdScroll")||choice===null&&item==="base"||choice==="phone"||choice==="sources"){

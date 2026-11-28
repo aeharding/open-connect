@@ -585,6 +585,14 @@ pick(1); confirm("import"); idle();
 values = {...values, touch: 2, restart: true};
 importPrefsReply(values);
 assert.equal(modal.props.title, "Preferences imported");
+assert.match(modal.props.text1, /after restarting Mazda Connect/);
+confirm("done");
+// No-op import (restart === false) confirms preferences already match without asking for restart.
+pick(1); confirm("import"); idle();
+values = {...values, restart: false};
+importPrefsReply(values);
+assert.equal(modal.props.title, "Preferences imported");
+assert.equal(modal.props.text1, "Preferences already match.");
 confirm("done");
 back();
 assert.equal(pages.at(-1).ctrl.dataList.items[pages.at(-1).ctrl.focussedItem].appData, "backup");

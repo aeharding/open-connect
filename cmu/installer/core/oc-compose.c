@@ -1004,7 +1004,6 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
         OcCatalog pre_cat; pre_cat.count=0;
         int cat_ok=sh_ok && oc_text((int)sfd,"services.tsv",cm.cat,sizeof cm.cat,0)>0 &&
             oc_catalog_load(cm.cat,oc_length(cm.cat),&pre_cat);
-        if (sfd>=0) (void)oc_close((int)sfd);
         int vfd=cat_ok ? oc_open_verified_usb_vol(root,sess_sha,mnt_path,&was_ro) : -1;
         if (vfd>=0) {
             if (!oc_absent_at(vfd,"open-connect.prefs")) {
@@ -1015,6 +1014,7 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
                 if (pfd>=0 && oc_close((int)pfd)<0) pn=-1;
                 (void)oc_close(vfd);
                 if (pn<=0) {
+                    if (sfd>=0) (void)oc_close((int)sfd);
                     if (data_fd>=0) (void)oc_close(data_fd);
                     return cerr(err_out,"invalid_preferences_preset");
                 }
@@ -1028,18 +1028,26 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
                 }
                 if (!oc_join(pcopy,sizeof pcopy,"",preset_raw) ||
                     !oc_prefs_preset_apply(pcopy,preset_len,&pre_cat,&chk,0)) {
+                    if (sfd>=0) (void)oc_close((int)sfd);
                     if (data_fd>=0) (void)oc_close(data_fd);
                     return cerr(err_out,"invalid_preferences_preset");
                 }
                 if (oc_equal(chk.wireless,"1")) {
                     int fw=oc_factory_wireless(root,root_path);
                     if (fw!=1) {
+                        if (sfd>=0) (void)oc_close((int)sfd);
                         if (data_fd>=0) (void)oc_close(data_fd);
                         return cerr(err_out,fw==0?"wireless_factory_enabled":"wireless_unavailable");
                     }
                 }
+                if (!oc_check_preset_pins(root,(int)sfd,&chk,err_out)) {
+                    if (sfd>=0) (void)oc_close((int)sfd);
+                    if (data_fd>=0) (void)oc_close(data_fd);
+                    return 0;
+                }
             } else (void)oc_close(vfd);
         }
+        if (sfd>=0) (void)oc_close((int)sfd);
     }
 
     /* 2. initial_begin: stage fresh state in hidden sibling directory until initial_publish. */

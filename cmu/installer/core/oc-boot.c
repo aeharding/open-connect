@@ -49,6 +49,7 @@ static int oc_boot_identity(OcBoot *b) {
         oc_hash_finish(&hash,digest);
         unsigned at=0;
         for (unsigned i=0; i<36; ++i) b->boot[i]=(i==8||i==13||i==18||i==23)?'-':digest[at++];
+        b->boot[36]=0;
         for (unsigned i=0; i<16; ++i) {
             if (!oc_equal(b->boot,b->record_fields[11])&&!oc_equal(b->boot,b->record_fields[10])) break;
             b->boot[0]="0123456789abcdef"[i];

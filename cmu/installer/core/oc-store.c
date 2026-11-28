@@ -50,13 +50,11 @@ static int oc_copy_verified_member(OcBoot *b, int dst_dir, const char *name, con
 }
 
 static int oc_emit_plan_row(int fd, const char *key, const char *path, const char *digest, const OcMeta *m, int absent) {
-    char meta[131];
-    if (!oc_write_all(fd,key,oc_length(key))||!oc_write_all(fd,"|",1)||
-        !oc_write_all(fd,path,oc_length(path))||!oc_write_all(fd,"|",1)||
-        !oc_write_all(fd,digest,oc_length(digest))) return 0;
-    if (absent) return oc_write_all(fd,"|-|-|-|-|-|-|-|-|-|-\n",21);
-    unsigned n=oc_meta_text(meta,m);
-    return oc_write_all(fd,meta,n)&&oc_write_all(fd,"\n",1);
+    char buf[OC_LINE_SIZE], meta[131];
+    if (!oc_join4(buf,sizeof buf,key,"|",path,"|") || !oc_join(buf,sizeof buf,buf,digest)) return 0;
+    if (absent) return oc_join(buf,sizeof buf,buf,"|-|-|-|-|-|-|-|-|-|-\n") && oc_write_all(fd,buf,oc_length(buf));
+    (void)oc_meta_text(meta,m);
+    return oc_join4(buf,sizeof buf,buf,meta,"\n",0) && oc_write_all(fd,buf,oc_length(buf));
 }
 
 static int oc_emit_external_pin(int plan_fd, OcBoot *b, const char *key, const char *path, const char *digest, int stock_req) {
@@ -154,10 +152,10 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
         same_b&&same_svc
     };
     if (ok) {
-        const char *st=oc_equal(new_flags[2],"1")?"on":"off";
-        const char *tpl[3]={oc_equal(st,"on")?"sm-normal-on.conf":"sm-normal-off.conf",
-            oc_equal(st,"on")?"sm-wcp-on.conf":"sm-wcp-off.conf",
-            oc_equal(st,"on")?"index-on.html":"index-off.html"};
+        int w_on=oc_equal(new_flags[2],"1");
+        const char *tpl[3]={w_on?"sm-normal-on.conf":"sm-normal-off.conf",
+            w_on?"sm-wcp-on.conf":"sm-wcp-off.conf",
+            w_on?"index-on.html":"index-off.html"};
         for (unsigned i=0; ok&&i<3; ++i) if (!oc_absent_at((int)work,members[prof_idx+i])) {
             long tfd=oc_openat(b->composed,tpl[i],OC_READ,0);
             char td[65]; OcMeta tm;
@@ -187,13 +185,10 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
         }
     }
     if (ok) {
+        char hdr[160];
         plan_fd=oc_openat((int)work,"boot.plan",OC_WRITE|OC_CREATE|OC_EXCLUSIVE,0600);
-        ok=plan_fd>=0 &&
-            oc_write_all((int)plan_fd,"OCBP1|",6) &&
-            oc_write_all((int)plan_fd,b->record_fields[4],64) &&
-            oc_write_all((int)plan_fd,"|",1) &&
-            oc_write_all((int)plan_fd,b->record_fields[3],64) &&
-            oc_write_all((int)plan_fd,"\n",1);
+        ok=plan_fd>=0 && oc_join4(hdr,sizeof hdr,"OCBP1|",b->record_fields[4],"|",b->record_fields[3]) &&
+            oc_join(hdr,sizeof hdr,hdr,"\n") && oc_write_all((int)plan_fd,hdr,oc_length(hdr));
     }
     int reuse_touch = same_t2 && oc_equal(new_flags[1],"2") && b->touch_drift<=1;
     int reuse_base = same_b && same_svc && oc_equal(new_flags[6],"1");
@@ -264,7 +259,7 @@ int oc_seal_publish(const char *root_path, const char *expected_current, const c
             const char *dig=i<mcount?oc_pub.m_digest[i]:plan_digest;
             const char *nm=i<mcount?members[i]:"boot.plan";
             char row[192];
-            ok=oc_join(row,sizeof row,dig,"  ") && oc_join(row,sizeof row,row,nm) && oc_join(row,sizeof row,row,"\n");
+            ok=oc_join4(row,sizeof row,dig,"  ",nm,"\n");
             if (ok) {
                 unsigned rlen=oc_length(row);
                 oc_hash_add(&h,row,rlen);

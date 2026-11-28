@@ -1197,11 +1197,24 @@ class NativeMaintenance(unittest.TestCase):
         p_cu1, r_cu1 = call("-", "status", "completion", sdir=usb_sess)
         self.assertNotEqual(p_cu1.returncode, 0)
         self.assertEqual(r_cu1["error"], "completion_unavailable")
-        (f.ram / "boot-id").write_text(BOOT + "\n")
-        (f.ram / "boot-id").chmod(0o600)
+        (f.ram / "selected").write_text(cur_id + "\n")
+        (f.ram / "boot-id").symlink_to(BOOT)
+        rec_cur = (f.data / "record").read_text().strip().split("|")
+        self.assertEqual(rec_cur[5], cur_id)
+        self.assertNotEqual(rec_cur[11], BOOT)
         p_cu2, r_cu2 = call("-", "status", "completion")
         self.assertNotEqual(p_cu2.returncode, 0)
         self.assertEqual(r_cu2["error"], "completion_unavailable")
+        # Confirm that setting rec[11] == BOOT (with same selected/session) succeeds,
+        # proving p_cu2 failed specifically on the mismatched boot-ID guard.
+        rec_boot = list(rec_cur)
+        rec_boot[11] = BOOT
+        rec_boot[12] = "installed"
+        (f.data / "record").write_text("|".join(rec_boot) + "\n")
+        p_cok, r_cok = call("-", "status", "completion")
+        (f.data / "record").write_text("|".join(rec_cur) + "\n")
+        self.assertEqual(p_cok.returncode, 0, (r_cok, p_cok.stderr))
+        self.assertTrue(r_cok["ok"] and r_cok["completionReady"], r_cok)
 
         # (K) oc_transaction_reconcile drift refusals: dependencies_changed, nvram_changed,
         #     access_changed, selector_changed, and startup_stage_changed

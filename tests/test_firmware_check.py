@@ -1,5 +1,6 @@
 """Private validation refuses unsupported inputs before creating any output."""
 
+import re
 import subprocess
 import sys
 import tempfile
@@ -77,6 +78,64 @@ class FirmwareCheck(unittest.TestCase):
                     checker.private_output(alias / "runs" / "fresh"),
                     fake_root / "runs" / "fresh",
                 )
+
+    def test_inputs_parses_all_19_root_pins_including_manager_and_lvds(self):
+        guard = (ROOT / "cmu/installer/core/oc-guard.c").read_text()
+        mgr_dig = re.search(r'oc_manager_digest\[\]="([a-f0-9]{64})"', guard)[1]
+        self.assertEqual(
+            mgr_dig,
+            "1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29",
+        )
+        names = re.findall(
+            r'"([^"]+)"', re.search(r"oc_root_names\[19\]=\{([^}]+)\}", guard, re.S)[1]
+        )
+        rpaths = re.findall(
+            r'"([^"]+)"', re.search(r"oc_root_paths\[19\]=\{([^}]+)\}", guard, re.S)[1]
+        )
+        self.assertEqual(names[10], "manager.so")
+        self.assertEqual(names[18], "lvds-service")
+        self.assertEqual(rpaths[10], "/jci/lib/libjciuiamgr.so")
+        self.assertEqual(rpaths[18], "/jci/lvds/lvds_service")
+
+        rdig_body = re.search(r"oc_root_digests\[19\]=\{([^}]+)\}", guard, re.S)[1]
+        rdigs = [
+            lit or mgr_dig
+            for lit, _ in re.findall(r'"([a-f0-9]{64})"|\b(oc_manager_digest)\b', rdig_body)
+        ]
+        self.assertEqual(len(rdigs), 19)
+        self.assertEqual(rdigs[10], mgr_dig)
+        self.assertEqual(
+            rdigs[18],
+            "19a56b9e7b9f7399b152dbc7e8bd8de3fa01f154e45e8981becec6e96d3f70eb",
+        )
+
+        digests = {
+            "usr/bin/autostart": re.search(r'oc_orig_autostart_digest="([a-f0-9]{64})"', guard)[1],
+        }
+        for rp, rd in zip(rpaths, rdigs, strict=True):
+            digests[rp.lstrip("/")] = rd
+        for _, rel, dig in re.findall(
+            r'\{"([^"]+)","([^"]+)","([a-f0-9]{64})"',
+            re.search(r"oc_base_pins\[5\]=\{([^;]+)\};", guard, re.S)[1],
+        ):
+            digests[rel.lstrip("/")] = dig
+        for row in (ROOT / "cmu/installer/ui-modules.tsv").read_text().splitlines():
+            if row.startswith("vui\t"):
+                _, name, _, dig = row.split("\t")
+                digests[f"jci/vui/plugins/{name}"] = dig
+
+        with tempfile.TemporaryDirectory() as td:
+            fw = Path(td)
+            (fw / "jci/gui/framework/js").mkdir(parents=True)
+            (fw / "jci/gui/framework/js/Websockets.js").write_bytes(b"ws\n")
+            with patch.object(
+                checker, "sha", side_effect=lambda p: digests[p.relative_to(fw).as_posix()]
+            ):
+                paths = checker.inputs(fw)
+            self.assertEqual(paths["manager.so"], fw / "jci/lib/libjciuiamgr.so")
+            self.assertEqual(paths["lvds-service"], fw / "jci/lvds/lvds_service")
+            self.assertEqual(paths["display"], fw / "jci/lvds/lvds_service")
+            self.assertEqual(paths["framework"], fw / "jci/gui/framework/js/GuiFramework.js")
 
     def test_explicit_tools_and_linux_discovery_do_not_require_xcode(self):
         with (

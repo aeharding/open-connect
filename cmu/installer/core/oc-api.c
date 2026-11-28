@@ -78,18 +78,6 @@ static int emit_fail(const char *err) {
 }
 
 /* ---------- Filesystem / identity helpers ---------- */
-static int oc_read_hex64_file(int dir, const char *name, char out[65]) {
-    long fd=oc_openat(dir,name,OC_READ,0);
-    if (fd<0) return 0;
-    OcMeta m; char buf[66];
-    int ok=oc_stat((int)fd,&m)>=0 && (m.mode&OC_TYPE)==OC_REGULAR && m.size==65;
-    int n=ok?oc_text_fd((int)fd,buf,sizeof buf):-1;
-    if (oc_close((int)fd)<0) ok=0;
-    if (!ok || n!=65 || !oc_one_line(buf) || !oc_hex(buf,64)) return 0;
-    for (unsigned i=0; i<65; ++i) out[i]=buf[i];
-    return 1;
-}
-
 static int oc_read_version_file(int dir, const char *expect_digest, char out[64]) {
     if (expect_digest) { if (!oc_verified_text(dir,"VERSION",expect_digest,out,64)) return 0; }
     else if (oc_text(dir,"VERSION",out,64,0)<=0) return 0;
@@ -224,7 +212,7 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
     const char *key="-", *pandora="", *base="", *wireless="", *autoshow="", *source_order="", *menu_loop="", *hold_scroll="";
     const char *touch_cur="", *warning_cur="", *base_cur="", *sel_key="-";
     char inst_ver[64], run_ver[64], fp[128], acc_sel[65];
-    int has_acc_sel=oc_read_hex64_file(ram,"access-selected",acc_sel);
+    int has_acc_sel=oc_read_owned_hex64(ram,"access-selected",owner,group,0,acc_sel)==1;
     (void)oc_join(inst_ver,sizeof inst_ver,"","-");
     (void)oc_join(fp,sizeof fp,"","-");
 
@@ -383,12 +371,9 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
 }
 
 /* ---------- Session pointer / close markers ---------- */
-static int oc_check_session_pointer(int ram, const char *session_dir, const char *ptr_name) {
+static int oc_check_session_pointer(int ram, const char *session_dir, const char *ptr_name, long owner, long group) {
     char link[512];
-    long n=oc_readlink(ram,ptr_name,link,sizeof link-1);
-    if (n<=0 || (unsigned)n>=sizeof link-1) return 0;
-    link[n]=0;
-    return oc_equal(link,session_dir);
+    return oc_readlink_owned(ram,ptr_name,owner,group,link,sizeof link)>0 && oc_equal(link,session_dir);
 }
 
 static int oc_session_mf_matches(const char *session_dir, const char *pkg_id) {
@@ -453,17 +438,14 @@ static int oc_api_uptime_cs(int root, oc_u64 *out_cs) {
     return 1;
 }
 
-static int oc_usb_retained(int root, const char *session_dir, const char *expect_rev) {
+static int oc_usb_retained(int root, const char *session_dir, const char *expect_rev, long owner, long group) {
     if (!expect_rev) return 0;
     long sdir=oc_openat(OC_CWD,session_dir,OC_DIRECTORY,0);
     if (sdir<0) return 0;
-    OcMeta m={0}; char target[128];
-    int ok=oc_metadata((int)sdir,"admitted",&m)>=0 && (m.mode&OC_TYPE)==0120000 &&
-        m.size>0 && m.size<sizeof target;
-    long n=ok?oc_readlink((int)sdir,"admitted",target,sizeof target-1):-1;
+    char target[128];
+    long n=oc_readlink_owned((int)sdir,"admitted",owner,group,target,sizeof target);
     (void)oc_close((int)sdir);
-    if (!ok || n<=0 || (oc_u64)n!=m.size) return 0;
-    target[n]=0;
+    if (n<=0) return 0;
     char *f[3]; oc_u64 deadline=0, now=0;
     if (oc_fields(target,f,3)!=3 || !oc_equal(f[0],"OCUSB1") ||
         !oc_decimal(f[1],&deadline) || !oc_equal(f[2],expect_rev) ||
@@ -602,7 +584,7 @@ static __attribute__((noinline)) int oc_handle_completion(OcApiCtx *c, int is_di
     if (!oc_snap_package_only(c->data,c->rec[5],snap_pkg) || !oc_equal(snap_pkg,c->rec[3])) return api_err(c,"invalid_snapshot");
     if (!oc_session_mf_matches(c->session_dir,c->rec[3])) return api_err(c,"session_replaced");
     if (!oc_package_version(c->data,c->rec[3],comp_ver)) return api_err(c,"invalid_version");
-    if (!oc_check_session_pointer(c->ram,c->session_dir,c->ptr_name)) return api_err(c,"session_replaced");
+    if (!oc_check_session_pointer(c->ram,c->session_dir,c->ptr_name,c->owner,c->group)) return api_err(c,"session_replaced");
     if (!is_dismiss_done) {
         int ready=oc_equal(c->rec[12],"installed");
         if (ready) {
@@ -622,12 +604,11 @@ static __attribute__((noinline)) int oc_handle_completion(OcApiCtx *c, int is_di
     if (!oc_equal(c->rev,c->rec[5]) || !oc_equal(c->rec[12],"installed")) return api_err(c,"stale_state");
     c->rec[12]="-";
     if (!oc_record_write_atomic(c->root,c->data,c->rec,0)) return api_err(c,"record_rename_failed");
-    if (!oc_mark_closed(c->session_dir)) return api_err(c,"state_changed");
     return oc_write_all(1,"{\"ok\":true}\n",12) ? OC_API_DONE : OC_API_ERR;
 }
 
 static __attribute__((noinline)) int oc_handle_usb_meta(OcApiCtx *c) {
-    int installed=0, retained=0, pending=c->empty_state, restart=0;
+    int installed=0, retained=0, pending=c->empty_state, restart=c->empty_state;
     const char *mrev="-", *mnotice="-";
     char inst_ver[64], run_ver[64], pkg[65];
     (void)oc_join(inst_ver,sizeof inst_ver,"","-");
@@ -639,15 +620,20 @@ static __attribute__((noinline)) int oc_handle_usb_meta(OcApiCtx *c) {
                 installed=1;
                 if (!oc_package_version(c->data,pkg,inst_ver)) return api_err(c,"invalid_version");
                 if (!oc_equal(c->sel_snap,c->rec[5])) restart=1;
-            } else retained=1;
+            } else {
+                retained=1;
+                if (!oc_absent_at(c->ram,"selected")) restart=1;
+            }
         } else { pending=1; restart=1; mrev=c->rec[2]; }
+    } else if (!oc_absent_at(c->ram,"selected")) {
+        restart=1;
     }
     long sfd=oc_openat(OC_CWD,c->session_dir,OC_DIRECTORY,0);
     int vok=sfd>=0 && oc_read_version_file((int)sfd,0,run_ver);
     int closed=sfd<0 || !oc_absent_at((int)sfd,"closed");
     if (sfd>=0) (void)oc_close((int)sfd);
     if (!vok) return api_err(c,"invalid_version");
-    if (!oc_check_session_pointer(c->ram,c->session_dir,c->ptr_name)) return api_err(c,"session_replaced");
+    if (!oc_check_session_pointer(c->ram,c->session_dir,c->ptr_name,c->owner,c->group)) return api_err(c,"session_replaced");
     if (closed) return api_err(c,"session_closed");
     OcJson j; j_init(&j,api_mem.json,sizeof api_mem.json);
     const char *uv[10]={"1",mrev,installed?"1":0,retained?"1":0,pending?"1":0,restart?"1":0,
@@ -1170,8 +1156,8 @@ static int oc_api_dispatch(OcApiCtx *c, int kind) {
     c->ram=oc_open_ram_dir(c->root);
     if (c->ram<0) return api_err(c,"runtime_unavailable");
 
-    if (!oc_check_session_pointer(c->ram,session_dir,"runtime")) {
-        if (oc_check_session_pointer(c->ram,session_dir,"usb-runtime")) {
+    if (!oc_check_session_pointer(c->ram,session_dir,"runtime",c->owner,c->group)) {
+        if (oc_check_session_pointer(c->ram,session_dir,"usb-runtime",c->owner,c->group)) {
             c->is_usb=1; c->ptr_name="usb-runtime";
         } else {
             int held=0;
@@ -1180,7 +1166,7 @@ static int oc_api_dispatch(OcApiCtx *c, int kind) {
                 long lfd=oc_openat(c->ram,"lock",OC_RW,0);
                 if (lfd>=0) {
                     if (oc_stat((int)lfd,&lm)>=0 && (lm.mode&OC_TYPE)==OC_REGULAR &&
-                        lm.uid==(unsigned)c->owner && lm.gid==(unsigned)c->group)
+                        !(lm.mode&0077) && lm.uid==(unsigned)c->owner && lm.gid==(unsigned)c->group)
                         held=oc_lock_held_ex((int)lfd);
                     (void)oc_close((int)lfd);
                 }
@@ -1200,7 +1186,7 @@ static int oc_api_dispatch(OcApiCtx *c, int kind) {
         OcMeta lm;
         long lfd=oc_openat(c->ram,"lock",OC_RW,0);
         if (lfd<0 || oc_stat((int)lfd,&lm)<0 || (lm.mode&OC_TYPE)!=OC_REGULAR ||
-            lm.uid!=(unsigned)c->owner || lm.gid!=(unsigned)c->group) {
+            (lm.mode&0077) || lm.uid!=(unsigned)c->owner || lm.gid!=(unsigned)c->group) {
             if (lfd>=0) (void)oc_close((int)lfd);
             return api_err(c,"invalid_lock");
         }
@@ -1215,11 +1201,11 @@ static int oc_api_dispatch(OcApiCtx *c, int kind) {
         }
         c->lock_fd=(int)lfd;
     }
-    if (!oc_check_session_pointer(c->ram,session_dir,c->ptr_name)) return api_err(c,"session_replaced");
+    if (!oc_check_session_pointer(c->ram,session_dir,c->ptr_name,c->owner,c->group)) return api_err(c,"session_replaced");
 
     if (!oc_load_state(c->root,c->owner,c->group,&c->data,&c->exists,&c->empty_state,c->rec_buf,c->rec,&c->err))
         return OC_API_ERR;
-    (void)oc_read_hex64_file(c->ram,"selected",c->sel_snap);
+    (void)oc_read_owned_hex64(c->ram,"selected",c->owner,c->group,0,c->sel_snap);
 
     /* Under-lock USB closed/retained/fence checks. */
     if (c->is_usb && !op_st && kind!=OP_DM_USB) {
@@ -1227,7 +1213,7 @@ static int oc_api_dispatch(OcApiCtx *c, int kind) {
             const char *expect_rev=0;
             if (c->exists && oc_rec_settled(c->rec)) expect_rev=c->rec[5];
             else if (!c->exists && !c->empty_state) expect_rev="-";
-            if (!(kind==OP_RESTART && oc_usb_retained(c->root,session_dir,expect_rev))) return api_err(c,"session_closed");
+            if (!(kind==OP_RESTART && oc_usb_retained(c->root,session_dir,expect_rev,c->owner,c->group))) return api_err(c,"session_closed");
         }
         int cleanup_recover=kind==OP_RECOVER && ((!c->exists && c->empty_state) ||
             (c->exists && oc_equal(c->rec[1],"purge")));
@@ -1253,7 +1239,7 @@ static int oc_api_dispatch(OcApiCtx *c, int kind) {
             if (oc_unlock(c->lock_fd)<0) return api_err(c,"invalid_lock");
             conflict=!oc_api_match_cur(c);
             if (oc_lock(c->lock_fd)<0) return api_err(c,"busy");
-            if (!oc_check_session_pointer(c->ram,session_dir,c->ptr_name)) return api_err(c,"session_replaced");
+            if (!oc_check_session_pointer(c->ram,session_dir,c->ptr_name,c->owner,c->group)) return api_err(c,"session_replaced");
             if (!oc_status_identity(c->data,c->ram,id_after)) return api_err(c,"state_changed");
             if (!oc_equal(id_before,id_after)) return api_err(c,"busy");
         }
@@ -1284,6 +1270,7 @@ static int oc_api_dispatch(OcApiCtx *c, int kind) {
             return oc_api_emit_ctx(c,conflict,removed_now);
         }
     } else if (!oc_equal(rev,"-")) return api_err(c,"stale_state");
+    else if (c->empty_state && kind!=OP_RECOVER) return api_err(c,"operation_pending");
 
     if (kind==OP_RESTART) {
         if (c->exists) { if (!oc_api_match_cur(c)) return api_err(c,"state_changed"); }
@@ -1356,8 +1343,8 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
     if (c->root>=0) (void)oc_close(c->root);
     if (c->is_usb && c->err &&
         (kind==OP_INSTALL || kind==OP_UNINSTALL || kind==OP_RECOVER) &&
-        !oc_equal(c->err,"busy") && !oc_equal(c->err,"session_closed") &&
-        !oc_equal(c->err,"session_replaced")) {
+        !oc_equal(c->err,"busy") && !oc_equal(c->err,"operation_pending") &&
+        !oc_equal(c->err,"session_closed") && !oc_equal(c->err,"session_replaced")) {
         oc_api_log_usb_failure(session_dir,op,c->err);
     }
     return c->err ? emit_fail(c->err) : res;

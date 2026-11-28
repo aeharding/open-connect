@@ -254,7 +254,7 @@ class InstallerApiNative(unittest.TestCase):
                 d.mkdir(parents=True, exist_ok=True)
             for d in (ram, sess, data, data / "packages", data / "snapshots"):
                 d.chmod(0o700)
-            (root / "dev/urandom").symlink_to("/dev/urandom")
+            (root / "dev/urandom").write_bytes(os.urandom(256))
             (ram / "lock").write_bytes(b"")
             (ram / "lock").chmod(0o600)
             (ram / "boot-id").symlink_to(boot_id)
@@ -409,9 +409,48 @@ class InstallerApiNative(unittest.TestCase):
             _, err = req("-", "status", "completion")
             self.assertEqual(err["error"], "invalid_boot_mounts")
             mounts.write_text(mounts_ro)
+            ver_bytes = ver.read_bytes()
             ver.write_text('JCI_SW_VER="wrong"\n')
             _, err = req("-", "status", "completion")
             self.assertEqual(err["error"], "unsupported_firmware")
+            ver.write_bytes(ver_bytes)
+
+            # dismiss|- clears notice to "-" without poisoning the live Settings session with closed.
+            rc, dis = req(snap_id, "dismiss", "-")
+            self.assertEqual(rc, 0, dis)
+            self.assertEqual(dis, {"ok": True})
+            self.assertFalse((sess / "closed").exists())
+            rc, sess_st = req("-", "status", "session")
+            self.assertEqual(rc, 0, sess_st)
+            self.assertEqual(sess_st, {"ok": True, "closed": False})
+            rc, comp2 = req("-", "status", "completion")
+            self.assertEqual(rc, 0, comp2)
+            self.assertEqual(comp2["notice"], "-")
+            self.assertFalse(comp2["completionReady"])
+
+            # World/group-readable ram/lock is rejected as invalid_lock.
+            (ram / "lock").chmod(0o644)
+            rc, lerr = req("-", "status", "settings")
+            self.assertNotEqual(rc, 0)
+            self.assertEqual(lerr["error"], "invalid_lock")
+            (ram / "lock").chmod(0o600)
+
+            # Empty state dir (crashed uninstall cleanup): USB status|settings sets pending+restart,
+            # and OP_INSTALL refuses with operation_pending instead of forking install.
+            for child in list(data.iterdir()):
+                if child.is_dir():
+                    shutil.rmtree(child)
+                else:
+                    child.unlink()
+            (ram / "runtime").unlink()
+            (ram / "usb-runtime").symlink_to(sess)
+            rc, ust = req("-", "status", "settings")
+            self.assertEqual(rc, 0, ust)
+            self.assertTrue(ust["pending"])
+            self.assertTrue(ust["restart"])
+            rc, ierr = req("-", "install", "-")
+            self.assertNotEqual(rc, 0)
+            self.assertEqual(ierr["error"], "operation_pending")
 
     def test_native_index_html_matrix_64_combos(self):
         """Exercise oc_render_index_native in oc-render.c across all 64 (w, b, a, aa, pa, sx) combos."""
@@ -933,9 +972,58 @@ class InstallerApiNative(unittest.TestCase):
                 "    char line[64]; int nl = 0;\n"
                 "    if (oc_rstream_line(&rs, line, sizeof line, &nl) != -1) return 20;\n"
                 "    close(nfd);\n"
+                "    /* oc_access_compose must reject OpenSSH Match= keyword delimiter. */\n"
+                "    int rfd = open(argv[3], O_RDONLY | O_DIRECTORY);\n"
+                "    int dfd2 = open(argv[4], O_RDONLY | O_DIRECTORY);\n"
+                "    int wfd = open(argv[5], O_RDONLY | O_DIRECTORY);\n"
+                "    if (rfd < 0 || dfd2 < 0 || wfd < 0) return 21;\n"
+                '    if (oc_access_compose(rfd, argv[3], dfd2, argv[6], argv[7], 0, wfd, "work",\n'
+                '                          "0", "1", argv[8], oc_owner(), oc_group()) != 0) return 22;\n'
+                "    close(wfd); close(dfd2); close(rfd);\n"
                 "    return 0;\n"
                 "}\n"
             )
+            rdir = d / "root"
+            ddir = d / "data"
+            wdir = d / "work"
+            sdir = d / "sess"
+            (rdir / "etc").mkdir(parents=True, mode=0o700)
+            (rdir / "etc/passwd").write_text("cmu:x:0:0:root:/root:/bin/sh\n")
+            (ddir / "keys").mkdir(parents=True, mode=0o700)
+            (ddir / "snapshots").mkdir(parents=True, mode=0o700)
+            wdir.mkdir(mode=0o700)
+            sdir.mkdir(mode=0o700)
+            key_bytes = b"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQTest test@host\n"
+            kid = hashlib.sha256(key_bytes).hexdigest()
+            kf = ddir / "keys" / f"{kid}.cmu"
+            kf.write_bytes(key_bytes)
+            kf.chmod(0o600)
+            snap_tmp = ddir / "snapshots/.tmp"
+            snap_tmp.mkdir(mode=0o700)
+            (snap_tmp / "autostart").write_text("#!/bin/sh\n")
+            (snap_tmp / "autostart").chmod(0o600)
+            (snap_tmp / "config").write_text("-|0|0|enable|755:0:0\n")
+            (snap_tmp / "config").chmod(0o600)
+            (snap_tmp / "dependencies").write_text(
+                f"{hashlib.sha256(b'x').hexdigest()}  root/autostart\n"
+            )
+            (snap_tmp / "dependencies").chmod(0o600)
+            (snap_tmp / "runlogin").write_text("#!/bin/sh\n")
+            (snap_tmp / "runlogin").chmod(0o600)
+            (snap_tmp / "sshd.conf").write_text(
+                "AuthorizedKeysFile .ssh/authorized_keys\nMatch=User root\n"
+            )
+            (snap_tmp / "sshd.conf").chmod(0o600)
+            (snap_tmp / "access").write_text("0|0|-|755:0:0|600:0:0|-\n")
+            (snap_tmp / "access").chmod(0o600)
+            mf_txt = "".join(
+                f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n"
+                for p in sorted(snap_tmp.iterdir())
+            )
+            (snap_tmp / "files.sha256").write_text(mf_txt)
+            (snap_tmp / "files.sha256").chmod(0o600)
+            base_id = hashlib.sha256(mf_txt.encode()).hexdigest()
+            snap_tmp.rename(ddir / "snapshots" / base_id)
             subprocess.run(
                 [
                     "clang",
@@ -963,5 +1051,20 @@ class InstallerApiNative(unittest.TestCase):
                 check=True,
                 timeout=20,
             )
-            r = subprocess.run([str(exe), str(d), str(nul_file)], capture_output=True, timeout=10)
+            r = subprocess.run(
+                [
+                    str(exe),
+                    str(d),
+                    str(nul_file),
+                    str(rdir),
+                    str(ddir),
+                    str(wdir),
+                    str(sdir),
+                    base_id,
+                    kid,
+                ],
+                env={**os.environ, "OC_HOST_NONROOT": "1", "OC_HOST_SSHD": "/usr/bin/true"},
+                capture_output=True,
+                timeout=10,
+            )
             self.assertEqual(r.returncode, 0, r.stderr.decode("utf-8", "replace"))

@@ -282,31 +282,47 @@ static int oc_publish(OcBoot *b) {
     if (b->gated&&oc_parent()!=b->parent) return 0;
     if (!oc_absent_at(b->ram,"selected")||!oc_absent_at(b->ram,"feature")||!oc_absent_at(b->ram,"ignition")) return 0;
     char selected[66];
-    if (!oc_join(selected,sizeof selected,b->record_fields[5],"\n")||
-        (b->selected && !oc_new_text(b->ram,".native-selected",selected,0600))) return 0;
-    if (b->access_present && !oc_new_text(b->ram,"access-selected",selected,0600)) return 0;
-    oc_cut("before_publication");
-    if (oc_block()<0) return 0;
-    oc_cut("publication");
-    if (!oc_ui_alias(b)) return 0;
-    if (oc_rename(b->ram,b->observer_name,"ignition")<0) return 0;
-    if (!b->selected) return 1;
-    if (oc_rename(b->ram,b->stage_name,"feature")<0) return 0;
-    if (b->log>=0 && oc_link(b->log,b->log_name,b->log,"settings.txt")<0) return 0;
-    if (oc_link(b->ram,".native-selected",b->ram,"selected")<0) {
-        if (b->log>=0) {
-            long fd=oc_openat(b->log,"settings.txt",OC_READ,0), held=oc_openat(b->log,b->log_name,OC_READ,0);
-            OcMeta a, c;
-            if (fd>=0&&held>=0&&oc_stat((int)fd,&a)>=0&&oc_stat((int)held,&c)>=0&&a.device==c.device&&a.inode==c.inode)
-                (void)oc_unlink(b->log,"settings.txt");
-            if (fd>=0) (void)oc_close((int)fd);
-            if (held>=0) (void)oc_close((int)held);
-        }
-        return 0;
+    unsigned made=0;
+    if (!oc_join(selected,sizeof selected,b->record_fields[5],"\n")) return 0;
+    if (b->selected) {
+        if (!oc_new_text(b->ram,".native-selected",selected,0600)) return 0;
+        made|=1u;
     }
+    if (b->access_present) {
+        if (!oc_new_text(b->ram,"access-selected",selected,0600)) goto fail;
+        made|=2u;
+    }
+    oc_cut("before_publication");
+    if (oc_block()<0) goto fail;
+    oc_cut("publication");
+    if (!oc_ui_alias(b)) goto fail;
+    if (oc_rename(b->ram,b->observer_name,"ignition")<0) goto fail;
+    made|=4u;
+    if (!b->selected) return 1;
+    if (oc_rename(b->ram,b->stage_name,"feature")<0) goto fail;
+    made|=8u;
+    if (b->log>=0) {
+        if (oc_link(b->log,b->log_name,b->log,"settings.txt")<0) goto fail;
+        made|=16u;
+    }
+    if (oc_link(b->ram,".native-selected",b->ram,"selected")<0) goto fail;
     (void)oc_unlink(b->ram,".native-selected");
     if (b->log>=0) (void)oc_unlink(b->log,b->log_name);
     return 1;
+fail:
+    if (made&16u) {
+        long fd=oc_openat(b->log,"settings.txt",OC_READ,0), held=oc_openat(b->log,b->log_name,OC_READ,0);
+        OcMeta a, c;
+        if (fd>=0&&held>=0&&oc_stat((int)fd,&a)>=0&&oc_stat((int)held,&c)>=0&&a.device==c.device&&a.inode==c.inode)
+            (void)oc_unlink(b->log,"settings.txt");
+        if (fd>=0) (void)oc_close((int)fd);
+        if (held>=0) (void)oc_close((int)held);
+    }
+    if (made&8u) (void)oc_rename(b->ram,"feature",b->stage_name);
+    if (made&4u) (void)oc_rename(b->ram,"ignition",b->observer_name);
+    if (made&2u) (void)oc_unlink(b->ram,"access-selected");
+    if (made&1u) (void)oc_unlink(b->ram,".native-selected");
+    return 0;
 }
 
 static int oc_base_read_ahead(OcBoot *b) {
@@ -469,7 +485,11 @@ int oc_selection(int root, int gated) {
         (void)oc_write_all(2,"late_verification_refused\n",26);
         result=OC_REFUSE;
     }
-    if (result!=0) oc_ui_unwind(&oc_boot);
+    if (result!=0) {
+        oc_ui_unwind(&oc_boot);
+        if (result!=OC_STOCK && oc_boot.log>=0 && oc_boot.log_name[0])
+            (void)oc_unlink(oc_boot.log,oc_boot.log_name);
+    }
     oc_close_boot(&oc_boot);
     return result;
 }

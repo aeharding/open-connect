@@ -571,7 +571,21 @@ class NativeInstall(unittest.TestCase):
             )
             self.assertEqual(bs_ok2.returncode, 0, bs_ok2.stderr)
 
-            # 4) Tampered D/reseal (bad mode) -> fails closed!
+            # 4) Stale valid owned 0600 D/reseal (superseded snapshot ID) is retired by --boot-recover.
+            cold_ram()
+            (data / "reseal").write_text(("a" * 64) + "\n")
+            (data / "reseal").chmod(0o600)
+            br_stale = subprocess.run(
+                [str(inst_ram), "--boot-recover", str(pkg_dir), str(rec_exec)],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertEqual(br_stale.returncode, 0, br_stale.stdout + br_stale.stderr)
+            self.assertFalse((data / "reseal").exists())
+
+            # 4b) Tampered D/reseal (bad mode) -> fails closed!
             cold_ram()
             (data / "reseal").write_text(rec3[5] + "\n")
             (data / "reseal").chmod(0o644)
@@ -1705,6 +1719,27 @@ class NativeInstall(unittest.TestCase):
             self.assertFalse(data.exists())
             (vol / "open-connect.prefs").unlink()
 
+            # Dual identical verified USB bundles where one has open-connect.prefs must fail closed.
+            vol2_dup = root / "tmp/mnt/sdb1"
+            (vol2_dup / "open-connect").mkdir(parents=True, mode=0o700)
+            shutil.copyfile(usb_sess / "files.sha256", vol2_dup / "open-connect/files.sha256")
+            (vol2_dup / "open-connect/run.sh").write_text("#!/bin/sh\n")
+            (vol / "open-connect.prefs").write_text("OCPREFS1\ntouch=0\n")
+            (root / "proc/self/mounts").write_text(
+                base_mounts
+                + "/dev/sda1 /tmp/mnt/sda1 vfat ro,noatime 0 0\n"
+                + "/dev/sdb1 /tmp/mnt/sdb1 vfat ro,noatime 0 0\n"
+            )
+            p_dup, r_dup = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
+            self.assertNotEqual(p_dup.returncode, 0)
+            self.assertEqual(r_dup["error"], "multiple_preferences_files")
+            self.assertFalse(data.exists())
+            shutil.rmtree(vol2_dup)
+            (vol / "open-connect.prefs").unlink()
+            (root / "proc/self/mounts").write_text(
+                base_mounts + "/dev/sda1 /tmp/mnt/sda1 vfat ro,noatime 0 0\n"
+            )
+
             # 2) Factory-wireless CMU (fw==0) refuses wireless=1 preset with zero flash writes
             (vol / "open-connect.prefs").write_text("OCPREFS1\nwireless=1\n")
             p, r = self._call_api(api_bin, usb_sess, "-", "install", env=env_fw_enabled)
@@ -1946,8 +1981,12 @@ class NativeInstall(unittest.TestCase):
                 base_mounts + "/dev/sda1 /tmp/mnt/sda1 vfat ro,noatime 0 0\n"
             )
 
-            # Re-importing identical exported prefs is a zero-transaction no-op
+            # Re-importing identical exported prefs is a zero-transaction no-op,
+            # even when an unmounted slot (sdb1) contains a stale symlink.
+            shutil.rmtree(vol2)
+            vol2.symlink_to(root / "dangling-slot")
             p_noop, r_noop = self._call_api(api_bin, set_sess, snap2, "import", "prefs", env=env_wl)
+            vol2.unlink()
             self.assertEqual(p_noop.returncode, 0, (r_noop, p_noop.stderr))
             self.assertEqual(r_noop["revision"], snap2)
 

@@ -182,7 +182,7 @@ int oc_access_compose(int root, const char *root_path, int data_fd, const char *
                 if (has_nl) *p++=0;
                 char *w=ln; while (*w==' '||*w=='\t') ++w;
                 char tok[32]; unsigned tl=0;
-                while (w[tl] && w[tl]!=' ' && w[tl]!='\t' && tl+1<sizeof tok) { tok[tl]=w[tl]; ++tl; }
+                while (w[tl] && w[tl]!=' ' && w[tl]!='\t' && w[tl]!='=' && tl+1<sizeof tok) { tok[tl]=w[tl]; ++tl; }
                 tok[tl]=0;
                 if (oc_lower_eq(tok,"match")) { ok=0; break; }
                 unsigned ll=oc_length(ln);

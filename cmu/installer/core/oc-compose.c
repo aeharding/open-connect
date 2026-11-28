@@ -835,7 +835,7 @@ static int oc_ensure_subdir(int dir, const char *name) {
 }
 
 static int oc_open_verified_usb_vol(int root, const char *sess_mf_sha,
-                                    char mnt_out[32], int *was_ro);
+                                    char mnt_out[32], int *was_ro, int *any_prefs);
 
 static int oc_build_install_prefs(int data_fd, const char *pkg_id, const char *base_nvram,
                                   const char *meta, const char *old_cfg_text,
@@ -978,7 +978,13 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
         OcCatalog pre_cat; pre_cat.count=0;
         int cat_ok=sh_ok && oc_text((int)sfd,"services.tsv",cm.cat,sizeof cm.cat,0)>0 &&
             oc_catalog_load(cm.cat,oc_length(cm.cat),&pre_cat);
-        int vfd=cat_ok ? oc_open_verified_usb_vol(root,sess_sha,mnt_path,&was_ro) : -1;
+        int any_prefs=0;
+        int vfd=cat_ok ? oc_open_verified_usb_vol(root,sess_sha,mnt_path,&was_ro,&any_prefs) : -1;
+        if (vfd==-2 && any_prefs) {
+            if (sfd>=0) (void)oc_close((int)sfd);
+            if (data_fd>=0) (void)oc_close(data_fd);
+            return cerr(err_out,"multiple_preferences_files");
+        }
         if (vfd>=0) {
             if (!oc_absent_at(vfd,"open-connect.prefs")) {
                 long pfd=oc_openat(vfd,"open-connect.prefs",OC_READ,0);
@@ -1294,11 +1300,12 @@ static void oc_log_kv(OcLogBuf *b, const char *k, const char *v) {
 }
 
 static int oc_open_verified_usb_vol(int root, const char *sess_mf_sha,
-                                    char mnt_out[32], int *was_ro) {
+                                    char mnt_out[32], int *was_ro, int *any_prefs) {
     const char *vnames[4]={"sda1","sdb1","sdc1","sdd1"};
     long mnt=oc_beneath(root,"tmp/mnt",OC_DIRECTORY,0);
     if (mnt<0) return -1;
-    int found=-1; *was_ro=0; mnt_out[0]=0;
+    int found=-1, dup=0; *was_ro=0; mnt_out[0]=0;
+    if (any_prefs) *any_prefs=0;
     for (unsigned i=0; i<4; ++i) {
         if (oc_absent_at((int)mnt,vnames[i])) continue;
         char vabs[32];
@@ -1316,13 +1323,19 @@ static int oc_open_verified_usb_vol(int root, const char *sess_mf_sha,
             (void)oc_close((int)ocd);
         }
         if (!match) { (void)oc_close((int)vd); continue; }
-        if (found>=0) { (void)oc_close((int)vd); (void)oc_close(found); (void)oc_close((int)mnt); return -1; }
+        if (any_prefs && !oc_absent_at((int)vd,"open-connect.prefs")) *any_prefs=1;
+        if (found>=0 || dup) {
+            (void)oc_close((int)vd);
+            if (found>=0) { (void)oc_close(found); found=-1; }
+            dup=1;
+            continue;
+        }
         found=(int)vd;
         *was_ro=(mode==2);
         (void)oc_join(mnt_out,32,vabs,"");
     }
     (void)oc_close((int)mnt);
-    return found;
+    return dup ? -2 : found;
 }
 
 void oc_usb_log_failure(int root, const char *session_dir, const char *op, const char *err) {
@@ -1338,7 +1351,7 @@ void oc_usb_log_failure(int root, const char *session_dir, const char *op, const
         if (!ok) return;
     }
     char mnt_path[32]; int was_ro=0;
-    int vfd=oc_open_verified_usb_vol(root,sess_sha,mnt_path,&was_ro);
+    int vfd=oc_open_verified_usb_vol(root,sess_sha,mnt_path,&was_ro,0);
     if (vfd<0) return;
 
     OcLogBuf lb={cm.out, 4096, 0};

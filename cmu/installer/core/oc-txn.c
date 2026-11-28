@@ -1004,9 +1004,8 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
     if (!oc_txn_read_snap(data,rec[5],cur) || !oc_txn_read_snap(data,rec[4],base) ||
         !oc_equal(cur->pkg,rec[3])) goto done;
 
-    char boot[37], pre_step3_snap[65];
-    if (!oc_boot_id_ensure(root,ram,rec,owner,group,boot) || oc_equal(rec[11],boot) ||
-        !oc_join(pre_step3_snap,sizeof pre_step3_snap,"",rec[5])) goto done;
+    char boot[37];
+    if (!oc_boot_id_ensure(root,ram,rec,owner,group,boot) || oc_equal(rec[11],boot)) goto done;
 
     /* 3. Reconcile touch=1 NVRAM policy against current boot budget (revert on 0, re-apply on >0). */
     int bud=rec[9][0]-'0';
@@ -1071,8 +1070,8 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
             if (sdir>=0) (void)oc_close(sdir);
             if (!chk) goto done;
             hinted=1; unlink_reseal=1;
-        } else if (!oc_equal(pre_step3_snap,rec[5]) && oc_equal(rtxt,pre_step3_snap)) {
-            /* Step 3 NVRAM apply already rotated and sealed rec[5]; retire the superseded hint. */
+        } else {
+            /* Valid owned 0600 hex64 hint for a superseded snapshot: retire after sealing rec[5]. */
             unlink_reseal=1;
         }
     }

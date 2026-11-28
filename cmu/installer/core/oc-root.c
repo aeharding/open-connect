@@ -526,8 +526,11 @@ int oc_open_single_usb_file(int root, const char *filename, oc_u64 max_size,
     if (mnt<0) { *err_out=not_found_err; return -1; }
     for (unsigned i=0; i<4; ++i) {
         if (oc_absent_at((int)mnt,vnames[i])) continue;
+        char vabs[32];
+        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i])) continue;
         long vd=oc_openat((int)mnt,vnames[i],OC_DIRECTORY,0);
         if (vd<0) {
+            if (!oc_vfat_mount_mode(root,vabs)) continue;
             if (found_fd>=0) (void)oc_close(found_fd);
             (void)oc_close((int)mnt); *err_out=bad_file_err; return -1;
         }
@@ -536,8 +539,8 @@ int oc_open_single_usb_file(int root, const char *filename, oc_u64 max_size,
             (void)oc_close((int)vd); (void)oc_close(found_fd);
             (void)oc_close((int)mnt); *err_out=dup_err; return -1;
         }
-        char vabs[32]; OcMeta vm={0}, fm={0};
-        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i]) || !oc_vfat_mount_mode(root,vabs)) {
+        OcMeta vm={0}, fm={0};
+        if (!oc_vfat_mount_mode(root,vabs)) {
             (void)oc_close((int)vd); (void)oc_close((int)mnt); *err_out=bad_vol_err; return -1;
         }
         long fd=oc_openat((int)vd,filename,OC_READ,0);

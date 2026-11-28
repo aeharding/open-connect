@@ -15,6 +15,7 @@ static busybox (with tcpsvd/awk/sh) available.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import http.client
 import json
@@ -26,6 +27,8 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+
+sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "cmu/installer"
@@ -93,7 +96,7 @@ BUSYBOX_APPLETS = (
 )
 
 ARM_BINFMT_SPEC = (
-    r":qemu-arm:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28\x00:"
+    r":{name}:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28\x00:"
     r"\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:"
     r"{interp}:CF"
 )
@@ -125,23 +128,50 @@ def find_busybox() -> Path:
     return Path(found).resolve()
 
 
-def ensure_binfmt(qemu: Path) -> None:
+@contextlib.contextmanager
+def binfmt_arm(qemu: Path):
     bm = Path("/proc/sys/fs/binfmt_misc")
-    if not (bm / "register").exists():
-        bm.mkdir(parents=True, exist_ok=True)
-        res = subprocess.run(["mount", "-t", "binfmt_misc", "binfmt_misc", str(bm)])
-        if res.returncode != 0 and not (bm / "register").exists():
-            raise RuntimeError("failed to mount binfmt_misc")
-    existing = list(bm.glob("qemu-arm*"))
-    if existing:
-        txt = existing[0].read_text()
-        has_f = any(ln.startswith("flags:") and "F" in ln for ln in txt.splitlines())
-        if "enabled" in txt and has_f:
-            return
-        # Re-register with F flag so chroots execute ARMv7 ELFs transparently.
-        existing[0].write_text("-1")
-    spec = ARM_BINFMT_SPEC.format(interp=str(qemu))
-    (bm / "register").write_text(spec)
+    mounted = False
+    reg_entry: Path | None = None
+    try:
+        if not (bm / "register").exists():
+            bm.mkdir(parents=True, exist_ok=True)
+            res = subprocess.run(["mount", "-t", "binfmt_misc", "binfmt_misc", str(bm)])
+            if res.returncode != 0 and not (bm / "register").exists():
+                raise RuntimeError("failed to mount binfmt_misc")
+            mounted = True
+        if (bm / "status").read_text().strip() != "enabled":
+            raise RuntimeError("binfmt_misc is globally disabled")
+        exact = bm / "qemu-arm"
+        usable = False
+        if exact.is_file():
+            lines = exact.read_text().splitlines()
+            has_f = any(ln.startswith("flags:") and "F" in ln.split(":", 1)[1] for ln in lines)
+            usable = bool(lines and lines[0].strip() == "enabled" and has_f)
+        if not usable:
+            name = f"oc-qemu-arm-{os.getpid()}"
+            (bm / "register").write_text(ARM_BINFMT_SPEC.format(name=name, interp=str(qemu)))
+            reg_entry = bm / name
+        yield
+    finally:
+        if reg_entry is not None and reg_entry.exists():
+            try:
+                reg_entry.write_text("-1")
+            except OSError:
+                pass
+        if mounted:
+            subprocess.run(["umount", str(bm)], capture_output=True)
+
+
+def stop_proc(proc: subprocess.Popen) -> None:
+    if proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=5)
 
 
 def pick_port() -> int:
@@ -239,8 +269,15 @@ def mount_tmpfs(target: Path, size: str = "32M") -> None:
 
 
 def umount_quiet(target: Path) -> None:
-    if target.exists():
-        subprocess.run(["umount", "-l", str(target)], capture_output=True)
+    if not target.exists():
+        return
+    res = subprocess.run(["umount", str(target)], capture_output=True, text=True)
+    if res.returncode != 0:
+        print(
+            f"  [warn] sync umount {target} busy ({res.stderr.strip()}); retrying lazy",
+            file=sys.stderr,
+        )
+        subprocess.run(["umount", "-l", str(target)], check=True)
 
 
 def build_arm_test_bins(out_dir: Path) -> dict[str, Path]:
@@ -385,7 +422,9 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
         ig_kb = int(run(["du", "-sk", str(staged_ig)]).stdout.split()[0])
         ig_pages = (ig_kb + 3) // 4
         print(f"  [tmpfs] ignition observer: {ig_kb} KiB ({ig_pages} 4KiB pages)")
-        assert ig_kb <= 8, f"ignition exceeded 8 KiB budget: {ig_kb} KiB"
+        assert ig_bin.stat().st_size <= 4096 and ig_kb <= 4, (
+            f"ignition exceeded 1-page (4 KiB) budget: {ig_kb} KiB"
+        )
     finally:
         umount_quiet(tmpfs_mnt)
 
@@ -502,11 +541,14 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
             obj = json.loads(raw)
             assert obj.get("ok") is True and obj.get("closed") is False, obj
 
-            # Fail-closed firmware guard on unmodified ARMv7 `api` -> `install`.
+            # Fail-closed firmware guard on unmodified ARMv7 `api` (`WRONG_VER` -> unsupported_firmware).
             st_fw, _, raw_fw = http_control(port, TOKEN_USB, "-|install|-|-|-")
             assert st_fw == 200, (st_fw, raw_fw)
             obj_fw = json.loads(raw_fw)
-            assert obj_fw.get("ok") is False, obj_fw
+            assert obj_fw.get("ok") is False and obj_fw.get("error") == "unsupported_firmware", (
+                obj_fw
+            )
+            # Unmodified `install` refuses unsigned session with exact token.
             r_inst = chroot_run(
                 chroot,
                 [
@@ -514,13 +556,38 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
                     "/tmp/open-connect/sessions/session-usb1",
                 ],
             )
-            assert r_inst.returncode != 0, "unmodified install must fail on wrong version.ini"
+            assert (
+                r_inst.returncode == 1 and r_inst.stdout.strip() == "incomplete_maintenance_bundle"
+            ), (r_inst.returncode, r_inst.stdout, r_inst.stderr)
+            # Manifest-valid session without OEM files -> unmodified `install` fails with exact
+            # `unsupported_original` from real ARMv7 SHA-256 stock dependency verification.
+            sess_fw = ram / "sessions/session-usbfw"
+            shutil.copytree(usb_dir, sess_fw)
+            sess_fw.chmod(0o700)
+            for exe in ("api", "install", "boot-select", "ignition", "flush"):
+                (sess_fw / exe).chmod(0o700)
+            data_bak = chroot / "tmp/mnt/data_persist/.oc-bak"
+            data.rename(data_bak)
+            try:
+                r_inst2 = chroot_run(
+                    chroot,
+                    [
+                        "/tmp/open-connect/sessions/session-usbfw/install",
+                        "/tmp/open-connect/sessions/session-usbfw",
+                    ],
+                )
+            finally:
+                data_bak.rename(data)
+            assert r_inst2.returncode == 1 and r_inst2.stdout.strip() == "unsupported_original", (
+                r_inst2.returncode,
+                r_inst2.stdout,
+                r_inst2.stderr,
+            )
             print(
-                "  [ARMv7 api+tcpsvd] 400 GET+CORS, 403 bad token, 200 status|session, fail-closed guards verified"
+                "  [ARMv7 api+tcpsvd] 400 GET+CORS, 403 bad token, 200 status|session, exact fail-closed guards verified"
             )
         finally:
-            srv.terminate()
-            srv.wait(timeout=5)
+            stop_proc(srv)
 
         # 3b. Unmodified ARMv7 `boot-select gc` prunes unpinned snapshots & `.prune-<id>` tombstones.
         def make_snap_dir(label: str, *, tombstone: bool = False) -> tuple[str, Path]:
@@ -578,6 +645,10 @@ def part_a_unmodified_release(work: Path, release_dir: Path, busybox: Path) -> N
             stderr=subprocess.PIPE,
         )
         try:
+            lock_deadline = time.monotonic() + 5.0
+            while time.monotonic() < lock_deadline and not (ram / "ignition.lock").exists():
+                time.sleep(0.05)
+            assert (ram / "ignition.lock").exists(), "ignition did not create ignition.lock"
             time.sleep(1.2)
             assert ig_proc.poll() is None, "ignition exited prematurely while ACC=1"
             rec_mid = (data / "record").read_text().strip().split("|")
@@ -825,8 +896,7 @@ def part_b_full_lifecycle(
             pkg1, snap1 = rec[3], rec[5]
             print(f"  [B1] Cold ARMv7 USB install OK (pkg={pkg1[:8]}, snap={snap1[:8]})")
         finally:
-            usb_srv.terminate()
-            usb_srv.wait(timeout=5)
+            stop_proc(usb_srv)
 
         # B2. Simulated Boot #1: fresh tmpfs -> ARMv7 `/usr/bin/open-connect-boot-select select /`.
         for child in list(ram.iterdir()):
@@ -917,11 +987,13 @@ def part_b_full_lifecycle(
             assert st == 200 and r_cp["ok"] is True and r_cp["carplayAutoshow"] == 1, r_cp
             rev = r_cp["revision"]
 
-            # Root-publish path: uart 0 -> 1 -> 0 (verifying stock runlogin inode preserved!)
+            # Root-publish path: uart 0 -> 1 -> 0 (verifying hardlink hold & stock inode preserved!)
             (chroot / "dev/urandom").write_bytes(os.urandom(8192))
             st, _, raw = http_control(set_port, TOKEN_SET, f"{rev}|set|uart|0|1")
             r_u1 = json.loads(raw)
             assert st == 200 and r_u1["ok"] is True and r_u1["uart"] == 1, r_u1
+            assert (chroot / "usr/bin/runlogin").stat().st_ino != orig_runlogin_ino
+            assert (chroot / f"usr/bin/.open-connect-runlogin-{orig_runlogin_ino}").exists()
             rev = r_u1["revision"]
 
             (chroot / "dev/urandom").write_bytes(os.urandom(8192))
@@ -937,8 +1009,7 @@ def part_b_full_lifecycle(
                 "  [B3] Live Settings HTTP /control OK (status, touch 1->0->1, autoshow, uart 0->1->0, inode preserved)"
             )
         finally:
-            set_srv.terminate()
-            set_srv.wait(timeout=5)
+            stop_proc(set_srv)
 
         # B4. Slow-path ARMv7 `install --boot-recover` (budget=0 NVRAM revert + D/reseal).
         def clean_ram_for_boot(boot_uuid: str) -> None:
@@ -1074,8 +1145,7 @@ def part_b_full_lifecycle(
                 "  [B5] Full ARMv7 USB uninstall OK (stock autostart restored, boot-select & data removed)"
             )
         finally:
-            un_srv.terminate()
-            un_srv.wait(timeout=5)
+            stop_proc(un_srv)
     finally:
         umount_quiet(chroot_tmp)
 
@@ -1090,9 +1160,8 @@ def main() -> int:
 
     qemu = find_qemu_arm()
     busybox = find_busybox()
-    ensure_binfmt(qemu)
 
-    with tempfile.TemporaryDirectory(prefix="oc-arm-qemu-") as td:
+    with binfmt_arm(qemu), tempfile.TemporaryDirectory(prefix="oc-arm-qemu-") as td:
         work = Path(td).resolve()
         release_dir = work / "release"
         print("=== Building unmodified `make release` ARMv7 binaries ===")

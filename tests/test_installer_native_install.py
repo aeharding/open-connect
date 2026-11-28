@@ -662,6 +662,7 @@ class NativeInstall(unittest.TestCase):
             for tag, body in (
                 ("unpinned", "#!/bin/sh\n# unpinned legacy dev.22\n"),
                 ("substring", "#!/bin/sh\n# spoof # Open Connect pinned Settings 1\n"),
+                ("suffix", "#!/bin/sh\n# Open Connect pinned Settings 10\n"),
             ):
                 lp_id, ls_id = make_legacy_pkg_snap(tag, body)
                 (ram / "selected").write_text(ls_id + "\n")
@@ -931,4 +932,7 @@ class NativeInstall(unittest.TestCase):
             self.assertTrue(r_up["ok"] and r_up["installed"], r_up)
             self.assertEqual((r_up["base"], r_up["uart"], r_up["ssh"]), (1, 1, 1))
             self.assertEqual(r_up["key"], imported_key)
-            self.assertEqual((data / "record").read_text().strip().split("|")[1], "active")
+            self.assertTrue((data / "keys" / f"{imported_key}.cmu").is_file())
+            rec_up = (data / "record").read_text().strip().split("|")
+            self.assertEqual(rec_up[1], "active")
+            self.assertNotEqual(rec_up[3], rec0[3])

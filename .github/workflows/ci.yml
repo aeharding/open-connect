@@ -182,7 +182,7 @@ jobs:
           echo "OC_TEST_BUSYBOX=$RUNNER_TEMP/oc-arm-tools/busybox" >> "$GITHUB_ENV"
           echo "OC_LLD=$(command -v ld.lld)" >> "$GITHUB_ENV"
       - name: Run ARMv7 ELF + BusyBox + tmpfs harness
-        run: sudo OC_TEST_BUSYBOX="$OC_TEST_BUSYBOX" OC_LLD="$OC_LLD" python3 tests/run_arm_qemu.py
+        run: sudo OC_TEST_BUSYBOX="$OC_TEST_BUSYBOX" OC_LLD="$OC_LLD" "$(command -v python3)" -B tests/run_arm_qemu.py
 
   prerelease:
     name: Prepare development prerelease

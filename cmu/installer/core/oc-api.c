@@ -227,25 +227,6 @@ static int oc_key_fingerprint(const char *root_path, const char *key_id, char ou
     return n>0 && (*p==' '||*p=='\t'||*p=='\n'||!*p);
 }
 
-static int oc_factory_wireless(int root, const char *root_path) {
-#ifdef OC_HOST
-    const char *wf=getenv("OC_HOST_WIRELESS_FILE");
-    if (wf && *wf) { OcMeta wm; return oc_metadata(OC_CWD,wf,&wm)<0 ? 1 : 0; }
-#endif
-    long fd=oc_beneath(root,"jci/scripts/get_board_type.sh",OC_READ,0);
-    if (fd<0) return 2;
-    char dig[65]; OcMeta m;
-    int ok=oc_hash_copy((int)fd,-1,65536,dig,&m)==OC_COPY_OK &&
-        oc_equal(dig,oc_pin_digest("root/board.sh","2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da"));
-    if (oc_close((int)fd)<0) ok=0;
-    if (!ok) return 2;
-    char spath[512];
-    if (!oc_join(spath,sizeof spath,oc_equal(root_path,"/")?"":root_path,"/jci/scripts/get_board_type.sh")) return 2;
-    char *argv[]={"sh",spath,0};
-    int wrc=oc_run_prog("/bin/sh",argv,-1,0,0,-1);
-    return wrc<0 ? 2 : (wrc==2 ? 0 : 1);
-}
-
 /* ---------- Status view JSON renderer ---------- */
 static int oc_api_emit_status_view(int root, const char *root_path, int data, int ram,
                                    const char *session_dir, long owner, long group,
@@ -818,68 +799,43 @@ static __attribute__((noinline)) int oc_handle_access(OcApiCtx *c, int is_import
     return oc_commit_set_txn(c,before_id,after_id);
 }
 
-static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
+static int oc_prepare_prefs_ctx(OcApiCtx *c, char bs_path[512], OcCatalog *cat) {
     if (!c->exists || !oc_equal(c->rec[1],"active")) return api_err(c,"not_installed");
     char cur_pkg[65];
     if (!oc_snap_package_only(c->data,c->rec[5],cur_pkg) || !oc_equal(cur_pkg,c->settings_pkg)) return api_err(c,"restart_required");
     if (!oc_equal(cur_pkg,c->rec[3]) || !oc_session_mf_matches(c->session_dir,c->rec[3])) return api_err(c,"state_changed");
 
-    char bs_path[512];
-    int bs_state=oc_verify_pkg_boot_select(c->data,c->root_path,c->rec[3],c->owner,c->group,bs_path);
-    if (bs_state<0) return api_err(c,"state_changed");
-
-    c->snaps_fd=oc_open_private(c->data,"snapshots");
-    if (c->snaps_fd<0) return api_err(c,"state_changed");
-    int has_plan=-1;
-    {
-        int sdir=oc_open_private(c->snaps_fd,c->rec[5]);
-        char smf[4096]; OcManifest mf;
-        if (sdir>=0 && oc_verified_text(sdir,"files.sha256",c->rec[5],smf,sizeof smf) && oc_manifest(smf,&mf,0)) {
-            if (oc_digest(&mf,"boot.plan")) {
-                OcMeta pm;
-                has_plan = (oc_metadata(sdir,"boot.plan",&pm)>=0 && (pm.mode&OC_TYPE)==OC_REGULAR) ? 1 : -1;
-            } else has_plan = oc_absent_at(sdir,"boot.plan") ? 0 : -1;
+    if (bs_path) {
+        int bs_state=oc_verify_pkg_boot_select(c->data,c->root_path,c->rec[3],c->owner,c->group,bs_path);
+        if (bs_state<0) return api_err(c,"state_changed");
+        c->snaps_fd=oc_open_private(c->data,"snapshots");
+        if (c->snaps_fd<0) return api_err(c,"state_changed");
+        int has_plan=-1;
+        {
+            int sdir=oc_open_private(c->snaps_fd,c->rec[5]);
+            char smf[4096]; OcManifest mf;
+            if (sdir>=0 && oc_verified_text(sdir,"files.sha256",c->rec[5],smf,sizeof smf) && oc_manifest(smf,&mf,0)) {
+                if (oc_digest(&mf,"boot.plan")) {
+                    OcMeta pm;
+                    has_plan = (oc_metadata(sdir,"boot.plan",&pm)>=0 && (pm.mode&OC_TYPE)==OC_REGULAR) ? 1 : -1;
+                } else has_plan = oc_absent_at(sdir,"boot.plan") ? 0 : -1;
+            }
+            if (sdir>=0) (void)oc_close(sdir);
         }
-        if (sdir>=0) (void)oc_close(sdir);
+        if (has_plan!=1 || bs_state!=1) return api_err(c,"state_changed");
     }
-    if (has_plan!=1 || bs_state!=1) return api_err(c,"state_changed");
-
-    OcCatalog cat; cat.count=0;
-    if (!oc_snap_read(c->data,c->rec[5],&api_snap_a,&cat,api_mem.cat_buf,sizeof api_mem.cat_buf,0,0) || !api_snap_a.prefs.is_oc2)
+    cat->count=0;
+    if (!oc_snap_read(c->data,c->rec[5],&api_snap_a,cat,api_mem.cat_buf,sizeof api_mem.cat_buf,0,0) || !api_snap_a.prefs.is_oc2)
         return api_err(c,"state_changed");
-    char **slot=0;
-    int is_touch=oc_equal(c->arg,"touch");
-    if (is_touch) slot=&api_snap_a.prefs.touch;
-    else if (oc_equal(c->arg,"warning")) slot=&api_snap_a.prefs.warning;
-    else if (oc_equal(c->arg,"base")) slot=&api_snap_a.prefs.base;
-    else if (oc_equal(c->arg,"wireless")) slot=&api_snap_a.prefs.wireless;
-    else if (oc_equal(c->arg,"carplay-autoshow")) { slot=&api_snap_a.prefs.autoshow; api_snap_a.prefs.has_autoshow=1; }
-    else if (oc_equal(c->arg,"source-order")) { slot=&api_snap_a.prefs.source_order; api_snap_a.prefs.has_source_order=1; }
-    else if (oc_equal(c->arg,"menu-loop")) { slot=&api_snap_a.prefs.menu_loop; api_snap_a.prefs.has_menu_loop=1; }
-    else if (oc_equal(c->arg,"hold-scroll")) { slot=&api_snap_a.prefs.hold_scroll; api_snap_a.prefs.has_hold_scroll=1; }
-    else {
-        for (unsigned i=0; i<api_snap_a.prefs.svc_count; ++i)
-            if (oc_equal(api_snap_a.prefs.svc_ids[i],c->arg)) { slot=&api_snap_a.prefs.svc_vals[i]; break; }
-    }
-    if (!slot || !(is_touch?(oc_bit(c->exp)||oc_equal(c->exp,"2")):oc_bit(c->exp)) ||
-        !(is_touch?(oc_bit(c->des)||oc_equal(c->des,"2")):oc_bit(c->des))) return api_err(c,"invalid_setting");
-    if (!oc_equal(*slot,c->exp)) return api_err(c,"stale_setting");
+    return OC_API_DONE;
+}
 
-    if (oc_equal(c->exp,c->des)) {
-        char *a_argv[]={bs_path,"audit",(char *)c->root_path,c->rec[5],0};
-        if (oc_run_prog(bs_path,a_argv,-1,0,0,-1)!=0) return api_err(c,"state_changed");
-        return oc_api_emit_ctx(c,0,0);
-    }
-
+static __attribute__((noinline)) int oc_apply_prefs_change(
+    OcApiCtx *c, const char *bs_path, const OcCatalog *cat,
+    const char *old_t, const char *old_w, const char *old_b, const char *old_wl,
+    const char *old_as, const char *old_so, const char *old_ml, const char *old_hs,
+    const char *cur_nvram, int svc_changed) {
     if (!oc_snap_read(c->data,c->rec[4],&api_snap_b,0,0,0,0,0)) return api_err(c,"originals_changed");
-    const char *old_t=api_snap_a.prefs.touch, *old_w=api_snap_a.prefs.warning, *old_b=api_snap_a.prefs.base;
-    const char *old_wl=api_snap_a.prefs.wireless, *old_as=api_snap_a.prefs.autoshow;
-    const char *old_so=api_snap_a.prefs.source_order, *old_ml=api_snap_a.prefs.menu_loop;
-    const char *old_hs=api_snap_a.prefs.hold_scroll, *cur_nvram=api_snap_a.prefs.nvram;
-    int svc_changed = !is_touch && !oc_equal(c->arg,"warning") && !oc_equal(c->arg,"base") &&
-        !oc_equal(c->arg,"wireless") && !oc_equal(c->arg,"carplay-autoshow") && !oc_equal(c->arg,"source-order") &&
-        !oc_equal(c->arg,"menu-loop") && !oc_equal(c->arg,"hold-scroll");
-    *slot=(char *)c->des;
     const char *new_nvram=oc_equal(api_snap_a.prefs.touch,"1")?"disable":api_snap_b.prefs.nvram;
     api_snap_a.prefs.nvram=(char *)new_nvram;
 
@@ -892,7 +848,7 @@ static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
     int need_index=w_chg||b_chg||svc_changed||as_chg||so_chg||ml_chg||hs_chg;
 
     char new_cfg[1024], wnonce[33], work_leaf[48];
-    if (!oc_prefs_write(&cat,&api_snap_a.prefs,new_cfg,sizeof new_cfg) ||
+    if (!oc_prefs_write(cat,&api_snap_a.prefs,new_cfg,sizeof new_cfg) ||
         !oc_random(c->root,wnonce) || !oc_join(work_leaf,sizeof work_leaf,".new-",wnonce) ||
         oc_mkdir(c->snaps_fd,work_leaf,0700)<0) return api_err(c,"plan_failed");
     int work_fd=oc_open_private(c->snaps_fd,work_leaf);
@@ -928,7 +884,7 @@ static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
         oc_cleanup_work(c->snaps_fd,work_leaf); return api_err(c,"plan_failed");
     }
     int nv_changed=!oc_equal(cur_nvram,new_nvram);
-    char *sp_argv[7]={bs_path,"seal-publish",(char *)c->root_path,c->rec[5],rel_work,nv_changed?(char *)new_nvram:0,0};
+    char *sp_argv[7]={(char *)bs_path,"seal-publish",(char *)c->root_path,c->rec[5],rel_work,nv_changed?(char *)new_nvram:0,0};
     int sp_rc=oc_run_prog(bs_path,sp_argv,-1,sp_out,sizeof sp_out,-1);
     if (sp_rc==95 && oc_equal(old_t,"2") && !oc_equal(api_snap_a.prefs.touch,"2")) {
         /* Touch=2 -> 0/1 with drifted touch pins: recover natively via full transaction. */
@@ -967,7 +923,7 @@ static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
         c->rec[1]="set"; c->rec[6]=prev_cur; c->rec[7]=sp_out;
         if (!oc_record_write_atomic(c->root,c->data,c->rec,0)) return api_err(c,"record_rename_failed");
         if (!oc_nvram_change(c->root,cur_nvram,new_nvram)) return api_err(c,"nvram_commit_failed");
-        char *au_argv[]={bs_path,"audit",(char *)c->root_path,prev_cur,sp_out,0};
+        char *au_argv[]={(char *)bs_path,"audit",(char *)c->root_path,prev_cur,sp_out,0};
         if (oc_run_prog(bs_path,au_argv,-1,0,0,-1)!=0) return api_err(c,"final_verification_failed");
     }
 
@@ -979,6 +935,135 @@ static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
 
     oc_api_run_gc(c);
     return oc_api_emit_ctx(c,0,0);
+}
+
+static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
+    char bs_path[512]; OcCatalog cat;
+    if (oc_prepare_prefs_ctx(c,bs_path,&cat)!=OC_API_DONE) return OC_API_ERR;
+    char **slot=0;
+    int is_touch=oc_equal(c->arg,"touch");
+    if (is_touch) slot=&api_snap_a.prefs.touch;
+    else if (oc_equal(c->arg,"warning")) slot=&api_snap_a.prefs.warning;
+    else if (oc_equal(c->arg,"base")) slot=&api_snap_a.prefs.base;
+    else if (oc_equal(c->arg,"wireless")) slot=&api_snap_a.prefs.wireless;
+    else if (oc_equal(c->arg,"carplay-autoshow")) { slot=&api_snap_a.prefs.autoshow; api_snap_a.prefs.has_autoshow=1; }
+    else if (oc_equal(c->arg,"source-order")) { slot=&api_snap_a.prefs.source_order; api_snap_a.prefs.has_source_order=1; }
+    else if (oc_equal(c->arg,"menu-loop")) { slot=&api_snap_a.prefs.menu_loop; api_snap_a.prefs.has_menu_loop=1; }
+    else if (oc_equal(c->arg,"hold-scroll")) { slot=&api_snap_a.prefs.hold_scroll; api_snap_a.prefs.has_hold_scroll=1; }
+    else {
+        for (unsigned i=0; i<api_snap_a.prefs.svc_count; ++i)
+            if (oc_equal(api_snap_a.prefs.svc_ids[i],c->arg)) { slot=&api_snap_a.prefs.svc_vals[i]; break; }
+    }
+    if (!slot || !(is_touch?(oc_bit(c->exp)||oc_equal(c->exp,"2")):oc_bit(c->exp)) ||
+        !(is_touch?(oc_bit(c->des)||oc_equal(c->des,"2")):oc_bit(c->des))) return api_err(c,"invalid_setting");
+    if (!oc_equal(*slot,c->exp)) return api_err(c,"stale_setting");
+
+    if (oc_equal(c->exp,c->des)) {
+        char *a_argv[]={bs_path,"audit",(char *)c->root_path,c->rec[5],0};
+        if (oc_run_prog(bs_path,a_argv,-1,0,0,-1)!=0) return api_err(c,"state_changed");
+        return oc_api_emit_ctx(c,0,0);
+    }
+    const char *old_t=api_snap_a.prefs.touch, *old_w=api_snap_a.prefs.warning, *old_b=api_snap_a.prefs.base;
+    const char *old_wl=api_snap_a.prefs.wireless, *old_as=api_snap_a.prefs.autoshow;
+    const char *old_so=api_snap_a.prefs.source_order, *old_ml=api_snap_a.prefs.menu_loop;
+    const char *old_hs=api_snap_a.prefs.hold_scroll, *cur_nvram=api_snap_a.prefs.nvram;
+    int svc_changed = !is_touch && !oc_equal(c->arg,"warning") && !oc_equal(c->arg,"base") &&
+        !oc_equal(c->arg,"wireless") && !oc_equal(c->arg,"carplay-autoshow") && !oc_equal(c->arg,"source-order") &&
+        !oc_equal(c->arg,"menu-loop") && !oc_equal(c->arg,"hold-scroll");
+    *slot=(char *)c->des;
+    return oc_apply_prefs_change(c,bs_path,&cat,old_t,old_w,old_b,old_wl,old_as,old_so,old_ml,old_hs,cur_nvram,svc_changed);
+}
+
+static __attribute__((noinline)) int oc_handle_export_prefs(OcApiCtx *c) {
+    if (!oc_equal(c->exp,"-") || !oc_equal(c->des,"-")) return api_err(c,"invalid_request");
+    OcCatalog cat;
+    if (oc_prepare_prefs_ctx(c,0,&cat)!=OC_API_DONE) return OC_API_ERR;
+    char out[1024];
+    if (!oc_prefs_preset_write(&cat,&api_snap_a.prefs,out,sizeof out)) return api_err(c,"export_failed");
+
+    static const char *const vnames[4]={"sda1","sdb1","sdc1","sdd1"};
+    long mnt=oc_beneath(c->root,"tmp/mnt",OC_DIRECTORY,0);
+    if (mnt<0) return api_err(c,"usb_not_found");
+    int found=-1, was_ro=0; char mnt_path[32]; mnt_path[0]=0;
+    for (unsigned i=0; i<4; ++i) {
+        if (oc_absent_at((int)mnt,vnames[i])) continue;
+        char vabs[32];
+        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i])) continue;
+        int mode=oc_vfat_mount_mode(c->root,vabs);
+        if (!mode) continue;
+        long vd=oc_openat((int)mnt,vnames[i],OC_DIRECTORY,0);
+        if (vd<0) continue;
+        if (found>=0) { (void)oc_close((int)vd); (void)oc_close(found); (void)oc_close((int)mnt); return api_err(c,"multiple_usb_volumes"); }
+        found=(int)vd; was_ro=(mode==2);
+        (void)oc_join(mnt_path,sizeof mnt_path,vabs,"");
+    }
+    (void)oc_close((int)mnt);
+    if (found<0) return api_err(c,"usb_not_found");
+
+    int remounted=0;
+    if (was_ro) {
+        if (!oc_usb_remount(c->root,mnt_path,1)) { (void)oc_close(found); return api_err(c,"export_failed"); }
+        remounted=1;
+    }
+    long pfd=oc_openat(found,"open-connect.prefs",OC_WRITE|OC_CREATE|OC_TRUNC,0600);
+    OcMeta pm={0};
+    int ok=pfd>=0 && oc_stat((int)pfd,&pm)>=0 && (pm.mode&OC_TYPE)==OC_REGULAR &&
+        oc_write_all((int)pfd,out,oc_length(out)) && oc_sync((int)pfd)>=0;
+    if (pfd>=0 && oc_close((int)pfd)<0) ok=0;
+    if (ok && oc_sync(found)<0) ok=0;
+    (void)oc_close(found);
+    if (remounted && !oc_usb_remount(c->root,mnt_path,0)) ok=0;
+    return ok ? oc_api_emit_ctx(c,0,0) : api_err(c,"export_failed");
+}
+
+static __attribute__((noinline)) int oc_handle_import_prefs(OcApiCtx *c) {
+    if (!oc_equal(c->exp,"-") || !oc_equal(c->des,"-")) return api_err(c,"invalid_request");
+    char bs_path[512]; OcCatalog cat;
+    if (oc_prepare_prefs_ctx(c,bs_path,&cat)!=OC_API_DONE) return OC_API_ERR;
+
+    static const char *const vnames[4]={"sda1","sdb1","sdc1","sdd1"};
+    int pfd=-1;
+    long mnt=oc_beneath(c->root,"tmp/mnt",OC_DIRECTORY,0);
+    if (mnt<0) return api_err(c,"preferences_not_found");
+    for (unsigned i=0; i<4; ++i) {
+        if (oc_absent_at((int)mnt,vnames[i])) continue;
+        long vd=oc_openat((int)mnt,vnames[i],OC_DIRECTORY,0);
+        if (vd<0) { if (pfd>=0) (void)oc_close(pfd); (void)oc_close((int)mnt); return api_err(c,"invalid_preferences"); }
+        if (oc_absent_at((int)vd,"open-connect.prefs")) { (void)oc_close((int)vd); continue; }
+        if (pfd>=0) { (void)oc_close((int)vd); (void)oc_close(pfd); (void)oc_close((int)mnt); return api_err(c,"multiple_preferences_files"); }
+        long f=oc_openat((int)vd,"open-connect.prefs",OC_READ,0);
+        OcMeta fm={0};
+        int fok=f>=0 && oc_stat((int)f,&fm)>=0 && (fm.mode&OC_TYPE)==OC_REGULAR && fm.size<=1023;
+        (void)oc_close((int)vd);
+        if (!fok) { if (f>=0) (void)oc_close((int)f); (void)oc_close((int)mnt); return api_err(c,"invalid_preferences"); }
+        char vabs[32];
+        if (!oc_join(vabs,sizeof vabs,"/tmp/mnt/",vnames[i]) || !oc_vfat_mount_mode(c->root,vabs)) {
+            (void)oc_close((int)f); (void)oc_close((int)mnt); return api_err(c,"invalid_preferences_volume");
+        }
+        pfd=(int)f;
+    }
+    (void)oc_close((int)mnt);
+    if (pfd<0) return api_err(c,"preferences_not_found");
+
+    char raw[1024];
+    int n=oc_text_fd(pfd,raw,sizeof raw);
+    if (oc_close(pfd)<0 || n<=0) return api_err(c,"invalid_preferences");
+
+    const char *old_t=api_snap_a.prefs.touch, *old_w=api_snap_a.prefs.warning, *old_b=api_snap_a.prefs.base;
+    const char *old_wl=api_snap_a.prefs.wireless, *old_as=api_snap_a.prefs.autoshow;
+    const char *old_so=api_snap_a.prefs.source_order, *old_ml=api_snap_a.prefs.menu_loop;
+    const char *old_hs=api_snap_a.prefs.hold_scroll, *cur_nvram=api_snap_a.prefs.nvram;
+    unsigned chg=0;
+    if (!oc_prefs_preset_apply(raw,(unsigned)n,&cat,&api_snap_a.prefs,&chg))
+        return api_err(c,"invalid_preferences");
+    if ((chg&(1u<<7)) && oc_equal(api_snap_a.prefs.wireless,"1") && oc_factory_wireless(c->root,c->root_path)==1)
+        return api_err(c,"wireless_factory_enabled");
+    if (!chg) {
+        char *a_argv[]={bs_path,"audit",(char *)c->root_path,c->rec[5],0};
+        if (oc_run_prog(bs_path,a_argv,-1,0,0,-1)!=0) return api_err(c,"state_changed");
+        return oc_api_emit_ctx(c,0,0);
+    }
+    return oc_apply_prefs_change(c,bs_path,&cat,old_t,old_w,old_b,old_wl,old_as,old_so,old_ml,old_hs,cur_nvram,(chg&256u)!=0);
 }
 
 /* Native USB fence: verify active pinned Settings session matches boot-selected package. */
@@ -1092,7 +1177,7 @@ static __attribute__((noinline)) int oc_handle_install(OcApiCtx *c) {
 enum {
     OP_DM_USB=1, OP_DM_DONE=2, OP_ST_SET=3, OP_ST_COMP=4, OP_ST_FULL=5,
     OP_RESTART=6, OP_UNINSTALL=7, OP_RECOVER=8, OP_IMPORT=9, OP_ACC_SET=10,
-    OP_FAST_SET=11, OP_INSTALL=12
+    OP_FAST_SET=11, OP_INSTALL=12, OP_EXPORT_PREFS=13, OP_IMPORT_PREFS=14
 };
 
 static int oc_api_dispatch(OcApiCtx *c, int kind) {
@@ -1241,6 +1326,8 @@ static int oc_api_dispatch(OcApiCtx *c, int kind) {
     if (kind==OP_INSTALL) return oc_handle_install(c);
     if (kind==OP_UNINSTALL) return oc_handle_uninstall(c);
     if (kind==OP_IMPORT || kind==OP_ACC_SET) return oc_handle_access(c,kind==OP_IMPORT);
+    if (kind==OP_EXPORT_PREFS) return oc_handle_export_prefs(c);
+    if (kind==OP_IMPORT_PREFS) return oc_handle_import_prefs(c);
     return oc_handle_fast_set(c);
 }
 
@@ -1256,6 +1343,10 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
         else if (arg_dash) kind=OP_DM_DONE;
     } else if (oc_equal(op,"set")) {
         kind=(oc_equal(arg,"uart")||oc_equal(arg,"ssh")) ? OP_ACC_SET : OP_FAST_SET;
+    } else if (oc_equal(op,"export") && oc_equal(arg,"prefs")) {
+        kind=OP_EXPORT_PREFS;
+    } else if (oc_equal(op,"import") && oc_equal(arg,"prefs")) {
+        kind=OP_IMPORT_PREFS;
     } else if (arg_dash) {
         if (oc_equal(op,"restart")) kind=OP_RESTART;
         else if (oc_equal(op,"install")) kind=OP_INSTALL;

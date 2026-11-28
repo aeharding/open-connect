@@ -108,7 +108,8 @@ function changed(a){
  (a.services||[]).forEach(function(row){if(row.id===key){value=row.saved;}});
  return a.installed&&a.revision!==old.revision&&value===wanted;
 }
- return job.op==="import"&&/^[a-f0-9]{64}$/.test(a.key)&&a.key!==old.key&&a.revision!==old.revision;
+ if(job.op==="import")return job.args?a.installed&&a.revision!==old.revision:/^[a-f0-9]{64}$/.test(a.key)&&a.key!==old.key&&a.revision!==old.revision;
+ return false;
 }
 function reconcile(a){
  job.phase="checking";if(!saving){paint();}
@@ -158,7 +159,7 @@ unavailable:function(){
   "Restart Mazda Connect before making more changes.":"Open Connect could not be reached. Try again.",
   {button1:{label:"OK",appData:"done"}},function(){dialog=null;});
 },
-write:function(key,from,to,reply){run("set",[key,String(from),String(to)],reply);},importKey:function(reply){run("import",null,reply);},uninstall:function(leave){return run("uninstall",null,null,leave);},busy:function(){return busy||pending;},restart:function(leave){return values()&&s.restart&&!pending&&run("restart",null,null,leave);}};
+write:function(key,from,to,reply){run("set",[key,String(from),String(to)],reply);},importKey:function(reply){run("import",null,reply);},exportPrefs:function(reply){run("export",["prefs","-","-"],reply);},importPrefs:function(reply){run("import",["prefs","-","-"],reply);},uninstall:function(leave){return run("uninstall",null,null,leave);},busy:function(){return busy||pending;},restart:function(leave){return values()&&s.restart&&!pending&&run("restart",null,null,leave);}};
 function openSettings(){
  if(openIntent)return true;
  if(!homeAvailable()||held())return false;
@@ -265,8 +266,6 @@ function read(intent){
    /^session-[a-zA-Z0-9]{6}$/.test(media.session)&&/^[a-f0-9]{32}$/.test(media.token)){
    if(launch(media)){until=0;return;}
   }
-  // Ordinary USB drives never publish an offer; avoid a burst of native HTTP
-  // handlers while keeping the first retry prompt and the same event deadline.
   if(Date.now()<until){
    timer=setTimeout(function(){read(intent);},Math.min(retry,until-Date.now()));
    retry=Math.min(retry*2,2000);

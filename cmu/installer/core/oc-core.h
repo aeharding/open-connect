@@ -206,6 +206,8 @@ int oc_service_keys(char *text, char **ids, unsigned *count);
 int oc_catalog_load(char *text, unsigned bytes, OcCatalog *cat);
 int oc_prefs_parse(char *text, const OcCatalog *cat, int active, OcPrefs *out);
 int oc_prefs_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned cap);
+int oc_prefs_preset_apply(char *text, unsigned bytes, const OcCatalog *cat, OcPrefs *prefs, unsigned *changed);
+int oc_prefs_preset_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned cap);
 int oc_config(OcBoot *b, char *text, char **f, int active, char svc_digest[65]);
 int oc_access(char *text, char **fields);
 int oc_nvram_at(int root, char value[16]);
@@ -252,6 +254,9 @@ int oc_selector_apply(int root, const char *root_path, int data_fd, const char *
 int oc_startup_staging_guard(int root);
 int oc_startup_staging_retire(int root, const char *root_path, int data_fd, const char *rev,
                               const char *snap_id, const char *base_snap, long owner, long group);
+int oc_vfat_mount_mode(int root, const char *target);
+int oc_usb_remount(int root, const char *target, int rw);
+int oc_factory_wireless(int root, const char *root_path);
 
 /* oc-access.c */
 int oc_access_key_verify(int data_fd, const char *key_id, long owner, long group);

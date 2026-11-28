@@ -146,11 +146,14 @@ static int run(int argc,char **argv) {
            (!oc_equal(fields[5],"0")&&!oc_equal(fields[5],"1")&&!(touch&&oc_equal(fields[5],"2"))))goto bad;
     }else{
         if(!oc_equal(op,"status")&&!oc_equal(op,"install")&&!oc_equal(op,"uninstall")&&
-           !oc_equal(op,"restart")&&!oc_equal(op,"dismiss")&&!oc_equal(op,"recover")&&!oc_equal(op,"import"))goto bad;
+           !oc_equal(op,"restart")&&!oc_equal(op,"dismiss")&&!oc_equal(op,"recover")&&
+           !oc_equal(op,"import")&&!oc_equal(op,"export"))goto bad;
         if((!oc_equal(fields[3],"-")&&
             !(oc_equal(op,"status")&&(oc_equal(fields[3],"settings")||oc_equal(fields[3],"completion")||oc_equal(fields[3],"session")||oc_equal(fields[3],"media")))&&
-            !(oc_equal(op,"dismiss")&&oc_equal(fields[3],"usb")))||
+            !(oc_equal(op,"dismiss")&&oc_equal(fields[3],"usb"))&&
+            !((oc_equal(op,"import")||oc_equal(op,"export"))&&oc_equal(fields[3],"prefs")))||
            !oc_equal(fields[4],"-")||!oc_equal(fields[5],"-"))goto bad;
+        if(oc_equal(op,"export")&&!oc_equal(fields[3],"prefs"))goto bad;
     }
     if(!response(200,0))return 1;
     if(oc_equal(op,"status")&&oc_equal(fields[3],"session")) {

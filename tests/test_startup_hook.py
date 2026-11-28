@@ -5,6 +5,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -21,7 +22,7 @@ class StartupHookAndJoinTests(unittest.TestCase):
         with_startup_times: bool = False,
         recover_marker: bool = False,
     ):
-        busybox = shutil.which("busybox")
+        busybox = os.environ.get("OC_TEST_BUSYBOX") or shutil.which("busybox")
         shell = [busybox, "sh"] if busybox else ["/bin/bash"]
         with tempfile.TemporaryDirectory() as td:
             root = Path(td).resolve()
@@ -63,11 +64,15 @@ class StartupHookAndJoinTests(unittest.TestCase):
                 src = src.replace("/proc/uptime", str(uptime))
                 src = src.replace("/usr/bin/open-connect-boot-select", str(sel_bin))
                 src = src.replace("/bin/busybox", str(bb_shim))
+                # Standalone BusyBox builds run built-in timeout without searching PATH.
+                src = src.replace("if timeout -t ", f"if {shlex.quote(str(timeout_bin))} -t ")
                 src = src.replace("/tmp/open-connect", str(ram))
                 src = src.replace("/tmp/.open-connect-gate-XXXXXX", str(root / "gate-XXXXXX"))
                 if recover_marker and text_name == "hook":
                     # Replace the inner root-mount recovery subshell with a deterministic marker.
-                    start = src.index('if timeout -t "$oc_wait" sh -c \'set -eu')
+                    start = src.index(
+                        f'if {shlex.quote(str(timeout_bin))} -t "$oc_wait" sh -c \'set -eu'
+                    )
                     end = src.index("'; then", start) + len("'; then")
                     src = (
                         src[:start]
@@ -97,6 +102,8 @@ class StartupHookAndJoinTests(unittest.TestCase):
                 [*shell, str(driver)], capture_output=True, text=True, timeout=10, env=env
             )
             self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertEqual(res.stderr, "")
+            self.assertEqual(list(root.glob("gate-*")), [])
             out = dict(line.split("=", 1) for line in res.stdout.strip().splitlines())
             times = (ram / "startup-times").read_text() if with_startup_times else ""
             # Brief settle for backgrounded ignition marker if expected.
@@ -106,8 +113,6 @@ class StartupHookAndJoinTests(unittest.TestCase):
                     if (root / "ignition-ran").exists():
                         ig_ran = True
                         break
-                    import time
-
                     time.sleep(0.01)
             return out, times, ig_ran, (root / "recover-ran").exists()
 

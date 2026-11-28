@@ -187,8 +187,9 @@ framework._currTmpltInstance===intent.host&&
 }
 if(!current()||held()){openIntent=null;clearTimeout(openTimer);return;}
 function open(ok){
-if(!current())return;
-openIntent=null;clearTimeout(openTimer);
+var active=current();
+if(openIntent===intent){openIntent=null;clearTimeout(openTimer);}
+if(!active)return;
 if(ok)menus.fromHome(framework,store,function(){});else store.unavailable();
 }
 if(values())open(true);else store.refresh(open);

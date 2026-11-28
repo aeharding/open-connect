@@ -121,7 +121,7 @@ finish() {
 }
 trap finish EXIT
 trap 'exit 1' HUP INT TERM
-absent "$R/wireless-ack" && absent "$R/wireless-go"
+absent "$R/wireless-ack" && absent "$R/wireless-go" || exit 1
 mkfifo "$R/wireless-ack" "$R/wireless-go"
 # Linux FIFO read/write opens do not wait for a peer. All later I/O uses the
 # inherited descriptors; an absent worker cannot block an endpoint open.

@@ -408,6 +408,6 @@ class InstallerWireless(unittest.TestCase):
         (self.feature / "wireless-ack").write_text("stale\n")
         result = self.run_helper()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertNotIn("unbound", result.stderr.lower())
+        self.assertEqual(result.stderr, "")
         self.assert_released(0)
         self.assertEqual(self.target.read_bytes(), XML)

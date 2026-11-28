@@ -749,21 +749,35 @@ f.fw._currTmpltInstance=null;
 assert.equal(f.ctx.OpenConnect.openSettings(),false);
 assert.equal(f.ctx.OpenConnect.autoshowState(),0);
 
-// openSettings() clears openIntent cleanly when its cold refresh fails.
+// Navigating away during openSettings() cold refresh must clear openIntent immediately
+// (not latch autoshowState()===2 for 12 s or make a later openSettings() a silent no-op).
 f=fixture(folder);f.install();
 assert.equal(f.ctx.OpenConnect.openSettings(),true);
 assert.equal(f.ctx.OpenConnect.autoshowState(),2);
-f.reply(f.requests.at(-1),{ok:false,error:'state_changed'});
-assert.match(f.dialog.props.title,/Settings unavailable/);
-f.pick('done');
-assert.equal(f.ctx.OpenConnect.autoshowState(),0);
+f.nativeSettings();
+f.reply(f.requests.at(-1),f.state());
+assert.equal(f.ctx.OpenConnect.autoshowState(),0,'away-from-Home refresh clears openIntent immediately');
+assert.equal(f.pages.length,0);
+f.homeScreen();
+assert.equal(f.ctx.OpenConnect.openSettings(),true,'subsequent openSettings() works cleanly');
+f.advance(200);
+assert.equal(f.pages.length,1);
 
-// Boot completion IIFE ignores missing/malformed meta tags without throwing.
-f=fixture(folder,{installed:false,notice:'installed'});
-const origQS=f.ctx.document.querySelector;
-f.ctx.document.querySelector=q=>q.includes('open-connect-notice')?{getAttribute:()=>'installed'}:origQS(q);
-f.evaluate('runtime.js');
-assert.equal(f.ctx.__ocCompletionLoading,undefined);
+// Boot completion IIFE ignores missing or malformed token/version/data-boot meta tags without throwing.
+for(const bad of [null,{token:'bad',version:'0.3.0',boot:'12345678-1234-1234-1234-123456789abc'},
+ {token:'a'.repeat(32),version:'bad!',boot:'12345678-1234-1234-1234-123456789abc'},
+ {token:'a'.repeat(32),version:'0.3.0',boot:'not-a-uuid'}]){
+ f=fixture(folder,{installed:false,notice:'installed'});
+ f.ctx.document.querySelector=q=>{
+  if(q.includes('open-connect-notice'))return {getAttribute:()=>'installed'};
+  if(!bad)return null;
+  if(q.includes('open-connect-token'))return {getAttribute:k=>k==='data-boot'?bad.boot:bad.token};
+  if(q.includes('open-connect-version'))return {getAttribute:()=>bad.version};
+  return null;
+ };
+ f.evaluate('runtime.js');
+ assert.equal(f.ctx.__ocCompletionLoading,undefined);
+}
 
 // ocCarPlay Disclaimer bridge tolerates missing _currTmpltInstance, contextInfo, divElt, and _contextTable.
 f=fixture(folder);

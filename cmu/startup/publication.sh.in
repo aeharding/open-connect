@@ -140,6 +140,7 @@ case "$MODE" in
   emit "APPLIED|$CID:2"
  ;;
  UNDO)
+  case "$PHASE" in staged|candidate|restored);;*)die undo_state;;esac
   test "$CID" != none || die no_publication
   verify_links
   absent "$S" || die stage_conflict

@@ -80,15 +80,27 @@ def inputs(firmware):
     rpaths = re.findall(
         r'"([^"]+)"', re.search(r"oc_root_paths\[19\]=\{([^}]+)\}", guard_c, re.S)[1]
     )
-    rdigests = re.findall(
-        r'"([a-f0-9]{64})"', re.search(r"oc_root_digests\[19\]=\{([^}]+)\}", guard_c, re.S)[1]
-    )
+    mgr_dig = re.search(r'oc_manager_digest\[\]="([a-f0-9]{64})"', guard_c)[1]
+    rdigests = [
+        lit or mgr_dig
+        for lit, ident in re.findall(
+            r'"([a-f0-9]{64})"|\b(oc_manager_digest)\b',
+            re.search(r"oc_root_digests\[19\]=\{([^}]+)\}", guard_c, re.S)[1],
+        )
+    ]
+    if not (len(names) == len(rpaths) == len(rdigests) == 19):
+        raise ValueError("oc-guard.c root pin table count mismatch")
     auto_dig = re.search(r'oc_orig_autostart_digest="([a-f0-9]{64})"', guard_c)[1]
     base_rows = re.findall(
         r'\{"([^"]+)","([^"]+)","([a-f0-9]{64})"',
         re.search(r"oc_base_pins\[5\]=\{([^;]+)\};", guard_c, re.S)[1],
     )
-    entries = [("autostart", "/usr/bin/autostart", auto_dig), *zip(names, rpaths, rdigests)]
+    if len(base_rows) != 5:
+        raise ValueError("oc-guard.c base pin table count mismatch")
+    entries = [
+        ("autostart", "/usr/bin/autostart", auto_dig),
+        *zip(names, rpaths, rdigests, strict=True),
+    ]
     for key, rel, dig in base_rows:
         leaf = (
             "vui.so"

@@ -196,9 +196,7 @@ class NativeInstall(unittest.TestCase):
             "PasswordAuthentication no\n"
         )
         (root / "etc/ssh/sshd_config").chmod(0o644)
-        mgr_sha = sha(b"stock manager\n")
         pin_lines.append(f"originals/mmui.xml={sha(mmui_xml)}\n")
-        pin_lines.append(f"manager.so={mgr_sha}\n")
         pin_lines.append(f"composed/vui.so={sha(bytes(vui_expected))}\n")
         pins_file = root / "pins.txt"
         pins_file.write_text("".join(pin_lines))
@@ -1047,7 +1045,7 @@ class NativeInstall(unittest.TestCase):
             log_file = vol / "open-connect-error.log"
 
             # 1) Cold USB install failure (tampered OEM file -> unsupported_original) writes detailed log
-            #    after api releases LOCK_EX (via DIAG| stdout forwarding -> install --log-failure).
+            #    while api holds LOCK_EX (via DIAG| stdout forwarding -> install --log-failure).
             idx = root / "jci/gui/index.html"
             orig_idx = idx.read_bytes()
             tampered_idx = b"tampered index\n"
@@ -2109,3 +2107,56 @@ class NativeInstall(unittest.TestCase):
 
             # P2-1 regression: atomic export leaves no .tmp sibling behind
             self.assertFalse((vol / "open-connect.prefs.tmp").exists())
+
+            # Fail-closed export_prefs: an unreadable/symlinked mounted vfat slot must refuse
+            # with export_failed rather than silently falling through to a second vfat volume.
+            vol2 = root / "tmp/mnt/sdb1"
+            vol2.mkdir(parents=True, exist_ok=True)
+            saved_mounts = (root / "proc/self/mounts").read_text()
+            shutil.rmtree(vol)
+            vol.symlink_to(vol2)
+            (root / "proc/self/mounts").write_text(
+                saved_mounts + "/dev/sdb1 /tmp/mnt/sdb1 vfat rw,fmask=0022 0 0\n"
+            )
+            p_bad_ex, r_bad_ex = self._call_api(
+                api_bin, set_sess, snap9, "export", "prefs", env=env_wl
+            )
+            vol.unlink()
+            vol.mkdir()
+            (root / "proc/self/mounts").write_text(saved_mounts)
+            self.assertNotEqual(p_bad_ex.returncode, 0)
+            self.assertEqual(r_bad_ex["error"], "export_failed")
+            self.assertFalse((vol2 / "open-connect.prefs").exists())
+
+    def test_fresh_install_preflight_console_and_startup_refusals(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td).resolve()
+            _, _, usb_sess, env = self._build_fixture(root)
+            api_bin = usb_sess / "api"
+
+            # 1) Tampered /usr/bin/runlogin -> unsupported_console
+            runlogin = root / "usr/bin/runlogin"
+            orig_runlogin = runlogin.read_bytes()
+            runlogin.write_bytes(b"#!/bin/sh\n# tampered runlogin\n")
+            p_uc, r_uc = self._call_api(api_bin, usb_sess, "-", "install", env=env)
+            runlogin.write_bytes(orig_runlogin)
+            self.assertNotEqual(p_uc.returncode, 0)
+            self.assertEqual(r_uc["error"], "unsupported_console")
+
+            # 2) Pre-existing .open-connect-runlogin-<ino> hold -> console_hold_conflict
+            hold = root / f"usr/bin/.open-connect-runlogin-{runlogin.stat().st_ino}"
+            hold.write_bytes(orig_runlogin)
+            hold.chmod(0o755)
+            p_ch, r_ch = self._call_api(api_bin, usb_sess, "-", "install", env=env)
+            hold.unlink()
+            self.assertNotEqual(p_ch.returncode, 0)
+            self.assertEqual(r_ch["error"], "console_hold_conflict")
+
+            # 3) Tampered /usr/bin/autostart on cold install -> backup_failed (originals_save guard)
+            auto = root / "usr/bin/autostart"
+            orig_auto = auto.read_bytes()
+            auto.write_bytes(b"#!/bin/sh\n# drifted autostart\n")
+            p_us, r_us = self._call_api(api_bin, usb_sess, "-", "install", env=env)
+            auto.write_bytes(orig_auto)
+            self.assertNotEqual(p_us.returncode, 0)
+            self.assertEqual(r_us["error"], "backup_failed")

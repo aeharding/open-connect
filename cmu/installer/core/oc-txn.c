@@ -963,7 +963,7 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
         char mdig[65]; OcMeta mm={0};
         long mfd=oc_beneath(root,"jci/lib/libjciuiamgr.so",OC_READ,0);
         int mok=mfd>=0 && oc_hash_copy((int)mfd,-1,33554432,mdig,&mm)==OC_COPY_OK &&
-            oc_equal(mdig,oc_pin_digest("root/manager.so",oc_root_digests[10]));
+            oc_equal(mdig,oc_pin_digest("root/manager.so",oc_manager_digest));
         if (mfd>=0 && oc_close((int)mfd)<0) mok=0;
         if (!mok || !oc_targets_match(root,data,rec[5],rec[4],owner,group) ||
             !oc_dependencies_match(root,data,rec[5])) goto done;

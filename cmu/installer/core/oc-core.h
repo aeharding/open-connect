@@ -236,6 +236,7 @@ void oc_diag_set(const char *step, const char *path, const char *reason,
                  const char *expected, const char *actual);
 extern const char *const oc_root_names[19];
 extern const char *const oc_root_paths[19];
+extern const char oc_manager_digest[];
 extern const char *const oc_root_digests[19];
 extern const char *const oc_orig_autostart_digest;
 extern const char *const oc_composed_names[12];

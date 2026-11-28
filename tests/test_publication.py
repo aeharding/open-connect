@@ -199,6 +199,31 @@ print(fmt)
         self.assertIn("candidate_still_mapped", r.stdout + r.stderr)
         self.assertTrue(self.h.exists() and self.c.exists())
 
+    def test_undo_refuses_in_clean_and_prepared_states_without_remount(self):
+        # In prepared state, UNDO refuses with undo_state before begin_write (fail-sync proves no write).
+        (self.r / "fail-sync").touch()
+        r_prep = self.runmode("UNDO", False)
+        self.assertIn("undo_state", r_prep.stdout + r_prep.stderr)
+        self.assertEqual((self.d / "state").read_text(), "prepared|none\n")
+        self.assertEqual(self.mode.read_text(), "ro,noatime\n")
+        (self.r / "fail-sync").unlink()
+
+        # After APPLY -> UNDO -> CLEAN (clean|<cid>, holds removed), UNDO must refuse with undo_state
+        # instead of remounting / RW and regressing state back to restored.
+        self.runmode("APPLY")
+        self.runmode("UNDO")
+        cid = (self.d / "state").read_text().strip().split("|", 1)[1]
+        self.h.unlink()
+        self.c.unlink()
+        (self.d / "state").write_text(f"clean|{cid}\n")
+        (self.d / "state").chmod(0o600)
+        self.runmode("VERIFY")
+        (self.r / "fail-sync").touch()
+        r_clean = self.runmode("UNDO", False)
+        self.assertIn("undo_state", r_clean.stdout + r_clean.stderr)
+        self.assertEqual((self.d / "state").read_text(), f"clean|{cid}\n")
+        self.assertEqual(self.mode.read_text(), "ro,noatime\n")
+
 
 class DifferentSizePublication(LinkedTests):
     original_size = 94058

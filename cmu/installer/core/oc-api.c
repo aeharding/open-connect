@@ -967,7 +967,7 @@ static __attribute__((noinline)) int oc_handle_export_prefs(OcApiCtx *c) {
         int mode=oc_vfat_mount_mode(c->root,vabs);
         if (!mode) continue;
         long vd=oc_openat((int)mnt,vnames[i],OC_DIRECTORY,0);
-        if (vd<0) continue;
+        if (vd<0) { if (found>=0) (void)oc_close(found); (void)oc_close((int)mnt); return api_err(c,"export_failed"); }
         if (found>=0) { (void)oc_close((int)vd); (void)oc_close(found); (void)oc_close((int)mnt); return api_err(c,"multiple_usb_volumes"); }
         found=(int)vd; was_ro=(mode==2);
         (void)oc_join(mnt_path,sizeof mnt_path,vabs,"");

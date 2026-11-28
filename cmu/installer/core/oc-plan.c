@@ -214,7 +214,7 @@ int oc_dependency_coverage(OcBoot *b) {
         const char *digest=oc_digest(&dependencies,name);
         if (!digest||!oc_expect(b,name,oc_root_paths[i],digest)) return 0;
         if (oc_equal(oc_root_names[i],"manager.so")&&
-            !oc_equal(digest,oc_pin_digest("manager.so","1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29"))) return 0;
+            !oc_equal(digest,oc_pin_digest("root/manager.so",oc_manager_digest))) return 0;
     }
     for (unsigned kind=0; kind<2; ++kind) {
         OcManifest *m=kind?&b->composition:&b->pkg;

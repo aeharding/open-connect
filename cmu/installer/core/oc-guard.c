@@ -22,6 +22,7 @@ const char *const oc_root_paths[19]={
     "/jci/devicemanager/libdevicemanager.so","/usr/bin/rungetty","/usr/sbin/sshd","/usr/bin/ssh-keygen",
     "/jci/gui/framework/js/GuiFramework.js","/jci/lvds/lvds_service"
 };
+const char oc_manager_digest[]="1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29";
 const char *const oc_root_digests[19]={
     "fa3484d7c644393ab6cb083990e483201129a207e7755459296dde8ec82a4d84",
     "92034449e76689b995fcd369d584f441829a0ee6e8d74c858cd92f4049f7b27d",
@@ -33,7 +34,7 @@ const char *const oc_root_digests[19]={
     "23106b04bd6bad514dd879b217a34a0f0289d58f86a0ae022488be6a022ca8e1",
     "a83dd588b54531475024b7cd048be1d0e11556abd68bbbcc334cc5ede7534cd1",
     "1489e544e483c878fa000be378a3bbb92dcc9965aadc5029a58f3fc1147337da",
-    "1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29",
+    oc_manager_digest,
     "9f1811e2d9a905ba9060a9c20b8d91c18aaa5c079512e3261b51cf0114fc857b",
     "0160354861d0dddf09f05dc69df95f14be074de706a4d7656166666d587439d9",
     "88d6291d74fe993536ec724064b8ccfbc133b2341282b93cfc7fb2927fbbc563",

@@ -5,7 +5,11 @@ var OpenConnectUSBStart=function(entry){
 if(!entry||document.getElementById("oc-maintenance-loader")!==entry||
  window.__ocMaintenanceLoading&&window.__ocMaintenanceLoading.entry===entry)return;
 var token=entry.ocToken,base=entry.src.slice(0,entry.src.lastIndexOf("/")+1),discovery=entry.ocDiscovery;
-if(!/^[a-f0-9]{32}$/.test(token)||entry.ocPort!==15557)return;
+if(!/^[a-f0-9]{32}$/.test(token)||entry.ocPort!==15557){
+ if(discovery)discovery.cancel();
+ if(entry.parentNode)entry.parentNode.removeChild(entry);
+ return;
+}
 if(window.__ocMaintenanceLoading)window.__ocMaintenanceLoading.finish();
 var state={token:token,entry:entry,finish:finish},node,stopped=false;
 window.__ocMaintenanceGeneration=state;

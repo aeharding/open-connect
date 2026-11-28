@@ -105,7 +105,7 @@ static int flush_one(const char *path, int directory, int regular) {
         }
     }
     do { flushed = flush_fd((int)fd); } while (flushed == -4);
-    do { closed = close_fd((int)fd); } while (closed == -4);
+    closed = close_fd((int)fd);
     if (flushed < 0) {
         report("fsync failed\n", 13);
         return failure(flushed);
@@ -136,7 +136,7 @@ static __attribute__((noinline)) int hash_path(const char *path, int named) {
         if (result <= 0) break;
         oc_hash_add(&hash, buffer, (unsigned)result);
     }
-    do { closed = close_fd((int)fd); } while (closed == -4);
+    closed = close_fd((int)fd);
     if (result < 0 || closed < 0) {
         report("hash failed\n", 12);
         return failure(result < 0 ? result : closed);

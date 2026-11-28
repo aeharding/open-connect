@@ -60,10 +60,12 @@ changes, with all inputs after uptime 300 s. At 5 fps its intervals still do not
 resolve physical input latency. Its 59-sample trace has CPU busy 16.63% and minimum
 MemFree 200,116 kernel kB; this single workload is not a CPU/RAM speedup claim.
 
-The parameterized read-only reproducer is `cmu/bench/startup-cost.sh`. It verifies
-the runtime member bytes before sourcing its functions, requires the actual boot
-and installed manifest ID, and runs three bounded rounds. For example, from a
-checkout with an existing authenticated bench SSH configuration:
+The historical dev.5 shell-library reproducer (`cmu/bench/startup-cost.sh`,
+last preserved at commit [`b4ae523`](https://github.com/aeharding/open-connect/blob/b4ae523/cmu/bench/startup-cost.sh))
+verified the runtime member bytes before sourcing its dev.5 shell functions,
+required the actual boot and installed manifest ID, and ran three bounded
+rounds. It was retired after the native C installer consolidation replaced
+those shell libraries; the example invocation from that historical run was:
 
 ```sh
 ssh -T -F /path/to/ssh-config my-cmu \

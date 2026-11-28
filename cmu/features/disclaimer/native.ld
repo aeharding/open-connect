@@ -20,6 +20,9 @@ SECTIONS {
         *(.rodata.str1.1)
         __payload_end = .;
     }
+    .symtab 0 : { *(.symtab) }
+    .strtab 0 : { *(.strtab) }
+    .shstrtab 0 : { *(.shstrtab) }
     /DISCARD/ : { *(.ARM.exidx*) *(.ARM.attributes) *(.comment) *(.note*) }
 }
 /* Original virtual addresses stay fixed; composition moves the file tail by

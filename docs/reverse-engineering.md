@@ -1437,14 +1437,17 @@ The private 2026-11-26 trial3 used a different RPATH and an OEM service copy nam
 `real-devices.so`. Software injection delivered 160 bytes to raw input and zero
 to filtered touch; injected Commander Right/Left/Select dismissed the installer
 popup. Stock devices PSS was 1,305 KiB versus 1,318 KiB in that trial. This **does
-not** establish release PSS or the final tmpfs allocation. Installed modes 0/1 add
-one plan row (native open/stat) and one package member hashed by the Settings
-worker, but no shim page in feature tmpfs or the 16-file installed Settings set.
-USB maintenance copies the full bundle: 125 individually rounded 4 KiB file
-pages versus 124 before the shim, adding one page in every mode. `boot.sh` stays
-within four pages (16,261 bytes); packaging enforces its 16,384-byte cap and the
-shim's 4,096-byte cap, including incremental builds.
-All 14 per-file page budgets are enforced.
+not** establish release PSS or the final tmpfs allocation. At the 2026-11-26
+PR #205 (`0.3.0-dev.23`) baseline, installed modes 0/1 added one plan row
+(native open/stat) and one package member hashed by the Settings worker, with no
+shim page in feature tmpfs or that revision's 16-file installed Settings set;
+USB maintenance copied 125 individually rounded 4 KiB file pages versus 124
+before the shim, `boot.sh` stayed within four pages (16,261 bytes), and all 14
+per-file page budgets were enforced. (After native consolidation and
+`preferences.awk` pruning on current `main`, `boot.sh` is retired, the Settings
+boot session stages 8 package files + `files.sha256`, USB staging uses 119
+pages / 476 KiB, and `tooling/package-usb.sh` enforces 15 per-file budgets; see
+[installer-development.md](installer-development.md).)
 
 **Live v74 CI-bundle qualification (2026-11-26, PR #205 `ba4e6ee6` / CI `45881169287` / artifact `15147692204`, merged `8094911b`; package reported `VERSION=0.3.0-dev.23`):**
 - **Boot #1 (`83f0d21e`, `touch=1` Always enabled):** installed via USB maintenance (`127.0.0.1:15557`) and restarted cleanly. Zero `touch-disable.so` staged in `/tmp/open-connect/feature` (`152 KiB` unique / `220 KiB` total across 11 entries, including the transient post-install `maintenance.js` link; `404 KiB` total `/tmp/open-connect`), stock `devices` PID 352 PSS `1,285 KiB` (no 508 KiB USB session active during measurement), Settings status completed in `960 ms` (with merged PR #204 static `flush h`, which separately benchmarked `250 ms → 30 ms` median across 5×9 scalar hashes on `Linux 3.0.35`, `8.33×` faster than `openssl dgst -sha256` with 9/9 bit-for-bit parity and zero extra staged pages).

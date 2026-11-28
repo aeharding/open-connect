@@ -41,7 +41,8 @@ class TouchDisable(unittest.TestCase):
         self.assertLessEqual((folder / "install").stat().st_size, 81920)
         self.assertLessEqual((folder / "boot-select").stat().st_size, 36864)
         self.assertLessEqual((folder / "ignition").stat().st_size, 4096)
-        for native_bin in ("api", "install", "boot-select", "ignition"):
+        self.assertLessEqual((folder / "flush").stat().st_size, 4096)
+        for native_bin in ("api", "install", "boot-select", "ignition", "flush"):
             bin_report = subprocess.check_output(
                 [READELF, "-l", "-r", folder / native_bin], text=True
             )

@@ -550,11 +550,11 @@ checks and an unresolved reboot during a test-only post-purge page reload.
 | --- | --- |
 | Stock services with declared instrumentation | Establish the baseline on this unit |
 | Pinned Open Connect candidate or release, unchanged service selections | Measure the initial features and installed runtime; identify development candidates explicitly |
-| Base optimizations off/on, same individual service selections | Measure the installed bundle as one setting |
+| Startup optimizations off/on, same individual service selections | Measure the installed bundle as one setting |
 | One service choice changed, other settings fixed | Attribute the effect and detect dependencies |
 
 The current development candidate groups the logging, service and startup policies
-described in [Startup optimizations](startup-optimizations.md) behind one optional **Base optimizations**
+described in [Startup optimizations](startup-optimizations.md) behind one optional **Startup optimizations**
 choice, initially off. Identify the exact bundle revision in every result and
 test the whole bundle; individual savings cannot simply be added together.
 Future preset contents and individual service choices need comparable measurements,
@@ -699,8 +699,9 @@ Source hashes in the private run manifests matched those revisions; later change
 do not relabel these measurements. All 18 reference windows and nine sampling
 commands completed. Earlier short smoke tests were separate qualification steps.
 
-To reproduce, use the linked experiment revision and its
-`cmu/bench/METRICS-OVERHEAD.md` command with a declared fixed workload and an
+To reproduce, use the linked experiment revision and its historical
+`cmu/bench/METRICS-OVERHEAD.md` command (retired from `main` after the
+experiment; retained at commit `412d512`) with a declared fixed workload and an
 existing trusted SSH alias. The checked-in
 [analysis/export command](https://github.com/aeharding/open-connect/blob/412d512/cmu/bench/METRICS-OVERHEAD.md)
 recomputes paired results from the original saved CPU endpoints, checks boot,

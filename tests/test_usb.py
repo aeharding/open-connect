@@ -498,14 +498,24 @@ class UsbBuild(unittest.TestCase):
             again = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=60)
             self.assertNotEqual(again.returncode, 0)
             self.assertIn("fresh OUT", again.stderr)
-            # Re-packaging across distinct host TZ and perturbed mtimes produces an identical ZIP.
+            # Re-packaging across distinct host TZ, umask, perturbed mtimes and source modes
+            # produces a byte-identical ZIP and SHA256SUMS.
             output2 = Path(temp) / "build2"
             shutil.copytree(
                 output, output2, ignore=shutil.ignore_patterns("usb", "*.zip", "SHA256SUMS")
             )
             os.utime(output2 / "api", (1700000000, 1700000000))
+            (output2 / "api").chmod(0o700)
+            (output2 / "native.bin").chmod(0o600)
             res2 = subprocess.run(
-                ["sh", str(ROOT / "tooling/package-usb.sh"), str(output2)],
+                [
+                    "sh",
+                    "-c",
+                    'umask 077; exec sh "$1" "$2"',
+                    "repack",
+                    str(ROOT / "tooling/package-usb.sh"),
+                    str(output2),
+                ],
                 cwd=ROOT,
                 env={**os.environ, "TZ": "UTC+5"},
                 capture_output=True,
@@ -518,6 +528,9 @@ class UsbBuild(unittest.TestCase):
             with zipfile.ZipFile(zip1) as z1:
                 for info in z1.infolist():
                     self.assertEqual(info.date_time, (2026, 1, 1, 0, 0, 0), info.filename)
+                    mode = (info.external_attr >> 16) & 0o777
+                    expected_mode = 0o755 if info.is_dir() else 0o644
+                    self.assertEqual(mode, expected_mode, (info.filename, oct(mode)))
             self.assertEqual(zip1.read_bytes(), zip2.read_bytes())
             self.assertEqual(
                 (output / "SHA256SUMS").read_text(),

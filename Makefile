@@ -78,8 +78,11 @@ $(OUT)/flush-hash.o: cmu/installer/core/oc-hash.c $(CORE_HDR) | $(OUT)
 	$(CLANG) $(ARM_FLAGS) -c "$<" -o "$@"
 
 $(OUT)/flush: $(OUT)/flush.o $(OUT)/flush-hash.o | $(OUT)
+	set -eu; trap 'rm -f "$@.tmp"' EXIT; \
 	$(LLD) -e _start --build-id=none --gc-sections --icf=all -z max-page-size=4096 --strip-all \
-	    "$(OUT)/flush.o" "$(OUT)/flush-hash.o" -o "$@"
+	    "$(OUT)/flush.o" "$(OUT)/flush-hash.o" -o "$@.tmp"; \
+	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@.tmp"; \
+	mv "$@.tmp" "$@"
 
 $(OUT)/boot-select: cmu/installer/boot-select.c $(CORE_SRCS) $(CORE_HDR) | $(OUT)
 	set -eu; trap 'rm -f "$@.tmp"' EXIT; \
@@ -114,7 +117,7 @@ $(OUT)/words.o: $(NATIVE_DIR)/native.S | $(OUT)
 	$(CLANG) --target=armv7-none-eabi -marm -c "$<" -o "$@"
 
 $(OUT)/patch.elf: $(OUT)/native-ordered.o $(OUT)/words.o $(NATIVE_DIR)/native.ld
-	$(LLD) -T "$(NATIVE_DIR)/native.ld" --entry=cmu_native_process --build-id=none \
+	$(LLD) -T "$(NATIVE_DIR)/native.ld" --entry=cmu_native_process --build-id=none --orphan-handling=error \
 	    -o "$@" "$(OUT)/native-ordered.o" "$(OUT)/words.o"
 
 $(OUT)/native.bin: $(OUT)/patch.elf

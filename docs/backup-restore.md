@@ -25,7 +25,7 @@ Export your Open Connect preferences to a plain-text file on a USB drive, restor
 
 <p>Preferences are stored in a plain-text file named <code>open-connect.prefs</code> at the root of a single FAT32 USB drive. Insert only one USB drive while exporting or importing.</p>
 
-<p>For safety, <code>open-connect.prefs</code> only includes normal Open Connect feature toggles — it never exports or imports Developer options (UART, SSH, or SSH public keys). Choices imported in Settings apply on the <strong>next full Mazda Connect startup</strong> (use <a href="apply-changes.md">Apply changes</a> to restart right away). Settings export and import were verified on live v74 bench hardware for <strong>0.3.0-dev.27</strong> (<strong>74.00.324A NA</strong>); fresh-install preset loading relies on offline host tests, and real-car qualification remains pending.</p>
+<p>For safety, <code>open-connect.prefs</code> only includes normal Open Connect feature toggles — it never exports or imports Developer options (UART, SSH, or SSH public keys). Choices imported in Settings apply on the <strong>next full Mazda Connect startup</strong> (use <a href="apply-changes.md">Apply changes</a> to restart right away). Settings export and import were verified on live v74 bench hardware for <strong>0.3.0-dev.27</strong> (<strong>74.00.324A NA</strong>); fresh-install preset loading relies on offline host and ARMv7 QEMU tests, and real-car qualification remains pending.</p>
 
 ## Export preferences
 

@@ -169,9 +169,15 @@ class FlushSha(unittest.TestCase):
             section = struct.unpack_from("<10I", elf, shoff + i * shsize)
             self.assertFalse(section[2] & 1, "no writable section")
             self.assertFalse(section[1] == 8 and section[5], "no BSS/NOBITS section")
-        # Conservatively add every static frame, even disjoint call paths.
+        # Conservatively add every static frame across both TUs, even disjoint call paths.
         # This bounds scratch; native peak/PSS still needs matched evidence.
-        frames = [line.split("\t")[1:] for line in (output / "flush.su").read_text().splitlines()]
-        self.assertTrue(frames)
-        self.assertTrue(all(kind == "static" for _, kind in frames))
-        self.assertLess(sum(int(size) for size, _ in frames), 4096)
+        su_lines = (output / "flush.su").read_text().splitlines() + (
+            output / "flush-hash.su"
+        ).read_text().splitlines()
+        rows = [line.split("\t") for line in su_lines]
+        self.assertTrue(rows)
+        names = [row[0] for row in rows]
+        self.assertTrue(any(":hash_path" in n for n in names), names)
+        self.assertTrue(any(":oc_hash_block" in n for n in names), names)
+        self.assertTrue(all(kind == "static" for _, _, kind in rows))
+        self.assertLess(sum(int(size) for _, size, _ in rows), 4096)

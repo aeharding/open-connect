@@ -86,7 +86,7 @@ def host_flush() -> Path:
     return _build_cached(
         "flush",
         [ROOT / "cmu/startup/flush.c", ASSETS / "core/oc-hash.c"],
-        ["-DOC_HOST", "-O2"],
+        ["-DOC_HOST", "-O2", "-Wall", "-Wextra", "-Werror"],
         extra_deps=[ASSETS / "core/oc-core.h"],
     )
 

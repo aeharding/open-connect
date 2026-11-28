@@ -96,7 +96,7 @@ CI runs those host checks on Linux with Python 3.13 for every PR and main push:
 `Host checks` (lint, format, `make check-ui`, `make release`, and the installed CLI
 dry-run outside the checkout), three sharded `Offline tests (1/3..3/3)` jobs, and
 `ARMv7 QEMU userspace tests` (running the unmodified `make release` ARMv7 binaries
-under `qemu-arm` with BusyBox on tmpfs). Require the CI jobs to pass alongside
+and synthetic ARMv7 lifecycle binaries under `qemu-arm` with BusyBox on tmpfs). Require the CI jobs to pass alongside
 adversarial review before merging. To apply formatting
 locally, run `.venv/bin/ruff format tooling tests`.
 

@@ -69,10 +69,11 @@ originals using the maintained native installer, and validates the result on the
   --output runs/my-v74-check
 ~~~
 
-The input is a private filesystem-shaped tree containing the original paths
-pinned by `oc_root_paths`, `oc_orig_autostart_digest`, and `oc_base_pins` in
-`cmu/installer/core/oc-guard.c`, plus the `vui` plugin rows in
-`cmu/installer/ui-modules.tsv`. No credentials are needed. Unknown hashes and public output
+The input is a private filesystem-shaped tree containing `/usr/bin/autostart`
+(hash-pinned by `oc_orig_autostart_digest`), the paths pinned by
+`oc_root_paths` and `oc_base_pins` in `cmu/installer/core/oc-guard.c`, the
+`vui` plugin rows in `cmu/installer/ui-modules.tsv`, and
+`/jci/gui/framework/js/Websockets.js`. No credentials are needed. Unknown hashes and public output
 paths are refused before building; OEM-containing outputs stay under ignored runs/.
 Use a fresh output directory for each run so failures and source snapshots remain.
 
@@ -285,8 +286,10 @@ The VUI service hardcodes its configuration path. A size- and SHA-guarded
 24-byte data replacement redirects that string to `/tmp/open-connect/v.xml`.
 Its 95,537-byte ELF is copied once to private tmpfs, with a same-inode hold;
 retained plugin libraries and XML files are symlinks to unchanged stock files.
-Native selection and slow-path recovery (`install --boot-recover`, which
-replaced the earlier shell recovery path) consume the same sealed outputs.
+Native selection stages those sealed outputs into RAM; on a slow-path mismatch
+before debit, `install --boot-recover` (which replaced the earlier shell
+recovery path) reconciles, verifies and reseals `boot.plan` so `startup-hook.sh`
+can re-run `open-connect-boot-select select` against the same sealed outputs.
 The existing read-only `check` command remains read-only.
 
 Compatible dev.15 media can remove dev.16 or reinstall dev.15 from preserved
@@ -304,11 +307,13 @@ demand-start policy are preserved. The [dev.16 bench record](sparse-native-loadi
 reports measured Nav service readiness, own RAM, native mappings and OEM interactions separately from
 voice/audio or licensed guidance qualification. Host checks alone establish none
 of those device outcomes.
-The installed Settings boot session stages eight package files (`service.sh`,
-`console.sh`, `VERSION`, `api`, `flush`, `runtime.js`, `dialog.js`, `settings.js`,
-plus `files.sha256`), sharing already-staged RAM assets by hardlink; the native
-`api` binary handles status and settings writes directly from RAM while
-`install` runs cold USB installs and slow-path `--boot-recover`.
+In dev.16, the installed Settings session copied sixteen files, excluding the
+SM composer, while active writes executed the verified persistent target
+package's writer/renderer. (Post-dev.25 native C consolidation replaced that
+shell path with the native `api` and `install` binaries, reducing the installed
+boot Settings session to eight package files—`service.sh`, `console.sh`,
+`VERSION`, `api`, `flush`, `runtime.js`, `dialog.js`, `settings.js`—plus
+`files.sha256`, sharing already-staged RAM assets by hardlink.)
 USB maintenance keeps the complete package. This avoids carrying install-time
 assets in RAM solely to serve Settings status and commands.
 

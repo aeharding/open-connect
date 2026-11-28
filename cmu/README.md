@@ -42,8 +42,10 @@ one native modal surface, including suspended progress and pending saves.
 metadata. `status|completion` alone requests the full current-boot completion
 proof. Default full status reconciles uncertain mutations. Native `status|session`
 checks the caller's own close marker; installed-only `status|media` discovers a
-runner's final eligible USB offer. These read-only status paths do not take the
-transaction lock. Every changing command still validates its
+runner's final eligible USB offer. `status|session` and `status|media` skip the
+transaction lock; `status|settings` acquires a shared lock, while
+`status|completion` and default `status|-` take the exclusive lock. Every
+changing command still validates its
 revision and physical prerequisites under the writer lock. Maintenance shows
 native progress before requesting its change or restart.
 

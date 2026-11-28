@@ -219,11 +219,13 @@ qualified. Miatafy's wireless CarPlay milestone reproduction stays in phase 5;
 do not compare a wired result directly with its wireless timing.
 
 Then add a dedicated **Services** page under Open Connect Settings (later
-reorganized into **Startup optimizations**, **CarPlay & Android Auto**,
-**Audio sources**, **Commander Dial** and **Backup & restore** in the `0.3.0-dev.27`
-development candidate). The development
-candidate's **Startup optimizations** (**Base optimizations**) choice groups native Warn filtering and the
-measured Aha/Stitcher/DAB/TV/DVD leaves, and defaults off. Further contents and default
+reorganized into **Startup optimizations**, **CarPlay & Android Auto**, and
+**Audio sources**, with **Commander Dial** and **Backup & restore** added
+alongside them by `0.3.0-dev.27`). The development
+candidate's **Base optimizations** (now labeled **Startup optimizations**)
+choice groups native Warn filtering and the four measured DAB/TV/Stitcher
+leaves (later joined by Aha, `offboard_service`, and DVD—with DVD's isolated
+startup/RAM impact unmeasured), and defaults off. Further contents and default
 changes need their own timing and RAM evidence. Measure
 the complete bundle with the same individual service selections. Inspect each
 candidate’s consumers, test one reversible change at a time, and compare against

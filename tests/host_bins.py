@@ -155,6 +155,7 @@ def host_api() -> Path:
             "oc-root.c",
             "oc-access.c",
             "oc-txn.c",
+            "oc-render.c",
             "oc-api.c",
         )
     ]
@@ -173,6 +174,44 @@ def host_api() -> Path:
 def copy_host_api(dest: Path) -> Path:
     """Copy cached host api binary to dest with mode 0700."""
     shutil.copyfile(host_api(), dest)
+    dest.chmod(0o700)
+    return dest
+
+
+def host_install() -> Path:
+    """Return cached ASan+UBSan host-compiled install binary."""
+    core_dir = ASSETS / "core"
+    inst_core = [
+        core_dir / name
+        for name in (
+            "oc-hash.c",
+            "oc-io.c",
+            "oc-manifest.c",
+            "oc-record.c",
+            "oc-config.c",
+            "oc-guard.c",
+            "oc-root.c",
+            "oc-access.c",
+            "oc-txn.c",
+            "oc-render.c",
+            "oc-compose.c",
+        )
+    ]
+    headers = sorted(core_dir.glob("*.h"))
+    flags = [
+        "-DOC_HOST",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+    ]
+    return _build_cached("install", [ASSETS / "install.c", *inst_core], flags, extra_deps=headers)
+
+
+def copy_host_install(dest: Path) -> Path:
+    """Copy cached host install binary to dest with mode 0700."""
+    shutil.copyfile(host_install(), dest)
     dest.chmod(0o700)
     return dest
 

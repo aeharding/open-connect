@@ -43,6 +43,56 @@ class PrivateFirmware(unittest.TestCase):
         package = self.output / "compose/packages" / self.composed.name
         folder = self.output / "autoshow-index"
         folder.mkdir()
+        harness = folder / "idx_harness.c"
+        harness.write_text(
+            '#include "oc-core.h"\n'
+            "#include <stdlib.h>\n"
+            "int main(int argc, char **argv) {\n"
+            "  if (argc != 9) return 64;\n"
+            "  int pdir = (int)oc_openat(OC_CWD, argv[1], OC_DIRECTORY, 0);\n"
+            "  int cdir = (int)oc_openat(OC_CWD, argv[2], OC_DIRECTORY, 0);\n"
+            "  int wdir = (int)oc_openat(OC_CWD, argv[3], OC_DIRECTORY, 0);\n"
+            "  char pmf_buf[8192], cmf_buf[4096]; OcManifest pmf, cmf;\n"
+            '  if (oc_text(pdir, "files.sha256", pmf_buf, sizeof pmf_buf, 0) <= 0 || !oc_manifest(pmf_buf, &pmf, 0)) return 2;\n'
+            '  if (oc_text(cdir, "files.sha256", cmf_buf, sizeof cmf_buf, 0) <= 0 || !oc_manifest(cmf_buf, &cmf, 0)) return 3;\n'
+            "  OcPrefs p = {0};\n"
+            "  p.warning = argv[4]; p.base = argv[5]; p.autoshow = argv[6];\n"
+            '  p.svc_ids[0] = "android-auto"; p.svc_vals[0] = argv[7];\n'
+            '  p.svc_ids[1] = "pandora"; p.svc_vals[1] = argv[8];\n'
+            '  p.svc_ids[2] = "siriusxm"; p.svc_vals[2] = getenv("OC_SXM");\n'
+            "  p.svc_count = 3;\n"
+            "  return oc_render_index_native(pdir, &pmf, cdir, &cmf, wdir, &p) ? 0 : 1;\n"
+            "}\n"
+        )
+        core = ROOT / "cmu/installer/core"
+        idx_bin = folder / "idx_harness"
+        subprocess.run(
+            [
+                "clang",
+                "-DOC_HOST",
+                "-I",
+                str(core),
+                str(harness),
+                *(
+                    str(core / c)
+                    for c in (
+                        "oc-hash.c",
+                        "oc-io.c",
+                        "oc-manifest.c",
+                        "oc-record.c",
+                        "oc-config.c",
+                        "oc-guard.c",
+                        "oc-root.c",
+                        "oc-access.c",
+                        "oc-txn.c",
+                        "oc-render.c",
+                    )
+                ),
+                "-o",
+                str(idx_bin),
+            ],
+            check=True,
+        )
         rows = []
         for base, warning, aa, pandora, sxm, autoshow in itertools.product((0, 1), repeat=6):
             fields = {
@@ -54,34 +104,22 @@ class PrivateFirmware(unittest.TestCase):
                 "service.android-auto": aa,
                 "service.pandora": pandora,
                 "service.siriusxm": sxm,
-                "service-ids": "android-auto,pandora,siriusxm",
-                "metadata": f"755:{os.getuid()}:{os.getgid()}",
-                "nvram": "disable",
-                "package": self.composed.name,
             }
-            config = folder / "config"
-            config.write_text("OC2\n" + "".join(f"{k}={v}\n" for k, v in sorted(fields.items())))
             destination = folder / "".join(map(str, (base, warning, aa, pandora, sxm, autoshow)))
-            destination.mkdir()
+            destination.mkdir(mode=0o700)
             subprocess.run(
                 [
-                    "sh",
-                    "-c",
-                    "set -eu; D=$1; P=$2; base_fixture=$3; "
-                    '. "$P/state.sh"; . "$base_fixture/firmware-adapter.sh"; '
-                    'base_ui_files() { cat "$base_fixture/base-ui-inputs"; }; '
-                    'boot_render_profiles "$4" "$5"',
-                    "index",
-                    self.output / "compose",
-                    package,
-                    self.output,
-                    destination,
-                    config,
+                    str(idx_bin),
+                    str(package),
+                    str(self.composed),
+                    str(destination),
+                    str(warning),
+                    str(base),
+                    str(autoshow),
+                    str(aa),
+                    str(pandora),
                 ],
-                env={
-                    **os.environ,
-                    "PATH": str(self.output / "compose/tools") + os.pathsep + os.environ["PATH"],
-                },
+                env={**os.environ, "OC_SXM": str(sxm)},
                 check=True,
                 capture_output=True,
                 timeout=10,

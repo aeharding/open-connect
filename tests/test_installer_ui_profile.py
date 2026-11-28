@@ -1,8 +1,6 @@
 """Sparse UI selection preserves native IDs and Base-off OEM loading."""
 
 import itertools
-import os
-import shutil
 import subprocess
 import tempfile
 import unittest
@@ -14,45 +12,6 @@ ASSETS = ROOT / "cmu/installer"
 
 
 class UIProfile(unittest.TestCase):
-    def test_retained_plugin_list_resolves_every_authenticated_pin(self):
-        rows = [
-            row.split("\t")
-            for row in (ASSETS / "ui-modules.tsv").read_text().splitlines()
-            if row.startswith("vui\t") and row.split("\t")[2] != "base"
-        ]
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp).resolve()
-            plugins = root / "plugins.list"
-            plugins.write_text("".join(row[1] + "\n" for row in rows))
-            busybox = os.environ.get("OC_TEST_BUSYBOX") or shutil.which("busybox")
-            environments = [("host", os.environ.copy())]
-            if busybox:
-                tools = root / "tools"
-                tools.mkdir()
-                (tools / "awk").symlink_to(Path(busybox).resolve())
-                environments.append(
-                    (
-                        "busybox",
-                        {**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]},
-                    )
-                )
-            script = '. "$P/state.sh"; . "$P/firmware.sh"; vui_input_files "$1"'
-            for name, environment in environments:
-                with self.subTest(awk=name):
-                    result = subprocess.run(
-                        ["sh", "-c", script, "pins", plugins],
-                        env={**environment, "P": str(ASSETS)},
-                        capture_output=True,
-                        text=True,
-                        timeout=10,
-                    )
-                    self.assertEqual(result.returncode, 0, result.stderr)
-                    actual = result.stdout.splitlines()[2:]
-                    self.assertEqual(
-                        actual,
-                        [f"{row[3]} {row[1]} /jci/vui/plugins/{row[1]}" for row in rows],
-                    )
-
     def test_choice_matrix_preserves_ids_and_retained_xml(self):
         original = (ROOT / "tests/fixtures/ui-profile.xml").read_bytes()
         stock = {n.get("name"): n.attrib for n in ET.fromstring(original)}

@@ -24,7 +24,11 @@ SHARED_CORE_SRCS = cmu/installer/core/oc-hash.c cmu/installer/core/oc-io.c \
 CORE_SRCS = $(SHARED_CORE_SRCS) cmu/installer/core/oc-plan.c \
     cmu/installer/core/oc-store.c cmu/installer/core/oc-boot.c
 API_SRCS = cmu/installer/api.c $(SHARED_CORE_SRCS) cmu/installer/core/oc-root.c \
-    cmu/installer/core/oc-access.c cmu/installer/core/oc-txn.c cmu/installer/core/oc-api.c
+    cmu/installer/core/oc-access.c cmu/installer/core/oc-txn.c \
+    cmu/installer/core/oc-render.c cmu/installer/core/oc-api.c
+INSTALL_SRCS = cmu/installer/install.c $(SHARED_CORE_SRCS) cmu/installer/core/oc-root.c \
+    cmu/installer/core/oc-access.c cmu/installer/core/oc-txn.c \
+    cmu/installer/core/oc-render.c cmu/installer/core/oc-compose.c
 IGNITION_SRCS = cmu/installer/ignition.c cmu/installer/core/oc-hash.c cmu/installer/core/oc-io.c \
     cmu/installer/core/oc-manifest.c cmu/installer/core/oc-record.c
 CORE_HDR = cmu/installer/core/oc-core.h
@@ -33,7 +37,7 @@ NATIVE_FLAGS = --target=armv7-none-eabi -march=armv7-a -marm -mfloat-abi=hard \
     -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-stack-protector
 
 .PHONY: release native check-ui
-release: native $(OUT)/touch-disable.so $(OUT)/api $(OUT)/flush $(OUT)/boot-select $(OUT)/ignition $(OUT)/vui-path.bin $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin count-pointer.bin)
+release: native $(OUT)/touch-disable.so $(OUT)/api $(OUT)/install $(OUT)/flush $(OUT)/boot-select $(OUT)/ignition $(OUT)/vui-path.bin $(addprefix $(OUT)/mmui-,path.bin sizes.bin length.bin pointer.bin count-pointer.bin)
 	sh tooling/package-usb.sh "$(OUT)"
 
 native: $(OUT)/native.bin $(OUT)/branch.bin $(OUT)/sizes.bin $(OUT)/layout.bin
@@ -56,6 +60,10 @@ $(OUT):
 
 $(OUT)/api: $(API_SRCS) $(CORE_HDR) | $(OUT)
 	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) $(API_SRCS) -o "$@"
+	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@"
+
+$(OUT)/install: $(INSTALL_SRCS) $(CORE_HDR) | $(OUT)
+	$(CLANG) $(THUMB_FLAGS) $(LINK_FLAGS) $(INSTALL_SRCS) -o "$@"
 	$(OBJCOPY) --remove-section=.comment --remove-section=.ARM.attributes "$@"
 
 $(OUT)/flush: cmu/startup/flush.c cmu/installer/boot-hash.h | $(OUT)

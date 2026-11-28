@@ -55,9 +55,9 @@ while read -r digest name extra; do
 done < "$work/files.sha256"
 actual=$(openssl dgst -sha256 -r "$@") || refuse checksum
 test "$actual" = "${expected%?}" || refuse checksum
-test -f "$work/session.sh" && test -f "$work/api" && test -f "$work/flush" || refuse payload
+test -f "$work/session.sh" && test -f "$work/api" && test -f "$work/flush" && test -f "$work/install" || refuse payload
 chmod 600 "$work/files.sha256" "$@"
-chmod 700 "$work/api" "$work/flush"
+chmod 700 "$work/api" "$work/flush" "$work/install"
 # Release Mazda's update scanner; the session owns the staged files and lock.
 sh "$work/session.sh" "$work" "$source" </dev/null >/dev/null 2>&1 &
 trap - EXIT

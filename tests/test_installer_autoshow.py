@@ -44,12 +44,7 @@ class PageBudgets(unittest.TestCase):
             "dialog.js": 8192,
             "preferences.awk": 8192,
             "loader.js": 4096,
-            "backend.sh": 16384,
-            "state.sh": 20480,
-            "firmware.sh": 45056,
-            "transaction.sh": 16384,
             "service.sh": 16384,
-            "access.sh": 12288,
         }
         for name, cap in caps.items():
             with self.subTest(name=name):
@@ -98,53 +93,3 @@ class ArchivedMaintenance(unittest.TestCase):
             refused = write(CI17, upgraded.stdout)
             self.assertNotEqual(refused.returncode, 0)
             self.assertEqual(refused.stdout, b"")
-
-    def test_actual_ci17_decoder_and_direct_uninstall_accept_new_snapshot(self):
-        from tests.test_installer_boot import InstallerBoot
-
-        f = InstallerBoot("test_shell_autoshow_copy_follows_selected_snapshot_and_absent_defaults")
-        f.setUp()
-        self.addCleanup(f.doCleanups)
-        f.shell(
-            'record_read; snapshot_read "$R_CURRENT"; '
-            'prefs=$(preferences_change "$S_PREFS" "$S_PACKAGE" carplay-autoshow 1 OC2); '
-            'R_CURRENT=$(snapshot_create "$D-target" "$R_BACKEND" "$S_NVRAM" "$S_META" '
-            '"$D/snapshots/$R_CURRENT/dependencies" - "$prefs"); record_write'
-        )
-        current = f.record()[5]
-        decoded = f.shell(
-            '. "' + str(CI17 / "state.sh") + '"; '
-            'config_decode "$D/snapshots/' + current + '/config"; '
-            'test "$S_PACKAGE" = "$R_BACKEND"'
-        )
-        self.assertEqual(decoded.returncode, 0, decoded.stderr)
-        client = f.runtime / "old-ci17"
-        shutil.copytree(CI17, client)
-        # Actual archived control/state/transaction code; only physical firmware
-        # boundaries and ARM flush are replaced by the shared local-file adapter.
-        shutil.copyfile(f.package / "firmware.sh", client / "firmware.sh")
-        shutil.copyfile(f.source / "flush", client / "flush")
-        for script in client.glob("*.sh"):
-            text = (
-                script.read_text()
-                .replace(
-                    "uuid() { tr -d '-' < /proc/sys/kernel/random/uuid; }",
-                    "uuid() { openssl rand -hex 16; }",
-                )
-                .replace("/tmp/mnt/data_persist/open-connect", str(f.data))
-                .replace("/tmp/open-connect", str(f.runtime))
-                .replace("/usr/bin/autostart", str(f.root / "data-target"))
-            )
-            script.write_text(text)
-        (client / "flush").chmod(0o700)
-        (f.runtime / "runtime").symlink_to(client)
-        result = subprocess.run(
-            ["sh", client / "backend.sh", "api", current, "uninstall", "-", "-", "-"],
-            env=f.env,
-            capture_output=True,
-            text=True,
-            timeout=20,
-        )
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertFalse(f.data.exists())
-        self.assertEqual((f.root / "data-target").read_text(), "stock\n")

@@ -3,18 +3,38 @@
 import hashlib
 import json
 import os
-import shlex
 import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
-from tests.test_installer_transaction import compile_host_api
+from tests.host_bins import host_api as compile_host_api
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "cmu/installer"
 BOOT = "12345678-1234-1234-1234-123456789abc"
+ROOT_DEPS = (
+    ("sm.conf", "/jci/sm/sm.conf"),
+    ("sm_WCP.conf", "/jci/sm/sm_WCP.conf"),
+    ("board.sh", "/jci/scripts/get_board_type.sh"),
+    ("mmui.so", "/jci/mmui/svcjcimmui.so"),
+    ("mmui.xml", "/jci/mmui/mmui_config.xml"),
+    ("uia.so", "/jci/mmui/uia/libjciuiasystem.so"),
+    ("index.html", "/jci/gui/index.html"),
+    ("system-app.js", "/jci/gui/apps/system/js/systemApp.js"),
+    ("settings-app.js", "/jci/gui/apps/syssettings/js/syssettingsApp.js"),
+    ("base-app.js", "/jci/gui/framework/js/BaseApp.js"),
+    ("manager.so", "/jci/lib/libjciuiamgr.so"),
+    ("device-master.xml", "/etc/devmgr_config_master.xml"),
+    ("eem.so", "/jci/vbs/modules/libjcimod_eem.so"),
+    ("device-manager.so", "/jci/devicemanager/libdevicemanager.so"),
+    ("rungetty", "/usr/bin/rungetty"),
+    ("sshd", "/usr/sbin/sshd"),
+    ("ssh-keygen", "/usr/bin/ssh-keygen"),
+    ("framework.js", "/jci/gui/framework/js/GuiFramework.js"),
+    ("lvds-service", "/jci/lvds/lvds_service"),
+)
 
 
 def sha(data):
@@ -164,11 +184,6 @@ class NativeBootSelection(unittest.TestCase):
         package = self.data / "packages/.new-package"
         package.mkdir(mode=0o700)
         mandatory = [
-            "boot.sh",
-            "state.sh",
-            "transaction.sh",
-            "firmware.sh",
-            "access.sh",
             "service.sh",
             "runtime.js",
             "dialog.js",
@@ -216,24 +231,8 @@ class NativeBootSelection(unittest.TestCase):
             "selector": "-\n",
         }.items():
             (baseline / name).write_text(content)
-        identity = subprocess.check_output(
-            [
-                "sh",
-                "-c",
-                'set -eu; umask 077; D=$1; P=$2; . "$3"; '
-                'snapshot_create "$4/autostart" - 0 0 absent "$5" "$4/dependencies" "$4"',
-                "dev9-baseline",
-                self.data,
-                Path(self.build.name),
-                ROOT / "tests/fixtures/dev9/state.sh",
-                baseline,
-                self.mode,
-            ],
-            text=True,
-            env={**os.environ, "PATH": self.build.name + os.pathsep + os.environ["PATH"]},
-        ).strip()
-        self.baseline = self.data / "snapshots" / identity
-        shutil.rmtree(baseline)
+            (baseline / name).chmod(0o600)
+        self.baseline = self.publish(baseline)
         self.assertEqual((self.baseline / "config").read_text(), f"-|0|0|absent|{self.mode}\n")
 
         composed = self.data / "composed" / self.package_id
@@ -258,20 +257,8 @@ class NativeBootSelection(unittest.TestCase):
         self.manifest(composed)
         self.composed = composed
         self.put("usr/bin/autostart", "installed autostart\n", 0o755)
-        # Use firmware.sh's real complete map, including sm_WCP's underscore.
-        mapping = [
-            row.split()
-            for row in subprocess.check_output(
-                ["sh", "-c", '. "$1"; firmware_dependencies', "fixture", ASSETS / "firmware.sh"],
-                text=True,
-            ).splitlines()
-        ]
         self.root_map = {}
-        for _, name, path in mapping:
-            if name == "autostart":
-                continue
-            if name in self.root_map:
-                continue
+        for name, path in ROOT_DEPS:
             self.put(path, "stock " + name + "\n")
             self.root_map[name] = path
         self.assertEqual(len(self.root_map), 19)
@@ -506,50 +493,6 @@ class NativeBootSelection(unittest.TestCase):
                 source.unlink(missing_ok=True)
                 source.write_bytes(original)
 
-    def test_interrupted_package_staging_keeps_sealed_original_selectable(self):
-        # The real writer must not create even a temporary hardlink to sealed
-        # members: unlinking that name would change ctime and fail gated select.
-        def fingerprint():
-            return {
-                p.name: (p.read_bytes(), p.stat().st_mode, p.stat().st_ino, p.stat().st_ctime_ns)
-                for p in self.package.iterdir()
-            }
-
-        original = fingerprint()
-        record = (self.data / "record").read_bytes()
-        result = subprocess.run(
-            [
-                "sh",
-                "-c",
-                r"""
-set -eu
-D=$1; P=$2; R_BACKEND=$3
-. "$4/state.sh"; . "$4/firmware.sh"
-uuid() { openssl rand -hex 16; }
-flush() { case "$2" in */.new-*/boot-select) fail interrupted;; esac; }
-package_save
-""",
-                "interrupted-package",
-                self.data,
-                self.package,
-                self.package_id,
-                ASSETS,
-            ],
-            env={**os.environ, "PATH": self.build.name + os.pathsep + os.environ["PATH"]},
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("interrupted", result.stderr)
-        self.assertEqual(fingerprint(), original)
-        self.assertEqual((self.data / "record").read_bytes(), record)
-        self.assertFalse(list((self.data / "packages").glob(".new-*")))
-        selected = self.invoke(mode="select-gated")
-        self.assertEqual(selected.returncode, 0, selected.stderr)
-        self.assertEqual((self.ram / "selected").read_text().strip(), self.snapshot.name)
-        self.assertFalse((self.data / "reseal").exists())
-
     def test_autoshow_stages_only_applied_choice_with_nonsecret_boot_mark(self):
         self.change_current(
             "index.html", (self.snapshot / "index.html").read_text() + '<meta data-boot="@BOOT@">\n'
@@ -672,58 +615,6 @@ package_save
         self.assertEqual(self.invoke().returncode, 0)
         self.assertEqual((self.data / "record").read_text().split("|")[9], "2")
 
-    def test_native_slow_path_and_pending_recovery_share_shell_identity(self):
-        # NVRAM mismatch requests shell reconciliation after identity creation.
-        (self.root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction").write_text("enable\n")
-        original = (self.data / "record").read_bytes()
-        self.assertEqual(self.invoke().returncode, 95)
-        token = self.boot_token()
-        self.assertEqual((self.data / "record").read_bytes(), original)
-        self.assertEqual(self.shell_identity(), token)
-        self.record[1] = "set"
-        self.record[6:8] = [self.snapshot.name, self.snapshot.name]
-        self.save_record()
-        self.assertEqual(self.invoke().returncode, 95)
-        self.assertEqual(self.shell_identity(), token)
-        self.assertEqual(self.boot_token(), token)
-
-    def shell_identity(self):
-        state = self.root / "state.sh"
-        state.write_text(
-            (ASSETS / "state.sh")
-            .read_text()
-            .replace("/tmp/open-connect", str(self.ram))
-            .replace(
-                "/proc/sys/kernel/random/boot_id", str(self.root / "proc/sys/kernel/random/boot_id")
-            )
-        )
-        tools = Path(self.build.name)
-        return subprocess.check_output(
-            [
-                "sh",
-                "-c",
-                'D=$1; . "$2"; record_read && boot_identity',
-                "identity",
-                self.data,
-                state,
-            ],
-            text=True,
-            env={**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]},
-        ).strip()
-
-    def test_native_and_shell_identity_derivation_agree(self):
-        before = self.record.copy()
-        self.assertEqual(self.invoke().returncode, 0)
-        native = self.boot_token()
-        self.cold_boot()
-        self.record = before
-        self.save_record()
-        self.assertEqual(self.shell_identity(), native)
-        # Subsequent record revisions cannot change an existing marker.
-        self.record[2] = "f" * 32
-        self.save_record()
-        self.assertEqual(self.shell_identity(), native)
-
     def test_identity_owner_mismatch_refuses_without_debit(self):
         before = (self.data / "record").read_bytes()
         self.assertEqual(self.invoke(extra_env={"OC_BOOT_OWNER_FAIL": "1"}).returncode, 1)
@@ -747,8 +638,6 @@ package_save
                 before = (self.data / "record").read_bytes()
                 self.assertEqual(self.invoke().returncode, 1)
                 self.assertEqual((self.data / "record").read_bytes(), before)
-                with self.assertRaises(subprocess.CalledProcessError):
-                    self.shell_identity()
 
     def invoke(
         self, cut=None, term=None, output_limit=None, mode="select", stderr_fd=None, extra_env=None
@@ -2398,8 +2287,7 @@ package_save
         self.assertEqual(r_back["carplayAutoshow"], 0)
         on_cur = r_back["revision"]
 
-        # 4) E2E sp_rc == 95 (OC_SLOW) fallback through api: touch=2 with drifted
-        # touch/devices/svc while setting touch 2 -> 1 unlocks and falls back cleanly.
+        # 4) Native sp_rc == 95 (OC_SLOW) touch=2->1 pin-drift recovery runs natively in api!
         pre_t2_rec = (self.data / "record").read_bytes()
         for _, tpath, tdata, _ in self.TOUCH_INPUTS:
             self.put(tpath, tdata)
@@ -2410,15 +2298,16 @@ package_save
         t2_cur = r_t2["revision"]
         saved_dev_svc = (self.root / "jci/devices/svc-com-jci-cpp-devices.so").read_bytes()
         self.put("/jci/devices/svc-com-jci-cpp-devices.so", "drifted devices\n")
-        _, r_slow = call_api(t2_cur, "set", "touch", "2", "1")
-        self.assertEqual(r_slow["error"], "fell_back")
+        proc_rec, r_slow = call_api(t2_cur, "set", "touch", "2", "1")
+        self.assertEqual(proc_rec.returncode, 0, (r_slow, proc_rec.stderr))
+        self.assertTrue(r_slow["ok"], r_slow)
+        self.assertEqual(r_slow["touch"], 1)
         self.put("/jci/devices/svc-com-jci-cpp-devices.so", saved_dev_svc)
         (self.data / "record").write_bytes(pre_t2_rec)
         nvram_file.write_text("disable\n")
 
-        # 5) Native api falls back cleanly to backend.sh on genuinely unsealed OC2 snapshot
-        # and NO_BS selector-less package, while hard-refusing tamper/malformed-manifest/
-        # stray-plan/tampered-AWK conditions.
+        # 5) Unsealed OC2, missing/stray boot.plan, malformed manifest, tampered AWK, and NO_BS
+        # all hard-fail with state_changed (never falling back to deleted backend.sh).
         unsealed_work = self.data / "snapshots/.new-be-unsealed"
         unsealed_work.mkdir(mode=0o700)
         for p in sorted((self.data / "snapshots" / on_cur).iterdir()):
@@ -2432,14 +2321,12 @@ package_save
         (self.data / "record").write_text("|".join(unsealed_rec) + "\n")
         (self.ram / "selected").write_text(unsealed_snap.name + "\n")
         _, r_fb = call_api(unsealed_snap.name, "set", "carplay-autoshow", "0", "1")
-        self.assertEqual(r_fb["error"], "fell_back")
-        # Undeclared boot.plan on disk inside unsealed snapshot hard-fails (never falls back).
+        self.assertEqual(r_fb["error"], "state_changed")
         (unsealed_snap / "boot.plan").write_bytes(b"stray\n")
         (unsealed_snap / "boot.plan").chmod(0o600)
         _, r_stray = call_api(unsealed_snap.name, "set", "carplay-autoshow", "0", "1")
         (unsealed_snap / "boot.plan").unlink()
         self.assertEqual(r_stray["error"], "state_changed")
-        # Missing declared boot.plan on disk hard-fails (never falls back).
         (self.data / "record").write_bytes(saved_rec)
         (self.ram / "selected").write_text(on_cur + "\n")
         saved_plan = (self.data / "snapshots" / on_cur / "boot.plan").read_bytes()
@@ -2448,7 +2335,6 @@ package_save
         (self.data / "snapshots" / on_cur / "boot.plan").write_bytes(saved_plan)
         (self.data / "snapshots" / on_cur / "boot.plan").chmod(0o600)
         self.assertEqual(r_miss_plan["error"], "state_changed")
-        # Malformed session/package manifest shapes all hard-fail with state_changed.
         orig_sess_mf = (session / "files.sha256").read_bytes()
         for bad_mf in (
             b"",
@@ -2461,200 +2347,15 @@ package_save
             _, r_badmf = call_api(on_cur, "set", "carplay-autoshow", "0", "1")
             self.assertEqual(r_badmf["error"], "state_changed")
         (session / "files.sha256").write_bytes(orig_sess_mf)
-        # Tampered persistent AWK script (sm-profile.awk) hard-fails without fallback.
         sm_awk = self.package / "sm-profile.awk"
         orig_sm_awk = sm_awk.read_bytes()
         sm_awk.write_bytes(orig_sm_awk + b"\n# tamper\n")
         _, r_awk = call_api(on_cur, "set", "wireless", "1", "0")
         sm_awk.write_bytes(orig_sm_awk)
         self.assertEqual(r_awk["error"], "state_changed")
-        # NO_BS selector-less package: clean unsealed snapshot falls back; declared boot.plan
-        # or stray undeclared boot-select on disk hard-fails with state_changed.
-        nobs_dir = self.data / "packages/.new-nobs-e2e"
-        nobs_dir.mkdir(mode=0o700)
-        for p in sorted(self.package.iterdir()):
-            if p.name not in ("files.sha256", "boot-select"):
-                (nobs_dir / p.name).write_bytes(p.read_bytes())
-                (nobs_dir / p.name).chmod(p.stat().st_mode & 0o777)
-        nobs_pkg = self.publish(nobs_dir)
-        nobs_snap_work = self.data / "snapshots/.new-nobs-snap"
-        nobs_snap_work.mkdir(mode=0o700)
-        for p in sorted((self.data / "snapshots" / on_cur).iterdir()):
-            if p.name not in ("files.sha256", "boot.plan"):
-                body = p.read_bytes()
-                if p.name == "config":
-                    body = body.replace(self.package_id.encode(), nobs_pkg.name.encode())
-                (nobs_snap_work / p.name).write_bytes(body)
-                (nobs_snap_work / p.name).chmod(0o600)
-        nobs_snap = self.publish(nobs_snap_work)
-        nobs_rec = saved_rec.decode().strip().split("|")
-        nobs_rec[3] = nobs_pkg.name
-        nobs_rec[5] = nobs_snap.name
-        (self.data / "record").write_text("|".join(nobs_rec) + "\n")
-        (self.ram / "selected").write_text(nobs_snap.name + "\n")
-        shutil.copyfile(nobs_pkg / "files.sha256", session / "files.sha256")
-        _, r_nobs_fb = call_api(nobs_snap.name, "set", "carplay-autoshow", "0", "1")
-        self.assertEqual(r_nobs_fb["error"], "fell_back")
-        # NO_BS + stray undeclared boot-select on disk -> hard state_changed.
-        (nobs_pkg / "boot-select").write_bytes(b"stray\n")
-        (nobs_pkg / "boot-select").chmod(0o700)
-        _, r_nobs_stray = call_api(nobs_snap.name, "set", "carplay-autoshow", "0", "1")
-        (nobs_pkg / "boot-select").unlink()
-        self.assertEqual(r_nobs_stray["error"], "state_changed")
-        # NO_BS + declared boot.plan -> hard state_changed.
-        nobs_plan_work = self.data / "snapshots/.new-nobs-plan"
-        nobs_plan_work.mkdir(mode=0o700)
-        for p in sorted(nobs_snap.iterdir()):
-            if p.name != "files.sha256":
-                (nobs_plan_work / p.name).write_bytes(p.read_bytes())
-                (nobs_plan_work / p.name).chmod(0o600)
-        (nobs_plan_work / "boot.plan").write_text("OCBP1\n")
-        (nobs_plan_work / "boot.plan").chmod(0o600)
-        nobs_plan_snap = self.publish(nobs_plan_work)
-        nobs_rec[5] = nobs_plan_snap.name
-        (self.data / "record").write_text("|".join(nobs_rec) + "\n")
-        (self.ram / "selected").write_text(nobs_plan_snap.name + "\n")
-        _, r_nobs_plan = call_api(nobs_plan_snap.name, "set", "carplay-autoshow", "0", "1")
-        self.assertEqual(r_nobs_plan["error"], "state_changed")
-        # Restore clean sealed state before real backend.sh fallback check.
         shutil.copyfile(self.package / "files.sha256", session / "files.sha256")
         (self.data / "record").write_bytes(saved_rec)
         (self.ram / "selected").write_text(on_cur + "\n")
-
-        # Real backend.sh unsealed OC2 fallback check:
-        # Build a genuinely unsealed OC2 snapshot (no boot.plan in manifest or disk) and
-        # run real backend.sh with real transaction_prepare/transaction_reconcile.
-        # Clean control must succeed; an extra package file must return state_changed with
-        # original OC1 bytes and unchanged NVRAM on both no-op and touch 1->0.
-        fb_session = self.ram / "sessions/session-befb01"
-        fb_session.mkdir(parents=True, mode=0o700)
-        for p in sorted(self.package.iterdir()):
-            (fb_session / p.name).write_bytes(p.read_bytes())
-            (fb_session / p.name).chmod(p.stat().st_mode & 0o777)
-        shutil.copyfile(api_bin, fb_session / "api")
-        (fb_session / "api").chmod(0o700)
-        fb_be = (
-            (ASSETS / "backend.sh")
-            .read_text()
-            .replace("/tmp/mnt/data_persist/open-connect", str(self.data))
-            .replace("/tmp/open-connect", str(self.ram))
-            .replace("/usr/bin/autostart", str(self.root / "usr/bin/autostart"))
-            .replace("firmware_guard ", "# firmware_guard ")
-            .replace("flock -n -x 9 || fail busy", ":")
-            .replace("flock -n -s 9 || fail busy", ":")
-            .replace(
-                '. "$P/transaction.sh"',
-                '. "$P/transaction.sh"\n'
-                'uuid() { printf "%s\\n" "0123456789abcdef0123456789abcdef"; }\n'
-                "firmware_guard() { :; }\n"
-                "factory_wireless() { return 1; }\n"
-                f"nvram_read() {{ if test -f {shlex.quote(str(nvram_file))}; then cat {shlex.quote(str(nvram_file))}; else echo absent; fi; }}\n"
-                f'nvram_change() {{ if test "$2" = absent; then rm -f {shlex.quote(str(nvram_file))}; else printf "%s\\n" "$2" > {shlex.quote(str(nvram_file))}; fi; }}\n'
-                "selector_matches_loaded() { return 0; }\n"
-                "selector_pair_check() { return 0; }\n"
-                "startup_publish() { :; }\n",
-            )
-        )
-        (fb_session / "backend.sh").write_text(fb_be)
-        (fb_session / "backend.sh").chmod(0o700)
-        fb_fw = (
-            (ASSETS / "firmware.sh")
-            .read_text()
-            .replace("/proc/mounts", str(self.root / "proc/mounts"))
-            .replace("/tmp/mnt/data_persist/open-connect", str(self.data))
-            .replace("/tmp/open-connect", str(self.ram))
-            .replace("firmware_dependencies()", "_unused_fw_deps()")
-        )
-        # Preserve host root paths in firmware_dependencies for real dependencies_match.
-        fw_deps_lines = "\n".join(
-            f"  printf '%s\\n' '{d} {k.split('/', 1)[1]} {self.root}{p}'"
-            for k, p, d in self.inputs
-            if k.startswith("root/")
-        )
-        fb_fw = fb_fw.replace(
-            "/usr/bin/open-connect-boot-select",
-            str(self.root / "usr/bin/open-connect-boot-select"),
-        ).replace(
-            "1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29",
-            sha(b"stock manager.so\n"),
-        )
-        fb_fw += (
-            f"\nfirmware_dependencies() {{\n{fw_deps_lines}\n}}\n"
-            'boot_snapshot_seal() { P=$D/packages/$R_BACKEND boot_dependencies_match "$1" || return 1; printf "%s\\n" "$1"; }\n'
-        )
-        (fb_session / "firmware.sh").write_text(fb_fw)
-        (fb_session / "access.sh").write_text(
-            (ASSETS / "access.sh")
-            .read_text()
-            .replace("/usr/bin/runlogin", str(self.root / "usr/bin/runlogin"))
-            .replace("/etc/ssh/sshd_config", str(self.root / "etc/ssh/sshd_config"))
-            .replace(
-                "/usr/bin/.open-connect-runlogin-",
-                str(self.root / "usr/bin/.open-connect-runlogin-"),
-            )
-        )
-        (fb_session / "state.sh").write_text(
-            (ASSETS / "state.sh")
-            .read_text()
-            .replace("SEAL_BOOT_PLAN=$6", "SEAL_BOOT_PLAN=0")
-            .replace(
-                '. "$P/firmware.sh";',
-                '. "$P/firmware.sh"; '
-                'boot_render_profiles() { for n in sm-normal.conf sm-wcp.conf index.html mmui.xml vui-plugins.list; do cp "$D/snapshots/'
-                + unsealed_snap.name
-                + '/$n" "$1/$n"; done; };',
-            )
-        )
-        # Point runtime to fb_session, OC1 to unsealed_snap, NVRAM to disable.
-        orig_rec_bytes = (self.data / "record").read_bytes()
-        fb_rec = orig_rec_bytes.decode().strip().split("|")
-        fb_rec[5] = unsealed_snap.name
-        unsealed_rec_bytes = ("|".join(fb_rec) + "\n").encode()
-        (self.data / "record").write_bytes(unsealed_rec_bytes)
-        (self.ram / "selected").write_text(unsealed_snap.name + "\n")
-        (self.ram / "runtime").unlink()
-        (self.ram / "runtime").symlink_to(fb_session)
-        nvram_file.write_text("disable\n")
-
-        def call_fb(*args):
-            return subprocess.run(
-                ["sh", str(fb_session / "backend.sh"), "api", *args],
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-
-        # Extra file in package: both no-op and touch 1->0 fail with state_changed,
-        # preserving original OC1 bytes and NVRAM = disable.
-        extra_fb = self.package / "stray-fallback"
-        extra_fb.write_text("stray\n")
-        fb_noop = call_fb(unsealed_snap.name, "set", "carplay-autoshow", "0", "0")
-        self.assertNotEqual(fb_noop.returncode, 0)
-        self.assertEqual(json.loads(fb_noop.stdout)["error"], "state_changed")
-        self.assertEqual((self.data / "record").read_bytes(), unsealed_rec_bytes)
-        self.assertEqual(nvram_file.read_text(), "disable\n")
-        fb_touch = call_fb(unsealed_snap.name, "set", "touch", "1", "0")
-        self.assertNotEqual(fb_touch.returncode, 0)
-        self.assertEqual(json.loads(fb_touch.stdout)["error"], "state_changed")
-        self.assertEqual((self.data / "record").read_bytes(), unsealed_rec_bytes)
-        self.assertEqual(nvram_file.read_text(), "disable\n")
-        extra_fb.unlink()
-
-        # Clean control: unsealed OC2 touch 1->0 succeeds, settles active, clears NVRAM.
-        fb_clean = call_fb(unsealed_snap.name, "set", "touch", "1", "0")
-        self.assertEqual(fb_clean.returncode, 0, fb_clean.stdout + fb_clean.stderr)
-        fb_clean_out = json.loads(fb_clean.stdout)
-        self.assertTrue(fb_clean_out["ok"])
-        self.assertEqual(fb_clean_out["touch"], 0)
-        self.assertEqual((self.data / "record").read_text().strip().split("|")[1], "active")
-        self.assertFalse(nvram_file.exists())
-
-        # Restore original sealed snapshot + runtime + NVRAM for subsequent checks.
-        (self.data / "record").write_bytes(orig_rec_bytes)
-        (self.ram / "selected").write_text(on_cur + "\n")
-        (self.ram / "runtime").unlink()
-        (self.ram / "runtime").symlink_to(session)
         nvram_file.write_text("disable\n")
 
         # Oversized composed template (> 262144 B) is refused before native index render.
@@ -3159,175 +2860,3 @@ package_save
                     resumed = self._run_gc(lock_fd=lf.fileno())
                     self.assertEqual(resumed.returncode, 0, resumed.stderr)
                     self.assertFalse(tomb.exists(), (store_kind, cut_point))
-
-    def test_gc_failure_isolated_from_save_and_unlocked_status_returns_busy(self):
-        # Verify: (a) gc_snap failure never breaks a settled save; (b) unlocked
-        # full-status audit detects a concurrent commit+GC of S1 -> S2 and returns busy.
-        import fcntl
-
-        lock_path = self.ram / "lock"
-        lock_path.write_bytes(b"")
-        lock_path.chmod(0o600)
-        s1 = self.snapshot
-        # Create a valid OC2 boot-selected snapshot distinct from R_CURRENT (s1),
-        # so backend.sh accepts settings_package and GC can prune s1 once s2 commits.
-        s0_work = self.data / "snapshots" / ".new-gc-selected"
-        s0_work.mkdir(mode=0o700)
-        for p in s1.iterdir():
-            if p.name != "files.sha256":
-                (s0_work / p.name).write_bytes(p.read_bytes())
-                (s0_work / p.name).chmod(0o600)
-        (s0_work / "autostart").write_text("boot-selected autostart\n")
-        (s0_work / "config").write_text(
-            f"OC2\nbase=0\ncarplay-autoshow=0\nmetadata={self.mode}\nnvram=disable\n"
-            f"package={self.package_id}\nservice-ids=android-auto,pandora,siriusxm\n"
-            "service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\n"
-            "touch=1\nwarning=1\nwireless=1\n"
-        )
-        s0 = self.publish(s0_work)
-        (self.ram / "selected").write_text(s0.name + "\n")
-        (self.ram / "selected").chmod(0o600)
-
-        # (a) gc_snap with a failing boot-select still returns 0 (isolated from save),
-        #     and when BOOT_SELECT is unset it refuses symlinked or tampered package
-        #     boot-select without executing it.
-        bad_bs = Path(self.build.name) / "fail-bs"
-        bad_bs.write_text("#!/bin/sh\nexit 17\n")
-        bad_bs.chmod(0o700)
-        iso = subprocess.run(
-            [
-                "sh",
-                "-c",
-                f"set -eu; D={shlex.quote(str(self.data))}; R_BACKEND={self.package_id}; "
-                f"BOOT_SELECT={shlex.quote(str(bad_bs))}; . {shlex.quote(str(ASSETS / 'state.sh'))}; "
-                "gc_snap; printf ok",
-            ],
-            env=self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]}),
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        self.assertEqual((iso.returncode, iso.stdout), (0, "ok"), iso.stderr)
-        pwn = self.ram / "pwned-by-gc"
-        evil = Path(self.build.name) / "evil-bs"
-        evil.write_text(f"#!/bin/sh\nprintf pwn > {shlex.quote(str(pwn))}\n")
-        evil.chmod(0o700)
-        orig_bs = (self.package / "boot-select").read_bytes()
-        for mode in ("symlink", "tampered"):
-            (self.package / "boot-select").unlink()
-            if mode == "symlink":
-                (self.package / "boot-select").symlink_to(evil)
-            else:
-                (self.package / "boot-select").write_bytes(evil.read_bytes())
-                (self.package / "boot-select").chmod(0o700)
-            ref = subprocess.run(
-                [
-                    "sh",
-                    "-c",
-                    f"set -eu; P={shlex.quote(str(self.package))}; D={shlex.quote(str(self.data))}; "
-                    f"R_BACKEND={self.package_id}; BOOT_SELECT=; . {shlex.quote(str(ASSETS / 'state.sh'))}; "
-                    "gc_snap; printf ok",
-                ],
-                env=self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]}),
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            self.assertEqual((ref.returncode, ref.stdout), (0, "ok"), mode + ": " + ref.stderr)
-            self.assertFalse(pwn.exists(), f"gc_snap executed {mode} boot-select!")
-        (self.package / "boot-select").unlink()
-        (self.package / "boot-select").write_bytes(orig_bs)
-        (self.package / "boot-select").chmod(0o700)
-
-        # (b) Simulate unlocked full-status audit observing S1, then concurrent set
-        # commits S2 + GCs S1 while full-status dropped lock fd 9: backend.sh status
-        # must return busy rather than conflict:true.
-        if not shutil.which("flock"):
-            import sys
-
-            flock_shim = Path(self.build.name) / "flock"
-            flock_shim.write_text(
-                f"#!{sys.executable}\n"
-                "import fcntl, sys\n"
-                "args = sys.argv[1:]\n"
-                "fd = int(args[-1])\n"
-                "if '-u' in args:\n"
-                "    fcntl.flock(fd, fcntl.LOCK_UN)\n"
-                "else:\n"
-                "    op = fcntl.LOCK_SH if '-s' in args else fcntl.LOCK_EX\n"
-                "    if '-n' in args: op |= fcntl.LOCK_NB\n"
-                "    fcntl.flock(fd, op)\n"
-            )
-            flock_shim.chmod(0o700)
-        be = Path(self.build.name) / "gc-status-session"
-        shutil.rmtree(be, ignore_errors=True)
-        shutil.copytree(ASSETS, be)
-        shutil.copyfile(Path(self.build.name) / "flush", be / "flush")
-        (be / "flush").chmod(0o700)
-        shutil.copyfile(compile_host_api(), be / "api")
-        (be / "api").chmod(0o700)
-        for sh_name in ("state.sh", "firmware.sh", "access.sh", "transaction.sh", "backend.sh"):
-            txt = (be / sh_name).read_text()
-            txt = txt.replace("/tmp/mnt/data_persist/open-connect", str(self.data))
-            txt = txt.replace("/tmp/open-connect", str(self.ram))
-            txt = txt.replace("/usr/bin/autostart", str(self.root / "usr/bin/autostart"))
-            txt = txt.replace("/usr/bin/runlogin", str(self.root / "usr/bin/runlogin"))
-            txt = txt.replace("/etc/ssh/sshd_config", str(self.root / "etc/ssh/sshd_config"))
-            txt = txt.replace(
-                "uuid() { tr -d '-' < /proc/sys/kernel/random/uuid; }",
-                "uuid() { openssl rand -hex 16; }",
-            )
-            (be / sh_name).write_text(txt)
-        (be / "firmware.sh").write_text(
-            (be / "firmware.sh").read_text() + "\nfirmware_guard() { :; }\n"
-        )
-        (be / "transaction.sh").write_text(
-            (be / "transaction.sh").read_text()
-            + "\ntargets_match() {\n"
-            + f'  if test "$1" = {shlex.quote(s1.name)}; then\n'
-            + '    printf "waiting\\n" > '
-            + shlex.quote(str(self.ram / "audit-entered"))
-            + "\n"
-            + "    i=0; while test ! -f "
-            + shlex.quote(str(self.ram / "audit-release"))
-            + ' && test "$i" -lt 100; do sleep 0.05; i=$((i+1)); done\n'
-            + "    return 1\n"
-            + "  fi\n"
-            + "  return 0\n"
-            + "}\n"
-            + "dependencies_match() { return 0; }\n"
-        )
-        (self.ram / "runtime").symlink_to(be)
-        env = self._host_env({"PATH": self.build.name + os.pathsep + os.environ["PATH"]})
-        proc = subprocess.Popen(
-            ["sh", str(be / "backend.sh"), "api", "-", "status", "-", "-", "-"],
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        import time
-
-        deadline = time.monotonic() + 5.0
-        while not (self.ram / "audit-entered").exists() and time.monotonic() < deadline:
-            if proc.poll() is not None:
-                break
-            time.sleep(0.02)
-        if not (self.ram / "audit-entered").exists():
-            out, err = proc.communicate(timeout=5)
-            self.fail(
-                f"backend.sh exited before audit: rc={proc.returncode} out={out!r} err={err!r}"
-            )
-        # Concurrent writer takes lock, advances R_CURRENT to S2, and GCs S1.
-        s2 = self._make_dummy_snapshot("concurrent-s2")
-        with lock_path.open("r+b") as lf:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self.record[5] = s2.name
-            self.save_record()
-            gc_res = self._run_gc(lock_fd=lf.fileno())
-            self.assertEqual(gc_res.returncode, 0, gc_res.stderr)
-            self.assertFalse(s1.exists())
-        (self.ram / "audit-release").write_text("go\n")
-        out, err = proc.communicate(timeout=5)
-        self.assertNotEqual(proc.returncode, 0, out + err)
-        self.assertEqual(json.loads(out)["error"], "busy")

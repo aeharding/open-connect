@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later
  * One bounded POST request on stdin/stdout, launched by BusyBox tcpsvd.
- * Interactive Settings/USB requests run natively via core/oc-api.c; cold
- * maintenance transactions exec the verified shell backend.
+ * All Settings and USB maintenance requests run natively via core/oc-api.c
+ * (with cold USB install delegating to the verified native install binary).
  */
 #include "core/oc-core.h"
 
@@ -81,7 +81,7 @@ static int response(int code,const char *error) {
 }
 static int run(int argc,char **argv) {
     if(argc>=2&&argv[1][0]=='-'&&argv[1][1]=='-')return oc_api_cli(argc,argv);
-    if(argc!=3||argv[1][0]!='/'||argv[2][0]!='/')return 64;
+    if((argc!=2&&argc!=3)||argv[1][0]!='/'||(argc==3&&argv[2][0]!='/'))return 64;
     char bytes[4097], token[34]; unsigned used=0, boundary=0, size=0;
     while(!boundary){
         if(used==4096){response(400,"headers_too_large");return 1;}
@@ -160,17 +160,6 @@ static int run(int argc,char **argv) {
     if(oc_equal(op,"status")&&oc_equal(fields[3],"media")) { media_offer(argv[1]);return 0; }
     int handled=oc_api_handle(argv[1],fields[1],op,fields[3],fields[4],fields[5]);
     if(handled!=OC_API_FALLBACK)return handled==OC_API_DONE?0:1;
-    OcMeta bm;
-    if(oc_metadata(OC_CWD,argv[2],&bm)>=0&&(bm.mode&OC_TYPE)==OC_REGULAR) {
-        char *args[]={"sh",argv[2],"api",fields[1],fields[2],fields[3],fields[4],fields[5],0};
-#ifdef OC_HOST
-        extern char **environ;
-        (void)oc_execve("/bin/sh",args,environ);
-#else
-        char *env[]={"PATH=/bin:/sbin:/usr/bin:/usr/sbin","LC_ALL=C",0};
-        (void)oc_execve("/bin/sh",args,env);
-#endif
-    }
     send_text("{\"ok\":false,\"error\":\"backend_unavailable\"}\n");return 1;
 bad:
     response(400,"bad_request");return 1;

@@ -82,6 +82,7 @@ void oc_hash_finish(OcHash *h, char output[65]);
 long oc_openat(int parent, const char *path, unsigned options, unsigned mode);
 long oc_read(int fd, void *p, unsigned n);
 long oc_write(int fd, const void *p, unsigned n);
+long oc_seek_set(int fd, unsigned off);
 long oc_close(int fd);
 long oc_sync(int fd);
 long oc_metadata(int fd, const char *path, OcMeta *m);
@@ -210,6 +211,8 @@ int oc_lookup_vui_pin(const char *modules, const char *plugin, char out[65]);
 /* oc-guard.c */
 extern const char *const oc_root_names[19];
 extern const char *const oc_root_paths[19];
+extern const char *const oc_root_digests[19];
+extern const char *const oc_orig_autostart_digest;
 extern const char *const oc_composed_names[12];
 extern const OcPin oc_touch_pins[2];
 extern const OcPin oc_base_pins[5];
@@ -274,9 +277,14 @@ extern char oc_mscratch[8192];
 extern char oc_big_buf[32768];
 int oc_txn_read_snap(int data_fd, const char *snap_id, OcTxnSnap *s);
 int oc_open_sub(int parent, const char *dir, const char *id);
-int oc_copy_opt(int src, int dst, unsigned mask, int skip_exist);
+int oc_copy_opt(int src, int dst, unsigned mask, int flags);
 int oc_pkg_boot_select(int data_fd, const char *root_path, const char *pkg_id,
                        long owner, long group, char bs_path[512]);
+int oc_seal_after_snap(int root, const char *root_path, int data_fd,
+                       const char *snap_id, const char *base_id, const char *pkg_id,
+                       int force_reseal, long owner, long group, char out_id[65]);
+int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
+                    const char *ram_exec_dir, long owner, long group);
 int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_match);
 void oc_rm_subdir(int parent, const char *leaf);
 int oc_check_active_pins(int root, int data_fd, const char *pkg_id, const char *snap_id,
@@ -300,12 +308,38 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
 int oc_uninstall_cleanup(int root, const char *root_path, int data_fd, const char *session_dir,
                          long owner, long group, const char **err_out);
 
-/* oc-api.c */
-enum { OC_API_DONE=0, OC_API_ERR=1, OC_API_FALLBACK=2 };
-int oc_join4(char *out, unsigned cap, const char *a, const char *b, const char *c, const char *d);
+/* oc-render.c */
+int oc_verify_file_sha(int dir, const char *name, const char *expected, oc_u64 limit);
+int oc_open_pkg_verified(int data, const char *pkg_id, char *mf_buf, unsigned mf_cap, OcManifest *mf);
+int oc_open_composed_verified(int data_fd, const char *pkg_id, const char *snap_id,
+                              char cmf_buf[4096], OcManifest *cmf);
+int oc_run_awk_profile(const char *dbase, const char *pkg_id, const char *cfg_path,
+                       const char *cfg_bytes, const char *cat_bytes,
+                       const char *script_name, const char *ui_mode, const char *in_path,
+                       int out_dir, const char *out_name);
+int oc_render_index_native(int pkg_fd, OcManifest *pkg_mf,
+                           int comp_fd, OcManifest *comp_mf,
+                           int work_fd, const OcPrefs *p);
 int oc_render_sm_profiles(int data_fd, const char *root_path, const char *pkg_id,
                           const char *snap_id, const char *cfg_path, unsigned cfg_len,
                           const char *warning_val, int out_dir);
+int oc_render_ui_profiles(int data_fd, const char *root_path, const char *pkg_id,
+                          const char *cfg_path, unsigned cfg_len,
+                          int need_mmui, int need_plugins, int out_dir);
+int oc_render_all_profiles(int data_fd, const char *root_path, const char *pkg_id,
+                           const char *cfg_path, unsigned cfg_len,
+                           const OcPrefs *p, int out_dir);
+
+/* oc-compose.c */
+int oc_originals_verify(int data_fd);
+int oc_compose_pkg(int root, int data_fd, const char *root_path, const char *pkg_id,
+                   const char **err_out);
+int oc_install_run(int root, const char *root_path, const char *session_dir,
+                   long owner, long group, const char **err_out);
+
+/* oc-api.c */
+enum { OC_API_DONE=0, OC_API_ERR=1, OC_API_FALLBACK=2 };
+int oc_join4(char *out, unsigned cap, const char *a, const char *b, const char *c, const char *d);
 int oc_api_handle(const char *token_path, const char *rev, const char *op,
                   const char *arg, const char *exp, const char *des);
 int oc_api_cli(int argc, char **argv);

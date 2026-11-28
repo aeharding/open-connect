@@ -1,5 +1,7 @@
-"""Exercise the real request parser with a harmless shell backend and pipes."""
+"""Exercise the real native api HTTP parser, firmware guard, index renderer, and record invariants."""
 
+import hashlib
+import itertools
 import json
 import os
 import shutil
@@ -10,7 +12,10 @@ import time
 import unittest
 from pathlib import Path
 
+from tests.host_bins import copy_host_api, host_api
+
 ROOT = Path(__file__).resolve().parents[1]
+ASSETS = ROOT / "cmu/installer"
 TOKEN = "a" * 32
 
 
@@ -23,14 +28,10 @@ class InstallerApi(unittest.TestCase):
         self.api = self.root / "api"
         self.token = self.root / "token"
         self.token.write_text(TOKEN + "\n")
-        self.backend = self.root / "backend.sh"
-        self.backend.write_text('printf \'{"operation":"%s","arg":"%s"}\\n\' "$3" "$4"\n')
-        from tests.host_bins import copy_host_api
-
         copy_host_api(self.api)
 
     def request(self, body=None, headers=None):
-        body = body or (TOKEN + "|-|status|-|-|-").encode()
+        body = body or (TOKEN + "|-|status|session|-|-").encode()
         headers = headers or (
             b"POST /control HTTP/1.1\r\nHost: 127.0.0.1:39883\r\nContent-Type: text/plain;charset=UTF-8\r\n"
             + f"Content-Length: {len(body)}\r\n\r\n".encode()
@@ -39,50 +40,22 @@ class InstallerApi(unittest.TestCase):
 
     def invoke(self, request):
         return subprocess.run(
-            [self.api, self.token, self.backend],
+            [self.api, self.token],
             input=request,
             capture_output=True,
             timeout=5,
             env={**os.environ, "OC_HOST_ROOT": str(self.root)},
         )
 
-    def test_status_and_setting_dispatch_only_arguments(self):
-        for body, op, arg in (
-            (TOKEN + "|-|status|-|-|-", "status", "-"),
-            (TOKEN + "|-|status|settings|-|-", "status", "settings"),
-            (TOKEN + "|-|status|completion|-|-", "status", "completion"),
-            (TOKEN + "|-|dismiss|usb|-|-", "dismiss", "usb"),
-            (TOKEN + "|" + "b" * 64 + "|dismiss|-|-|-", "dismiss", "-"),
-            (TOKEN + "|" + "b" * 32 + "|set|touch|0|1", "set", "touch"),
-            (TOKEN + "|" + "b" * 64 + "|set|warning|1|0", "set", "warning"),
-            (TOKEN + "|" + "b" * 64 + "|set|touch|2|0", "set", "touch"),
-            (TOKEN + "|" + "b" * 64 + "|set|touch|1|2", "set", "touch"),
-            (TOKEN + "|" + "b" * 64 + "|set|ssh|0|1", "set", "ssh"),
-            (TOKEN + "|" + "b" * 64 + "|set|uart|1|0", "set", "uart"),
-            (TOKEN + "|" + "b" * 64 + "|set|pandora|1|0", "set", "pandora"),
-            (TOKEN + "|" + "b" * 64 + "|set|android-auto|1|0", "set", "android-auto"),
-            (TOKEN + "|" + "b" * 64 + "|set|base|0|1", "set", "base"),
-            (TOKEN + "|" + "b" * 64 + "|set|wireless|0|1", "set", "wireless"),
-            (TOKEN + "|" + "b" * 64 + "|import|-|-|-", "import", "-"),
-            (TOKEN + "|" + "b" * 32 + "|recover|-|-|-", "recover", "-"),
-        ):
-            result = self.invoke(self.request(body.encode()))
-            self.assertEqual(result.returncode, 0, result.stderr)
-            headers, response = result.stdout.split(b"\r\n\r\n", 1)
-            self.assertIn(b"Access-Control-Allow-Origin: *", headers)
-            self.assertEqual(json.loads(response), {"operation": op, "arg": arg})
-
-    def test_session_liveness_is_authenticated_and_never_executes_backend(self):
-        self.backend.write_text("exit 99\n")
+    def test_session_liveness_is_authenticated_and_returns_cors_headers(self):
         for closed in (False, True):
             if closed:
                 (self.root / "closed").touch()
             result = self.invoke(self.request((TOKEN + "|-|status|session|-|-").encode()))
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(
-                json.loads(result.stdout.split(b"\r\n\r\n", 1)[1]),
-                {"ok": True, "closed": closed},
-            )
+            headers, body = result.stdout.split(b"\r\n\r\n", 1)
+            self.assertIn(b"Access-Control-Allow-Origin: *", headers)
+            self.assertEqual(json.loads(body), {"ok": True, "closed": closed})
         result = self.invoke(self.request(("f" * 32 + "|-|status|session|-|-").encode()))
         self.assertIn(b"403 Forbidden", result.stdout)
 
@@ -94,7 +67,6 @@ class InstallerApi(unittest.TestCase):
         usb.mkdir()
         self.token = installed / "token"
         self.token.write_text(TOKEN + "\n")
-        self.backend.write_text("exit 99\n")
         (registry / "runtime").symlink_to(installed)
         (registry / "usb-runtime").symlink_to(usb)
         usb_token = "b" * 32
@@ -118,7 +90,6 @@ class InstallerApi(unittest.TestCase):
         (usb / "closed").touch()
         self.assertEqual(self.media(), {"ok": True, "media": None})
         (usb / "closed").unlink()
-        # Knowing a USB capability does not grant discovery of other sessions.
         installed_token = self.token
         self.token = usb / "token"
         request = self.request(("b" * 32 + "|-|status|media|-|-").encode())
@@ -146,7 +117,6 @@ class InstallerApi(unittest.TestCase):
         (usb / "offer").unlink()
         (usb / "offer").write_text(offer)
         (registry / "usb-runtime").unlink()
-        # The offer cannot redirect discovery outside the private registry.
         (registry / "usb-runtime").symlink_to(self.root)
         self.assertEqual(self.media(), {"ok": True, "media": None})
 
@@ -227,7 +197,7 @@ class InstallerApi(unittest.TestCase):
             with self.subTest(request=request[:70]):
                 result = self.invoke(request)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertNotIn(b'"operation"', result.stdout)
+                self.assertNotIn(b'"closed"', result.stdout)
 
     def test_wrong_or_symlinked_token_never_dispatches(self):
         result = self.invoke(self.request().replace(TOKEN.encode(), b"b" * 32))
@@ -236,11 +206,11 @@ class InstallerApi(unittest.TestCase):
         self.token.symlink_to(self.root / "real-token")
         result = self.invoke(self.request())
         self.assertIn(b"403 Forbidden", result.stdout)
-        self.assertNotIn(b'"operation"', result.stdout)
+        self.assertNotIn(b'"closed"', result.stdout)
 
     def test_partial_reads(self):
         with subprocess.Popen(
-            [self.api, self.token, self.backend], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+            [self.api, self.token], stdin=subprocess.PIPE, stdout=subprocess.PIPE
         ) as process:
             request = self.request()
             for offset in range(0, len(request), 7):
@@ -249,20 +219,17 @@ class InstallerApi(unittest.TestCase):
             process.stdin.close()
             response = process.stdout.read()
             self.assertEqual(process.wait(timeout=5), 0)
-            self.assertIn(b'"operation":"status"', response)
+            self.assertEqual(
+                json.loads(response.split(b"\r\n\r\n", 1)[1]), {"ok": True, "closed": False}
+            )
 
 
 @unittest.skipUnless(shutil.which("clang"), "Clang required")
 class InstallerApiNative(unittest.TestCase):
-    """Exercise native C oc_firmware_guard, index.html parity, and smart pin reuse under ASan+UBSan."""
+    """Exercise native C oc_firmware_guard, oc_render_index_native, and record/fingerprint invariants."""
 
     def test_native_firmware_guard_and_completion_exemption(self):
-        import hashlib
-
-        from tests.test_installer_transaction import compile_host_api
-
-        api = compile_host_api()
-        assets = ROOT / "cmu/installer"
+        api = host_api()
         boot_id = "12345678-1234-1234-1234-123456789abc"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -291,13 +258,11 @@ class InstallerApiNative(unittest.TestCase):
             (ram / "runtime").symlink_to(sess)
             (sess / "token").write_text(TOKEN + "\n")
             (sess / "token").chmod(0o600)
-            (sess / "backend.sh").write_text('printf \'{"ok":false,"error":"fell_back"}\\n\'\n')
-            (sess / "backend.sh").chmod(0o700)
 
             pkg_dir = data / "packages/.new-pkg"
             pkg_dir.mkdir(mode=0o700)
             for name in ("VERSION", "services.tsv"):
-                shutil.copyfile(assets / name, pkg_dir / name)
+                shutil.copyfile(ASSETS / name, pkg_dir / name)
                 (pkg_dir / name).chmod(0o600)
             pkg_mf = "".join(
                 hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
@@ -387,7 +352,7 @@ class InstallerApiNative(unittest.TestCase):
                 ):
                     env.pop("OC_HOST_NONROOT", None)
                 proc = subprocess.run(
-                    [str(api), str(sess / "token"), str(sess / "backend.sh")],
+                    [str(api), str(sess / "token")],
                     input=raw,
                     env=env,
                     capture_output=True,
@@ -396,7 +361,6 @@ class InstallerApiNative(unittest.TestCase):
                 _, payload = proc.stdout.split(b"\r\n\r\n", 1)
                 return proc.returncode, json.loads(payload)
 
-            # Happy paths: status:settings and status:completion both pass real oc_firmware_guard.
             rc, ans = req("-", "status", "settings")
             self.assertEqual(rc, 0, ans)
             self.assertTrue(ans["ok"])
@@ -405,14 +369,11 @@ class InstallerApiNative(unittest.TestCase):
             self.assertEqual(rc, 0, comp)
             self.assertTrue(comp["completionReady"])
 
-            # Non-root without OC_HOST_NONROOT returns root_required.
             if os.getuid() != 0:
                 rc, ans = req("-", "status", "settings", env_override={"OC_HOST_NONROOT": None})
                 self.assertNotEqual(rc, 0)
                 self.assertEqual(ans["error"], "root_required")
 
-            # Missing GuiFramework.js & lvds_service: settings:status:completion STILL succeeds,
-            # while status:settings, dismiss:-, and set fail with unsupported_framework!
             fw_bytes, lvds_bytes = fw.read_bytes(), lvds.read_bytes()
             fw.unlink()
             lvds.unlink()
@@ -432,14 +393,12 @@ class InstallerApiNative(unittest.TestCase):
             self.assertEqual(err["error"], "unsupported_display")
             lvds.write_bytes(lvds_bytes)
 
-            # rw,noatime: status:settings succeeds (allow_rw=1), set refuses root_mount_changed (allow_rw=0).
             mounts.write_text(mounts_ro.replace("ro,noatime", "rw,noatime"))
             rc, ans = req("-", "status", "settings")
             self.assertEqual(rc, 0, ans)
             rc, err = req(snap_id, "set", "warning", "1", "0")
             self.assertEqual(err["error"], "root_mount_changed")
 
-            # Persistence ro -> persistence_unavailable; bad root mount -> invalid_boot_mounts; bad version -> unsupported_firmware.
             mounts.write_text(mounts_ro.replace("rw,noatime", "ro,noatime"))
             _, err = req("-", "status", "completion")
             self.assertEqual(err["error"], "persistence_unavailable")
@@ -451,30 +410,18 @@ class InstallerApiNative(unittest.TestCase):
             _, err = req("-", "status", "completion")
             self.assertEqual(err["error"], "unsupported_firmware")
 
-    def test_native_index_html_differential_parity_vs_awk(self):
-        """Assert byte-for-byte parity between oc_render_index_native and firmware.sh AWK across all 64 combos."""
-        import itertools
-
-        from tests.test_installer_boot_selection import NativeBootSelection, sha
-
-        # Extract the exact AWK renderer from firmware.sh.
-        fw_src = (ROOT / "cmu/installer/firmware.sh").read_text()
-        awk_start = fw_src.index("BEGIN{c=split(services")
-        awk_end = fw_src.index('\' "$src/index-$st.html"', awk_start)
-        awk_prog = fw_src[awk_start:awk_end]
-
-        assets = ROOT / "cmu/installer"
+    def test_native_index_html_matrix_64_combos(self):
+        """Exercise oc_render_index_native in oc-render.c across all 64 (w, b, a, aa, pa, sx) combos."""
         idx_tpl = (
             '<html><head><script src="common/js/logDefaults.js"></script></head>\n'
             "<body><script>/*@TOKEN@*/framework.init();</script></body></html>\n"
         )
-        # Compile a tiny host harness calling oc_render_index_native indirectly via real api
-        # is slow for 64 combos; compile oc-api.c's exact function in a 15-line host driver!
         with tempfile.TemporaryDirectory() as tmp:
             tdir = Path(tmp).resolve()
             harness = tdir / "idx_harness.c"
             harness.write_text(
-                '#include "oc-api.c"\n'
+                '#include "oc-core.h"\n'
+                "#include <stdlib.h>\n"
                 "int main(int argc, char **argv) {\n"
                 "  if (argc != 9) return 64;\n"
                 "  int pdir = (int)oc_openat(OC_CWD, argv[1], OC_DIRECTORY, 0);\n"
@@ -511,6 +458,7 @@ class InstallerApiNative(unittest.TestCase):
                     str(core / "oc-root.c"),
                     str(core / "oc-access.c"),
                     str(core / "oc-txn.c"),
+                    str(core / "oc-render.c"),
                     "-o",
                     str(bin_path),
                 ],
@@ -520,16 +468,22 @@ class InstallerApiNative(unittest.TestCase):
             pdir.mkdir(mode=0o700)
             cdir.mkdir(mode=0o700)
             for nm in ("system-hook.js", "base-logging.js"):
-                shutil.copyfile(assets / nm, pdir / nm)
+                shutil.copyfile(ASSETS / nm, pdir / nm)
             (pdir / "files.sha256").write_text(
-                "".join(sha(p.read_bytes()) + "  " + p.name + "\n" for p in sorted(pdir.iterdir()))
+                "".join(
+                    hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                    for p in sorted(pdir.iterdir())
+                )
             )
             for nm in ("index-on.html", "index-off.html"):
                 (cdir / nm).write_text(idx_tpl)
             (cdir / "files.sha256").write_text(
-                "".join(sha(p.read_bytes()) + "  " + p.name + "\n" for p in sorted(cdir.iterdir()))
+                "".join(
+                    hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                    for p in sorted(cdir.iterdir())
+                )
             )
-
+            base_log_text = (ASSETS / "base-logging.js").read_text().strip()
             for w, b, a, aa, pa, sx in itertools.product("01", repeat=6):
                 wdir = tdir / f"w_{w}{b}{a}{aa}{pa}{sx}"
                 wdir.mkdir(mode=0o700)
@@ -540,164 +494,198 @@ class InstallerApiNative(unittest.TestCase):
                     timeout=5,
                 )
                 self.assertEqual(c_res.returncode, 0, (w, b, a, aa, pa, sx, c_res.stderr))
-                awk_res = subprocess.run(
-                    [
-                        "awk",
-                        "-v",
-                        f"base={b}",
-                        "-v",
-                        f"warning={w}",
-                        "-v",
-                        f"services=android-auto={aa},pandora={pa},siriusxm={sx}",
-                        "-v",
-                        f"autoshow={a}",
-                        "-v",
-                        f"hook={pdir / 'system-hook.js'}",
-                        "-v",
-                        f"logger={pdir / 'base-logging.js'}",
-                        awk_prog,
-                        str(cdir / ("index-on.html" if w == "1" else "index-off.html")),
-                    ],
-                    capture_output=True,
-                    timeout=5,
-                )
-                self.assertEqual(awk_res.returncode, 0, awk_res.stderr)
-                self.assertEqual(
-                    (wdir / "index.html").read_bytes(),
-                    awk_res.stdout,
-                    f"Mismatch for w={w} b={b} a={a} aa={aa} pa={pa} sx={sx}",
-                )
-        _ = NativeBootSelection  # keep import clean
+                rendered = (wdir / "index.html").read_text()
+                self.assertEqual(base_log_text in rendered, b == "1")
+                self.assertEqual("feature/carplay.js" in rendered, a == "1")
+                hidden = []
+                if b == "1":
+                    hidden += ["stitcher", "dab", "tv", "aharadio", "dvd"]
+                if pa == "0":
+                    hidden.append("pandora")
+                if sx == "0":
+                    hidden += ["satradio", "xmaudio", "xmdata"]
+                if b == "1" and aa == "0":
+                    hidden.append("androidauto")
+                if w == "1" or hidden:
+                    self.assertIn(f'[{w},"{",".join(hidden)}"]', rendered)
+                else:
+                    self.assertNotIn("OPEN_CONNECT_APPLIED", rendered)
+                    self.assertNotIn("framework, [", rendered)
 
     def test_record_apply_phase_invariants_fail_closed_and_key_fingerprint(self):
         """Cover OC1|apply recovery, phase/before/after invariants, dismiss:usb symlink refusal,
-        --status-view missing ram refusal, and OC_HOST_SSH_KEYGEN fingerprint bounds."""
-        import hashlib
+        and OC_HOST_SSH_KEYGEN fingerprint bounds."""
+        api_bin = host_api()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            ram = root / "tmp/open-connect"
+            data = root / "tmp/mnt/data_persist/open-connect"
+            sess = ram / "sessions/session-apinv1"
+            for d in (ram, sess, data / "packages", data / "snapshots", data / "keys"):
+                d.mkdir(parents=True, mode=0o700)
+            for d in (ram, ram / "sessions", sess, data):
+                d.chmod(0o700)
+            (ram / "lock").write_bytes(b"")
+            (ram / "lock").chmod(0o600)
+            (ram / "runtime").symlink_to(sess)
 
-        from tests.test_installer_transaction import InstallerTransaction, compile_host_api
-
-        fixture = InstallerTransaction()
-        fixture.setUp()
-        self.addCleanup(fixture.doCleanups)
-        data = fixture.create("apply-invariants")
-        fixture.run_ok(data, "install")
-        fixture.backend_fixture(data)
-        api_bin = compile_host_api()
-        runtime = fixture.root / "runtime"
-        orig_rec_bytes = (data / "record").read_bytes()
-        base_fields = orig_rec_bytes.decode().strip().split("|")
-        cur_snap = base_fields[5]
-
-        def run_cli(args, *, extra_env=None):
-            env = {**fixture.host_api_env(), **(extra_env or {})}
-            proc = subprocess.run(
-                [str(api_bin), *args], capture_output=True, text=True, timeout=10, env=env
+            pkg_dir = data / "packages/.pkg"
+            pkg_dir.mkdir(mode=0o700)
+            for name in ("VERSION", "services.tsv"):
+                shutil.copyfile(ASSETS / name, pkg_dir / name)
+                (pkg_dir / name).chmod(0o600)
+            pmf = "".join(
+                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                for p in sorted(pkg_dir.iterdir())
             )
-            return proc, json.loads(proc.stdout)
+            (pkg_dir / "files.sha256").write_text(pmf)
+            pkg_id = hashlib.sha256(pmf.encode()).hexdigest()
+            pkg_dir.rename(data / "packages" / pkg_id)
+            shutil.copyfile(data / "packages" / pkg_id / "VERSION", sess / "VERSION")
 
-        # 1) Valid OC1|apply pending record succeeds on both Settings and USB status:settings.
-        apply_fields = list(base_fields)
-        apply_fields[1] = "apply"
-        apply_fields[6] = cur_snap
-        apply_fields[7] = base_fields[4]
-        (data / "record").write_text("|".join(apply_fields) + "\n")
-        proc, st = run_cli(["--handle", str(fixture.tools), "-", "status", "settings", "-", "-"])
-        self.assertEqual(proc.returncode, 0, (st, proc.stderr))
-        self.assertTrue(st["ok"] and st["pending"])
-        self.assertEqual(st["revision"], apply_fields[2])
-        # Switch pointer to usb-runtime and verify usb:status:settings also succeeds.
-        (runtime / "runtime").unlink()
-        (runtime / "usb-runtime").symlink_to(fixture.tools)
-        proc, ust = run_cli(["--handle", str(fixture.tools), "-", "status", "settings", "-", "-"])
-        self.assertEqual(proc.returncode, 0, (ust, proc.stderr))
-        self.assertTrue(ust["ok"] and ust["pending"])
-        self.assertEqual(ust["revision"], apply_fields[2])
-        # 2) dismiss:usb with a symlinked session/closed file must fail closed.
-        target = fixture.root / "symlink-closed-target"
-        target.write_text("")
-        (fixture.tools / "closed").symlink_to(target)
-        proc, derr = run_cli(["--handle", str(fixture.tools), "-", "dismiss", "usb", "-", "-"])
-        self.assertNotEqual(proc.returncode, 0)
-        self.assertFalse(derr["ok"])
-        (fixture.tools / "closed").unlink()
-        (runtime / "usb-runtime").unlink()
-        (runtime / "runtime").symlink_to(fixture.tools)
+            snap_work = data / "snapshots/.snap"
+            snap_work.mkdir(mode=0o700)
+            cfg = (
+                f"OC2\nbase=0\ncarplay-autoshow=0\nmetadata=755:{os.getuid()}:{os.getgid()}\n"
+                f"nvram=absent\npackage={pkg_id}\nservice-ids=android-auto,pandora,siriusxm\n"
+                "service.android-auto=1\nservice.pandora=1\nservice.siriusxm=1\n"
+                "touch=0\nwarning=0\nwireless=0\n"
+            )
+            (snap_work / "config").write_text(cfg)
+            (snap_work / "config").chmod(0o600)
+            smf = f"{hashlib.sha256(cfg.encode()).hexdigest()}  config\n"
+            (snap_work / "files.sha256").write_text(smf)
+            (snap_work / "files.sha256").chmod(0o600)
+            cur_snap = hashlib.sha256(smf.encode()).hexdigest()
+            snap_work.rename(data / "snapshots" / cur_snap)
 
-        # 3) Malformed phase <-> (before, after) combinations are rejected as invalid_record.
-        for bad_phase, bad_before, bad_after in (
-            ("active", cur_snap, cur_snap),
-            ("purge", cur_snap, cur_snap),
-            ("removed", cur_snap, "-"),
-            ("set", "-", "-"),
-            ("apply", "-", cur_snap),
-            ("install", cur_snap, "-"),
-        ):
-            with self.subTest(phase=bad_phase, before=bad_before, after=bad_after):
-                bad = list(base_fields)
-                bad[1], bad[6], bad[7] = bad_phase, bad_before, bad_after
-                (data / "record").write_text("|".join(bad) + "\n")
-                proc, err = run_cli(
-                    ["--handle", str(fixture.tools), "-", "status", "settings", "-", "-"]
+            base_fields = [
+                "OC1",
+                "active",
+                "1" * 32,
+                pkg_id,
+                cur_snap,
+                cur_snap,
+                "-",
+                "-",
+                "-",
+                "3",
+                "-",
+                "-",
+                "-",
+            ]
+            orig_rec_bytes = ("|".join(base_fields) + "\n").encode()
+            (data / "record").write_bytes(orig_rec_bytes)
+            (data / "record").chmod(0o600)
+            (ram / "selected").write_text(cur_snap + "\n")
+            (ram / "selected").chmod(0o600)
+
+            base_env = {
+                **os.environ,
+                "OC_HOST_ROOT": str(root),
+                "OC_HOST_NONROOT": "1",
+                "OC_HOST_SKIP_FW_GUARD": "1",
+                "OC_HOST_WIRELESS_FILE": str(root / "no-wireless"),
+            }
+
+            def run_cli(args, *, extra_env=None):
+                env = {**base_env, **(extra_env or {})}
+                proc = subprocess.run(
+                    [str(api_bin), *args], capture_output=True, text=True, timeout=10, env=env
                 )
-                self.assertNotEqual(proc.returncode, 0)
-                self.assertEqual(err, {"ok": False, "error": "invalid_record"})
-        (data / "record").write_bytes(orig_rec_bytes)
+                return proc, json.loads(proc.stdout)
 
-        # 4) --status-view with missing RAM dir fails closed with runtime_unavailable.
-        proc, rerr = run_cli(
-            ["--status-view", str(fixture.tools), "false", "false", "false", "-"],
-            extra_env={"OC_HOST_RAM": str(fixture.root / "missing-ram")},
-        )
-        self.assertNotEqual(proc.returncode, 0)
-        self.assertEqual(rerr, {"ok": False, "error": "runtime_unavailable"})
+            # 1) Valid OC1|apply pending record succeeds on both Settings and USB status:settings.
+            apply_fields = list(base_fields)
+            apply_fields[1] = "apply"
+            apply_fields[6] = cur_snap
+            apply_fields[7] = cur_snap
+            (data / "record").write_text("|".join(apply_fields) + "\n")
+            proc, st = run_cli(["--handle", str(sess), "-", "status", "settings", "-", "-"])
+            self.assertEqual(proc.returncode, 0, (st, proc.stderr))
+            self.assertTrue(st["ok"] and st["pending"])
+            self.assertEqual(st["revision"], apply_fields[2])
+            (ram / "runtime").unlink()
+            (ram / "usb-runtime").symlink_to(sess)
+            proc, ust = run_cli(["--handle", str(sess), "-", "status", "settings", "-", "-"])
+            self.assertEqual(proc.returncode, 0, (ust, proc.stderr))
+            self.assertTrue(ust["ok"] and ust["pending"])
+            self.assertEqual(ust["revision"], apply_fields[2])
 
-        # 5) oc_key_fingerprint via OC_HOST_SSH_KEYGEN: valid vs oversized (>=128 chars) rejected.
-        keys_dir = data / "keys"
-        keys_dir.mkdir(mode=0o700)
-        key_bytes = b"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKeyForOpenConnect test@host\n"
-        key_id = hashlib.sha256(key_bytes).hexdigest()
-        key_file = keys_dir / f"{key_id}.cmu"
-        key_file.write_bytes(key_bytes)
-        key_file.chmod(0o600)
-        snap_dir = data / "snapshots" / cur_snap
-        snap_work = data / "snapshots/.new-keytest"
-        shutil.copytree(snap_dir, snap_work)
-        (snap_work / "access").write_text(f"0|1|{key_id}|755:0:0|644:0:0|-\n")
-        (snap_work / "access").chmod(0o600)
-        (snap_work / "runlogin").write_text("rl\n")
-        (snap_work / "runlogin").chmod(0o600)
-        (snap_work / "sshd.conf").write_text("sc\n")
-        (snap_work / "sshd.conf").chmod(0o600)
-        (snap_work / "files.sha256").unlink()
-        mf = "".join(
-            hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
-            for p in sorted(snap_work.iterdir())
-        )
-        (snap_work / "files.sha256").write_text(mf)
-        (snap_work / "files.sha256").chmod(0o600)
-        key_snap_id = hashlib.sha256(mf.encode()).hexdigest()
-        snap_work.rename(data / "snapshots" / key_snap_id)
-        krec = list(base_fields)
-        krec[5] = key_snap_id
-        (data / "record").write_text("|".join(krec) + "\n")
-        (runtime / "selected").write_text(key_snap_id + "\n")
+            # 2) dismiss:usb with a symlinked session/closed file must fail closed.
+            target = root / "symlink-closed-target"
+            target.write_text("")
+            (sess / "closed").symlink_to(target)
+            proc, derr = run_cli(["--handle", str(sess), "-", "dismiss", "usb", "-", "-"])
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertFalse(derr["ok"])
+            (sess / "closed").unlink()
+            (ram / "usb-runtime").unlink()
+            (ram / "runtime").symlink_to(sess)
 
-        fake_kg = fixture.root / "fake-ssh-keygen"
-        fp_valid = "ab:cd:ef:01:23:45:67:89:ab:cd:ef:01:23:45:67:89"
-        fake_kg.write_text(f'#!/bin/sh\nprintf "256 %s %s (ED25519)\\n" "{fp_valid}" "$3"\n')
-        fake_kg.chmod(0o700)
-        proc, kst = run_cli(
-            ["--handle", str(fixture.tools), "-", "status", "settings", "-", "-"],
-            extra_env={"OC_HOST_SSH_KEYGEN": str(fake_kg)},
-        )
-        self.assertEqual(proc.returncode, 0, (kst, proc.stderr))
-        self.assertEqual(kst["fingerprint"], fp_valid)
-        # Oversized (>=128 char) fingerprint must be rejected (reported as "-"), never truncated.
-        fp_long = "ab:" * 45 + "cd"
-        fake_kg.write_text(f'#!/bin/sh\nprintf "256 %s %s (ED25519)\\n" "{fp_long}" "$3"\n')
-        proc, kst2 = run_cli(
-            ["--handle", str(fixture.tools), "-", "status", "settings", "-", "-"],
-            extra_env={"OC_HOST_SSH_KEYGEN": str(fake_kg)},
-        )
-        self.assertEqual(proc.returncode, 0, (kst2, proc.stderr))
-        self.assertEqual(kst2["fingerprint"], "-")
+            # 3) Malformed phase <-> (before, after) combinations rejected as invalid_record.
+            for bad_phase, bad_before, bad_after in (
+                ("active", cur_snap, cur_snap),
+                ("purge", cur_snap, cur_snap),
+                ("removed", cur_snap, "-"),
+                ("set", "-", "-"),
+                ("apply", "-", cur_snap),
+                ("install", cur_snap, "-"),
+            ):
+                with self.subTest(phase=bad_phase, before=bad_before, after=bad_after):
+                    bad = list(base_fields)
+                    bad[1], bad[6], bad[7] = bad_phase, bad_before, bad_after
+                    (data / "record").write_text("|".join(bad) + "\n")
+                    proc, err = run_cli(
+                        ["--handle", str(sess), "-", "status", "settings", "-", "-"]
+                    )
+                    self.assertNotEqual(proc.returncode, 0)
+                    self.assertEqual(err, {"ok": False, "error": "invalid_record"})
+            (data / "record").write_bytes(orig_rec_bytes)
+
+            # 4) oc_key_fingerprint via OC_HOST_SSH_KEYGEN: valid vs oversized (>=128 chars) rejected.
+            key_bytes = b"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKeyForOpenConnect test@host\n"
+            key_id = hashlib.sha256(key_bytes).hexdigest()
+            key_file = data / "keys" / f"{key_id}.cmu"
+            key_file.write_bytes(key_bytes)
+            key_file.chmod(0o600)
+            snap_key = data / "snapshots/.new-keytest"
+            shutil.copytree(data / "snapshots" / cur_snap, snap_key)
+            (snap_key / "access").write_text(f"0|1|{key_id}|755:0:0|644:0:0|-\n")
+            (snap_key / "access").chmod(0o600)
+            (snap_key / "runlogin").write_text("rl\n")
+            (snap_key / "runlogin").chmod(0o600)
+            (snap_key / "sshd.conf").write_text("sc\n")
+            (snap_key / "sshd.conf").chmod(0o600)
+            (snap_key / "files.sha256").unlink()
+            mf = "".join(
+                hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
+                for p in sorted(snap_key.iterdir())
+            )
+            (snap_key / "files.sha256").write_text(mf)
+            (snap_key / "files.sha256").chmod(0o600)
+            key_snap_id = hashlib.sha256(mf.encode()).hexdigest()
+            snap_key.rename(data / "snapshots" / key_snap_id)
+            krec = list(base_fields)
+            krec[5] = key_snap_id
+            (data / "record").write_text("|".join(krec) + "\n")
+            (ram / "selected").write_text(key_snap_id + "\n")
+
+            fake_kg = root / "fake-ssh-keygen"
+            fp_valid = "ab:cd:ef:01:23:45:67:89:ab:cd:ef:01:23:45:67:89"
+            fake_kg.write_text(f'#!/bin/sh\nprintf "256 %s %s (ED25519)\\n" "{fp_valid}" "$3"\n')
+            fake_kg.chmod(0o700)
+            proc, kst = run_cli(
+                ["--handle", str(sess), "-", "status", "settings", "-", "-"],
+                extra_env={"OC_HOST_SSH_KEYGEN": str(fake_kg)},
+            )
+            self.assertEqual(proc.returncode, 0, (kst, proc.stderr))
+            self.assertEqual(kst["fingerprint"], fp_valid)
+            fp_long = "ab:" * 45 + "cd"
+            fake_kg.write_text(f'#!/bin/sh\nprintf "256 %s %s (ED25519)\\n" "{fp_long}" "$3"\n')
+            proc, kst2 = run_cli(
+                ["--handle", str(sess), "-", "status", "settings", "-", "-"],
+                extra_env={"OC_HOST_SSH_KEYGEN": str(fake_kg)},
+            )
+            self.assertEqual(proc.returncode, 0, (kst2, proc.stderr))
+            self.assertEqual(kst2["fingerprint"], "-")

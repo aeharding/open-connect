@@ -46,6 +46,7 @@ class InstallerUSBEntry(unittest.TestCase):
             "session.sh": b"authored session fixture\n",
             "api": b"authored API fixture\n",
             "flush": b"authored flush fixture\n",
+            "install": b"authored install fixture\n",
             "install-only.bin": bytes(range(256)) * 31,
         }
         for name, content in self.members.items():
@@ -104,7 +105,8 @@ class InstallerUSBEntry(unittest.TestCase):
         for name, content in expected.items():
             self.assertEqual((staged / name).read_bytes(), content)
             self.assertEqual(
-                (staged / name).stat().st_mode & 0o777, 0o700 if name in ("api", "flush") else 0o600
+                (staged / name).stat().st_mode & 0o777,
+                0o700 if name in ("api", "flush", "install") else 0o600,
             )
 
     def test_changed_install_only_bytes_never_launch(self):

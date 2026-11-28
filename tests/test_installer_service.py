@@ -47,10 +47,9 @@ class InstallerUSBStaging(unittest.TestCase):
             (self.tools / "stat").symlink_to(shutil.which("gstat"))
         self.env = {**os.environ, "PATH": str(self.tools) + os.pathsep + os.environ["PATH"]}
         service = (ASSETS / "service.sh").read_text()
-        service = service.replace("usb:/tmp:oc-usb-", f"usb:{self.root}:oc-usb-")
+        service = service.replace("usb:/tmp:oc-usb-", f"usb:{self.root}:oc-usb-") + STAGING_SHA
         (self.source / "service.sh").write_text(service)
-        (self.source / "state.sh").write_text((ASSETS / "state.sh").read_text() + STAGING_SHA)
-        for name in ("api", "flush", "backend.sh", "runtime.js"):
+        for name in ("api", "flush", "install", "runtime.js"):
             (self.source / name).write_text("verified " + name + "\n")
         self.manifest(self.source)
 
@@ -63,7 +62,7 @@ class InstallerUSBStaging(unittest.TestCase):
             )
         )
         for path in source.iterdir():
-            path.chmod(0o700 if path.name in ("api", "flush") else 0o600)
+            path.chmod(0o700 if path.name in ("api", "flush", "install") else 0o600)
 
     def stage(self, source=None, kind="usb"):
         source = source or self.source
@@ -72,7 +71,7 @@ class InstallerUSBStaging(unittest.TestCase):
             [
                 "sh",
                 "-c",
-                'set -eu; umask 077; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                'set -eu; umask 077; P=$1; R=$2; . "$P/service.sh"; '
                 "uuid() { openssl rand -hex 16; }; "
                 'service_files "$3" "$4"; printf "%s\\n" "$runtime"',
                 "staging",
@@ -102,13 +101,13 @@ class InstallerUSBStaging(unittest.TestCase):
             self.assertEqual((old / name).stat().st_ino, (self.source / name).stat().st_ino)
         other = self.root / "oc-usb-DEF456"
         shutil.copytree(self.source, other)
-        (other / "backend.sh").write_text("different verified payload\n")
+        (other / "install").write_text("different verified payload\n")
         self.manifest(other)
         second = self.stage(other)
         self.assertEqual(second.returncode, 0, second.stderr)
         new = Path(second.stdout.strip())
         self.assertNotEqual((old / "token").read_bytes(), (new / "token").read_bytes())
-        self.assertEqual((new / "backend.sh").read_text(), "different verified payload\n")
+        self.assertEqual((new / "install").read_text(), "different verified payload\n")
         for name in originals:
             self.assertNotEqual((old / name).stat().st_ino, (new / name).stat().st_ino)
         shutil.rmtree(self.source)
@@ -249,7 +248,6 @@ class InstallerPrivateStaging(unittest.TestCase):
                 for path in (old, source):
                     shutil.copyfile(tools / "flush", path / "flush")
                     (path / "flush").chmod(0o700)
-                    shutil.copyfile(ASSETS / "state.sh", path / "state.sh")
                     service = (
                         (ASSETS / "service.sh")
                         .read_text()
@@ -301,7 +299,7 @@ class InstallerPrivateStaging(unittest.TestCase):
             tools.mkdir()
             if shutil.which("gstat"):
                 (tools / "stat").symlink_to(shutil.which("gstat"))
-            for name in ("state.sh", "service.sh", "usb-service.sh"):
+            for name in ("service.sh", "usb-service.sh"):
                 text = (ASSETS / name).read_text().replace("/tmp/open-connect", str(root))
                 text = text.replace(
                     "for cmd in /proc/[0-9]*/cmdline; do", 'for cmd in "$R"/no-processes/*; do'
@@ -335,14 +333,8 @@ class InstallerPrivateStaging(unittest.TestCase):
             shared = ignition / "flush"
             shared.write_text("verified flush fixture\n")
             for name in (
-                "backend.sh",
-                "state.sh",
-                "firmware.sh",
-                "access.sh",
-                "transaction.sh",
                 "service.sh",
                 "console.sh",
-                "touch.sh",
                 "preferences.awk",
                 "services.tsv",
                 "VERSION",
@@ -354,8 +346,7 @@ class InstallerPrivateStaging(unittest.TestCase):
             ):
                 (source / name).write_text("fixture bytes\n")
             shutil.copyfile(shared, source / "flush")
-            shutil.copyfile(ASSETS / "service.sh", source / "service.sh")
-            (source / "state.sh").write_text((ASSETS / "state.sh").read_text() + STAGING_SHA)
+            (source / "service.sh").write_text((ASSETS / "service.sh").read_text() + STAGING_SHA)
             (source / "files.sha256").write_text(
                 "".join(
                     hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
@@ -377,7 +368,7 @@ class InstallerPrivateStaging(unittest.TestCase):
                         [
                             "sh",
                             "-c",
-                            'set -eu; umask 077; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                            'set -eu; umask 077; P=$1; R=$2; . "$P/service.sh"; '
                             "uuid() { openssl rand -hex 16; }; "
                             'service_files "$3" boot; printf "%s\\n" "$runtime"',
                             "staging",
@@ -429,26 +420,20 @@ class InstallerPrivateStaging(unittest.TestCase):
             feature.mkdir(mode=0o700)
             (feature / "runtime.js").write_text("foreign shared bytes\n")
             for name in (
-                "backend.sh",
-                "state.sh",
-                "firmware.sh",
-                "access.sh",
-                "transaction.sh",
                 "service.sh",
                 "console.sh",
-                "touch.sh",
                 "preferences.awk",
                 "services.tsv",
                 "VERSION",
                 "api",
                 "flush",
+                "install",
                 "runtime.js",
                 "dialog.js",
                 "settings.js",
             ):
                 (source / name).write_text("fixture bytes\n")
-            shutil.copyfile(ASSETS / "service.sh", source / "service.sh")
-            (source / "state.sh").write_text((ASSETS / "state.sh").read_text() + STAGING_SHA)
+            (source / "service.sh").write_text((ASSETS / "service.sh").read_text() + STAGING_SHA)
             (source / "files.sha256").write_text(
                 "".join(
                     hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
@@ -463,14 +448,12 @@ class InstallerPrivateStaging(unittest.TestCase):
                 with self.subTest(kind=kind):
                     manifest = hashlib.sha256((source / "files.sha256").read_bytes()).hexdigest()
                     if kind == "full":
-                        # A missing copied member also exercises failure before
-                        # verification, with a complete private directory owner.
-                        (source / "backend.sh").unlink()
+                        (source / "install").unlink()
                     result = subprocess.run(
                         [
                             "sh",
                             "-c",
-                            'set -eu; umask 077; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                            'set -eu; umask 077; P=$1; R=$2; . "$P/service.sh"; '
                             'service_files "$3" "$4"',
                             "test",
                             source,
@@ -516,24 +499,21 @@ class InstallerService(unittest.TestCase):
         # Modern host BusyBox replaced the target 1.19.2 timeout's -t syntax.
         source = source.replace("timeout -t 180", "timeout 180")
         (self.source / "service.sh").write_text(source)
-        shutil.copyfile(ASSETS / "state.sh", self.source / "state.sh")
         (self.source / "api").write_text(
             "#!/usr/bin/python3\n"
             "import json,sys\nfrom pathlib import Path\n"
             "while sys.stdin.buffer.readline().strip(): pass\n"
+            "sess=Path(sys.argv[1]).parent\n"
             "body=json.dumps({'token':Path(sys.argv[1]).read_text().strip(),"
-            "'backend':Path(sys.argv[2]).read_text() if Path(sys.argv[2]).exists() else 'native-boot\\n'}).encode()\n"
+            "'backend':(sess/'install').read_text() if (sess/'install').exists() else 'native-boot\\n'}).encode()\n"
             "sys.stdout.buffer.write(b'HTTP/1.0 200 OK\\r\\nContent-Length: '+"
             "str(len(body)).encode()+b'\\r\\n\\r\\n'+body)\n"
         )
         from tests.host_bins import copy_host_flush
 
         copy_host_flush(self.source / "flush")
-        (self.source / "backend.sh").write_text("backend-one\n")
+        (self.source / "install").write_text("backend-one\n")
         for name in (
-            "firmware.sh",
-            "access.sh",
-            "transaction.sh",
             "console.sh",
             "preferences.awk",
             "services.tsv",
@@ -544,7 +524,6 @@ class InstallerService(unittest.TestCase):
             "settings.js",
         ):
             shutil.copyfile(ASSETS / name, self.source / name)
-        shutil.copyfile(ROOT / "cmu/features/touch/setting.sh", self.source / "touch.sh")
         usb = (
             (ASSETS / "usb-service.sh").read_text().replace("/tmp/open-connect", str(self.runtime))
         )
@@ -555,7 +534,7 @@ class InstallerService(unittest.TestCase):
 
     def manifest(self):
         for item in self.source.iterdir():
-            item.chmod(0o700 if item.name in ("api", "flush") else 0o600)
+            item.chmod(0o700 if item.name in ("api", "flush", "install") else 0o600)
         (self.source / "files.sha256").write_text(
             "".join(
                 hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n"
@@ -590,7 +569,7 @@ class InstallerService(unittest.TestCase):
 
     def boot_command(self):
         return (
-            'set -eu; P="$1"; R="$2"; . "$P/state.sh"; . "$P/service.sh"; '
+            'set -eu; P="$1"; R="$2"; . "$P/service.sh"; '
             'service_lock boot; service_stage boot "$(sha "$P/files.sha256")"'
         )
 
@@ -630,15 +609,10 @@ class InstallerService(unittest.TestCase):
             "LICENSE",
             "boot-select",
             "native.bin",
+            "install",
             "sm-profile.awk",
             "preferences.awk",
             "services.tsv",
-            "backend.sh",
-            "state.sh",
-            "firmware.sh",
-            "access.sh",
-            "transaction.sh",
-            "touch.sh",
         ):
             self.assertFalse((session / name).exists())
         for name in ("runtime.js", "dialog.js", "settings.js", "service.sh", "flush"):
@@ -735,7 +709,7 @@ class InstallerService(unittest.TestCase):
         other = self.root / "oc-usb-DEF456"
         shutil.copytree(self.source, other)
         self.source = other
-        (other / "backend.sh").write_text("backend-two\n")
+        (other / "install").write_text("backend-two\n")
         self.manifest()
         second = self.invoke()
         self.assertEqual(second.returncode, 0, second.stderr)
@@ -778,12 +752,12 @@ class InstallerService(unittest.TestCase):
             other = self.root / "oc-usb-DEF456"
             shutil.copytree(self.source, other)
             self.source = other
-            (other / "backend.sh").write_text("backend-two\n")
+            (other / "install").write_text("backend-two\n")
             self.manifest()
             second = self.invoke()
             self.assertEqual(second.returncode, 0, second.stderr)
             self.assertTrue((old / "closed").is_file())
-            self.assertEqual((old / "backend.sh").read_text(), "backend-one\n")
+            self.assertEqual((old / "install").read_text(), "backend-one\n")
             self.assertEqual(self.client()["backend"], "backend-two\n")
             # Retirement must still see this old child after its listener stops.
             time.sleep(1.1)
@@ -883,7 +857,7 @@ class InstallerService(unittest.TestCase):
     def test_sm_worker_refuses_corrupt_library_before_sourcing(self):
         worker, package, _ = self.installed_worker()
         marker = self.root / "unverified-ran"
-        with (package / "state.sh").open("a") as target:
+        with (package / "service.sh").open("a") as target:
             target.write("\ntouch " + str(marker) + "\n")
         result = subprocess.run(["sh", worker, "boot"], capture_output=True, text=True, timeout=10)
         self.assertNotEqual(result.returncode, 0)
@@ -908,7 +882,7 @@ class InstallerService(unittest.TestCase):
         for symlink in (False, True):
             with self.subTest(symlink=symlink):
                 if symlink:
-                    selected.symlink_to(self.source / "state.sh")
+                    selected.symlink_to(self.source / "service.sh")
                 result = subprocess.run(
                     [self.busybox, "sh", worker, "boot"], capture_output=True, timeout=10
                 )
@@ -933,7 +907,7 @@ class InstallerService(unittest.TestCase):
             [
                 "sh",
                 "-c",
-                'set -eu; P=$1; R=$2; . "$P/state.sh"; . "$P/service.sh"; '
+                'set -eu; P=$1; R=$2; . "$P/service.sh"; '
                 'service_lock usb; service_files "$(sha "$P/files.sha256")"; printf "%s\\n" "$runtime"',
                 "test",
                 self.source,
@@ -950,7 +924,7 @@ class InstallerService(unittest.TestCase):
         before = (self.runtime / "usb-listener").read_bytes()
         result = self.recovery_files()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue((Path(result.stdout.strip()) / "state.sh").is_file())
+        self.assertTrue((Path(result.stdout.strip()) / "service.sh").is_file())
         self.assertEqual((self.runtime / "usb-listener").read_bytes(), before)
         self.assertEqual(self.client()["backend"], "backend-one\n")
 
@@ -961,7 +935,7 @@ class InstallerService(unittest.TestCase):
             listener.listen()
             result = self.recovery_files()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue((Path(result.stdout.strip()) / "backend.sh").is_file())
+        self.assertTrue((Path(result.stdout.strip()) / "install").is_file())
         self.assertFalse((self.runtime / "runtime").exists())
         self.assertFalse((self.runtime / "listener").exists())
 
@@ -1069,10 +1043,7 @@ class InstallerService(unittest.TestCase):
 
     def test_term_at_ready_handoff_is_not_forgotten(self):
         script = self.source / "service.sh"
-        needle = (
-            "trap - EXIT HUP INT TERM\n"
-            "unset pending_pid pending_start pending_work pending_cancel pending_published"
-        )
+        needle = "trap - EXIT HUP INT TERM\nunset p_pid p_st p_wk p_can p_pub"
         source = script.read_text()
         self.assertEqual(source.count(needle), 1)
         script.write_text(source.replace(needle, self.busybox + " usleep 500000\n" + needle, 1))

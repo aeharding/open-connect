@@ -22,6 +22,28 @@ const char *const oc_root_paths[19]={
     "/jci/devicemanager/libdevicemanager.so","/usr/bin/rungetty","/usr/sbin/sshd","/usr/bin/ssh-keygen",
     "/jci/gui/framework/js/GuiFramework.js","/jci/lvds/lvds_service"
 };
+const char *const oc_root_digests[19]={
+    "fa3484d7c644393ab6cb083990e483201129a207e7755459296dde8ec82a4d84",
+    "92034449e76689b995fcd369d584f441829a0ee6e8d74c858cd92f4049f7b27d",
+    "2c66145fe9c76cbbed471b6e190c57837c72ae5a3cf8f750c6c87a689ded20da",
+    "034d5339116aa2f2da81ec6caaf3426081c452544f3b527af3a2121b7a7e0bca",
+    "ef9550fa084a34b6a997d2e488c41e50667b409fa2e6ad9c896429c74dc705f0",
+    "32431c6b74c8ba531fcc10c50748075416e0f7dc1a3f903f182d816a0f3f5fc2",
+    "b0e116b941f29078ced19b864a1b888cf76d8bc3e4974af081efca4693e5c420",
+    "23106b04bd6bad514dd879b217a34a0f0289d58f86a0ae022488be6a022ca8e1",
+    "a83dd588b54531475024b7cd048be1d0e11556abd68bbbcc334cc5ede7534cd1",
+    "1489e544e483c878fa000be378a3bbb92dcc9965aadc5029a58f3fc1147337da",
+    "1d2c6c1d583493a5b1128a52a75937c6bed720117b1344168bc9b27df6893e29",
+    "9f1811e2d9a905ba9060a9c20b8d91c18aaa5c079512e3261b51cf0114fc857b",
+    "0160354861d0dddf09f05dc69df95f14be074de706a4d7656166666d587439d9",
+    "88d6291d74fe993536ec724064b8ccfbc133b2341282b93cfc7fb2927fbbc563",
+    "0b205e203510bef6d20b910f31c88a7f9c141048c41b1704eed20b880d67ac82",
+    "f83f7661e0ba41da379936ba319f40e228cd14d470c3081f19d8fbec8297a195",
+    "b735d7dd9a9a45badf18b2a9d0e32ca791a4e582400e57378a27b2a2d92ae9c9",
+    "ca2889f7cb0361610e57b43004572fdd53c00d1d3003409bb92c744fcb253f70",
+    "19a56b9e7b9f7399b152dbc7e8bd8de3fa01f154e45e8981becec6e96d3f70eb"
+};
+const char *const oc_orig_autostart_digest="a8d019650c2a17a50b5ff39435f916c2cbeb3556af128fd913b9714b380e06bd";
 const char *const oc_composed_names[12]={
     "autostart","uia.so","mmui.so","mmui.xml","index-on.html","index-off.html",
     "sm-normal-on.conf","sm-normal-off.conf","sm-wcp-on.conf","sm-wcp-off.conf","vui.so","vui.xml"

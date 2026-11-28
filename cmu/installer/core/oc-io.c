@@ -35,6 +35,7 @@ long oc_openat(int parent, const char *path, unsigned options, unsigned mode) {
 }
 long oc_read(int fd, void *p, unsigned n) { long r=read(fd,p,n); return r<0?-errno:r; }
 long oc_write(int fd, const void *p, unsigned n) { long r=write(fd,p,n); return r<0?-errno:r; }
+long oc_seek_set(int fd, unsigned off) { off_t r=lseek(fd,(off_t)off,SEEK_SET); return r<0?-errno:(long)r; }
 long oc_close(int fd) { return close(fd)<0?-errno:0; }
 long oc_sync(int fd) { return fsync(fd)<0?-errno:0; }
 
@@ -251,6 +252,7 @@ long oc_openat(int parent, const char *path, unsigned options, unsigned mode) {
 }
 long oc_read(int fd, void *p, unsigned n) { return oc_syscall4(3,fd,(long)p,n,0); }
 long oc_write(int fd, const void *p, unsigned n) { return oc_syscall4(4,fd,(long)p,n,0); }
+long oc_seek_set(int fd, unsigned off) { return oc_syscall4(19,fd,(long)off,0,0); }
 long oc_close(int fd) { return oc_syscall4(6,fd,0,0,0); }
 long oc_sync(int fd) { return oc_syscall4(118,fd,0,0,0); }
 long oc_metadata(int fd, const char *path, OcMeta *m) {

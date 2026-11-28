@@ -1737,7 +1737,8 @@ class NativeInstall(unittest.TestCase):
             self.assertNotEqual(p_pv.returncode, 0)
             self.assertEqual(r_pv["error"], "base_inputs_changed")
             self.assertFalse(data.exists())
-            pan_vui.write_bytes(saved_pan_vui)
+            # Keep pan_vui drifted across step 3 (base=1 + service.pandora=0) to prove disabled-service
+            # VUI plugins do not block oc_check_preset_pins(), then restore before service.pandora=1 import.
 
             # Malformed/truncated ui-modules.tsv fails closed with zero flash writes!
             saved_uimod = (usb_sess / "ui-modules.tsv").read_bytes()
@@ -1788,6 +1789,7 @@ class NativeInstall(unittest.TestCase):
                 b"service.siriusxm=1\r\n"
             )
             p, r = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
+            pan_vui.write_bytes(saved_pan_vui)
             self.assertEqual(p.returncode, 0, (r, p.stderr))
             self.assertTrue(r["ok"] and r["installed"])
             self.assertIs(r["wirelessFactory"], False)
@@ -1872,26 +1874,31 @@ class NativeInstall(unittest.TestCase):
             )
             self.assertIn("/tmp/mnt/sda1 vfat ro,noatime", (root / "proc/self/mounts").read_text())
 
-            # Export with symlink open-connect.prefs refused without RW remount
+            # Export with symlink open-connect.prefs refused BEFORE RW remount (env_wl lets remount run if reached;
+            # sentinel mtime on proc/self/mounts proves oc_usb_remount never touched it!)
+            mounts_p = root / "proc/self/mounts"
             (vol / "open-connect.prefs").unlink()
             (vol / "open-connect.prefs").symlink_to(target)
-            env_ro_fail = {**env_wl, "OC_HOST_USB_REMOUNT_FAIL": "1"}
+            os.utime(mounts_p, (1, 1))
             p_ex_sym, r_ex_sym = self._call_api(
-                api_bin, set_sess, snap2, "export", "prefs", env=env_ro_fail
+                api_bin, set_sess, snap2, "export", "prefs", env=env_wl
             )
             self.assertNotEqual(p_ex_sym.returncode, 0)
             self.assertEqual(r_ex_sym["error"], "export_failed")
+            self.assertEqual(mounts_p.stat().st_mtime_ns, 1_000_000_000)
             self.assertTrue((vol / "open-connect.prefs").is_symlink())
             (vol / "open-connect.prefs").unlink()
             (vol / "open-connect.prefs").write_text(exported)
 
             # Export with symlink open-connect.prefs.tmp refused BEFORE RW remount AND without unlinking .tmp
             (vol / "open-connect.prefs.tmp").symlink_to(target)
+            os.utime(mounts_p, (1, 1))
             p_ex_tmp, r_ex_tmp = self._call_api(
-                api_bin, set_sess, snap2, "export", "prefs", env=env_ro_fail
+                api_bin, set_sess, snap2, "export", "prefs", env=env_wl
             )
             self.assertNotEqual(p_ex_tmp.returncode, 0)
             self.assertEqual(r_ex_tmp["error"], "export_failed")
+            self.assertEqual(mounts_p.stat().st_mtime_ns, 1_000_000_000)
             self.assertTrue((vol / "open-connect.prefs.tmp").is_symlink())
             self.assertEqual((vol / "open-connect.prefs").read_text(), exported)
             (vol / "open-connect.prefs.tmp").unlink()

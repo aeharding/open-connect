@@ -843,6 +843,29 @@ class InstallerPreferences(unittest.TestCase):
                     0,
                 )
 
+    def test_self_closing_affinity_service_and_stray_dependency_refused(self):
+        config = self.fresh().replace(b"base=0", b"base=1")
+        # Self-closing jciVBS must not emit malformed XML (`.../ affinity_mask="0x03">`).
+        self_closing = self.profile().replace(
+            '<service type="process" name="jciVBS" autorun="yes" reset_board="yes">',
+            '<service type="process" name="jciVBS" autorun="yes" reset_board="yes"/>',
+            1,
+        )
+        self.assertNotEqual(self.compose(self_closing, config).returncode, 0)
+        # Stray dependency after </service> of stage_vr must not inherit sm_name="stage_vr".
+        stray = self.profile().replace(
+            '  <service type="process" name="stage_vr" autorun="yes" reset_board="yes" args="5s">\n'
+            '    <dependency type="service" value="keep" />\n'
+            '    <dependency type="service" value="blm_ira_aha" />\n'
+            "  </service>",
+            '  <service type="process" name="stage_vr" autorun="yes" reset_board="yes" args="5s">\n'
+            '    <dependency type="service" value="keep" />\n'
+            "  </service>\n"
+            '    <dependency type="service" value="blm_ira_aha" />',
+            1,
+        )
+        self.assertNotEqual(self.compose(stray, config).returncode, 0)
+
     def test_adding_a_service_requires_only_a_catalog_row(self):
         with self.catalog.open("a") as stream:
             stream.write("z-test|Test|1|optional_leaf|Load after restart.|Stop after restart.\n")

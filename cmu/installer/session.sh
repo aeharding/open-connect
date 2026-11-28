@@ -64,7 +64,6 @@ logger -t open-connect "OCUSB|$token|start"
 if test -f /tmp/open-connect/feature/runtime.js &&
     grep -F -q 'OC_USB_OFFER_V1:' /tmp/open-connect/feature/runtime.js; then
     R=/tmp/open-connect
-    . "$work/service.sh"
     service_lock usb
     if post_restart locked; then exit 0; fi
     entry_live || exit 0
@@ -75,8 +74,8 @@ if test -f /tmp/open-connect/feature/runtime.js &&
     case "$name" in *[!a-zA-Z0-9-]*) exit 1;; esac
     # Discovery is offered only after final retained-stick/ownership checks,
     # serialized with Done. An older runner or suppressed session offers nothing.
-    (set -C; printf '%s|%s\n' "$name" "$token" > "$runtime/.offer")
-    mv "$runtime/.offer" "$runtime/offer"
+    (set -C; printf '%s|%s\n' "$name" "$token" > "$runtime/offer.next")
+    mv "$runtime/offer.next" "$runtime/offer"
     exec 9>&-
 else
     # Stock and older installed releases have no browser-side USB receiver.

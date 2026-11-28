@@ -43,11 +43,30 @@ needed() {
 
 case "${1:-start}" in
 retire) retire;;
+drain)
+    trap 'rm -f "$P/draining"' EXIT
+    count=0
+    while test "$count" -lt 130; do
+        test "$(readlink -f "$service_runtime" 2>/dev/null || :)" = "$P" || exit 0
+        needed "$P" || break
+        count=$((count+1))
+        sleep 1
+    done
+    rm -f "$P/draining"
+    trap - EXIT
+    exec sh "$P/usb-service.sh" stop
+    ;;
 stop)
     service_lock usb
     : > "$P/closed"
     if test "$(readlink -f "$service_runtime" 2>/dev/null || :)" = "$P"; then
-        if needed "$P"; then exit 0; fi
+        if needed "$P"; then
+            if (set -C; : > "$P/draining") 2>/dev/null; then
+                exec 8>&- 9>&-
+                sh "$P/usb-service.sh" drain </dev/null >/dev/null 2>&1 &
+            fi
+            exit 0
+        fi
         stop_listener
         rm -f "$service_runtime" "$service_listener"
     fi

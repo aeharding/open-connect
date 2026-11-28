@@ -366,7 +366,7 @@ int oc_load(OcBoot *b) {
     if (b->package<0||b->composed<0||
         !oc_load_manifest(b->package,b->record_fields[3],b->package_manifest,sizeof b->package_manifest,&b->pkg)||b->pkg.count>64) return 0;
     const char *mandatory[]={"boot-select","service.sh",
-        "ignition","flush","api","runtime.js","dialog.js","settings.js","VERSION","INSTANCE",
+        "ignition","flush","api","install","runtime.js","dialog.js","settings.js","VERSION","INSTANCE",
         "preferences.awk","services.tsv","sm-profile.awk"};
     for (unsigned i=0; i<sizeof mandatory/sizeof *mandatory; ++i) if (!oc_digest(&b->pkg,mandatory[i])) return 0;
     b->access_present=oc_digest(&b->current,"access")!=0;

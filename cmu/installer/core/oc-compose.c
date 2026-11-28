@@ -12,7 +12,6 @@ static struct {
     char mf[8192];
     char cat[16384];
     char names[80][64];
-    char deps[24576];
 } cm;
 
 static __attribute__((noinline)) int cerr(const char **out, const char *e) { *out=e; return 0; }
@@ -237,7 +236,7 @@ static int oc_compose_uia(int pkg_fd, int orig_fd, int work_fd) {
     if (ok) {
         long lbfd=oc_openat(pkg_fd,"layout.bin",OC_READ,0);
         OcMeta lbm={0}; unsigned lb_len=0;
-        if (lbfd<0 || oc_stat((int)lbfd,&lbm)<0 || lbm.size>16384) ok=0;
+        if (lbfd<0 || oc_stat((int)lbfd,&lbm)<0 || (lbm.mode&OC_TYPE)!=OC_REGULAR || lbm.size>16384) ok=0;
         while (ok && lb_len<(unsigned)lbm.size) {
             long r=oc_read((int)lbfd,cm.io+lb_len,(unsigned)lbm.size-lb_len);
             if (r==-4) continue;
@@ -265,7 +264,8 @@ static int oc_compose_uia(int pkg_fd, int orig_fd, int work_fd) {
             *be=0;
             oc_u64 dst_off=0, src_off=0;
             if (!oc_decimal(a,&dst_off) || !oc_decimal(b,&src_off) ||
-                src_off+4>(oc_u64)lb_len || dst_off+4>(oc_u64)out_total) { ok=0; break; }
+                src_off>(oc_u64)lb_len || (oc_u64)lb_len-src_off<4 ||
+                dst_off>(oc_u64)out_total || (oc_u64)out_total-dst_off<4) { ok=0; break; }
             ok=oc_seek_set((int)ofd,(unsigned)dst_off)==(long)dst_off &&
                 oc_write_all((int)ofd,cm.io+(unsigned)src_off,4);
         }
@@ -742,12 +742,30 @@ static int oc_build_install_prefs(int data_fd, const char *pkg_id, const char *n
 
     static char parse_buf[1024];
     if (old_cfg_text && *old_cfg_text) {
+        OcPrefs old_p;
         if (!oc_join(parse_buf,sizeof parse_buf,"",old_cfg_text) ||
-            !oc_prefs_parse(parse_buf,&cat,1,out_prefs)) return 0;
+            !oc_prefs_parse(parse_buf,0,1,&old_p)) return 0;
+        /* Every prior service must exist in the new catalog or be the retired "dvd" service. */
+        for (unsigned j=0; j<old_p.svc_count; ++j) {
+            int known=oc_equal(old_p.svc_ids[j],"dvd");
+            for (unsigned i=0; !known && i<cat.count; ++i)
+                if (oc_equal(old_p.svc_ids[j],cat.rows[i].id)) known=1;
+            if (!known) return 0;
+        }
+        *out_prefs=old_p;
         out_prefs->package=(char *)pkg_id;
         out_prefs->nvram=(char *)nvram;
         out_prefs->metadata=(char *)meta;
         if (!out_prefs->has_autoshow) { out_prefs->autoshow="0"; out_prefs->has_autoshow=1; }
+        out_prefs->svc_count=cat.count;
+        for (unsigned i=0; i<cat.count; ++i) {
+            char *val=cat.rows[i].def;
+            for (unsigned j=0; j<old_p.svc_count; ++j)
+                if (oc_equal(old_p.svc_ids[j],cat.rows[i].id)) { val=old_p.svc_vals[j]; break; }
+            out_prefs->svc_ids[i]=cat.rows[i].id;
+            out_prefs->svc_vals[i]=val;
+            if (oc_equal(cat.rows[i].id,"pandora")) out_prefs->pandora=val;
+        }
     } else {
         out_prefs->is_oc2=1;
         out_prefs->package=(char *)pkg_id;
@@ -900,9 +918,9 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
         if (!pcok || !oc_state_capture(root,root_path,data_fd,old_pkg,awfd,old_cfg,session_dir,owner,group,before_id)) {
             ferr="checkpoint_failed"; goto fail;
         }
-        /* Check base=1 native log pins before mutating packages. */
-        if (oc_equal(cur->base,"1")) {
-            if (!oc_check_active_pins(root,data_fd,old_pkg,rec[5],"1","0",&ferr)) goto fail;
+        /* Check active base=1 / touch=2 pins before mutating packages. */
+        if (oc_equal(cur->base,"1") || oc_equal(cur->touch,"2")) {
+            if (!oc_check_active_pins(root,data_fd,old_pkg,rec[5],cur->base,cur->touch,&ferr)) goto fail;
         }
     } else {
         /* Stock autostart + stock runlogin verification. */
@@ -1046,8 +1064,8 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
     }
     (void)oc_close(awfd); awfd=-1;
     oc_rm_subdir(data_fd,aw_leaf); aw_leaf[0]=0;
-    if (oc_equal(new_prefs.base,"1") &&
-        !oc_check_active_pins(root,data_fd,pkg_id,after_id,"1","0",&ferr)) goto fail;
+    if ((oc_equal(new_prefs.base,"1") || oc_equal(new_prefs.touch,"2")) &&
+        !oc_check_active_pins(root,data_fd,pkg_id,after_id,new_prefs.base,new_prefs.touch,&ferr)) goto fail;
 
     /* 9. Transactional prepare + reconcile (caller api runs GC under lock_fd). */
     char prep_nonce[33];

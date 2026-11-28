@@ -160,7 +160,90 @@ def build(output, paths, host_cc):
 
 
 def base_logging_contract(output, paths, node, composed):
-    _ = (output, paths, node, composed)
+    data = output / "compose"
+    package = data / "packages" / composed.name
+    harness = output / "idx_harness.c"
+    harness.write_text(
+        '#include "oc-core.h"\n'
+        "#include <stdlib.h>\n"
+        "int main(int argc, char **argv) {\n"
+        "  if (argc != 9) return 64;\n"
+        "  int pdir = (int)oc_openat(OC_CWD, argv[1], OC_DIRECTORY, 0);\n"
+        "  int cdir = (int)oc_openat(OC_CWD, argv[2], OC_DIRECTORY, 0);\n"
+        "  int wdir = (int)oc_openat(OC_CWD, argv[3], OC_DIRECTORY, 0);\n"
+        "  char pmf_buf[8192], cmf_buf[4096]; OcManifest pmf, cmf;\n"
+        '  if (oc_text(pdir, "files.sha256", pmf_buf, sizeof pmf_buf, 0) <= 0 || !oc_manifest(pmf_buf, &pmf, 0)) return 2;\n'
+        '  if (oc_text(cdir, "files.sha256", cmf_buf, sizeof cmf_buf, 0) <= 0 || !oc_manifest(cmf_buf, &cmf, 0)) return 3;\n'
+        "  OcPrefs p = {0};\n"
+        "  p.warning = argv[4]; p.base = argv[5]; p.autoshow = argv[6];\n"
+        '  p.svc_ids[0] = "android-auto"; p.svc_vals[0] = argv[7];\n'
+        '  p.svc_ids[1] = "pandora"; p.svc_vals[1] = argv[8];\n'
+        '  p.svc_ids[2] = "siriusxm"; p.svc_vals[2] = getenv("OC_SXM");\n'
+        "  p.svc_count = 3;\n"
+        "  return oc_render_index_native(pdir, &pmf, cdir, &cmf, wdir, &p) ? 0 : 1;\n"
+        "}\n"
+    )
+    core = ROOT / "cmu/installer/core"
+    idx_bin = output / "idx_harness"
+    run(
+        [
+            "clang",
+            "-DOC_HOST",
+            "-I",
+            str(core),
+            str(harness),
+            *(
+                str(core / c)
+                for c in (
+                    "oc-hash.c",
+                    "oc-io.c",
+                    "oc-manifest.c",
+                    "oc-record.c",
+                    "oc-config.c",
+                    "oc-guard.c",
+                    "oc-root.c",
+                    "oc-access.c",
+                    "oc-txn.c",
+                    "oc-render.c",
+                )
+            ),
+            "-o",
+            str(idx_bin),
+        ],
+        output,
+        "build-idx-harness",
+    )
+    for base in (0, 1):
+        for warning in (0, 1):
+            destination = output / f"base-{base}-warning-{warning}"
+            destination.mkdir(mode=0o700)
+            run(
+                [
+                    str(idx_bin),
+                    str(package),
+                    str(composed),
+                    str(destination),
+                    str(warning),
+                    str(base),
+                    "0",
+                    "1",
+                    "1",
+                ],
+                output,
+                f"render-base-{base}-warning-{warning}",
+                env={**os.environ, "OC_SXM": "1"},
+            )
+            run(
+                [
+                    node,
+                    ROOT / "tests/fixtures/base-logging.js",
+                    destination / "index.html",
+                    paths["log-defaults.js"],
+                    "warn" if base else "info",
+                ],
+                output,
+                f"logging-base-{base}-warning-{warning}",
+            )
 
 
 def host_contract(output, paths, host_cc, node, composed):

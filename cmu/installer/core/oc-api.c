@@ -542,7 +542,7 @@ typedef struct {
     const char *session_dir, *root_path, *ptr_name;
     const char *rev, *op, *arg, *exp, *des;
     int root, ram, lock_fd, data, snaps_fd;
-    int is_usb, exists, empty_state, allow_fallback;
+    int is_usb, exists, empty_state;
     long owner, group;
     char rec_buf[1024], *rec[13];
     char sel_snap[65], settings_pkg[65];
@@ -620,9 +620,7 @@ static __attribute__((noinline)) int oc_handle_completion(OcApiCtx *c, int is_di
         if (ready) {
             char *u_argv[]={
                 "sh","-c",
-                "P=$1; . \"$P/service.sh\"; current_boot_id() { printf '%s\\n' \"$2\"; }; "
-                "file() { test -f \"$1\" && test ! -L \"$1\" && test \"$(readlink -f \"$1\")\" = \"$1\"; }; "
-                "service_usb_observe",
+                "P=$1; B=$2; . \"$P/service.sh\"; current_boot_id() { printf '%s\\n' \"$B\"; }; service_usb_observe",
                 "observe",(char *)c->session_dir,cur_boot,0
             };
             (void)oc_run_prog("/bin/sh",u_argv,-1,0,0,-1);
@@ -979,6 +977,18 @@ static int oc_usb_fence(OcApiCtx *c) {
         const char *ad=pdir>=0?oc_digest(&pmf,"api"):0;
         ok=pdir>=0 && ad && oc_verify_file_sha(pdir,"api",ad,4194304) &&
             oc_verify_file_sha(tdir,"api",ad,4194304);
+        /* Refuse unpinned legacy backend.sh sessions (allow native 8-file or pinned marker). */
+        if (ok && (!oc_absent_at(tdir,"backend.sh") || oc_digest(&pmf,"backend.sh"))) {
+            const char *bd=oc_digest(&pmf,"backend.sh");
+            ok=bd && oc_verified_text(pdir,"backend.sh",bd,oc_big_buf,sizeof oc_big_buf) &&
+                (oc_absent_at(tdir,"backend.sh") || oc_verify_file_sha(tdir,"backend.sh",bd,262144));
+            if (ok) {
+                int pinned=0;
+                for (const char *p=oc_big_buf; *p; ++p)
+                    if (oc_prefix(p,"# Open Connect pinned Settings 1")) { pinned=1; break; }
+                ok=pinned;
+            }
+        }
         if (pdir>=0) (void)oc_close(pdir);
     }
     (void)oc_close(tdir);
@@ -1002,7 +1012,7 @@ static __attribute__((noinline)) int oc_handle_install(OcApiCtx *c) {
     }
     char *argv[]={inst_path,(char *)c->session_dir,0};
     api_mem.inst_err[0]=0;
-    int rc=oc_run_prog(inst_path,argv,-1,api_mem.inst_err,sizeof api_mem.inst_err,c->lock_fd);
+    int rc=oc_run_prog(inst_path,argv,-1,api_mem.inst_err,sizeof api_mem.inst_err,-1);
     if (rc!=0) {
         const char *tok="install_failed";
         if (api_mem.inst_err[0] && oc_one_line(api_mem.inst_err)) {
@@ -1080,7 +1090,10 @@ static int oc_api_dispatch(OcApiCtx *c, int kind) {
             else if (!c->exists && !c->empty_state) expect_rev="-";
             if (!(kind==OP_RESTART && oc_usb_retained(c->root,session_dir,expect_rev))) return api_err(c,"session_closed");
         }
-        if ((kind==OP_INSTALL || kind==OP_UNINSTALL || kind==OP_RECOVER) && !oc_usb_fence(c))
+        int cleanup_recover=kind==OP_RECOVER && ((!c->exists && c->empty_state) ||
+            (c->exists && oc_equal(c->rec[1],"purge")));
+        if ((kind==OP_INSTALL || kind==OP_UNINSTALL || (kind==OP_RECOVER && !cleanup_recover)) &&
+            !oc_usb_fence(c))
             return api_err(c,"invalid_legacy_runtime");
     }
 
@@ -1185,7 +1198,7 @@ static int oc_api_handle_dir(const char *session_dir, const char *rev, const cha
     c->session_dir=session_dir; c->root_path=oc_root_path(); c->ptr_name="runtime";
     c->rev=rev; c->op=op; c->arg=arg; c->exp=exp; c->des=des;
     c->root=-1; c->ram=-1; c->lock_fd=-1; c->data=-1; c->snaps_fd=-1;
-    c->is_usb=0; c->exists=0; c->empty_state=0; c->allow_fallback=0;
+    c->is_usb=0; c->exists=0; c->empty_state=0;
     c->owner=oc_owner(); c->group=oc_group();
     c->sel_snap[0]=0; c->settings_pkg[0]=0; c->err=0;
 

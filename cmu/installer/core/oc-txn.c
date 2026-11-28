@@ -920,8 +920,9 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
     if (!oc_txn_read_snap(data,rec[5],cur) || !oc_txn_read_snap(data,rec[4],base) ||
         !oc_equal(cur->pkg,rec[3])) goto done;
 
-    char boot[37];
-    if (!oc_boot_id_ensure(root,ram,rec,owner,group,boot) || oc_equal(rec[11],boot)) goto done;
+    char boot[37], pre_step3_snap[65];
+    if (!oc_boot_id_ensure(root,ram,rec,owner,group,boot) || oc_equal(rec[11],boot) ||
+        !oc_join(pre_step3_snap,sizeof pre_step3_snap,"",rec[5])) goto done;
 
     /* 3. Reconcile touch=1 NVRAM policy against current boot budget (revert on 0, re-apply on >0). */
     int bud=rec[9][0]-'0';
@@ -962,8 +963,7 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
     }
 
     /* 4. Handle D/reseal hint (inode drift) or unsealed boot.plan. */
-    int hinted=0;
-    char reseal_before[65]; (void)oc_join(reseal_before,sizeof reseal_before,"",rec[5]);
+    int hinted=0, unlink_reseal=0;
     if (!oc_absent_at(data,"reseal")) {
         OcMeta rm={0}; char rtxt[66];
         long rfd=oc_openat(data,"reseal",OC_READ,0);
@@ -973,19 +973,35 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
         if (rfd>=0) (void)oc_close((int)rfd);
         if (!valid_file) goto done;
         if (oc_equal(rtxt,rec[5])) {
-            char bs_path[512], srel[128];
+            char bs_path[512], srel[128], hdr[160], expect_hdr[160];
             int sdir=oc_open_sub(data,"snapshots",rec[5]);
             long pfd=sdir>=0 ? oc_openat(sdir,"boot.plan",OC_READ,0) : -1;
             int chk=pfd>=0 && oc_pkg_boot_select(data,root_path,rec[3],owner,group,bs_path)==1 &&
-                oc_join(srel,sizeof srel,OC_DATA "/snapshots/",rec[5]);
+                oc_join(srel,sizeof srel,OC_DATA "/snapshots/",rec[5]) &&
+                oc_join4(expect_hdr,sizeof expect_hdr,"OCBP1|",rec[4],"|",rec[3]);
             if (chk) {
-                char *rargv[]={bs_path,"recheck",(char *)root_path,srel,0};
-                chk=oc_run_cmd_io(bs_path,rargv,(int)pfd,-1,0,0,-1)==0;
+                long n=oc_read((int)pfd,hdr,sizeof hdr-1);
+                (void)oc_close((int)pfd); pfd=-1;
+                chk=n>0;
+                if (chk) {
+                    hdr[n]=0;
+                    char *nl=hdr; while (*nl && *nl!='\n') ++nl;
+                    if (*nl=='\n') *nl=0;
+                    chk=oc_equal(hdr,expect_hdr);
+                }
+                if (chk) {
+                    pfd=oc_openat(sdir,"boot.plan",OC_READ,0);
+                    char *rargv[]={bs_path,"recheck",(char *)root_path,srel,0};
+                    chk=pfd>=0 && oc_run_cmd_io(bs_path,rargv,(int)pfd,-1,0,0,-1)==0;
+                }
             }
             if (pfd>=0) (void)oc_close((int)pfd);
             if (sdir>=0) (void)oc_close(sdir);
             if (!chk) goto done;
-            hinted=1;
+            hinted=1; unlink_reseal=1;
+        } else if (!oc_equal(pre_step3_snap,rec[5]) && oc_equal(rtxt,pre_step3_snap)) {
+            /* Step 3 NVRAM apply already rotated and sealed rec[5]; retire the superseded hint. */
+            unlink_reseal=1;
         }
     }
 
@@ -995,7 +1011,7 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
         rec[5]=sealed_id;
         if (!oc_record_write_atomic(root,data,rec,0)) goto done;
     }
-    if (hinted && (oc_unlink(data,"reseal")<0 || oc_sync(data)<0)) goto done;
+    if (unlink_reseal && (oc_unlink(data,"reseal")<0 || oc_sync(data)<0)) goto done;
     ok=1;
 
 done:

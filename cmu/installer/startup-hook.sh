@@ -88,6 +88,7 @@
         if timeout -t "$oc_wait" sh -c 'set -eu
 umask 077
 test "$(id -u)" = 0
+awk '\''$2=="/tmp/mnt/data_persist/open-connect"||index($2,"/tmp/mnt/data_persist/open-connect/")==1||$2=="/tmp/open-connect"||index($2,"/tmp/open-connect/")==1{bad=1}$2=="/"{if($1=="rootfs"&&$3=="rootfs"&&$4=="rw"&&!r&&!rf)rf++;else if($1=="/dev/ffx01p1"&&$3=="relfs"&&$4=="ro,noatime")r++;else bad=1}$2=="/tmp/mnt/data_persist"{if($1!="/dev/mmcblk0p2"||$3!="relfs")bad=1;d++;split($4,a,",");for(i in a)if(a[i]=="rw")rw++}END{exit bad||r!=1||d!=1||rw!=1}'\'' /proc/self/mounts
 D=/tmp/mnt/data_persist/open-connect
 R=/tmp/open-connect
 test "$(readlink -f "$D")" = "$D" && test "$(stat -c '\''%a:%u:%g'\'' "$D")" = 700:0:0
@@ -98,7 +99,7 @@ IFS="|" read -r format phase rev package rest < "$D/record"
 test "$format" = OC1 && test "${#package}" -eq 64
 case "$package" in *[!a-f0-9]*) exit 1;; esac
 P=$D/packages/$package
-test "$(readlink -f "$P")" = "$P" && test -f "$P/files.sha256" && test ! -L "$P/files.sha256"
+test "$(readlink -f "$P")" = "$P" && test "$(stat -c '\''%a:%u:%g'\'' "$P")" = 700:0:0 && test -f "$P/files.sha256" && test ! -L "$P/files.sha256"
 test -f "$P/install" && test ! -L "$P/install" && test -x "$P/install"
 digest=$(openssl dgst -sha256 < "$P/files.sha256")
 test "${digest##* }" = "$package"
@@ -107,6 +108,7 @@ test "${#inst_exp}" -eq 64
 case "$inst_exp" in *[!a-f0-9]*) exit 1;; esac
 rec=$(mktemp -d "$R/.recover-XXXXXX")
 trap '\''rm -rf "$rec"'\'' EXIT
+trap '\''exit 1'\'' HUP INT TERM
 cp "$P/install" "$rec/install" && chmod 700 "$rec/install"
 inst_got=$(openssl dgst -sha256 < "$rec/install")
 test "${inst_got##* }" = "$inst_exp"

@@ -201,6 +201,7 @@ class NativeBootSelection(unittest.TestCase):
             "flush",
             "touch-disable.so",
             "api",
+            "install",
             "wireless.sh",
             "wireless-device.awk",
             "defer-gap2.sh",

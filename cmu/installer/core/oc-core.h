@@ -251,6 +251,7 @@ extern const OcPin oc_touch_pins[2];
 extern const OcPin oc_base_pins[5];
 int oc_mounts_next(char **cursor, char *f[6]);
 int oc_mounts_mode(int root, char *scratch, unsigned cap, int allow_rw);
+int oc_version_text_ok(char *text);
 int oc_version_ok(int root, char *scratch, unsigned cap);
 int oc_firmware_guard(int root, const char *op_tag, char *scratch, unsigned cap, const char **err_out);
 

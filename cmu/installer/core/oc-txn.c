@@ -995,7 +995,7 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
             else {
                 char *nve=nvp; while (*nve && *nve!='\n') ++nve;
                 unsigned pre=(unsigned)(nvp-cfg), nl=oc_length(want_nv), tail=oc_length(nve);
-                if (pre+nl+tail+1>=sizeof new_cfg) cok=0;
+                if (pre+nl+tail>=sizeof new_cfg) cok=0;
                 else {
                     for (unsigned i=0; i<pre; ++i) new_cfg[i]=cfg[i];
                     for (unsigned i=0; i<nl; ++i) new_cfg[pre+i]=want_nv[i];

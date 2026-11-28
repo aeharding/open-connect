@@ -120,20 +120,24 @@ static int oc_mounts_persist_ok(int root, char *scratch, unsigned cap) {
     return mr==0 && data==1;
 }
 
-int oc_version_ok(int root, char *scratch, unsigned cap) {
-    int n=oc_text(root,"jci/version.ini",scratch,cap,0);
-    if (n<=0) return 0;
+int oc_version_text_ok(char *text) {
     unsigned v=0, pa=0, fl=0;
-    char *p=scratch;
+    char *p=text;
     while (*p) {
         char *line=p;
         while (*p && *p!='\n') ++p;
-        if (*p=='\n') *p++=0;
+        if (!*p) return 0;
+        *p++=0;
         if (oc_equal(line,"JCI_SW_VER=\"MAZ_CMU-150_74.00.324\"")) ++v;
         if (oc_equal(line,"JCI_SW_VER_PATCH=\"A\"")) ++pa;
         if (oc_equal(line,"JCI_SW_FLAVOR=\"cmu150_NA\"")) ++fl;
     }
     return v==1 && pa==1 && fl==1;
+}
+
+int oc_version_ok(int root, char *scratch, unsigned cap) {
+    int n=oc_text(root,"jci/version.ini",scratch,cap,0);
+    return n>0 && oc_version_text_ok(scratch);
 }
 
 OcDiag oc_diag;

@@ -88,10 +88,17 @@ class FlushSha(unittest.TestCase):
     def test_stat_read_close_and_output_errors_refuse_without_a_digest(self):
         path = self.root / "failed"
         path.write_bytes(b"a" * 1024)
-        for fault in ("stat-error", "read-error", "close-error", "write-error", "write-zero"):
+        for fault, expected_rc in (
+            ("stat-error", errno.EIO),
+            ("read-error", errno.EIO),
+            ("close-error", errno.EIO),
+            ("close-eintr", errno.EINTR),
+            ("write-error", errno.EIO),
+            ("write-zero", errno.EIO),
+        ):
             with self.subTest(fault=fault):
                 result = self.call(path, fault)
-                self.assertEqual(result.returncode, errno.EIO, result.stderr)
+                self.assertEqual(result.returncode, expected_rc, result.stderr)
                 self.assertEqual(result.stdout, b"")
                 self.assertIn(b"failed\n", result.stderr)
 

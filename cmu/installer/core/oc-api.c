@@ -77,12 +77,6 @@ static int emit_fail(const char *err) {
     return OC_API_ERR;
 }
 
-static inline void oc_u32_dec(unsigned v, char out[24]) { oc_u64_dec((oc_u64)v,out); }
-static inline int oc_run_prog(const char *path, char *const argv[], int out_fd,
-                              char *cap_buf, unsigned cap_sz, int keep_fd) {
-    return oc_run_cmd(path,argv,out_fd,cap_buf,cap_sz,keep_fd);
-}
-
 /* ---------- Filesystem / identity helpers ---------- */
 static int oc_read_hex64_file(int dir, const char *name, char out[65]) {
     long fd=oc_openat(dir,name,OC_READ,0);
@@ -202,7 +196,7 @@ static int oc_key_fingerprint(const char *root_path, const char *key_id, char ou
     if (hp && *hp) prog=hp;
 #endif
     char *argv[]={(char *)prog,"-l","-f",kpath,0};
-    if (oc_run_prog(prog,argv,-1,raw,sizeof raw,-1)!=0) return 0;
+    if (oc_run_cmd(prog,argv,-1,raw,sizeof raw,-1)!=0) return 0;
     char *p=raw;
     while (*p==' '||*p=='\t') ++p;
     while (*p && *p!=' ' && *p!='\t' && *p!='\n') ++p;
@@ -388,15 +382,7 @@ static int oc_api_emit_status_view(int root, const char *root_path, int data, in
     return (j.ok && oc_write_all(1,j.buf,j.at)) ? OC_API_DONE : emit_fail("state_changed");
 }
 
-/* ---------- Streaming native index.html renderer (buffered line writes) ---------- */
-/* ---------- Cleanup & package boot-select verification ---------- */
-static inline void oc_cleanup_work(int snaps_fd, const char *work_leaf) { oc_rm_subdir(snaps_fd,work_leaf); }
-
-static inline int oc_verify_pkg_boot_select(int data, const char *root_path, const char *pkg_id,
-                                            long owner, long group, char bs_path[512]) {
-    return oc_pkg_boot_select(data,root_path,pkg_id,owner,group,bs_path);
-}
-
+/* ---------- Session pointer / close markers ---------- */
 static int oc_check_session_pointer(int ram, const char *session_dir, const char *ptr_name) {
     char link[512];
     long n=oc_readlink(ram,ptr_name,link,sizeof link-1);
@@ -592,14 +578,14 @@ static int oc_api_emit_ctx(OcApiCtx *c, int conflict, int removed_now) {
 
 static int oc_api_match_cur(OcApiCtx *c) {
     return oc_targets_match(c->root,c->data,c->rec[5],c->rec[4],c->owner,c->group) &&
-        oc_dependencies_match(c->root,c->data,c->rec[5],c->owner,c->group);
+        oc_dependencies_match(c->root,c->data,c->rec[5]);
 }
 
 static void oc_api_run_gc(OcApiCtx *c) {
-    char bs_p[512], fd_s[24]; oc_u32_dec((unsigned)c->lock_fd,fd_s);
-    if (oc_verify_pkg_boot_select(c->data,c->root_path,c->rec[3],c->owner,c->group,bs_p)==1) {
+    char bs_p[512], fd_s[24]; oc_u64_dec((oc_u64)(unsigned)c->lock_fd,fd_s);
+    if (oc_pkg_boot_select(c->data,c->root_path,c->rec[3],c->owner,c->group,bs_p)==1) {
         char *gc_argv[]={bs_p,"gc",(char *)c->root_path,fd_s,0};
-        (void)oc_run_prog(bs_p,gc_argv,-1,0,0,c->lock_fd);
+        (void)oc_run_cmd(bs_p,gc_argv,-1,0,0,c->lock_fd);
     }
 }
 
@@ -625,7 +611,7 @@ static __attribute__((noinline)) int oc_handle_completion(OcApiCtx *c, int is_di
                 "P=$1; B=$2; . \"$P/service.sh\"; current_boot_id() { printf '%s\\n' \"$B\"; }; service_usb_observe",
                 "observe",(char *)c->session_dir,cur_boot,0
             };
-            (void)oc_run_prog("/bin/sh",u_argv,-1,0,0,-1);
+            (void)oc_run_cmd("/bin/sh",u_argv,-1,0,0,-1);
         }
         OcJson j; j_init(&j,api_mem.json,sizeof api_mem.json);
         const char *cv[7]={"1",c->rec[5],c->rec[3],cur_boot,comp_ver,c->rec[12],ready?"1":0};
@@ -658,7 +644,7 @@ static __attribute__((noinline)) int oc_handle_usb_meta(OcApiCtx *c) {
     }
     long sfd=oc_openat(OC_CWD,c->session_dir,OC_DIRECTORY,0);
     int vok=sfd>=0 && oc_read_version_file((int)sfd,0,run_ver);
-    int closed=sfd>=0 && !oc_absent_at((int)sfd,"closed");
+    int closed=sfd<0 || !oc_absent_at((int)sfd,"closed");
     if (sfd>=0) (void)oc_close((int)sfd);
     if (!vok) return api_err(c,"invalid_version");
     if (!oc_check_session_pointer(c->ram,c->session_dir,c->ptr_name)) return api_err(c,"session_replaced");
@@ -681,7 +667,7 @@ static __attribute__((noinline)) int oc_handle_uninstall(OcApiCtx *c) {
         return oc_api_emit_ctx(c,0,1);
     }
     if (!oc_equal(c->rec[1],"active")) return api_err(c,"not_installed");
-    if (!oc_api_match_cur(c) || !oc_uninstall_owned(c->data,c->rec[5],c->rec[4],c->owner,c->group)) return api_err(c,"state_changed");
+    if (!oc_api_match_cur(c) || !oc_uninstall_owned(c->data,c->rec[5],c->rec[4])) return api_err(c,"state_changed");
     if (!oc_snap_read(c->data,c->rec[5],&api_snap_a,0,0,0,0,0)) return api_err(c,"invalid_snapshot");
     if (!oc_snap_read(c->data,c->rec[4],&api_snap_b,0,0,0,0,0)) return api_err(c,"originals_changed");
     int bdir=-1, rtmp_fd=-1; char rtmp_leaf[48]; rtmp_leaf[0]=0;
@@ -701,7 +687,7 @@ static __attribute__((noinline)) int oc_handle_uninstall(OcApiCtx *c) {
             if (rok && api_snap_b.has_access) rok=oc_copy_opt(bdir,rtmp_fd,0x007,2);
             if (!rok) {
                 if (rtmp_fd>=0) (void)oc_close(rtmp_fd);
-                oc_cleanup_work(c->data,rtmp_leaf); (void)oc_close(bdir);
+                oc_rm_subdir(c->data,rtmp_leaf); (void)oc_close(bdir);
                 return api_err(c,"selector_plan_failed");
             }
         }
@@ -709,8 +695,8 @@ static __attribute__((noinline)) int oc_handle_uninstall(OcApiCtx *c) {
     char after_id[65], prep_nonce[33], before_id[65];
     int sok=oc_join(before_id,sizeof before_id,"",c->rec[5]) &&
         oc_snapshot_create(c->root,c->data,c->rec[4],"-",api_snap_b.prefs.nvram,api_snap_b.prefs.metadata,
-                           before_id,rtmp_fd>=0?rtmp_fd:bdir,"",c->session_dir,c->root_path,c->owner,c->group,after_id);
-    if (rtmp_fd>=0) { (void)oc_close(rtmp_fd); oc_cleanup_work(c->data,rtmp_leaf); }
+                           before_id,rtmp_fd>=0?rtmp_fd:bdir,"",after_id);
+    if (rtmp_fd>=0) { (void)oc_close(rtmp_fd); oc_rm_subdir(c->data,rtmp_leaf); }
     (void)oc_close(bdir);
     if (!sok) return api_err(c,"plan_failed");
     if (!oc_transaction_prepare(c->root,c->data,c->rec,"uninstall",before_id,after_id,c->rec[4],1,c->owner,c->group,prep_nonce))
@@ -787,13 +773,13 @@ static __attribute__((noinline)) int oc_handle_access(OcApiCtx *c, int is_import
     }
     if (!aok) {
         if (awfd>=0) (void)oc_close(awfd);
-        oc_cleanup_work(c->data,aleaf); return api_err(c,"access_plan_failed");
+        oc_rm_subdir(c->data,aleaf); return api_err(c,"access_plan_failed");
     }
     char after_id[65], before_id[65];
     int cok=cfg_ok && oc_join(before_id,sizeof before_id,"",c->rec[5]) &&
         oc_snapshot_create(c->root,c->data,before_id,api_snap_a.prefs.package,api_snap_a.prefs.nvram,
-                           api_snap_a.prefs.metadata,before_id,awfd,orig_cfg,c->session_dir,c->root_path,c->owner,c->group,after_id);
-    (void)oc_close(awfd); oc_cleanup_work(c->data,aleaf);
+                           api_snap_a.prefs.metadata,before_id,awfd,orig_cfg,after_id);
+    (void)oc_close(awfd); oc_rm_subdir(c->data,aleaf);
     if (!cok) return api_err(c,"plan_failed");
     return oc_commit_set_txn(c,before_id,after_id);
 }
@@ -805,7 +791,7 @@ static int oc_prepare_prefs_ctx(OcApiCtx *c, char bs_path[512], OcCatalog *cat) 
     if (!oc_equal(cur_pkg,c->rec[3]) || !oc_session_mf_matches(c->session_dir,c->rec[3])) return api_err(c,"state_changed");
 
     if (bs_path) {
-        int bs_state=oc_verify_pkg_boot_select(c->data,c->root_path,c->rec[3],c->owner,c->group,bs_path);
+        int bs_state=oc_pkg_boot_select(c->data,c->root_path,c->rec[3],c->owner,c->group,bs_path);
         if (bs_state<0) return api_err(c,"state_changed");
         c->snaps_fd=oc_open_private(c->data,"snapshots");
         if (c->snaps_fd<0) return api_err(c,"state_changed");
@@ -857,7 +843,7 @@ static __attribute__((noinline)) int oc_apply_prefs_change(
     int work_fd=oc_open_private(c->snaps_fd,work_leaf);
     if (work_fd<0 || !oc_new_text(work_fd,"config",new_cfg,0600)) {
         if (work_fd>=0) (void)oc_close(work_fd);
-        oc_cleanup_work(c->snaps_fd,work_leaf);
+        oc_rm_subdir(c->snaps_fd,work_leaf);
         return api_err(c,"plan_failed");
     }
 
@@ -880,15 +866,15 @@ static __attribute__((noinline)) int oc_apply_prefs_change(
             render_ok=oc_render_sm_profiles(c->data,c->root_path,c->rec[3],c->rec[5],cfg_path,oc_length(new_cfg),api_snap_a.prefs.warning,work_fd);
     }
     (void)oc_close(work_fd);
-    if (!render_ok) { oc_cleanup_work(c->snaps_fd,work_leaf); return api_err(c,"state_changed"); }
+    if (!render_ok) { oc_rm_subdir(c->snaps_fd,work_leaf); return api_err(c,"state_changed"); }
 
     char rel_work[128], sp_out[128];
     if (!oc_join(rel_work,sizeof rel_work,OC_DATA "/snapshots/",work_leaf)) {
-        oc_cleanup_work(c->snaps_fd,work_leaf); return api_err(c,"plan_failed");
+        oc_rm_subdir(c->snaps_fd,work_leaf); return api_err(c,"plan_failed");
     }
     int nv_changed=!oc_equal(cur_nvram,new_nvram);
     char *sp_argv[7]={(char *)bs_path,"seal-publish",(char *)c->root_path,c->rec[5],rel_work,nv_changed?(char *)new_nvram:0,0};
-    int sp_rc=oc_run_prog(bs_path,sp_argv,-1,sp_out,sizeof sp_out,-1);
+    int sp_rc=oc_run_cmd(bs_path,sp_argv,-1,sp_out,sizeof sp_out,-1);
     if (sp_rc==95 && oc_equal(old_t,"2") && !oc_equal(api_snap_a.prefs.touch,"2")) {
         /* Touch=2 -> 0/1 with drifted touch pins: recover natively via full transaction. */
         char sp_leaf[48];
@@ -900,17 +886,17 @@ static __attribute__((noinline)) int oc_apply_prefs_change(
         char after_id[65], before_id[65];
         if (ok) ok=oc_join(before_id,sizeof before_id,"",c->rec[5]) &&
             oc_snapshot_create(c->root,c->data,before_id,c->rec[3],new_nvram,api_snap_a.prefs.metadata,
-                               before_id,wfd,new_cfg,c->session_dir,c->root_path,c->owner,c->group,after_id);
+                               before_id,wfd,new_cfg,after_id);
         if (wfd>=0) (void)oc_close(wfd);
-        if (!oc_absent_at(c->snaps_fd,sp_leaf)) oc_cleanup_work(c->snaps_fd,sp_leaf);
-        if (!oc_absent_at(c->snaps_fd,work_leaf)) oc_cleanup_work(c->snaps_fd,work_leaf);
+        if (!oc_absent_at(c->snaps_fd,sp_leaf)) oc_rm_subdir(c->snaps_fd,sp_leaf);
+        if (!oc_absent_at(c->snaps_fd,work_leaf)) oc_rm_subdir(c->snaps_fd,work_leaf);
         if (ok && (oc_equal(api_snap_a.prefs.base,"1") || oc_equal(api_snap_a.prefs.touch,"2")))
             ok=oc_check_active_pins(c->root,c->data,c->rec[3],after_id,
                                     api_snap_a.prefs.base,api_snap_a.prefs.touch,&c->err);
         if (!ok) return c->err ? OC_API_ERR : api_err(c,"state_changed");
         return oc_commit_set_txn(c,before_id,after_id);
     }
-    if (!oc_absent_at(c->snaps_fd,work_leaf)) oc_cleanup_work(c->snaps_fd,work_leaf);
+    if (!oc_absent_at(c->snaps_fd,work_leaf)) oc_rm_subdir(c->snaps_fd,work_leaf);
     if (sp_rc!=0) return api_err(c,sp_rc==92?"touch_inputs_changed":sp_rc==93?"base_inputs_changed":"state_changed");
     if (!oc_one_line(sp_out) || !oc_hex(sp_out,64)) return api_err(c,"plan_failed");
     {
@@ -927,7 +913,7 @@ static __attribute__((noinline)) int oc_apply_prefs_change(
         if (!oc_record_write_atomic(c->root,c->data,c->rec,0)) return api_err(c,"record_rename_failed");
         if (!oc_nvram_change(c->root,cur_nvram,new_nvram)) return api_err(c,"nvram_commit_failed");
         char *au_argv[]={(char *)bs_path,"audit",(char *)c->root_path,prev_cur,sp_out,0};
-        if (oc_run_prog(bs_path,au_argv,-1,0,0,-1)!=0) return api_err(c,"final_verification_failed");
+        if (oc_run_cmd(bs_path,au_argv,-1,0,0,-1)!=0) return api_err(c,"final_verification_failed");
     }
 
     char final_nonce[33];
@@ -963,7 +949,7 @@ static __attribute__((noinline)) int oc_handle_fast_set(OcApiCtx *c) {
 
     if (oc_equal(c->exp,c->des)) {
         char *a_argv[]={bs_path,"audit",(char *)c->root_path,c->rec[5],0};
-        if (oc_run_prog(bs_path,a_argv,-1,0,0,-1)!=0) return api_err(c,"state_changed");
+        if (oc_run_cmd(bs_path,a_argv,-1,0,0,-1)!=0) return api_err(c,"state_changed");
         return oc_api_emit_ctx(c,0,0);
     }
     const char *old_t=api_snap_a.prefs.touch, *old_w=api_snap_a.prefs.warning, *old_b=api_snap_a.prefs.base;
@@ -1056,7 +1042,7 @@ static __attribute__((noinline)) int oc_handle_import_prefs(OcApiCtx *c) {
         return api_err(c,"invalid_preferences");
     if (!chg) {
         char *a_argv[]={bs_path,"audit",(char *)c->root_path,c->rec[5],0};
-        if (oc_run_prog(bs_path,a_argv,-1,0,0,-1)!=0) return api_err(c,"state_changed");
+        if (oc_run_cmd(bs_path,a_argv,-1,0,0,-1)!=0) return api_err(c,"state_changed");
         return oc_api_emit_ctx(c,0,0);
     }
     return oc_apply_prefs_change(c,bs_path,&cat,old_t,old_w,old_b,old_wl,old_as,old_so,old_ml,old_hs,cur_nvram,(chg&256u)!=0);
@@ -1065,12 +1051,8 @@ static __attribute__((noinline)) int oc_handle_import_prefs(OcApiCtx *c) {
 /* Native USB fence: verify active pinned Settings session matches boot-selected package. */
 static int oc_usb_fence(OcApiCtx *c) {
     if (oc_absent_at(c->ram,"runtime")) return 1;
-    OcMeta lm={0}, tm={0}, pm={0}; char target[512], pkg[65];
-    if (oc_metadata(c->ram,"runtime",&lm)<0 || (lm.mode&OC_TYPE)!=0120000 ||
-        lm.uid!=(unsigned)c->owner || lm.gid!=(unsigned)c->group) return 0;
-    long n=oc_readlink(c->ram,"runtime",target,sizeof target-1);
-    if (n<=0 || (unsigned)n>=sizeof target-1) return 0;
-    target[n]=0;
+    OcMeta tm={0}, pm={0}; char target[512], pkg[65];
+    if (oc_readlink_owned(c->ram,"runtime",c->owner,c->group,target,sizeof target)<=0) return 0;
     const char *leaf=target;
     for (const char *p=target; *p; ++p) if (*p=='/') leaf=p+1;
     if (!oc_prefix(leaf,"session-") || !oc_key(leaf)) return 0;
@@ -1135,7 +1117,7 @@ static __attribute__((noinline)) void oc_api_log_usb_failure(const char *session
         oc_diag.actual[0]?oc_diag.actual:"-",
         0
     };
-    (void)oc_run_prog(inst_path,argv,-1,0,0,-1);
+    (void)oc_run_cmd(inst_path,argv,-1,0,0,-1);
 }
 
 static __attribute__((noinline)) int oc_handle_install(OcApiCtx *c) {
@@ -1145,7 +1127,7 @@ static __attribute__((noinline)) int oc_handle_install(OcApiCtx *c) {
         return api_err(c,"incomplete_maintenance_bundle");
     char *argv[]={inst_path,(char *)c->session_dir,0};
     api_mem.inst_err[0]=0;
-    int rc=oc_run_prog(inst_path,argv,-1,api_mem.inst_err,sizeof api_mem.inst_err,-1);
+    int rc=oc_run_cmd(inst_path,argv,-1,api_mem.inst_err,sizeof api_mem.inst_err,-1);
     if (rc!=0) {
         const char *tok="install_failed";
         char *nl=0;
@@ -1417,7 +1399,7 @@ int oc_api_cli(int argc, char **argv) {
         if (data>=0) {
             int ok=oc_root_publish(root,root_path,data,argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],
                                    oc_equal(argv[8],"-")?0:argv[8],oc_equal(argv[9],"-")?0:argv[9],
-                                   oc_equal(argv[10],"1"),oc_equal(argv[11],"-")?0:argv[11],owner,group);
+                                   oc_equal(argv[10],"1"),oc_equal(argv[11],"-")?0:argv[11]);
             (void)oc_close(data);
             rc=ok?0:1;
         } else rc=1;

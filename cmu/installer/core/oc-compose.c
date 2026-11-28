@@ -803,9 +803,8 @@ static int oc_stock_runlogin_ok(int root, const char **err_out) {
     return absent_ok ? 1 : cerr(err_out,"console_hold_conflict");
 }
 
-static int oc_state_capture(int root, const char *root_path, int data_fd,
+static int oc_state_capture(int root, int data_fd,
                             const char *pkg_id, int awfd, const char *prefs_text,
-                            const char *session_dir, long owner, long group,
                             char out_id[65]) {
     long ubin=oc_beneath(root,"usr/bin",OC_DIRECTORY,0);
     if (ubin<0) return 0;
@@ -815,17 +814,16 @@ static int oc_state_capture(int root, const char *root_path, int data_fd,
         oc_copy_file_at((int)ubin,"autostart",awfd,"autostart",0600,1,1,0);
     (void)oc_close((int)ubin);
     if (!ok || !oc_dependencies_capture_to(root,data_fd,pkg_id,awfd)) return 0;
-    return oc_snapshot_create(root,data_fd,0,pkg_id,nv,ams,0,awfd,prefs_text,
-                              session_dir,root_path,owner,group,out_id);
+    return oc_snapshot_create(root,data_fd,0,pkg_id,nv,ams,0,awfd,prefs_text,out_id);
 }
 
-static int oc_access_snapshot(int root, const char *root_path, int data_fd,
-                              const char *snap_id, int awfd, const char *session_dir,
-                              long owner, long group, char out_id[65]) {
+static int oc_access_snapshot(int root, int data_fd,
+                              const char *snap_id, int awfd,
+                              char out_id[65]) {
     OcTxnSnap *s=&oc_snap_pool[2];
     if (!oc_txn_read_snap(data_fd,snap_id,s)) return 0;
     return oc_snapshot_create(root,data_fd,snap_id,s->pkg,s->nvram,s->meta,snap_id,
-                              awfd,"",session_dir,root_path,owner,group,out_id);
+                              awfd,"",out_id);
 }
 
 static int oc_ensure_subdir(int dir, const char *name) {
@@ -939,14 +937,14 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
 
     if (exists) {
         if (!oc_targets_match(root,data_fd,rec[5],rec[4],owner,group) ||
-            !oc_dependencies_match(root,data_fd,rec[5],owner,group)) {
+            !oc_dependencies_match(root,data_fd,rec[5])) {
             (void)oc_close(data_fd); return cerr(err_out,"state_changed");
         }
         if (oc_equal(rec[1],"removed")) {
             int rok=oc_originals_verify(data_fd) &&
                 (oc_equal(rec[4],rec[5]) ||
                  (oc_targets_match(root,data_fd,rec[4],rec[4],owner,group) &&
-                  oc_dependencies_match(root,data_fd,rec[4],owner,group)));
+                  oc_dependencies_match(root,data_fd,rec[4])));
             if (!rok) { (void)oc_close(data_fd); return cerr(err_out,"originals_changed"); }
         }
     }
@@ -1107,7 +1105,7 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
         int cdir2=oc_open_sub(data_fd,"snapshots",rec[5]);
         int pcok=cdir2>=0 && oc_copy_opt(cdir2,awfd,0x1f0,0);
         if (cdir2>=0) (void)oc_close(cdir2);
-        if (!pcok || !oc_state_capture(root,root_path,data_fd,old_pkg,awfd,old_cfg,session_dir,owner,group,before_id)) {
+        if (!pcok || !oc_state_capture(root,data_fd,old_pkg,awfd,old_cfg,before_id)) {
             ferr="checkpoint_failed"; goto fail;
         }
         /* Check active base=1 / touch=2 pins before mutating packages. */
@@ -1136,13 +1134,13 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
             if (!oc_txn_read_snap(data_fd,before_id,cur)) { ferr="invalid_snapshot"; goto fail; }
             if (!cur->has_access) {
                 char upgraded[65];
-                if (!oc_access_snapshot(root,root_path,data_fd,before_id,awfd,session_dir,owner,group,upgraded)) {
+                if (!oc_access_snapshot(root,data_fd,before_id,awfd,upgraded)) {
                     ferr="checkpoint_failed"; goto fail;
                 }
                 (void)oc_join(before_id,sizeof before_id,"",upgraded);
             }
         } else {
-            if (!oc_state_capture(root,root_path,data_fd,"-",awfd,"",session_dir,owner,group,before_id)) {
+            if (!oc_state_capture(root,data_fd,"-",awfd,"",before_id)) {
                 ferr="checkpoint_failed"; goto fail;
             }
             (void)oc_join(base_id,sizeof base_id,"",before_id);
@@ -1156,7 +1154,7 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
             char upgraded[65];
             (void)oc_unlink(awfd,"selector");
             if (!oc_new_text(awfd,"selector","-\n",0600) ||
-                !oc_access_snapshot(root,root_path,data_fd,base_id,awfd,session_dir,owner,group,upgraded)) {
+                !oc_access_snapshot(root,data_fd,base_id,awfd,upgraded)) {
                 ferr="access_backup_failed"; goto fail;
             }
             (void)oc_join(base_id,sizeof base_id,"",upgraded);
@@ -1245,8 +1243,7 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
     }
 
     char after_id[65];
-    if (!oc_snapshot_create(root,data_fd,0,pkg_id,want_nvram,bs->meta,0,awfd,new_cfg,
-                            session_dir,root_path,owner,group,after_id)) {
+    if (!oc_snapshot_create(root,data_fd,0,pkg_id,want_nvram,bs->meta,0,awfd,new_cfg,after_id)) {
         ferr="plan_failed"; goto fail;
     }
     (void)oc_close(awfd); awfd=-1;

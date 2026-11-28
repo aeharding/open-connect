@@ -827,6 +827,22 @@ class InstallerPreferences(unittest.TestCase):
             self.assertEqual(actual.returncode, 0, actual.stderr)
             self.assertEqual(actual.stdout, expected.stdout)
 
+    def test_base_warning_off_without_wireless_requires_one_mmui(self):
+        config = self.fresh().replace(b"base=0", b"base=1").replace(b"warning=1", b"warning=0")
+        for wcp, duplicate in itertools.product((False, True), repeat=2):
+            with self.subTest(wcp=wcp, duplicate=duplicate):
+                root = ET.fromstring(self.profile(wcp))
+                node = next(n for n in root if n.get("name") == "jciMMUI")
+                if duplicate:
+                    root.append(copy.deepcopy(node))
+                else:
+                    root.remove(node)
+                ET.indent(root)
+                self.assertNotEqual(
+                    self.compose(ET.tostring(root, encoding="unicode"), config).returncode,
+                    0,
+                )
+
     def test_adding_a_service_requires_only_a_catalog_row(self):
         with self.catalog.open("a") as stream:
             stream.write("z-test|Test|1|optional_leaf|Load after restart.|Stop after restart.\n")

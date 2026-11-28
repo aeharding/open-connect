@@ -59,7 +59,14 @@ static ssize_t fault_write(int fd, const void *p, size_t n) {
     return write(fd, p, n);
 }
 static int fault_close(int fd) {
+    static int calls;
+    ++calls;
     int r = close(fd);
     if (fault("close-error")) { errno = EIO; return -1; }
+    if (fault("close-eintr")) {
+        if (calls > 1) { errno = EBADF; return -1; }
+        errno = EINTR;
+        return -1;
+    }
     return r;
 }

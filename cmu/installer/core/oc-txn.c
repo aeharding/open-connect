@@ -153,8 +153,7 @@ static int oc_dep_line_parse(char *ln, const char **dig_out, const char **key_ou
 
 static char oc_dep_buf[24576];
 
-int oc_dependencies_match(int root, int data_fd, const char *snap_id, long owner, long group) {
-    (void)owner; (void)group;
+int oc_dependencies_match(int root, int data_fd, const char *snap_id) {
     char mf_buf[4096]; OcManifest mf;
     int sdir=oc_open_sub(data_fd,"snapshots",snap_id);
     if (sdir<0) return 0;
@@ -215,17 +214,15 @@ static int oc_deps_equal(int data_fd, const char *a_id, const char *b_id) {
     return da && db && oc_equal(da,db);
 }
 
-int oc_dependencies_pair_match(int root, int data_fd, const char *before_id, const char *after_id,
-                               long owner, long group) {
-    if (!oc_dependencies_match(root,data_fd,before_id,owner,group)) return 0;
+int oc_dependencies_pair_match(int root, int data_fd, const char *before_id, const char *after_id) {
+    if (!oc_dependencies_match(root,data_fd,before_id)) return 0;
     if (oc_deps_equal(data_fd,before_id,after_id)) {
         return oc_txn_read_snap(data_fd,after_id,&oc_snap_pool[2]);
     }
-    return oc_dependencies_match(root,data_fd,after_id,owner,group);
+    return oc_dependencies_match(root,data_fd,after_id);
 }
 
-int oc_uninstall_owned(int data_fd, const char *snap_id, const char *base_snap, long owner, long group) {
-    (void)owner; (void)group;
+int oc_uninstall_owned(int data_fd, const char *snap_id, const char *base_snap) {
     OcTxnSnap *cur=&oc_snap_pool[2], *base=&oc_snap_pool[3];
     if (!oc_txn_read_snap(data_fd,snap_id,cur) || !oc_txn_read_snap(data_fd,base_snap,base)) return 0;
     if (!oc_hex(cur->pkg,64)) return 0;
@@ -352,9 +349,7 @@ static int oc_finish_snapshot_dir(int data_fd, int snaps, int wfd, const char *w
 
 int oc_snapshot_create(int root, int data_fd, const char *autostart_snap, const char *pkg_id,
                        const char *nvram, const char *mode_str, const char *deps_snap,
-                       int res_dir, const char *prefs_text, const char *session_dir,
-                       const char *root_path, long owner, long group, char out_id[65]) {
-    (void)session_dir; (void)root_path; (void)owner; (void)group;
+                       int res_dir, const char *prefs_text, char out_id[65]) {
     int snaps=oc_open_private(data_fd,"snapshots");
     if (snaps<0) return 0;
     char nonce[33], wleaf[48];
@@ -420,7 +415,7 @@ int oc_transaction_prepare(int root, int data_fd, char *rec[13], const char *pha
         if (!oc_txn_read_snap(data_fd,before_id,&oc_snap_pool[2]) ||
             !oc_txn_read_snap(data_fd,after_id,&oc_snap_pool[3])) return 0;
         if (!oc_targets_match(root,data_fd,before_id,base_snap,owner,group) ||
-            !oc_dependencies_pair_match(root,data_fd,before_id,after_id,owner,group)) return 0;
+            !oc_dependencies_pair_match(root,data_fd,before_id,after_id)) return 0;
     }
     rec[1]=(char *)phase; rec[6]=(char *)before_id; rec[7]=(char *)after_id;
     return oc_record_write_atomic(root,data_fd,rec,nonce_out);
@@ -757,13 +752,13 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
         !oc_join(rev_buf,sizeof rev_buf,"",rec[2]) ||
         !oc_join(base_id,sizeof base_id,"",rec[4])) return txn_err(err_out,"invalid_record");
     int is_uninstall=oc_equal(phase_buf,"uninstall");
-    if (is_uninstall && (!oc_equal(before_id,rec[5]) || !oc_uninstall_owned(data_fd,before_id,base_id,owner,group)))
+    if (is_uninstall && (!oc_equal(before_id,rec[5]) || !oc_uninstall_owned(data_fd,before_id,base_id)))
         return txn_err(err_out,"state_changed");
     OcTxnSnap *b=&oc_snap_pool[0], *a=&oc_snap_pool[1];
     if (!oc_txn_read_snap(data_fd,before_id,b)) return txn_err(err_out,"invalid_before");
     if (!oc_txn_read_snap(data_fd,after_id,a)) return txn_err(err_out,"invalid_after");
     int same_prep=prepared_rev && *prepared_rev && oc_equal(prepared_rev,rev_buf);
-    if (!same_prep && (!oc_dependencies_pair_match(root,data_fd,before_id,after_id,owner,group) || oc_sync(data_fd)<0))
+    if (!same_prep && (!oc_dependencies_pair_match(root,data_fd,before_id,after_id) || oc_sync(data_fd)<0))
         return txn_err(err_out,"dependencies_changed");
     long ubin=oc_beneath(root,"usr/bin",OC_DIRECTORY,0);
     char act_h[65], act_m[40], act_nv[16]; OcMeta am={0};
@@ -777,11 +772,11 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
     if ((b->has_access || a->has_access) && !oc_access_pair_check(root,data_fd,before_id,after_id,base_id,owner,group))
         return txn_err(err_out,"access_changed");
     int sel_pair=b->has_selector || a->has_selector;
-    if (sel_pair && !oc_selector_pair_check(root,data_fd,before_id,after_id,owner,group))
+    if (sel_pair && !oc_selector_pair_check(root,data_fd,before_id,after_id))
         return txn_err(err_out,"selector_changed");
     if ((oc_equal(phase_buf,"set") || oc_equal(phase_buf,"install")) &&
         oc_equal(a->touch,"2") && !oc_touch_pins_ok(root)) {
-        if (!oc_startup_staging_retire(root,root_path,data_fd,rev_buf,after_id,base_id,owner,group))
+        if (!oc_startup_staging_retire(root,root_path,data_fd,rev_buf,after_id,base_id))
             return txn_err(err_out,"startup_stage_changed");
         char new_rev[33], new_after[65];
         char *rb_rec[13];
@@ -809,7 +804,7 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
             if (cok) cok=oc_render_sm_profiles(data_fd,root_path,a->pkg,after_id,cfg_abs,
                                                oc_length(cfg),a->warning,dwfd) &&
                 oc_snapshot_create(root,data_fd,after_id,a->pkg,a->nvram,a->meta,after_id,
-                                   dwfd,cfg,session_dir,root_path,owner,group,new_after);
+                                   dwfd,cfg,new_after);
             if (dwfd>=0) (void)oc_close(dwfd);
             oc_rm_subdir(data_fd,dleaf);
             if (!cok) return txn_err(err_out,"plan_failed");
@@ -832,11 +827,11 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
                 oc_join(stg,sizeof stg,"usr/bin/.open-connect-",rev_buf) &&
                 oc_join(stg,sizeof stg,stg,"-open-connect-boot-select") &&
                 oc_absent_at(root,stg) && oc_mounts_mode(root,oc_mscratch,sizeof oc_mscratch,0);
-            if (!skip_sel && !oc_selector_apply(root,root_path,data_fd,rev_buf,before_id,after_id,base_id,owner,group))
+            if (!skip_sel && !oc_selector_apply(root,root_path,data_fd,rev_buf,before_id,after_id,base_id))
                 return txn_err(err_out,"selector_apply_failed");
         }
         if (!oc_root_publish(root,root_path,data_fd,rev_buf,"usr/bin/autostart",auto_src,a->meta,
-                             act_h,act_m,0,0,0,base_id,owner,group))
+                             act_h,act_m,0,0,0,base_id))
             return txn_err(err_out,"startup_publish_failed");
     }
     if (a->has_access &&
@@ -846,17 +841,17 @@ int oc_transaction_reconcile(int root, const char *root_path, int data_fd, char 
         return txn_err(err_out,"nvram_commit_failed");
     if (is_uninstall) {
         if (!oc_root_publish(root,root_path,data_fd,rev_buf,"usr/bin/autostart",auto_src,a->meta,
-                             act_h,act_m,0,0,0,base_id,owner,group))
+                             act_h,act_m,0,0,0,base_id))
             return txn_err(err_out,"startup_publish_failed");
-        if (a->has_access && !oc_access_hold_cleanup(root,root_path,data_fd,base_id,owner,group))
+        if (a->has_access && !oc_access_hold_cleanup(root,root_path,data_fd,base_id))
             return txn_err(err_out,"access_cleanup_failed");
-        if (sel_pair && !oc_selector_apply(root,root_path,data_fd,rev_buf,before_id,after_id,base_id,owner,group))
+        if (sel_pair && !oc_selector_apply(root,root_path,data_fd,rev_buf,before_id,after_id,base_id))
             return txn_err(err_out,"selector_remove_failed");
     }
-    if (sel_pair && !oc_selector_pair_check(root,data_fd,after_id,after_id,owner,group))
+    if (sel_pair && !oc_selector_pair_check(root,data_fd,after_id,after_id))
         return txn_err(err_out,"selector_verification_failed");
     if (!oc_targets_match(root,data_fd,after_id,base_id,owner,group) ||
-        !oc_dependencies_match(root,data_fd,after_id,owner,group))
+        !oc_dependencies_match(root,data_fd,after_id))
         return txn_err(err_out,"final_verification_failed");
     char sealed_id[65];
     if (!is_uninstall && !oc_equal(a->pkg,"-")) {
@@ -908,7 +903,7 @@ int oc_uninstall_cleanup(int root, const char *root_path, int data_fd, const cha
     if (!oc_record_read_any(data_fd,owner,group,rec_buf,sizeof rec_buf,rec)) { ferr="invalid_record"; goto done; }
     if (oc_equal(rec[1],"removed")) {
         if (!oc_targets_match(root,data_fd,rec[5],rec[4],owner,group) ||
-            !oc_dependencies_match(root,data_fd,rec[5],owner,group)) { ferr="state_changed"; goto done; }
+            !oc_dependencies_match(root,data_fd,rec[5])) { ferr="state_changed"; goto done; }
         if (!oc_startup_staging_guard(root)) { ferr="startup_stage_changed"; goto done; }
         rec[1]="purge";
         if (!oc_record_write_atomic(root,data_fd,rec,0)) { ferr="record_rename_failed"; goto done; }
@@ -923,12 +918,7 @@ done:
 }
 
 int oc_read_boot_id(int ram, long owner, long group, char out[37]) {
-    OcMeta m={0};
-    if (oc_metadata(ram,"boot-id",&m)<0 || (m.mode&OC_TYPE)!=0120000 ||
-        m.size!=36 || m.uid!=(unsigned)owner || m.gid!=(unsigned)group ||
-        oc_readlink(ram,"boot-id",out,36)!=36) return 0;
-    out[36]=0;
-    return oc_uuid(out);
+    return oc_readlink_owned(ram,"boot-id",owner,group,out,37)==36 && oc_uuid(out);
 }
 
 static int oc_boot_id_ensure(int root, int ram, char *rec[13], long owner, long group, char out[37]) {
@@ -1007,7 +997,7 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
             oc_equal(mdig,oc_pin_digest("root/manager.so",oc_root_digests[10]));
         if (mfd>=0 && oc_close((int)mfd)<0) mok=0;
         if (!mok || !oc_targets_match(root,data,rec[5],rec[4],owner,group) ||
-            !oc_dependencies_match(root,data,rec[5],owner,group)) goto done;
+            !oc_dependencies_match(root,data,rec[5])) goto done;
     }
 
     OcTxnSnap *cur=&oc_snap_pool[0], *base=&oc_snap_pool[1];
@@ -1046,7 +1036,7 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
             }
         }
         if (cok) cok=oc_snapshot_create(root,data,rec[5],cur->pkg,want_nv,cur->meta,rec[5],
-                                        cdir,new_cfg,ram_exec_dir,root_path,owner,group,after_id);
+                                        cdir,new_cfg,after_id);
         if (cdir>=0) (void)oc_close(cdir);
         if (!cok || !oc_transaction_prepare(root,data,rec,"apply",rec[5],after_id,rec[4],1,owner,group,prep_nonce))
             goto done;
@@ -1059,13 +1049,8 @@ int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
     /* 4. Handle D/reseal hint (inode drift) or unsealed boot.plan. */
     int hinted=0, unlink_reseal=0;
     if (!oc_absent_at(data,"reseal")) {
-        OcMeta rm={0}; char rtxt[66];
-        long rfd=oc_openat(data,"reseal",OC_READ,0);
-        int valid_file=rfd>=0 && oc_stat((int)rfd,&rm)>=0 && rm.mode==(OC_REGULAR|0600) &&
-            rm.size==65 && rm.uid==(unsigned)owner && rm.gid==(unsigned)group &&
-            oc_text_fd((int)rfd,rtxt,sizeof rtxt)==65 && oc_one_line(rtxt) && oc_hex(rtxt,64);
-        if (rfd>=0) (void)oc_close((int)rfd);
-        if (!valid_file) goto done;
+        char rtxt[65];
+        if (oc_read_owned_hex64(data,"reseal",owner,group,1,rtxt)!=1) goto done;
         if (oc_equal(rtxt,rec[5])) {
             char bs_path[512], srel[128], hdr[160], expect_hdr[160];
             int sdir=oc_open_sub(data,"snapshots",rec[5]);

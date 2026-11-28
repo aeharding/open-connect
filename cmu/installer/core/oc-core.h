@@ -252,16 +252,14 @@ int oc_root_publish(int root, const char *root_path, int data_fd, const char *re
                     const char *target_rel, const char *src_rel, const char *mode_str,
                     const char *expected_hash, const char *expected_mode,
                     const char *hold_rel, const char *hold_mode, int retire,
-                    const char *base_snap, long owner, long group);
+                    const char *base_snap);
 int oc_selector_matches_at(int root, const char *sel_hash, const char *sel_meta);
-int oc_selector_pair_check(int root, int data_fd, const char *before_id, const char *after_id,
-                           long owner, long group);
+int oc_selector_pair_check(int root, int data_fd, const char *before_id, const char *after_id);
 int oc_selector_apply(int root, const char *root_path, int data_fd, const char *rev,
-                      const char *before_id, const char *after_id, const char *base_snap,
-                      long owner, long group);
+                      const char *before_id, const char *after_id, const char *base_snap);
 int oc_startup_staging_guard(int root);
 int oc_startup_staging_retire(int root, const char *root_path, int data_fd, const char *rev,
-                              const char *snap_id, const char *base_snap, long owner, long group);
+                              const char *snap_id, const char *base_snap);
 int oc_vfat_mount_mode(int root, const char *target);
 int oc_open_single_usb_file(int root, const char *filename, oc_u64 max_size,
                             const char *not_found_err, const char *dup_err,
@@ -278,10 +276,9 @@ int oc_access_compose(int root, const char *root_path, int data_fd, const char *
                       const char *base_snap, const char *console_dig, int work_fd,
                       const char *work_leaf, const char *uart, const char *ssh, const char *key,
                       long owner, long group);
-int oc_access_hold_verify(int root, int data_fd, const char *base_snap, long owner, long group);
-int oc_access_login_check(int root, int data_fd, const char *base_snap, long owner, long group);
-int oc_access_hold_cleanup(int root, const char *root_path, int data_fd, const char *base_snap,
-                           long owner, long group);
+int oc_access_hold_verify(int root, int data_fd, const char *base_snap);
+int oc_access_login_check(int root, int data_fd, const char *base_snap);
+int oc_access_hold_cleanup(int root, const char *root_path, int data_fd, const char *base_snap);
 int oc_access_files_match(int root, int data_fd, const char *snap_id, long owner, long group);
 int oc_access_targets_match(int root, int data_fd, const char *snap_id, const char *base_snap,
                             long owner, long group);
@@ -325,14 +322,12 @@ int oc_check_active_pins(int root, int data_fd, const char *pkg_id, const char *
 int oc_check_preset_pins(int root, int sess_fd, const OcPrefs *chk, const char **err_out);
 int oc_targets_match(int root, int data_fd, const char *snap_id, const char *base_snap,
                      long owner, long group);
-int oc_dependencies_match(int root, int data_fd, const char *snap_id, long owner, long group);
-int oc_dependencies_pair_match(int root, int data_fd, const char *before_id, const char *after_id,
-                               long owner, long group);
-int oc_uninstall_owned(int data_fd, const char *snap_id, const char *base_snap, long owner, long group);
+int oc_dependencies_match(int root, int data_fd, const char *snap_id);
+int oc_dependencies_pair_match(int root, int data_fd, const char *before_id, const char *after_id);
+int oc_uninstall_owned(int data_fd, const char *snap_id, const char *base_snap);
 int oc_snapshot_create(int root, int data_fd, const char *autostart_snap, const char *pkg_id,
                        const char *nvram, const char *mode_str, const char *deps_snap,
-                       int res_dir, const char *prefs_text, const char *session_dir,
-                       const char *root_path, long owner, long group, char out_id[65]);
+                       int res_dir, const char *prefs_text, char out_id[65]);
 int oc_transaction_prepare(int root, int data_fd, char *rec[13], const char *phase,
                            const char *before_id, const char *after_id, const char *base_snap,
                            int skip_before_verify, long owner, long group, char nonce_out[33]);

@@ -1031,9 +1031,12 @@ int oc_install_run(int root, const char *root_path, const char *session_dir,
                     if (data_fd>=0) (void)oc_close(data_fd);
                     return cerr(err_out,"invalid_preferences_preset");
                 }
-                if (oc_equal(chk.wireless,"1") && oc_factory_wireless(root,root_path)==1) {
-                    if (data_fd>=0) (void)oc_close(data_fd);
-                    return cerr(err_out,"wireless_factory_enabled");
+                if (oc_equal(chk.wireless,"1")) {
+                    int fw=oc_factory_wireless(root,root_path);
+                    if (fw!=1) {
+                        if (data_fd>=0) (void)oc_close(data_fd);
+                        return cerr(err_out,fw==0?"wireless_factory_enabled":"wireless_unavailable");
+                    }
                 }
             } else (void)oc_close(vfd);
         }

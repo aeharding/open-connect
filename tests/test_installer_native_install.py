@@ -1644,15 +1644,22 @@ class NativeInstall(unittest.TestCase):
             (root / "proc/self/mounts").write_text(
                 base_mounts + "/dev/sda1 /tmp/mnt/sda1 vfat ro,noatime 0 0\n"
             )
-            # Mark non-factory-wireless via OC_HOST_WIRELESS_FILE existing file
-            wf = root / "not-factory-wireless"
-            wf.write_text("0\n")
-            env_wl = {**env, "OC_HOST_WIRELESS_FILE": str(wf)}
+            # OC_HOST_WIRELESS_FILE polarity (oc_factory_wireless in oc-root.c):
+            #   absent path  -> returns 1 (NOT factory-wireless; wirelessFactory=False)
+            #   existing file -> returns 0 (factory-wireless ENABLED; wirelessFactory=True)
+            #   unset + bad board.sh -> returns 2 (wireless_unavailable)
+            wf_factory = root / "factory-wireless-present"
+            wf_factory.write_text("1\n")
+            env_wl = {**env, "OC_HOST_WIRELESS_FILE": str(root / "no-wireless")}
+            env_fw_enabled = {**env, "OC_HOST_WIRELESS_FILE": str(wf_factory)}
+            env_fw_unavail = {k: v for k, v in env.items() if k != "OC_HOST_WIRELESS_FILE"}
 
             # 1) Invalid presets on fresh install fail closed without publishing state
             for label, payload in (
                 ("bad_header", b"OC2\ntouch=1\n"),
                 ("empty", b"OCPREFS1\n# only comment\n"),
+                ("cntrl_in_comment", b"OCPREFS1\n# bad\x07comment\ntouch=1\n"),
+                ("bare_cr_in_comment", b"OCPREFS1\n# bad\rcomment\ntouch=1\n"),
                 ("forbidden_pkg", b"OCPREFS1\npackage=" + b"a" * 64 + b"\n"),
                 ("forbidden_nvram", b"OCPREFS1\nnvram=disable\n"),
                 ("forbidden_uart", b"OCPREFS1\nuart=1\n"),
@@ -1679,18 +1686,14 @@ class NativeInstall(unittest.TestCase):
             self.assertFalse(data.exists())
             (vol / "open-connect.prefs").unlink()
 
-            # 2) Factory-wireless CMU refuses wireless=1 preset
+            # 2) Factory-wireless CMU (fw==0) refuses wireless=1 preset with zero flash writes
             (vol / "open-connect.prefs").write_text("OCPREFS1\nwireless=1\n")
-            p, r = self._call_api(
-                api_bin,
-                usb_sess,
-                "-",
-                "install",
-                env={**env, "OC_HOST_WIRELESS_FILE": str(root / "absent-means-factory-wl")},
-            )
+            p, r = self._call_api(api_bin, usb_sess, "-", "install", env=env_fw_enabled)
             self.assertNotEqual(p.returncode, 0)
             self.assertEqual(r["error"], "wireless_factory_enabled")
             self.assertFalse(data.exists())
+            board_sh = root / "jci/scripts/get_board_type.sh"
+            saved_board_sh = board_sh.read_bytes()
 
             # 3) Valid fresh-install preset (comments + CRLF + touch=2 + base=1 + all toggles)
             (vol / "open-connect.prefs").write_bytes(
@@ -1712,6 +1715,7 @@ class NativeInstall(unittest.TestCase):
             p, r = self._call_api(api_bin, usb_sess, "-", "install", env=env_wl)
             self.assertEqual(p.returncode, 0, (r, p.stderr))
             self.assertTrue(r["ok"] and r["installed"])
+            self.assertIs(r["wirelessFactory"], False)
             rec = (data / "record").read_text().strip().split("|")
             snap1 = rec[5]
             cfg1 = (data / "snapshots" / snap1 / "config").read_text()
@@ -1868,6 +1872,54 @@ class NativeInstall(unittest.TestCase):
             self.assertEqual(r_rt["warning"], 0)
             self.assertEqual(r_rt["sourceOrder"], 1)
             self.assertEqual(r_rt["menuLoop"], 1)
+            self.assertIs(r_rt["wirelessFactory"], False)
             self.assertFalse(
                 (root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction").exists()
             )
+            snap4 = r_rt["revision"]
+
+            # Settings import|prefs: wireless=0->1 must refuse when fw==0 (factory enabled) or fw==2 (unavailable)
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nwireless=0\nbase=0\n")
+            p_w0, r_w0 = self._call_api(api_bin, set_sess, snap4, "import", "prefs", env=env_wl)
+            self.assertEqual(p_w0.returncode, 0, (r_w0, p_w0.stderr))
+            snap5 = r_w0["revision"]
+            _, r_st_fw = self._call_api(
+                api_bin, set_sess, "-", "status", "settings", env=env_fw_enabled
+            )
+            self.assertIs(r_st_fw["wirelessFactory"], True)
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nwireless=1\n")
+            p_fw_im, r_fw_im = self._call_api(
+                api_bin, set_sess, snap5, "import", "prefs", env=env_fw_enabled
+            )
+            self.assertNotEqual(p_fw_im.returncode, 0)
+            self.assertEqual(r_fw_im["error"], "wireless_factory_enabled")
+
+            # Blocker 2 regression: touch=2, base=0 with drifted touch pin -> simultaneous import of
+            # touch=1 + base=1 triggers the touch=2->1 fallback and MUST validate active pins on
+            # after_id (non-empty vui-plugins.list), NOT stale snap5 (empty vui-plugins.list)!
+            dev_svc = root / "jci/devices/svc-com-jci-cpp-devices.so"
+            saved_dev_svc = dev_svc.read_bytes()
+            dev_svc.write_bytes(b"drifted devices svc\n")
+            (vol / "open-connect.prefs").write_text("OCPREFS1\ntouch=1\nbase=1\n")
+            p_fb, r_fb = self._call_api(api_bin, set_sess, snap5, "import", "prefs", env=env_wl)
+            dev_svc.write_bytes(saved_dev_svc)
+            self.assertEqual(p_fb.returncode, 0, (r_fb, p_fb.stderr))
+            self.assertEqual(r_fb["touch"], 1)
+            self.assertEqual(r_fb["base"], 1)
+            self.assertEqual(
+                (root / "sys/class/nvram/nv-config/keys/lvds_speed_restriction")
+                .read_text()
+                .strip(),
+                "disable",
+            )
+            snap6 = r_fb["revision"]
+
+            # Settings import|prefs: wireless=0->1 refuses with wireless_unavailable when board.sh fails check (fw==2)
+            (vol / "open-connect.prefs").write_text("OCPREFS1\nwireless=1\n")
+            board_sh.write_bytes(b"#!/bin/sh\n# tampered\nexit 1\n")
+            p_fu_im, r_fu_im = self._call_api(
+                api_bin, set_sess, snap6, "import", "prefs", env=env_fw_unavail
+            )
+            board_sh.write_bytes(saved_board_sh)
+            self.assertNotEqual(p_fu_im.returncode, 0)
+            self.assertEqual(r_fu_im["error"], "wireless_unavailable")

@@ -621,3 +621,111 @@ int oc_factory_wireless(int root, const char *root_path) {
     int wrc=oc_run_cmd("/bin/sh",argv,-1,0,0,-1);
     return wrc<0 ? 2 : (wrc==2 ? 0 : 1);
 }
+
+static int oc_p_no_cntrl(const char *p) {
+    for (; *p; ++p) if ((unsigned char)*p<32 || (unsigned char)*p==127) return 0;
+    return 1;
+}
+
+static int oc_p_append(char *out, unsigned cap, unsigned *at, const char *s) {
+    unsigned n=oc_length(s);
+    if (*at+n>=cap) return 0;
+    for (unsigned i=0; i<n; ++i) out[(*at)++]=s[i];
+    out[*at]=0;
+    return 1;
+}
+
+static char *oc_static_val(const char *v, int allow_two) {
+    if (oc_equal(v,"0")) return "0";
+    if (oc_equal(v,"1")) return "1";
+    if (allow_two && oc_equal(v,"2")) return "2";
+    return 0;
+}
+
+/* Strict allowlisted OCPREFS1 user-toggle parser (never touches package/nvram/metadata/access). */
+int oc_prefs_preset_apply(char *text, unsigned bytes, const OcCatalog *cat, OcPrefs *prefs, unsigned *changed) {
+    if (!cat || !cat->count || cat->count>16 || !prefs || prefs->svc_count!=cat->count || bytes<9 || bytes>1023) return 0;
+    if (oc_length(text)!=bytes) return 0;
+    char *p=text;
+    char *hdr=p;
+    while (*p && *p!='\n') ++p;
+    if (*p!='\n') return 0;
+    *p++=0;
+    unsigned hlen=oc_length(hdr);
+    if (hlen && hdr[hlen-1]=='\r') hdr[--hlen]=0;
+    if (!oc_equal(hdr,"OCPREFS1")) return 0;
+
+    unsigned seen_scalar=0, seen_svc=0, applied=0, chg=0;
+    static const char *const skeys[8]={
+        "base","carplay-autoshow","hold-scroll","menu-loop","source-order","touch","warning","wireless"
+    };
+    char **slots[8]={
+        &prefs->base,&prefs->autoshow,&prefs->hold_scroll,&prefs->menu_loop,
+        &prefs->source_order,&prefs->touch,&prefs->warning,&prefs->wireless
+    };
+    int *has_opt[8]={0,&prefs->has_autoshow,&prefs->has_hold_scroll,&prefs->has_menu_loop,&prefs->has_source_order,0,0,0};
+
+    while (*p) {
+        char *ln=p;
+        while (*p && *p!='\n') ++p;
+        if (*p=='\n') *p++=0;
+        unsigned llen=oc_length(ln);
+        if (llen && ln[llen-1]=='\r') ln[--llen]=0;
+        if (!oc_p_no_cntrl(ln)) return 0;
+        if (!llen || ln[0]=='#') continue;
+        char *eq=0;
+        for (char *q=ln; *q; ++q) if (*q=='=') { if (eq) return 0; eq=q; }
+        if (!eq || eq==ln || !eq[1]) return 0;
+        *eq=0;
+        const char *k=ln, *v=eq+1;
+        int matched=0;
+        for (unsigned i=0; i<8; ++i) {
+            if (!oc_equal(k,skeys[i])) continue;
+            if (seen_scalar&(1u<<i)) return 0;
+            char *sv=oc_static_val(v,i==5);
+            if (!sv) return 0;
+            seen_scalar|=1u<<i;
+            if (!oc_equal(*slots[i],sv)) chg|=1u<<i;
+            *slots[i]=sv;
+            if (has_opt[i]) *has_opt[i]=1;
+            ++applied; matched=1; break;
+        }
+        if (matched) continue;
+        if (!oc_prefix(k,"service.")) return 0;
+        const char *sid=k+8;
+        char *sv=oc_static_val(v,0);
+        if (!sv) return 0;
+        for (unsigned i=0; i<cat->count; ++i) {
+            if (!oc_equal(sid,cat->rows[i].id)) continue;
+            if (seen_svc&(1u<<i)) return 0;
+            seen_svc|=1u<<i;
+            if (!oc_equal(prefs->svc_vals[i],sv)) chg|=256u;
+            prefs->svc_vals[i]=sv;
+            if (oc_equal(sid,"pandora")) prefs->pandora=sv;
+            ++applied; matched=1; break;
+        }
+        if (!matched) return 0;
+    }
+    if (!applied) return 0;
+    if (changed) *changed=chg;
+    return 1;
+}
+
+int oc_prefs_preset_write(const OcCatalog *cat, const OcPrefs *p, char *out, unsigned cap) {
+    unsigned at=0;
+    if (!cat || !cat->count || cat->count>16 || cat->count!=p->svc_count) return 0;
+    if (!oc_p_append(out,cap,&at,"OCPREFS1\nbase=") || !oc_p_append(out,cap,&at,p->base) ||
+        !oc_p_append(out,cap,&at,"\ncarplay-autoshow=") || !oc_p_append(out,cap,&at,p->autoshow) ||
+        !oc_p_append(out,cap,&at,"\nhold-scroll=") || !oc_p_append(out,cap,&at,p->hold_scroll) ||
+        !oc_p_append(out,cap,&at,"\nmenu-loop=") || !oc_p_append(out,cap,&at,p->menu_loop)) return 0;
+    for (unsigned i=0; i<cat->count; ++i) {
+        if (!oc_p_append(out,cap,&at,"\nservice.") || !oc_p_append(out,cap,&at,cat->rows[i].id) ||
+            !oc_p_append(out,cap,&at,"=") || !oc_p_append(out,cap,&at,p->svc_vals[i])) return 0;
+    }
+    if (!oc_p_append(out,cap,&at,"\nsource-order=") || !oc_p_append(out,cap,&at,p->source_order) ||
+        !oc_p_append(out,cap,&at,"\ntouch=") || !oc_p_append(out,cap,&at,p->touch) ||
+        !oc_p_append(out,cap,&at,"\nwarning=") || !oc_p_append(out,cap,&at,p->warning) ||
+        !oc_p_append(out,cap,&at,"\nwireless=") || !oc_p_append(out,cap,&at,p->wireless) ||
+        !oc_p_append(out,cap,&at,"\n")) return 0;
+    return at<=1023;
+}

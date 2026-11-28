@@ -158,7 +158,7 @@ if(rec&&qd)dr(false);
 if(!done(ac)&&pr.changed)pr.changed("sync");
 fl();
 }
-try{call(fn);}catch(e){fn(null);}
+try{call.call(st,fn);}catch(e){fn(null);}
 };
 return(session=pr);
 }

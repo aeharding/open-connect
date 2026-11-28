@@ -892,10 +892,7 @@ static __attribute__((noinline)) int oc_apply_prefs_change(
         int ok=oc_join(sp_leaf,sizeof sp_leaf,".sp-",wnonce) && oc_rename(c->snaps_fd,work_leaf,sp_leaf)>=0;
         int wfd=ok?oc_open_private(c->snaps_fd,sp_leaf):-1;
         int cdir=ok?oc_open_private(c->snaps_fd,c->rec[5]):-1;
-        if (ok) ok=wfd>=0 && cdir>=0 && oc_api_match_cur(c) &&
-            oc_check_active_pins(c->root,c->data,c->rec[3],c->rec[5],
-                                 api_snap_a.prefs.base,api_snap_a.prefs.touch,&c->err) &&
-            oc_copy_opt(cdir,wfd,0x1ff,1);
+        if (ok) ok=wfd>=0 && cdir>=0 && oc_api_match_cur(c) && oc_copy_opt(cdir,wfd,0x1ff,1);
         if (cdir>=0) (void)oc_close(cdir);
         char after_id[65], before_id[65];
         if (ok) ok=oc_join(before_id,sizeof before_id,"",c->rec[5]) &&
@@ -904,6 +901,9 @@ static __attribute__((noinline)) int oc_apply_prefs_change(
         if (wfd>=0) (void)oc_close(wfd);
         if (!oc_absent_at(c->snaps_fd,sp_leaf)) oc_cleanup_work(c->snaps_fd,sp_leaf);
         if (!oc_absent_at(c->snaps_fd,work_leaf)) oc_cleanup_work(c->snaps_fd,work_leaf);
+        if (ok && (oc_equal(api_snap_a.prefs.base,"1") || oc_equal(api_snap_a.prefs.touch,"2")))
+            ok=oc_check_active_pins(c->root,c->data,c->rec[3],after_id,
+                                    api_snap_a.prefs.base,api_snap_a.prefs.touch,&c->err);
         if (!ok) return c->err ? OC_API_ERR : api_err(c,"state_changed");
         return oc_commit_set_txn(c,before_id,after_id);
     }
@@ -1056,8 +1056,10 @@ static __attribute__((noinline)) int oc_handle_import_prefs(OcApiCtx *c) {
     unsigned chg=0;
     if (!oc_prefs_preset_apply(raw,(unsigned)n,&cat,&api_snap_a.prefs,&chg))
         return api_err(c,"invalid_preferences");
-    if ((chg&(1u<<7)) && oc_equal(api_snap_a.prefs.wireless,"1") && oc_factory_wireless(c->root,c->root_path)==1)
-        return api_err(c,"wireless_factory_enabled");
+    if ((chg&(1u<<7)) && oc_equal(api_snap_a.prefs.wireless,"1")) {
+        int fw=oc_factory_wireless(c->root,c->root_path);
+        if (fw!=1) return api_err(c,fw==0?"wireless_factory_enabled":"wireless_unavailable");
+    }
     if (!chg) {
         char *a_argv[]={bs_path,"audit",(char *)c->root_path,c->rec[5],0};
         if (oc_run_prog(bs_path,a_argv,-1,0,0,-1)!=0) return api_err(c,"state_changed");

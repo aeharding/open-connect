@@ -295,7 +295,6 @@ int oc_lock_held_ex(int fd) {
     if (r>=0) (void)oc_syscall4(143,fd,8,0,0); /* LOCK_UN */
     return 0;
 }
-int oc_is_wouldblock(long err) { return err==-11; }
 void oc_sleep_ms(unsigned ms) {
     unsigned sec=0;
     while (ms>=1000u) { __asm__ volatile("" : "+r"(ms)); ms-=1000u; ++sec; }
@@ -322,8 +321,6 @@ long oc_execve(const char *path, char *const argv[], char *const envp[]) {
 }
 void oc_exit(int code) { (void)oc_syscall4(1,code,0,0,0); for(;;){} }
 long oc_set_cloexec(int fd, int on) { return oc_syscall4(55,fd,2,on?1:0,0); }
-const char *oc_root_path(void) { return "/"; }
-int oc_nonroot_allowed(void) { return 0; }
 long oc_mkdir(int fd, const char *name, unsigned mode) { return oc_syscall4(323,fd,(long)name,mode,0); }
 long oc_unlink(int fd, const char *name) { return oc_syscall4(328,fd,(long)name,0,0); }
 long oc_rmdirat(int fd, const char *name) { return oc_syscall4(328,fd,(long)name,0x200,0); }
@@ -525,6 +522,16 @@ int oc_open_private(int parent, const char *path) {
     if (fd<0) return -1;
     if (!oc_private((int)fd)) { (void)oc_close((int)fd); return -1; }
     return (int)fd;
+}
+
+int oc_split_parent_leaf(const char *path, char *parent, unsigned cap, const char **leaf_out) {
+    unsigned n=oc_length(path), slash=0;
+    for (unsigned i=0; i<n; ++i) if (path[i]=='/') slash=i;
+    if (!slash || slash>=cap || slash+1>=n) return 0;
+    for (unsigned i=0; i<slash; ++i) parent[i]=path[i];
+    parent[slash]=0;
+    *leaf_out=path+slash+1;
+    return 1;
 }
 
 int oc_absent_at(int root, const char *path) {

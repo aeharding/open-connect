@@ -7,16 +7,6 @@
 #include <stdlib.h>
 #endif
 
-static int oc_split_parent_leaf(const char *rel, char parent[192], const char **leaf_out) {
-    unsigned n=oc_length(rel), slash=0;
-    for (unsigned i=0; i<n; ++i) if (rel[i]=='/') slash=i;
-    if (!slash || slash>=192 || slash+1>=n) return 0;
-    for (unsigned i=0; i<slash; ++i) parent[i]=rel[i];
-    parent[slash]=0;
-    *leaf_out=rel+slash+1;
-    return 1;
-}
-
 static int oc_hash_prefix_at(int dir, const char *name, oc_u64 limit, char digest[65]) {
     long fd=oc_openat(dir,name,OC_READ,0);
     if (fd<0) return 0;
@@ -242,7 +232,7 @@ int oc_root_publish(int root, const char *root_path, int data_fd, const char *re
     }
 
     char parent_rel[192], work_leaf[96]; const char *leaf=0;
-    if (!oc_split_parent_leaf(target_rel,parent_rel,&leaf)) return 0;
+    if (!oc_split_parent_leaf(target_rel,parent_rel,sizeof parent_rel,&leaf)) return 0;
     if (is_auto) { if (!oc_join(work_leaf,sizeof work_leaf,".open-connect-",rev)) return 0; }
     else { if (!oc_join4(work_leaf,sizeof work_leaf,".open-connect-",rev,"-",leaf)) return 0; }
 
@@ -255,7 +245,7 @@ int oc_root_publish(int root, const char *root_path, int data_fd, const char *re
 
     if (!is_remove) {
         char sp[192];
-        if (!oc_split_parent_leaf(src_rel,sp,&src_leaf)) { ok=0; goto done; }
+        if (!oc_split_parent_leaf(src_rel,sp,sizeof sp,&src_leaf)) { ok=0; goto done; }
         src_dir=oc_beneath(data_fd,sp,OC_DIRECTORY,0);
         if (src_dir<0) { ok=0; goto done; }
     }
@@ -482,7 +472,7 @@ int oc_startup_staging_retire(int root, const char *root_path, int data_fd, cons
             if (!oc_join(act_h,sizeof act_h,"","-") || !oc_join(act_m,sizeof act_m,"","-")) return 0;
         } else {
             char pr[192]; const char *lf=0; OcMeta m={0};
-            if (!oc_split_parent_leaf(targets[i],pr,&lf)) return 0;
+            if (!oc_split_parent_leaf(targets[i],pr,sizeof pr,&lf)) return 0;
             long pd=oc_beneath(root,pr,OC_DIRECTORY,0);
             int pok=pd>=0 && oc_hash_file_at((int)pd,lf,act_h,&m) && oc_meta_mode_str(&m,act_m);
             if (pd>=0 && oc_close((int)pd)<0) pok=0;

@@ -885,12 +885,9 @@ int oc_uninstall_cleanup(int root, const char *root_path, int data_fd, const cha
     if (!oc_mounts_mode(root,oc_mscratch,sizeof oc_mscratch,0)) return txn_err(err_out,"root_mount_changed");
     if (oc_mounts_has(root,dbase,0,1)!=0) return txn_err(err_out,"cleanup_mount_present");
 
-    char parent_abs[320]; unsigned plen=oc_length(dbase), slash=0;
-    for (unsigned i=0; i<plen; ++i) if (dbase[i]=='/') slash=i;
-    if (!slash || slash+1>=plen) return txn_err(err_out,"invalid_state_directory");
-    for (unsigned i=0; i<slash; ++i) parent_abs[i]=dbase[i];
-    parent_abs[slash]=0;
-    const char *dleaf=dbase+slash+1;
+    char parent_abs[320]; const char *dleaf=0;
+    if (!oc_split_parent_leaf(dbase,parent_abs,sizeof parent_abs,&dleaf))
+        return txn_err(err_out,"invalid_state_directory");
     long pdir=oc_openat(OC_CWD,parent_abs,OC_DIRECTORY,0);
     if (pdir<0) return txn_err(err_out,"invalid_state_directory");
 
@@ -915,34 +912,6 @@ int oc_uninstall_cleanup(int root, const char *root_path, int data_fd, const cha
 done:
     (void)oc_close((int)pdir);
     return ferr ? txn_err(err_out,ferr) : 1;
-}
-
-int oc_read_boot_id(int ram, long owner, long group, char out[37]) {
-    return oc_readlink_owned(ram,"boot-id",owner,group,out,37)==36 && oc_uuid(out);
-}
-
-static int oc_boot_id_ensure(int root, int ram, char *rec[13], long owner, long group, char out[37]) {
-    if (oc_absent_at(ram,"boot-id")) {
-        char kboot[40], dig[65];
-        if (oc_text(root,"proc/sys/kernel/random/boot_id",kboot,sizeof kboot,1)<0 ||
-            !oc_one_line(kboot) || !oc_uuid(kboot)) return 0;
-        OcHash h; oc_hash_init(&h);
-        const char *parts[5]={"OCBOOT1",kboot,rec[2],rec[11],rec[10]};
-        for (unsigned i=0; i<5; ++i) {
-            oc_hash_add(&h,parts[i],oc_length(parts[i]));
-            oc_hash_add(&h,i==4?"\n":"|",1);
-        }
-        oc_hash_finish(&h,dig);
-        unsigned at=0;
-        for (unsigned i=0; i<36; ++i) out[i]=(i==8||i==13||i==18||i==23)?'-':dig[at++];
-        out[36]=0;
-        for (unsigned i=0; i<16; ++i) {
-            if (!oc_equal(out,rec[11]) && !oc_equal(out,rec[10])) break;
-            out[0]="0123456789abcdef"[i];
-        }
-        if (oc_symlink(out,ram,"boot-id")<0) return 0;
-    }
-    return oc_read_boot_id(ram,owner,group,out);
 }
 
 int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,

@@ -96,7 +96,15 @@ long oc_lock(int fd);
 long oc_lock_sh(int fd);
 long oc_unlock(int fd);
 int oc_lock_held_ex(int fd);
+#ifdef OC_HOST
 int oc_is_wouldblock(long err);
+const char *oc_root_path(void);
+int oc_nonroot_allowed(void);
+#else
+static inline int oc_is_wouldblock(long err) { return err==-11; }
+static inline const char *oc_root_path(void) { return "/"; }
+static inline int oc_nonroot_allowed(void) { return 0; }
+#endif
 void oc_sleep_ms(unsigned ms);
 long oc_fork(void);
 long oc_waitpid(int pid, int *status);
@@ -105,8 +113,7 @@ long oc_dup2(int oldfd, int newfd);
 long oc_execve(const char *path, char *const argv[], char *const envp[]);
 void oc_exit(int code);
 long oc_set_cloexec(int fd, int on);
-const char *oc_root_path(void);
-int oc_nonroot_allowed(void);
+int oc_split_parent_leaf(const char *path, char *parent, unsigned cap, const char **leaf_out);
 long oc_mkdir(int fd, const char *name, unsigned mode);
 long oc_unlink(int fd, const char *name);
 long oc_rmdirat(int fd, const char *name);
@@ -182,6 +189,8 @@ int oc_record_read_any(int data_fd, long owner, long group, char *buf, unsigned 
 int oc_record_write_atomic(int root_fd, int data_fd, char *fields[13], char nonce_out[33]);
 int oc_record_file(OcBoot *b, const char *expected_before, const char *expected_after);
 int oc_record_commit(OcBoot *b);
+int oc_read_boot_id(int ram, long owner, long group, char out[37]);
+int oc_boot_id_ensure(int root, int ram, char *const rec[13], long owner, long group, char out[37]);
 
 /* oc-config.c */
 typedef struct {
@@ -312,7 +321,6 @@ int oc_pkg_boot_select(int data_fd, const char *root_path, const char *pkg_id,
 int oc_seal_after_snap(int root, const char *root_path, int data_fd,
                        const char *snap_id, const char *base_id, const char *pkg_id,
                        int force_reseal, long owner, long group, char out_id[65]);
-int oc_read_boot_id(int ram, long owner, long group, char out[37]);
 int oc_boot_recover(int root, const char *root_path, const char *pkg_dir,
                     const char *ram_exec_dir, long owner, long group);
 int oc_mounts_has(int root, const char *target, const char *fstype, int prefix_match);
